@@ -16,6 +16,7 @@ from sqlparse.sql import (
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
+import sqlalchemy as sa
 
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
@@ -92,7 +93,13 @@ class SearchUtils:
     @classmethod
     def get_sql_filter_ops(cls, column, operator, dialect):
         if dialect == MYSQL:
-            like_op = column.op("LIKE BINARY")
+
+            def like_op(value):
+                # Filter by `LIKE` ahead of `LIKE BINARY` for runtime performance
+                return sa.and_(
+                    column.like(value), column.op("LIKE BINARY", is_comparison=True)(value)
+                )
+
         elif dialect == MSSQL:
             like_op = column.collate("SQL_Latin1_General_CP1_CS_AS").like
         else:
