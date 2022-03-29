@@ -734,6 +734,57 @@ def _download_model_conda_env(model_uri):
     return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
 
 
+def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    if format == "pip":
+        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
+        try:
+            return _download_artifact_from_uri(req_file_uri)
+        except Exception as e:
+            # fallback to download conda.yaml file and parse the "pip" section from it.
+            _logger.info(
+                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Fallback to fetch pip requirements from the model's 'conda.yaml' file and "
+                "other conda dependencies will be ignored."
+            )
+
+        conda_yml_path = _download_model_conda_env(model_uri)
+
+        with open(conda_yml_path, "r") as yf:
+            conda_yml = yaml.safe_load(yf)
+
+        conda_deps = conda_yml.get("dependencies", [])
+        for index, dep in enumerate(conda_deps):
+            if isinstance(dep, dict) and "pip" in dep:
+                pip_deps_index = index
+                break
+        else:
+            raise MlflowException(
+                "No pip section found in conda.yaml file in the model directory.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        pip_deps = conda_deps.pop(pip_deps_index)["pip"]
+        tmp_dir = tempfile.mkdtemp()
+        pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+        with open(pip_file_path, "w") as f:
+            f.write("\n".join(pip_deps) + "\n")
+
+        if len(conda_deps) > 0:
+            _logger.warning(
+                f"The following conda dependencies are excluded: {', '.join(conda_deps)}."
+            )
+
+        return pip_file_path
+
+    elif format == "conda":
+        conda_yml_path = _download_model_conda_env(model_uri)
+        return conda_yml_path
+    else:
+        raise MlflowException(
+            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
     Given a model URI, and format ("pip" or "conda", default value "pip"),
@@ -748,64 +799,13 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
                    if "conda" specified, return path of "conda.yaml" file which contains
                    conda environment config.
     """
-    req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
-
-    if format == "pip":
-        try:
-            pip_file_path = _download_artifact_from_uri(req_file_uri)
-        except Exception as e:
-            # fallback to download conda.yaml file and parse the "pip" section from it.
-            _logger.info(
-                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
-                "Fallback to fetch pip requirements from the model's 'conda.yaml' file and "
-                "other conda dependencies will be ignored."
-            )
-            conda_yml_path = _download_model_conda_env(model_uri)
-            pip_deps = None
-            conda_deps = []
-
-            with open(conda_yml_path, "r") as yf:
-                conda_yml = yaml.safe_load(yf)
-
-            pip_deps_index = None
-            conda_deps = conda_yml.get("dependencies", [])
-            for index, dep in enumerate(conda_deps):
-                if isinstance(dep, dict) and "pip" in dep:
-                    pip_deps_index = index
-                    break
-            else:
-                raise MlflowException(
-                    "No pip section found in conda.yaml file in the model directory.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            pip_deps = conda_deps.pop(pip_deps_index)["pip"]
-
-            tmp_dir = tempfile.mkdtemp()
-            pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
-            with open(pip_file_path, "w") as f:
-                f.write("\n".join(pip_deps) + "\n")
-
-            if len(conda_deps) > 0:
-                _logger.warning(
-                    f"The following conda dependencies are excluded: {', '.join(conda_deps)}."
-                )
-
-        if is_in_databricks_runtime():
-            _logger.info(
-                "To install these model dependencies in your Databricks notebook, run the "
-                f"following command: '%pip install -r {pip_file_path}'."
-            )
-
-        return pip_file_path
-
-    elif format == "conda":
-        conda_yml_path = _download_model_conda_env(model_uri)
-        return conda_yml_path
-    else:
-        raise MlflowException(
-            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+    dep_file = _get_model_dependencies(model_uri, format)
+    if format == "pip" and is_in_databricks_runtime():
+        _logger.info(
+            "To install these model dependencies in your Databricks notebook, run the "
+            f"following command: '%pip install -r {dep_file}'."
         )
+    return dep_file
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
