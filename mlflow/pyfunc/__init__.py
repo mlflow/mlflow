@@ -667,7 +667,8 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}"
+                f"Python environment:\n{mismatch_str}\nTo get full model dependencies, you can "
+                f"call `mlflow.pyfunc.get_model_dependencies(model_uri)`."
             )
             _logger.warning(warning_msg)
 
