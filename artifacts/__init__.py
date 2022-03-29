@@ -1,0 +1,49 @@
+"""
+APIs for interacting with MLflow artifacts
+"""
+
+import os
+
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking import _get_store
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
+
+
+def download_artifacts(artifact_uri=None, run_id=None, artifact_path=None, dst_path=None):
+    """
+    Download an artifact file or directory to a local directory.
+
+    :param artifact_uri: URI pointing to the artifacts, such as
+                         ``runs:/500cf58bee2b40a4a82861cc31a617b1/my_model.pkl",
+                         ``models:/my_model/Production``, or ``s3://my_bucket/my/file.txt``.
+    :param run_id: ID of the MLflow Run containing the artifacts. Either ``run_id`` or
+                   ``artifact_uri`` must be specified.
+    :param artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
+                          Run's root directory to download containing the artifacts to download.
+    :param dst_path: Path of the local filesystem destination directory to which to download the
+                     specified artifacts. If the directory does not exist, it is created. If
+                     unspecified, the artifacts are downloaded to a new uniquely-named directory on
+                     the local filesystem, unless the artifacts already exist on the local
+                     filesystem, in which case their local path is returned directly.
+    :return: The location of the arifact file or directory on the local filesystem.
+    """
+    if (run_id is None and artifact_uri is None)\
+            or (run_id is not None and artifact_uri is not None):
+        raise MlflowException(
+            message="Exactly one of `run_id` or `artifact_uri` must be specified",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if dst_path is not None:
+        os.makedirs(dst_path, exist_ok=True)
+
+    if artifact_uri is not None:
+        return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
+
+    artifact_path = artifact_path if artifact_path is not None else ""
+    store = _get_store()
+    artifact_uri = store.get_run(run_id).info.artifact_uri
+    artifact_repo = get_artifact_repository(artifact_uri)
+    artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
+    return artifact_location
