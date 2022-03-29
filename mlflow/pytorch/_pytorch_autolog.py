@@ -273,7 +273,6 @@ if _pl_version >= Version("1.4.0"):
     def _get_step_metrics(trainer):
         return trainer.callback_metrics
 
-
 else:
 
     def _get_step_metrics(trainer):
