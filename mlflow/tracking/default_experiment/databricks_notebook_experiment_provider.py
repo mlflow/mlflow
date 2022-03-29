@@ -8,8 +8,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_SOURCE_ID,
 )
 
-_resolved_repo_notebook_experiment_id = None
-
 
 class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
     def in_context(self):
@@ -20,13 +18,14 @@ class DatabricksNotebookExperimentProvider(DefaultExperimentProvider):
 
 
 class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
+    _resolved_repo_notebook_experiment_id = None
+
     def in_context(self):
         return databricks_utils.is_in_databricks_repo_notebook()
 
     def get_experiment_id(self):
-        global _resolved_repo_notebook_experiment_id
-        if _resolved_repo_notebook_experiment_id:
-            return _resolved_repo_notebook_experiment_id
+        if DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id:
+            return DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id
 
         source_notebook_id = databricks_utils.get_notebook_id()
         source_notebook_name = databricks_utils.get_notebook_path()
@@ -40,10 +39,12 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
             experiment_id = MlflowClient().create_experiment(source_notebook_name, None, tags)
         except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE):
-                experiment_id = databricks_utils.get_notebook_id()
+                # If repo notebook experiment creation isn't enabled, fall back to creating a regular experiment
+                # by omitting tags
+                experiment_id = MlflowClient().create_experiment(source_notebook_name, None)
             else:
                 raise e
 
-        _resolved_repo_notebook_experiment_id = experiment_id
+        DatabricksRepoNotebookExperimentProvider._resolved_repo_notebook_experiment_id = experiment_id
 
         return experiment_id

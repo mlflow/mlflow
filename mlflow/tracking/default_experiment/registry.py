@@ -51,9 +51,8 @@ class DefaultExperimentProviderRegistry(object):
 
 
 _default_experiment_provider_registry = DefaultExperimentProviderRegistry()
-_default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[0])
-_default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[1])
-_default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[2])
+for exp_provider in _EXPERIMENT_PROVIDERS:
+    _default_experiment_provider_registry.register(exp_provider)
 
 _default_experiment_provider_registry.register_entrypoints()
 
