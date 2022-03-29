@@ -867,6 +867,186 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
+Diviner (``diviner``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``diviner`` model flavor enables logging of
+`diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
+:py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
+``python_function`` flavor to the MLflow Models that they produce, allowing the model to be interpreted as generic
+Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
+model flavor in native diviner formats.
+
+Diviner Types
+~~~~~~~~~~~~~
+Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
+related series. Forecasting in ``diviner`` is accomplished through wrapping popular open source libraries such as
+`prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_, offering a
+simplified set of APIs to generate many time series forecasts from a single input DataFrame and a unified high-level API.
+
+Metrics and Parameters logging for Diviner
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Unlike other flavors that are supported in MLflow, Diviner has a concept of grouped models. As a collection of many
+(perhaps thousands) of individual forecasting models, the burden to the tracking server to log individual metrics
+and parameters for each of these models is significant. For this reason, metrics and parameters are exposed for
+retrieval from Diviner's APIs as ``Pandas`` ``DataFrames``.
+
+For example, let us assume we are forecasting hourly electricity consumption from major cities around the world.
+A sample of our input data looks like this:
+
+======= ========== =================== =======
+country city       datetime            watts
+======= ========== =================== =======
+US      NewYork    2022-03-01 00:01:00 23568.9
+US      NewYork    2022-03-01 00:02:00 22331.7
+US      Boston     2022-03-01 00:01:00 14220.1
+US      Boston     2022-03-01 00:02:00 14183.4
+CA      Toronto    2022-03-01 00:01:00 18562.2
+CA      Toronto    2022-03-01 00:02:00 17681.6
+MX      MexicoCity 2022-03-01 00:01:00 19946.8
+MX      MexicoCity 2022-03-01 00:02:00 19444.0
+======= ========== =================== =======
+
+If we were to ``fit`` a model on this data, supplying the grouping keys as:
+
+.. code-block:: py
+
+    grouping_keys = ["country", "city"]
+
+We will have a model generated for each of the grouping keys that have been supplied:
+
+.. code-block:: py
+
+    [("US", "NewYork"),
+     ("US", "Boston"),
+     ("CA", "Toronto"),
+     ("MX", "MexicoCity")]
+
+With a model constructed for each of these, entering each of their metrics and parameters wouldn't be an issue for the
+MLflow tracking server. What would become a problem, however, is if we modeled each major city on the planet and ran
+this forecasting scenario every day. If we were to adhere to the conditions of the World Bank, that would mean just
+over 10,000 models as of 2022. After a mere few weeks of running this forecasting every day we would have a very large
+metrics table.
+
+To eliminate this issue for large-scale forecasting, the metrics and parameters for ``diviner`` are extracted as a
+grouping key indexed ``Pandas DataFrame``, as shown below for example (float values truncated for visibility):
+
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+grouping_key_columns  country city       mse        rmse   mae    mape mdape smape
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+"('country', 'city')" CA      Toronto    8276851.6  2801.7 2417.7 0.16 0.16  0.159
+"('country', 'city')" MX      MexicoCity 3548872.4  1833.8 1584.5 0.15 0.16  0.159
+"('country', 'city')" US      NewYork    3167846.4  1732.4 1498.2 0.15 0.16  0.158
+"('country', 'city')" US      Boston     14082666.4 3653.2 3156.2 0.15 0.16  0.159
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+
+There are two recommended means of logging the metrics and parameters from a ``diviner`` model:
+
+* Writing the ``DataFrame``s to local storage and using :py:func:`mlflow.log_artifacts`
+
+.. code-block:: py
+    # Using a GroupedProphet model from Diviner
+
+    import os
+    import mlflow
+
+    local = "/tmp/forecast/diviner"
+    os.makedirs(local, exist_ok=True)
+    params = model.extract_model_params()
+    metrics = model.cross_validate_and_score(
+        horizon="72 hours",
+        period="240 hours",
+        initial="480 hours",
+        parallel="threads",
+        rolling_window=0.1,
+        monthly=False,
+    )
+    params.to_csv(f"{local}/params.csv", index=False, header=True)
+    metrics.to_csv(f"{local}/metrics.csv", index=False, header=True)
+
+    mlflow.log_artifacts(local, artifact_path="data")
+
+* Writing directly as a JSON artifact using :py:func:`mlflow.
+
+.. note::
+    The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using this method
+    due to serialization issues with objects in the ``pandas.DataFrame.to_dict()`` method.
+
+.. code-block:: py
+
+    import mlflow
+
+    params = model.extract_model_params()
+    metrics = model.cross_validate_and_score(
+        horizon="72 hours",
+        period="240 hours",
+        initial="480 hours",
+        parallel="threads",
+        rolling_window=0.1,
+        monthly=False,
+    )
+
+Logging of the model artifact is shown in the ``pyfunc`` example below.
+
+Diviner pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+The ``diviner`` interface for the ``pyfunc`` type is a patched API that is defined by the configuration supplied
+in the argument to ``predict()``. This configuration is supplied as a single row ``Pandas DataFrame``.
+
+As this configuration is dependent upon the underlying model type (i.e., the ``diviner.GroupedProphet.forecast()`` method has
+a different signature than does ``diviner.GroupedPmdarima.predict()``), resolution of provided argument names will be
+optimistically coerced into the appropriate argument keys.
+
+.. note::
+    Diviner models support both "full group" and "partial group" forecasting. By adding values to a column named
+    "groups" in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, a subset of grouping keys will be
+    generated, eliminating the need to filter a full output if a small subset of groups is needed.
+
+For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``predict()`` method is:
+
+.. code-block:: py
+
+    import mlflow
+    import pandas as pd
+    from pmdarima.arima.auto import AutoARIMA
+    from diviner import GroupedPmdarima
+
+    with mlflow.start_run():
+        base_model = AutoARIMA(out_of_sample_size=96, maxiter=200)
+        model = GroupedPmdarima(model_template=base_model).fit(
+            df=df,
+            group_key_columns=["country", "city"],
+            y_col="watts",
+            datetime_col="datetime",
+            silence_warnings=True,
+        )
+
+        mlflow.diviner.save_model(diviner_model=model, path="/tmp/diviner_model")
+
+    diviner_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/diviner_model")
+
+    predict_conf = pd.DataFrame(
+        {"n_periods": 120,
+         "groups": [("US", "NewYork"), ("CA", "Toronto"), ("MX", "MexicoCity")],  # NB: List of tuples required.
+         "predict_col": "wattage_forecast",
+         "alpha": 0.1,
+         "return_conf_int": True,
+         "on_error": "warn",
+        },
+        index=[0],
+    )
+
+    subset_forecasts = diviner_pyfunc.predict(predict_conf)
+
+.. note::
+    There are several instances in which a configuration ``DataFrame`` submitted to the ``pyfunc`` ``predict()`` method
+    will cause an ``MlflowException`` to be raised:
+        * If neither ``horizon`` or ``n_periods`` are provided.
+        * The value of ``n_periods`` or ``horizon`` is not an integer.
+        * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
+        * If both ``horizon`` and ``n_periods`` are provided with different values.
+
 .. _model-evaluation:
 
 Model Evaluation
