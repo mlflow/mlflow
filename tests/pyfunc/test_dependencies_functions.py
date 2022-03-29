@@ -50,6 +50,7 @@ def test_warn_dependency_requirement_mismatches(tmpdir):
 Detected one or more mismatches between the model's dependencies and the current Python environment:
  - cloudpickle (current: 999.99.22, required: cloudpickle=={cloudpickle_version})
  - scikit-learn (current: 999.99.11, required: scikit-learn=={sklearn_version})
+To get full model dependencies, you can call `mlflow.pyfunc.get_model_dependencies(model_uri)`.
 """.strip().format(
                     sklearn_version=sklearn.__version__, cloudpickle_version=cloudpickle.__version__
                 )
