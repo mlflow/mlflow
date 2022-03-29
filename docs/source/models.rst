@@ -882,17 +882,18 @@ Diviner Types
 ~~~~~~~~~~~~~
 Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
 related series. Forecasting in ``diviner`` is accomplished through wrapping popular open source libraries such as
-`prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_, offering a
-simplified set of APIs to generate many time series forecasts from a single input DataFrame and a unified high-level API.
+`prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_. The ``diviner``
+library offers a simplified set of APIs to generate many time series forecasts from a single input DataFrame and a
+unified high-level API.
 
 Metrics and Parameters logging for Diviner
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Unlike other flavors that are supported in MLflow, Diviner has a concept of grouped models. As a collection of many
+Unlike other flavors that are supported in MLflow, Diviner has the concept of grouped models. As a collection of many
 (perhaps thousands) of individual forecasting models, the burden to the tracking server to log individual metrics
 and parameters for each of these models is significant. For this reason, metrics and parameters are exposed for
-retrieval from Diviner's APIs as ``Pandas`` ``DataFrames``.
+retrieval from Diviner's APIs as ``Pandas`` ``DataFrames``, rather than discrete primitive values.
 
-For example, let us assume we are forecasting hourly electricity consumption from major cities around the world.
+To illustrate, let us assume we are forecasting hourly electricity consumption from major cities around the world.
 A sample of our input data looks like this:
 
 ======= ========== =================== =======
@@ -941,12 +942,13 @@ grouping_key_columns  country city       mse        rmse   mae    mape mdape sma
 "('country', 'city')" US      Boston     14082666.4 3653.2 3156.2 0.15 0.16  0.159
 ===================== ======= ========== ========== ====== ====== ==== ===== =====
 
-There are two recommended means of logging the metrics and parameters from a ``diviner`` model:
+There are two recommended means of logging the metrics and parameters from a ``diviner`` model :
 
-* Writing the ``DataFrame``s to local storage and using :py:func:`mlflow.log_artifacts`
+
+* Writing the DataFrames to local storage and using :py:func:`mlflow.log_artifacts`
+
 
 .. code-block:: py
-    # Using a GroupedProphet model from Diviner
 
     import os
     import mlflow
@@ -967,11 +969,13 @@ There are two recommended means of logging the metrics and parameters from a ``d
 
     mlflow.log_artifacts(local, artifact_path="data")
 
-* Writing directly as a JSON artifact using :py:func:`mlflow.
+
+* Writing directly as a JSON artifact using :py:func:`mlflow.log_dict`
+
 
 .. note::
-    The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using this method
-    due to serialization issues with objects in the ``pandas.DataFrame.to_dict()`` method.
+    The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using the
+    ``pd.DataFrame.to_dict()`` approach due to the inability of this method to serialize objects.
 
 .. code-block:: py
 
@@ -986,6 +990,12 @@ There are two recommended means of logging the metrics and parameters from a ``d
         rolling_window=0.1,
         monthly=False,
     )
+    params["t_scale"] = params["t_scale"].astype(str)
+    params["start"] = params["start"].astype(str)
+    params = params.drop("stan_backend", axis=1)
+
+    mlflow.log_dict(params.to_dict(), "params.json")
+    mlflow.log_dict(metrics.to_dict(), "metrics.json")
 
 Logging of the model artifact is shown in the ``pyfunc`` example below.
 
@@ -999,9 +1009,10 @@ a different signature than does ``diviner.GroupedPmdarima.predict()``), resoluti
 optimistically coerced into the appropriate argument keys.
 
 .. note::
-    Diviner models support both "full group" and "partial group" forecasting. By adding values to a column named
-    "groups" in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, a subset of grouping keys will be
-    generated, eliminating the need to filter a full output if a small subset of groups is needed.
+    Diviner models support both "full group" and "partial group" forecasting. If a column named "groups" is present
+    in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, the grouping key values in the first row
+    will be used to generate a subset of forecast predictions. This functionality removes the need to filter a subset
+    from the full output of all groups forecasts if the results of only a few (or one) groups are needed.
 
 For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``predict()`` method is:
 
@@ -1042,6 +1053,7 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
 .. note::
     There are several instances in which a configuration ``DataFrame`` submitted to the ``pyfunc`` ``predict()`` method
     will cause an ``MlflowException`` to be raised:
+
         * If neither ``horizon`` or ``n_periods`` are provided.
         * The value of ``n_periods`` or ``horizon`` is not an integer.
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
