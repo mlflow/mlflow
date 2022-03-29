@@ -37,6 +37,7 @@ def get_mleap_jars():
     jar_ver = f"{mleap_ver.major}.{mleap_ver.minor}.0"
     return ",".join(
         [
+            #
             f"ml.combust.mleap:mleap-spark-base_{scala_ver}:{jar_ver}",
             f"ml.combust.mleap:mleap-spark_{scala_ver}:{jar_ver}",
         ]
