@@ -1,6 +1,5 @@
 import json
-import os
-import posixpath
+import pathlib
 from subprocess import Popen, STDOUT, PIPE
 
 import pytest
@@ -11,15 +10,16 @@ import mlflow.pyfunc
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.cli import _file_infos_to_json
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 
 
 @pytest.fixture()
-def run_with_artifact():
+def run_with_artifact(tmp_path):
     artifact_path = "test"
-    artifact_content = "contents"
+    artifact_content = "content"
+    local_path = tmp_path.joinpath("file.txt")
+    local_path.write_text(artifact_content)
     with mlflow.start_run() as run:
-        mlflow.log_text(artifact_content, artifact_path)
+        mlflow.log_artifact(local_path, artifact_path)
 
     return (run, artifact_path, artifact_content)
 
@@ -82,39 +82,53 @@ def test_download_from_uri():
             assert expected_result == actual_result
 
 
+def _run_download_artifact_command(command):
+    """
+    :param command: An `mlflow artifacts` command list.
+    :return: The downloaded artifact content.
+    """
+    p = Popen(command, stdout=PIPE, stderr=STDOUT)
+    output = p.stdout.readlines()
+    downloaded_file_path = pathlib.Path(output[-1].strip().decode("utf-8"))
+    downloaded_file = list(downloaded_file_path.iterdir())[0]
+    return downloaded_file.read_text()
+
+
 def test_download_artifacts_with_uri(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
-    command = ["mlflow", "artifacts", "download", "-u"]
+    base_command = ["mlflow", "artifacts", "download", "-u"]
     run_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    actual_uri = posixpath.join(run.info.artifact_uri, artifact_path)
+    actual_uri = pathlib.PosixPath(run.info.artifact_uri) / artifact_path
     for uri in (run_uri, actual_uri):
-        p = Popen(command + [uri], stdout=PIPE, stderr=STDOUT)
-        output = p.stdout.readlines()
-        downloaded_file_path = output[-1].strip()
-        downloaded_file = os.listdir(downloaded_file_path)[0]
-        with open(os.path.join(downloaded_file_path, downloaded_file), "r") as f:
-            assert f.read() == artifact_content
+        downloaded_content = _run_download_artifact_command(base_command + [uri])
+        assert downloaded_content == artifact_content
+
+    # Check for backwards compatibility with preexisting behavior in MLflow <= 1.24.0 where
+    # specifying `artifact_uri` and `artifact_path` together did not throw an exception (unlike
+    # `mlflow.artifacts.download_artifacts()`) and instead used `artifact_uri` while ignoring
+    # `run_id` and `artifact_path`
+    downloaded_content = _run_download_artifact_command(
+        base_command + [uri] + ["--run-id", "bad", "--artifact-path", "bad"]
+    )
+    assert downloaded_content == artifact_content
 
 
 def test_download_artifacts_with_run_id_and_path(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
-    command = ["mlflow", "artifacts", "download", "--run-id", run.info.run_id, "--artifact-path", artifact_path]
-    p = Popen(command, stdout=PIPE, stderr=STDOUT)
-    output = p.stdout.readlines()
-    downloaded_file_path = output[-1].strip()
-    downloaded_file = os.listdir(downloaded_file_path)[0]
-    with open(os.path.join(downloaded_file_path, downloaded_file), "r") as f:
-        assert f.read() == artifact_content
+    downloaded_content = _run_download_artifact_command(
+        ["mlflow", "artifacts", "download", "--run-id", run.info.run_id, "--artifact-path", artifact_path]
+    )
+    assert downloaded_content == artifact_content
 
 
 @pytest.mark.parametrize("dst_path", [None, "doesnt_exist_yet"])
 def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_path):
-    run, artifact_path, artifact_content = run_with_artifact
+    run, artifact_path, _ = run_with_artifact
     artifact_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    dst_path = dst_path or tmp_path
+    dst_path = dst_path or str(tmp_path)
     
     command = ["mlflow", "artifacts", "download", "-u", artifact_uri, "-d", dst_path]
     p = Popen(command, stdout=PIPE, stderr=STDOUT)
     output = p.stdout.readlines()
-    downloaded_file_path = output[-1].strip()
-    assert downloaded_file_path == dst_path
+    downloaded_file_path = output[-1].strip().decode("utf-8")
+    assert downloaded_file_path.startswith(dst_path)

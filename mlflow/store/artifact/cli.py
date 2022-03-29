@@ -3,7 +3,7 @@ import sys
 
 import click
 
-from mlflow.artifacts import download_artifacts
+from mlflow.artifacts import download_artifacts as _download_artifacts
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils.proto_json_utils import message_to_json
@@ -123,10 +123,17 @@ def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local filesystem.
 
-    Exactly one of ``--artifact-uri`` or ``--run-id`` must be provided.
+    Either ``--artifact-uri`` or ``--run-id`` must be provided.
     """
+    # Preserve preexisting behavior in MLflow <= 1.24.0 where specifying `artifact_uri` and
+    # `artifact_path` together did not throw an exception (unlike
+    # `mlflow.artifacts.download_artifacts()`) and instead used `artifact_uri` while ignoring
+    # `run_id` and `artifact_path`
+    if artifact_uri is not None:
+        run_id = None
+        artifact_path = None
 
-    downloaded_local_artifact_location = download_artifacts(
+    downloaded_local_artifact_location = _download_artifacts(
         artifact_uri=artifact_uri, run_id=run_id, artifact_path=artifact_path, dst_path=dst_path
     )
     print(downloaded_local_artifact_location)

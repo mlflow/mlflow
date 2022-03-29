@@ -1,8 +1,7 @@
 """
 APIs for interacting with MLflow artifacts
 """
-
-import os
+import pathlib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -37,7 +36,7 @@ def download_artifacts(artifact_uri=None, run_id=None, artifact_path=None, dst_p
         )
 
     if dst_path is not None:
-        os.makedirs(dst_path, exist_ok=True)
+        pathlib.Path(dst_path).mkdir(exist_ok=True)
 
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
