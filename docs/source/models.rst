@@ -952,22 +952,22 @@ There are two recommended means of logging the metrics and parameters from a ``d
 
     import os
     import mlflow
+    import tempfile
 
-    local = "/tmp/forecast/diviner"
-    os.makedirs(local, exist_ok=True)
-    params = model.extract_model_params()
-    metrics = model.cross_validate_and_score(
-        horizon="72 hours",
-        period="240 hours",
-        initial="480 hours",
-        parallel="threads",
-        rolling_window=0.1,
-        monthly=False,
-    )
-    params.to_csv(f"{local}/params.csv", index=False, header=True)
-    metrics.to_csv(f"{local}/metrics.csv", index=False, header=True)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        params = model.extract_model_params()
+        metrics = model.cross_validate_and_score(
+            horizon="72 hours",
+            period="240 hours",
+            initial="480 hours",
+            parallel="threads",
+            rolling_window=0.1,
+            monthly=False,
+        )
+        params.to_csv(f"{tmpdir}/params.csv", index=False, header=True)
+        metrics.to_csv(f"{tmpdir}/metrics.csv", index=False, header=True)
 
-    mlflow.log_artifacts(local, artifact_path="data")
+        mlflow.log_artifacts(tmpdir, artifact_path="data")
 
 
 * Writing directly as a JSON artifact using :py:func:`mlflow.log_dict`

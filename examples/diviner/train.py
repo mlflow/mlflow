@@ -1,4 +1,4 @@
-import os
+import tempfile
 from pmdarima import datasets
 import pandas as pd
 import numpy as np
@@ -74,13 +74,14 @@ def grouped_prophet_example(locations, start_dt, artifact_path):
 
     # As an Alternative to saving metrics and params directly with a `log_dict()` function call,
     # Serializing the DataFrames to local as a .csv can be done as well, without requiring
-    # column or object manipulation as shown below this block:
+    # column or object manipulation as shown below this block, utilizing a temporary directory
+    # with a context wrapper to clean up the files from the local OS after the artifact logging
+    # is complete:
 
-    local = "/tmp/diviner/data"
-    os.makedirs(local, exist_ok=True)
-    params.to_csv(f"{local}/params.csv", index=False, header=True)
-    metrics.to_csv(f"{local}/metrics.csv", index=False, header=True)
-    mlflow.log_artifacts(local, artifact_path="run_data")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        params.to_csv(f"{tmpdir}/params.csv", index=False, header=True)
+        metrics.to_csv(f"{tmpdir}/metrics.csv", index=False, header=True)
+        mlflow.log_artifacts(tmpdir, artifact_path="run_data")
 
     # Saving the parameters and metrics as json without having to serialize to local
     # NOTE: this requires casting of fields that cannot be serialized to JSON
