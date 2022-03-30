@@ -99,9 +99,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
-    :param capture_output: If True, captures these streams and returns them, and when failed,
-                           raise error contains captured stdout/stderr output, if False, does not
-                           capture standard output and error.
+    :param capture_output: If True, captures conda env creation command stdout/stderr output and
+                           when conda command failed, attach captured stdout/stderr output to
+                           exception message and raise exception; if False, does not capture
+                           conda env creation command stdout/stderr output and when conda command
+                           failed, raise exception without stdout/stderr output attached.
     """
 
     conda_path = get_conda_bin_executable("conda")
