@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.ERROR)
 
 
 _pl_version = Version(pl.__version__)
-if Version(_pl_version) < Version("1.5.0"):
+if _pl_version < Version("1.5.0"):
     from pytorch_lightning.core.memory import ModelSummary
 else:
     from pytorch_lightning.utilities.model_summary import ModelSummary
