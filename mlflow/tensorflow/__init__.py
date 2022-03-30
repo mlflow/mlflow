@@ -20,6 +20,7 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
+import numpy as np
 
 import mlflow
 import mlflow.keras
@@ -515,6 +516,8 @@ class _TF2Wrapper:
                 val = data[df_col_name]
                 if isinstance(val, pandas.DataFrame):
                     val = val.values
+                else:
+                    val = np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
@@ -928,7 +931,6 @@ def autolog(
                 history = original(inst, *args, **kwargs)
 
                 if log_models:
-                    import numpy as np
 
                     def _get_input_data_slice():
                         input_training_data = args[0]
