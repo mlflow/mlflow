@@ -32,7 +32,7 @@ def exec_cmd(
 
     if stream_output:
         child = subprocess.Popen(
-            cmd, env=cmd_env, cwd=cwd, universal_newlines=True, stdin=subprocess.PIPE, **kwargs
+            cmd, env=cmd_env, cwd=cwd, text=True, stdin=subprocess.PIPE, **kwargs
         )
         child.communicate(cmd_stdin)
         exit_code = child.wait()
@@ -47,7 +47,7 @@ def exec_cmd(
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
-            universal_newlines=True,
+            text=True,
             **kwargs,
         )
         (stdout, stderr) = child.communicate(cmd_stdin)
