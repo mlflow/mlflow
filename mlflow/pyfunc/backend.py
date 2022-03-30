@@ -153,7 +153,8 @@ class PyFuncBackend(FlavorBackend):
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
-                conda_env_path, env_id=self._env_id, capture_output=False
+                conda_env_path, env_id=self._env_id, capture_output=False,
+                conda_env_root_dir=self._conda_env_root_dir
             )
 
             child_proc = _execute_in_conda_env(
@@ -165,6 +166,7 @@ class PyFuncBackend(FlavorBackend):
                 preexec_fn=setup_sigterm_on_parent_death,
                 stdout=stdout,
                 stderr=stderr,
+                conda_env_root_dir=self._conda_env_root_dir
             )
         else:
             _logger.info("=== Running command '%s'", command)

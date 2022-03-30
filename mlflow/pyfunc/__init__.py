@@ -777,7 +777,7 @@ def _get_or_create_model_cache_dir():
     if nfs_root_dir is not None:
         # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
         # the data stored in the disk is shared with all remote nodes.
-        root_dir = os.path.join(nfs_root_dir, "mlflow", "models")
+        root_dir = os.path.join(nfs_root_dir, "models")
         os.makedirs(root_dir, exist_ok=True)
         tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
         # TODO: register deleting tmp_model_dir handler when exit
@@ -996,7 +996,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 local_model_path, no_conda=False, install_mlflow=False,
                 conda_env_root_dir=conda_env_root_dir
             ).prepare_env(
-                model_uri=local_model_path, capture_output=False
+                model_uri=local_model_path, capture_output=True
             )
 
     # Broadcast local model directory to remote worker if needed.
