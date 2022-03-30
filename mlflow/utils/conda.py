@@ -154,9 +154,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
         project_env_exists = project_env_name in os.listdir(conda_env_root_dir)
     else:
         env_names = _list_conda_environments()
-        project_env_exists = project_env_name not in env_names
+        project_env_exists = project_env_name in env_names
 
-    if project_env_exists:
+    if not project_env_exists:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         try:
             if conda_env_path:

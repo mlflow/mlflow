@@ -801,7 +801,7 @@ def _get_or_create_conda_env_root_dir():
         if nfs_root_dir is not None:
             # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
             # the data stored in the disk is shared with all remote nodes.
-            root_dir = os.path.join(nfs_root_dir, "mlflow", "conda_envs")
+            root_dir = os.path.join(nfs_root_dir, "conda_envs")
             os.makedirs(root_dir, exist_ok=True)
             conda_env_root_dir = tempfile.mkdtemp(dir=root_dir)
             # TODO: register deleting tmp_model_dir handler when exit
