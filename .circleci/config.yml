@@ -62,8 +62,12 @@ jobs:
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml
+            make rsthtml SPHINXOPTS="-b html -W --keep-going -n -T"
+            pydocs=$?
             make javadocs
+            javadocs=$?
+            err=$((pydocs + javadocs))
+            test $err = 0
       - store_artifacts:
           path: docs/build/html
 
