@@ -279,7 +279,8 @@ def start_run(
             if MLFLOW_RUN_NOTE in tags:
                 raise MlflowException(
                     f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
-                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             tags[MLFLOW_RUN_NOTE] = description
 
@@ -302,7 +303,8 @@ def start_run(
             if MLFLOW_RUN_NOTE in user_specified_tags:
                 raise MlflowException(
                     f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
-                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
