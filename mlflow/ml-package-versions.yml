@@ -333,8 +333,8 @@ mleap:
     minimum: "0.15.0"
     maximum: "0.19.0"
     requirements:
-      "<= 0.17.0": ["pyspark==2.4.5"]
-      "> 0.17.0": ["pyspark==3.0.2"]
+      "<= 0.17.0": ["pyspark==2.4.8"]
+      "> 0.17.0": ["pyspark==3.0.3"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
