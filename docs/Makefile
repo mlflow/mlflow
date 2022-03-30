@@ -2,7 +2,7 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    = -b html -W --keep-going -n -T
+SPHINXOPTS    = -W --keep-going -n -T
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = build
