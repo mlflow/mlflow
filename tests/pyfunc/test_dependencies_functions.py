@@ -194,7 +194,7 @@ name: mlflow-env"""
             == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
         )
         mock_warning.assert_called_once_with(
-            "The following conda dependencies are excluded: python=3.7.12, pip=22.0.3, "
+            "The following conda dependencies have been excluded from the environment file: python=3.7.12, pip=22.0.3, "
             "scikit-learn=0.22.0, tensorflow=2.0.0."
         )
 

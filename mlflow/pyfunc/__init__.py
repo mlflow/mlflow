@@ -772,7 +772,7 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
 
         if len(conda_deps) > 0:
             _logger.warning(
-                f"The following conda dependencies are excluded: {', '.join(conda_deps)}."
+                f"The following conda dependencies have been excluded from the environment file: {', '.join(conda_deps)}."
             )
 
         return pip_file_path
@@ -789,15 +789,16 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
     :param model_uri: The uri of the model to get dependencies from.
-    :param format: The format of the returned dependency file. If "pip" specified,
-                   return path of "requirements.txt" file which contains pip dependencies,
-                   if "conda" specified, return path of "conda.yaml" file which contains
-                   conda environment config. If "pip" format specified but model does not
-                   have "requirements.txt" file, fallback to parse the pip section of the
-                   model's "conda.yaml" and ignore other non-pip dependencies in the
-                   "conda.yaml" file. Default value is "pip".
-
-    :return: return the path of the model's pip dependency file or the path of "conda.yaml" file
+    :param format: The format of the returned dependency file. If the ``"pip"`` format is
+                   specified, the path to a pip ``requirements.txt`` file is returned.
+                   If the ``"conda"`` format is specified, the path to a ``"conda.yaml"``
+                   file is returned . If the ``"pip"`` format is specified but the model
+                   was not saved with a ``requirements.txt`` file, the ``pip`` section
+                   of the model's ``conda.yaml`` file is extracted instead, and any
+                   additional conda dependencies are ignored. Default value is ``"pip"``.
+    :return: The local filesystem path to either a pip ``requirements.txt`` file
+             (if ``format="pip"``) or a ``conda.yaml`` file (if ``format="conda"``)
+             specifying the model's dependencies.
     """
     dep_file = _get_model_dependencies(model_uri, format)
     if format == "pip":
