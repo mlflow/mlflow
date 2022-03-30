@@ -90,6 +90,16 @@ def _list_conda_environments():
     return list(map(os.path.basename, json.loads(stdout).get("envs", [])))
 
 
+def _get_conda_env_root_dir_env(conda_env_root_dir):
+    if conda_env_root_dir is not None:
+        return {
+            "CONDA_ENVS_PATH": conda_env_root_dir,
+            "CONDA_PKGS_DIRS": os.path.join(conda_env_root_dir, "pkgs")
+        }
+    else:
+        return None
+
+
 def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, conda_env_root_dir=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
@@ -137,10 +147,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
             )
         )
 
-    additional_env = {
-        "CONDA_ENVS_PATH": conda_env_root_dir,
-        "CONDA_PKGS_DIRS": os.path.join(conda_env_root_dir, "pkgs")
-    }
+    additional_env = _get_conda_env_root_dir_env(conda_env_root_dir)
 
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if conda_env_root_dir is not None:

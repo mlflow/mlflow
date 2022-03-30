@@ -992,7 +992,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
-            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
+            _get_flavor_backend(
+                local_model_path, no_conda=False, install_mlflow=False,
+                conda_env_root_dir=conda_env_root_dir
+            ).prepare_env(
                 model_uri=local_model_path, capture_output=False
             )
 
@@ -1084,45 +1087,35 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         scoring_server_proc = None
 
         # TODO: Support virtual env.
-        #
-        # TODO: For conda/virtualenv restored env cases,
-        #  For each individual python process (driver side), create individual and temporary
-        #  conda env dir / virtualenv env dir and when process exit,
-        #  delete the temporary env dir.
-        #  The reason is
-        #   1. env dir might be a large size directory and cleaning it when process exit
-        #      help saving disk space.
-        #   2. We have conda package cache dir and pip cache dir which are shared across all
-        #      python processes which help reducing downloading time.
-        #   3. Avoid race conditions related issues.
-        #
-        # TODO:
-        #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
-        #   NFS directory, and in spark driver side prepare restored env once, and then all
-        #   spark UDF tasks running on spark workers can skip re-creating the restored env.
         if env_manager == "conda":
-            server_port = find_free_port()
-
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
+                # Create individual conda_env_root_dir for each spark UDF task process.
+                conda_env_root_dir_on_executor = _get_or_create_conda_env_root_dir()
+            else:
+                local_model_path_on_executor = local_model_path
+                conda_env_root_dir_on_executor = conda_env_root_dir
+
+            pyfunc_backend = _get_flavor_backend(
+                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False,
+                conda_env_root_dir=conda_env_root_dir_on_executor
+            )
+
+            if should_use_spark_to_broadcast_file:
                 # Call "prepare_env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
-                _get_flavor_backend(
-                    local_model_path_on_executor, no_conda=False, install_mlflow=False
-                ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
-            else:
-                local_model_path_on_executor = local_model_path
-            # launch scoring server
+                pyfunc_backend.prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
 
+            server_port = find_free_port()
+
+            # launch scoring server
             # TODO: adjust timeout for server requests handler.
-            scoring_server_proc = _get_flavor_backend(
-                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False
-            ).serve(
+            scoring_server_proc = pyfunc_backend.serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
                 host="127.0.0.1",
