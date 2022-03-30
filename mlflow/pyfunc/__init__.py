@@ -777,7 +777,7 @@ def _get_or_create_model_cache_dir():
     if nfs_root_dir is not None:
         # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
         # the data stored in the disk is shared with all remote nodes.
-        root_dir = os.path.join(nfs_root_dir, "models")
+        root_dir = os.path.join(nfs_root_dir, "mlflow", "models")
         os.makedirs(root_dir, exist_ok=True)
         tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
         # TODO: register deleting tmp_model_dir handler when exit
@@ -789,6 +789,32 @@ def _get_or_create_model_cache_dir():
         atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
 
     return tmp_model_dir
+
+
+_CONDA_ENV_ROOT_DIR = None
+
+
+def _get_or_create_conda_env_root_dir():
+    global _CONDA_ENV_ROOT_DIR
+    if _CONDA_ENV_ROOT_DIR is None:
+        nfs_root_dir = get_nfs_cache_root_dir()
+        if nfs_root_dir is not None:
+            # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+            # the data stored in the disk is shared with all remote nodes.
+            root_dir = os.path.join(nfs_root_dir, "mlflow", "conda_envs")
+            os.makedirs(root_dir, exist_ok=True)
+            tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
+            # TODO: register deleting tmp_model_dir handler when exit
+        else:
+            import atexit
+            import shutil
+
+            tmp_model_dir = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+
+        _CONDA_ENV_ROOT_DIR = tmp_model_dir
+
+    return _CONDA_ENV_ROOT_DIR
 
 
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
@@ -906,12 +932,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
     is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
-    # TODO:
-    #  change `should_use_nfs` to be get_nfs_cache_root_dir() is not None
-    #  when NFS optimization added.
-    should_use_nfs = False
 
+    should_use_nfs = get_nfs_cache_root_dir() is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
+    conda_env_root_dir = _get_or_create_conda_env_root_dir()
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)

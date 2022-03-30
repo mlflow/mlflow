@@ -89,7 +89,7 @@ def _list_conda_environments():
     return list(map(os.path.basename, json.loads(stdout).get("envs", [])))
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None):
+def get_or_create_conda_env(conda_env_path, env_id=None, conda_env_root_dir=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -99,6 +99,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
+    :param: conda_env_root_path: Root path for conda env. If None, use default one. Note if this is
+                                 set, conda package cache path becomes "conda_env_root_path/pkgs"
+                                 instead of the global package cache path.
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -131,6 +134,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             )
         )
 
+    additional_env = {"CONDA_ENVS_PATH": conda_env_root_dir}
     env_names = _list_conda_environments()
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
@@ -147,6 +151,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                         "--file",
                         conda_env_path,
                     ],
+                    env=additional_env,
                     stream_output=True,
                 )
             else:
@@ -162,6 +167,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                         project_env_name,
                         "python",
                     ],
+                    env=additional_env,
                     stream_output=True,
                 )
         except Exception:
