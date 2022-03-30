@@ -37,7 +37,7 @@ def exec_cmd(
         child.communicate(cmd_stdin)
         exit_code = child.wait()
         if throw_on_error and exit_code != 0:
-            raise ShellCommandException("Non-zero exitcode: %s" % (exit_code))
+            raise ShellCommandException(f"Non-zero exitcode: {exit_code}")
         return exit_code
     else:
         child = subprocess.Popen(
@@ -54,6 +54,6 @@ def exec_cmd(
         exit_code = child.wait()
         if throw_on_error and exit_code != 0:
             raise ShellCommandException(
-                "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:\n%s" % (exit_code, stdout, stderr)
+                f"Non-zero exit code: {exit_code}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
             )
         return exit_code, stdout, stderr

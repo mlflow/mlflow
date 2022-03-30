@@ -41,7 +41,7 @@ class PyFuncBackend(FlavorBackend):
             conda_env_path,
             command,
             self._install_mlflow,
-            stream_output_during_creating_env=capture_output,
+            capture_conda_failure_output_and_raise=capture_output,
         )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
@@ -225,7 +225,7 @@ def _execute_in_conda_env(
     preexec_fn=None,
     stdout=None,
     stderr=None,
-    capture_output_during_creating_env=False,
+    capture_conda_failure_output_and_raise=False,
 ):
     """
     :param conda_env_path conda: conda environment file path
@@ -237,8 +237,8 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
-    :param capture_output_during_creating_env: Whether to capture output during running
-                                               "conda env create" command.
+    :param capture_conda_failure_output_and_raise: If conda env creation command failed, capture
+                                                   its output and attach it in the exception.
     """
     if command_env is None:
         command_env = os.environ
@@ -249,7 +249,7 @@ def _execute_in_conda_env(
 
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = get_or_create_conda_env(
-        conda_env_path, env_id=env_id, capture_output=capture_output_during_creating_env
+        conda_env_path, env_id=env_id, capture_output=capture_conda_failure_output_and_raise
     )
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
