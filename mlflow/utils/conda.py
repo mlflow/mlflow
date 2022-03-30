@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
@@ -101,9 +102,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                    environment after the environment has been activated.
     :param capture_output: Specify the capture_output argument while executing the "conda env create"
                            command.
-    :param: conda_env_root_path: Root path for conda env. If None, use default one. Note if this is
-                                 set, conda package cache path becomes "conda_env_root_path/pkgs"
-                                 instead of the global package cache path.
+    :param: conda_env_root_dir: Root path for conda env. If None, use default one. Note if this is
+                                set, conda package cache path becomes "conda_env_root_path/pkgs"
+                                instead of the global package cache path.
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -136,10 +137,19 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
             )
         )
 
-    additional_env = {"CONDA_ENVS_PATH": conda_env_root_dir}
-    env_names = _list_conda_environments()
+    additional_env = {
+        "CONDA_ENVS_PATH": conda_env_root_dir,
+        "CONDA_PKGS_DIRS": os.path.join(conda_env_root_dir, "pkgs")
+    }
+
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
-    if project_env_name not in env_names:
+    if conda_env_root_dir is not None:
+        project_env_exists = project_env_name in os.listdir(conda_env_root_dir)
+    else:
+        env_names = _list_conda_environments()
+        project_env_exists = project_env_name not in env_names
+
+    if project_env_exists:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         try:
             if conda_env_path:
@@ -174,23 +184,26 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                 )
         except Exception:
             try:
-                if project_env_name in _list_conda_environments():
-                    _logger.warning(
-                        "Encountered unexpected error while creating conda environment. "
-                        "Removing %s.",
-                        project_env_name,
-                    )
-                    process.exec_cmd(
-                        [
-                            conda_path,
-                            "remove",
-                            "--yes",
-                            "--name",
+                if conda_env_root_dir is not None:
+                    shutil.rmtree(os.path.join(conda_env_root_dir, project_env_name), ignore_errors=True)
+                else:
+                    if project_env_name in _list_conda_environments():
+                        _logger.warning(
+                            "Encountered unexpected error while creating conda environment. "
+                            "Removing %s.",
                             project_env_name,
-                            "--all",
-                        ],
-                        capture_output=False,
-                    )
+                        )
+                        process.exec_cmd(
+                            [
+                                conda_path,
+                                "remove",
+                                "--yes",
+                                "--name",
+                                project_env_name,
+                                "--all",
+                            ],
+                            capture_output=False,
+                        )
             except Exception as e:
                 _logger.warning(
                     f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."

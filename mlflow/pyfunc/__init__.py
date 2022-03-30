@@ -803,16 +803,22 @@ def _get_or_create_conda_env_root_dir():
             # the data stored in the disk is shared with all remote nodes.
             root_dir = os.path.join(nfs_root_dir, "mlflow", "conda_envs")
             os.makedirs(root_dir, exist_ok=True)
-            tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
+            conda_env_root_dir = tempfile.mkdtemp(dir=root_dir)
             # TODO: register deleting tmp_model_dir handler when exit
         else:
             import atexit
             import shutil
 
-            tmp_model_dir = tempfile.mkdtemp()
-            atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+            conda_env_root_dir = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, conda_env_root_dir, ignore_errors=True)
 
-        _CONDA_ENV_ROOT_DIR = tmp_model_dir
+        # Create individual package cache dir "pkgs" under the conda_env_root_dir
+        # for each python process.
+        # Note: shared conda package cache dir causes race condition issues:
+        # See https://github.com/conda/conda/issues/8870
+        pkg_cache_dir = os.path.join(conda_env_root_dir, "pkgs")
+        os.mkdir(pkg_cache_dir)
+        _CONDA_ENV_ROOT_DIR = conda_env_root_dir
 
     return _CONDA_ENV_ROOT_DIR
 
