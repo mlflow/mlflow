@@ -61,6 +61,19 @@ def pandas_df_with_all_types():
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
 
+@pytest.fixture
+def pandas_df_with_csv_types():
+    pdf = pd.DataFrame(
+        {
+            "boolean": [True, False, True],
+            "integer": np.array([1, 2, 3], np.int32),
+            "long": np.array([1, 2, 3], np.int64),
+            "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
+            "double": [math.pi, 2 * math.pi, 3 * math.pi]
+        }
+    )
+    pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
+    return pdf
 
 @pytest.fixture(scope="session")
 def sklearn_model():
@@ -426,6 +439,14 @@ def test_split_oriented_json_to_df():
 
     assert set(df.columns) == {"zip", "cost", "count"}
     assert set(str(dt) for dt in df.dtypes) == {"object", "float64", "int64"}
+
+
+def test_parse_with_schema_csv(pandas_df_with_csv_types):
+    schema = Schema([ColSpec(c, c) for c in pandas_df_with_csv_types.columns])
+    df = _shuffle_pdf(pandas_df_with_csv_types)
+    csv_str = df.to_csv(index=False)
+    df = pyfunc_scoring_server.parse_csv_input(csv_str, schema=schema)
+    assert schema == infer_signature(df[schema.input_names()]).inputs
 
 
 def test_parse_with_schema(pandas_df_with_all_types):

@@ -145,6 +145,7 @@ def parse_csv_input(csv_input, schema: Schema = None):
     """
 
     try:
+        csv_input = StringIO(csv_input)
         if schema is None:
             return pd.read_csv(csv_input)
         else:
@@ -267,8 +268,7 @@ def init(model: PyFuncModel):
         # Convert from CSV to pandas
         if mime_type == CONTENT_TYPE_CSV and not content_format:
             data = flask.request.data.decode("utf-8")
-            csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input, schema=input_schema)
+            data = parse_csv_input(csv_input=data, schema=input_schema)
         elif mime_type == CONTENT_TYPE_JSON and not content_format:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)
