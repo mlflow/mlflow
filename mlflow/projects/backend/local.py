@@ -168,13 +168,11 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
         return subprocess.Popen(
             mlflow_run_arr,
             env=final_env,
-            universal_newlines=True,
+            text=True,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
         )
     else:
-        return subprocess.Popen(
-            mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid
-        )
+        return subprocess.Popen(mlflow_run_arr, env=final_env, text=True, preexec_fn=os.setsid)
 
 
 def _run_entry_point(command, work_dir, experiment_id, run_id):

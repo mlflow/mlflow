@@ -321,7 +321,7 @@ def test_predict(iris_data, sk_model):
         p = subprocess.Popen(
             ["mlflow", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
             + extra_options,
-            universal_newlines=True,
+            text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=sys.stderr,
