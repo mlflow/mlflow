@@ -486,6 +486,7 @@ def gc(backend_store_uri, run_ids):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
+        # pylint: disable=print-function
         print("Run with ID %s has been permanently deleted." % str(run_id))
 
 

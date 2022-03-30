@@ -44,6 +44,7 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
+    # pylint: disable=print-function
     print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
@@ -71,6 +72,7 @@ def list_experiments(view):
         ]
         for exp in experiments
     ]
+    # pylint: disable=print-function
     print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
@@ -94,6 +96,7 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
+    # pylint: disable=print-function
     print("Experiment with ID %s has been deleted." % str(experiment_id))
 
 
@@ -107,6 +110,7 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
+    # pylint: disable=print-function
     print("Experiment with id %s has been restored." % str(experiment_id))
 
 
@@ -120,6 +124,7 @@ def rename_experiment(experiment_id, new_name):
     """
     store = _get_store()
     store.rename_experiment(experiment_id, new_name)
+    # pylint: disable=print-function
     print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
 
 
@@ -134,9 +139,10 @@ def generate_csv_with_runs(experiment_id, filename):
     runs = fluent.search_runs(experiment_ids=experiment_id)
     if filename:
         runs.to_csv(filename, index=False)
+        # pylint: disable=print-function
         print(
             "Experiment with ID %s has been exported as a CSV to file: %s."
             % (experiment_id, filename)
         )
     else:
-        print(runs.to_csv(index=False))
+        print(runs.to_csv(index=False))  # pylint: disable=print-function

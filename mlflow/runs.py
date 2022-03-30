@@ -49,6 +49,7 @@ def list_run(experiment_id, view):
         tags = {k: v for k, v in run.data.tags.items()}
         run_name = tags.get(MLFLOW_RUN_NAME, "")
         table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
+    # pylint: disable=print-function
     print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
@@ -62,7 +63,7 @@ def delete_run(run_id):
     """
     store = _get_store()
     store.delete_run(run_id)
-    print("Run with ID %s has been deleted." % str(run_id))
+    print("Run with ID %s has been deleted." % str(run_id))  # pylint: disable=print-function
 
 
 @commands.command("restore")
@@ -74,7 +75,7 @@ def restore_run(run_id):
     """
     store = _get_store()
     store.restore_run(run_id)
-    print("Run with id %s has been restored." % str(run_id))
+    print("Run with id %s has been restored." % str(run_id))  # pylint: disable=print-function
 
 
 @commands.command("describe")
@@ -86,4 +87,4 @@ def describe_run(run_id):
     store = _get_store()
     run = store.get_run(run_id)
     json_run = json.dumps(run.to_dictionary(), indent=4)
-    print(json_run)
+    print(json_run)  # pylint: disable=print-function
