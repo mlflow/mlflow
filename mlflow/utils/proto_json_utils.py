@@ -210,7 +210,16 @@ def _dataframe_from_json(
     from mlflow.types import DataType
 
     if schema is not None:
-        dtypes = _extract_pandas_input_types_from_schema(schema)
+        if schema.is_tensor_spec():
+            # The schema can be either:
+            #  - a single tensor: attempt to parse all columns with the same dtype
+            #  - a dictionary of tensors: each column gets the type from an equally named tensor
+            if len(schema.inputs) == 1:
+                dtypes = schema.numpy_types()[0]
+            else:
+                dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
         df = pd.read_json(
             path_or_str,
             orient=pandas_orient,
