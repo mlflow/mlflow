@@ -827,4 +827,4 @@ def test_saved_model_support_array_type_input():
 
     result = model.predict(infer_df)
 
-    np.testing.assert_allclose(result["prediction"], [10.0, 26.0])
+    np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])

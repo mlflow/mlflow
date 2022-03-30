@@ -524,7 +524,6 @@ class _TF2Wrapper:
 
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
-        print(f"DBG: pred_dict={pred_dict}")
         for col in pred_dict.keys():
             if all(len(element) == 1 for element in pred_dict[col]):
                 pred_dict[col] = pred_dict[col].ravel()
@@ -932,7 +931,6 @@ def autolog(
                 history = original(inst, *args, **kwargs)
 
                 if log_models:
-                    import numpy as np
 
                     def _get_input_data_slice():
                         input_training_data = args[0]
