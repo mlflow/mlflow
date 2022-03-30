@@ -339,6 +339,8 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "MlflowInferableDataset"),
+    ("py:class", "scipy.sparse.csr.csr_matrix"),
+    ("py:class", "scipy.sparse.csc.csc_matrix"),
     ("py:class", "scipy.sparse._csr.csr_matrix"),
     ("py:class", "scipy.sparse._csc.csc_matrix"),
 ]
