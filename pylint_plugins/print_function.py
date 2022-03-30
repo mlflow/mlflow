@@ -10,7 +10,7 @@ IGNORE_DIRS = list(
         os.path.abspath,
         [
             "dev",
-            # TODO: Remove (or replace) print statements in tests
+            # TODO: Remove (or replace) print functions in tests
             "tests",
         ],
     )
