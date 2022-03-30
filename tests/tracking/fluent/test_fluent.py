@@ -39,6 +39,7 @@ from mlflow.tracking.fluent import (
     _get_experiment_id_from_env,
     _paginate,
     search_runs,
+    search_runs_by_name,
     set_experiment,
     start_run,
     get_run,
@@ -98,6 +99,73 @@ def create_run(
         ),
         RunData(metrics=metrics, params=params, tags=tags),
     )
+
+
+def create_test_runs_and_expected_data(search_runs_output_format, experiment_id=None):
+    """Create a pair of runs and a corresponding data to expect when runs are searched
+    for the same experiment
+
+    :return: (list, dict)
+    """
+    start_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
+    end_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
+    exp_id = experiment_id or "123"
+    runs = [
+        create_run(
+            status=RunStatus.FINISHED,
+            a_uri="dbfs:/test",
+            run_id="abc",
+            exp_id=exp_id,
+            start=start_times[0],
+            end=end_times[0],
+            metrics=[Metric("mse", 0.2, 0, 0)],
+            params=[Param("param", "value")],
+            tags=[RunTag("tag", "value")],
+        ),
+        create_run(
+            status=RunStatus.SCHEDULED,
+            a_uri="dbfs:/test2",
+            run_id="def",
+            exp_id=exp_id,
+            start=start_times[1],
+            end=end_times[1],
+            metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
+            params=[Param("param2", "val"), Param("k", "v")],
+            tags=[RunTag("tag2", "v2")],
+        ),
+    ]
+    data = {
+        "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
+        "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
+        "run_id": ["abc", "def"],
+        "experiment_id": [exp_id] * 2,
+        "start_time": start_times,
+        "end_time": end_times,
+        "metrics.mse": [0.2, 0.6],
+        "metrics.loss": [None, 1.2],
+        "params.param": ["value", None],
+        "params.param2": [None, "val"],
+        "params.k": [None, "v"],
+        "tags.tag": ["value", None],
+        "tags.tag2": [None, "v2"],
+    }
+    return runs, data
+
+
+def create_experiment(
+    experiment_id=uuid.uuid4().hex,
+    name="Test Experiment",
+    artifact_location="/tmp",
+    lifecycle_stage=LifecycleStage.ACTIVE,
+    tags=None,
+):
+    return mlflow.entities.Experiment(experiment_id, name, artifact_location, lifecycle_stage, tags)
 
 
 @pytest.fixture(autouse=True)
@@ -779,6 +847,30 @@ def test_search_runs_all_experiments(search_runs_output_format):
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
         mlflow.tracking.fluent.list_experiments.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_not_called()
+
+
+def test_search_runs_by_experiment_name():
+
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    exp_id = uuid.uuid4().hex
+    experiment = create_experiment(experiment_id=exp_id, name=name)
+    runs, data = create_test_runs_and_expected_data("pandas", exp_id)
+
+    get_experiment_patch = mock.patch(
+        "mlflow.tracking.fluent.get_experiment_by_name", return_value=experiment
+    )
+    get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=runs)
+
+    with get_experiment_patch, get_paginated_runs_patch:
+        result = search_runs_by_name(name)
+        validate_search_runs(result, data, "pandas")
+
+
+def test_search_runs_by_non_existing_experiment_name():
+
+    name = "Random experiment %d" % random.randint(1, 1e6)
+    runs = search_runs_by_name(name, output_format="list")
+    assert runs == []
 
 
 def test_paginate_lt_maxresults_onepage():

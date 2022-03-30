@@ -1215,6 +1215,88 @@ def search_runs(
         )
 
 
+def search_runs_by_name(
+    experiment_name: str,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: Optional[List[str]] = None,
+    output_format: str = "pandas",
+    search_all_experiments: bool = False,
+) -> Union[List[Run], "pandas.DataFrame"]:
+    """
+    Get experiment runs that fit the search criteria. This is an equivalent of
+    calling `get_experiments` followed by a call to `search_runs`
+
+    :param experiment_name: Name of the experiment.
+    :param filter_string: Filter query string, defaults to searching all runs.
+    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
+                            defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
+                        to avoid causing out-of-memory issues on the user's machine.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+    :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
+                          is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
+                          is returned.
+    :param search_all_experiments: Boolean specifying whether all experiments should be searched.
+        Only honored if ``experiment_ids`` is ``[]`` or ``None``.
+
+    :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
+             output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
+             parameter, and tag is expanded into its own column named metrics.*, params.*, or
+             tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
+             the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
+             respectively.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create an experiment and log two runs under it
+        experiment_name = "Social NLP Experiments"
+        experiment_id = mlflow.create_experiment(experiment_name)
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 1.55)
+            mlflow.set_tag("s.release", "1.1.0-RC")
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 2.50)
+            mlflow.set_tag("s.release", "1.2.0-GA")
+
+        # Search for all the runs in the experiment
+        df = mlflow.search_runs_by_name(experiment_name, order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+
+        # Search for runs using a case-insensitive tag filter
+        filter_string = "tags.s.release ILIKE '%rc%'"
+        df = mlflow.search_runs_by_name(experiment_name, filter_string=filter_string)
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+
+    .. code-block:: text
+        :caption: Output
+
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+    """
+    experiment = get_experiment_by_name(experiment_name)
+    return search_runs(
+        [None if experiment is None else experiment.experiment_id],
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        output_format,
+        search_all_experiments,
+    )
+
+
 def list_run_infos(
     experiment_id: str,
     run_view_type: int = ViewType.ACTIVE_ONLY,
