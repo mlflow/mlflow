@@ -128,16 +128,19 @@ scikit-learn==1.0.2"""
     # Test getting pip dependencies
     assert Path(get_model_dependencies(model_path, format="pip")).read_text() == req_file_content
 
-    # Test getting pip dependencies will print instructions on databricks
+    # Test getting pip dependencies will print instructions
     with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
         get_model_dependencies(model_path, format="pip")
-        mock_log_info.assert_not_called()
+        mock_log_info.assert_called_once_with(
+            "To install these model dependencies, run the "
+            f"following command: 'pip install -r {req_file}'."
+        )
 
         mock_log_info.reset_mock()
         with mock.patch("mlflow.pyfunc.is_in_databricks_runtime", return_value=True):
             get_model_dependencies(model_path, format="pip")
             mock_log_info.assert_called_once_with(
-                "To install these model dependencies in your Databricks notebook, run the "
+                "To install these model dependencies, run the "
                 f"following command: '%pip install -r {req_file}'."
             )
 
@@ -194,8 +197,8 @@ name: mlflow-env"""
             == "mlflow\ncloudpickle==2.0.0\nscikit-learn==1.0.1"
         )
         mock_warning.assert_called_once_with(
-            "The following conda dependencies have been excluded from the environment file: python=3.7.12, pip=22.0.3, "
-            "scikit-learn=0.22.0, tensorflow=2.0.0."
+            "The following conda dependencies have been excluded from the environment file: "
+            "python=3.7.12, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
         )
 
     conda_yml_file.write_text(

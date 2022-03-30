@@ -773,7 +773,8 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
 
         if len(conda_deps) > 0:
             _logger.warning(
-                f"The following conda dependencies have been excluded from the environment file: {', '.join(conda_deps)}."
+                "The following conda dependencies have been excluded from the environment file:"
+                f" {', '.join(conda_deps)}."
             )
 
         return pip_file_path
