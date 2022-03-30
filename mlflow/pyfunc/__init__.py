@@ -794,10 +794,9 @@ def _get_or_create_model_cache_dir():
 _CONDA_ENV_ROOT_DIR = None
 
 
-def _get_or_create_conda_env_root_dir():
+def _get_or_create_conda_env_root_dir(nfs_root_dir):
     global _CONDA_ENV_ROOT_DIR
     if _CONDA_ENV_ROOT_DIR is None:
-        nfs_root_dir = get_nfs_cache_root_dir()
         if nfs_root_dir is not None:
             # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
             # the data stored in the disk is shared with all remote nodes.
@@ -939,9 +938,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # this case all executors and driver share the same filesystem
     is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
 
-    should_use_nfs = get_nfs_cache_root_dir() is not None
+    nfs_root_dir = get_nfs_cache_root_dir()
+    should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    conda_env_root_dir = _get_or_create_conda_env_root_dir()
+    conda_env_root_dir = _get_or_create_conda_env_root_dir(nfs_root_dir)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1093,7 +1093,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     archive_path
                 )
                 # Create individual conda_env_root_dir for each spark UDF task process.
-                conda_env_root_dir_on_executor = _get_or_create_conda_env_root_dir()
+                conda_env_root_dir_on_executor = _get_or_create_conda_env_root_dir(nfs_root_dir)
             else:
                 local_model_path_on_executor = local_model_path
                 conda_env_root_dir_on_executor = conda_env_root_dir
