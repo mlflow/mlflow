@@ -186,7 +186,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
                         capture_output=False,
                     )
             except Exception:
-                # swallow exception raised during cleaning env.
+                _logger.warning(f"Removing conda env '{project_env_name}' failed.", exc_info=True)
                 pass
             raise
 
