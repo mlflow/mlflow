@@ -43,11 +43,7 @@ class PyFuncBackend(FlavorBackend):
         )
 
         command = 'python -c ""'
-        return _execute_in_conda_env(
-            conda_env_name,
-            command,
-            self._install_mlflow
-        )
+        return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """

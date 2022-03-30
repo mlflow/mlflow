@@ -171,7 +171,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
             try:
                 if project_env_name in _list_conda_environments():
                     _logger.warning(
-                        "Encountered unexpected error while creating conda environment. Removing %s",
+                        "Encountered unexpected error while creating conda environment. "
+                        "Removing %s.",
                         project_env_name,
                     )
                     process.exec_cmd(
@@ -185,9 +186,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
                         ],
                         capture_output=False,
                     )
-            except Exception:
-                _logger.warning(f"Removing conda env '{project_env_name}' failed.", exc_info=True)
-                pass
+            except Exception as e:
+                _logger.warning(
+                    f"Removing conda env '{project_env_name}' failed (error: {repr(e)}).",
+                    exc_info=True,
+                )
             raise
 
     return project_env_name
