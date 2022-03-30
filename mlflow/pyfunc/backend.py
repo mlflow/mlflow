@@ -54,7 +54,10 @@ class PyFuncBackend(FlavorBackend):
         )
 
         command = 'python -c ""'
-        return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
+        return _execute_in_conda_env(
+            conda_env_name, command, self._install_mlflow,
+            conda_env_root_dir=self._conda_env_root_dir
+        )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -106,7 +109,10 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = mlserver if enable_mlserver else scoring_server
-        command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
+        command, command_env = server_implementation.get_cmd(
+            local_path, port, host, self._nworkers,
+            conda_env_root_dir=self._conda_env_root_dir
+        )
 
         if sys.platform.startswith("linux"):
 

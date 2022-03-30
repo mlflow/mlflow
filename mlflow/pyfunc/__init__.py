@@ -1109,6 +1109,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
+                # Set "capture_output" so that if "conda env create" command failed, the command
+                # stdout/stderr output will be attached to the exception message and included in
+                # driver side exception.
                 pyfunc_backend.prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
 
             server_port = find_free_port()
