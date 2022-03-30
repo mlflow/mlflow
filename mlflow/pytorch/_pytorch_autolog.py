@@ -5,7 +5,6 @@ import os
 import shutil
 import tempfile
 import pytorch_lightning as pl
-from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
 from mlflow.exceptions import MlflowException
@@ -32,6 +31,10 @@ logging.basicConfig(level=logging.ERROR)
 
 
 _pl_version = Version(pl.__version__)
+if _pl_version < Version("1.5.0"):
+    from pytorch_lightning.core.memory import ModelSummary
+else:
+    from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
 def _get_optimizer_name(optimizer):
