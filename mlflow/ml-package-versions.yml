@@ -246,7 +246,9 @@ spacy:
   models:
     minimum: "2.2.4"
     maximum: "3.2.2"
-    requirements: ["scikit-learn", "click<8.1.0"]
+    requirements:
+      "<= 3.0.8": ["scikit-learn", "click<8.1.0", "flask<2.1.0"]
+      "> 3.0.8": ["scikit-learn", "click<8.1.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
 
