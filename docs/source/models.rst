@@ -119,7 +119,7 @@ For environment recreation, we automatically log ``conda.yaml`` and ``requiremen
             - mlflow
             - scikit-learn==0.23.2
             - cloudpickle==1.6.0
-              name: mlflow-env
+      name: mlflow-env
 
     If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
 
