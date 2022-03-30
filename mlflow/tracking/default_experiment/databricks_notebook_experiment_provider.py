@@ -45,8 +45,8 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
                 databricks_pb2.INVALID_PARAMETER_VALUE
             ):
                 # If repo notebook experiment creation isn't enabled, fall back to
-                # creating a regular experiment by omitting tags
-                experiment_id = MlflowClient().create_experiment(source_notebook_name, None)
+                # using the notebook ID
+                experiment_id = source_notebook_id
             else:
                 raise e
 
