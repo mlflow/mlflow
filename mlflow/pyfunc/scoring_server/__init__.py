@@ -33,7 +33,6 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     _dataframe_from_json,
-    _extract_pandas_input_types_from_schema,
     _get_jsonable_obj,
     parse_tf_serving_input,
 )
@@ -149,7 +148,7 @@ def parse_csv_input(csv_input, schema: Schema = None):
         if schema is None:
             return pd.read_csv(csv_input)
         else:
-            dtypes = _extract_pandas_input_types_from_schema(schema)
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
             return pd.read_csv(csv_input, dtype=dtypes)
     except Exception:
         _handle_serving_error(
