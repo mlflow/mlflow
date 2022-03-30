@@ -220,6 +220,7 @@ def _dataframe_from_json(
                 dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+
         df = pd.read_json(
             path_or_str,
             orient=pandas_orient,
