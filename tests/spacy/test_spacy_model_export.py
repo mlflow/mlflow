@@ -36,8 +36,8 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--n
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
-
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
+spacy_version = Version(spacy.__version__)
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0")
 
 
 @pytest.fixture(scope="module")
@@ -408,7 +408,8 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     model, inference_dataframe = spacy_model_with_data
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(model, artifact_path)
+        extra_pip_requirements = ["click<8.1.0"] if spacy_version < Version("3.2.4") else None
+        mlflow.spacy.log_model(model, artifact_path, extra_pip_requirements=extra_pip_requirements)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(
