@@ -18,9 +18,11 @@ def exec_cmd(
     throw_on_error -- if true, raises an Exception if the exit code of the program is nonzero
     env -- additional environment variables to be defined when running the child process
     cwd -- working directory for child process
-    capture_output -- if True, captures standard output and error and returns
-                      `(exit_code, stdout, stderr)`; if False, does not capture these streams
-                      and returns `exit_code`.
+    capture_output -- If True, captures command stdout/stderr output and when conda command
+                      failed, attach captured stdout/stderr output to exception message and
+                      raise exception; if False, does not capture command stdout/stderr output
+                      and when command failed, raise exception without stdout/stderr
+                      output attached.
     cmd_stdin -- if specified, passes the specified string as stdin to the child process.
 
     Note on the return value: If stream_output is true, then only the exit code is returned. If
