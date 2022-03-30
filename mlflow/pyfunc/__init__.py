@@ -669,7 +669,8 @@ def _warn_dependency_requirement_mismatches(model_path):
                 "Detected one or more mismatches between the model's dependencies and the current "
                 f"Python environment:\n{mismatch_str}\n"
                 "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
-                "and run the printed out pip install command."
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
             )
             _logger.warning(warning_msg)
 
@@ -743,9 +744,9 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
         except Exception as e:
             # fallback to download conda.yaml file and parse the "pip" section from it.
             _logger.info(
-                f"Download model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
-                "Fallback to fetch pip requirements from the model's 'conda.yaml' file and "
-                "other conda dependencies will be ignored."
+                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
+                "Other conda dependencies will be ignored."
             )
 
         conda_yml_path = _download_model_conda_env(model_uri)
