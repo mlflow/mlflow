@@ -667,8 +667,9 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}\nTo get full model dependencies, you can "
-                "call `mlflow.pyfunc.get_model_dependencies(model_uri)`."
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "and run the printed out pip install command."
             )
             _logger.warning(warning_msg)
 
@@ -787,23 +788,23 @@ def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefin
 
 def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
     """
-    Given a model URI, and format ("pip" or "conda", default value "pip"),
-    return the downloaded dependency file path.
-    If "pip" format specified but model does not have "requirements.txt" file,
-    fallback to parse the pip section of the model's "conda.yaml" and ignore other
-    non-pip dependencies in the "conda.yaml" file.
-
     :param model_uri: The uri of the model to get dependencies from.
     :param format: The format of the returned dependency file. If "pip" specified,
                    return path of "requirements.txt" file which contains pip dependencies,
                    if "conda" specified, return path of "conda.yaml" file which contains
-                   conda environment config.
+                   conda environment config. If "pip" format specified but model does not
+                   have "requirements.txt" file, fallback to parse the pip section of the
+                   model's "conda.yaml" and ignore other non-pip dependencies in the
+                   "conda.yaml" file. Default value is "pip".
+
+    :return: return the path of the model's pip dependency file or the path of "conda.yaml" file
     """
     dep_file = _get_model_dependencies(model_uri, format)
-    if format == "pip" and is_in_databricks_runtime():
+    if format == "pip":
+        prefix = "%" if is_in_databricks_runtime() else ""
         _logger.info(
-            "To install these model dependencies in your Databricks notebook, run the "
-            f"following command: '%pip install -r {dep_file}'."
+            "To install these model dependencies, run the "
+            f"following command: '{prefix}pip install -r {dep_file}'."
         )
     return dep_file
 
