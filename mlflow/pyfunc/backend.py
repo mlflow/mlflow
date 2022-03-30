@@ -31,15 +31,17 @@ class PyFuncBackend(FlavorBackend):
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
 
-    def prepare_env(self, model_uri, stream_output=True):
+    def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
         if self._no_conda or ENV not in self._config:
             return 0
         conda_env_path = os.path.join(local_path, self._config[ENV])
         command = 'python -c ""'
         return _execute_in_conda_env(
-            conda_env_path, command, self._install_mlflow,
-            stream_output_during_creating_env=stream_output
+            conda_env_path,
+            command,
+            self._install_mlflow,
+            stream_output_during_creating_env=capture_output,
         )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
@@ -223,7 +225,7 @@ def _execute_in_conda_env(
     preexec_fn=None,
     stdout=None,
     stderr=None,
-    stream_output_during_creating_env=True
+    capture_output_during_creating_env=False,
 ):
     """
     :param conda_env_path conda: conda environment file path
@@ -235,7 +237,8 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
-    :param stream_output_during_creating_env: stream output during running "conda env create" command.
+    :param capture_output_during_creating_env: Whether to capture output during running
+                                               "conda env create" command.
     """
     if command_env is None:
         command_env = os.environ
@@ -246,7 +249,7 @@ def _execute_in_conda_env(
 
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = get_or_create_conda_env(
-        conda_env_path, env_id=env_id, stream_output=stream_output_during_creating_env
+        conda_env_path, env_id=env_id, capture_output=capture_output_during_creating_env
     )
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:

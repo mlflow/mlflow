@@ -89,7 +89,7 @@ def _list_conda_environments():
     return list(map(os.path.basename, json.loads(stdout).get("envs", [])))
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None, stream_output=True):
+def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -99,9 +99,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, stream_output=True):
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
-    :param stream_output: if true, does not capture standard output and error; if false, captures these
-                          streams and returns them, and when failed, raise error contains captured
-                          stdout/stderr output.
+    :param capture_output: if False, does not capture standard output and error; if True, captures
+                           these streams and returns them, and when failed, raise error contains
+                           captured stdout/stderr output.
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -150,7 +150,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, stream_output=True):
                         "--file",
                         conda_env_path,
                     ],
-                    stream_output=stream_output,
+                    capture_output=capture_output,
                 )
             else:
                 process.exec_cmd(
@@ -165,25 +165,29 @@ def get_or_create_conda_env(conda_env_path, env_id=None, stream_output=True):
                         project_env_name,
                         "python",
                     ],
-                    stream_output=stream_output,
+                    capture_output=capture_output,
                 )
         except Exception:
-            if project_env_name in _list_conda_environments():
-                _logger.warning(
-                    "Encountered unexpected error while creating conda environment. Removing %s",
-                    project_env_name,
-                )
-                process.exec_cmd(
-                    [
-                        conda_path,
-                        "remove",
-                        "--yes",
-                        "--name",
+            try:
+                if project_env_name in _list_conda_environments():
+                    _logger.warning(
+                        "Encountered unexpected error while creating conda environment. Removing %s",
                         project_env_name,
-                        "--all",
-                    ],
-                    stream_output=True,
-                )
+                    )
+                    process.exec_cmd(
+                        [
+                            conda_path,
+                            "remove",
+                            "--yes",
+                            "--name",
+                            project_env_name,
+                            "--all",
+                        ],
+                        capture_output=False,
+                    )
+            except Exception:
+                # swallow exception raised during cleaning env.
+                pass
             raise
 
     return project_env_name

@@ -963,7 +963,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Prepare restored environment in driver side if possible.
         if env_manager == "conda":
             _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
-                model_uri=local_model_path, stream_output=False
+                model_uri=local_model_path, capture_output=False
             )
 
     # Broadcast local model directory to remote worker if needed.
@@ -1084,7 +1084,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # server launching.
                 _get_flavor_backend(
                     local_model_path_on_executor, no_conda=False, install_mlflow=False
-                ).prepare_env(model_uri=local_model_path_on_executor, stream_output=False)
+                ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
             else:
                 local_model_path_on_executor = local_model_path
             # launch scoring server

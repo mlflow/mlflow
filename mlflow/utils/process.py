@@ -7,7 +7,7 @@ class ShellCommandException(Exception):
 
 
 def exec_cmd(
-    cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, cmd_stdin=None, **kwargs
+    cmd, throw_on_error=True, env=None, capture_output=True, cwd=None, cmd_stdin=None, **kwargs
 ):
     """
     Runs a command as a child process.
@@ -18,7 +18,7 @@ def exec_cmd(
     throw_on_error -- if true, raises an Exception if the exit code of the program is nonzero
     env -- additional environment variables to be defined when running the child process
     cwd -- working directory for child process
-    stream_output -- if true, does not capture standard output and error; if false, captures these
+    capture_output -- if False, does not capture standard output and error; if True, captures these
       streams and returns them
     cmd_stdin -- if specified, passes the specified string as stdin to the child process.
 
@@ -30,7 +30,7 @@ def exec_cmd(
     if env:
         cmd_env.update(env)
 
-    if stream_output:
+    if not capture_output:
         child = subprocess.Popen(
             cmd, env=cmd_env, cwd=cwd, universal_newlines=True, stdin=subprocess.PIPE, **kwargs
         )
