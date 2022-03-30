@@ -67,6 +67,7 @@ jobs:
             make javadocs
             javadocs=$?
             err=$((pydocs + javadocs))
+            echo 'Build test result: $err'
             test $err = 0
       - store_artifacts:
           path: docs/build/html
