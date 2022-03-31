@@ -56,11 +56,24 @@ SparkModelWithData = namedtuple(
 )
 
 
+def _get_spark_session_with_retry(max_tries=3):
+    conf = pyspark.SparkConf()
+    for num_tries in range(max_tries):
+        try:
+            return get_spark_session(conf)
+        except Exception as e:
+            if num_tries >= max_tries - 1:
+                raise
+            _logger.exception(
+                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
+            )
+
+
 # Specify `autouse=True` to ensure that a context is created
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
 # other tests.
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def spark_context():
     if Version(pyspark.__version__) < Version("3.1"):
         # A workaround for this issue:
@@ -78,21 +91,12 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
-    conf = pyspark.SparkConf()
-    max_tries = 3
-    for num_tries in range(max_tries):
-        try:
-            spark = get_spark_session(conf)
-            return spark.sparkContext
-        except Exception as e:
-            if num_tries >= max_tries - 1:
-                raise
-            _logger.exception(
-                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
-            )
+    spark = _get_spark_session_with_retry()
+    yield spark.sparkContext
+    spark.stop()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def iris_df(spark_context):
     iris = datasets.load_iris()
     X = iris.data  # we only take the first two features.
@@ -105,7 +109,7 @@ def iris_df(spark_context):
     return feature_names, iris_pandas_df, iris_spark_df
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_iris(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -120,7 +124,7 @@ def spark_model_iris(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_transformer(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -132,7 +136,7 @@ def spark_model_transformer(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_estimator(iris_df, spark_context):
     # pylint: disable=unused-argument
     feature_names, iris_pandas_df, iris_spark_df = iris_df

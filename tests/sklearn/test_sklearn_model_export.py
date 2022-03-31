@@ -44,7 +44,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -54,7 +54,7 @@ def sklearn_knn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_logreg_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -64,7 +64,7 @@ def sklearn_logreg_model():
     return ModelWithData(model=linear_lr, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_custom_transformer_model(sklearn_knn_model):
     def transform(vec):
         print("Invoking custom transformer!")
