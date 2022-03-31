@@ -150,7 +150,7 @@ The following shows an example of saving a model with a manually specified conda
 
 The written ``conda.yaml`` file:
 
-.. code-block:: text
+.. code-block:: yaml
 
     name: mlflow-env
     channels:
