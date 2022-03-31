@@ -3,11 +3,11 @@ import sys
 import time
 from typing import Iterator
 import threading
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest import mock
 
 import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
@@ -114,7 +114,7 @@ def test_spark_udf(spark, model_path):
     )
 
     with mock.patch("mlflow.pyfunc._warn_dependency_requirement_mismatches") as mock_check_fn:
-        reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+        reloaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
         mock_check_fn.assert_called_once()
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])

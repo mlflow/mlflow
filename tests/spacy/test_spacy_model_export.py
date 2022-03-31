@@ -103,7 +103,7 @@ def test_model_save_load(spacy_model_with_data, model_path):
     assert spacy_model.meta == loaded_model.meta
 
     # Load pyfunc model using saved model and asserting its predictions are equal to the created one
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(
         _predict(spacy_model, spacy_model_with_data.inference_data)
         == pyfunc_loaded.predict(spacy_model_with_data.inference_data)
@@ -134,7 +134,7 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
 @pytest.mark.large
 def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
     mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     # Concatenating with itself to duplicate column and mess up input shape
     # then asserting n MlflowException is raised
