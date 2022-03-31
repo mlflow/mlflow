@@ -2,6 +2,7 @@ import json
 import math
 import numpy as np
 import os
+import signal
 import pandas as pd
 from collections import namedtuple, OrderedDict
 from packaging.version import Version
@@ -466,10 +467,10 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))
     # However bad string is recognized as int64:
-    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=np.object))
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=object))
 
     # Boolean is forced - zero and empty string is false, everything else is true:
-    assert df["bad_boolean"].dtype == np.bool
+    assert df["bad_boolean"].dtype == bool
     assert all(df["bad_boolean"] == [True, False, True])
 
 
@@ -537,7 +538,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         )
         response_json = json.loads(response.content)
 
-        # np.objects are not converted to pandas Strings at the moment
+        # objects are not converted to pandas Strings at the moment
         expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
@@ -613,3 +614,37 @@ def test_get_cmd(args: dict, expected: str):
     assert cmd == (
         f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
     )
+
+
+@pytest.mark.large
+def test_scoring_server_client(sklearn_model, model_path):
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.utils import find_free_port
+    from mlflow.models.cli import _get_flavor_backend
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
+
+    port = find_free_port()
+
+    server_proc = None
+    try:
+        server_proc = _get_flavor_backend(
+            model_path, no_conda=False, workers=1, install_mlflow=False
+        ).serve(
+            model_uri=model_path,
+            port=port,
+            host="127.0.0.1",
+            enable_mlserver=False,
+            synchronous=False,
+        )
+
+        client = ScoringServerClient(host="127.0.0.1", port=port)
+        client.wait_server_ready()
+
+        data = pd.DataFrame(sklearn_model.inference_data)
+        result = client.invoke(data).to_numpy()[:, 0]
+        np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+    finally:
+        if server_proc is not None:
+            os.kill(server_proc.pid, signal.SIGTERM)

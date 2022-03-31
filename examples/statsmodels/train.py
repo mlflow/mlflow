@@ -28,7 +28,7 @@ def main():
     np.random.seed(9876789)
     nsamples = 100
     x = np.linspace(0, 10, 100)
-    X = np.column_stack((x, x ** 2))
+    X = np.column_stack((x, x**2))
     beta = np.array([1, 0.1, 10])
     e = np.random.normal(size=nsamples)
     X = sm.add_constant(X)

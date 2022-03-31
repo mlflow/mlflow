@@ -28,6 +28,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     pyfunc_serve_and_score_model,
+    _compare_logged_code_paths,
 )
 
 
@@ -401,7 +402,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     )
 
-    scores = pd.read_json(resp.content, orient="records")
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on
     # stan build underlying environment. Seed value only works for reproducibility of yhat.
@@ -409,3 +410,15 @@ def test_pyfunc_serve_and_score(prophet_model):
     pd.testing.assert_series_equal(
         left=local_predict["yhat"], right=scores["yhat"], check_dtype=True
     )
+
+
+def test_log_model_with_code_paths(prophet_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.prophet._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.prophet.log_model(prophet_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.prophet.FLAVOR_NAME)
+        mlflow.prophet.load_model(model_uri)
+        add_mock.assert_called()

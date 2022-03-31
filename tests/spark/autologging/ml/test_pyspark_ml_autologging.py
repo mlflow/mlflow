@@ -16,6 +16,7 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+from mlflow.tracking.client import MlflowClient
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -322,6 +323,66 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
         assert not _should_log_model(nested_pipeline_model)
 
 
+def test_log_stage_type_params(spark_session):
+    from pyspark.ml.base import Estimator, Transformer, Model
+    from pyspark.ml.evaluation import Evaluator
+    from pyspark.ml.param import Param, Params
+    from pyspark.ml.feature import Binarizer, OneHotEncoder
+
+    class TestingEstimator(Estimator):
+
+        transformer = Param(Params._dummy(), "transformer", "a transformer param")
+        model = Param(Params._dummy(), "model", "a model param")
+        evaluator = Param(Params._dummy(), "evaluator", "an evaluator param")
+
+        def setTransformer(self, transformer: Transformer):
+            return self._set(transformer=transformer)
+
+        def setModel(self, model: Model):
+            return self._set(model=model)
+
+        def setEvaluator(self, evaluator: Evaluator):
+            return self._set(evaluator=evaluator)
+
+        def _fit(self, dataset):
+            return TestingModel()
+
+    class TestingModel(Model):
+        def _transform(self, dataset):
+            return dataset
+
+    binarizer = Binarizer(threshold=1.0, inputCol="values", outputCol="features")
+    df = spark_session.createDataFrame([(0.0,), (1.0,), (2.0,)], ["input"])
+    ohe = OneHotEncoder().setInputCols(["input"]).setOutputCols(["output"])
+    ohemodel = ohe.fit(df)
+    bcd = BinaryClassificationEvaluator(metricName="areaUnderROC")
+
+    estimator = TestingEstimator().setTransformer(binarizer).setModel(ohemodel).setEvaluator(bcd)
+    param_map = get_params_to_log(estimator)
+    assert param_map["transformer"] == "Binarizer"
+    assert param_map["model"] == "OneHotEncoderModel"
+    assert param_map["evaluator"] == "BinaryClassificationEvaluator"
+
+    mlflow.pyspark.ml.autolog()
+    with mlflow.start_run() as run:
+        estimator.fit(df)
+        metadata = _gen_estimator_metadata(estimator)
+        estimator_info = load_json_artifact("estimator_info.json")
+        assert metadata.hierarchy == estimator_info["hierarchy"]
+        assert isinstance(estimator_info["hierarchy"]["params"], dict)
+        assert estimator_info["hierarchy"]["params"]["transformer"]["name"] == "Binarizer"
+        assert estimator_info["hierarchy"]["params"]["model"]["name"] == "OneHotEncoderModel"
+        assert (
+            estimator_info["hierarchy"]["params"]["evaluator"]["name"]
+            == "BinaryClassificationEvaluator"
+        )
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
+    assert run_data.params == truncate_param_dict(
+        stringify_dict_values(get_params_to_log(estimator))
+    )
+
+
 def test_param_map_captures_wrapped_params(dataset_binomial):
     lor = LogisticRegression(maxIter=3, standardization=False)
     ova = OneVsRest(classifier=lor, labelCol="abcd")
@@ -485,7 +546,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         assert math.isclose(avg_metric_value, run_data.metrics[avg_metric_name], rel_tol=1e-6)
         assert math.isclose(avg_metric_value, float(row.get(avg_metric_name)), rel_tol=1e-6)
 
-        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) > Version("3.2"):
+        if isinstance(estimator, CrossValidator) and Version(pyspark.__version__) >= Version("3.3"):
             std_metric_name = f"std_{metric_name}"
             std_metric_value = model.stdMetrics[row_index]
             assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
@@ -753,10 +814,8 @@ def test_is_metrics_value_loggable():
     is_metric_value_loggable = mlflow.pyspark.ml._AutologgingMetricsManager.is_metric_value_loggable
     assert is_metric_value_loggable(3)
     assert is_metric_value_loggable(3.5)
-    assert is_metric_value_loggable(np.int(3))
     assert is_metric_value_loggable(np.float32(3.5))
     assert not is_metric_value_loggable(True)
-    assert not is_metric_value_loggable(np.bool(True))
     assert not is_metric_value_loggable([1, 2])
     assert not is_metric_value_loggable(np.array([1, 2]))
 
@@ -804,3 +863,16 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
         ValueError, match="Tuning params should not include params not owned by the tuned estimator"
     ):
         pipeline.fit(dataset_regression)
+
+
+# pylint: disable=unused-argument
+@pytest.mark.large
+def test_autolog_registering_model(spark_session, dataset_binomial):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.pyspark.ml.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        lr = LinearRegression()
+        lr.fit(dataset_binomial)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

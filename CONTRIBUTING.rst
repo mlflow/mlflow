@@ -41,7 +41,7 @@ actively review pull requests and are also happy to provide implementation guida
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.md>`_.
 
 Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
@@ -450,7 +450,7 @@ checkout of MLflow:
     $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
     # Update schema files
-    $ cd tests/db && ./update_schemas.sh
+    $ ./tests/db/update_schemas.sh
 
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)

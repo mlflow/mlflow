@@ -1,10 +1,23 @@
-.compare-table th.row-header {
-  min-width: 120px;
+.sticky-header {
+  position: sticky;
+  position: -webkit-sticky;
+  left: 0;
+}
+
+.compare-run-table {
+  display: block;
+  overflow: auto;
+  width: 100%;
 }
 
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
+}
+
+.compare-table .head-value {
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .compare-table td.data-value,
@@ -19,8 +32,18 @@
   overflow-x: auto;
 }
 
-.compare-table tr.row-changed th, .compare-table tr.row-changed td{
+.compare-table .diff-row .data-value {
   background-color: rgba(249, 237, 190, 0.5) ;
+  color: #555;
+}
+
+.compare-table .diff-row .head-value {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
+
+.compare-table .diff-row:hover {
+  background-color: rgba(249, 237, 190, 1.0) ;
   color: #555;
 }
 
@@ -41,6 +64,6 @@
   background-color:rgb(250, 250, 250);
   text-align: left;
 }
-.compare-table > tbody > tr:hover > td:not(.highlight-data) {
+.compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
   background-color: rgb(250, 250, 250);
 }

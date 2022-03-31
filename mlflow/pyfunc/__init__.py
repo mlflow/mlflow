@@ -24,8 +24,9 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
   predict(
-    model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-  ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+    model_input: [pandas.DataFrame, numpy.ndarray, scipy.sparse.(csc.csc_matrix | csr.csr_matrix),
+    List[Any], Dict[str, Any]]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
 tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
@@ -70,8 +71,9 @@ following parameters:
          ``predict`` method with the following signature::
 
           predict(
-              model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
-          ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+            model_input: [pandas.DataFrame, numpy.ndarray,
+            scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], Dict[str, Any]]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame) | List]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -206,6 +208,9 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import tempfile
+import signal
+import sys
 
 import numpy as np
 import os
@@ -213,11 +218,13 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
+import threading
+import collections
+import subprocess
 
-from typing import Any, Union, List, Dict
+from typing import Any, Union, List, Dict, Iterator, Tuple
 import mlflow
 import mlflow.pyfunc.model
-import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -231,8 +238,15 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
-from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.annotations import deprecated
+from mlflow.utils.file_utils import _copy_file_or_tree, write_to
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
+)
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -242,6 +256,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -250,6 +265,12 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
+from mlflow.utils.requirements_utils import (
+    _check_requirement_satisfied,
+    _parse_requirements,
+)
+from mlflow.utils import find_free_port
+from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -313,19 +334,19 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
 
     The following type conversions are allowed:
 
-    1. np.object -> string
+    1. object -> string
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
     5. np.datetime64[x] -> datetime (any precision)
-    6. np.object -> datetime
+    6. object -> datetime
 
     Any other type mismatch will raise error.
     """
-    if values.dtype == np.object and t not in (DataType.binary, DataType.string):
+    if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == np.object:
+    if t == DataType.string and values.dtype == object:
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
@@ -349,8 +370,8 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # ignore precision when matching datetime columns.
         return values
 
-    if t == DataType.datetime and values.dtype == np.object:
-        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+    if t == DataType.datetime and values.dtype == object:
+        # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
             return values.astype(np.datetime64, errors="raise")
@@ -594,7 +615,8 @@ class PyFuncModel:
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray,
+                     scipy.sparse.(csc.csc_matrix | csr.csr_matrix), List[Any], or
                      Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -624,7 +646,45 @@ class PyFuncModel:
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 
-def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = None) -> PyFuncModel:
+def _warn_dependency_requirement_mismatches(model_path):
+    """
+    Inspects the model's dependencies and prints a warning if the current Python environment
+    doesn't satisfy them.
+    """
+    req_file_path = os.path.join(model_path, _REQUIREMENTS_FILE_NAME)
+    if not os.path.exists(req_file_path):
+        return
+
+    try:
+        mismatch_infos = []
+        for req in _parse_requirements(req_file_path, is_constraint=False):
+            req_line = req.req_str
+            mismatch_info = _check_requirement_satisfied(req_line)
+            if mismatch_info is not None:
+                mismatch_infos.append(str(mismatch_info))
+
+        if len(mismatch_infos) > 0:
+            mismatch_str = " - " + "\n - ".join(mismatch_infos)
+            warning_msg = (
+                "Detected one or more mismatches between the model's dependencies and the current "
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
+            )
+            _logger.warning(warning_msg)
+
+    except Exception as e:
+        _logger.warning(
+            f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
+            "mismatches. Set logging level to DEBUG to see the full traceback."
+        )
+        _logger.debug("", exc_info=True)
+
+
+def load_model(
+    model_uri: str, suppress_warnings: bool = False, dst_path: str = None
+) -> PyFuncModel:
     """
     Load a model stored in Python function format.
 
@@ -636,6 +696,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -648,6 +709,10 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
                      path will be created.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+
+    if not suppress_warnings:
+        _warn_dependency_requirement_mismatches(local_path)
+
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
@@ -659,12 +724,118 @@ def load_model(model_uri: str, suppress_warnings: bool = True, dst_path: str = N
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
-    if CODE in conf and conf[CODE]:
-        code_path = os.path.join(local_path, conf[CODE])
-        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
+
+    _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+
+
+def _download_model_conda_env(model_uri):
+    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
+    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
+
+
+def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    if format == "pip":
+        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
+        try:
+            return _download_artifact_from_uri(req_file_uri)
+        except Exception as e:
+            # fallback to download conda.yaml file and parse the "pip" section from it.
+            _logger.info(
+                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
+                "Other conda dependencies will be ignored."
+            )
+
+        conda_yml_path = _download_model_conda_env(model_uri)
+
+        with open(conda_yml_path, "r") as yf:
+            conda_yml = yaml.safe_load(yf)
+
+        conda_deps = conda_yml.get("dependencies", [])
+        for index, dep in enumerate(conda_deps):
+            if isinstance(dep, dict) and "pip" in dep:
+                pip_deps_index = index
+                break
+        else:
+            raise MlflowException(
+                "No pip section found in conda.yaml file in the model directory.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        pip_deps = conda_deps.pop(pip_deps_index)["pip"]
+        tmp_dir = tempfile.mkdtemp()
+        pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+        with open(pip_file_path, "w") as f:
+            f.write("\n".join(pip_deps) + "\n")
+
+        if len(conda_deps) > 0:
+            _logger.warning(
+                "The following conda dependencies have been excluded from the environment file:"
+                f" {', '.join(conda_deps)}."
+            )
+
+        return pip_file_path
+
+    elif format == "conda":
+        conda_yml_path = _download_model_conda_env(model_uri)
+        return conda_yml_path
+    else:
+        raise MlflowException(
+            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+
+def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    """
+    :param model_uri: The uri of the model to get dependencies from.
+    :param format: The format of the returned dependency file. If the ``"pip"`` format is
+                   specified, the path to a pip ``requirements.txt`` file is returned.
+                   If the ``"conda"`` format is specified, the path to a ``"conda.yaml"``
+                   file is returned . If the ``"pip"`` format is specified but the model
+                   was not saved with a ``requirements.txt`` file, the ``pip`` section
+                   of the model's ``conda.yaml`` file is extracted instead, and any
+                   additional conda dependencies are ignored. Default value is ``"pip"``.
+    :return: The local filesystem path to either a pip ``requirements.txt`` file
+             (if ``format="pip"``) or a ``conda.yaml`` file (if ``format="conda"``)
+             specifying the model's dependencies.
+    """
+    dep_file = _get_model_dependencies(model_uri, format)
+    if format == "pip":
+        prefix = "%" if is_in_databricks_runtime() else ""
+        _logger.info(
+            "To install these model dependencies, run the "
+            f"following command: '{prefix}pip install -r {dep_file}'."
+        )
+    return dep_file
+
+
+@deprecated("mlflow.pyfunc.load_model", 1.0)
+def load_pyfunc(model_uri, suppress_warnings=False):
+    """
+    Load a model stored in Python function format.
+
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :param suppress_warnings: If ``True``, non-fatal warning messages associated with the model
+                              loading process will be suppressed. If ``False``, these warning
+                              messages will be emitted.
+    """
+    return load_model(model_uri, suppress_warnings)
 
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
@@ -689,7 +860,29 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         )
 
 
-def spark_udf(spark, model_uri, result_type="double"):
+def _get_or_create_model_cache_dir():
+    nfs_root_dir = get_nfs_cache_root_dir()
+    if nfs_root_dir is not None:
+        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
+        # the data stored in the disk is shared with all remote nodes.
+        root_dir = os.path.join(nfs_root_dir, "models")
+        os.makedirs(root_dir, exist_ok=True)
+        tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
+        # TODO: register deleting tmp_model_dir handler when exit
+    else:
+        import atexit
+        import shutil
+
+        tmp_model_dir = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+
+    return tmp_model_dir
+
+
+_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
+
+
+def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -729,6 +922,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
                       - ``models:/<model_name>/<model_version>``
                       - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
 
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -761,6 +955,18 @@ def spark_udf(spark, model_uri, result_type="double"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
+    :param env_manager: The environment manager to use in order to create the
+                        software environment for model inference. Default value is ``local``,
+                        The following values are supported:
+
+                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                           that was used to train the model. Note that environment is only restored
+                           in the context of the PySpark UDF; the software environment outside of
+                           the UDF is unaffected.
+                         - ``local``: Use the current Python environment for model inference, which
+                           may differ from the environment used to train the model and may lead to
+                           errors or invalid predictions.
+
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
     """
@@ -769,10 +975,31 @@ def spark_udf(spark, model_uri, result_type="double"):
     # functionality.
     import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
+    from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
-    from pyspark.sql.types import ArrayType, DataType as SparkDataType
+    from pyspark.sql.types import (
+        ArrayType,
+        DataType as SparkDataType,
+        StructType as SparkStructType,
+    )
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+    from mlflow.models.cli import _get_flavor_backend
+
+    if env_manager not in ["local", "conda"]:
+        raise MlflowException(
+            f"Illegal env_manager value '{env_manager}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+    # Check whether spark is in local or local-cluster mode
+    # this case all executors and driver share the same filesystem
+    is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
+    # TODO:
+    #  change `should_use_nfs` to be get_nfs_cache_root_dir() is not None
+    #  when NFS optimization added.
+    should_use_nfs = False
+
+    should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -790,16 +1017,51 @@ def spark_udf(spark, model_uri, result_type="double"):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    with TempDir() as local_tmpdir:
-        local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=local_tmpdir.path()
-        )
-        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
-        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
+    )
 
-    def predict(*args):
-        model = SparkModelCache.get_or_load(archive_path)
-        input_schema = model.metadata.get_input_schema()
+    if env_manager == "local":
+        # Assume spark executor python environment is the same with spark driver side.
+        _warn_dependency_requirement_mismatches(local_model_path)
+        _logger.warning(
+            'Calling `spark_udf()` with `env_manager="local"` does not recreate the same '
+            "environment that was used during training, which may lead to errors or inaccurate "
+            'predictions. We recommend specifying `env_manager="conda"`, which automatically '
+            "recreates the environment that was used to train the model and performs inference "
+            "in the recreated environment."
+        )
+    else:
+        _logger.info(
+            "This UDF will use Conda to recreate the model's software environment for inference. "
+            "This may take extra time during execution."
+        )
+        if not sys.platform.startswith("linux"):
+            # TODO: support killing mlflow server launched in UDF task when spark job canceled
+            #  for non-linux system.
+            #  https://stackoverflow.com/questions/53208/how-do-i-automatically-destroy-child-processes-in-windows
+            _logger.warning(
+                "In order to run inference code in restored python environment, PySpark UDF "
+                "processes spawn MLflow Model servers as child processes. Due to system "
+                "limitations with handling SIGKILL signals, these MLflow Model server child "
+                "processes cannot be cleaned up if the Spark Job is canceled."
+            )
+
+    if not should_use_spark_to_broadcast_file:
+        # Prepare restored environment in driver side if possible.
+        if env_manager == "conda":
+            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
+                model_uri=local_model_path, capture_output=False
+            )
+
+    # Broadcast local model directory to remote worker if needed.
+    if should_use_spark_to_broadcast_file:
+        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+
+    model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+
+    def _predict_row_batch(predict_fn, args):
+        input_schema = model_metadata.get_input_schema()
         pdf = None
 
         for x in args:
@@ -827,7 +1089,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        result = model.predict(pdf)
+        result = predict_fn(pdf)
 
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -839,7 +1101,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                 [np.byte, np.ubyte, np.short, np.ushort, np.int32]
             ).astype(np.int32)
         elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int])
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)
@@ -863,7 +1125,134 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    udf = pandas_udf(predict, result_type)
+    result_type_hint = (
+        pandas.DataFrame if isinstance(result_type, SparkStructType) else pandas.Series
+    )
+
+    @pandas_udf(result_type)
+    def udf(
+        iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
+    ) -> Iterator[result_type_hint]:
+        # importing here to prevent circular import
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+        # Note: this is a pandas udf function in iteration style, which takes an iterator of
+        # tuple of pandas.Series and outputs an iterator of pandas.Series.
+
+        scoring_server_proc = None
+
+        # TODO: Support virtual env.
+        #
+        # TODO: For conda/virtualenv restored env cases,
+        #  For each individual python process (driver side), create individual and temporary
+        #  conda env dir / virtualenv env dir and when process exit,
+        #  delete the temporary env dir.
+        #  The reason is
+        #   1. env dir might be a large size directory and cleaning it when process exit
+        #      help saving disk space.
+        #   2. We have conda package cache dir and pip cache dir which are shared across all
+        #      python processes which help reducing downloading time.
+        #   3. Avoid race conditions related issues.
+        #
+        # TODO:
+        #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
+        #   NFS directory, and in spark driver side prepare restored env once, and then all
+        #   spark UDF tasks running on spark workers can skip re-creating the restored env.
+        if env_manager == "conda":
+            server_port = find_free_port()
+
+            if should_use_spark_to_broadcast_file:
+                local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
+                    archive_path
+                )
+                # Call "prepare_env" in advance in order to reduce scoring server launch time.
+                # So that we can use a shorter timeout when call `client.wait_server_ready`,
+                # otherwise we have to set a long timeout for `client.wait_server_ready` time,
+                # this prevents spark UDF task failing fast if other exception raised when scoring
+                # server launching.
+                _get_flavor_backend(
+                    local_model_path_on_executor, no_conda=False, install_mlflow=False
+                ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
+            else:
+                local_model_path_on_executor = local_model_path
+            # launch scoring server
+
+            # TODO: adjust timeout for server requests handler.
+            scoring_server_proc = _get_flavor_backend(
+                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False
+            ).serve(
+                model_uri=local_model_path_on_executor,
+                port=server_port,
+                host="127.0.0.1",
+                enable_mlserver=False,
+                synchronous=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+
+            server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
+
+            def server_redirect_log_thread_func(child_stdout):
+                for line in child_stdout:
+                    if isinstance(line, bytes):
+                        decoded = line.decode()
+                    else:
+                        decoded = line
+                    server_tail_logs.append(decoded)
+                    sys.stdout.write("[model server] " + decoded)
+
+            server_redirect_log_thread = threading.Thread(
+                target=server_redirect_log_thread_func, args=(scoring_server_proc.stdout,)
+            )
+            server_redirect_log_thread.setDaemon(True)
+            server_redirect_log_thread.start()
+
+            client = ScoringServerClient("127.0.0.1", server_port)
+
+            try:
+                client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+            except Exception:
+                err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
+                if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
+                    err_msg += (
+                        f"Last {_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP} "
+                        "lines of MLflow model server output:\n"
+                    )
+                else:
+                    err_msg += "MLflow model server output:\n"
+                err_msg += "".join(server_tail_logs)
+                raise MlflowException(err_msg)
+
+            def batch_predict_fn(pdf):
+                return client.invoke(pdf)
+
+        elif env_manager == "local":
+            if should_use_spark_to_broadcast_file:
+                loaded_model, _ = SparkModelCache.get_or_load(archive_path)
+            else:
+                loaded_model = mlflow.pyfunc.load_model(local_model_path)
+
+            def batch_predict_fn(pdf):
+                return loaded_model.predict(pdf)
+
+        try:
+            for input_batch in iterator:
+                # If the UDF is called with only multiple arguments,
+                # the `input_batch` is a tuple which composes of several pd.Series/pd.DataFrame
+                # objects.
+                # If the UDF is called with only one argument,
+                # the `input_batch` instance will be an instance of `pd.Series`/`pd.DataFrame`,
+                if isinstance(input_batch, (pandas.Series, pandas.DataFrame)):
+                    # UDF is called with only one argument
+                    row_batch_args = (input_batch,)
+                else:
+                    row_batch_args = input_batch
+
+                yield _predict_row_batch(batch_predict_fn, row_batch_args)
+        finally:
+            if scoring_server_proc is not None:
+                os.kill(scoring_server_proc.pid, signal.SIGTERM)
+
     udf.metadata = model_metadata
 
     @functools.wraps(udf)
@@ -886,11 +1275,11 @@ def spark_udf(spark, model_uri, result_type="double"):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
-                _logger.warning(
+                raise MlflowException(
                     "Attempting to apply udf on zero columns because no column names were "
-                    "specified as arguments or inferred from the model signature."
+                    "specified as arguments or inferred from the model signature.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
-                return udf()  # pylint: disable=no-value-for-parameter
         else:
             return udf(*args)
 
@@ -1220,23 +1609,23 @@ def _save_model_with_loader_module_and_data_path(
     :return: Model configuration containing model info.
     """
 
-    code = None
     data = None
 
     if data_path is not None:
         model_file = _copy_file_or_tree(src=data_path, dst=path, dst_dir="data")
         data = model_file
 
-    if code_paths is not None:
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
-        code = "code"
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=_CONDA_ENV_FILE_NAME
+        mlflow_model,
+        loader_module=loader_module,
+        code=code_dir_subpath,
+        data=data,
+        env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

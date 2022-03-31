@@ -5,6 +5,8 @@ See the System Tags section in the MLflow Tracking documentation for information
 meaning of these tags.
 """
 
+MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
+MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -39,8 +41,10 @@ MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
 # when MLflow Tracking APIs are used within a Databricks Job
 MLFLOW_DATABRICKS_JOB_ID = "mlflow.databricks.jobID"
 MLFLOW_DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID"
+# Here MLFLOW_DATABRICKS_JOB_TYPE means the job task type and MLFLOW_DATABRICKS_JOB_TYPE_INFO
+# implies the job type which could be normal, ephemeral, etc.
 MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
-
+MLFLOW_DATABRICKS_JOB_TYPE_INFO = "mlflow.databricks.jobTypeInfo"
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 

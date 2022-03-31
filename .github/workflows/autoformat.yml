@@ -20,7 +20,7 @@ jobs:
       sha: ${{ fromJSON(steps.create-status.outputs.result).sha }}
       pull_number: ${{ fromJSON(steps.create-status.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Check comment
         id: check-comment
         uses: actions/github-script@v4
@@ -46,8 +46,8 @@ jobs:
       py_changed: ${{ steps.check-diff.outputs.py_changed }}
       ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
       - run: |
@@ -71,11 +71,11 @@ jobs:
     outputs:
       has_diff: ${{ steps.check-diff.outputs.has_diff }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
       - name: Install dependencies
@@ -90,7 +90,7 @@ jobs:
           git diff --output=python.diff
           has_diff=$([[ -z "$(cat python.diff)" ]] && echo "false" || echo "true")
           echo "::set-output name=has_diff::$has_diff"
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
           name: python.${{ github.run_id }}.diff
@@ -109,27 +109,27 @@ jobs:
       run:
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
       - uses: actions/setup-node@v1
         with:
-          node-version: 14.x
+          node-version: "16"
       - name: Install dependencies
         run: |
-          npm i
+          yarn install
       - run: |
-          npm run lint:fix
+          yarn run lint:fix
       - run: |
-          npm run extract-i18n
+          yarn run extract-i18n
       - name: Check diff
         id: check-diff
         run: |
           git diff --output=ui.diff
           has_diff=$([[ -z "$(cat ui.diff)" ]] && echo "false" || echo "true")
           echo "::set-output name=has_diff::$has_diff"
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
         with:
           name: ui.${{ github.run_id }}.diff
@@ -146,7 +146,7 @@ jobs:
       (needs.python.result == 'success' && needs.python.outputs.has_diff == 'true') ||
       (needs.ui.result == 'success' && needs.ui.outputs.has_diff == 'true')
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.ref }}
@@ -155,12 +155,12 @@ jobs:
           # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
           # To make it work, commit changes using the mlflow-automation bot (https://github.com/mlflow-automation).
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         if: ${{ needs.python.result == 'success' && needs.python.outputs.has_diff == 'true' }}
         with:
           name: python.${{ github.run_id }}.diff
           path: /tmp/patches
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         if: ${{ needs.ui.result == 'success' && needs.ui.outputs.has_diff == 'true' }}
         with:
           name: ui.${{ github.run_id }}.diff
@@ -182,7 +182,7 @@ jobs:
     needs: [check-comment, check-diff, python, ui, apply-patches]
     if: ${{ always() && needs.check-comment.outputs.matched == 'true' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Update status
         uses: actions/github-script@v4
         with:

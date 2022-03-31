@@ -7,6 +7,7 @@ from mlflow.models.evaluation import (
     ModelEvaluator,
     EvaluationArtifact,
 )
+from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact
 from mlflow.models.evaluation.base import (
     EvaluationDataset,
     _normalize_evaluators_and_evaluator_config_args as _normalize_config,
@@ -21,6 +22,8 @@ import pytest
 import numpy as np
 import pandas as pd
 from unittest import mock
+from PIL import ImageChops, Image
+import io
 from mlflow.utils.file_utils import TempDir
 from mlflow_test_plugin.dummy_evaluator import Array2DEvaluationArtifact
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
@@ -226,7 +229,12 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
         "accuracy_score_on_iris_dataset": expected_accuracy_score,
     }
 
-    expected_artifact = confusion_matrix(y_true, y_pred)
+    expected_csv_artifact = confusion_matrix(y_true, y_pred)
+    cm_figure = sklearn.metrics.ConfusionMatrixDisplay.from_predictions(y_true, y_pred).figure_
+    img_buf = io.BytesIO()
+    cm_figure.savefig(img_buf)
+    img_buf.seek(0)
+    expected_image_artifact = Image.open(img_buf)
 
     with mlflow.start_run() as run:
         eval_result = evaluate(
@@ -238,18 +246,42 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
             evaluators="dummy_evaluator",
         )
 
-    artifact_name = "confusion_matrix_on_iris_dataset.csv"
-    saved_artifact_path = get_local_artifact_path(run.info.run_id, artifact_name)
+    csv_artifact_name = "confusion_matrix_on_iris_dataset"
+    saved_csv_artifact_path = get_local_artifact_path(run.info.run_id, csv_artifact_name + ".csv")
+
+    png_artifact_name = "confusion_matrix_image_on_iris_dataset"
+    saved_png_artifact_path = get_local_artifact_path(run.info.run_id, png_artifact_name) + ".png"
 
     _, saved_metrics, _, saved_artifacts = get_run_data(run.info.run_id)
     assert saved_metrics == expected_saved_metrics
-    assert saved_artifacts == [artifact_name]
+    assert set(saved_artifacts) == {csv_artifact_name + ".csv", png_artifact_name + ".png"}
 
     assert eval_result.metrics == expected_metrics
-    confusion_matrix_artifact = eval_result.artifacts[artifact_name]
-    assert np.array_equal(confusion_matrix_artifact.content, expected_artifact)
-    assert confusion_matrix_artifact.uri == get_artifact_uri(run.info.run_id, artifact_name)
-    assert np.array_equal(confusion_matrix_artifact._load(saved_artifact_path), expected_artifact)
+    confusion_matrix_artifact = eval_result.artifacts[csv_artifact_name]
+    assert np.array_equal(confusion_matrix_artifact.content, expected_csv_artifact)
+    assert confusion_matrix_artifact.uri == get_artifact_uri(
+        run.info.run_id, csv_artifact_name + ".csv"
+    )
+    assert np.array_equal(
+        confusion_matrix_artifact._load(saved_csv_artifact_path), expected_csv_artifact
+    )
+    confusion_matrix_image_artifact = eval_result.artifacts[png_artifact_name]
+    assert (
+        ImageChops.difference(
+            confusion_matrix_image_artifact.content, expected_image_artifact
+        ).getbbox()
+        is None
+    )
+    assert confusion_matrix_image_artifact.uri == get_artifact_uri(
+        run.info.run_id, png_artifact_name + ".png"
+    )
+    assert (
+        ImageChops.difference(
+            confusion_matrix_image_artifact._load(saved_png_artifact_path),
+            expected_image_artifact,
+        ).getbbox()
+        is None
+    )
 
     with TempDir() as temp_dir:
         temp_dir_path = temp_dir.path()
@@ -259,22 +291,40 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
             assert json.load(fp) == eval_result.metrics
 
         with open(temp_dir.path("artifacts_metadata.json"), "r") as fp:
-            assert json.load(fp) == {
-                "confusion_matrix_on_iris_dataset.csv": {
-                    "uri": confusion_matrix_artifact.uri,
-                    "class_name": "mlflow_test_plugin.dummy_evaluator.Array2DEvaluationArtifact",
-                }
+            json_dict = json.load(fp)
+            assert "confusion_matrix_on_iris_dataset" in json_dict
+            assert json_dict["confusion_matrix_on_iris_dataset"] == {
+                "uri": confusion_matrix_artifact.uri,
+                "class_name": "mlflow_test_plugin.dummy_evaluator.Array2DEvaluationArtifact",
             }
 
-        assert os.listdir(temp_dir.path("artifacts")) == ["confusion_matrix_on_iris_dataset.csv"]
+            assert "confusion_matrix_image_on_iris_dataset" in json_dict
+            assert json_dict["confusion_matrix_image_on_iris_dataset"] == {
+                "uri": confusion_matrix_image_artifact.uri,
+                "class_name": "mlflow.models.evaluation.artifacts.ImageEvaluationArtifact",
+            }
+
+        assert set(os.listdir(temp_dir.path("artifacts"))) == {
+            "confusion_matrix_on_iris_dataset.csv",
+            "confusion_matrix_image_on_iris_dataset.png",
+        }
 
         loaded_eval_result = EvaluationResult.load(temp_dir_path)
         assert loaded_eval_result.metrics == eval_result.metrics
-        loaded_confusion_matrix_artifact = loaded_eval_result.artifacts[artifact_name]
+        loaded_confusion_matrix_artifact = loaded_eval_result.artifacts[csv_artifact_name]
         assert confusion_matrix_artifact.uri == loaded_confusion_matrix_artifact.uri
         assert np.array_equal(
             confusion_matrix_artifact.content,
             loaded_confusion_matrix_artifact.content,
+        )
+        loaded_confusion_matrix_image_artifact = loaded_eval_result.artifacts[png_artifact_name]
+        assert confusion_matrix_image_artifact.uri == loaded_confusion_matrix_image_artifact.uri
+        assert (
+            ImageChops.difference(
+                confusion_matrix_image_artifact.content,
+                loaded_confusion_matrix_image_artifact.content,
+            ).getbbox()
+            is None
         )
 
         new_confusion_matrix_artifact = Array2DEvaluationArtifact(uri=confusion_matrix_artifact.uri)
@@ -282,6 +332,14 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
         assert np.array_equal(
             confusion_matrix_artifact.content,
             new_confusion_matrix_artifact.content,
+        )
+        new_confusion_matrix_image_artifact = ImageEvaluationArtifact(
+            uri=confusion_matrix_image_artifact.uri
+        )
+        new_confusion_matrix_image_artifact._load()
+        assert np.array_equal(
+            confusion_matrix_image_artifact.content,
+            new_confusion_matrix_image_artifact.content,
         )
 
 
@@ -313,6 +371,33 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
         _, saved_metrics, _, _ = get_run_data(run.info.run_id)
         assert saved_metrics == expected_saved_metrics
         assert eval_result.metrics == expected_metrics
+
+
+def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
+
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+
+    regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
+
+    dataset_name = "diabetes_pd"
+
+    for model in [regressor_model, linear_regressor_model_uri]:
+        with mlflow.start_run() as run:
+            eval_result = evaluate(
+                model,
+                data=df,
+                targets="y",
+                model_type="regressor",
+                dataset_name=dataset_name,
+                evaluators=["default"],
+            )
+        _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    augment_name = f"_on_data_{dataset_name}"
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[f"{k}{augment_name}"]
 
 
 def test_dataset_name():
@@ -531,6 +616,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
                     evaluator_config=evaluator1_config,
+                    custom_metrics=None,
                 )
                 assert eval1_result.metrics == evaluator1_return_value.metrics
                 assert eval1_result.artifacts == evaluator1_return_value.artifacts
@@ -544,6 +630,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     dataset=iris_dataset,
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
+                    custom_metrics=None,
                 )
 
 
@@ -606,6 +693,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator1_config,
+                        custom_metrics=None,
                     )
                     mock_can_evaluate2.assert_called_once_with(
                         model_type="classifier",
@@ -617,6 +705,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         dataset=iris_dataset,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator2_config,
+                        custom_metrics=None,
                     )
 
 

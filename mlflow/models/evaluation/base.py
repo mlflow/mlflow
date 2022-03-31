@@ -15,6 +15,8 @@ import logging
 import struct
 import sys
 import math
+import urllib
+import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 
@@ -107,7 +109,8 @@ class EvaluationResult:
             uri = meta["uri"]
             ArtifactCls = _get_class_from_string(meta["class_name"])
             artifact = ArtifactCls(uri=uri)
-            artifact._load(os.path.join(artifacts_dir, artifact_name))
+            filename = pathlib.Path(urllib.parse.urlparse(uri).path).name
+            artifact._load(os.path.join(artifacts_dir, filename))
             artifacts[artifact_name] = artifact
 
         return EvaluationResult(metrics=metrics, artifacts=artifacts)
@@ -131,8 +134,9 @@ class EvaluationResult:
         artifacts_dir = os.path.join(path, "artifacts")
         os.mkdir(artifacts_dir)
 
-        for artifact_name, artifact in self.artifacts.items():
-            artifact._save(os.path.join(artifacts_dir, artifact_name))
+        for artifact in self.artifacts.values():
+            filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
+            artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
     def metrics(self) -> Dict[str, Any]:
@@ -250,6 +254,8 @@ class EvaluationDataset:
         self._user_specified_name = name
         self._path = path
         self._hash = None
+        self._supported_dataframe_types = (pd.DataFrame,)
+        self._spark_df_type = None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -257,13 +263,10 @@ class EvaluationDataset:
             if "pyspark" in sys.modules:
                 from pyspark.sql import DataFrame as SparkDataFrame
 
-                supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
-                spark_df_type = SparkDataFrame
-            else:
-                supported_dataframe_types = (pd.DataFrame,)
-                spark_df_type = None
+                self._supported_dataframe_types = (pd.DataFrame, SparkDataFrame)
+                self._spark_df_type = SparkDataFrame
         except ImportError:
-            supported_dataframe_types = (pd.DataFrame,)
+            pass
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise ValueError(
@@ -307,14 +310,14 @@ class EvaluationDataset:
                     f"feature_{str(i + 1).zfill(math.ceil((math.log10(num_features + 1))))}"
                     for i in range(num_features)
                 ]
-        elif isinstance(data, supported_dataframe_types):
+        elif isinstance(data, self._supported_dataframe_types):
             if not isinstance(targets, str):
                 raise ValueError(
                     "If data is a Pandas DataFrame or Spark DataFrame, `targets` argument must "
                     "be the name of the column which contains evaluation labels in the `data` "
                     "dataframe."
                 )
-            if isinstance(data, spark_df_type):
+            if self._spark_df_type and isinstance(data, self._spark_df_type):
                 _logger.warning(
                     "Specified Spark DataFrame is too large for model evaluation. Only "
                     f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
@@ -462,7 +465,9 @@ class ModelEvaluator(metaclass=ABCMeta):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
+    def evaluate(
+        self, *, model, model_type, dataset, run_id, evaluator_config, custom_metrics=None, **kwargs
+    ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
@@ -474,6 +479,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
+        :param custom_metrics: A list of callable custom metric functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -591,7 +597,14 @@ def _get_last_failed_evaluator():
 
 
 def _evaluate(
-    *, model, model_type, dataset, run_id, evaluator_name_list, evaluator_name_to_conf_map
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_name_list,
+    evaluator_name_to_conf_map,
+    custom_metrics,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -625,6 +638,7 @@ def _evaluate(
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=config,
+                custom_metrics=custom_metrics,
             )
             eval_results.append(result)
 
@@ -656,6 +670,7 @@ def evaluate(
     feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
+    custom_metrics=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -664,12 +679,12 @@ def evaluate(
 
     Default Evaluator behavior:
      - The default evaluator, which can be invoked with ``evaluators="default"`` or
-       ``evaluators=None``, supports the ``"regressor"`` and ``"classifer"`` model types.
+       ``evaluators=None``, supports the ``"regressor"`` and ``"classifier"`` model types.
        It generates a variety of model performance metrics, model performance plots, and
        model explanations.
 
-     - For both the ``"regressor"`` and ``"classifer"`` model types, the default evaluator generates
-       model summary plots and feature importance plots using
+     - For both the ``"regressor"`` and ``"classifier"`` model types, the default evaluator
+       generates model summary plots and feature importance plots using
        `SHAP <https://shap.readthedocs.io/en/latest/index.html>`_.
 
      - For regressor models, the default evaluator additionally logs:
@@ -779,6 +794,99 @@ def evaluate(
                              If multiple evaluators are specified, each configuration should be
                              supplied as a nested dictionary whose key is the evaluator name.
 
+    :param custom_metrics: (Optional) A list of custom metric functions. A custom metric
+                           function is required to take in two parameters:
+
+                           - ``Union[pandas.Dataframe, pyspark.sql.DataFrame]``: The first being a
+                             Pandas or Spark DataFrame containing ``prediction`` and ``target``
+                             column. The ``prediction`` column contains the predictions made by
+                             the model. The ``target`` column contains the corresponding labels
+                             to the predictions made on that row.
+                           - ``Dict``: The second is a dictionary containing the metrics calculated
+                             by the default evaluator. The keys are the names of the metrics
+                             and the values are the scalar values of the metrics. Refer to the
+                             DefaultEvaluator behavior section for what metrics will be returned
+                             based on the type of model (i.e. classifier or regressor).
+                           - (Optional) ``str``: the path to a temporary directory that can be used
+                             by the custom metric function to temporarily store produced artifacts.
+                             The directory will be deleted after the artifacts are logged.
+
+                           A custom metric function can return in the following format:
+
+                           - ``Dict[AnyStr, Union[int, float, np.number]``: a singular dictionary of
+                             custom metrics, where the keys are the names of the metrics, and the
+                             values are the scalar values of the metrics.
+                           - ``Tuple[Dict[AnyStr, Union[int,float,np.number]], Dict[AnyStr,Any]]``:
+                             a tuple of a dict containing the custom metrics, and a dict of
+                             artifacts, where the keys are the names of the artifacts, and the
+                             values are objects representing the artifacts.
+
+                           Object types that artifacts can be represented as:
+
+                           - A string uri representing the file path to the artifact. MLflow will
+                             infer the type of the artifact based on the file extension.
+                           - A string representation of a JSON object. This will be saved as a
+                             .json artifact.
+                           - Pandas DataFrame. This will be resolved as a CSV artifact.
+                           - Numpy array. This will be saved as a .npy artifact.
+                           - Matplotlib Figure. This will be saved as an image artifact. Note that
+                             ``matplotlib.pyplot.savefig`` is called behind the scene with default
+                             configurations. To customize, either save the figure with the desired
+                             configurations and return its file path or define customizations
+                             through environment variables in ``matplotlib.rcParams``.
+                           - Other objects will be attempted to be pickled with the default
+                             protocol.
+
+                           .. code-block:: python
+                               :caption: Custom Metric Function Boilerplate
+
+                               def custom_metrics_boilerplate(eval_df, builtin_metrics):
+                                   # ...
+                                   metrics: Dict[AnyStr, Union[int, float, np.number]] = some_dict
+                                   artifacts: Dict[AnyStr, Any] = some_artifact_dict
+                                   # ...
+                                   if artifacts is not None:
+                                       return metrics, artifacts
+                                   return metrics
+
+                           .. code-block:: python
+                               :caption: Example usage of custom metrics
+
+                               def squared_diff_plus_one(eval_df, builtin_metrics):
+                                   return {
+                                       "squared_diff_plus_one": (
+                                           np.sum(
+                                               np.abs(
+                                                   eval_df["prediction"] - eval_df["target"] + 1
+                                               ) ** 2
+                                           )
+                                       )
+                                   }
+
+                               def scatter_plot(eval_df, builtin_metrics, artifacts_dir):
+                                   import tempfile
+                                   plt.scatter(eval_df['prediction'], eval_df['target'])
+                                   plt.xlabel('Targets')
+                                   plt.ylabel('Predictions')
+                                   plt.title("Targets vs. Predictions")
+                                   plt.savefig(os.path.join(artifacts_dir, "example.png"))
+                                   return {}, {
+                                       "pred_target_scatter": os.path.join(
+                                            artifacts_dir, "example.png"
+                                       )
+                                   }
+
+                               with mlflow.start_run():
+                                   mlflow.evaluate(
+                                       model,
+                                       data,
+                                       targets,
+                                       model_type,
+                                       dataset_name,
+                                       evaluators,
+                                       custom_metrics=[squared_diff_plus_one, scatter_plot],
+                                   )
+
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
     """
@@ -815,4 +923,5 @@ def evaluate(
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            custom_metrics=custom_metrics,
         )

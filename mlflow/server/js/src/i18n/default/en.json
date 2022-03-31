@@ -155,10 +155,6 @@
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
   },
-  "4mBrG2": {
-    "defaultMessage": "Load model as a Spark UDF.",
-    "description": "Code comment which states how to load model using spark UDF"
-  },
   "5Mzn2b": {
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
@@ -371,6 +367,10 @@
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
   },
+  "FdDWTo": {
+    "defaultMessage": "Clear All",
+    "description": "String for the clear button to clear any selected parameters and metrics"
+  },
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
@@ -507,6 +507,10 @@
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
   },
+  "O1rYVN": {
+    "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
+    "description": "Code comment which states how to load model using spark UDF"
+  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
@@ -558,6 +562,10 @@
   "RlRsah": {
     "defaultMessage": "loading...",
     "description": "Loading spinner text to show that the artifact loading is in progress"
+  },
+  "S7ESYH": {
+    "defaultMessage": "Visualizations",
+    "description": "Tabs title for plots on the compare runs page"
   },
   "SAD2Mj": {
     "defaultMessage": "OK",
@@ -902,6 +910,10 @@
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
+  },
+  "lISqyJ": {
+    "defaultMessage": "Run details",
+    "description": "Compare table title on the compare runs page"
   },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",

@@ -158,7 +158,7 @@ def test_column_schema_enforcement():
     pdf = pd.DataFrame(
         data=[[1, 2, 3, 4, True, "x", bytes([1]), "2021-01-01 00:00:00.1234567"]],
         columns=["b", "d", "a", "c", "e", "g", "f", "h"],
-        dtype=np.object,
+        dtype=object,
     )
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
@@ -180,9 +180,9 @@ def test_column_schema_enforcement():
     expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
     # MLflow datetime type in input_schema does not encode precision, so add it for assertions
     expected_types["h"] = np.dtype("datetime64[ns]")
-    # np.object cannot be converted to pandas Strings at the moment
-    expected_types["f"] = np.object
-    expected_types["g"] = np.object
+    # object cannot be converted to pandas Strings at the moment
+    expected_types["f"] = object
+    expected_types["g"] = object
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 
@@ -267,11 +267,11 @@ def test_column_schema_enforcement():
     pdf["b"] = pdf["b"].astype(np.int64)
 
     # 11. objects work
-    pdf["b"] = pdf["b"].astype(np.object)
-    pdf["d"] = pdf["d"].astype(np.object)
-    pdf["e"] = pdf["e"].astype(np.object)
-    pdf["f"] = pdf["f"].astype(np.object)
-    pdf["g"] = pdf["g"].astype(np.object)
+    pdf["b"] = pdf["b"].astype(object)
+    pdf["d"] = pdf["d"].astype(object)
+    pdf["e"] = pdf["e"].astype(object)
+    pdf["f"] = pdf["f"].astype(object)
+    pdf["g"] = pdf["g"].astype(object)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 

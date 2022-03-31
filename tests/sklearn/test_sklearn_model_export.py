@@ -34,6 +34,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
@@ -619,5 +620,17 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
+
+
+def test_log_model_with_code_paths(sklearn_knn_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.sklearn.log_model(sklearn_knn_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)
+        mlflow.sklearn.load_model(model_uri=model_uri)
+        add_mock.assert_called()

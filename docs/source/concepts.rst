@@ -98,6 +98,7 @@ For the Tracking API, you specify the artifact location using a (run ID, relativ
   - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
   - ``models:/<model_name>/<model_version>``
   - ``models:/<model_name>/<stage>``
+  - ``mlflow-artifacts:/path/to/model`` when running the tracking server in ``--serve-artifacts`` proxy mode.
 
 For example:
 

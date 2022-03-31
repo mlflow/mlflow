@@ -1,6 +1,5 @@
 import Utils from './Utils';
 import React from 'react';
-import { shallow } from 'enzyme';
 import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
@@ -100,13 +99,15 @@ test('renderNotebookSource', () => {
   const nameOverride = 'some feature';
   const queryParams = '?o=123456789';
 
-  expect(Utils.renderNotebookSource(null, null, null, null, sourceName)).toEqual('iris_feature');
-  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual(
+    'iris_feature',
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
     <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
@@ -115,7 +116,9 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName)).toEqual(
+  expect(
+    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -124,7 +127,7 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null)).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toEqual(
     <a
       title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -134,7 +137,15 @@ test('renderNotebookSource', () => {
     </a>,
   );
   expect(
-    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, nameOverride),
+    Utils.renderNotebookSource(
+      null,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      null,
+      nameOverride,
+    ),
   ).toEqual(
     <a
       title={sourceName}
@@ -145,11 +156,30 @@ test('renderNotebookSource', () => {
     </a>,
   );
   expect(
-    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName),
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null),
   ).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      queryParams,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      'http://databricks',
+      null,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
       target='_top'
     >
       iris_feature
@@ -164,23 +194,23 @@ test('renderJobSource', () => {
   const nameOverride = 'random text';
   const queryParams = '?o=123456789';
 
-  expect(Utils.renderJobSource(null, null, null, jobName)).toEqual(jobName);
-  expect(Utils.renderJobSource(null, jobId, null, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
+  expect(Utils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, null, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, null, null, null)).toEqual(
     <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
       {`job ${jobId}`}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, null, null)).toEqual(
     <a
       title={Utils.getDefaultJobRunName(jobId, jobRunId)}
       href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
@@ -189,15 +219,26 @@ test('renderJobSource', () => {
       {Utils.getDefaultJobRunName(jobId, jobRunId)}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, nameOverride)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
       {nameOverride}
     </a>,
   );
-  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName)).toEqual(
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
     <a
       title={jobName}
       href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
+    </a>,
+  );
+  expect(
+    Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
+  ).toEqual(
+    <a
+      title={jobName}
+      href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`}
       target='_top'
     >
       {jobName}
@@ -273,52 +314,6 @@ test('formatSource & renderSource', () => {
       mlflow-apps:entry
     </a>,
   );
-
-  const databricksRunTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper = shallow(Utils.renderSource(databricksRunTags));
-  expect(wrapper.is('a')).toEqual(true);
-  expect(wrapper.props().href).toEqual('http://localhost/#notebook/13');
-
-  const databricksRunRevisionTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookRevisionID': { value: '42' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper2 = shallow(Utils.renderSource(databricksRunRevisionTags));
-  expect(wrapper2.is('a')).toEqual(true);
-  expect(wrapper2.props().href).toEqual('http://localhost/#notebook/13/revision/42');
-
-  const wrapper3 = shallow(Utils.renderSource(databricksRunRevisionTags, '?o=123'));
-  expect(wrapper3.is('a')).toEqual(true);
-  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
-  // and https://stackoverflow.com/a/34772568
-  expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
-
-  const wrapper4 = shallow(Utils.renderSource(databricksRunRevisionTags, '', 'abcd123456'));
-  expect(wrapper4.is('a')).toEqual(true);
-  expect(wrapper4.props().href).toEqual(
-    'http://localhost/#notebook/13/revision/42/mlflow/run/abcd123456',
-  );
-
-  const databricksJobTags = {
-    'mlflow.source.name': { value: 'job/70/run/5' },
-    'mlflow.source.type': { value: 'JOB' },
-    'mlflow.databricks.jobID': { value: '70' },
-    'mlflow.databricks.jobRunID': { value: '5' },
-    'mlflow.databricks.jobType': { value: 'NOTEBOOK' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
-  const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
-  expect(wrapper5.is('a')).toEqual(true);
-  expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
 test('setQueryParams', () => {

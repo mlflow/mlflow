@@ -21,11 +21,11 @@ jobs:
       matrix:
         type: ["full", "skinny"]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/setup-node@v1
         with:
-          node-version: "12"
-      - uses: actions/setup-python@v2
+          node-version: "16"
+      - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
 
@@ -42,8 +42,8 @@ jobs:
           # https://github.com/wojtekmaj/react-pdf/issues/280
           CI: false
         run: |
-          npm install
-          npm run build
+          yarn install
+          yarn run build
 
       - name: Install dependencies
         run: |
@@ -84,7 +84,7 @@ jobs:
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         if: github.event_name == 'push'
         with:
           name: ${{ steps.build-dist.outputs.wheel-name }}

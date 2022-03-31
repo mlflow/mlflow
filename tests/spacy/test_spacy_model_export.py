@@ -2,6 +2,7 @@ import os
 import random
 from collections import namedtuple
 from packaging.version import Version
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -28,14 +29,15 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     allow_infer_pip_requirements_fallback_if,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
-
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
+spacy_version = Version(spacy.__version__)
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0")
 
 
 @pytest.fixture(scope="module")
@@ -406,7 +408,13 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     model, inference_dataframe = spacy_model_with_data
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(model, artifact_path)
+        if spacy_version <= Version("3.0.8"):
+            extra_pip_requirements = ["click<8.1.0", "flask<2.1.0"]
+        elif spacy_version < Version("3.2.4"):
+            extra_pip_requirements = ["click<8.1.0"]
+        else:
+            extra_pip_requirements = None
+        mlflow.spacy.log_model(model, artifact_path, extra_pip_requirements=extra_pip_requirements)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(
@@ -415,8 +423,21 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records")
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
     pd.testing.assert_frame_equal(scores, _predict(model, inference_dataframe))
+
+
+@pytest.mark.large
+def test_log_model_with_code_paths(spacy_model_with_data):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.spacy._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.spacy.FLAVOR_NAME)
+        mlflow.spacy.load_model(model_uri)
+        add_mock.assert_called()
 
 
 def _train_model(nlp, train_data, n_iter=5):

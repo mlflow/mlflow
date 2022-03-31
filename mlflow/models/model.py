@@ -26,6 +26,7 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "mlflow server via REST, consider upgrading the server version to MLflow "
     "1.7.0 or above."
 )
+_MLFLOW_VERSION_KEY = "mlflow_version"
 
 
 class ModelInfo(NamedTuple):
@@ -75,6 +76,9 @@ class ModelInfo(NamedTuple):
     #: The UTC time that the logged model is created, e.g., ``'2022-01-12 05:17:31.634689'``.
     utc_time_created: str
 
+    #: Version of MLFlow used to log the model
+    mlflow_version: str
+
 
 class Model:
     """
@@ -91,6 +95,7 @@ class Model:
         signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
         model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
+        mlflow_version: Union[str, None] = mlflow.version.VERSION,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -103,6 +108,7 @@ class Model:
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
         self.model_uuid = model_uuid() if callable(model_uuid) else model_uuid
+        self.mlflow_version = mlflow_version
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
@@ -175,6 +181,7 @@ class Model:
             saved_input_example_info=self.saved_input_example_info,
             signature_dict=self.signature.to_dict() if self.signature else None,
             utc_time_created=self.utc_time_created,
+            mlflow_version=self.mlflow_version,
         )
 
     def to_dict(self):
@@ -187,6 +194,8 @@ class Model:
             res["signature"] = self.signature.to_dict()
         if self.saved_input_example_info is not None:
             res["saved_input_example_info"] = self.saved_input_example_info
+        if self.mlflow_version is None and _MLFLOW_VERSION_KEY in res:
+            res.pop(_MLFLOW_VERSION_KEY)
         return res
 
     def to_yaml(self, stream=None):
@@ -225,6 +234,9 @@ class Model:
 
         if "model_uuid" not in model_dict:
             model_dict["model_uuid"] = None
+
+        if _MLFLOW_VERSION_KEY not in model_dict:
+            model_dict[_MLFLOW_VERSION_KEY] = None
 
         return cls(**model_dict)
 

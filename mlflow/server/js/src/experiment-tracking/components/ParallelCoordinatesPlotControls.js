@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { Button } from '../../shared/building_blocks/Button';
 import { TreeSelect } from 'antd';
 import { FormattedMessage } from 'react-intl';
 
@@ -13,6 +14,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    onClearAllSelect: PropTypes.func.isRequired,
   };
 
   static handleFilterChange = (text, option) =>
@@ -26,6 +28,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedMetricKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
+      onClearAllSelect,
     } = this.props;
     return (
       <div className='plot-controls'>
@@ -71,6 +74,14 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           onChange={handleMetricsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
+        <div style={{ marginTop: 20 }}>
+          <Button dataTestId='clear-button' onClick={onClearAllSelect}>
+            <FormattedMessage
+              defaultMessage='Clear All'
+              description='String for the clear button to clear any selected parameters and metrics'
+            />
+          </Button>
+        </div>
       </div>
     );
   }

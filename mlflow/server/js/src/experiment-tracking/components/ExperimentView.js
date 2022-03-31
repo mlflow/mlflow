@@ -39,7 +39,11 @@ import { CSSTransition } from 'react-transition-group';
 import { Spinner } from '../../common/components/Spinner';
 import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
+import {
+  ExperimentSearchSyntaxDocUrl,
+  ExperimentTrackingDocUrl,
+  onboarding,
+} from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
@@ -178,7 +182,8 @@ export class ExperimentView extends Component {
     };
   }
 
-  /* Returns a LocalStorageStore instance that can be used to persist data associated with the
+  /**
+   * Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ExperimentView component (e.g. component state such as table sort settings), for the
    * specified experiment.
    */
@@ -193,7 +198,8 @@ export class ExperimentView extends Component {
     return true;
   }
 
-  /* Returns true if search filter text was updated, e.g. if a user entered new text into the
+  /**
+   * Returns true if search filter text was updated, e.g. if a user entered new text into the
    * param filter, metric filter, or search text boxes.
    */
   filtersDidUpdate(prevState) {
@@ -382,12 +388,19 @@ export class ExperimentView extends Component {
 
   renderShareButton() {
     return (
-      <HeaderButton onClick={this.onShare} className={css(styles.shareButton)}>
-        <FormattedMessage
-          defaultMessage='Share'
-          description='String for the share button to share experiment view'
-        />
-      </HeaderButton>
+      <Tooltip
+        title={this.props.intl.formatMessage({
+          defaultMessage: 'Share experiment view',
+          description: 'Label for the share experiment view button',
+        })}
+      >
+        <HeaderButton onClick={this.onShare}>
+          <FormattedMessage
+            defaultMessage='Share'
+            description='String for the share button to share experiment view'
+          />
+        </HeaderButton>
+      </Tooltip>
     );
   }
 
@@ -488,11 +501,7 @@ export class ExperimentView extends Component {
           description='Learn more tooltip link to learn more on how to search in an experiments run table'
           values={{
             link: (chunks) => (
-              <a
-                href='https://www.mlflow.org/docs/latest/search-syntax.html'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
                 {chunks}
               </a>
             ),
@@ -514,10 +523,12 @@ export class ExperimentView extends Component {
     /* eslint-disable prefer-const */
     let breadcrumbs = [];
     let form;
+
     const artifactLocationProps = {
       experiment: this.props.experiment,
       intl: this.props.intl,
     };
+
     const ColumnSortByOrder = [COLUMN_SORT_BY_ASC, COLUMN_SORT_BY_DESC];
     let sortOptions = [];
     const attributesSortBy = Object.keys(ATTRIBUTE_COLUMN_SORT_LABEL).reduce(
@@ -604,14 +615,7 @@ export class ExperimentView extends Component {
             data-test-id='experiment-view-page-header'
             menu={this.getExperimentOverflowItems()}
           />
-          <Tooltip
-            title={this.props.intl.formatMessage({
-              defaultMessage: 'Share experiment view',
-              description: 'Label for the share experiment view button',
-            })}
-          >
-            {this.renderShareButton()}
-          </Tooltip>
+          {this.renderShareButton()}
         </PageHeader>
         {this.renderOnboardingContent()}
         <Descriptions className='metadata-list'>

@@ -25,7 +25,7 @@ validate_version() {
   fi
 }
 
-diff=$(git diff --cached --name-only | grep '\.py$' || true)
+diff=$(git diff --cached --diff-filter ACMRTUXB --name-only | grep '\.py$' || true)
 
 if [ ! -z "$diff" ]; then
   validate_version black

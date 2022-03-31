@@ -31,6 +31,7 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _log_child_runs_info,
 )
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -1874,10 +1875,8 @@ def test_is_metrics_value_loggable():
     is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
     assert is_metric_value_loggable(3)
     assert is_metric_value_loggable(3.5)
-    assert is_metric_value_loggable(np.int(3))
     assert is_metric_value_loggable(np.float32(3.5))
     assert not is_metric_value_loggable(True)
-    assert not is_metric_value_loggable(np.bool(True))
     assert not is_metric_value_loggable([1, 2])
     assert not is_metric_value_loggable(np.array([1, 2]))
 
@@ -1915,8 +1914,7 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         non_pickable_kmeans = NonPickleableKmeans()
-
-        with pytest.raises(TypeError, match="can't pickle generator objects"):
+        with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
             pickle.dumps(non_pickable_kmeans)
 
         non_pickable_kmeans.fit(*get_iris())
@@ -1928,3 +1926,15 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
+
+
+@pytest.mark.large
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+
+    mlflow.sklearn.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        sklearn.cluster.KMeans().fit(*get_iris())
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

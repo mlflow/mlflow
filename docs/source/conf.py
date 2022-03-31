@@ -331,6 +331,7 @@ nitpick_ignore = [
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "plotly.graph_objects.Figure"),
     ("py:class", "PIL.Image.Image"),
+    ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
@@ -340,6 +341,8 @@ nitpick_ignore = [
     ("py:class", "MlflowInferableDataset"),
     ("py:class", "scipy.sparse.csr.csr_matrix"),
     ("py:class", "scipy.sparse.csc.csc_matrix"),
+    ("py:class", "scipy.sparse._csr.csr_matrix"),
+    ("py:class", "scipy.sparse._csc.csc_matrix"),
 ]
 
 

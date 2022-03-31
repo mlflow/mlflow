@@ -17,6 +17,9 @@ setup(
         # Define a RunContextProvider plugin. The entry point name for run context providers
         # is not used, and so is set to the string "unused" here
         "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",  # pylint: disable=line-too-long
+        # Define a DefaultExperimentProvider plugin. The entry point name for
+        # default experiment providers is not used, and so is set to the string "unused" here
+        "mlflow.default_experiment_provider": "unused=mlflow_test_plugin.default_experiment_provider:PluginDefaultExperimentProvider",  # pylint: disable=line-too-long
         # Define a RequestHeaderProvider plugin. The entry point name for request header providers
         # is not used, and so is set to the string "unused" here
         "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",  # pylint: disable=line-too-long
@@ -26,6 +29,7 @@ setup(
         "mlflow.project_backend": "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",  # pylint: disable=line-too-long
         # Define a MLflow model deployment plugin for target 'faketarget'
         "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
+        # Define a Mlflow model evaluator with name "dummy_evaluator"
         "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",  # pylint: disable=line-too-long
     },
 )

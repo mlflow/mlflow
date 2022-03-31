@@ -121,6 +121,12 @@ def cli():
     "Note: this argument is used internally by the MLflow project APIs "
     "and should not be specified.",
 )
+@click.option(
+    "--run-name",
+    metavar="RUN_NAME",
+    help="The name to give the MLflow Run associated with the project execution. If not specified, "
+    "the MLflow Run name is left unset.",
+)
 def run(
     uri,
     entry_point,
@@ -134,6 +140,7 @@ def run(
     no_conda,
     storage_dir,
     run_id,
+    run_name,
 ):
     """
     Run an MLflow project from the given URI.
@@ -179,6 +186,7 @@ def run(
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
+            run_name=run_name,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
@@ -478,7 +486,7 @@ def gc(backend_store_uri, run_ids):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
-        print("Run with ID %s has been permanently deleted." % str(run_id))
+        click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
 
 cli.add_command(mlflow.deployments.cli.commands)

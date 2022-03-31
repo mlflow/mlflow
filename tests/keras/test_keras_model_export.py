@@ -37,6 +37,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _is_importable,
+    _compare_logged_code_paths,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -295,7 +296,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     )
     print(scoring_response.content)
     actual_scoring_response = pd.read_json(
-        scoring_response.content, orient="records", encoding="utf8"
+        scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
     ).values.astype(np.float32)
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
@@ -706,3 +707,16 @@ def test_pyfunc_serve_and_score_transformers():
     data = json.dumps({"inputs": dummy_inputs.tolist()})
     resp = pyfunc_serve_and_score_model(model_uri, data, pyfunc_scoring_server.CONTENT_TYPE_JSON)
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
+
+
+@pytest.mark.large
+def test_log_model_with_code_paths(model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.keras._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.keras.log_model(model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.keras.FLAVOR_NAME)
+        mlflow.keras.load_model(model_uri)
+        add_mock.assert_called()

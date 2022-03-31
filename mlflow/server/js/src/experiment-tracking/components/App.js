@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
+import { Version, HomePageDocsUrl } from '../../common/constants';
 import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
@@ -22,7 +23,7 @@ import {
 import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
 import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
-import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const
@@ -46,6 +47,7 @@ class App extends Component {
                 <Link to={Routes.rootRoute} className='App-mlflow'>
                   <img className='mlflow-logo' alt='MLflow' src={logo} />
                 </Link>
+                <span className={'mlflow-version'}>{Version}</span>
               </div>
               <div className='header-route-links'>
                 <NavLink
@@ -76,7 +78,7 @@ class App extends Component {
                     <span>GitHub</span>
                   </div>
                 </a>
-                <a href={'https://mlflow.org/docs/latest/index.html'}>
+                <a href={HomePageDocsUrl}>
                   <div className='docs'>
                     <span>Docs</span>
                   </div>

@@ -38,7 +38,11 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     safe_patch,
@@ -76,6 +80,7 @@ def save_model(
     fastai_learner,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -89,6 +94,9 @@ def save_model(
     :param fastai_learner: fastai Learner to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -147,6 +155,7 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
     os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -166,9 +175,15 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.fastai",
         data=model_data_subpath,
+        code=code_dir_subpath,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        fastai_version=fastai.__version__,
+        data=model_data_subpath,
+        code=code_dir_subpath,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -208,6 +223,7 @@ def log_model(
     fastai_learner,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -222,6 +238,9 @@ def log_model(
     :param fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
@@ -295,6 +314,7 @@ def log_model(
         registered_model_name=registered_model_name,
         fastai_learner=fastai_learner,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -317,7 +337,7 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
-        return pd.DataFrame(map(np.array, preds.numpy()), columns=["predictions"])
+        return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")
 
 
 def _load_pyfunc(path):
@@ -369,6 +389,8 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
     return _load_model(path=model_file_path)
 
@@ -380,6 +402,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -404,6 +427,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
                    autologging. If ``False``, show all events and warnings during Fastai
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     .. code-block:: python
         :caption: Example
