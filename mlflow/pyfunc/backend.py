@@ -26,7 +26,9 @@ class PyFuncBackend(FlavorBackend):
     Flavor backend implementation for the generic python models.
     """
 
-    def __init__(self, config, env_manager, workers=1, install_mlflow=False, **kwargs):
+    def __init__(
+        self, config, workers=1, env_manager=EnvManager.CONDA, install_mlflow=False, **kwargs
+    ):
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._env_manager = env_manager
