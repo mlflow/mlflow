@@ -110,8 +110,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
-    :param capture_output: Specify the capture_output argument while executing the "conda env create"
-                           command.
+    :param capture_output: Specify the capture_output argument while executing the
+                           "conda env create" command.
     :param: conda_env_root_dir: Root path for conda env. If None, use default one. Note if this is
                                 set, conda package cache path becomes "conda_env_root_path/pkgs"
                                 instead of the global package cache path.

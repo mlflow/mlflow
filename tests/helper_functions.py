@@ -195,7 +195,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # Assign the scoring process to a process group. All child processes of the
             # scoring process will be assigned to this group as well. This allows child
@@ -207,7 +207,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # On Windows, `os.setsid` and `preexec_fn` are unavailable
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,

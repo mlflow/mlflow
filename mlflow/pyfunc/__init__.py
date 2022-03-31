@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import tempfile
 import signal
 import sys
 
@@ -217,7 +218,6 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
-import tempfile
 import threading
 import collections
 import subprocess
@@ -244,7 +244,9 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
 )
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -254,6 +256,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -664,9 +667,13 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}"
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
             )
             _logger.warning(warning_msg)
+
     except Exception as e:
         _logger.warning(
             f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
@@ -722,6 +729,87 @@ def load_model(
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+
+
+def _download_model_conda_env(model_uri):
+    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
+    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
+
+
+def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    if format == "pip":
+        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
+        try:
+            return _download_artifact_from_uri(req_file_uri)
+        except Exception as e:
+            # fallback to download conda.yaml file and parse the "pip" section from it.
+            _logger.info(
+                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
+                "Other conda dependencies will be ignored."
+            )
+
+        conda_yml_path = _download_model_conda_env(model_uri)
+
+        with open(conda_yml_path, "r") as yf:
+            conda_yml = yaml.safe_load(yf)
+
+        conda_deps = conda_yml.get("dependencies", [])
+        for index, dep in enumerate(conda_deps):
+            if isinstance(dep, dict) and "pip" in dep:
+                pip_deps_index = index
+                break
+        else:
+            raise MlflowException(
+                "No pip section found in conda.yaml file in the model directory.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        pip_deps = conda_deps.pop(pip_deps_index)["pip"]
+        tmp_dir = tempfile.mkdtemp()
+        pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+        with open(pip_file_path, "w") as f:
+            f.write("\n".join(pip_deps) + "\n")
+
+        if len(conda_deps) > 0:
+            _logger.warning(
+                "The following conda dependencies have been excluded from the environment file:"
+                f" {', '.join(conda_deps)}."
+            )
+
+        return pip_file_path
+
+    elif format == "conda":
+        conda_yml_path = _download_model_conda_env(model_uri)
+        return conda_yml_path
+    else:
+        raise MlflowException(
+            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+
+def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    """
+    :param model_uri: The uri of the model to get dependencies from.
+    :param format: The format of the returned dependency file. If the ``"pip"`` format is
+                   specified, the path to a pip ``requirements.txt`` file is returned.
+                   If the ``"conda"`` format is specified, the path to a ``"conda.yaml"``
+                   file is returned . If the ``"pip"`` format is specified but the model
+                   was not saved with a ``requirements.txt`` file, the ``pip`` section
+                   of the model's ``conda.yaml`` file is extracted instead, and any
+                   additional conda dependencies are ignored. Default value is ``"pip"``.
+    :return: The local filesystem path to either a pip ``requirements.txt`` file
+             (if ``format="pip"``) or a ``conda.yaml`` file (if ``format="conda"``)
+             specifying the model's dependencies.
+    """
+    dep_file = _get_model_dependencies(model_uri, format)
+    if format == "pip":
+        prefix = "%" if is_in_databricks_runtime() else ""
+        _logger.info(
+            "To install these model dependencies, run the "
+            f"following command: '{prefix}pip install -r {dep_file}'."
+        )
+    return dep_file
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
