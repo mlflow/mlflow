@@ -99,8 +99,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
-    :param capture_output: Specify the capture_output argument while executing the "conda env create"
-                           command.
+    :param capture_output: Specify the capture_output argument while executing the
+                           "conda env create" command.
     """
 
     conda_path = get_conda_bin_executable("conda")
