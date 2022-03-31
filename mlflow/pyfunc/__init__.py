@@ -1019,7 +1019,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
     )
 
-    if env_manager == EnvManager.LOCAL:
+    if env_manager is EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -1049,7 +1049,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # Prepare restored environment in driver side if possible.
         if env_manager is EnvManager.CONDA:
             _get_flavor_backend(
-                local_model_path, env_manager=EnvManager.LOCAL, install_mlflow=False
+                local_model_path, env_manager=EnvManager.CONDA, install_mlflow=False
             ).prepare_env(model_uri=local_model_path, capture_output=False)
 
     # Broadcast local model directory to remote worker if needed.
@@ -1169,7 +1169,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
                 _get_flavor_backend(
-                    local_model_path_on_executor, env_manager=EnvManager.LOCAL, install_mlflow=False
+                    local_model_path_on_executor, env_manager=EnvManager.CONDA, install_mlflow=False
                 ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
             else:
                 local_model_path_on_executor = local_model_path
@@ -1178,7 +1178,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             # TODO: adjust timeout for server requests handler.
             scoring_server_proc = _get_flavor_backend(
                 local_model_path_on_executor,
-                env_manager=EnvManager.LOCAL,
+                env_manager=EnvManager.CONDA,
                 workers=1,
                 install_mlflow=False,
             ).serve(
