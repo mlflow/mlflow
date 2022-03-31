@@ -87,4 +87,4 @@ def _configure_mlflow_loggers(root_module_name):
 
 
 def eprint(*args, **kwargs):
-    print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
+    print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)  # pylint: disable=print-function

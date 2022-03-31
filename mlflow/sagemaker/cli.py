@@ -577,7 +577,7 @@ def build_and_push_container(build, push, container, mlflow_home):
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
     if not (build or push):
-        print("skipping both build and push, have nothing to do!")
+        click.echo("skipping both build and push, have nothing to do!")
     if build:
         sagemaker_image_entrypoint = """
         ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
