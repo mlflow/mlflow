@@ -4,7 +4,7 @@ import sys
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.file_utils import _copy_file_or_tree
@@ -35,7 +35,8 @@ def _get_flavor_configuration(model_path, flavor_name):
     model_conf = Model.load(model_configuration_path)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            'Model does not have the "{flavor_name}" flavor'.format(
+                flavor_name=flavor_name),
             RESOURCE_DOES_NOT_EXIST,
         )
     conf = model_conf.flavors[flavor_name]
@@ -67,7 +68,8 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            'Model does not have the "{flavor_name}" flavor'.format(
+                flavor_name=flavor_name),
             RESOURCE_DOES_NOT_EXIST,
         )
     return model_conf.flavors[flavor_name]
@@ -94,7 +96,8 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
 def _validate_code_paths(code_paths):
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
+            raise TypeError(
+                "Argument code_paths should be a list, not {}".format(type(code_paths)))
 
 
 def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
@@ -111,7 +114,8 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
     if code_paths is not None:
         code_dir_subpath = default_subpath
         for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
+            _copy_file_or_tree(src=code_path, dst=path,
+                               dst_dir=code_dir_subpath)
     else:
         code_dir_subpath = None
     return code_dir_subpath
@@ -119,6 +123,16 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+
+
+def _validate_and_prepare_target_save_path(path):
+    if os.path.exists(path) and any(os.scandir(path)):
+        raise MlflowException(
+            message="Path '{}' already exists and is not empty".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS
+        )
+
+    os.makedirs(path, exist_ok=True)
 
 
 def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):

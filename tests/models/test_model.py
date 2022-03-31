@@ -6,12 +6,14 @@ import mlflow
 import pandas as pd
 import numpy as np
 
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
@@ -64,7 +66,7 @@ class TestFlavor:
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
-        os.makedirs(path)
+        _validate_and_prepare_target_save_path(path)
         if signature is not None:
             mlflow_model.signature = signature
         if input_example is not None:
@@ -112,6 +114,25 @@ def test_model_log():
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
         assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
+
+def test_model_log_existing_full_directory_fails():
+    with TempDir(chdr=True) as tmp:
+        sig = ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = {"x": 1, "y": 2}
+
+        experiment_id = mlflow.create_experiment("test")
+
+        model_dir = "some/path"
+        os.makedirs(model_dir)
+        with open(os.path.join(model_dir, "foo.txt"), "wt") as f:
+            f.write("dummy content")
+        with mlflow.start_run(experiment_id=experiment_id):
+            with pytest.raises(MlflowException, match="already exists and is not empty"):
+                Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
 
 
 def test_model_info():

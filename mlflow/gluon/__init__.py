@@ -16,6 +16,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -209,8 +210,7 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)

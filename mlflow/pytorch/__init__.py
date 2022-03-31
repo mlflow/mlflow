@@ -48,6 +48,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -468,20 +469,19 @@ def save_model(
     """
     import torch
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements,
+                            extra_pip_requirements)
 
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise RuntimeError("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
 
-    os.makedirs(path)
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -500,15 +500,18 @@ def save_model(
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
-    pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
+    pickle_module_path = os.path.join(
+        model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
     # Save pytorch model
-    model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_path = os.path.join(
+        model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
     if isinstance(pytorch_model, torch.jit.ScriptModule):
         torch.jit.ScriptModule.save(pytorch_model, model_path)
     else:
-        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+        torch.save(pytorch_model, model_path,
+                   pickle_module=pickle_module, **kwargs)
 
     torchserve_artifacts_config = {}
 
@@ -522,8 +525,10 @@ def save_model(
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
-                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file))
-                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
+                rel_path = posixpath.join(
+                    _EXTRA_FILES_KEY, os.path.basename(extra_file))
+                torchserve_artifacts_config[_EXTRA_FILES_KEY].append(
+                    {"path": rel_path})
             shutil.move(
                 tmp_extra_files_dir.path(),
                 posixpath.join(path, _EXTRA_FILES_KEY),
@@ -545,7 +550,8 @@ def save_model(
                 artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
             )
             rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {
+                "path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
 
     mlflow_model.add_flavor(
@@ -584,18 +590,21 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(
+            conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
+                 "\n".join(pip_constraints))
 
     if not requirements_file:
         # Save `requirements.txt`
-        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
+                 "\n".join(pip_requirements))
 
 
 def _load_model(path, **kwargs):
@@ -621,7 +630,8 @@ def _load_model(path, **kwargs):
             )
         else:
             try:
-                kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
+                kwargs["pickle_module"] = importlib.import_module(
+                    pickle_module_name)
             except ImportError as exc:
                 raise MlflowException(
                     message=(
@@ -644,7 +654,8 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
+            # `torch.jit.load` does not accept `pickle_module`.
+            kwargs.pop("pickle_module", None)
             return torch.jit.load(model_path, **kwargs)
 
 
@@ -708,8 +719,10 @@ def load_model(model_uri, dst_path=None, **kwargs):
     """
     import torch
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path)
+    pytorch_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, pytorch_conf)
 
     if torch.__version__ != pytorch_conf["pytorch_version"]:
@@ -718,7 +731,8 @@ def load_model(model_uri, dst_path=None, **kwargs):
             pytorch_conf["pytorch_version"],
             torch.__version__,
         )
-    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
+    torch_model_artifacts_path = os.path.join(
+        local_model_path, pytorch_conf["model_data"])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
@@ -753,7 +767,8 @@ class _PyTorchWrapper:
                 "Please use a pandas.DataFrame or a numpy.ndarray"
             )
         else:
-            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+            raise TypeError(
+                "Input data should be pandas.DataFrame or numpy.ndarray")
 
         self.pytorch_model.to(device)
         self.pytorch_model.eval()

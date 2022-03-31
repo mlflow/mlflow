@@ -52,6 +52,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -233,11 +234,7 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:

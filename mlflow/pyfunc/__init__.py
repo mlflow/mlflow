@@ -245,6 +245,7 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
+    _validate_and_prepare_target_save_path
 )
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
@@ -1426,11 +1427,7 @@ def save_model(
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
