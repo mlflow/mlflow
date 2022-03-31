@@ -21,7 +21,6 @@ import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -135,7 +134,8 @@ def save_model(
     if onnx_execution_providers is None:
         onnx_execution_providers = ONNX_EXECUTION_PROVIDERS
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements,
+                            extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -188,17 +188,20 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(
+            conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
+                 "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
+             "\n".join(pip_requirements))
 
 
 def _load_model(model_file):
@@ -310,7 +313,8 @@ class _OnnxModelWrapper:
             feed_dict = {self.inputs[0][0]: data}
         elif isinstance(data, pd.DataFrame):
             if len(self.inputs) > 1:
-                feed_dict = {name: data[name].values for (name, _) in self.inputs}
+                feed_dict = {name: data[name].values for (
+                    name, _) in self.inputs}
             else:
                 feed_dict = {self.inputs[0][0]: data.values}
 
@@ -338,7 +342,8 @@ class _OnnxModelWrapper:
                 return data.reshape(-1)
 
             response = pd.DataFrame.from_dict(
-                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
+                {c: format_output(p) for (c, p) in zip(
+                    self.output_names, predicted)}
             )
             return response
         else:
@@ -376,10 +381,13 @@ def load_model(model_uri, dst_path=None):
     :return: An ONNX model instance.
 
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
+    onnx_model_artifacts_path = os.path.join(
+        local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 
 

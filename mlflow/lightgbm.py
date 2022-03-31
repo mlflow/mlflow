@@ -53,7 +53,6 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path
 )
-from mlflow.exceptions import MlflowException
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
     autologging_integration,

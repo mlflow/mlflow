@@ -45,7 +45,6 @@ from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path
 )
-from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "catboost"

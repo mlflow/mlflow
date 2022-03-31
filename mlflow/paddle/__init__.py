@@ -17,12 +17,10 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -199,7 +197,8 @@ def save_model(
     """
     import paddle
 
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements,
+                            extra_pip_requirements)
 
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -254,17 +253,20 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(
+            conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
+                 "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
+             "\n".join(pip_requirements))
 
 
 def load_model(model_uri, model=None, dst_path=None, **kwargs):
@@ -303,15 +305,19 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     import paddle
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
+    pd_model_artifacts_path = os.path.join(
+        local_model_path, flavor_conf["pickled_model"])
     if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
         raise TypeError(
-            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
+            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(
+                type(model))
         )
     else:
         contains_pdparams = _contains_pdparams(local_model_path)
@@ -340,7 +346,6 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
 ):
-
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
     containing the following flavors:
@@ -457,7 +462,8 @@ class _PaddleWrapper:
                 "Please use a pandas.DataFrame or a numpy.ndarray"
             )
         else:
-            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+            raise TypeError(
+                "Input data should be pandas.DataFrame or numpy.ndarray")
         inp_data = np.squeeze(inp_data)
 
         self.pd_model.eval()

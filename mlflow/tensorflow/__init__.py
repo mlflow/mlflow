@@ -30,7 +30,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only
@@ -270,7 +269,8 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
-    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements,
+                            extra_pip_requirements)
 
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
@@ -292,7 +292,8 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
-    root_relative_path = _copy_file_or_tree(src=tf_saved_model_dir, dst=path, dst_dir=None)
+    root_relative_path = _copy_file_or_tree(
+        src=tf_saved_model_dir, dst=path, dst_dir=None)
     model_dir_subpath = "tfmodel"
     model_dir_path = os.path.join(path, model_dir_subpath)
     shutil.move(os.path.join(path, root_relative_path), model_dir_path)
@@ -331,17 +332,20 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(
+            conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
+                 "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
+             "\n".join(pip_requirements))
 
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
@@ -393,7 +397,8 @@ def load_model(model_uri, dst_path=None):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(
+        artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     (
@@ -453,7 +458,8 @@ def _parse_flavor_configuration(flavor_conf, model_path):
                                          with the model. This is a key within the serialized
                                          ``SavedModel``'s signature definition mapping.
     """
-    tf_saved_model_dir = os.path.join(model_path, flavor_conf["saved_model_dir"])
+    tf_saved_model_dir = os.path.join(
+        model_path, flavor_conf["saved_model_dir"])
     tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
     tf_signature_def_key = flavor_conf["signature_def_key"]
     return tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key
@@ -519,10 +525,12 @@ class _TF2Wrapper:
                     val = np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
-            raise TypeError("Only dict and DataFrame input types are supported")
+            raise TypeError(
+                "Only dict and DataFrame input types are supported")
 
         raw_preds = self.infer(**feed_dict)
-        pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
+        pred_dict = {col_name: raw_preds[col_name].numpy()
+                     for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
             if all(len(element) == 1 for element in pred_dict[col]):
                 pred_dict[col] = pred_dict[col].ravel()
@@ -641,7 +649,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    out_list += [__MLflowTfKeras2Callback(log_models, metrics_logger, _LOG_EVERY_N_STEPS)]
+    out_list += [__MLflowTfKeras2Callback(log_models,
+                                          metrics_logger, _LOG_EVERY_N_STEPS)]
     return out_list, log_dir
 
 
@@ -742,7 +751,8 @@ def autolog(
     atexit.register(_flush_queue)
 
     if Version(tensorflow.__version__) < Version("1.12"):
-        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
+        warnings.warn(
+            "Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
     try:
@@ -751,7 +761,8 @@ def autolog(
         from tensorflow.python.saved_model import tag_constants
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
-        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
+        warnings.warn(
+            "Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
     def train(original, self, *args, **kwargs):
@@ -801,18 +812,22 @@ def autolog(
                 with TempDir() as tmp:
                     artifact_path = "model"
                     local_path = tmp.path("model")
-                    mlflow_model = Model(artifact_path=artifact_path, run_id=_AUTOLOG_RUN_ID)
+                    mlflow_model = Model(
+                        artifact_path=artifact_path, run_id=_AUTOLOG_RUN_ID)
                     save_model_kwargs = dict(
                         tf_saved_model_dir=serialized.decode("utf-8"),
                         tf_meta_graph_tags=[tag_constants.SERVING],
                         tf_signature_def_key="predict",
                     )
-                    save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
+                    save_model(path=local_path,
+                               mlflow_model=mlflow_model, **save_model_kwargs)
                     client = MlflowClient()
-                    client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
+                    client.log_artifacts(
+                        _AUTOLOG_RUN_ID, local_path, artifact_path)
 
                     try:
-                        client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
+                        client._record_logged_model(
+                            _AUTOLOG_RUN_ID, mlflow_model)
                     except MlflowException:
                         # We need to swallow all mlflow exceptions to maintain backwards
                         # compatibility with older tracking servers. Only print out a warning
@@ -896,7 +911,8 @@ def autolog(
         def _patch_implementation(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
-            unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+            unlogged_params = ["self", "x", "y",
+                               "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
@@ -911,7 +927,8 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(callbacks, False, metrics_logger)
+                    callbacks, self.log_dir = _setup_callbacks(
+                        callbacks, False, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[5] = callbacks
@@ -963,7 +980,8 @@ def autolog(
                             return _extract_n_steps(input_training_data)
                         elif isinstance(input_training_data, dict):
                             input_example_slice = {
-                                k: np.take(v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
+                                k: np.take(
+                                    v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
                                 for k, v in input_training_data.items()
                             }
                         elif isinstance(input_training_data, tensorflow.keras.utils.Sequence):
@@ -984,10 +1002,12 @@ def autolog(
                     def _infer_model_signature(input_data_slice):
                         try:
                             original_stop_training = history.model.stop_training
-                            model_output = history.model.predict(input_data_slice)
+                            model_output = history.model.predict(
+                                input_data_slice)
 
                             if (
-                                Version(tensorflow.__version__) <= Version("2.1.4")
+                                Version(tensorflow.__version__) <= Version(
+                                    "2.1.4")
                                 and original_stop_training
                             ):
                                 # For these versions, `stop_training` flag on Model is set to False
@@ -999,7 +1019,8 @@ def autolog(
                                 # those TF versions
                                 history.model.stop_training = True
 
-                            model_signature = infer_signature(input_data_slice, model_output)
+                            model_signature = infer_signature(
+                                input_data_slice, model_output)
                         except TypeError as te:
                             warnings.warn(str(te))
                             model_signature = None
@@ -1060,7 +1081,8 @@ def autolog(
         def _patch_implementation(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
-            unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
+            unlogged_params = ["self", "generator",
+                               "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
@@ -1094,7 +1116,8 @@ def autolog(
                 result = original(inst, *args, **kwargs)
 
             _flush_queue()
-            mlflow.log_artifacts(local_dir=self.log_dir.location, artifact_path="tensorboard_logs")
+            mlflow.log_artifacts(
+                local_dir=self.log_dir.location, artifact_path="tensorboard_logs")
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
 
@@ -1127,7 +1150,8 @@ def autolog(
         # To avoid unintentional creation of nested MLflow runs caused by a patched
         # `fit_generator()` method calling a patched `fit()` method, we only patch
         # `fit_generator()` in TF < 2.1.0
-        managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
+        managed.append(
+            (tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
 
     non_managed = [
         (EventFileWriter, "add_event", add_event),
@@ -1141,8 +1165,10 @@ def autolog(
     if Version(tensorflow.__version__) >= Version("2.0.0"):
         old_estimator_class = tensorflow.compat.v1.estimator.Estimator
         v1_train = (old_estimator_class, "train", train)
-        v1_export_saved_model = (old_estimator_class, "export_saved_model", export_saved_model)
-        v1_export_savedmodel = (old_estimator_class, "export_savedmodel", export_saved_model)
+        v1_export_saved_model = (
+            old_estimator_class, "export_saved_model", export_saved_model)
+        v1_export_savedmodel = (old_estimator_class,
+                                "export_savedmodel", export_saved_model)
 
         managed.append(v1_train)
         non_managed.append(v1_export_saved_model)
