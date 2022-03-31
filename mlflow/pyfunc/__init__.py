@@ -1227,7 +1227,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager == "local":
+        elif env_manager is EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
