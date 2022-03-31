@@ -85,7 +85,7 @@ def get_spark_session(conf):
 def spark():
     conf = pyspark.SparkConf()
     session = get_spark_session(conf)
-    yield
+    yield session
     session.stop()
 
 
