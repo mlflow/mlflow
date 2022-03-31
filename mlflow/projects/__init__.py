@@ -57,7 +57,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
         if exp:
             return exp.experiment_id
         else:
-            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            _logger.info("'%s' does not exist. Creating a new experiment", experiment_name)
             return client.create_experiment(experiment_name)
 
     return _get_experiment_id()
