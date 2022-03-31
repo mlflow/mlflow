@@ -92,7 +92,7 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
     spark = _get_spark_session_with_retry()
-    yield spark
+    yield spark.sparkContext
     spark.stop()
 
 
