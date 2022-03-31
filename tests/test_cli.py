@@ -294,3 +294,17 @@ def test_mlflow_artifact_service_unavailable_without_config():
         )
     finally:
         process.kill()
+
+
+def test_mlflow_artifact_only_raises_with_invalid_backend_store_uri():
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock:
+        result = CliRunner().invoke(
+            server,
+            ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+        )
+        assert result.output.startswith(
+            "The server configuration is set as '--artifacts-only` with a non-local "
+            "'--backend-store-uri' provided"
+        )
+        run_server_mock.assert_not_called()

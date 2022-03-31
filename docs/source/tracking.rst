@@ -229,6 +229,11 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
     Starting a Tracking Server with the ``--artifacts-only`` parameter will disable all Tracking Server functionality apart from API calls related to saving, loading, or listing artifacts.
     Creating runs, logging metrics or parameters, and accessing other attributes about experiments are all not permitted in this mode.
 
+.. note::
+    When starting a Tracking Server in ``--artifacts-only`` mode, the cli argument ``--backend-store-uri`` must be set to a local path for the server's environment.
+    This is a requirement for utilities such as ``client.list_artifacts(<run_id>)`` to function correctly. Providing a non-local file system path will raise an Exception.
+    If a value is not set, the default configuration will be a local path on the server (``"./mlruns"``).
+
 .. figure:: _static/images/scenario_6.png
 
 Running an MLFlow server in ``--artifacts-only`` mode:
