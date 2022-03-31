@@ -56,27 +56,12 @@ NO_CONDA = click.option(
 )
 
 
-def _env_manager_callback(_, __, value):
-    """
-    Validates the value of `--env-manager` and converts it to the corresponding member of
-    `EnvManager`.
-    """
-    if value is None:
-        return value
-
-    allowed_values = [e.value for e in EnvManager]
-    if value not in allowed_values:
-        raise click.BadParameter(f"Expected one of {allowed_values} but got '{value}'")
-
-    return EnvManager[value.upper()]
-
-
 ENV_MANAGER = click.option(
     "--env-manager",
     default=None,
     required=False,
     type=click.UNPROCESSED,
-    callback=_env_manager_callback,
+    callback=lambda ctx, param, value: None if value is None else EnvManager.from_string(value),
     help="If specified, create an environment for MLmodel/MLproject using the specified "
     "environment manager. Valid values are ['local', 'conda']. If unspecified, default to "
     "'conda'.",
