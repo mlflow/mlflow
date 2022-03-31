@@ -56,6 +56,19 @@ SparkModelWithData = namedtuple(
 )
 
 
+def _get_spark_session_with_retry(max_tries=3):
+    conf = pyspark.SparkConf()
+    for num_tries in range(max_tries):
+        try:
+            return get_spark_session(conf)
+        except Exception as e:
+            if num_tries >= max_tries - 1:
+                raise
+            _logger.exception(
+                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
+            )
+
+
 # Specify `autouse=True` to ensure that a context is created
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
@@ -78,20 +91,9 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
-    conf = pyspark.SparkConf()
-    max_tries = 3
-    for num_tries in range(max_tries):
-        try:
-            spark = get_spark_session(conf)
-            yield spark.sparkContext
-            spark.stop()
-            break
-        except Exception as e:
-            if num_tries >= max_tries - 1:
-                raise
-            _logger.exception(
-                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
-            )
+    spark = _get_spark_session_with_retry()
+    yield spark
+    spark.stop()
 
 
 @pytest.fixture(scope="module")
