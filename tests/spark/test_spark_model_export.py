@@ -282,7 +282,7 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
     preds = [x.features for x in preds_df.select("features").collect()]
     assert spark_model_transformer.predictions == preds
     # 2. score and compare reloaded pyfunc
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     preds2 = m.predict(spark_model_transformer.spark_df.toPandas())
     assert spark_model_transformer.predictions == preds2
 
