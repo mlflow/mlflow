@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
+from mlflow.utils.environment import EnvManager
 
 import tests
 from mlflow.types import Schema, ColSpec
@@ -407,7 +408,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
         from mlflow.models.cli import _get_flavor_backend
 
-        _get_flavor_backend(model_path, no_conda=False, workers=1, install_mlflow=False).serve(
+        _get_flavor_backend(
+            model_path, env_manager=EnvManager.CONDA, workers=1, install_mlflow=False
+        ).serve(
             model_uri=model_path,
             port=server_port,
             host="127.0.0.1",
@@ -424,7 +427,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         # and the udf task starts a mlflow model server process.
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
-    _get_flavor_backend(model_path, no_conda=False, install_mlflow=False).prepare_env(
+    _get_flavor_backend(model_path, env_manager=EnvManager.CONDA, install_mlflow=False).prepare_env(
         model_uri=model_path
     )
 
