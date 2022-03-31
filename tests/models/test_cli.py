@@ -44,7 +44,7 @@ from mlflow.pyfunc.scoring_server import (
 )
 
 # NB: for now, windows tests do not have conda available.
-no_conda = ["--no-conda"] if sys.platform == "win32" else []
+no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 
 # NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []
@@ -377,7 +377,7 @@ def test_prepare_env_passes(sk_model):
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"],
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"],
             stderr=subprocess.PIPE,
         )
         assert p.wait() == 0
@@ -408,7 +408,9 @@ def test_prepare_env_fails(sk_model):
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"])
+        p = subprocess.Popen(
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"]
+        )
         assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
