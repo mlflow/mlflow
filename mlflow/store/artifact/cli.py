@@ -85,7 +85,7 @@ def list_artifacts(run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     file_infos = artifact_repo.list_artifacts(artifact_path)
-    print(_file_infos_to_json(file_infos))
+    click.echo(_file_infos_to_json(file_infos))
 
 
 def _file_infos_to_json(file_infos):
@@ -119,7 +119,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
         sys.exit(1)
 
     if artifact_uri is not None:
-        print(_download_artifact_from_uri(artifact_uri))
+        click.echo(_download_artifact_from_uri(artifact_uri))
         return
 
     artifact_path = artifact_path if artifact_path is not None else ""
@@ -127,7 +127,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
-    print(artifact_location)
+    click.echo(artifact_location)
 
 
 if __name__ == "__main__":
