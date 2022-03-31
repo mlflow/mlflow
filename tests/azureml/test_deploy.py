@@ -363,7 +363,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, np.ndarray)
 
@@ -408,7 +408,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
     sklearn_pd_model, sklearn_data, model_path
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_pd_model, path=model_path)
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, pd.DataFrame)
 

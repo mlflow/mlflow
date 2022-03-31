@@ -62,7 +62,7 @@ def pandas_df_with_all_types():
     return pdf
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -72,7 +72,7 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def keras_model():
     iris = datasets.load_iris()
     data = pd.DataFrame(

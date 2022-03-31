@@ -44,7 +44,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -54,7 +54,7 @@ def sklearn_knn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_logreg_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -64,7 +64,7 @@ def sklearn_logreg_model():
     return ModelWithData(model=linear_lr, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_custom_transformer_model(sklearn_knn_model):
     def transform(vec):
         print("Invoking custom transformer!")
@@ -93,7 +93,7 @@ def test_model_save_load(sklearn_knn_model, model_path):
 
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
     reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         knn_model.predict(sklearn_knn_model.inference_data),
@@ -582,7 +582,7 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     assert pyfunc_conf is not None
     pyfunc_conf[pyfunc.DATA] = sklearn_conf["pickled_model"]
 
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),

@@ -613,6 +613,90 @@ def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable
     assert run_obj_info.end_time > old_end
 
 
+def test_start_run_with_description(empty_active_run_stack):  # pylint: disable=unused-argument
+    mock_experiment_id = mock.Mock()
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+    )
+    mock_source_name = mock.Mock()
+    source_name_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+    )
+    source_type_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
+    )
+    mock_source_version = mock.Mock()
+    source_version_patch = mock.patch(
+        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+    )
+
+    description = "Test description"
+
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_USER: mock_user,
+        mlflow_tags.MLFLOW_RUN_NOTE: description,
+    }
+
+    create_run_patch = mock.patch.object(MlflowClient, "create_run")
+
+    with multi_context(
+        experiment_id_patch,
+        user_patch,
+        source_name_patch,
+        source_type_patch,
+        source_version_patch,
+        create_run_patch,
+    ):
+        active_run = start_run(description=description)
+        MlflowClient.create_run.assert_called_once_with(
+            experiment_id=mock_experiment_id, tags=expected_tags
+        )
+        assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
+def test_start_run_conflicting_description():
+    description = "Test description"
+    invalid_tags = {mlflow_tags.MLFLOW_RUN_NOTE: "Another description"}
+    match = (
+        f"Description is already set via the tag {mlflow_tags.MLFLOW_RUN_NOTE} in tags."
+        f"Remove the key {mlflow_tags.MLFLOW_RUN_NOTE} from the tags or omit the description."
+    )
+
+    with pytest.raises(MlflowException, match=match):
+        start_run(tags=invalid_tags, description=description)
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_resumes_existing_run_and_sets_description():
+    description = "Description"
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    restarted_run = mlflow.start_run(run_id, description=description)
+    assert mlflow_tags.MLFLOW_RUN_NOTE in restarted_run.data.tags
+
+
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_resumes_existing_run_and_sets_description_twice():
+    description = "Description"
+    invalid_tags = {mlflow_tags.MLFLOW_RUN_NOTE: "Another description"}
+    match = (
+        f"Description is already set via the tag {mlflow_tags.MLFLOW_RUN_NOTE} in tags."
+        f"Remove the key {mlflow_tags.MLFLOW_RUN_NOTE} from the tags or omit the description."
+    )
+
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    with pytest.raises(MlflowException, match=match):
+        mlflow.start_run(run_id, tags=invalid_tags, description=description)
+
+
 def test_get_run():
     run_id = uuid.uuid4().hex
     mock_run = mock.Mock()

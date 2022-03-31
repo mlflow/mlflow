@@ -71,7 +71,7 @@ class PythonModel:
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
         :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with
-        :func:`~load_pyfunc`, this method is called as soon as the :class:`~PythonModel` is
+        :func:`~load_model`, this method is called as soon as the :class:`~PythonModel` is
         constructed.
 
         The same :class:`~PythonModelContext` will also be available during calls to

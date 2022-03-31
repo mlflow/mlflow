@@ -4,6 +4,7 @@ import logging
 
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
+    DatabricksRepoNotebookExperimentProvider,
 )
 from mlflow.tracking.default_experiment.databricks_job_experiment_provider import (
     DatabricksJobExperimentProvider,
@@ -14,7 +15,11 @@ _logger = logging.getLogger(__name__)
 # Listed below are the list of providers, which are used to provide MLflow Experiment IDs based on
 # the current context where the MLflow client is running when the user has not explicitly set
 # an experiment. The order below is the order in which the these providers are registered.
-_EXPERIMENT_PROVIDERS = (DatabricksNotebookExperimentProvider, DatabricksJobExperimentProvider)
+_EXPERIMENT_PROVIDERS = (
+    DatabricksJobExperimentProvider,
+    DatabricksRepoNotebookExperimentProvider,
+    DatabricksNotebookExperimentProvider,
+)
 
 
 class DefaultExperimentProviderRegistry(object):
@@ -50,8 +55,8 @@ class DefaultExperimentProviderRegistry(object):
 
 
 _default_experiment_provider_registry = DefaultExperimentProviderRegistry()
-_default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[0])
-_default_experiment_provider_registry.register(_EXPERIMENT_PROVIDERS[1])
+for exp_provider in _EXPERIMENT_PROVIDERS:
+    _default_experiment_provider_registry.register(exp_provider)
 
 _default_experiment_provider_registry.register_entrypoints()
 

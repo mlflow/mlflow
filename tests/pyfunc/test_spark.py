@@ -3,11 +3,11 @@ import sys
 import time
 from typing import Iterator
 import threading
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest import mock
 
 import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
@@ -81,10 +81,12 @@ def get_spark_session(conf):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark():
     conf = pyspark.SparkConf()
-    return get_spark_session(conf)
+    session = get_spark_session(conf)
+    yield session
+    session.stop()
 
 
 @pytest.fixture
@@ -95,7 +97,7 @@ def model_path(tmpdir):
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -114,7 +116,7 @@ def test_spark_udf(spark, model_path):
     )
 
     with mock.patch("mlflow.pyfunc._warn_dependency_requirement_mismatches") as mock_check_fn:
-        reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+        reloaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
         mock_check_fn.assert_called_once()
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])

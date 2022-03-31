@@ -134,7 +134,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
         ecr_client.describe_repositories(repositoryNames=[image])["repositories"]
     except ecr_client.exceptions.RepositoryNotFoundException:
         ecr_client.create_repository(repositoryName=image)
-        print("Created new ECR repository: {repository_name}".format(repository_name=image))
+        _logger.info("Created new ECR repository: %s", image)
     # TODO: it would be nice to translate the docker login, tag and push to python api.
     # x = ecr_client.get_authorization_token()['authorizationData'][0]
     # docker_login_cmd = "docker login -u AWS -p {token} {url}".format(token=x['authorizationToken']
@@ -1031,7 +1031,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
         flavor = _get_preferred_deployment_flavor(model_config)
     else:
         _validate_deployment_flavor(model_config, flavor)
-    print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
+    _logger.info("Using the %s flavor for local serving!", flavor)
 
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
@@ -1041,7 +1041,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += ["--rm", image, "serve"]
     _logger.info("executing: %s", " ".join(cmd))
-    proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True)
+    proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
     def _sigterm_handler(*_):
         _logger.info("received termination signal => killing docker process")
