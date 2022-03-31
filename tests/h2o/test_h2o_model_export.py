@@ -76,7 +76,7 @@ def test_model_save_load(h2o_iris_model, model_path):
     )
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(
         pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame())
         == h2o_model.predict(h2o_iris_model.inference_data).as_data_frame()

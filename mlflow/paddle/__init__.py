@@ -432,7 +432,7 @@ def log_model(
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``paddle`` flavor.
     """
     return _PaddleWrapper(load_model(path))
