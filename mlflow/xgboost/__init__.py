@@ -48,7 +48,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.arguments_utils import _get_arg_names
@@ -137,8 +137,7 @@ def save_model(
     """
     import xgboost as xgb
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -191,20 +190,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -287,8 +283,7 @@ def _load_model(path):
                     the top-level MLflow Model directory (MLflow >= 1.22.0).
     """
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
-    flavor_conf = _get_flavor_configuration(
-        model_path=model_dir, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
     # XGBoost models saved in MLflow >=1.22.0 have `model_class`
     # in the XGBoost flavor configuration to specify its XGBoost model class.
@@ -332,8 +327,7 @@ def load_model(model_uri, dst_path=None):
     :return: An XGBoost model. An instance of either `xgboost.Booster`_ or XGBoost scikit-learn
              models, depending on the saved model class specification.
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     return _load_model(path=local_model_path)
@@ -486,16 +480,14 @@ def autolog(
                 # `num_features`-by-`num_classes` matrix
                 features = features[indices]
                 importances_per_class_by_feature = np.array(
-                    [[importance]
-                        for importance in importances_per_class_by_feature[indices]]
+                    [[importance] for importance in importances_per_class_by_feature[indices]]
                 )
                 # In this case, do not include class labels on the feature importance plot because
                 # only one importance value has been provided per feature, rather than an
                 # one importance value for each class per feature
                 label_classes_on_plot = False
             else:
-                importance_value_magnitudes = np.abs(
-                    importances_per_class_by_feature).sum(axis=1)
+                importance_value_magnitudes = np.abs(importances_per_class_by_feature).sum(axis=1)
                 indices = np.argsort(importance_value_magnitudes)
                 features = features[indices]
                 importances_per_class_by_feature = importances_per_class_by_feature[indices]
@@ -512,8 +504,7 @@ def autolog(
             fig, ax = plt.subplots(figsize=(w, h))
             # When importance values are provided for each class per feature, we want to ensure
             # that the same color is used for all bars in the bar chart that have the same class
-            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()[
-                "color"][:num_classes]
+            colors_to_cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"][:num_classes]
             color_cycler = cycler(color=colors_to_cycle)
             ax.set_prop_cycle(color_cycler)
 
@@ -523,8 +514,7 @@ def autolog(
             feature_ylocs = np.arange(num_features)
             # Define offsets on the y-axis that are used to evenly space the bars for each class
             # around the y-axis position of each feature
-            offsets_per_yloc = np.linspace(-0.5, 0.5,
-                                           num_classes) / 2 if num_classes > 1 else [0]
+            offsets_per_yloc = np.linspace(-0.5, 0.5, num_classes) / 2 if num_classes > 1 else [0]
             for feature_idx, (feature_yloc, importances_per_class) in enumerate(
                 zip(feature_ylocs, importances_per_class_by_feature)
             ):
@@ -557,8 +547,7 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(
-                    tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -569,8 +558,7 @@ def autolog(
         # logging booster params separately to extract key/value pairs and make it easier to
         # compare them across runs.
         booster_params = args[0] if len(args) > 0 else kwargs["params"]
-        autologging_client.log_params(
-            run_id=mlflow.active_run().info.run_id, params=booster_params)
+        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=booster_params)
 
         unlogged_params = [
             "params",
@@ -634,8 +622,7 @@ def autolog(
                     metrics=eval_results[model.best_iteration],
                     step=extra_step,
                 )
-                early_stopping_logging_operations = autologging_client.flush(
-                    synchronous=False)
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
@@ -653,8 +640,7 @@ def autolog(
             if imp is not None:
                 tmpdir = tempfile.mkdtemp()
                 try:
-                    filepath = os.path.join(
-                        tmpdir, "feature_importance_{}.json".format(imp_type))
+                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)
@@ -708,8 +694,7 @@ def autolog(
 
         return model
 
-    safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(
-        train, log_models), manage_run=True)
+    safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost
     # scikit-learn models, we want to save / log models as their model classes. So we turn
     # off the log_models functionality in the `train()` method patched to `xgboost.sklearn`.

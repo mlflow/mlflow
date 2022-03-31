@@ -38,7 +38,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -197,8 +197,7 @@ def save_model(
     """
     import paddle
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -253,20 +252,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def load_model(model_uri, model=None, dst_path=None, **kwargs):
@@ -305,19 +301,15 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
     """
     import paddle
 
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    pd_model_artifacts_path = os.path.join(
-        local_model_path, flavor_conf["pickled_model"])
+    pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
         raise TypeError(
-            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(
-                type(model))
+            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
         )
     else:
         contains_pdparams = _contains_pdparams(local_model_path)
@@ -462,8 +454,7 @@ class _PaddleWrapper:
                 "Please use a pandas.DataFrame or a numpy.ndarray"
             )
         else:
-            raise TypeError(
-                "Input data should be pandas.DataFrame or numpy.ndarray")
+            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
         inp_data = np.squeeze(inp_data)
 
         self.pd_model.eval()

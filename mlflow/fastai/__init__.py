@@ -41,7 +41,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
@@ -146,8 +146,7 @@ def save_model(
     from fastai.callback.all import ParamScheduler
     from pathlib import Path
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -204,20 +203,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -389,14 +385,11 @@ def load_model(model_uri, dst_path=None):
         loaded_model = mlflow.fastai.load_model(model_uri)
         results = loaded_model.predict(predict_data)
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-    model_file_path = os.path.join(
-        local_model_path, flavor_conf.get("data", "model.fastai"))
+    model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
     return _load_model(path=model_file_path)
 
 
@@ -537,8 +530,7 @@ def autolog(
     def _log_model_info(learner):
         # The process excuted here, are incompatible with TrackerCallback
         # Hence it is removed and add again after the execution
-        remove_cbs = [cb for cb in learner.cbs if isinstance(
-            cb, TrackerCallback)]
+        remove_cbs = [cb for cb in learner.cbs if isinstance(cb, TrackerCallback)]
         if remove_cbs:
             learner.remove_cbs(remove_cbs)
 
@@ -568,20 +560,17 @@ def autolog(
         # Check if is trying to fit while fine tuning or not
         mlflow_cbs = [cb for cb in self.cbs if cb.name == "___mlflow_fastai"]
         fit_in_fine_tune = (
-            original.__name__ == "fit" and len(
-                mlflow_cbs) > 0 and mlflow_cbs[0].is_fine_tune
+            original.__name__ == "fit" and len(mlflow_cbs) > 0 and mlflow_cbs[0].is_fine_tune
         )
 
         if not fit_in_fine_tune:
-            log_fn_args_as_params(original, list(
-                args), kwargs, unlogged_params)
+            log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
 
             if not fit_in_fine_tune:
-                early_stop_callback = _find_callback_of_type(
-                    EarlyStoppingCallback, self.cbs)
+                early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
                 _log_early_stop_callback_params(early_stop_callback)
 
                 # First try to remove if any already registered callback

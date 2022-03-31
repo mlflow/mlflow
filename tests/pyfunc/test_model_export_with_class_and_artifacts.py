@@ -151,6 +151,20 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
 
 
 @pytest.mark.large
+def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmpdir):
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model_empty_exists")
+    os.makedirs(sklearn_model_path)
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model_filled_exists")
+    os.makedirs(sklearn_model_path)
+    with open(os.path.join(sklearn_model_path, "foo.txt"), "wt") as f:
+        f.write("dummy content")
+    with pytest.raises(MlflowException, match="already exists and is not empty"):
+        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+
+@pytest.mark.large
 def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():

@@ -35,7 +35,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -142,8 +142,7 @@ def _log_matplotlib_figure(fig, out_file, artifact_path=None):
 
 
 def _get_conda_env_for_underlying_model(underlying_model_path):
-    underlying_model_conda_path = os.path.join(
-        underlying_model_path, "conda.yaml")
+    underlying_model_conda_path = os.path.join(underlying_model_path, "conda.yaml")
     with open(underlying_model_conda_path, "r") as underlying_model_conda_file:
         return yaml.safe_load(underlying_model_conda_file)
 
@@ -271,13 +270,11 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
     with mlflow.utils.autologging_utils.disable_autologging():
-        background_data = shap.kmeans(features, min(
-            _MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
+        background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
         explainer = shap.KernelExplainer(predict_function, background_data)
         shap_values = explainer.shap_values(features)
 
-        _log_numpy(explainer.expected_value,
-                   _BASE_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
         _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
         shap.summary_plot(shap_values, features, plot_type="bar", show=False)
@@ -421,8 +418,7 @@ def save_explainer(
     """
     import shap
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -444,19 +440,16 @@ def save_explainer(
 
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
             serializable_by_mlflow = True  # prevents SHAP from serializing the underlying model
-            underlying_model_path = os.path.join(
-                path, _UNDERLYING_MODEL_SUBPATH)
+            underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
         else:
             warnings.warn(
                 "Unable to serialize underlying model using MLflow, will use SHAP serialization"
             )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-            mlflow.sklearn.save_model(
-                explainer.model.inner_model.__self__, underlying_model_path)
+            mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
-            mlflow.pytorch.save_model(
-                explainer.model.inner_model, underlying_model_path)
+            mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
 
     # saving the explainer object
     explainer_data_subpath = "explainer.shap"
@@ -505,12 +498,10 @@ def save_explainer(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     if underlying_model_path is not None:
-        underlying_model_conda_env = _get_conda_env_for_underlying_model(
-            underlying_model_path)
+        underlying_model_conda_env = _get_conda_env_for_underlying_model(underlying_model_path)
         conda_env = _merge_environments(conda_env, underlying_model_conda_env)
         pip_requirements = _get_pip_deps(conda_env)
 
@@ -519,12 +510,10 @@ def save_explainer(
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 # Defining save_model (Required by Model.log) to refer to save_explainer
@@ -573,13 +562,10 @@ def _merge_environments(shap_environment, model_environment):
     merged_conda_channels = _union_lists(
         shap_environment["channels"], model_environment["channels"]
     )
-    merged_conda_channels = [
-        x for x in merged_conda_channels if x != "conda-forge"]
+    merged_conda_channels = [x for x in merged_conda_channels if x != "conda-forge"]
 
-    shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(
-        shap_environment)
-    model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(
-        model_environment)
+    shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
+    model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)
 
     merged_conda_deps = _union_lists(shap_conda_deps, model_conda_deps)
     merged_pip_deps = _union_lists(shap_pip_deps, model_pip_deps)
@@ -612,22 +598,18 @@ def load_explainer(model_uri):
     """
 
     explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(
-        model_path=explainer_path, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(model_path=explainer_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(explainer_path, flavor_conf)
-    explainer_artifacts_path = os.path.join(
-        explainer_path, flavor_conf["serialized_explainer"])
+    explainer_artifacts_path = os.path.join(explainer_path, flavor_conf["serialized_explainer"])
     underlying_model_flavor = flavor_conf["underlying_model_flavor"]
     model = None
 
     if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-        underlying_model_path = os.path.join(
-            explainer_path, _UNDERLYING_MODEL_SUBPATH)
+        underlying_model_path = os.path.join(explainer_path, _UNDERLYING_MODEL_SUBPATH)
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             model = mlflow.sklearn._load_pyfunc(underlying_model_path).predict
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
-            model = mlflow.pytorch._load_model(
-                os.path.join(underlying_model_path, "data"))
+            model = mlflow.pytorch._load_model(os.path.join(underlying_model_path, "data"))
 
     return _load_explainer(explainer_file=explainer_artifacts_path, model=model)
 
@@ -649,31 +631,24 @@ def _load_explainer(explainer_file, model=None):
         if model is None:
             explainer = shap.Explainer.load(explainer)
         else:
-            explainer = shap.Explainer.load(
-                explainer, model_loader=inject_model_loader)
+            explainer = shap.Explainer.load(explainer, model_loader=inject_model_loader)
         return explainer
 
 
 class _SHAPWrapper:
     def __init__(self, path):
-        flavor_conf = _get_flavor_configuration(
-            model_path=path, flavor_name=FLAVOR_NAME)
-        shap_explainer_artifacts_path = os.path.join(
-            path, flavor_conf["serialized_explainer"])
+        flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+        shap_explainer_artifacts_path = os.path.join(path, flavor_conf["serialized_explainer"])
         underlying_model_flavor = flavor_conf["underlying_model_flavor"]
         model = None
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-            underlying_model_path = os.path.join(
-                path, _UNDERLYING_MODEL_SUBPATH)
+            underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
             if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-                model = mlflow.sklearn._load_pyfunc(
-                    underlying_model_path).predict
+                model = mlflow.sklearn._load_pyfunc(underlying_model_path).predict
             elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
-                model = mlflow.pytorch._load_model(
-                    os.path.join(underlying_model_path, "data"))
+                model = mlflow.pytorch._load_model(os.path.join(underlying_model_path, "data"))
 
-        self.explainer = _load_explainer(
-            explainer_file=shap_explainer_artifacts_path, model=model)
+        self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
     def predict(self, dataframe):
         return self.explainer(dataframe.values).values

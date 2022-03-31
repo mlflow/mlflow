@@ -32,7 +32,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -131,8 +131,7 @@ def save_model(
     """
     import pmdarima
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -178,18 +177,15 @@ def save_model(
             default_reqs, pip_requirements, extra_pip_requirements
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 @experimental
@@ -296,14 +292,11 @@ def load_model(model_uri, dst_path=None):
 
     :return: A ``pmdarima`` model instance
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pmdarima_model_file_path = os.path.join(
-        local_model_path, flavor_conf.get(
-            _MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
+        local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )
 
     return _load_model(pmdarima_model_file_path)
@@ -397,8 +390,7 @@ class _PmdarimaModelWrapper:
         if return_conf_int:
             ci_low, ci_high = list(zip(*raw_predictions[1]))
             predictions = pd.DataFrame.from_dict(
-                {"yhat": raw_predictions[0],
-                    "yhat_lower": ci_low, "yhat_upper": ci_high}
+                {"yhat": raw_predictions[0], "yhat_lower": ci_low, "yhat_upper": ci_high}
             )
         else:
             predictions = pd.DataFrame.from_dict({"yhat": raw_predictions})

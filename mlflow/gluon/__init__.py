@@ -15,7 +15,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -74,16 +74,12 @@ def load_model(model_uri, ctx, dst_path=None):
     from mxnet import gluon
     from mxnet import sym
 
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-    model_arch_path = os.path.join(
-        local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
-    model_params_path = os.path.join(
-        local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
+    model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
+    model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
 
     if Version(mx.__version__) >= Version("2.0.0"):
         return gluon.SymbolBlock.imports(
@@ -127,8 +123,7 @@ class _GluonModelWrapper:
                 preds = preds.asnumpy()
             return preds
         else:
-            raise TypeError(
-                "Input data should be pandas.DataFrame or numpy.ndarray")
+            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
 
 
 def _load_pyfunc(path):
@@ -212,8 +207,7 @@ def save_model(
     """
     import mxnet as mx
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     data_subpath = "data"
@@ -234,8 +228,7 @@ def save_model(
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.gluon", env=_CONDA_ENV_FILE_NAME, code=code_dir_subpath
     )
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, mxnet_version=mx.__version__, code=code_dir_subpath)
+    mlflow_model.add_flavor(FLAVOR_NAME, mxnet_version=mx.__version__, code=code_dir_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -255,20 +248,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def get_default_pip_requirements():

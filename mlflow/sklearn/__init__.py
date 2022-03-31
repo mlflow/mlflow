@@ -51,7 +51,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -71,8 +71,7 @@ FLAVOR_NAME = "sklearn"
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
-SUPPORTED_SERIALIZATION_FORMATS = [
-    SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
+SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
 
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
@@ -220,8 +219,7 @@ def save_model(
     """
     import sklearn
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -291,20 +289,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -566,15 +561,11 @@ def load_model(model_uri, dst_path=None):
         pandas_df = ...
         predictions = sk_model.predict(pandas_df)
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, FLAVOR_NAME)
-    sklearn_model_artifacts_path = os.path.join(
-        local_model_path, flavor_conf["pickled_model"])
-    serialization_format = flavor_conf.get(
-        "serialization_format", SERIALIZATION_FORMAT_PICKLE)
+    sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
+    serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(
         path=sklearn_model_artifacts_path, serialization_format=serialization_format
     )
@@ -740,8 +731,7 @@ class _AutologgingMetricsManager:
         self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
 
         def clean_id(id_):
-            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(
-                id_, None)
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
@@ -841,8 +831,7 @@ class _AutologgingMetricsManager:
         #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
         for arg in call_arg_list:
             if arg is not None and not np.isscalar(arg) and id(arg) in dataset_id_list:
-                dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(
-                    arg)]
+                dataset_name, run_id = self._pred_result_id_to_dataset_name_and_run_id[id(arg)]
                 break
         else:
             return None, None
@@ -865,8 +854,7 @@ class _AutologgingMetricsManager:
 
             call_commands_list.sort(key=lambda x: x[0])
             dict_to_log = OrderedDict(call_commands_list)
-            client.log_dict(run_id=run_id, dictionary=dict_to_log,
-                            artifact_file="metric_info.json")
+            client.log_dict(run_id=run_id, dictionary=dict_to_log, artifact_file="metric_info.json")
             self._metric_info_artifact_need_update[run_id] = False
 
 
@@ -912,12 +900,10 @@ def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patc
     )
     if raw_original_obj == original and (callable(original) or isinstance(original, property)):
         # normal method or property decorated method
-        safe_patch(flavor_name, class_def, func_name,
-                   patched_fn, manage_run=manage_run)
+        safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
     elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
         # sklearn delegated method
-        safe_patch(flavor_name, raw_original_obj, "fn",
-                   patched_fn, manage_run=manage_run)
+        safe_patch(flavor_name, raw_original_obj, "fn", patched_fn, manage_run=manage_run)
     else:
         # unsupported method type. skip patching
         pass
@@ -1256,8 +1242,7 @@ def _autolog(
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(
             message=(
-                "`max_tuning_runs` must be non-negative, instead got {}.".format(
-                    max_tuning_runs)
+                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -1283,8 +1268,7 @@ def _autolog(
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
                 lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
-                lambda input_example: infer_signature(
-                    input_example, self.predict(input_example)),
+                lambda input_example: infer_signature(input_example, self.predict(input_example)),
                 log_input_examples,
                 log_model_signatures,
                 _logger,
@@ -1343,8 +1327,7 @@ def _autolog(
         # however, child estimators act as seeds for the parameter search
         # process; accordingly, we avoid logging initial, untuned parameters
         # for these seed estimators.
-        should_log_params_deeply = not _is_parameter_search_estimator(
-            estimator)
+        should_log_params_deeply = not _is_parameter_search_estimator(estimator)
         run_id = mlflow.active_run().info.run_id
         autologging_client.log_params(
             run_id=mlflow.active_run().info.run_id,
@@ -1379,8 +1362,7 @@ def _autolog(
 
             return infer_signature(input_example, estimator.predict(input_example))
 
-        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(
-            estimator.fit, args, kwargs)
+        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
@@ -1475,14 +1457,12 @@ def _autolog(
 
                     msg = (
                         "Encountered exception during creation of child runs for parameter search."
-                        " Child runs may be missing. Exception: {}".format(
-                            str(e))
+                        " Child runs may be missing. Exception: {}".format(str(e))
                     )
                     _logger.warning(msg)
 
                 try:
-                    cv_results_df = pd.DataFrame.from_dict(
-                        estimator.cv_results_)
+                    cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
                     _log_parameter_search_results_as_artifact(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
@@ -1543,8 +1523,7 @@ def _autolog(
             # Avoid nested patch when nested inference calls happens.
             with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 predict_result = original(self, *args, **kwargs)
-            eval_dataset = get_instance_method_first_arg_value(
-                original, args, kwargs)
+            eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
             eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
                 self, eval_dataset
             )
@@ -1604,8 +1583,7 @@ def _autolog(
                     self, original, *args, **kwargs
                 )
 
-                eval_dataset = get_instance_method_first_arg_value(
-                    original, args, kwargs)
+                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
                 eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
                     self, eval_dataset
                 )
@@ -1641,16 +1619,14 @@ def _autolog(
                     # this is to allow access to the docstrings.
                     for delegate_name in self.delegate_names:
                         try:
-                            delegate = sklearn.utils.metaestimators.attrgetter(
-                                delegate_name)(obj)
+                            delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
                         except AttributeError:
                             continue
                         else:
                             getattr(delegate, self.attribute_name)
                             break
                     else:
-                        sklearn.utils.metaestimators.attrgetter(
-                            self.delegate_names[-1])(obj)
+                        sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
 
                     def out(*args, **kwargs):
                         return self.fn(obj, *args, **kwargs)
@@ -1723,8 +1699,7 @@ def _autolog(
             )
 
         for scorer in sklearn.metrics.SCORERS.values():
-            safe_patch(flavor_name, scorer, "_score_func",
-                       patched_metric_api, manage_run=False)
+            safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():

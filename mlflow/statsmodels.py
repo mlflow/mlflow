@@ -39,7 +39,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
@@ -136,8 +136,7 @@ def save_model(
     """
     import statsmodels
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
@@ -199,20 +198,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -327,10 +323,8 @@ def load_model(model_uri, dst_path=None):
 
     :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     statsmodels_model_file_path = os.path.join(
         local_model_path, flavor_conf.get("data", STATSMODELS_DATA_SUBPATH)
@@ -484,8 +478,7 @@ def autolog(
         """
         try:
             superclass = inspect.getmro(klass)[1]
-            overriden = getattr(klass, function_name) is not getattr(
-                superclass, function_name)
+            overriden = getattr(klass, function_name) is not getattr(superclass, function_name)
             return overriden
         except (IndexError, AttributeError):
             return False
@@ -516,8 +509,7 @@ def autolog(
         ]
 
         for clazz, method_name, patch_impl in patches_list:
-            safe_patch(FLAVOR_NAME, clazz, method_name,
-                       patch_impl, manage_run=True)
+            safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
 
     def wrapper_fit(original, self, *args, **kwargs):
 

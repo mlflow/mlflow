@@ -51,7 +51,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
-    _validate_and_prepare_target_save_path
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.autologging_utils import (
@@ -140,13 +140,11 @@ def save_model(
     """
     import lightgbm as lgb
 
-    _validate_env_arguments(conda_env, pip_requirements,
-                            extra_pip_requirements)
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(
-        lgb_model, lgb.Booster) else "model.pkl"
+    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
@@ -199,20 +197,17 @@ def save_model(
             extra_pip_requirements,
         )
     else:
-        conda_env, pip_requirements, pip_constraints = _process_conda_env(
-            conda_env)
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save `constraints.txt` if necessary
     if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME),
-                 "\n".join(pip_constraints))
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME),
-             "\n".join(pip_requirements))
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
 
 def _save_model(lgb_model, model_path):
@@ -311,8 +306,7 @@ def _load_model(path):
     """
 
     model_dir = os.path.dirname(path) if os.path.isfile(path) else path
-    flavor_conf = _get_flavor_configuration(
-        model_path=model_dir, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(model_path=model_dir, flavor_name=FLAVOR_NAME)
 
     model_class = flavor_conf.get("model_class", "lightgbm.basic.Booster")
     lgb_model_path = os.path.join(model_dir, flavor_conf.get("data"))
@@ -361,8 +355,7 @@ def load_model(model_uri, dst_path=None):
     :return: A LightGBM model (an instance of `lightgbm.Booster`_) or a LightGBM scikit-learn
              model, depending on the saved model class specification.
     """
-    local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=dst_path)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     return _load_model(path=local_model_path)
@@ -507,8 +500,7 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(
-                    tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
                 fig.savefig(filepath)
                 mlflow.log_artifact(filepath)
             finally:
@@ -520,8 +512,7 @@ def autolog(
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
         booster_params = args[0] if len(args) > 0 else kwargs["params"]
-        autologging_client.log_params(
-            run_id=mlflow.active_run().info.run_id, params=booster_params)
+        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=booster_params)
 
         unlogged_params = [
             "params",
@@ -589,8 +580,7 @@ def autolog(
                     metrics=last_iter_results,
                     step=extra_step,
                 )
-                early_stopping_logging_operations = autologging_client.flush(
-                    synchronous=False)
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
@@ -607,8 +597,7 @@ def autolog(
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
-                filepath = os.path.join(
-                    tmpdir, "feature_importance_{}.json".format(imp_type))
+                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 mlflow.log_artifact(filepath)
