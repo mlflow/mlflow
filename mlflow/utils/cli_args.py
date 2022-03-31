@@ -83,11 +83,11 @@ ENV_MANAGER = click.option(
 )
 
 
-def _get_env_manager(no_conda, env_manager):
+def _validate_env_manager(no_conda, env_manager):
     # Both `--no-conda` and `--env-manager` are specified
     if no_conda and env_manager is not None:
         raise Exception(
-            "`--no-conda` (deprecated) and `--env-manager` cannot be specified at the same time."
+            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
         )
     # Only `--no-conda` is specified
     elif no_conda:
