@@ -54,6 +54,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+test/
 
 # Sphinx documentation
 docs/_build/
@@ -100,3 +101,4 @@ travis_wait*.log
 
 # Pytorch logs
 lightning_logs
+

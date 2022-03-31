@@ -40,8 +40,8 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("diviner") else ["-
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return str(pathlib.Path(tmpdir).joinpath("model"))
+def model_path(tmp_path):
+    return tmp_path.joinpath("model")
 
 
 @pytest.fixture(scope="module")

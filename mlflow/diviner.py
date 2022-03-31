@@ -317,7 +317,6 @@ def log_model(
 class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
-        self.diviner_instance_type = diviner_model.__class__.__name__
 
     def predict(self, dataframe) -> pd.DataFrame:
         """
@@ -355,6 +354,9 @@ class _DivinerModelWrapper:
                  either trained or declared as a subset with a ``groups`` entry in the ``dataframe``
                  configuration argument.
         """
+
+        from diviner import GroupedProphet, GroupedPmdarima
+
         schema = dataframe.columns.values.tolist()
 
         conf = dataframe.to_dict(orient="index").get(0)
@@ -386,7 +388,7 @@ class _DivinerModelWrapper:
 
         frequency = conf.get("frequency", None)
 
-        if self.diviner_instance_type == "GroupedProphet" and not frequency:
+        if isinstance(self.diviner_model, GroupedProphet) and not frequency:
             raise MlflowException(
                 "Diviner's GroupedProphet model requires a `frequency` value to be submitted in "
                 "Pandas date_range format. The submitted configuration Pandas DataFrame does not "
@@ -408,8 +410,7 @@ class _DivinerModelWrapper:
         if predict_groups and not isinstance(predict_groups[0], Tuple):
             predict_groups = [tuple(group) for group in predict_groups]
 
-        if self.diviner_instance_type == "GroupedProphet":
-
+        if isinstance(self.diviner_model, GroupedProphet):
             # We're wrapping two different endpoints to Diviner here for the pyfunc implementation.
             # Since we're limited by a single endpoint, we can address redirecting to the
             # method ``predict_groups()`` which will allow for a subset of groups to be forecasted
@@ -427,8 +428,7 @@ class _DivinerModelWrapper:
             if predict_col is not None:
                 prediction_df.rename(columns={"yhat": predict_col}, inplace=True)
 
-        elif self.diviner_instance_type == "GroupedPmdarima":
-
+        elif isinstance(self.diviner_model, GroupedPmdarima):
             # As above, we're redirecting the prediction request to one of two different methods
             # for ``Diviner``'s pmdarima implementation. If the ``groups`` column is present with
             # a list of tuples of keys to lookup, ``predict_groups()`` will be used. Otherwise,
@@ -445,7 +445,7 @@ class _DivinerModelWrapper:
                 )
         else:
             raise MlflowException(
-                f"The Diviner model instance type '{self.diviner_instance_type}' is not supported "
+                f"The Diviner model instance type '{type(self.diviner_model)}' is not supported "
                 f"in version {mlflow.__version__} of MLflow."
             )
 
