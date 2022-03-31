@@ -38,7 +38,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("lightgbm") else ["
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def lgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
@@ -51,7 +51,7 @@ def lgb_model():
     return ModelWithData(model=model, inference_dataframe=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def lgb_sklearn_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(

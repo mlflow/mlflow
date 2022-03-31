@@ -110,7 +110,7 @@ ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
 pytestmark = pytest.mark.large
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def prophet_model():
     np.random.seed(SEED)
     data = DataGeneration(**TEST_CONFIG).create_series_df()

@@ -81,10 +81,12 @@ def get_spark_session(conf):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark():
     conf = pyspark.SparkConf()
-    return get_spark_session(conf)
+    session = get_spark_session(conf)
+    yield
+    session.stop()
 
 
 @pytest.fixture
@@ -95,7 +97,7 @@ def model_path(tmpdir):
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
