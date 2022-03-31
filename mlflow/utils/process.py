@@ -18,11 +18,8 @@ def exec_cmd(
     throw_on_error -- if true, raises an Exception if the exit code of the program is nonzero
     env -- additional environment variables to be defined when running the child process
     cwd -- working directory for child process
-    capture_output -- If True, captures command stdout/stderr output and when command
-                      failed, attach captured stdout/stderr output to exception message and
-                      raise exception; if False, does not capture command stdout/stderr output
-                      and when command failed, raise exception without stdout/stderr
-                      output attached.
+    capture_output -- If True, stdout and stderr will be captured and included in an exception
+                      message on failure; if False, these streams won't be captured.
     cmd_stdin -- if specified, passes the specified string as stdin to the child process.
 
     Note on the return value: If stream_output is true, then only the exit code is returned. If
