@@ -1,7 +1,7 @@
 import yaml
 import os
 import logging
-
+from enum import Enum
 
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
@@ -18,6 +18,11 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+
+
+class EnvManager(Enum):
+    LOCAL = "local"
+    CONDA = "conda"
 
 
 def _mlflow_conda_env(
