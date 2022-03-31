@@ -64,7 +64,7 @@ def serve(
     """
     env_manager = cli_args._validate_env_manager(no_conda, env_manager)
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
+        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
@@ -118,7 +118,9 @@ def predict(
     env_manager = cli_args._validate_env_manager(no_conda, env_manager)
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda, install_mlflow=install_mlflow).predict(
+    return _get_flavor_backend(
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+    ).predict(
         model_uri=model_uri,
         input_path=input_path,
         output_path=output_path,
@@ -140,7 +142,7 @@ def prepare_env(model_uri, no_conda, env_manager, install_mlflow):
     """
     env_manager = cli_args._validate_env_manager(no_conda, env_manager)
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, install_mlflow=install_mlflow
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
 
 
