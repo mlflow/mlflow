@@ -279,7 +279,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.paddle.get_default_pip_requirements())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def get_dataset_built_in_high_level_api():
     train_dataset = paddle.text.datasets.UCIHousing(mode="train")
     eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
