@@ -31,6 +31,9 @@ class EnvManager(Enum):
             raise ValueError(f"Expected one of {allowed_values} but got '{value}'")
         return cls[value.upper()]
 
+    def __str__(self):
+        return self.name.lower()
+
 
 def _mlflow_conda_env(
     path=None,
