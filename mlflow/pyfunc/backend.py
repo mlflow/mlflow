@@ -30,14 +30,20 @@ class PyFuncBackend(FlavorBackend):
         self._nworkers = workers or 1
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
+        self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
 
-    def prepare_env(self, model_uri):
+    def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
         if self._no_conda or ENV not in self._config:
             return 0
         conda_env_path = os.path.join(local_path, self._config[ENV])
+
+        conda_env_name = get_or_create_conda_env(
+            conda_env_path, env_id=self._env_id, capture_output=capture_output
+        )
+
         command = 'python -c ""'
-        return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
+        return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -50,6 +56,11 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
+
+            conda_env_name = get_or_create_conda_env(
+                conda_env_path, env_id=self._env_id, capture_output=False
+            )
+
             command = (
                 'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
                 "model_uri={model_uri}, "
@@ -64,7 +75,7 @@ class PyFuncBackend(FlavorBackend):
                 content_type=repr(content_type),
                 json_format=repr(json_format),
             )
-            return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
+            return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
@@ -123,8 +134,13 @@ class PyFuncBackend(FlavorBackend):
 
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
+
+            conda_env_name = get_or_create_conda_env(
+                conda_env_path, env_id=self._env_id, capture_output=False
+            )
+
             child_proc = _execute_in_conda_env(
-                conda_env_path,
+                conda_env_name,
                 command,
                 self._install_mlflow,
                 command_env=command_env,
@@ -212,7 +228,7 @@ class PyFuncBackend(FlavorBackend):
 
 
 def _execute_in_conda_env(
-    conda_env_path,
+    conda_env_name,
     command,
     install_mlflow,
     command_env=None,
@@ -239,8 +255,6 @@ def _execute_in_conda_env(
     # otherwise pip might prompt "yes or no" and ask stdin input
     command_env["PIP_NO_INPUT"] = "1"
 
-    env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
-    conda_env_name = get_or_create_conda_env(conda_env_path, env_id=env_id)
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version
