@@ -155,6 +155,7 @@ delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
 evaluate = mlflow.models.evaluate
+last_active_run = mlflow.tracking.fluent.last_active_run
 
 run = projects.run
 
@@ -195,4 +196,5 @@ __all__ = [
     "list_run_infos",
     "autolog",
     "evaluate",
+    "last_active_run",
 ] + _model_flavors_supported

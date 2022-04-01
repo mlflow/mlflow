@@ -53,6 +53,7 @@ _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
@@ -350,12 +351,13 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack
+    global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
+        _last_active_run_id = run.info.run_id
 
 
 atexit.register(end_run)
@@ -384,6 +386,25 @@ def active_run() -> Optional[ActiveRun]:
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+
+
+def last_active_run() -> Optional[Run]:
+    """
+    Returns mlflow.active_run() if it is not None. Otherwise, return the
+    last run started from the current Python process that reached a
+    terminal status (i.e. FINISHED, FAILED, or KILLED).
+
+    This is useful for retrieving the most recent autologged run.
+
+    :return: A mlflow.entities.Run object if one exists. Otherwise it
+             returns None.
+    """
+    _active_run = active_run()
+    if _active_run is not None:
+        return _active_run
+    if _last_active_run_id is None:
+        return None
+    return get_run(_last_active_run_id)
 
 
 def get_run(run_id: str) -> Run:

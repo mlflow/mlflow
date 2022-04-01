@@ -1001,3 +1001,22 @@ def test_delete_tag():
     with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()
+
+
+def test_last_active_run_returns_currently_active_run():
+    run_id = mlflow.start_run().info.run_id
+    last_active_run_id = mlflow.last_active_run().info.run_id
+    mlflow.end_run()
+    assert run_id == last_active_run_id
+
+
+def test_last_active_run_returns_most_recently_ended_active_run():
+    run_id = mlflow.start_run().info.run_id
+    mlflow.log_metric("a", 1)
+    mlflow.log_param("b", 2)
+    mlflow.end_run()
+    last_active_run = mlflow.last_active_run()
+    print(last_active_run.data)
+    assert last_active_run.info.run_id == run_id
+    assert last_active_run.data.metrics == {"a": 1.0}
+    assert last_active_run.data.params == {"b": "2"}
