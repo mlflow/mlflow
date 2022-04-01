@@ -45,6 +45,9 @@ public class Model {
   @JsonProperty("model_uuid")
   private String modelUuid;
 
+  @JsonProperty("mlflow_version")
+  private String mlflowVersion;
+
   private String rootPath;
 
   /**
@@ -89,6 +92,12 @@ public class Model {
     /** @return The MLflow model's uuid */
   public Optional<String> getModelUuid() {
     return Optional.ofNullable(this.modelUuid);
+  }
+
+
+  /** @return The version of MLflow with which the model was saved */
+  public Optional<String> getMlflowVersion() {
+    return Optional.ofNullable(this.mlflowVersion);
   }
 
   /** @return The path to the root directory of the MLflow model */

@@ -65,5 +65,8 @@ python dev/show_package_release_dates.py
 which mlflow
 echo $MLFLOW_HOME
 
+# Print mlflow version
+mlflow --version
+
 # Turn off trace output & exit-on-errors
 set +ex
