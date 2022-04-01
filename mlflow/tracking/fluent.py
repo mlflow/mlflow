@@ -1079,13 +1079,11 @@ def search_runs(
                           is returned.
     :param search_all_experiments: Boolean specifying whether all experiments should be searched.
         Only honored if ``experiment_ids`` is ``[]`` or ``None``.
-
     :param experiment_names: List of experiment names. Search can work with experiment IDs or
                              experiment names, but not both in the same call. Values other
                              than ``None`` or ``[]`` will result in error if ``experiment_ids``
                              is also not ``None`` or ``[]``. ``None`` will default to the active
                              experiment if ``experiment_ids`` is ``None`` or ``[]``.
-
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
              parameter, and tag is expanded into its own column named metrics.*, params.*, or

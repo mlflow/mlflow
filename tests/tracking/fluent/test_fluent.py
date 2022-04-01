@@ -736,27 +736,6 @@ def test_search_runs_data():
     runs, data = create_test_runs_and_expected_data("pandas")
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs()
-        # data = {
-        #     "status": [RunStatus.FINISHED] * 2,
-        #     "artifact_uri": [None] * 2,
-        #     "run_id": [""] * 2,
-        #     "experiment_id": [""] * 2,
-        #     "metrics.mse": [0.2, 0.6],
-        #     # "metrics.loss": [np.nan, 1.2],
-        #     "params.param": ["value", None],
-        #     "params.param2": [None, "val"],
-        #     "params.k": [None, "v"],
-        #     "tags.tag": ["value", None],
-        #     "tags.tag2": [None, "v2"],
-        #     "start_time": [
-        #         pd.to_datetime(1564675200000, unit="ms", utc=True),
-        #         pd.to_datetime(1564765200000, unit="ms", utc=True),
-        #     ],
-        #     "end_time": [
-        #         pd.to_datetime(1564683035000, unit="ms", utc=True),
-        #         pd.to_datetime(1564783200000, unit="ms", utc=True),
-        #     ],
-        # }
         validate_search_runs(pdf, data, "pandas")
 
 
