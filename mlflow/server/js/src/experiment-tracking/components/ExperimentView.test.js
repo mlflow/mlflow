@@ -404,7 +404,12 @@ describe('Start time dropdown', () => {
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_7_DAYS"]')).toBe(true);
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"]')).toBe(true);
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"]')).toBe(true);
-
+    console.log(
+      wrapper
+        .find("Select [data-test-id='start-time-select-dropdown']")
+        .first()
+        .props(),
+    );
     wrapper
       .find("Select [data-test-id='start-time-select-dropdown']")
       .first()
