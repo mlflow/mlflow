@@ -2,6 +2,7 @@
 APIs for interacting with artifacts in MLflow
 """
 import pathlib
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -9,7 +10,7 @@ from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
 
 
-def download_artifacts(artifact_uri: str = None, run_id: str = None, artifact_path: str = None, dst_path: str = None) -> str:
+def download_artifacts(artifact_uri: Optional[str] = None, run_id: Optional[str] = None, artifact_path: Optional[str] = None, dst_path: Optional[str] = None) -> str:
     """
     Download an artifact file or directory to a local directory.
 
