@@ -9,7 +9,7 @@ from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
 
 
-def download_artifacts(artifact_uri=None, run_id=None, artifact_path=None, dst_path=None):
+def download_artifacts(artifact_uri: str = None, run_id: str = None, artifact_path: str = None, dst_path: str = None) -> str:
     """
     Download an artifact file or directory to a local directory.
 
