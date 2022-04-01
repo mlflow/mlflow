@@ -221,7 +221,7 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for _ in range(0, int(self._activity_polling_timeout_seconds / 5)):
             assert self._proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException

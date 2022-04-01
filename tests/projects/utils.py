@@ -71,7 +71,7 @@ def docker_example_base_image():
                 path=cwd,
             )
         except BuildError as build_error:
-            for chunk in build_error.build_log:
+            for _ in build_error.build_log:
                 pass
             raise build_error
         except APIError as api_error:
