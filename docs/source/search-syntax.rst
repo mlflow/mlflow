@@ -148,6 +148,13 @@ search programmatically. You can specify the list of columns to order by
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by
 ``start_time DESC``, then ``run_id``.
 
+The :py:func:`mlflow.search_runs` can be used to search for runs within specific experiments which
+can be identified by experiment IDs or experiment names, but not both at the same time.
+
+.. warning:: Using both ``experiment_ids`` and ``experiment_names`` in the same call will result
+    in error unless one of them is ``None`` or ``[]``
+
+
 For example, if you'd like to identify the best `active` run from experiment ID 0 by accuracy, use:
 
 .. code-block:: py
@@ -184,6 +191,14 @@ To search all known experiments for any MLflow runs created using the Inception 
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
   runs = MlflowClient().search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
+
+To get all runs from the experiment named "Social NLP Experiments", use:
+
+.. code-block:: py
+
+  import mlflow
+
+  runs = mlflow.search_runs(experiment_name=["Social NLP Experiments"])
 
 R
 ^^^^^^

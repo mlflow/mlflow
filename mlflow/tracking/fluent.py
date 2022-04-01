@@ -46,7 +46,6 @@ if TYPE_CHECKING:
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
 
-
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
@@ -1057,11 +1056,15 @@ def search_runs(
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
+    experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
-    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
+        experiment names, but not both in the same call. Values other than ``None`` or ``[]``
+        will result in error if ``experiment_names`` is also not ``None`` or ``[]`. ``None``
+        will default to the active experiment if ``experiment_names`` is ``None`` or ``[]`.
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
@@ -1076,6 +1079,11 @@ def search_runs(
     :param search_all_experiments: Boolean specifying whether all experiments should be searched.
         Only honored if ``experiment_ids`` is ``[]`` or ``None``.
 
+    :param experiment_names: List of experiment names. Search can work with experiment IDs or
+        experiment names, but not both in the same call. Values other than ``None`` or ``[]``
+        will result in error if ``experiment_ids`` is also not ``None`` or ``[]`. ``None``
+        will default to the active experiment if ``experiment_ids`` is ``None`` or ``[]`.
+
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
              parameter, and tag is expanded into its own column named metrics.*, params.*, or
@@ -1089,7 +1097,8 @@ def search_runs(
         import mlflow
 
         # Create an experiment and log two runs under it
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_name = "Social NLP Experiments"
+        experiment_id = mlflow.create_experiment(experiment_name)
         with mlflow.start_run(experiment_id=experiment_id):
             mlflow.log_metric("m", 1.55)
             mlflow.set_tag("s.release", "1.1.0-RC")
@@ -1097,7 +1106,7 @@ def search_runs(
             mlflow.log_metric("m", 2.50)
             mlflow.set_tag("s.release", "1.2.0-GA")
 
-        # Search all runs in experiment_id
+        # Search for all the runs in the experiment with given experiment ID
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
@@ -1107,6 +1116,12 @@ def search_runs(
         filter_string = "tags.s.release ILIKE '%rc%'"
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
         print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+
+        # Search for all the runs in the experiment with given experiment name
+        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+
 
     .. code-block:: text
         :caption: Output
@@ -1117,13 +1132,29 @@ def search_runs(
         --
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
+    no_ids = experiment_ids is None or len(experiment_ids) == 0
+    no_names = experiment_names is None or len(experiment_names) == 0
+    no_ids_or_names = no_ids and no_names
+    if not no_ids and not no_names:
+        raise MlflowException(
+            message="Only experiment_ids or experiment_names can be used, but not both",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if search_all_experiments and no_ids_or_names:
         experiment_ids = [
             exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
-    elif experiment_ids is None or len(experiment_ids) == 0:
+    elif no_ids_or_names:
         experiment_ids = _get_experiment_id()
+    elif not no_names:
+        experiments = [get_experiment_by_name(n) for n in experiment_names if n is not None]
+        experiment_ids = [e.experiment_id for e in experiments if e is not None]
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
@@ -1215,88 +1246,6 @@ def search_runs(
         )
 
 
-def search_runs_by_name(
-    experiment_name: str,
-    filter_string: str = "",
-    run_view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
-    order_by: Optional[List[str]] = None,
-    output_format: str = "pandas",
-    search_all_experiments: bool = False,
-) -> Union[List[Run], "pandas.DataFrame"]:
-    """
-    Get experiment runs that fit the search criteria. This is an equivalent of
-    calling `get_experiments` followed by a call to `search_runs`
-
-    :param experiment_name: Name of the experiment.
-    :param filter_string: Filter query string, defaults to searching all runs.
-    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
-                            defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
-                        to avoid causing out-of-memory issues on the user's machine.
-    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
-                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
-                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
-    :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
-                          is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
-                          is returned.
-    :param search_all_experiments: Boolean specifying whether all experiments should be searched.
-        Only honored if ``experiment_ids`` is ``[]`` or ``None``.
-
-    :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
-             output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
-             parameter, and tag is expanded into its own column named metrics.*, params.*, or
-             tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
-             the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
-             respectively.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        # Create an experiment and log two runs under it
-        experiment_name = "Social NLP Experiments"
-        experiment_id = mlflow.create_experiment(experiment_name)
-        with mlflow.start_run(experiment_id=experiment_id):
-            mlflow.log_metric("m", 1.55)
-            mlflow.set_tag("s.release", "1.1.0-RC")
-        with mlflow.start_run(experiment_id=experiment_id):
-            mlflow.log_metric("m", 2.50)
-            mlflow.set_tag("s.release", "1.2.0-GA")
-
-        # Search for all the runs in the experiment
-        df = mlflow.search_runs_by_name(experiment_name, order_by=["metrics.m DESC"])
-        print(df[["metrics.m", "tags.s.release", "run_id"]])
-        print("--")
-
-        # Search for runs using a case-insensitive tag filter
-        filter_string = "tags.s.release ILIKE '%rc%'"
-        df = mlflow.search_runs_by_name(experiment_name, filter_string=filter_string)
-        print(df[["metrics.m", "tags.s.release", "run_id"]])
-
-    .. code-block:: text
-        :caption: Output
-
-           metrics.m tags.s.release                            run_id
-        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
-        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
-        --
-           metrics.m tags.s.release                            run_id
-        0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
-    """
-    experiment = get_experiment_by_name(experiment_name)
-    return search_runs(
-        [None if experiment is None else experiment.experiment_id],
-        filter_string,
-        run_view_type,
-        max_results,
-        order_by,
-        output_format,
-        search_all_experiments,
-    )
-
-
 def list_run_infos(
     experiment_id: str,
     run_view_type: int = ViewType.ACTIVE_ONLY,
@@ -1356,6 +1305,7 @@ def list_run_infos(
         - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
         - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
     """
+
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):

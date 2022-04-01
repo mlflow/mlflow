@@ -39,7 +39,6 @@ from mlflow.tracking.fluent import (
     _get_experiment_id_from_env,
     _paginate,
     search_runs,
-    search_runs_by_name,
     set_experiment,
     start_run,
     get_run,
@@ -492,7 +491,6 @@ def test_start_run_defaults_databricks_notebook(
 
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
 def test_start_run_creates_new_run_with_user_specified_tags():
-
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -556,7 +554,6 @@ def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
 
 
 def test_start_run_with_parent():
-
     parent_run = mock.Mock()
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
@@ -692,6 +689,7 @@ def test_get_run():
 
 def validate_search_runs(results, data, output_format):
     if output_format == "list":
+        keys = ["status", "artifact_uri", "experiment_id", "run_id", "start_time", "end_time"]
         result_data = defaultdict(list)
         for run in results:
             result_data["status"].append(run.info.status)
@@ -701,7 +699,8 @@ def validate_search_runs(results, data, output_format):
             result_data["start_time"].append(run.info.start_time)
             result_data["end_time"].append(run.info.end_time)
 
-        assert result_data == data
+        data_subset = {k: data[k] for k in keys if k in keys}
+        assert result_data == data_subset
     elif output_format == "pandas":
         import pandas as pd
 
@@ -723,43 +722,9 @@ def get_search_runs_timestamp(output_format):
 
 
 def test_search_runs_attributes(search_runs_output_format):
-    start_times = [
-        get_search_runs_timestamp(search_runs_output_format),
-        get_search_runs_timestamp(search_runs_output_format),
-    ]
-    end_times = [
-        get_search_runs_timestamp(search_runs_output_format),
-        get_search_runs_timestamp(search_runs_output_format),
-    ]
-
-    runs = [
-        create_run(
-            status=RunStatus.FINISHED,
-            a_uri="dbfs:/test",
-            run_id="abc",
-            exp_id="123",
-            start=start_times[0],
-            end=end_times[0],
-        ),
-        create_run(
-            status=RunStatus.SCHEDULED,
-            a_uri="dbfs:/test2",
-            run_id="def",
-            exp_id="321",
-            start=start_times[1],
-            end=end_times[1],
-        ),
-    ]
+    runs, data = create_test_runs_and_expected_data(search_runs_output_format)
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs(output_format=search_runs_output_format)
-        data = {
-            "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
-            "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
-            "run_id": ["abc", "def"],
-            "experiment_id": ["123", "321"],
-            "start_time": start_times,
-            "end_time": end_times,
-        }
         validate_search_runs(pdf, data, search_runs_output_format)
 
 
@@ -768,48 +733,30 @@ def test_search_runs_attributes(search_runs_output_format):
     reason="Skinny client does not support the np or pandas dependencies",
 )
 def test_search_runs_data():
-    import numpy as np
-    import pandas as pd
-
-    runs = [
-        create_run(
-            metrics=[Metric("mse", 0.2, 0, 0)],
-            params=[Param("param", "value")],
-            tags=[RunTag("tag", "value")],
-            start=1564675200000,
-            end=1564683035000,
-        ),
-        create_run(
-            metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
-            params=[Param("param2", "val"), Param("k", "v")],
-            tags=[RunTag("tag2", "v2")],
-            start=1564765200000,
-            end=1564783200000,
-        ),
-    ]
+    runs, data = create_test_runs_and_expected_data("pandas")
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = search_runs()
-        data = {
-            "status": [RunStatus.FINISHED] * 2,
-            "artifact_uri": [None] * 2,
-            "run_id": [""] * 2,
-            "experiment_id": [""] * 2,
-            "metrics.mse": [0.2, 0.6],
-            "metrics.loss": [np.nan, 1.2],
-            "params.param": ["value", None],
-            "params.param2": [None, "val"],
-            "params.k": [None, "v"],
-            "tags.tag": ["value", None],
-            "tags.tag2": [None, "v2"],
-            "start_time": [
-                pd.to_datetime(1564675200000, unit="ms", utc=True),
-                pd.to_datetime(1564765200000, unit="ms", utc=True),
-            ],
-            "end_time": [
-                pd.to_datetime(1564683035000, unit="ms", utc=True),
-                pd.to_datetime(1564783200000, unit="ms", utc=True),
-            ],
-        }
+        # data = {
+        #     "status": [RunStatus.FINISHED] * 2,
+        #     "artifact_uri": [None] * 2,
+        #     "run_id": [""] * 2,
+        #     "experiment_id": [""] * 2,
+        #     "metrics.mse": [0.2, 0.6],
+        #     # "metrics.loss": [np.nan, 1.2],
+        #     "params.param": ["value", None],
+        #     "params.param2": [None, "val"],
+        #     "params.k": [None, "v"],
+        #     "tags.tag": ["value", None],
+        #     "tags.tag2": [None, "v2"],
+        #     "start_time": [
+        #         pd.to_datetime(1564675200000, unit="ms", utc=True),
+        #         pd.to_datetime(1564765200000, unit="ms", utc=True),
+        #     ],
+        #     "end_time": [
+        #         pd.to_datetime(1564683035000, unit="ms", utc=True),
+        #         pd.to_datetime(1564783200000, unit="ms", utc=True),
+        #     ],
+        # }
         validate_search_runs(pdf, data, "pandas")
 
 
@@ -850,8 +797,7 @@ def test_search_runs_all_experiments(search_runs_output_format):
 
 
 def test_search_runs_by_experiment_name():
-
-    name = "Random experiment %d" % random.randint(1, 1e6)
+    name = f"Random experiment {random.randint(1, 1e6)}"
     exp_id = uuid.uuid4().hex
     experiment = create_experiment(experiment_id=exp_id, name=name)
     runs, data = create_test_runs_and_expected_data("pandas", exp_id)
@@ -862,15 +808,23 @@ def test_search_runs_by_experiment_name():
     get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=runs)
 
     with get_experiment_patch, get_paginated_runs_patch:
-        result = search_runs_by_name(name)
+        result = search_runs(experiment_names=[name])
         validate_search_runs(result, data, "pandas")
 
 
 def test_search_runs_by_non_existing_experiment_name():
+    """When invalid experiment names are used (including None), it should return an empty
+    collection.
+    """
+    for name in [None, f"Random {random.randint(1, 1e6)}"]:
+        assert search_runs(experiment_names=[name], output_format="list") == []
 
-    name = "Random experiment %d" % random.randint(1, 1e6)
-    runs = search_runs_by_name(name, output_format="list")
-    assert runs == []
+
+def test_search_runs_by_experiment_id_and_name():
+    """When both experiment_ids and experiment_names are used, it should throw an exception"""
+    err_msg = "Only experiment_ids or experiment_names can be used, but not both"
+    with pytest.raises(MlflowException, match=err_msg):
+        search_runs(experiment_ids=["id"], experiment_names=["name"])
 
 
 def test_paginate_lt_maxresults_onepage():
