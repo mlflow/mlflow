@@ -248,4 +248,40 @@ describe('MetricsSummaryTable', () => {
       expect(html).toContain(i.toString());
     }
   });
+
+  test('should not render table when no metrics', () => {
+    const props = {
+      runUuids: ['uuid-1234-5678-9012'],
+      runDisplayNames: ['run 0'],
+      metricKeys: [],
+    };
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <MetricsSummaryTable {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    const table = wrapper.find(HtmlTableView);
+    expect(table.length).toBe(0);
+  });
+
+  test('should not render table when no metrics with multiple runs', () => {
+    const props = {
+      runUuids: ['uuid-1234-5678-9012', 'uuid-1234-5678-9013'],
+      runDisplayNames: ['run 0', 'run 1'],
+      metricKeys: [],
+    };
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <MetricsSummaryTable {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
+    const table = wrapper.find(HtmlTableView);
+    expect(table.length).toBe(0);
+  });
 });

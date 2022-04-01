@@ -40,7 +40,7 @@ class MetricsSummaryTable extends React.Component {
       },
       ...this.dataColumns(),
     ];
-    return (
+    return metricKeys.length === 0 ? null : (
       <HtmlTableView
         columns={columns}
         values={getRunValuesByMetric(runUuid, metricKeys, latestMetrics, minMetrics, maxMetrics)}
