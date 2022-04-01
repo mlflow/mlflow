@@ -516,13 +516,17 @@ def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mo
     mock_flavor_backend.assert_called_once()
 
 
-def test_env_manager_exception_is_thrown_when_both_no_conda_and_env_manager_are_specified():
-    with pytest.raises(Exception, match="cannot be used at the same time"):
-        CliRunner().invoke(
-            models_cli.serve,
-            ["--model-uri", "model", "--no-conda", "--env-manager=local"],
-            catch_exceptions=False,
-        )
+def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
+    res = CliRunner().invoke(
+        models_cli.serve,
+        ["--model-uri", "model", "--no-conda", "--env-manager=local"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code != 0
+    assert (
+        "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+        in res.stdout
+    )
 
 
 def test_env_manager_unsupported_value():

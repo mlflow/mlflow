@@ -61,7 +61,7 @@ def _resolve_env_manager(ctx, _, value):
     no_conda = ctx.params.get("no_conda", False)
     # Both `--no-conda` and `--env-manager` are specified
     if no_conda and value is not None:
-        raise Exception(
+        raise click.BadParameter(
             "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
         )
 
