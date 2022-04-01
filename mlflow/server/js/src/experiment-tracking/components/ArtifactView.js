@@ -23,7 +23,7 @@ import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { Tooltip } from 'antd';
-import { Typography } from '../../shared/building_blocks/antd/Typography';
+import { Typography } from '@databricks/design-system';
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
@@ -353,6 +353,8 @@ function ModelVersionInfoSection(props) {
   const { name, version, status, status_message } = modelVersion;
 
   const modelVersionLink = (
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/jsx-no-target-blank
     <a
       href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
       className='model-version-link'
@@ -501,9 +503,13 @@ const TREEBEARD_STYLE = {
 // eslint-disable-next-line react/prop-types
 decorators.Header = ({ style, node }) => {
   let iconType;
+  // Reported during ESLint upgrade
+  // eslint-disable-next-line react/prop-types
   if (node.children) {
     iconType = 'folder';
   } else {
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/prop-types
     const extension = getExtension(node.name);
     if (IMAGE_EXTENSIONS.has(extension)) {
       iconType = 'file-image';
@@ -516,14 +522,22 @@ decorators.Header = ({ style, node }) => {
   const iconClass = `fa fa-${iconType}`;
 
   // Add margin-left to the non-directory nodes to align the arrow, icons, and texts.
+  // Reported during ESLint upgrade
+  // eslint-disable-next-line react/prop-types
   const iconStyle = node.children
     ? { marginRight: '5px' }
     : { marginRight: '5px', marginLeft: '19px' };
 
   return (
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/prop-types
     <div style={style.base} data-test-id='artifact-tree-node' artifact-name={node.name}>
+      {/* Reported during ESLint upgrade */}
+      {/* eslint-disable-next-line react/prop-types */}
       <div style={style.title}>
         <i className={iconClass} style={iconStyle} />
+        {/* Reported during ESLint upgrade */}
+        {/* eslint-disable-next-line react/prop-types */}
         {node.name}
       </div>
     </div>

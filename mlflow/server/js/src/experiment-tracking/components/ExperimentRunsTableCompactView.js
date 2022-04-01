@@ -11,9 +11,9 @@ import _ from 'lodash';
 import { LoadMoreBar } from './LoadMoreBar';
 
 import 'react-virtualized/styles.css';
-import { COLUMN_TYPES } from '../constants';
+import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../constants';
 
-export const NUM_RUN_METADATA_COLS = 10;
+export const NUM_RUN_METADATA_COLS = 11;
 const TABLE_HEADER_HEIGHT = 48;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
@@ -451,6 +451,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
               20, // expander column width
               35, // 'Status' column width
               180, // 'Date' column width
+              120, // 'Duration' column width
               120, // 'user' column width
               120, // 'Run Name' column width
               100, // 'Source' column width
@@ -475,8 +476,16 @@ export class ExperimentRunsTableCompactView extends React.Component {
             } else {
               cellMeasurerProps.rowHeight = 32;
             }
+            // The number of visible columns containing run metadata is equal to the # of
+            // metadata columns, minus the # of columns the user has explicitly deselected
+            // (unchecked) for display. We exclude the "Experiment Name" column from the list
+            // of unchecked columns to consider, as it's not displayed as part of this table
             const numVisibleMetaColumns =
-              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].length;
+              NUM_RUN_METADATA_COLS -
+              categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].filter(
+                (elem) =>
+                  elem && elem.length > 0 && elem !== ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME,
+              ).length;
             return [
               <Table
                 key='table'

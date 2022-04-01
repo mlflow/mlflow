@@ -7,6 +7,7 @@ import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
 import { PageContainer } from '../../common/components/PageContainer';
+import Routes from '../routes';
 
 export const getFirstActiveExperiment = (experiments) => {
   const sorted = experiments.concat().sort(Utils.compareExperiments);
@@ -20,26 +21,45 @@ class HomeView extends Component {
   }
 
   static propTypes = {
-    experimentId: PropTypes.string,
+    history: PropTypes.shape({}),
+    experiments: PropTypes.shape({}),
+    experimentIds: PropTypes.arrayOf(PropTypes.string),
+    compareExperiments: PropTypes.bool,
   };
 
   state = {
     listExperimentsExpanded: true,
   };
 
+  componentDidMount() {
+    const { history, experiments, experimentIds } = this.props;
+    if (experimentIds === undefined) {
+      const firstExp = getFirstActiveExperiment(experiments);
+      if (firstExp) {
+        // Reported during ESLint upgrade
+        // eslint-disable-next-line react/prop-types
+        history.push(Routes.getExperimentPageRoute(firstExp.experiment_id));
+      }
+    }
+  }
+
   onClickListExperiments() {
     this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
   }
 
   render() {
+    const { experimentIds, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
         <div style={{ height: containerHeight }}>
-          {this.props.experimentId !== undefined ? (
+          {this.props.experimentIds ? (
             <PageContainer>
-              <ExperimentPage experimentId={this.props.experimentId} />
+              <ExperimentPage
+                experimentIds={experimentIds}
+                compareExperiments={compareExperiments}
+              />
             </PageContainer>
           ) : (
             <NoExperimentView />
@@ -52,7 +72,7 @@ class HomeView extends Component {
         <div>
           {this.state.listExperimentsExpanded ? (
             <ExperimentListView
-              activeExperimentId={this.props.experimentId}
+              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
               onClickListExperiments={this.onClickListExperiments}
             />
           ) : (
@@ -65,8 +85,8 @@ class HomeView extends Component {
           )}
         </div>
         <PageContainer>
-          {this.props.experimentId !== undefined ? (
-            <ExperimentPage experimentId={this.props.experimentId} />
+          {this.props.experimentIds ? (
+            <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
           ) : (
             <NoExperimentView />
           )}
@@ -82,14 +102,9 @@ const styles = {
   },
 };
 
-const mapStateToProps = (state, ownProps) => {
-  if (ownProps.experimentId === undefined) {
-    const firstExp = getFirstActiveExperiment(getExperiments(state));
-    if (firstExp) {
-      return { experimentId: firstExp.experiment_id };
-    }
-  }
-  return {};
+const mapStateToProps = (state) => {
+  const experiments = getExperiments(state);
+  return { experiments };
 };
 
 export default connect(mapStateToProps)(HomeView);

@@ -1,17 +1,18 @@
 import React from 'react';
 import { css } from 'emotion';
+import { PageWrapper, Spacer } from '@databricks/design-system';
 
-export function PageContainer({ wut, ...otherProps } = {}) {
-  /* eslint-disable prefer-const */
-  let rootStyles = styles.basic;
-  return <div {...otherProps} className={css(rootStyles)} />;
+export function PageContainer(props) {
+  return (
+    <PageWrapper>
+      <Spacer />
+      <div {...props} className={css(styles.container)} />
+    </PageWrapper>
+  );
 }
 
-const basicSpacing = 64;
-
 const styles = {
-  basic: {
-    padding: `0 ${basicSpacing}px`,
+  container: {
     width: '100%',
     flexGrow: 1,
     paddingBottom: 24,

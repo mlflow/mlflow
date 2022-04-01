@@ -115,6 +115,8 @@ export class ModelVersionTableImpl extends React.Component {
           description='Message text when no model versions are registerd'
           values={{
             link: (chunks) => (
+              // Reported during ESLint upgrade
+              // eslint-disable-next-line react/jsx-no-target-blank
               <a target='_blank' href={learnMoreLinkUrl}>
                 {chunks}
               </a>

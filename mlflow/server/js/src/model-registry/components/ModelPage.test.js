@@ -8,7 +8,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
-import { mockAjax, mountWithIntl } from '../../common/utils/TestUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 import { modelListPageRoute } from '../routes';
 
 describe('ModelPage', () => {
@@ -19,7 +19,6 @@ describe('ModelPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     minimalProps = {
       match: {
         params: {
