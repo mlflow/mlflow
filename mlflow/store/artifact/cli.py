@@ -85,7 +85,7 @@ def list_artifacts(run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     file_infos = artifact_repo.list_artifacts(artifact_path)
-    print(_file_infos_to_json(file_infos))
+    click.echo(_file_infos_to_json(file_infos))
 
 
 def _file_infos_to_json(file_infos):
@@ -136,7 +136,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     downloaded_local_artifact_location = _download_artifacts(
         artifact_uri=artifact_uri, run_id=run_id, artifact_path=artifact_path, dst_path=dst_path
     )
-    print(downloaded_local_artifact_location)
+    click.echo(downloaded_local_artifact_location)
 
 
 if __name__ == "__main__":

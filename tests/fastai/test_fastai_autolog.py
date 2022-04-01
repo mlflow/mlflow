@@ -33,7 +33,7 @@ def iris_dataframe():
     return pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def iris_data():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])

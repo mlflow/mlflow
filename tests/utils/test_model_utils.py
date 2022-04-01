@@ -12,7 +12,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.

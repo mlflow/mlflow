@@ -121,14 +121,14 @@ def test_download_artifacts_with_run_id_and_path(run_with_artifact):
     assert downloaded_content == artifact_content
 
 
-@pytest.mark.parametrize("dst_path", [None, "doesnt_exist_yet"])
-def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_path):
+@pytest.mark.parametrize("dst_subdir_path", [None, "doesnt_exist_yet"])
+def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_subdir_path):
     run, artifact_path, _ = run_with_artifact
     artifact_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    dst_path = dst_path or str(tmp_path)
-    
+    dst_path = tmp_path / dst_subdir_path if dst_subdir_path else tmp_path
+
     command = ["mlflow", "artifacts", "download", "-u", artifact_uri, "-d", dst_path]
     p = Popen(command, stdout=PIPE, stderr=STDOUT)
     output = p.stdout.readlines()
     downloaded_file_path = output[-1].strip().decode("utf-8")
-    assert downloaded_file_path.startswith(dst_path)
+    assert downloaded_file_path.startswith(str(dst_path))

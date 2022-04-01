@@ -208,6 +208,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 """
 
 import importlib
+import tempfile
 import signal
 import sys
 
@@ -217,7 +218,6 @@ import pandas
 import yaml
 from copy import deepcopy
 import logging
-import tempfile
 import threading
 import collections
 import subprocess
@@ -244,8 +244,12 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
+    _validate_and_prepare_target_save_path,
 )
+from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
+    EnvManager,
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
@@ -254,11 +258,11 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
@@ -664,9 +668,13 @@ def _warn_dependency_requirement_mismatches(model_path):
             mismatch_str = " - " + "\n - ".join(mismatch_infos)
             warning_msg = (
                 "Detected one or more mismatches between the model's dependencies and the current "
-                f"Python environment:\n{mismatch_str}"
+                f"Python environment:\n{mismatch_str}\n"
+                "To fix the mismatches, call `mlflow.pyfunc.get_model_dependencies(model_uri)` "
+                "to fetch the model's environment and install dependencies using the resulting "
+                "environment file."
             )
             _logger.warning(warning_msg)
+
     except Exception as e:
         _logger.warning(
             f"Encountered an unexpected error ({repr(e)}) while detecting model dependency "
@@ -722,6 +730,87 @@ def load_model(
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+
+
+def _download_model_conda_env(model_uri):
+    conda_yml_file_name = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)[ENV]
+    return _download_artifact_from_uri(append_to_uri_path(model_uri, conda_yml_file_name))
+
+
+def _get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    if format == "pip":
+        req_file_uri = append_to_uri_path(model_uri, _REQUIREMENTS_FILE_NAME)
+        try:
+            return _download_artifact_from_uri(req_file_uri)
+        except Exception as e:
+            # fallback to download conda.yaml file and parse the "pip" section from it.
+            _logger.info(
+                f"Downloading model '{_REQUIREMENTS_FILE_NAME}' file failed, error is {repr(e)}. "
+                "Falling back to fetching pip requirements from the model's 'conda.yaml' file. "
+                "Other conda dependencies will be ignored."
+            )
+
+        conda_yml_path = _download_model_conda_env(model_uri)
+
+        with open(conda_yml_path, "r") as yf:
+            conda_yml = yaml.safe_load(yf)
+
+        conda_deps = conda_yml.get("dependencies", [])
+        for index, dep in enumerate(conda_deps):
+            if isinstance(dep, dict) and "pip" in dep:
+                pip_deps_index = index
+                break
+        else:
+            raise MlflowException(
+                "No pip section found in conda.yaml file in the model directory.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        pip_deps = conda_deps.pop(pip_deps_index)["pip"]
+        tmp_dir = tempfile.mkdtemp()
+        pip_file_path = os.path.join(tmp_dir, _REQUIREMENTS_FILE_NAME)
+        with open(pip_file_path, "w") as f:
+            f.write("\n".join(pip_deps) + "\n")
+
+        if len(conda_deps) > 0:
+            _logger.warning(
+                "The following conda dependencies have been excluded from the environment file:"
+                f" {', '.join(conda_deps)}."
+            )
+
+        return pip_file_path
+
+    elif format == "conda":
+        conda_yml_path = _download_model_conda_env(model_uri)
+        return conda_yml_path
+    else:
+        raise MlflowException(
+            f"Illegal format argument '{format}'.", error_code=INVALID_PARAMETER_VALUE
+        )
+
+
+def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefined-builtin
+    """
+    :param model_uri: The uri of the model to get dependencies from.
+    :param format: The format of the returned dependency file. If the ``"pip"`` format is
+                   specified, the path to a pip ``requirements.txt`` file is returned.
+                   If the ``"conda"`` format is specified, the path to a ``"conda.yaml"``
+                   file is returned . If the ``"pip"`` format is specified but the model
+                   was not saved with a ``requirements.txt`` file, the ``pip`` section
+                   of the model's ``conda.yaml`` file is extracted instead, and any
+                   additional conda dependencies are ignored. Default value is ``"pip"``.
+    :return: The local filesystem path to either a pip ``requirements.txt`` file
+             (if ``format="pip"``) or a ``conda.yaml`` file (if ``format="conda"``)
+             specifying the model's dependencies.
+    """
+    dep_file = _get_model_dependencies(model_uri, format)
+    if format == "pip":
+        prefix = "%" if is_in_databricks_runtime() else ""
+        _logger.info(
+            "To install these model dependencies, run the "
+            f"following command: '{prefix}pip install -r {dep_file}'."
+        )
+    return dep_file
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
@@ -898,10 +987,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
-    if env_manager not in ["local", "conda"]:
-        raise MlflowException(
-            f"Illegal env_manager value '{env_manager}'.", error_code=INVALID_PARAMETER_VALUE
-        )
+    env_manager = EnvManager.from_string(env_manager)
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
@@ -933,7 +1019,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
     )
 
-    if env_manager == "local":
+    if env_manager is EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -961,10 +1047,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
-        if env_manager == "conda":
-            _get_flavor_backend(local_model_path, no_conda=False, install_mlflow=False).prepare_env(
-                model_uri=local_model_path
-            )
+        if env_manager is EnvManager.CONDA:
+            _get_flavor_backend(
+                local_model_path, env_manager=EnvManager.CONDA, install_mlflow=False
+            ).prepare_env(model_uri=local_model_path, capture_output=False)
 
     # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
@@ -1070,7 +1156,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
         #   NFS directory, and in spark driver side prepare restored env once, and then all
         #   spark UDF tasks running on spark workers can skip re-creating the restored env.
-        if env_manager == "conda":
+        if env_manager is EnvManager.CONDA:
             server_port = find_free_port()
 
             if should_use_spark_to_broadcast_file:
@@ -1083,15 +1169,18 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
                 _get_flavor_backend(
-                    local_model_path_on_executor, no_conda=False, install_mlflow=False
-                ).prepare_env(model_uri=local_model_path_on_executor)
+                    local_model_path_on_executor, env_manager=EnvManager.CONDA, install_mlflow=False
+                ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
             else:
                 local_model_path_on_executor = local_model_path
             # launch scoring server
 
             # TODO: adjust timeout for server requests handler.
             scoring_server_proc = _get_flavor_backend(
-                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False
+                local_model_path_on_executor,
+                env_manager=EnvManager.CONDA,
+                workers=1,
+                install_mlflow=False,
             ).serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
@@ -1138,7 +1227,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager == "local":
+        elif env_manager is EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
@@ -1338,11 +1427,7 @@ def save_model(
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:

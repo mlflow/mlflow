@@ -259,6 +259,7 @@ class ArtifactRepository:
             try:
                 inflight_download.download_future.result()
             except Exception as e:
+                raise e
                 failed_downloads[inflight_download.src_artifact_path] = repr(e)
 
         if len(failed_downloads) > 0:

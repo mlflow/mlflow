@@ -30,7 +30,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
@@ -52,6 +51,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -233,11 +233,7 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -439,7 +435,7 @@ def _load_model_from_local_file(path, serialization_format):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """

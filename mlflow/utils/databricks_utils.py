@@ -119,6 +119,14 @@ def is_in_databricks_job():
         return False
 
 
+def is_in_databricks_repo_notebook():
+    try:
+        path = get_notebook_path()
+        return path is not None and path.startswith("/Repos")
+    except Exception:
+        return False
+
+
 def is_in_databricks_runtime():
     try:
         # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
