@@ -149,7 +149,7 @@ def _build_mlflow_run_cmd(
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     if not use_conda:
-        mlflow_run_arr.append("--no-conda")
+        mlflow_run_arr.extend(["--env-manager", "local"])
     for key, value in parameters.items():
         mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     return mlflow_run_arr
