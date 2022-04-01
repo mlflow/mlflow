@@ -158,6 +158,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
 
     if not project_env_exists:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
+        if conda_env_root_dir is not None:
+            _logger.info("Use isolated conda environment root directory: %", conda_env_root_dir)
         try:
             if conda_env_path:
                 process.exec_cmd(
@@ -216,5 +218,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                     f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."
                 )
             raise
+    else:
+        if conda_env_root_dir is not None:
+            _logger.info(
+                "Reuse cached conda environment at %",
+                os.path.join(conda_env_root_dir, project_env_name)
+            )
 
     return project_env_name
