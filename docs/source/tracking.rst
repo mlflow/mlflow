@@ -920,7 +920,7 @@ Additionally, if MinIO server is configured with non-default region, you should 
 .. warning::
 
         The MLflow tracking server utilizes specific reserved keywords to generate a qualified path. These environment configurations, if present in the client environment, can create path resolution issues.
-        For example, if you provide ``--default-artifact-root $MLFLOW_S3_ENDPOINT_URL`` on the server side **and** ``MLFLOW_S3_ENDPOINT_URL`` on the client side.
+        For example, providing ``--default-artifact-root $MLFLOW_S3_ENDPOINT_URL`` on the server side **and** ``MLFLOW_S3_ENDPOINT_URL`` on the client side will create a client path resolution issue for the artifact storage location.
         MLflow queries the value provided by ``--default-artifact-root`` and suffixes the location with the values provided in ``MLFLOW_S3_ENDPOINT_URL``.
         Thus, for AWS S3, we end up with ``https://<bucketname>.s3.<region>.amazonaws.com/<key>/<bucketname>/<key>`` or similarly ``s3://<bucketname>/<key>/<bucketname>/<key>``.
         So make sure to set either option but not both if you run into the aforementioned issues.
