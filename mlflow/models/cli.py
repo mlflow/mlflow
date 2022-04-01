@@ -30,10 +30,18 @@ def commands():
 @cli_args.HOST
 @cli_args.WORKERS
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def serve(
-    model_uri, port, host, workers, no_conda=False, install_mlflow=False, enable_mlserver=False
+    model_uri,
+    port,
+    host,
+    workers,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager=None,
+    install_mlflow=False,
+    enable_mlserver=False,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -55,7 +63,7 @@ def serve(
         }'
     """
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
+        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
@@ -89,9 +97,17 @@ def serve(
     ".html",
 )
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def predict(
-    model_uri, input_path, output_path, content_type, json_format, no_conda, install_mlflow
+    model_uri,
+    input_path,
+    output_path,
+    content_type,
+    json_format,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
+    install_mlflow,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -100,7 +116,9 @@ def predict(
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda, install_mlflow=install_mlflow).predict(
+    return _get_flavor_backend(
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+    ).predict(
         model_uri=model_uri,
         input_path=input_path,
         output_path=output_path,
@@ -112,15 +130,21 @@ def predict(
 @commands.command("prepare-env")
 @cli_args.MODEL_URI
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def prepare_env(model_uri, no_conda, install_mlflow):
+def prepare_env(
+    model_uri,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
+    install_mlflow,
+):
     """
     Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, install_mlflow=install_mlflow
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
 
 
