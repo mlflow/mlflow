@@ -22,6 +22,7 @@ from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.environment import EnvManager
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
@@ -630,7 +631,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     server_proc = None
     try:
         server_proc = _get_flavor_backend(
-            model_path, no_conda=False, workers=1, install_mlflow=False
+            model_path, eng_manager=EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=port,
