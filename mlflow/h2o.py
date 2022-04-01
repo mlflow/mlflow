@@ -36,6 +36,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 
 FLAVOR_NAME = "h2o"
@@ -106,8 +107,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
     model_data_subpath = "model.h2o"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
