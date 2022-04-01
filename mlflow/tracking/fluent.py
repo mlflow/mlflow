@@ -1062,9 +1062,10 @@ def search_runs(
     Get a pandas DataFrame of runs that fit the search criteria.
 
     :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
-        experiment names, but not both in the same call. Values other than ``None`` or ``[]``
-        will result in error if ``experiment_names`` is also not ``None`` or ``[]`. ``None``
-        will default to the active experiment if ``experiment_names`` is ``None`` or ``[]`.
+                           experiment names, but not both in the same call. Values other than
+                           ``None`` or ``[]`` will result in error if ``experiment_names`` is
+                           also not ``None`` or ``[]``. ``None`` will default to the active
+                           experiment if ``experiment_names`` is ``None`` or ``[]``.
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
@@ -1080,9 +1081,10 @@ def search_runs(
         Only honored if ``experiment_ids`` is ``[]`` or ``None``.
 
     :param experiment_names: List of experiment names. Search can work with experiment IDs or
-        experiment names, but not both in the same call. Values other than ``None`` or ``[]``
-        will result in error if ``experiment_ids`` is also not ``None`` or ``[]`. ``None``
-        will default to the active experiment if ``experiment_ids`` is ``None`` or ``[]`.
+                             experiment names, but not both in the same call. Values other
+                             than ``None`` or ``[]`` will result in error if ``experiment_ids``
+                             is also not ``None`` or ``[]``. ``None`` will default to the active
+                             experiment if ``experiment_ids`` is ``None`` or ``[]``.
 
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
@@ -1106,7 +1108,7 @@ def search_runs(
             mlflow.log_metric("m", 2.50)
             mlflow.set_tag("s.release", "1.2.0-GA")
 
-        # Search for all the runs in the experiment with given experiment ID
+        # Search for all the runs in the experiment with the given experiment ID
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
@@ -1118,7 +1120,7 @@ def search_runs(
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
 
-        # Search for all the runs in the experiment with given experiment name
+        # Search for all the runs in the experiment with the given experiment name
         df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
 
