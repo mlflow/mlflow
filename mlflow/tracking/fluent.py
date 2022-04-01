@@ -432,7 +432,7 @@ def last_active_run() -> Optional[Run]:
         run = mlflow.last_active_run()
         mlflow.end_run()
 
-    :return: The active run, if a run is currently active (this is equivalent to ``mlflow.active_run()``). Otherwise, there is no currently active run,
+    :return: The active run, if a run is currently active (this is equivalent to ``mlflow.active_run()``). Otherwise, if no run is currently active, the
              last run started from the current Python process that reached a
              terminal status (i.e. FINISHED, FAILED, or KILLED).
     """
