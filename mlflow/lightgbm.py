@@ -146,7 +146,6 @@ def save_model(
     _validate_and_prepare_target_save_path(path)
     model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
-    os.makedirs(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
