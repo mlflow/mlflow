@@ -75,7 +75,7 @@ def pd_model():
         mini_batches = [
             training_data[k : k + BATCH_SIZE] for k in range(0, len(training_data), BATCH_SIZE)
         ]
-        for _, mini_batch in enumerate(mini_batches):
+        for mini_batch in mini_batches:
             x = np.array(mini_batch[:, :-1]).astype("float32")
             y = np.array(mini_batch[:, -1:]).astype("float32")
             house_features = paddle.to_tensor(x)
