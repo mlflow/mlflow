@@ -51,7 +51,7 @@ public abstract class LoaderModule<T extends Flavor> {
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the model configuration at the specified path. Please ensure that"
-              + " this is the path to the root directory of a valid MLflow model");
+              + " this is the path to the root directory of a valid MLflow model", e);
     }
   }
 
