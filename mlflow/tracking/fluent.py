@@ -390,14 +390,51 @@ def active_run() -> Optional[ActiveRun]:
 
 def last_active_run() -> Optional[Run]:
     """
-    Returns mlflow.active_run() if it is not None. Otherwise, return the
-    last run started from the current Python process that reached a
-    terminal status (i.e. FINISHED, FAILED, or KILLED).
+    Gets the most recent active run.
 
-    This is useful for retrieving the most recent autologged run.
+    Examples:
 
-    :return: A mlflow.entities.Run object if one exists. Otherwise it
-             returns None.
+    .. code-block:: python
+        :caption: To retrieve the most recent autologged run.
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+        auto_autologged_run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To get the most recently active run that ended
+
+        import mlflow
+
+        mlflow.start_run()
+        mlflow.end_run()
+        run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To retrieve the currently active run
+
+        import mlflow
+
+        mlflow.start_run()
+        run = mlflow.last_active_run()
+        mlflow.end_run()
+
+    :return: Returns mlflow.active_run() if it is not None. Otherwise, return
+             last run started from the current Python process that reached a
+             terminal status (i.e. FINISHED, FAILED, or KILLED).
     """
     _active_run = active_run()
     if _active_run is not None:
