@@ -26,13 +26,13 @@ def download_artifacts(
     :param run_id: ID of the MLflow Run containing the artifacts. Exactly one of ``run_id`` or
                    ``artifact_uri`` must be specified.
     :param artifact_path: (For use with ``run_id``) If specified, a path relative to the MLflow
-                          Run's root directory to download containing the artifacts to download.
+                          Run's root directory containing the artifacts to download.
     :param dst_path: Path of the local filesystem destination directory to which to download the
                      specified artifacts. If the directory does not exist, it is created. If
                      unspecified, the artifacts are downloaded to a new uniquely-named directory on
                      the local filesystem, unless the artifacts already exist on the local
                      filesystem, in which case their local path is returned directly.
-    :return: The location of the arifact file or directory on the local filesystem.
+    :return: The location of the artifact file or directory on the local filesystem.
     """
     if (run_id is None and artifact_uri is None) or (
         run_id is not None and artifact_uri is not None
