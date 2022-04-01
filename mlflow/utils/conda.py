@@ -153,19 +153,13 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
 
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if conda_env_root_dir is not None:
-        # Append a postfix "-isolated" because if a conda env name exist in
+        # Append a suffix "-isolated" because if a conda env name exist in
         # default conda env root dir, then if we set new "CONDA_ENVS_PATH" and run "conda env create"
         # with the same conda env name, "CondaValueError: prefix already exists" error will
         # be raised.
         project_env_name = project_env_name + "-isolated"
 
-    if conda_env_root_dir is not None:
-        project_env_exists = project_env_name in os.listdir(conda_env_root_dir)
-    else:
-        env_names = _list_conda_environments()
-        project_env_exists = project_env_name in env_names
-
-    if not project_env_exists:
+    if project_env_name not in _list_conda_environments():
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         if conda_env_root_dir is not None:
             _logger.info("Use isolated conda environment root directory: %s", conda_env_root_dir)
@@ -202,26 +196,23 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                 )
         except Exception:
             try:
-                if conda_env_root_dir is not None:
-                    shutil.rmtree(os.path.join(conda_env_root_dir, project_env_name), ignore_errors=True)
-                else:
-                    if project_env_name in _list_conda_environments():
-                        _logger.warning(
-                            "Encountered unexpected error while creating conda environment. "
-                            "Removing %s.",
+                if project_env_name in _list_conda_environments():
+                    _logger.warning(
+                        "Encountered unexpected error while creating conda environment. "
+                        "Removing %s.",
+                        project_env_name,
+                    )
+                    process.exec_cmd(
+                        [
+                            conda_path,
+                            "remove",
+                            "--yes",
+                            "--name",
                             project_env_name,
-                        )
-                        process.exec_cmd(
-                            [
-                                conda_path,
-                                "remove",
-                                "--yes",
-                                "--name",
-                                project_env_name,
-                                "--all",
-                            ],
-                            capture_output=False,
-                        )
+                            "--all",
+                        ],
+                        capture_output=False,
+                    )
             except Exception as e:
                 _logger.warning(
                     f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."
