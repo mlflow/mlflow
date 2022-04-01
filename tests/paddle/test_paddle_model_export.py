@@ -113,7 +113,7 @@ def test_model_save_load(pd_model, model_path):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
     reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         pd_model.model(pd_model.inference_dataframe),
@@ -279,7 +279,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.paddle.get_default_pip_requirements())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def get_dataset_built_in_high_level_api():
     train_dataset = paddle.text.datasets.UCIHousing(mode="train")
     eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
@@ -316,7 +316,7 @@ def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_ap
     mlflow.paddle.save_model(pd_model=model, path=model_path)
 
     reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     low_level_test_dataset = [x[0] for x in test_dataset]
 
@@ -430,7 +430,7 @@ def test_model_retrain_built_in_high_level_api(
         mlflow.paddle.load_model(model_uri=model_retrain_path, model=error_model)
 
     reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_retrain_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_retrain_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_retrain_path)
     low_level_test_dataset = [x[0] for x in test_dataset]
 
     np.testing.assert_array_almost_equal(

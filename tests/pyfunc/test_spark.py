@@ -3,11 +3,11 @@ import sys
 import time
 from typing import Iterator
 import threading
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest import mock
 
 import pyspark
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
+from mlflow.utils.environment import EnvManager
 
 import tests
 from mlflow.types import Schema, ColSpec
@@ -81,10 +82,12 @@ def get_spark_session(conf):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark():
     conf = pyspark.SparkConf()
-    return get_spark_session(conf)
+    session = get_spark_session(conf)
+    yield session
+    session.stop()
 
 
 @pytest.fixture
@@ -95,7 +98,7 @@ def model_path(tmpdir):
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -114,7 +117,7 @@ def test_spark_udf(spark, model_path):
     )
 
     with mock.patch("mlflow.pyfunc._warn_dependency_requirement_mismatches") as mock_check_fn:
-        reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
+        reloaded_pyfunc_model = mlflow.pyfunc.load_model(model_path)
         mock_check_fn.assert_called_once()
 
     pandas_df = pd.DataFrame(data=np.ones((10, 10)), columns=[str(i) for i in range(10)])
@@ -407,7 +410,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
         from mlflow.models.cli import _get_flavor_backend
 
-        _get_flavor_backend(model_path, no_conda=False, workers=1, install_mlflow=False).serve(
+        _get_flavor_backend(
+            model_path, env_manager=EnvManager.CONDA, workers=1, install_mlflow=False
+        ).serve(
             model_uri=model_path,
             port=server_port,
             host="127.0.0.1",
@@ -424,7 +429,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         # and the udf task starts a mlflow model server process.
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
-    _get_flavor_backend(model_path, no_conda=False, install_mlflow=False).prepare_env(
+    _get_flavor_backend(model_path, env_manager=EnvManager.CONDA, install_mlflow=False).prepare_env(
         model_uri=model_path
     )
 

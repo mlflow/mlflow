@@ -4,7 +4,7 @@ import sys
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.file_utils import _copy_file_or_tree
@@ -119,6 +119,16 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+
+
+def _validate_and_prepare_target_save_path(path):
+    if os.path.exists(path) and any(os.scandir(path)):
+        raise MlflowException(
+            message="Path '{}' already exists and is not empty".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS,
+        )
+
+    os.makedirs(path, exist_ok=True)
 
 
 def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_CODE):

@@ -245,9 +245,11 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration_from_uri,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
+    EnvManager,
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
@@ -261,7 +263,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
 from scipy.sparse import csc_matrix, csr_matrix
@@ -1017,10 +1018,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
-    if env_manager not in ["local", "conda"]:
-        raise MlflowException(
-            f"Illegal env_manager value '{env_manager}'.", error_code=INVALID_PARAMETER_VALUE
-        )
+    env_manager = EnvManager.from_string(env_manager)
 
     if env_manager != "local" and os.name == "nt":
         # TODO:
@@ -1062,7 +1060,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
     )
 
-    if env_manager == "local":
+    if env_manager is EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -1090,7 +1088,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
-        if env_manager == "conda":
+        if env_manager is EnvManager.CONDA:
             _get_flavor_backend(
                 local_model_path, no_conda=False, install_mlflow=False,
                 conda_env_root_dir=conda_env_root_dir
@@ -1186,7 +1184,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         scoring_server_proc = None
 
         # TODO: Support virtual env.
-        if env_manager == "conda":
+        if env_manager is EnvManager.CONDA:
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
@@ -1198,7 +1196,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 conda_env_root_dir_on_executor = conda_env_root_dir
 
             pyfunc_backend = _get_flavor_backend(
-                local_model_path_on_executor, no_conda=False, workers=1, install_mlflow=False,
+                local_model_path_on_executor, workers=1, install_mlflow=False,
+                env_manager=EnvManager.CONDA,
                 conda_env_root_dir=conda_env_root_dir_on_executor
             )
 
@@ -1213,10 +1212,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # driver side exception.
                 pyfunc_backend.prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
 
-            server_port = find_free_port()
-
             # launch scoring server
             # TODO: adjust timeout for server requests handler.
+            server_port = find_free_port()
             scoring_server_proc = pyfunc_backend.serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
@@ -1263,7 +1261,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager == "local":
+        elif env_manager is EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
@@ -1463,11 +1461,7 @@ def save_model(
         )
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
