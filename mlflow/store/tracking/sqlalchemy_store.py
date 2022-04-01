@@ -733,7 +733,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
-    def _log_params(self, run_id, params, session=None):
+    def _log_params(self, run_id, params):
         if not params:
             return
         # eliminate duplicate Param entities
@@ -742,14 +742,7 @@ class SqlAlchemyStore(AbstractStore):
             for param in set(params)
         ]
 
-        # use nullcontext approach if a session is given, otherwise obtain
-        # a new session via ManagedSessionMaker
-        context = (
-            self.ManagedSessionMaker() if session is None
-            else contextlib.nullcontext(session)
-        )
-
-        with context as session:
+        with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
@@ -768,10 +761,10 @@ class SqlAlchemyStore(AbstractStore):
                 # in case of an integrity error, compare the parameters of the
                 # run. If the parameters match the ones whom being saved, 
                 # ignore the exception since idempotency is reached.
+                run_params = {param.key: param.value for param in run.params} 
                 non_matching_params = []
                 for param in param_instances:
-                    existing_value = [p.value for p in run.params if p.key == param.key]
-                    existing_value = existing_value[0] if existing_value else None
+                    existing_value = run_params.get(param.key)
                     if param.value != existing_value:
                         non_matching_params.append({
                             "key": param.key,
