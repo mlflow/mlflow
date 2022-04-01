@@ -16,6 +16,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.environment import EnvManager
 from mlflow.version import VERSION
+from mlflow.exceptions import MlflowException
 
 
 _logger = logging.getLogger(__name__)
@@ -320,7 +321,7 @@ def _is_pyenv_available():
 
 def _validate_pyenv_is_available():
     if not _is_pyenv_available():
-        raise Exception("pyenv must be available to use this feature")
+        raise MlflowException("pyenv must be available to use this feature")
 
 
 def _is_virtualenv_available():
@@ -329,7 +330,7 @@ def _is_virtualenv_available():
 
 def _validate_virtualenv_is_available():
     if not _is_virtualenv_available():
-        raise Exception("virtualenv must be available to use this feature")
+        raise MlflowException("virtualenv must be available to use this feature")
 
 
 def _get_env_name_for_virtualenv(string):
