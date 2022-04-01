@@ -148,7 +148,7 @@ search programmatically. You can specify the list of columns to order by
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by
 ``start_time DESC``, then ``run_id``.
 
-The :py:func:`mlflow.search_runs` can be used to search for runs within specific experiments which
+The :py:func:`mlflow.search_runs` API can be used to search for runs within specific experiments which
 can be identified by experiment IDs or experiment names, but not both at the same time.
 
 .. warning:: Using both ``experiment_ids`` and ``experiment_names`` in the same call will result
