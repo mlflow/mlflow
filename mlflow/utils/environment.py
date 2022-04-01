@@ -59,13 +59,13 @@ class PythonEnv:
     @classmethod
     def default(cls):
         return cls(
-            python=cls.get_current_python(),
+            python=cls._get_current_python(),
             build_dependencies=cls.get_default_build_dependencies(),
             dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
         )
 
     @staticmethod
-    def get_current_python():
+    def _get_current_python():
         return ".".join(map(str, sys.version_info[:3]))
 
     @staticmethod
