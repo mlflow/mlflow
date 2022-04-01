@@ -78,7 +78,17 @@ def _resolve_env_manager(ctx, _, value):
 
     # Only `--env-manager` is specified
     if value is not None:
-        return EnvManager.from_string(value)
+        env_manager = EnvManager.from_string(value)
+        if env_manager is EnvManager.VIRTUALENV:
+            warnings.warn(
+                (
+                    "Virtualenv support is still experimental and will be changed in a future "
+                    "release without warning."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+        return env_manager
 
     # Neither `--no-conda` nor `--env-manager` is specified
     return EnvManager.CONDA
@@ -98,6 +108,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - conda: use conda
+- virtualenv: use pyenv and virtualenv
 
 If unspecified, default to conda.
 """,

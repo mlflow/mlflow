@@ -10,12 +10,11 @@ from sklearn.datasets import load_iris
 
 import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
-from mlflow.pyfunc.backend import (
+from mlflow.utils.virtualenv import (
     _MLFLOW_ENV_ROOT_ENV_VAR,
     _is_pyenv_available,
     _is_virtualenv_available,
 )
-
 from tests.helper_functions import pyfunc_serve_and_score_model
 
 requires_pyenv_and_virtualenv = pytest.mark.skipif(
@@ -52,6 +51,16 @@ def temp_mlflow_env_root(tmp_path, monkeypatch):
 
 
 use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
+
+
+@requires_pyenv_and_virtualenv
+@use_temp_mlflow_env_root
+def test_serve_and_score(sklearn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+
+    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
 @requires_pyenv_and_virtualenv

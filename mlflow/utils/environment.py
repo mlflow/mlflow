@@ -3,9 +3,9 @@ import os
 import logging
 import sys
 import re
-import json
 from enum import Enum
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
@@ -108,8 +108,8 @@ class PythonEnv:
             conda_env = yaml.safe_load(f)
 
         python = None
-        dependencies = None
-        build_dependencies = []
+        pip_dependencies = None
+        build_dependencies = None
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
                 if not python:
@@ -120,28 +120,36 @@ class PythonEnv:
 
                 match = _BUILD_PACKAGE_REGEX.match(dep)
                 if match:
+                    if build_dependencies is None:
+                        build_dependencies = []
                     name, operator, version = match.groups()
                     operator = "==" if operator == "=" else operator
                     build_dependencies.append(name + operator + version)
-
             elif _is_pip_deps(dep):
-                dependencies = dep["pip"]
+                pip_dependencies = dep["pip"]
+            else:
+                raise MlflowException(
+                    f"Invalid conda dependency: {dep}. Must be str or dict in the form of "
+                    '{"pip": [...]}',
+                )
 
-        if python and dependencies:
-            return cls(
-                python=python,
-                build_dependencies=build_dependencies or None,
-                dependencies=dependencies,
+        if python is None:
+            raise MlflowException(
+                f"Failed to construct `PythonEnv`. {path} is missing a conda dependency for "
+                "python (e.g. 'python=3.8').",
             )
 
-        raise ValueError(
-            f"Failed to create a `PythonEnv` object from:\n{json.dumps(conda_env, indent=2)}"
+        return cls(
+            python=python,
+            build_dependencies=build_dependencies,
+            dependencies=pip_dependencies,
         )
 
 
 class EnvManager(Enum):
     LOCAL = "local"
     CONDA = "conda"
+    VIRTUALENV = "virtualenv"
 
     @classmethod
     def from_string(cls, value):
