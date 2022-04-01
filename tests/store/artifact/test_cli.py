@@ -116,7 +116,15 @@ def test_download_artifacts_with_uri(run_with_artifact):
 def test_download_artifacts_with_run_id_and_path(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
     downloaded_content = _run_download_artifact_command(
-        ["mlflow", "artifacts", "download", "--run-id", run.info.run_id, "--artifact-path", artifact_path]
+        [
+            "mlflow",
+            "artifacts",
+            "download",
+            "--run-id",
+            run.info.run_id,
+            "--artifact-path",
+            artifact_path,
+        ]
     )
     assert downloaded_content == artifact_content
 

@@ -116,7 +116,7 @@ def _file_infos_to_json(file_infos):
         " the artifacts are downloaded to a new uniquely-named directory on the local filesystem,"
         " unless the artifacts already exist on the local filesystem, in which case their local"
         " path is returned directly"
-    )
+    ),
 )
 def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     """

@@ -41,8 +41,10 @@ def test_download_artifacts_with_run_id_no_path(run_with_artifact):
     run, artifact_path, _ = run_with_artifact
     artifact_relative_path_top_level_dir = pathlib.Path(artifact_path).parts[0]
     downloaded_output_path = mlflow.artifacts.download_artifacts(run_id=run.info.run_id)
-    downloaded_artifact_directory_name = list(pathlib.Path(downloaded_output_path).iterdir())[0].name
-    assert downloaded_artifact_directory_name == artifact_relative_path_top_level_dir 
+    downloaded_artifact_directory_name = list(pathlib.Path(downloaded_output_path).iterdir())[
+        0
+    ].name
+    assert downloaded_artifact_directory_name == artifact_relative_path_top_level_dir
 
 
 @pytest.mark.parametrize("dst_subdir_path", [None, "doesnt_exist_yet"])
@@ -66,7 +68,4 @@ def test_download_artifacts_throws_for_invalid_arguments():
         mlflow.artifacts.download_artifacts()
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
-        mlflow.artifacts.download_artifacts(
-            artifact_path="path", artifact_uri="uri"
-        )
-
+        mlflow.artifacts.download_artifacts(artifact_path="path", artifact_uri="uri")

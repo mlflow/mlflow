@@ -10,7 +10,12 @@ from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
 
 
-def download_artifacts(artifact_uri: Optional[str] = None, run_id: Optional[str] = None, artifact_path: Optional[str] = None, dst_path: Optional[str] = None) -> str:
+def download_artifacts(
+    artifact_uri: Optional[str] = None,
+    run_id: Optional[str] = None,
+    artifact_path: Optional[str] = None,
+    dst_path: Optional[str] = None,
+) -> str:
     """
     Download an artifact file or directory to a local directory.
 
@@ -29,8 +34,9 @@ def download_artifacts(artifact_uri: Optional[str] = None, run_id: Optional[str]
                      filesystem, in which case their local path is returned directly.
     :return: The location of the arifact file or directory on the local filesystem.
     """
-    if (run_id is None and artifact_uri is None)\
-            or (run_id is not None and artifact_uri is not None):
+    if (run_id is None and artifact_uri is None) or (
+        run_id is not None and artifact_uri is not None
+    ):
         raise MlflowException(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
             error_code=INVALID_PARAMETER_VALUE,
