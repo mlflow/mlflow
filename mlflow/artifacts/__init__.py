@@ -1,5 +1,5 @@
 """
-APIs for interacting with MLflow artifacts
+APIs for interacting with artifacts in MLflow
 """
 import pathlib
 
@@ -32,6 +32,11 @@ def download_artifacts(artifact_uri=None, run_id=None, artifact_path=None, dst_p
             or (run_id is not None and artifact_uri is not None):
         raise MlflowException(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif artifact_uri is not None and artifact_path is not None:
+        raise MlflowException(
+            message="`artifact_path` cannot be specified if `artifact_uri` is specified",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

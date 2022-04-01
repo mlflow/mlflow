@@ -89,8 +89,8 @@ def _run_download_artifact_command(command):
     """
     p = Popen(command, stdout=PIPE, stderr=STDOUT)
     output = p.stdout.readlines()
-    downloaded_file_path = pathlib.Path(output[-1].strip().decode("utf-8"))
-    downloaded_file = list(downloaded_file_path.iterdir())[0]
+    download_output_path = pathlib.Path(output[-1].strip().decode("utf-8"))
+    downloaded_file = list(download_output_path.iterdir())[0]
     return downloaded_file.read_text()
 
 
