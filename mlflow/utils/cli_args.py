@@ -93,7 +93,7 @@ ENV_MANAGER = click.option(
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
     help="""
-If specified, create an environment for MLmodel using the specified
+If specified, create an environment for MLmodel/MLproject using the specified
 environment manager. The following values are supported:
 
 \b
