@@ -20,7 +20,10 @@ from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.server_utils import resolve_default_artifact_root, _validate_artifacts_only_config
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    _validate_artifacts_only_config,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
