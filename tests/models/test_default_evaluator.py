@@ -347,7 +347,6 @@ def test_get_binary_sum_up_label_pred_prob():
         )
         results.append((list(y_bin), list(y_pred_bin), list(y_prob_bin)))
 
-    print(results)
     assert results == [
         ([1, 0, 0], [1, 0, 0], [0.7, 0.2, 0.25]),
         ([0, 1, 0], [0, 0, 1], [0.1, 0.3, 0.4]),
@@ -500,7 +499,6 @@ def test_gen_multiclass_roc_curve():
     results = _gen_classifier_curve(
         is_binomial=False, y=y, y_probs=y_probs, labels=[0, 1, 2], curve_type="roc"
     )
-    print(results)
 
     expected_x_data_list = [
         [0.0, 0.25, 0.25, 1.0],

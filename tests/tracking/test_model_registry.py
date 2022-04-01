@@ -65,8 +65,6 @@ def server_urls():
     """
     yield
     for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
-        print("Terminating server at %s..." % (server_url))
-        print("type = ", type(process))
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(SUITE_ROOT_DIR)

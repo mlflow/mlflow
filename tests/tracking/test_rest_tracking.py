@@ -84,8 +84,6 @@ def server_urls():
     """
     yield
     for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
-        print("Terminating server at %s..." % (server_url))
-        print("type = ", type(process))
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(SUITE_ROOT_DIR)
@@ -231,7 +229,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     )
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
-    print("Run id=%s" % run_id)
     fetched_run = mlflow_client.get_run(run_id)
     for run in [created_run, fetched_run]:
         assert run.info.run_id == run_id

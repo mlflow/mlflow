@@ -30,7 +30,6 @@ class ArtifactRepositoryImpl(ArtifactRepository):
         raise NotImplementedError()
 
     def _download_file(self, remote_file_path, local_path):
-        print("download_file called with '%s'" % remote_file_path)
         assert remote_file_path.endswith(_MODEL_FILE)
 
 
@@ -49,7 +48,6 @@ class SlowArtifactRepositoryImpl(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         # Sleep in order to simulate a longer-running asynchronous download
         time.sleep(2)
-        print("download_file called with '%s'" % remote_file_path)
         assert remote_file_path.endswith(_MODEL_FILE)
 
 

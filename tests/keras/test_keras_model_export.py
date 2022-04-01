@@ -294,7 +294,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    print(scoring_response.content)
+
     actual_scoring_response = pd.read_json(
         scoring_response.content.decode("utf-8"), orient="records", encoding="utf8"
     ).values.astype(np.float32)

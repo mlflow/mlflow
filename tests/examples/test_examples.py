@@ -69,7 +69,7 @@ def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
-        print(" | Free disk space: {:.1f} GiB".format(get_free_disk_space()), end="")
+        pass
 
 
 @pytest.mark.large

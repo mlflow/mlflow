@@ -227,14 +227,12 @@ class RestEndpoint:
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                print("connection attempt", i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                print("connection attempt", i, "failed, server is not up yet")
+                pass
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        print("server up, ping status", ping_status)
         return self
 
     def __exit__(self, tp, val, traceback):
