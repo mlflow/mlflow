@@ -104,7 +104,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     assert model_config.__dict__ == reloaded_model_config.__dict__
     assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in reloaded_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(model_path)
+    reloaded_model = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
@@ -630,7 +630,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    reloaded_model = mlflow.pyfunc.load_model(pyfunc_model_path)
     assert model_config.to_yaml() == reloaded_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
@@ -660,7 +660,7 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    reloaded_model = mlflow.pyfunc.load_model(pyfunc_model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )

@@ -10,6 +10,7 @@ import signal
 import shutil
 from subprocess import check_call, Popen
 import sys
+import logging
 
 from pkg_resources import resource_filename
 
@@ -39,6 +40,9 @@ DISABLE_NGINX = "DISABLE_NGINX"
 ENABLE_MLSERVER = "ENABLE_MLSERVER"
 
 SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _init(cmd):
@@ -96,7 +100,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, enable_mlserver=
             return
         conf = model.flavors[pyfunc.FLAVOR_NAME]
         if pyfunc.ENV in conf:
-            print("creating and activating custom environment")
+            _logger.info("creating and activating custom environment")
             env = conf[pyfunc.ENV]
             env_path_dst = os.path.join("/opt/mlflow/", env)
             env_path_dst_dir = os.path.dirname(env_path_dst)
@@ -225,7 +229,7 @@ def _sigterm_handler(pids):
     Attempt to kill all launched processes and exit.
 
     """
-    print("Got sigterm signal, exiting.")
+    _logger.info("Got sigterm signal, exiting.")
     for pid in pids:
         try:
             os.kill(pid, signal.SIGTERM)

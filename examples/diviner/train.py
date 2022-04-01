@@ -88,9 +88,10 @@ def grouped_prophet_example(locations, start_dt, artifact_path):
     # NOTE: Do not use both of these methods. These are shown as an either/or alternative based
     # on how you would choose to consume, view, or analyze the per-group metrics and parameters.
 
-    params["t_scale"] = params["t_scale"].astype(str)  # NB: Cannot serialize a Timestamp as JSON
-    params["start"] = params["start"].astype(str)  # NB: Cannot serialize a Timestamp as JSON
-    params = params.drop("stan_backend", axis=1)  # NB: Cannot serialize this underlying object
+    # NB: There are object references present in the Prophet model parameters. Coerce to string if
+    # using a JSON serialization approach with ``mlflow.log_dict()``.
+    params = params.astype(dtype=str, errors="ignore")
+
     mlflow.log_dict(params.to_dict(), "params.json")
 
     mlflow.log_dict(metrics.to_dict(), "metrics.json")

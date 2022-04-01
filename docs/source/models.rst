@@ -100,6 +100,31 @@ Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
 For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
 
+.. note::
+    Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
+
+    MLflow models logged before `v1.18 <https://mlflow.org/news/2021/06/18/1.18.0-release/index.html>`_ were by default logged with the conda ``defaults`` channel (`https://repo.anaconda.com/pkgs/ <https://repo.anaconda.com/pkgs/>`_) as a dependency. Because of this license change, MLflow has stopped the use of the ``defaults`` channel for models logged using MLflow v1.18 and above. The default channel logged is now ``conda-forge``, which points at the community managed `https://conda-forge.org/ <https://conda-forge.org/>`_.
+
+    If you logged a model before MLflow v1.18 without excluding the ``defaults`` channel from the conda environment for the model, that model may have a dependency on the ``defaults`` channel that you may not have intended.
+    To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
+
+    .. code-block:: yaml
+
+        name: mlflow-env
+        channels:
+        - defaults
+        dependencies:
+        - python=3.8.8
+        - pip
+        - pip:
+            - mlflow
+            - scikit-learn==0.23.2
+            - cloudpickle==1.6.0
+
+    If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
+
+    For more information on the ``log_model()`` API, see the MLflow documentation for the model flavor you are working with, for example, :py:func:`mlflow.sklearn.log_model() <mlflow.sklearn.log_model>`.
+
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 requirements.txt
@@ -125,18 +150,18 @@ The following shows an example of saving a model with a manually specified conda
 
 The written ``conda.yaml`` file:
 
-.. code-block:: text
+.. code-block:: yaml
 
+    name: mlflow-env
     channels:
       - conda-forge
-      dependencies:
-      - python=3.8.8
-      - pip
-      - pip:
-        - mlflow
-        - scikit-learn==0.23.2
-        - cloudpickle==1.6.0
-    name: mlflow-env
+    dependencies:
+    - python=3.8.8
+    - pip
+    - pip:
+      - mlflow
+      - scikit-learn==0.23.2
+      - cloudpickle==1.6.0
 
 The written ``requirements.txt`` file:
 
@@ -883,8 +908,8 @@ Diviner Types
 Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
 related series. Forecasting in ``diviner`` is accomplished through wrapping popular open source libraries such as
 `prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_. The ``diviner``
-library offers a simplified set of APIs to generate many time series forecasts from a single input DataFrame and a
-unified high-level API.
+library offers a simplified set of APIs to simultaneously generate distinct time series forecasts for multiple data
+groupings using a single input DataFrame and a unified high-level API.
 
 Metrics and Parameters logging for Diviner
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1001,15 +1026,15 @@ Logging of the model artifact is shown in the ``pyfunc`` example below.
 
 Diviner pyfunc usage
 ~~~~~~~~~~~~~~~~~~~~
-The ``diviner`` interface for the ``pyfunc`` type is a patched API that is defined by the configuration supplied
-in the argument to ``predict()``. This configuration is supplied as a single row ``Pandas DataFrame``.
+The MLflow Diviner flavor includes an implementation of the ``pyfunc`` interface for Diviner models. To control
+prediction behavior, you can specify configuration arguments in the first row of a Pandas DataFrame input.
 
-As this configuration is dependent upon the underlying model type (i.e., the ``diviner.GroupedProphet.forecast()`` method has
-a different signature than does ``diviner.GroupedPmdarima.predict()``), resolution of provided argument names will be
-optimistically coerced into the appropriate argument keys.
+As this configuration is dependent upon the underlying model type (i.e., the ``diviner.GroupedProphet.forecast()``
+method has a different signature than does ``diviner.GroupedPmdarima.predict()``), the Diviner pyfunc implementation
+attempts to coerce arguments to the types expected by the underlying model.
 
 .. note::
-    Diviner models support both "full group" and "partial group" forecasting. If a column named "groups" is present
+    Diviner models support both "full group" and "partial group" forecasting. If a column named ``"groups"`` is present
     in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, the grouping key values in the first row
     will be used to generate a subset of forecast predictions. This functionality removes the need to filter a subset
     from the full output of all groups forecasts if the results of only a few (or one) groups are needed.

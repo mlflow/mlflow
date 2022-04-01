@@ -31,6 +31,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV,
 )
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.conda import get_or_create_conda_env
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -537,3 +538,21 @@ def test_credential_propagation(get_config, synchronous):
         env = kwargs["env"]
         assert env["DATABRICKS_HOST"] == "host"
         assert env["DATABRICKS_TOKEN"] == "mytoken"
+
+
+def test_get_or_create_conda_env_capture_output_mode(tmp_path):
+    conda_yaml_file = tmp_path / "conda.yaml"
+    conda_yaml_file.write_text(
+        """
+channels:
+- conda-forge
+dependencies:
+- pip:
+  - scikit-learn==99.99.99
+"""
+    )
+    with pytest.raises(
+        ShellCommandException,
+        match="Could not find a version that satisfies the requirement scikit-learn==99.99.99",
+    ):
+        get_or_create_conda_env(str(conda_yaml_file), capture_output=True)

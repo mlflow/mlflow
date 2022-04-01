@@ -101,4 +101,3 @@ travis_wait*.log
 
 # Pytorch logs
 lightning_logs
-

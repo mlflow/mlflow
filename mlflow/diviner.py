@@ -1,17 +1,32 @@
+"""
+The ``mlflow.diviner`` module provides an API for logging, saving and loading ``diviner`` models.
+Diviner wraps several popular open source time series forecasting libraries in a unified API that
+permits training, back-testing cross validation, and forecasting inference for groups of related
+series.
+This module exports groups of univariate ``diviner`` models in the following formats:
+
+Diviner format
+    Serialized instance of a ``diviner`` model type using native diviner serializers.
+    (e.g., "GroupedProphet" or "GroupedPmdarima")
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and for batch auditing
+    of historical forecasts.
+
+.. _Diviner:
+    https://databricks-diviner.readthedocs.io/en/latest/index.html
+"""
 import logging
 import pathlib
-
 import yaml
 import pandas as pd
 from typing import Tuple, List
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-
 from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
-
 from mlflow.models.signature import ModelSignature
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
@@ -30,6 +45,7 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _get_flavor_configuration,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.models.utils import _save_example
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -116,10 +132,7 @@ def save_model(
 
     path = pathlib.Path(path).absolute()
 
-    try:
-        path.mkdir(parents=True, exist_ok=False)
-    except FileExistsError as e:
-        raise MlflowException(f"Path '{e.filename}' already exists.")
+    _validate_and_prepare_target_save_path(str(path))
 
     # NB: When moving to native pathlib implementations, path encoding as string will not be needed.
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
@@ -367,7 +380,8 @@ class _DivinerModelWrapper:
         if n_periods and horizon and n_periods != horizon:
             raise MlflowException(
                 "The provided prediction configuration contains both `n_periods` and `horizon` "
-                "with different values. Please provide only one of these integer values."
+                "with different values. Please provide only one of these integer values.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         else:
             if not n_periods and horizon:
@@ -377,13 +391,15 @@ class _DivinerModelWrapper:
             raise MlflowException(
                 "The provided prediction configuration Pandas DataFrame does not contain either "
                 "the `n_periods` or `horizon` columns. At least one of these must be specified "
-                f"with a valid integer value. Configuration schema: {schema}."
+                f"with a valid integer value. Configuration schema: {schema}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if not isinstance(n_periods, int):
             raise MlflowException(
                 "The `n_periods` column contains invalid data. Supplied type must be an integer. "
-                f"Type supplied: {type(n_periods)}"
+                f"Type supplied: {type(n_periods)}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         frequency = conf.get("frequency", None)
@@ -392,7 +408,8 @@ class _DivinerModelWrapper:
             raise MlflowException(
                 "Diviner's GroupedProphet model requires a `frequency` value to be submitted in "
                 "Pandas date_range format. The submitted configuration Pandas DataFrame does not "
-                f"contain a `frequency` column. Configuration schema: {schema}."
+                f"contain a `frequency` column. Configuration schema: {schema}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         predict_col = conf.get("predict_col", None)
@@ -401,7 +418,8 @@ class _DivinerModelWrapper:
         if predict_groups and not isinstance(predict_groups, List):
             raise MlflowException(
                 "Specifying a group subset for prediction requires groups to be defined as a "
-                f"[List[Tuple|List[<group_keys>]]. Submitted group type: {type(predict_groups)}."
+                f"[List[(Tuple|List)[<group_keys>]]. Submitted group type: {type(predict_groups)}.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         # NB: json serialization of a tuple converts the tuple to a List. Diviner requires a
@@ -446,7 +464,8 @@ class _DivinerModelWrapper:
         else:
             raise MlflowException(
                 f"The Diviner model instance type '{type(self.diviner_model)}' is not supported "
-                f"in version {mlflow.__version__} of MLflow."
+                f"in version {mlflow.__version__} of MLflow.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         return prediction_df
