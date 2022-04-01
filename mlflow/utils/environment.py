@@ -28,12 +28,6 @@ _CONSTRAINTS_FILE_NAME = "constraints.txt"
 _PYTHON_ENV_FILE_NAME = "python-env.yaml"
 
 
-class EnvManager(Enum):
-    LOCAL = "local"
-    CONDA = "conda"
-    VIRTUALENV = "virtualenv"
-
-
 _PYTHON_REGEX = re.compile(r"^python(=|==|<=)([\d.]+)$")  # matches, e.g., "python=3.7.12"
 _BUILD_PACKAGE_REGEX = re.compile(
     r"^(pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$"
