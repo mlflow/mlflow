@@ -153,6 +153,13 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
 
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if conda_env_root_dir is not None:
+        # Append a postfix "-isolated" because if a conda env name exist in
+        # default conda env root dir, then if we set new "CONDA_ENVS_PATH" and run "conda env create"
+        # with the same conda env name, "CondaValueError: prefix already exists" error will
+        # be raised.
+        project_env_name = project_env_name + "-isolated"
+
+    if conda_env_root_dir is not None:
         project_env_exists = project_env_name in os.listdir(conda_env_root_dir)
     else:
         env_names = _list_conda_environments()
