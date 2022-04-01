@@ -139,7 +139,7 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,
+    no_conda,  # pylint: disable=unused-argument
     env_manager,
     storage_dir,
     run_id,
@@ -157,7 +157,6 @@ def run(
     By default, Git projects run in a new working directory with the given parameters, while
     local projects run from the project's root directory.
     """
-    env_manager = cli_args._validate_env_manager(no_conda, env_manager)
     if experiment_id is not None and experiment_name is not None:
         eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
         sys.exit(1)

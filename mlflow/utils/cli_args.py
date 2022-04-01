@@ -49,33 +49,24 @@ RUN_ID = click.option(
 NO_CONDA = click.option(
     "--no-conda",
     is_flag=True,
-    help="[Deprecated] If specified, will assume that MLmodel/MLproject is running within "
+    help="This flag is deprecated. Use `--env-manager=local` instead. "
+    "If specified, will assume that MLmodel/MLproject is running within "
     "a Conda environment with the necessary dependencies for "
     "the current project instead of attempting to create a new "
     "conda environment.",
 )
 
 
-ENV_MANAGER = click.option(
-    "--env-manager",
-    default=None,
-    required=False,
-    type=click.UNPROCESSED,
-    callback=lambda ctx, param, value: None if value is None else EnvManager.from_string(value),
-    help="If specified, create an environment for MLmodel/MLproject using the specified "
-    "environment manager. Valid values are ['local', 'conda']. If unspecified, default to "
-    "'conda'.",
-)
-
-
-def _validate_env_manager(no_conda, env_manager):
+def _resolve_env_manager(ctx, _, value):
+    no_conda = ctx.params.get("no_conda", False)
     # Both `--no-conda` and `--env-manager` are specified
-    if no_conda and env_manager is not None:
+    if no_conda and value is not None:
         raise Exception(
             "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
         )
+
     # Only `--no-conda` is specified
-    elif no_conda:
+    if no_conda:
         warnings.warn(
             (
                 "`--no-conda` is deprecated and will be removed in a future MLflow release. "
@@ -85,11 +76,33 @@ def _validate_env_manager(no_conda, env_manager):
             stacklevel=2,
         )
         return EnvManager.LOCAL
-    # Neither `--no-conda` nor `--env-manager` is specified
-    elif env_manager is None:
-        return EnvManager.CONDA
 
-    return env_manager
+    # Only `--env-manager` is specified
+    if value is not None:
+        return EnvManager.from_string(value)
+
+    # Neither `--no-conda` nor `--env-manager` is specified
+    return EnvManager.CONDA
+
+
+ENV_MANAGER = click.option(
+    "--env-manager",
+    default=None,
+    type=click.UNPROCESSED,
+    callback=_resolve_env_manager,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help="""
+If specified, create an environment for MLmodel using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- conda: use conda
+
+If unspecified, default to conda.
+""",
+)
 
 
 INSTALL_MLFLOW = click.option(

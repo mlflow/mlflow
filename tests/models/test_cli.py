@@ -508,7 +508,11 @@ patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
 @patch_get_flavor_backend
 def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
     with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
-        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", "--no-conda"])
+        CliRunner().invoke(
+            models_cli.serve,
+            ["--model-uri", "model", "--no-conda"],
+            catch_exceptions=False,
+        )
     mock_flavor_backend.assert_called_once()
 
 
@@ -521,7 +525,7 @@ def test_env_manager_exception_is_thrown_when_both_no_conda_and_env_manager_are_
         )
 
 
-def test_env_manager_invalid_value():
+def test_env_manager_unsupported_value():
     with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
         CliRunner().invoke(
             models_cli.serve,
