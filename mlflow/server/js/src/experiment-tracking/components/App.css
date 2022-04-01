@@ -43,6 +43,7 @@ button:hover, .btn:hover {
 div.mlflow-logo {
   display: flex;
   float: left;
+  align-items: flex-end;
 }
 
 img.mlflow-logo {
@@ -50,6 +51,12 @@ img.mlflow-logo {
   margin-left: 64px;
   margin-top: 10px;
   margin-bottom: 10px;
+}
+
+span.mlflow-version {
+  font-size: 12px;
+  margin-left: 5px;
+  margin-bottom: 13px;
 }
 
 div.github {

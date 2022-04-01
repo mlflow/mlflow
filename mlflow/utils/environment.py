@@ -145,6 +145,21 @@ class PythonEnv:
         )
 
 
+class EnvManager(Enum):
+    LOCAL = "local"
+    CONDA = "conda"
+
+    @classmethod
+    def from_string(cls, value):
+        allowed_values = [e.value for e in cls]
+        if value not in allowed_values:
+            raise ValueError(f"Expected one of {allowed_values} but got '{value}'")
+        return cls[value.upper()]
+
+    def __str__(self):
+        return self.name.lower()
+
+
 def _mlflow_conda_env(
     path=None,
     additional_conda_deps=None,

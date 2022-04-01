@@ -1,14 +1,9 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 set -ex
 
-mkdir -p schemas
-./build_wheel.sh
-docker-compose down --volumes --remove-orphans
-docker-compose pull
-docker image ls | grep -E '(REPOSITORY|postgres|mysql|mssql)'
-docker-compose build
-docker-compose run mlflow-sqlite
-docker-compose run mlflow-postgres
-docker-compose run mlflow-mysql
-docker-compose run mlflow-mssql
+./tests/db/compose.sh down --volumes --remove-orphans
+./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+do
+  ./tests/db/compose.sh run --rm $service python tests/db/test_schema.py
+done

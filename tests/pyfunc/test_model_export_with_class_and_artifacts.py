@@ -143,7 +143,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
         python_model=main_scoped_model_class(test_predict),
     )
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
@@ -172,7 +172,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
     pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
@@ -210,7 +210,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         )
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_uri)
     assert model_config.to_yaml() == loaded_pyfunc_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
@@ -335,7 +335,7 @@ def test_model_load_from_remote_uri_succeeds(
     artifact_repo.log_artifacts(pyfunc_model_path, artifact_path=pyfunc_artifact_path)
 
     model_uri = artifact_root + "/" + pyfunc_artifact_path
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
@@ -380,7 +380,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
         python_model=main_scoped_model_class(test_predict),
         conda_env=_conda_env(),
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
@@ -412,7 +412,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
         python_model=main_scoped_model_class(test_predict),
         conda_env=_conda_env(),
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
@@ -444,7 +444,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         code_path=[os.path.dirname(tests.__file__)],
         conda_env=_conda_env(),
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
@@ -476,7 +476,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         python_model=main_scoped_model_class(test_predict),
         conda_env=_conda_env(),
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
     input_csv_path = os.path.join(str(tmpdir), "input with spaces.csv")
@@ -527,7 +527,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         python_model=main_scoped_model_class(test_predict),
         conda_env=_conda_env(),
     )
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
     input_csv_path = os.path.join(str(tmpdir), "input with spaces.csv")
@@ -841,7 +841,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         conda_env=_conda_env(),
     )
 
-    loaded_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
     assert loaded_model.predict(iris_data[0])
 
 
@@ -1001,7 +1001,7 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
     ) as cloudpickle_version_mock:
         cloudpickle_version_mock.__str__ = lambda *args, **kwargs: loader_cloudpickle_version
         warn_mock.side_effect = custom_warn
-        mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+        mlflow.pyfunc.load_model(model_uri=model_path)
 
     assert any(
         [
@@ -1034,7 +1034,7 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
 
     with mock.patch("mlflow.pyfunc._logger.warning") as warn_mock:
         warn_mock.side_effect = custom_warn
-        mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+        mlflow.pyfunc.load_model(model_uri=model_path)
 
     assert any(
         [
@@ -1068,7 +1068,7 @@ def test_save_and_load_model_with_special_chars(
         python_model=main_scoped_model_class(test_predict),
     )
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
     np.testing.assert_array_equal(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),

@@ -38,7 +38,7 @@ def serve(
     port,
     host,
     workers,
-    no_conda=False,
+    no_conda,  # pylint: disable=unused-argument
     env_manager=None,
     install_mlflow=False,
     enable_mlserver=False,
@@ -62,13 +62,8 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
-    env_manager = cli_args._get_env_manager(no_conda, env_manager)
     return _get_flavor_backend(
-        model_uri,
-        no_conda=no_conda,
-        env_manager=env_manager,
-        workers=workers,
-        install_mlflow=install_mlflow,
+        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
@@ -110,7 +105,7 @@ def predict(
     output_path,
     content_type,
     json_format,
-    no_conda,
+    no_conda,  # pylint: disable=unused-argument
     env_manager,
     install_mlflow,
 ):
@@ -119,14 +114,10 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    env_manager = cli_args._get_env_manager(no_conda, env_manager)
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(
-        model_uri,
-        no_conda=no_conda,
-        env_manager=env_manager,
-        install_mlflow=install_mlflow,
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).predict(
         model_uri=model_uri,
         input_path=input_path,
@@ -141,18 +132,19 @@ def predict(
 @cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def prepare_env(model_uri, no_conda, env_manager, install_mlflow):
+def prepare_env(
+    model_uri,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
+    install_mlflow,
+):
     """
     Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
-    env_manager = cli_args._get_env_manager(no_conda, env_manager)
     return _get_flavor_backend(
-        model_uri,
-        no_conda=no_conda,
-        env_manager=env_manager,
-        install_mlflow=install_mlflow,
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
 
 

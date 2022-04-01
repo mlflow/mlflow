@@ -22,6 +22,7 @@ except ImportError:
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
+import mlflow.models.cli as models_cli
 
 import mlflow.models.cli as models_cli
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
@@ -44,7 +45,7 @@ from mlflow.pyfunc.scoring_server import (
 )
 
 # NB: for now, windows tests do not have conda available.
-no_conda = ["--no-conda"] if sys.platform == "win32" else []
+no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 
 # NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []
@@ -323,7 +324,7 @@ def test_predict(iris_data, sk_model):
         p = subprocess.Popen(
             ["mlflow", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
             + extra_options,
-            universal_newlines=True,
+            text=True,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=sys.stderr,
@@ -377,7 +378,7 @@ def test_prepare_env_passes(sk_model):
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"],
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"],
             stderr=subprocess.PIPE,
         )
         assert p.wait() == 0
@@ -408,7 +409,9 @@ def test_prepare_env_fails(sk_model):
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"])
+        p = subprocess.Popen(
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"]
+        )
         assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
@@ -504,39 +507,33 @@ patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
 
 
 @patch_get_flavor_backend
-def test_future_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
+def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
     with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
-        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", "--no-conda"])
-    mock_flavor_backend.assert_called_once()
-
-
-def test_exception_is_thrown_when_both_no_conda_and_env_manager_are_specified():
-    with pytest.raises(Exception, match="cannot be specified at the same time"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--no-conda", "--env-manager=local"],
+            ["--model-uri", "model", "--no-conda"],
             catch_exceptions=False,
         )
-
-
-@patch_get_flavor_backend
-def test_experimental_warning_is_raised_for_virtualenv(mock_flavor_backend):
-    with pytest.warns(UserWarning, match="Virtualenv support is still experimental"):
-        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", "--env-manager=virtualenv"])
     mock_flavor_backend.assert_called_once()
 
 
-@pytest.mark.parametrize(
-    "additional_args",
-    [
-        # conda is used when neither `--no-conda` nor `--env-manager` is specified
-        (),
-        # Explicitly specify conda
-        ("--env-manager=conda",),
-    ],
-)
-@patch_get_flavor_backend
-def test_warning_is_raised_for_conda(mock_flavor_backend, additional_args):
-    with pytest.warns(UserWarning, match="conda is discouraged"):
-        CliRunner().invoke(models_cli.serve, ["--model-uri", "model", *additional_args])
-    mock_flavor_backend.assert_called_once()
+def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
+    res = CliRunner().invoke(
+        models_cli.serve,
+        ["--model-uri", "model", "--no-conda", "--env-manager=local"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code != 0
+    assert (
+        "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+        in res.stdout
+    )
+
+
+def test_env_manager_unsupported_value():
+    with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
+        CliRunner().invoke(
+            models_cli.serve,
+            ["--model-uri", "model", "--env-manager=abc"],
+            catch_exceptions=False,
+        )

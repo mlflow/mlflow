@@ -35,6 +35,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
+    MLFLOW_RUN_NOTE,
 )
 from mlflow.utils.validation import _validate_run_id
 
@@ -59,7 +60,7 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str = None, experiment_id: str = None) -> None:
+def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
@@ -161,6 +162,7 @@ def start_run(
     run_name: Optional[str] = None,
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
+    description: Optional[str] = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -192,6 +194,9 @@ def start_run(
     :param tags: An optional dictionary of string keys and values to set as tags on the run.
                  If a run is being resumed, these tags are set on the resumed run. If a new run is
                  being created, these tags are set on the new run.
+    :param description: An optional string that populates the description box of the run.
+                        If a run is being resumed, the description is set on the resumed run.
+                        If a new run is being created, the description is set on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -269,6 +274,16 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
+        tags = tags or {}
+        if description:
+            if MLFLOW_RUN_NOTE in tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            tags[MLFLOW_RUN_NOTE] = description
+
         if tags:
             client.log_batch(
                 run_id=existing_run_id,
@@ -284,6 +299,14 @@ def start_run(
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = deepcopy(tags) or {}
+        if description:
+            if MLFLOW_RUN_NOTE in user_specified_tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:

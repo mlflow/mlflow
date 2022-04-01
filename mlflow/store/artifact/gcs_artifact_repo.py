@@ -42,6 +42,14 @@ class GCSArtifactRepository(ArtifactRepository):
             if os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT")
             else _DEFAULT_TIMEOUT
         )
+
+        # If the user-supplied timeout environment variable value is -1,
+        # use `None` for `self._GCS_DEFAULT_TIMEOUT`
+        # to use indefinite timeout
+        self._GCS_DEFAULT_TIMEOUT = (
+            None if self._GCS_DEFAULT_TIMEOUT == -1 else self._GCS_DEFAULT_TIMEOUT
+        )
+
         super().__init__(artifact_uri)
 
     @staticmethod

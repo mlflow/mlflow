@@ -18,7 +18,6 @@ from mlflow.exceptions import MlflowException, RestException
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
-_DEFAULT_HEADERS = {"User-Agent": "mlflow-python-client/%s" % __version__}
 # Response codes that generally indicate transient network failures and merit client retries,
 # based on guidance from cloud service providers
 # (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
@@ -133,7 +132,8 @@ def http_request(
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
-    headers = dict({**_DEFAULT_HEADERS, **resolve_request_headers()})
+    headers = dict(**resolve_request_headers())
+
     if auth_str:
         headers["Authorization"] = auth_str
 

@@ -477,8 +477,8 @@ def _validate_model(spark_model):
         or not isinstance(spark_model, MLWritable)
     ):
         raise MlflowException(
-            "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
-            "that implement MLWritable and MLReadable.",
+            "Cannot serialize this model. MLflow can only save descendants of pyspark.ml.Model "
+            "or pyspark.ml.Transformer that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -709,7 +709,7 @@ def load_model(model_uri, dfs_tmpdir=None):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
