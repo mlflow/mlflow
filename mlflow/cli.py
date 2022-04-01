@@ -12,6 +12,7 @@ import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
+from mlflow import version
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -29,7 +30,7 @@ _logger = logging.getLogger(__name__)
 
 
 @click.group()
-@click.version_option()
+@click.version_option(version=version.VERSION)
 def cli():
     pass
 
