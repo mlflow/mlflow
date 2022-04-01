@@ -1,5 +1,5 @@
 mlflow.artifacts
-==============
+================
 
 .. automodule:: mlflow.artifacts
     :members:
