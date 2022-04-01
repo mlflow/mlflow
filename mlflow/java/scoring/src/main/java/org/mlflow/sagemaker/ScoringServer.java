@@ -76,9 +76,8 @@ public class ScoringServer {
     Model config = Model.fromRootPath(modelPath);
     return (new MLeapLoader()).load(config);
     } catch (IOException e) {
-      System.out.println(e);
       throw new PredictorLoadingException(
-          "Failed to load the configuration for the MLflow model at the specified path.");
+          "Failed to load the configuration for the MLflow model at the specified path.", e);
     }
   }
 
