@@ -73,8 +73,8 @@ public class ScoringServer {
   private static Predictor loadPredictorFromPath(String modelPath)
       throws PredictorLoadingException {
     try {
-        Model config = Model.fromRootPath(modelPath);
-        return (new MLeapLoader()).load(config);
+      Model config = Model.fromRootPath(modelPath);
+      return (new MLeapLoader()).load(config);
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the configuration for the MLflow model at the specified path.", e);
