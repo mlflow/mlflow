@@ -92,6 +92,8 @@ def _list_conda_environments():
 
 def _get_conda_env_root_dir_env(conda_env_root_dir):
     if conda_env_root_dir is not None:
+        # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
+        # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
         return {
             "CONDA_ENVS_PATH": conda_env_root_dir,
             "CONDA_PKGS_DIRS": os.path.join(conda_env_root_dir, "pkgs")

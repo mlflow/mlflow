@@ -892,7 +892,7 @@ def _get_or_create_conda_env_root_dir(nfs_root_dir):
             root_dir = os.path.join(nfs_root_dir, "conda_envs")
             os.makedirs(root_dir, exist_ok=True)
             conda_env_root_dir = tempfile.mkdtemp(dir=root_dir)
-            # TODO: register deleting tmp_model_dir handler when exit
+            # TODO: register deleting conda_env_root_dir handler when exit
         else:
             import atexit
             import shutil
