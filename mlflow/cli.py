@@ -21,6 +21,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import resolve_default_artifact_root
+from mlflow.utils.environment import EnvManager
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -107,6 +108,7 @@ def cli():
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @click.option(
     "--storage-dir",
     envvar="MLFLOW_TMP_DIR",
@@ -137,7 +139,8 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
     storage_dir,
     run_id,
     run_name,
@@ -182,7 +185,7 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            use_conda=(not no_conda),
+            use_conda=env_manager is EnvManager.CONDA,
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,

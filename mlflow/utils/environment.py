@@ -1,7 +1,7 @@
 import yaml
 import os
 import logging
-
+from enum import Enum
 
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
@@ -18,6 +18,21 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+
+
+class EnvManager(Enum):
+    LOCAL = "local"
+    CONDA = "conda"
+
+    @classmethod
+    def from_string(cls, value):
+        allowed_values = [e.value for e in cls]
+        if value not in allowed_values:
+            raise ValueError(f"Expected one of {allowed_values} but got '{value}'")
+        return cls[value.upper()]
+
+    def __str__(self):
+        return self.name.lower()
 
 
 def _mlflow_conda_env(
