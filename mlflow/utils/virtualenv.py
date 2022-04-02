@@ -26,16 +26,22 @@ _IS_UNIX = os.name != "nt"
 _logger = logging.getLogger(__name__)
 
 
+def _hash(s):
+    return hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+def _join_commands(*commands):
+    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
+    sep = " && " if _IS_UNIX else " & "
+    return [*entry_point, sep.join(commands)]
+
+
 def _get_pip_install_mlflow():
     mlflow_home = os.getenv("MLFLOW_HOME")
     if mlflow_home:  # dev version
         return "pip install -e {} 1>&2".format(mlflow_home)
     else:
         return "pip install mlflow=={} 1>&2".format(VERSION)
-
-
-def _hash(s):
-    return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
 
 def _get_mlflow_env_root():
@@ -62,12 +68,6 @@ def _get_conda_dependencies(conda_yaml_path, exclude=()):
     ]
 
 
-def _bash_cmd(*args):
-    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
-    sep = " && " if _IS_UNIX else " & "
-    return [*entry_point, sep.join(args)]
-
-
 def _is_pyenv_available():
     """
     Returns True if pyenv is available, otherwise False.
@@ -77,12 +77,12 @@ def _is_pyenv_available():
 
 def _validate_pyenv_is_available():
     """
-    Validate pyenv is available. If not, throws an `MlflowException` with a brief instruction on how
-    to install pyenv.
+    Validates pyenv is available. If not, throws an `MlflowException` with a brief instruction on
+    how to install pyenv.
     """
     if not _is_pyenv_available():
         raise MlflowException(
-            "pyenv must be available to use this feature. Follow "
+            "pyenv must be available to restore a model environment with virtualenv. Follow "
             "https://github.com/pyenv/pyenv#installation to install."
         )
 
@@ -99,20 +99,20 @@ def _is_virtualenv_available():
 
 def _validate_virtualenv_is_available():
     """
-    Validate virtualenv is available. If not, throws an `MlflowException` with a brief instruction
+    Validates virtualenv is available. If not, throws an `MlflowException` with a brief instruction
     on how to install virtualenv.
     """
     if not _is_virtualenv_available():
         raise MlflowException(
-            "virtualenv must be available to use this feature. Run `pip install virtualenv` "
-            "to install."
+            "virtualenv must be available to restore a model environment with virtualenv. "
+            "Run `pip install virtualenv` to install."
         )
 
 
 def _install_python(version):
     """
-    Installs a specified version of python via pyenv and returns a path to the installed python
-    binary
+    Installs a specified version of python with pyenv and returns a path to the installed python
+    binary.
 
     :param version: Python version to install.
     :return: Path to the installed python binary.
@@ -137,9 +137,9 @@ def _install_python(version):
 
 def _get_python_env(local_model_path):
     """
-    Constructs `PythonEnv` from model artifacts stored in `local_model_path`. If `python_env.yaml`
-    is available, use it, otherwise extract model dependencies from `conda.yaml`. If `conda.yaml`
-    contains conda dependencies except `python`, `pip`, `setuptools`, and, `wheel`,
+    Constructs `PythonEnv` from the model artifacts stored in `local_model_path`. If
+    `python_env.yaml` is available, use it, otherwise extract model dependencies from `conda.yaml`.
+    If `conda.yaml` contains conda dependencies except `python`, `pip`, `setuptools`, and, `wheel`,
     an `MlflowException` is thrown because conda dependencies cannot be installed in a virtualenv
     environment.
 
@@ -152,7 +152,7 @@ def _get_python_env(local_model_path):
     else:
         _logger.info(
             "This model is missing %s, which is because it was logged in an old version"
-            "of MLflow that does not support environment restoration via virtualenv. "
+            "of MLflow that does not support environment restoration with virtualenv. "
             "Attempting to extract model dependencies from %s instead.",
             _PYTHON_ENV_FILE_NAME,
             _CONDA_ENV_FILE_NAME,
@@ -163,7 +163,7 @@ def _get_python_env(local_model_path):
         )
         if conda_deps:
             raise MlflowException(
-                f"Cannot restore this model's environment via virtualenv because it contains "
+                f"Cannot restore this model's environment with virtualenv because it contains "
                 f"conda dependencies ({conda_deps})."
             )
         return PythonEnv.from_conda_yaml(conda_yaml_path)
@@ -171,7 +171,8 @@ def _get_python_env(local_model_path):
 
 def _get_or_create_virtualenv(local_model_path, env_id=None):
     """
-    Restores an MLflow model's environment using pyenv + virtualenv.
+    Restores an MLflow model's environment with pyenv and virtualenv and returns a command
+    to activate it.
 
     :param local_model_path: Local directory containing the model artifacts.
     :param env_id: Optional string that is added to the contents of the yaml file before
@@ -218,7 +219,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
                 # In windows `pip install pip==x.y.z` causes the following error:
                 # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
                 # This can be avoided by using `python -m`.
-                cmd = _bash_cmd(activate_cmd, f"python -m pip install -r {tmp_req_file}")
+                cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
                 process.exec_cmd(
                     cmd,
                     capture_output=False,
@@ -251,4 +252,6 @@ def _execute_in_virtualenv(activate_cmd, command, install_mlflow, command_env=No
     commands = [activate_cmd]
     if install_mlflow:
         commands.append(_get_pip_install_mlflow())
-    return process.exec_cmd(_bash_cmd(*commands, command), capture_output=False, env=command_env)
+    return process.exec_cmd(
+        _join_commands(*commands, command), capture_output=False, env=command_env
+    )
