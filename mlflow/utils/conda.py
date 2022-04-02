@@ -5,7 +5,7 @@ import os
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
-
+from mlflow.utils.environment import _get_mlflow_env_name
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -134,7 +134,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
         )
 
     env_names = _list_conda_environments()
-    project_env_name = _get_conda_env_name(conda_env_path, env_id)
+    conda_env_contents = (open(conda_env_path).read() if conda_env_path else "") + (env_id or "")
+    project_env_name = _get_mlflow_env_name(conda_env_contents)
     if project_env_name not in env_names:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         try:

@@ -3,6 +3,7 @@ import os
 import logging
 import sys
 import re
+import hashlib
 from enum import Enum
 
 from mlflow.exceptions import MlflowException
@@ -489,3 +490,14 @@ def _process_conda_env(conda_env):
 
     conda_env = _overwrite_pip_deps(conda_env, pip_reqs)
     return conda_env, pip_reqs, constraints
+
+
+def _get_mlflow_env_name(s):
+    """
+    Creates an environment name for an MLflow model by hashing the given string.
+
+    :param s: String to hash (e.g. the content of `conda.yaml`).
+    :returns: String in the form of "mlflow-{hash}"
+              (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    """
+    return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()

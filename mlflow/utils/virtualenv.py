@@ -14,6 +14,7 @@ from mlflow.utils.environment import (
     PythonEnv,
     _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
+    _get_mlflow_env_name,
 )
 from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.version import VERSION
@@ -192,15 +193,16 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
 
     # Create an environment
     python_bin_path = _install_python(python_env.python)
-    env_suffix = _hash(str(python_env.to_dict()) + (env_id or ""))
-    env_name = "mlflow-virtualenv-" + env_suffix
+    env_name = _get_mlflow_env_name(str(python_env) + (env_id or ""))
     env_root = Path(_get_mlflow_env_root())
     env_root.mkdir(parents=True, exist_ok=True)
     env_dir = env_root / env_name
     env_exists = env_dir.exists()
     if not env_exists:
         _logger.info("Creating a new environment %s", env_dir)
-        subprocess.run(["virtualenv", "--python", python_bin_path, str(env_dir)], check=True)
+        process.exec_cmd(
+            ["virtualenv", "--python", python_bin_path, str(env_dir)], capture_output=False
+        )
     else:
         _logger.info("Environment %s already exists", env_dir)
 
