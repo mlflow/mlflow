@@ -11,6 +11,7 @@ from functools import wraps
 
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
+from google.protobuf.json_format import ParseError
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
@@ -282,8 +283,26 @@ def _assert_required(x):
 def _assert_less_than_or_equal(x, max):
     assert x <= max
 
-def _validate_param_against_schema(schema, param, value):
+def _assert_item_type_string(x):
+    for item in x:
+        _assert_string(item)
+
+
+def _validate_param_against_schema(schema, param, value, parsing_succeeded = False):
     for f in schema:
+        # If the validator is a type checker and dict parsing already
+        #  succeeeded, we can safely skip re-checking types
+        #  see: https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870
+        if f in [
+            _assert_int,
+            _assert_string,
+            _assert_bool,
+            _assert_float,
+            _assert_array,
+            _assert_item_type_string
+        ] and parsing_succeeded:
+            continue
+
         try:
             f(value)
         except AssertionError as e:
@@ -338,11 +357,15 @@ def _get_request_message(request_message, flask_request=request, schema = {}):
     if request_json is None:
         request_json = {}
 
+    parsing_succeeded = True
+    try:
+        parse_dict(request_json, request_message)
+    except ParseError as e:
+        parsing_succeeded = False
+
     for k, v in request_json.items():
         if (k in schema.keys()):
-            _validate_param_against_schema(schema[k], k, v)
-
-    parse_dict(request_json, request_message)
+            _validate_param_against_schema(schema[k], k, v, parsing_succeeded)
 
     return request_message
 
@@ -853,10 +876,6 @@ def _get_run():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_runs():
-
-    def _assert_item_type_string(x):
-        for item in x:
-            _assert_string(item)
 
     request_message = _get_request_message(
         SearchRuns(),
