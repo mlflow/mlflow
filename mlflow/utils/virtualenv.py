@@ -151,9 +151,9 @@ def _get_python_env(local_model_path):
         return PythonEnv.from_yaml(python_env_file)
     else:
         _logger.info(
-            "This model is missing %s, which is because it was logged in an old version"
-            "of MLflow that does not support environment restoration with virtualenv. "
-            "Attempting to extract model dependencies from %s instead.",
+            "This model is missing %s, which is because it was logged in an older version"
+            "of MLflow (< 1.26.0) that does not support restoring a model environment with "
+            "virtualenv. Attempting to extract model dependencies from %s instead.",
             _PYTHON_ENV_FILE_NAME,
             _CONDA_ENV_FILE_NAME,
         )
