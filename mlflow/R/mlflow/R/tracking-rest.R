@@ -60,57 +60,37 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   get_response <- switch(
     verb,
     GET = function() {
-     GET(
-       api_url,
-       query = query,
-       mlflow_rest_timeout(),
-       config = rest_config$config,
-       req_headers
-     )
+      GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+           req_headers)
     },
-    POST = function() {
-     POST(
-       api_url,
-       body = toJSON(
-         data,
-         pretty = TRUE,
-         auto_unbox = TRUE,
-         na = "null"
-       ),
-       mlflow_rest_timeout(),
-       config = rest_config$config,
-       req_headers
-     )
+    POST = function(){
+      POST( api_url,
+            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            encode = "json",
+            mlflow_rest_timeout(),
+            config = rest_config$config,
+            req_headers
+      )
     },
-    PATCH = function() {
-     PATCH(
-       api_url,
-       body = toJSON(
-         data,
-         pretty = TRUE,
-         auto_unbox = TRUE,
-         na = "null"
-       ),
-       mlflow_rest_timeout(),
-       config = rest_config$config,
-       req_headers
-     )
+    PATCH = function(){
+      httr::PATCH( api_url,
+            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            encode = "json",
+            mlflow_rest_timeout(),
+            config = rest_config$config,
+            req_headers
+      )
     },
     DELETE = function() {
-     DELETE(
-       api_url,
-       body = toJSON(
-         data,
-         pretty = TRUE,
-         auto_unbox = TRUE,
-         na = "null"
-       ),
-       mlflow_rest_timeout(),
-       config = rest_config$config,
-       req_headers
-     )
+      httr::DELETE(api_url,
+              body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+              encode = "json",
+              mlflow_rest_timeout(),
+              config = rest_config$config,
+              req_headers
+      )
     },
-    abort("Verb '", verb, "' is unsupported.")
+    stop("Verb '", verb, "' is unsupported.", call. = FALSE)
   )
   sleep_for <- 1
   time_left <- max_rate_limit_interval
