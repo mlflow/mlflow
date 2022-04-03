@@ -135,9 +135,9 @@ class SqlAlchemyStore(AbstractStore):
         if any([table not in inspected_tables for table in expected_tables]):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
-        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+        self.SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            SessionMaker, self.db_type
+            self.SessionMaker, self.db_type
         )
         mlflow.store.db.utils._verify_schema(self.engine)
 
@@ -588,28 +588,10 @@ class SqlAlchemyStore(AbstractStore):
         return metric, value, is_nan
 
     def log_metric(self, run_id, metric):
-        metric, value, is_nan = self._get_metric_value_details(metric)
-        with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_id, session=session)
-            self._check_run_is_active(run)
-            # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            logged_metric, just_created = self._get_or_create(
-                model=SqlMetric,
-                run_uuid=run_id,
-                key=metric.key,
-                value=value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-                session=session,
-                is_nan=is_nan,
-            )
-            # Conditionally update the ``latest_metrics`` table if the logged metric  was not
-            # already present in the ``metrics`` table. If the logged metric was already present,
-            # we assume that the ``latest_metrics`` table already accounts for its presence
-            if just_created:
-                self._update_latest_metric_if_necessary(logged_metric, session)
+        # simply call _log_metrics and let it handle the rest
+        self._log_metrics(run_id, [metric])
 
-    def _log_metrics(self, run_id, metrics, session=None):
+    def _log_metrics(self, run_id, metrics):
         if not metrics:
             return
 
@@ -630,23 +612,52 @@ class SqlAlchemyStore(AbstractStore):
                 ))
             seen.add(metric)
 
-        # use nullcontext approach if a session is given, otherwise obtain
-        # a new session via ManagedSessionMaker
-        context = (
-            self.ManagedSessionMaker() if session is None
-            else contextlib.nullcontext(session)
-        )
+        # use SessionManager instead of ManagedSessionManager to set
+        # isolation level for individual transaction.
+        # Here, we open a connection with SERIALIZABLE isolation level.
+        # it will be released when session.commit is called.
+        session = self.SessionMaker()
+        session.connection(execution_options={"isolation_level": "SERIALIZABLE"})
 
-        with context as session:
-            self._save_to_db(session=session, objs=metric_instances)
-            # keep the behavior of updating latest metric table if necessary
-            # for each created or retrieved metric
-            for logged_metric in metric_instances:
-                self._update_latest_metric_if_necessary(logged_metric, session)
+        run = self._get_run(run_uuid=run_id, session=session)
+        self._check_run_is_active(run)
         
+        # commit the session to make sure that we catch any IntegrityError
+        # and try to handle them.
+        try:
+            self._save_to_db(session=session, objs=metric_instances)
+            self._update_latest_metrics_if_necessary(metric_instances, session)
+            session.commit()
+        except sqlalchemy.exc.IntegrityError:
+            # Primary key can be violated if it is tried to log a metric with same value,
+            # timestamp, step, and key within the same run.
+            # Roll back the current session to make it usable for further transactions. In the
+            # event of an error during "commit", a rollback is required in order to continue
+            # using the session. In this case, we re-use the session to query SqlMetric
+            session.rollback()
+            # obtain the metric history corresponding to the given metrics
+            metric_history = (
+                session.query(SqlMetric)
+                .filter(
+                    SqlMetric.run_uuid == run_id,
+                    SqlMetric.key.in_([m.key for m in metric_instances])
+                )
+                .all()
+            )
+            # convert to a set of Metric instance to take advantage of its hashable
+            # and then obtain the metrics that were not logged earlier within this run_id
+            metric_history = {
+                m.to_mlflow_entity() for m in metric_history}
+            non_existing_metrics = [
+                m for m in metric_instances
+                if m.to_mlflow_entity() not in metric_history
+            ]
+            # if there exist metrics that were tried to be logged & rolled back even though
+            # they were not violating the PK, log them.
+            if non_existing_metrics:
+                self._log_metrics(run_id, non_existing_metrics)
 
-    @staticmethod
-    def _update_latest_metric_if_necessary(logged_metric, session):
+    def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
             """
             :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
@@ -658,21 +669,55 @@ class SqlAlchemyStore(AbstractStore):
                 metric_b.value,
             )
 
-        # Fetch the latest metric value corresponding to the specified run_id and metric key and
-        # lock its associated row for the remainder of the transaction in order to ensure
+        def _merge_metric(new_metric, old_metric):
+            """
+            writes content of new_metric over old_metric. The content are
+            `value`, `step`, `timestamp`, and `is_nan`.
+
+            :return: old_metric with its content updated.
+            """
+            old_metric.value = new_metric.value
+            old_metric.step = new_metric.step
+            old_metric.timestamp = new_metric.timestamp
+            old_metric.is_nan = new_metric.is_nan
+            return old_metric
+
+        if not logged_metrics:
+            return
+
+        # Fetch the latest metric value corresponding to the specified run_id and metric keys and
+        # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
-        latest_metric = (
+        latest_metrics = (
             session.query(SqlLatestMetric)
             .filter(
-                SqlLatestMetric.run_uuid == logged_metric.run_uuid,
-                SqlLatestMetric.key == logged_metric.key,
+                SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
+                SqlLatestMetric.key.in_([m.key for m in logged_metrics])
             )
             .with_for_update()
-            .one_or_none()
+            .all()
         )
-        if latest_metric is None or _compare_metrics(logged_metric, latest_metric):
-            session.merge(
-                SqlLatestMetric(
+        latest_metrics = {m.key: m for m in latest_metrics}
+        
+        # iterate over all logged metrics and compare them with corresponding
+        # SqlLatestMetric entries
+        # if there's no SqlLatestMetric entry for the current metric key,
+        # create a new SqlLatestMetric instance and put it in
+        # new_latest_metric_dict so that they can be saved later.
+        new_latest_metric_dict = {}
+        for logged_metric in logged_metrics:
+            latest_metric = latest_metrics.get(logged_metric.key)
+            # a metric key can be passed more then once within logged metrics
+            # with different step/timestamp/value. However SqlLatestMetric
+            # entries are inserted after this loop is completed.
+            # so, retrieve the instances they were just created and use them
+            # for comparison.
+            new_latest_metric = new_latest_metric_dict.get(logged_metric.key)
+
+            # just create a new SqlLatestMetric instance since both
+            # latest_metric row or recently created instance does not exist
+            if not latest_metric and not new_latest_metric:
+                new_latest_metric = SqlLatestMetric(
                     run_uuid=logged_metric.run_uuid,
                     key=logged_metric.key,
                     value=logged_metric.value,
@@ -680,7 +725,26 @@ class SqlAlchemyStore(AbstractStore):
                     step=logged_metric.step,
                     is_nan=logged_metric.is_nan,
                 )
-            )
+                new_latest_metric_dict[logged_metric.key] = new_latest_metric
+
+            # there's no row but a new instance is recently created.
+            # so, update the recent instance in new_latest_metric_dict if
+            # metric comparison is successful.
+            elif not latest_metric and new_latest_metric:
+                if _compare_metrics(logged_metric, new_latest_metric):
+                    new_latest_metric = _merge_metric(
+                        logged_metric, new_latest_metric)
+                    new_latest_metric_dict[logged_metric.key] = new_latest_metric
+
+            # compare with the row
+            elif _compare_metrics(logged_metric, latest_metric):
+                # editing the attributes of latest_metric, which is a
+                # SqlLatestMetric instance will result in UPDATE in DB side.
+                latest_metric = _merge_metric(logged_metric, latest_metric)
+
+        if new_latest_metric_dict:
+            self._save_to_db(
+                session=session, objs=list(new_latest_metric_dict.values()))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -935,7 +999,7 @@ class SqlAlchemyStore(AbstractStore):
         
         with self.ManagedSessionMaker() as session:
             try:
-                self._log_metrics(run_id, metrics, session)
+                self._log_metrics(run_id, metrics)
                 self._set_tags(run_id, tags, session)
             except MlflowException as e:
                 raise e
