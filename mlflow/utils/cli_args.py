@@ -5,7 +5,7 @@ import click
 import warnings
 
 
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.environment import _EnvManager
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -75,14 +75,14 @@ def _resolve_env_manager(ctx, _, value):
             FutureWarning,
             stacklevel=2,
         )
-        return EnvManager.LOCAL
+        return _EnvManager.LOCAL
 
     # Only `--env-manager` is specified
     if value is not None:
-        return EnvManager.from_string(value)
+        return _EnvManager.from_string(value)
 
     # Neither `--no-conda` nor `--env-manager` is specified
-    return EnvManager.CONDA
+    return _EnvManager.CONDA
 
 
 ENV_MANAGER = click.option(
