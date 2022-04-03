@@ -5,6 +5,7 @@ from unittest import mock
 from contextlib import ExitStack, contextmanager
 
 
+import logging
 import requests
 import time
 import signal
@@ -32,6 +33,8 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -221,18 +224,20 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for _ in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
             assert self._proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
+                LOGGER.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                pass
+                LOGGER.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
+        LOGGER.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
