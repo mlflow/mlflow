@@ -621,7 +621,7 @@ class SqlAlchemyStore(AbstractStore):
 
         run = self._get_run(run_uuid=run_id, session=session)
         self._check_run_is_active(run)
-        
+
         # commit the session to make sure that we catch any IntegrityError
         # and try to handle them.
         try:
@@ -801,15 +801,16 @@ class SqlAlchemyStore(AbstractStore):
         if not params:
             return
         # eliminate duplicate Param entities
-        param_instances = [
-            SqlParam(run_uuid=run_id, key=param.key, value=param.value)
-            for param in set(params)
-        ]
+        param_instances = {}
+        for param in params:
+            if param.key not in param_instances:
+                param_instances[param.key] = SqlParam(
+                    run_uuid=run_id, key=param.key, value=param.value)
+        param_instances = list(param_instances.values())
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-
             # commit the session to make sure that we catch any IntegrityError
             # and try to handle them.
             try:
@@ -825,6 +826,9 @@ class SqlAlchemyStore(AbstractStore):
                 # in case of an integrity error, compare the parameters of the
                 # run. If the parameters match the ones whom being saved, 
                 # ignore the exception since idempotency is reached.
+                # Also, multiple params for the same key can still be passed within
+                # the same batch. So, handle them by selecting the first param
+                # for the given key
                 run_params = {param.key: param.value for param in run.params} 
                 non_matching_params = []
                 for param in param_instances:
@@ -843,7 +847,7 @@ class SqlAlchemyStore(AbstractStore):
                         INVALID_PARAMETER_VALUE,
                     )
                 # if there's no mismatch, do not raise an Exception since
-                # we are sure that idempotency is reached.
+                # we are sure that idempotency is reached. 
 
     def set_experiment_tag(self, experiment_id, tag):
         """
