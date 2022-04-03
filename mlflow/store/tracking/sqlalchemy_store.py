@@ -1,8 +1,9 @@
 import json
 import logging
+import random
+import time
 import uuid
 import threading
-import contextlib
 
 import math
 import sqlalchemy
@@ -879,7 +880,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, session=None):
+    def _set_tags(self, run_id, tags, attempt=None):
         """
         Set multiple tags on a run
 
@@ -888,18 +889,70 @@ class SqlAlchemyStore(AbstractStore):
         """
         if not tags:
             return
-            
-        # use nullcontext approach if a session is given, otherwise obtain
-        # a new session via ManagedSessionMaker
-        context = (
-            self.ManagedSessionMaker() if session is None
-            else contextlib.nullcontext(session)
-        )
 
-        with context as session:
-            for tag in tags:
-                _validate_tag(tag.key, tag.value)
-                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+        valid_tags = []
+        for tag in tags:
+            _validate_tag(tag.key, tag.value)
+            valid_tags.append(tag)
+        tags = valid_tags
+
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+
+            try:
+                current_tags = (
+                    session.query(SqlTag)
+                    .filter(
+                        SqlTag.run_uuid == run_id,
+                        SqlTag.key.in_([t.key for t in tags])
+                    )
+                    .all()
+                )
+                current_tags = {t.key: t for t in current_tags}
+
+                new_tag_dict = {}
+                for tag in tags:
+                    current_tag = current_tags.get(tag.key)
+                    new_tag = new_tag_dict.get(tag.key)
+                    
+                    # update the SqlTag if it is already present in DB
+                    if current_tag:
+                        current_tag.value = tag.value
+                        continue
+
+                    # if a SqlTag instance is already present in `new_tag_dict`,
+                    # this means that multiple tags with the same key were passed to `set_tags`.
+                    # In this case, we resolve potential conflicts by updating the value of the
+                    # existing instance to the value of `tag`
+                    if new_tag:
+                        new_tag.value = tag.value
+                    # otherwise, put it into the dict
+                    else:
+                        new_tag = SqlTag(
+                            run_uuid=run_id, key=tag.key, value=tag.value)
+                    
+                    new_tag_dict[tag.key] = new_tag
+
+                # finally, save new entries to DB.
+                self._save_to_db(session=session, objs=list(new_tag_dict.values()))
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                session.rollback()
+                # two concurrent operations may try to attempt to insert tags.
+                # apply retry here.
+                max_retries = 3
+                attempt = (attempt or 0) + 1
+                if attempt > max_retries:
+                    raise MlflowException(
+                        "Failed to set tags with given within {} retries. Keys: {}".format(
+                            max_retries, [t.key for t in tags])
+                    )
+                sleep_duration = (2 ** attempt) - 1
+                sleep_duration += random.uniform(0, 1)
+                time.sleep(sleep_duration)
+                self._set_tags(run_id, tags, attempt=attempt)
+            
 
 
     def delete_tag(self, run_id, key):
@@ -988,23 +1041,14 @@ class SqlAlchemyStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
+                
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-
-        # call log_params first as it commits the session.
-        # do not pass session and let it create its own
-        try:
-            self._log_params(run_id, params)
-        except MlflowException as e:
-            raise e
-        except Exception as e:
-            raise MlflowException(e, INTERNAL_ERROR)
-        
-        with self.ManagedSessionMaker() as session:
             try:
+                self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
-                self._set_tags(run_id, tags, session)
+                self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
             except Exception as e:
