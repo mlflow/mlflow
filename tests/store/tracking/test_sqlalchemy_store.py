@@ -731,95 +731,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-    def test__log_metrics(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
-        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
-        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
-        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
-
-        # duplicate metric and metric2 values should be eliminated
-        metrics = [
-            metric, metric2, nan_metric, pos_inf_metric, neg_inf_metric,
-            metric, metric2
-        ]
-        self.store._log_metrics(run.info.run_id, metrics)
-
-        run = self.store.get_run(run.info.run_id)
-        self.assertTrue(
-            tkey in run.data.metrics and run.data.metrics[tkey] == tval)
-
-        # SQL store _get_run method returns full history of recorded metrics.
-        # Should return duplicates as well
-        # MLflow RunData contains only the last reported values for metrics.
-        with self.store.ManagedSessionMaker() as session:
-            sql_run_metrics = self.store._get_run(
-                session, run.info.run_id).metrics
-            self.assertEqual(5, len(sql_run_metrics))
-            self.assertEqual(4, len(run.data.metrics))
-            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(
-                run.data.metrics["PosInf"] == 1.7976931348623157e308)
-            self.assertTrue(
-                run.data.metrics["NegInf"] == -1.7976931348623157e308)
-
-    def test__log_metrics_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
-        run = self._run_factory()
-        run_id = run.info.run_id
-        metric_name = "test-metric-1"
-        # Check that we get the max of (step, timestamp, value) in that order
-        tuples_to_log = [
-            (0, 100, 1000),
-            (3, 40, 100),  # larger step wins even though it has smaller value
-            (3, 50, 10),  # larger timestamp wins even though it has smaller value
-            (3, 50, 20),  # tiebreak by max value
-            (3, 50, 20),  # duplicate metrics with same (step, timestamp, value) are ok
-            # verify that we can log steps out of order / negative steps
-            (-3, 900, 900),
-            (-1, 800, 800),
-        ]
-        metrics = []
-        for step, timestamp, value in reversed(tuples_to_log):
-            metrics.append(Metric(metric_name, value, timestamp, step))
-        self.store._log_metrics(run_id, metrics)
-
-        metric_history = self.store.get_metric_history(run_id, metric_name)
-        logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
-        assert set(logged_tuples) == set(tuples_to_log)
-
-        run_data = self.store.get_run(run_id).data
-        run_metrics = run_data.metrics
-        assert len(run_metrics) == 1
-        assert run_metrics[metric_name] == 20
-        metric_obj = run_data._metric_objs[0]
-        assert metric_obj.key == metric_name
-        assert metric_obj.step == 3
-        assert metric_obj.timestamp == 50
-        assert metric_obj.value == 20
-
-    def test_log_null_metrics(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = None
-        metric_1 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-
-        tkey = "blahmetric2"
-        tval = None
-        metric_2 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
-
-        metrics = [metric_1, metric_2]
-
-        warnings.simplefilter("ignore")
-        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
-            self.store._log_metrics(run.info.run_id, metrics)
-            warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
     def test_log_param(self):
         run = self._run_factory()
 
@@ -846,10 +757,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.info.run_id, param2)
-        self.assertIn(
-            "Using the same key for param values is not allowed. Given keys are=",
-            e.exception.message
-        )
+        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
 
     def test_log_empty_str(self):
         run = self._run_factory()
@@ -875,49 +783,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
-
-    def test__log_params(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param("new param", "new key")
-        self.store._log_params(run.info.run_id, [param, param2])
-
-        run = self.store.get_run(run.info.run_id)
-        self.assertEqual(2, len(run.data.params))
-        self.assertTrue(
-            tkey in run.data.params and run.data.params[tkey] == tval)
-
-    def test__log_params_same_values(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param("new param", "new key")
-        self.store._log_params(run.info.run_id, [param, param2, param2])
-
-        run = self.store.get_run(run.info.run_id)
-        self.assertEqual(2, len(run.data.params))
-        self.assertTrue(
-            tkey in run.data.params and run.data.params[tkey] == tval)
-
-    def test__log_params_uniqueness(self):
-        run = self._run_factory()
-
-        tkey = "blahmetric"
-        tval = "100.0"
-        param = entities.Param(tkey, tval)
-        param2 = entities.Param(tkey, "newval")
-
-        with self.assertRaises(MlflowException) as e:
-            self.store._log_params(run.info.run_id, [param, param2])
-        self.assertIn(
-            "Using the same key for param values is not allowed. Given keys are=",
-            e.exception.message
-        )
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
@@ -976,29 +841,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
-
-    def test__set_tags(self):
-        run = self._run_factory()
-
-        tkey = "test tag"
-        tval = "a boogie"
-        new_val = "new val"
-        tag = entities.RunTag(tkey, tval)
-        new_tag = entities.RunTag(tkey, new_val)
-
-        tkey2 = "new tag"
-        tval2 = "not a boogie"
-        a_different_tag = entities.RunTag(tkey2, tval2)
-        tags = [tag, new_tag, a_different_tag]
-
-        # Overwriting tags is allowed
-        self.store._set_tags(run.info.run_id, tags)
-
-        run = self.store.get_run(run.info.run_id)
-        self.assertTrue(
-            tkey in run.data.tags and run.data.tags[tkey] == new_val)
-        self.assertTrue(
-            tkey2 in run.data.tags and run.data.tags[tkey2] == tval2)
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1767,8 +1609,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
             )
         self.assertIn(
-            "Using the same key for param values is not allowed. Given keys are=",
-            e.exception.message
+            "Changing param values is not allowed. Params were already logged=", e.exception.message
         )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
@@ -1779,17 +1620,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         pkey = "common-key"
         param0 = entities.Param(pkey, "orig-val")
         param1 = entities.Param(pkey, "newval")
-        tag = entities.RunTag("tag-key", "tag-val")
-        metric = entities.Metric("metric-key", 3.0, 12345, 0)
-        with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(
-                run.info.run_id, metrics=[metric], params=[param0, param1], tags=[tag]
-            )
-        self.assertIn(
-            "Using the same key for param values is not allowed. Given keys are=",
-            e.exception.message
-        )
-        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.store.log_batch(run.info.run_id, metrics=[], params=[param0, param1], tags=[])
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
@@ -1865,6 +1696,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
+    def test_log_batch_metrics(self):
+        run = self._run_factory()
+
+        tkey = "blahmetric"
+        tval = 100.0
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
+
+        # duplicate metric and metric2 values should be eliminated
+        metrics = [metric, metric2, nan_metric, pos_inf_metric, neg_inf_metric, metric, metric2]
+        self.store._log_metrics(run.info.run_id, metrics)
+
+        run = self.store.get_run(run.info.run_id)
+        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+
+        # SQL store _get_run method returns full history of recorded metrics.
+        # Should return duplicates as well
+        # MLflow RunData contains only the last reported values for metrics.
+        with self.store.ManagedSessionMaker() as session:
+            sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
+            self.assertEqual(5, len(sql_run_metrics))
+            self.assertEqual(4, len(run.data.metrics))
+            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
+            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
+            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
@@ -1884,6 +1744,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self._verify_logged(
             self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
         )
+
+    def test_log_batch_same_metrics_repeated_multiple_reqs(self):
+        run = self._run_factory()
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
+
+    def test_log_batch_null_metrics(self):
+        run = self._run_factory()
+
+        tkey = "blahmetric"
+        tval = None
+        metric_1 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+
+        tkey = "blahmetric2"
+        tval = None
+        metric_2 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+
+        metrics = [metric_1, metric_2]
+
+        warnings.simplefilter("ignore")
+        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
+            self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+            warnings.resetwarnings()
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command

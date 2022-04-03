@@ -603,14 +603,16 @@ class SqlAlchemyStore(AbstractStore):
         for metric in metrics:
             metric, value, is_nan = self._get_metric_value_details(metric)
             if metric not in seen:
-                metric_instances.append(SqlMetric(
-                    run_uuid=run_id,
-                    key=metric.key,
-                    value=value,
-                    timestamp=metric.timestamp,
-                    step=metric.step,
-                    is_nan=is_nan
-                ))
+                metric_instances.append(
+                    SqlMetric(
+                        run_uuid=run_id,
+                        key=metric.key,
+                        value=value,
+                        timestamp=metric.timestamp,
+                        step=metric.step,
+                        is_nan=is_nan,
+                    )
+                )
             seen.add(metric)
 
         # use SessionManager instead of ManagedSessionManager to set
@@ -641,17 +643,15 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlMetric)
                 .filter(
                     SqlMetric.run_uuid == run_id,
-                    SqlMetric.key.in_([m.key for m in metric_instances])
+                    SqlMetric.key.in_([m.key for m in metric_instances]),
                 )
                 .all()
             )
             # convert to a set of Metric instance to take advantage of its hashable
             # and then obtain the metrics that were not logged earlier within this run_id
-            metric_history = {
-                m.to_mlflow_entity() for m in metric_history}
+            metric_history = {m.to_mlflow_entity() for m in metric_history}
             non_existing_metrics = [
-                m for m in metric_instances
-                if m.to_mlflow_entity() not in metric_history
+                m for m in metric_instances if m.to_mlflow_entity() not in metric_history
             ]
             # if there exist metrics that were tried to be logged & rolled back even though
             # they were not violating the PK, log them.
@@ -693,13 +693,13 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlLatestMetric)
             .filter(
                 SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
-                SqlLatestMetric.key.in_([m.key for m in logged_metrics])
+                SqlLatestMetric.key.in_([m.key for m in logged_metrics]),
             )
             .with_for_update()
             .all()
         )
         latest_metrics = {m.key: m for m in latest_metrics}
-        
+
         # iterate over all logged metrics and compare them with corresponding
         # SqlLatestMetric entries
         # if there's no SqlLatestMetric entry for the current metric key,
@@ -733,8 +733,7 @@ class SqlAlchemyStore(AbstractStore):
             # metric comparison is successful.
             elif not latest_metric and new_latest_metric:
                 if _compare_metrics(logged_metric, new_latest_metric):
-                    new_latest_metric = _merge_metric(
-                        logged_metric, new_latest_metric)
+                    new_latest_metric = _merge_metric(logged_metric, new_latest_metric)
                     new_latest_metric_dict[logged_metric.key] = new_latest_metric
 
             # compare with the row
@@ -744,8 +743,7 @@ class SqlAlchemyStore(AbstractStore):
                 latest_metric = _merge_metric(logged_metric, latest_metric)
 
         if new_latest_metric_dict:
-            self._save_to_db(
-                session=session, objs=list(new_latest_metric_dict.values()))
+            self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -806,7 +804,8 @@ class SqlAlchemyStore(AbstractStore):
         for param in params:
             if param.key not in param_instances:
                 param_instances[param.key] = SqlParam(
-                    run_uuid=run_id, key=param.key, value=param.value)
+                    run_uuid=run_id, key=param.key, value=param.value
+                )
         param_instances = list(param_instances.values())
 
         with self.ManagedSessionMaker() as session:
@@ -825,21 +824,23 @@ class SqlAlchemyStore(AbstractStore):
                 session.rollback()
 
                 # in case of an integrity error, compare the parameters of the
-                # run. If the parameters match the ones whom being saved, 
+                # run. If the parameters match the ones whom being saved,
                 # ignore the exception since idempotency is reached.
                 # Also, multiple params for the same key can still be passed within
                 # the same batch. So, handle them by selecting the first param
                 # for the given key
-                run_params = {param.key: param.value for param in run.params} 
+                run_params = {param.key: param.value for param in run.params}
                 non_matching_params = []
                 for param in param_instances:
                     existing_value = run_params.get(param.key)
                     if param.value != existing_value:
-                        non_matching_params.append({
-                            "key": param.key,
-                            "old_value": existing_value,
-                            "new_value": param.value
-                        })
+                        non_matching_params.append(
+                            {
+                                "key": param.key,
+                                "old_value": existing_value,
+                                "new_value": param.value,
+                            }
+                        )
 
                 if non_matching_params:
                     raise MlflowException(
@@ -848,7 +849,7 @@ class SqlAlchemyStore(AbstractStore):
                         INVALID_PARAMETER_VALUE,
                     )
                 # if there's no mismatch, do not raise an Exception since
-                # we are sure that idempotency is reached. 
+                # we are sure that idempotency is reached.
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -903,10 +904,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 current_tags = (
                     session.query(SqlTag)
-                    .filter(
-                        SqlTag.run_uuid == run_id,
-                        SqlTag.key.in_([t.key for t in tags])
-                    )
+                    .filter(SqlTag.run_uuid == run_id, SqlTag.key.in_([t.key for t in tags]))
                     .all()
                 )
                 current_tags = {t.key: t for t in current_tags}
@@ -915,7 +913,7 @@ class SqlAlchemyStore(AbstractStore):
                 for tag in tags:
                     current_tag = current_tags.get(tag.key)
                     new_tag = new_tag_dict.get(tag.key)
-                    
+
                     # update the SqlTag if it is already present in DB
                     if current_tag:
                         current_tag.value = tag.value
@@ -929,9 +927,8 @@ class SqlAlchemyStore(AbstractStore):
                         new_tag.value = tag.value
                     # otherwise, put it into the dict
                     else:
-                        new_tag = SqlTag(
-                            run_uuid=run_id, key=tag.key, value=tag.value)
-                    
+                        new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
                     new_tag_dict[tag.key] = new_tag
 
                 # finally, save new entries to DB.
@@ -946,14 +943,13 @@ class SqlAlchemyStore(AbstractStore):
                 if attempt > max_retries:
                     raise MlflowException(
                         "Failed to set tags with given within {} retries. Keys: {}".format(
-                            max_retries, [t.key for t in tags])
+                            max_retries, [t.key for t in tags]
+                        )
                     )
                 sleep_duration = (2 ** attempt) - 1
                 sleep_duration += random.uniform(0, 1)
                 time.sleep(sleep_duration)
                 self._set_tags(run_id, tags, attempt=attempt)
-            
-
 
     def delete_tag(self, run_id, key):
         """
@@ -1041,7 +1037,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
-                
+
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
