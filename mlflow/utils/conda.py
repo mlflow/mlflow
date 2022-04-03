@@ -85,8 +85,8 @@ def _get_conda_executable_for_create_env():
 
 
 def _list_conda_environments():
-    (_, stdout, _) = process.exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
-    return list(map(os.path.basename, json.loads(stdout).get("envs", [])))
+    prc = process.exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+    return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
 def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):

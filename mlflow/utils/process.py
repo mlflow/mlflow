@@ -3,57 +3,59 @@ import subprocess
 
 
 class ShellCommandException(Exception):
-    pass
+    @classmethod
+    def from_completed_process(cls, process):
+        lines = [
+            f"Non-zero exit code: {process.returncode}",
+            f"Command: {process.args}",
+        ]
+        if process.stdout:
+            lines += [
+                "",
+                "STDOUT:",
+                process.stdout,
+            ]
+        if process.stderr:
+            lines += [
+                "",
+                "STDERR:",
+                process.stderr,
+            ]
+        return cls("\n".join(lines))
 
 
-def exec_cmd(
-    cmd, throw_on_error=True, env=None, capture_output=True, cwd=None, cmd_stdin=None, **kwargs
+def _exec_cmd(
+    cmd,
+    *,
+    throw_on_error=True,
+    extra_env=None,
+    capture_output=True,
+    **kwargs,
 ):
     """
-    Runs a command as a child process.
+    A convenience wrapper of `subprocess.run` for running a command from a Python script.
 
-    A convenience wrapper for running a command from a Python script.
-    Keyword arguments:
-    cmd -- the command to run, as a list of strings
-    throw_on_error -- if true, raises an Exception if the exit code of the program is nonzero
-    env -- additional environment variables to be defined when running the child process
-    cwd -- working directory for child process
-    capture_output -- If True, stdout and stderr will be captured and included in an exception
-                      message on failure; if False, these streams won't be captured.
-    cmd_stdin -- if specified, passes the specified string as stdin to the child process.
-
-    Note on the return value: If stream_output is true, then only the exit code is returned. If
-    stream_output is false, then a tuple of the exit code, standard output and standard error is
-    returned.
+    :param cmd: The command to run, as a list of strings.
+    :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
+    :param extra_env: Extra environment variables to be defined when running the child process.
+    :param: capture_output: If True, stdout and stderr will be captured and included in an exception
+                            message on failure; if False, these streams won't be captured.
+    :param kwargs: Keyword arguments passed to `subprocess.run`.
+    :return: A `subprocess.CompletedProcess` instance.
     """
-    cmd_env = os.environ.copy()
-    if env:
-        cmd_env.update(env)
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
 
-    if not capture_output:
-        child = subprocess.Popen(
-            cmd, env=cmd_env, cwd=cwd, text=True, stdin=subprocess.PIPE, **kwargs
-        )
-        child.communicate(cmd_stdin)
-        exit_code = child.wait()
-        if throw_on_error and exit_code != 0:
-            raise ShellCommandException(f"Non-zero exitcode: {exit_code}")
-        return exit_code
-    else:
-        child = subprocess.Popen(
-            cmd,
-            env=cmd_env,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=cwd,
-            text=True,
-            **kwargs,
-        )
-        (stdout, stderr) = child.communicate(cmd_stdin)
-        exit_code = child.wait()
-        if throw_on_error and exit_code != 0:
-            raise ShellCommandException(
-                f"Non-zero exit code: {exit_code}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
-            )
-        return exit_code, stdout, stderr
+    prc = subprocess.run(
+        cmd,
+        env=env,
+        check=False,
+        capture_output=capture_output,
+        text=True,
+        **kwargs,
+    )
+
+    if throw_on_error and prc.returncode != 0:
+        raise ShellCommandException.from_completed_process(prc)
+    return prc

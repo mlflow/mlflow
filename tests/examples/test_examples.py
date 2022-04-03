@@ -20,7 +20,7 @@ def hash_conda_env(conda_env_path):
 
 
 def get_conda_envs():
-    stdout = process.exec_cmd(["conda", "env", "list", "--json"])[1]
+    stdout = process.exec_cmd(["conda", "env", "list", "--json"]).stdout
     return [os.path.basename(env) for env in json.loads(stdout)["envs"]]
 
 
