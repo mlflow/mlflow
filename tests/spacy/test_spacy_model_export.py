@@ -117,7 +117,6 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
     example_ = spacy_model_with_data.inference_data.head(3)
     for signature in (None, signature_):
         for example in (None, example_):
-            print(signature is None, example is None)
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.spacy.save_model(

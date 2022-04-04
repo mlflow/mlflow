@@ -25,7 +25,7 @@ from mlflow.utils.server_cli_utils import (
     resolve_default_artifact_root,
     _validate_artifacts_only_config,
 )
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.environment import _EnvManager
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -189,7 +189,7 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            use_conda=env_manager is EnvManager.CONDA,
+            use_conda=env_manager is _EnvManager.CONDA,
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,

@@ -20,7 +20,7 @@ _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
 
 
-class EnvManager(Enum):
+class _EnvManager(Enum):
     LOCAL = "local"
     CONDA = "conda"
 
