@@ -70,19 +70,21 @@ class HomeView extends Component {
     return (
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
-          {this.state.listExperimentsExpanded ? (
-            <ExperimentListView
-              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
-              onClickListExperiments={this.onClickListExperiments}
-            />
-          ) : (
-            <i
-              onClick={this.onClickListExperiments}
-              title='Show experiment list'
-              style={styles.showExperimentListExpander}
-              className='expander fa fa-chevron-right login-icon'
-            />
-          )}
+          <PageContainer>
+            {this.state.listExperimentsExpanded ? (
+              <ExperimentListView
+                activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+                onClickListExperiments={this.onClickListExperiments}
+              />
+            ) : (
+              <i
+                onClick={this.onClickListExperiments}
+                title='Show experiment list'
+                style={styles.showExperimentListExpander}
+                className='expander fa fa-chevron-right login-icon'
+              />
+            )}
+          </PageContainer>
         </div>
         <PageContainer>
           {this.props.experimentIds ? (
