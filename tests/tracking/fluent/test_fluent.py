@@ -1012,7 +1012,7 @@ def test_last_active_run_returns_currently_active_run():
 
 def test_last_active_run_returns_most_recently_ended_active_run():
     run_id = mlflow.start_run().info.run_id
-    mlflow.log_metric("a", 1)
+    mlflow.log_metric("a", 1.0)
     mlflow.log_param("b", 2)
     mlflow.end_run()
     last_active_run = mlflow.last_active_run()

@@ -347,6 +347,6 @@ def test_last_active_run_retrieves_autologged_run():
     rf.fit([[1, 2]], [[3]])
     rf.predict([[2, 1]])
 
-    auto_autologged_run = mlflow.last_active_run()
-    assert auto_autologged_run is not None
-    assert auto_autologged_run.info.run_id is not None
+    autolog_run = mlflow.last_active_run()
+    assert autolog_run is not None
+    assert autolog_run.info.run_id is not None

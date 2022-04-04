@@ -19,9 +19,8 @@ def main():
 
     # train a model
     pipe = Pipeline([("scaler", StandardScaler()), ("lr", LinearRegression())])
-    with mlflow.start_run() as run:
-        pipe.fit(X, y)
-        print("Logged data and model in run: {}".format(run.info.run_id))
+    pipe.fit(X, y)
+    print("Logged data and model in run: {}".format(mlflow.last_active_run().info.run_id))
 
     # show logged data
     for key, data in fetch_logged_data(run.info.run_id).items():

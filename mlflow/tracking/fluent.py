@@ -412,7 +412,7 @@ def last_active_run() -> Optional[Run]:
 
         # Use the model to make predictions on the test dataset.
         predictions = rf.predict(X_test)
-        auto_autologged_run = mlflow.last_active_run()
+        autolog_run = mlflow.last_active_run()
 
     .. code-block:: python
         :caption: To get the most recently active run that ended
@@ -432,9 +432,9 @@ def last_active_run() -> Optional[Run]:
         run = mlflow.last_active_run()
         mlflow.end_run()
 
-    :return: The active run, if a run is currently active (this is equivalent to ``mlflow.active_run()``). Otherwise, if no run is currently active, the
-             last run started from the current Python process that reached a
-             terminal status (i.e. FINISHED, FAILED, or KILLED).
+    :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
+             Otherwise, the last run started from the current Python process that reached
+              a terminal status (i.e. FINISHED, FAILED, or KILLED).
     """
     _active_run = active_run()
     if _active_run is not None:
