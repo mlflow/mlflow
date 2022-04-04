@@ -512,24 +512,6 @@ def test_log_batch_duplicate_entries_raises():
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_run_key_names_non_restrictive():
-    with start_run() as active_run:
-        run_id = active_run.info.run_id
-
-        quote_embed_key = '"\u5e78\u904b\u3092"'
-        metric_value = 42
-        param_value = 'hyphenated-parameter"'
-        tag_value = '"quote-wrapped_tag"'
-        tracking.MlflowClient().log_metric(run_id=run_id, key=quote_embed_key, value=metric_value)
-        tracking.MlflowClient().log_param(run_id=run_id, key=quote_embed_key, value=param_value)
-        tracking.MlflowClient().set_tag(run_id=run_id, key=quote_embed_key, value=tag_value)
-
-    finished_run = tracking.MlflowClient().get_run(run_id=run_id)
-    assert finished_run.data.metrics.get(quote_embed_key) == metric_value
-    assert finished_run.data.params.get(quote_embed_key) == param_value
-    assert finished_run.data.tags.get(quote_embed_key) == tag_value
-
-
 def test_log_batch_validates_entity_names_and_values():
     with start_run() as active_run:
         run_id = active_run.info.run_id
@@ -561,7 +543,7 @@ def test_log_batch_validates_entity_names_and_values():
 
         metrics = [Metric(key=None, value=42.0, timestamp=4, step=1)]
         with pytest.raises(
-            MlflowException, match="Invalid metric name. A key name must be provided."
+            MlflowException, match="Invalid metric name: 'None'. A key name must be provided."
         ) as e:
             tracking.MlflowClient().log_batch(run_id, metrics=metrics)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

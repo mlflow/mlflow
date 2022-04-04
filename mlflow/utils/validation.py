@@ -10,6 +10,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
 
+_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
+
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
@@ -19,6 +21,8 @@ _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
     " spaces ( ), and slashes (/)."
 )
+
+_MISSING_KEY_NAME_MESSAGE = "A key name must be provided."
 
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
@@ -76,17 +80,18 @@ def path_not_unique(name):
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
-def _validate_key_name(name: str, log_type: str):
+def _validate_metric_name(name):
+    """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Invalid {log_type} name. A key name must be provided.",
+            f"Invalid metric name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-
-def _validate_metric_name(name):
-    """Check that path-referenced keys are valid and will not collide"""
-    _validate_key_name(name, "metric")
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise MlflowException(
+            "Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            INVALID_PARAMETER_VALUE,
+        )
     if path_not_unique(name):
         raise MlflowException(
             "Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
@@ -222,8 +227,17 @@ def _validate_param_keys_unique(params):
 
 
 def _validate_param_name(name):
-    """Check that `name` is a valid parameter name if paths are involved to prevent collisions."""
-    _validate_key_name(name, "param")
+    """Check that `name` is a valid parameter name and raise an exception if it isn't."""
+    if name is None:
+        raise MlflowException(
+            f"Invalid parameter name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise MlflowException(
+            "Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+            INVALID_PARAMETER_VALUE,
+        )
     if path_not_unique(name):
         raise MlflowException(
             "Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
@@ -232,8 +246,17 @@ def _validate_param_name(name):
 
 
 def _validate_tag_name(name):
-    """Check that `name` is a valid tag name if paths are involved to prevent collisions."""
-    _validate_key_name(name, "tag")
+    """Check that `name` is a valid tag name and raise an exception if it isn't."""
+    # Reuse param & metric check.
+    if name is None:
+        raise MlflowException(
+            f"Invalid tag name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise MlflowException(
+            "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
+        )
     if path_not_unique(name):
         raise MlflowException(
             "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE
