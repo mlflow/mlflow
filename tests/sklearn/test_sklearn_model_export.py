@@ -67,7 +67,6 @@ def sklearn_logreg_model():
 @pytest.fixture(scope="module")
 def sklearn_custom_transformer_model(sklearn_knn_model):
     def transform(vec):
-        print("Invoking custom transformer!")
         return vec + 1
 
     transformer = SKFunctionTransformer(transform, validate=True)

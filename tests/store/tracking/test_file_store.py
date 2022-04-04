@@ -665,8 +665,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         runs = [fs.create_run(exp, "user", r, []).info.run_id for r in range(10)]
         runs.reverse()
 
-        print(runs)
-        print(self._search(fs, exp))
         assert runs[:10] == self._search(fs, exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
             assert runs[: min(1200, n)] == self._search(fs, exp, max_results=n)
@@ -1015,7 +1013,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             ]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
-                print(log_batch_kwargs)
                 with self.assertRaises(MlflowException) as e:
                     fs.log_batch(run.info.run_id, **log_batch_kwargs)
                 self.assertIn(str(e.exception.message), "Some internal error")

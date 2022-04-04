@@ -173,7 +173,7 @@ def get_keras_random_data_run_with_callback(
 
         class CustomCallback(keras.callbacks.Callback):
             def on_train_end(self, logs=None):
-                print("Training completed")
+                pass
 
         callback = CustomCallback()
 
