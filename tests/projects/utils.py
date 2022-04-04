@@ -3,6 +3,7 @@ import os
 
 
 import pytest
+import logging
 
 from mlflow.utils.file_utils import TempDir, _copy_project
 
@@ -18,6 +19,8 @@ TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 GIT_PROJECT_BRANCH = "test-branch"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+
+_logger = logging.getLogger(__name__)
 
 
 def load_project():
@@ -71,8 +74,8 @@ def docker_example_base_image():
                 path=cwd,
             )
         except BuildError as build_error:
-            for _ in build_error.build_log:
-                pass
+            for chunk in build_error.build_log:
+                _logger.info(f"chunk: {chunk}")
             raise build_error
         except APIError as api_error:
             raise api_error
