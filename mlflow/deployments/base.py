@@ -74,12 +74,13 @@ class BaseEndpointClient(abc.ABC):
     """
         Base class exposing Python model endpoint APIs.
 
-        Plugin implementors should define target-specific logic via a subclass of ``BaseEndpointClient``
-        within the plugin module, and customize method docstrings with target-specific information.
+        Plugin implementors should define target-specific logic via a subclass of
+        ``BaseEndpointClient`` within the plugin module, and customize method docstrings with
+        target-specific information.
 
         .. Note::
-            Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases (e.g.
-            on failure to deploy a model).
+            Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases
+            (e.g. on failure to deploy a model).
         """
 
     def __init__(self, target_uri):
@@ -162,10 +163,10 @@ class BaseEndpointClient(abc.ABC):
     @abc.abstractmethod
     def create_deployment(self, name, endpoint, model_uri, flavor=None, config=None):
         """
-        Deploy a model to the specified target, within the specified endpoint. By default, this method
-        should block until deployment completes (i.e. until it's possible to perform inference with
-        the deployment). In the case of conflicts (e.g. if it's not possible to create the specified
-        deployment due to conflict with an existing deployment), raises a
+        Deploy a model to the specified target, within the specified endpoint. By default, this
+        method should block until deployment completes (i.e. until it's possible to perform
+        inference with the deployment). In the case of conflicts (e.g. if it's not possible to
+        create the specified deployment due to conflict with an existing deployment), raises a
         :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
         for additional detail on support for asynchronous deployment and other configuration.
 
@@ -257,10 +258,10 @@ class BaseEndpointClient(abc.ABC):
         (we accept a pandas DataFrame as input and return either a pandas DataFrame,
         pandas Series, or numpy array as output).
 
-        By default, the prediction will be issued to the endpoint and subject to any traffic routing
-        that is in place on the endpoint. Alternatively, the name of a specific deployment within
-        the endpoint can be provided in order to issue a prediction against that specific deployment,
-        for the sake of testing.
+        By default, the prediction will be issued to the endpoint and subject to any traffic
+        routing that is in place on the endpoint. Alternatively, the name of a specific
+        deployment within the endpoint can be provided in order to issue a prediction against
+        that specific deployment, for the sake of testing.
 
         :param endpoint: Name of the endpoint to issue the prediction against
         :param df: Pandas DataFrame to use for inference
