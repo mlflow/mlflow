@@ -249,7 +249,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
-    EnvManager,
+    _EnvManager,
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
@@ -987,7 +987,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
-    env_manager = EnvManager.from_string(env_manager)
+    env_manager = _EnvManager.from_string(env_manager)
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
@@ -1019,7 +1019,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
     )
 
-    if env_manager is EnvManager.LOCAL:
+    if env_manager is _EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -1047,9 +1047,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
-        if env_manager is EnvManager.CONDA:
+        if env_manager is _EnvManager.CONDA:
             _get_flavor_backend(
-                local_model_path, env_manager=EnvManager.CONDA, install_mlflow=False
+                local_model_path, env_manager=_EnvManager.CONDA, install_mlflow=False
             ).prepare_env(model_uri=local_model_path, capture_output=False)
 
     # Broadcast local model directory to remote worker if needed.
@@ -1156,7 +1156,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
         #   NFS directory, and in spark driver side prepare restored env once, and then all
         #   spark UDF tasks running on spark workers can skip re-creating the restored env.
-        if env_manager is EnvManager.CONDA:
+        if env_manager is _EnvManager.CONDA:
             server_port = find_free_port()
 
             if should_use_spark_to_broadcast_file:
@@ -1169,7 +1169,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
                 _get_flavor_backend(
-                    local_model_path_on_executor, env_manager=EnvManager.CONDA, install_mlflow=False
+                    local_model_path_on_executor,
+                    env_manager=_EnvManager.CONDA,
+                    install_mlflow=False,
                 ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
             else:
                 local_model_path_on_executor = local_model_path
@@ -1178,7 +1180,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             # TODO: adjust timeout for server requests handler.
             scoring_server_proc = _get_flavor_backend(
                 local_model_path_on_executor,
-                env_manager=EnvManager.CONDA,
+                env_manager=_EnvManager.CONDA,
                 workers=1,
                 install_mlflow=False,
             ).serve(
@@ -1227,7 +1229,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager is EnvManager.LOCAL:
+        elif env_manager is _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
