@@ -70,12 +70,12 @@ def pd_model():
     EPOCH_NUM = 10
     BATCH_SIZE = 10
 
-    for epoch_id in range(EPOCH_NUM):
+    for _ in range(EPOCH_NUM):
         np.random.shuffle(training_data)
         mini_batches = [
             training_data[k : k + BATCH_SIZE] for k in range(0, len(training_data), BATCH_SIZE)
         ]
-        for iter_id, mini_batch in enumerate(mini_batches):
+        for mini_batch in mini_batches:
             x = np.array(mini_batch[:, :-1]).astype("float32")
             y = np.array(mini_batch[:, -1:]).astype("float32")
             house_features = paddle.to_tensor(x)
@@ -83,10 +83,6 @@ def pd_model():
             predicts = model(house_features)
             loss = F.square_error_cost(predicts, label=prices)
             avg_loss = paddle.mean(loss)
-            if iter_id % 20 == 0:
-                print(
-                    "epoch: {}, iter: {}, loss is: {}".format(epoch_id, iter_id, avg_loss.numpy())
-                )
 
             avg_loss.backward()
             opt.step()

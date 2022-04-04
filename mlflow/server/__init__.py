@@ -12,7 +12,7 @@ from mlflow.server.handlers import (
     _add_static_prefix,
     get_model_version_artifact_handler,
 )
-from mlflow.utils.process import exec_cmd
+from mlflow.utils.process import _exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -147,4 +147,4 @@ def _run_server(
         full_command = _build_waitress_command(waitress_opts, host, port)
     else:
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
-    exec_cmd(full_command, env=env_map, capture_output=False)
+    _exec_cmd(full_command, extra_env=env_map, capture_output=False)

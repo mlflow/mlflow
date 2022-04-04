@@ -86,8 +86,8 @@ def _get_conda_executable_for_create_env():
 
 
 def _list_conda_environments():
-    (_, stdout, _) = process.exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
-    return list(map(os.path.basename, json.loads(stdout).get("envs", [])))
+    prc = process._exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+    return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
 def _get_conda_env_root_dir_env(conda_env_root_dir):
@@ -123,7 +123,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
     conda_env_create_path = _get_conda_executable_for_create_env()
 
     try:
-        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Conda executable at {0}. "
@@ -136,7 +136,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
         )
 
     try:
-        process.exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "You have set the env variable {0}, but {1} does not exist or "
@@ -165,7 +165,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
             _logger.info("Use isolated conda environment root directory: %s", conda_env_root_dir)
         try:
             if conda_env_path:
-                process.exec_cmd(
+                process._exec_cmd(
                     [
                         conda_env_create_path,
                         "env",
@@ -179,7 +179,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                     capture_output=capture_output,
                 )
             else:
-                process.exec_cmd(
+                process._exec_cmd(
                     [
                         conda_env_create_path,
                         "create",
@@ -202,7 +202,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                         "Removing %s.",
                         project_env_name,
                     )
-                    process.exec_cmd(
+                    process._exec_cmd(
                         [
                             conda_path,
                             "remove",

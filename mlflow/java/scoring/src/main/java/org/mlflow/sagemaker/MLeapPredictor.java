@@ -52,7 +52,7 @@ public class MLeapPredictor implements Predictor {
       logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(
               String.format(
-                "Failed to load model input schema from specified path: %s", inputSchemaPath));
+                "Failed to load model input schema from specified path: %s", inputSchemaPath), e);
     }
   }
 

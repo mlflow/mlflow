@@ -30,7 +30,7 @@ def validate_docker_installation():
     """
     try:
         docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
+        process._exec_cmd([docker_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Docker executable. "

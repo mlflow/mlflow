@@ -138,7 +138,6 @@ def test_mlflow_is_not_installed_unless_specified():
         )
         _, stderr = p.communicate()
         stderr = stderr.decode("utf-8")
-        print(stderr)
         assert p.wait() != 0
         if PYTHON_VERSION.startswith("3"):
             assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
@@ -167,7 +166,6 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         )
         _, stderr = p.communicate()
         stderr = stderr.decode("utf-8")
-        print(stderr)
         assert p.wait() != 0
         assert "No suitable flavor backend was found for the model." in stderr
 

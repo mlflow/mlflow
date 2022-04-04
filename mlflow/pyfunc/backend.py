@@ -15,7 +15,7 @@ from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.conda import _get_conda_env_root_dir_env
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.environment import _EnvManager
 from mlflow.version import VERSION
 
 
@@ -28,7 +28,7 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(
-        self, config, workers=1, env_manager=EnvManager.CONDA, install_mlflow=False,
+        self, config, workers=1, env_manager=_EnvManager.CONDA, install_mlflow=False,
         conda_env_root_dir=None, **kwargs
     ):
         """
@@ -45,7 +45,7 @@ class PyFuncBackend(FlavorBackend):
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
-        if self._env_manager is EnvManager.LOCAL or ENV not in self._config:
+        if self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
             return 0
         conda_env_path = os.path.join(local_path, self._config[ENV])
 
@@ -69,7 +69,7 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
@@ -150,7 +150,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
@@ -196,7 +196,7 @@ class PyFuncBackend(FlavorBackend):
             return child_proc
 
     def can_score_model(self):
-        if self._env_manager is EnvManager.LOCAL:
+        if self._env_manager is _EnvManager.LOCAL:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")
