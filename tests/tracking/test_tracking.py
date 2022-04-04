@@ -296,7 +296,7 @@ def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
-    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE}
 
     t = int(time.time())
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
@@ -319,9 +319,9 @@ def test_log_batch():
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     metric_history0 = client.get_metric_history(run_id, "metric-key0")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([(1.0, t, 0)])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == {(1.0, t, 0)}
     metric_history1 = client.get_metric_history(run_id, "metric-key1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([(4.0, t, 1)])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == {(4.0, t, 1)}
 
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
@@ -361,13 +361,15 @@ def test_log_metric():
         assert expected_pairs[key] == value
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000, 0), (30, 123 * 1000, 5), (40, 123 * 1000, -2)]
-    )
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == {
+        (25, 123 * 1000, 0),
+        (30, 123 * 1000, 5),
+        (40, 123 * 1000, -2),
+    }
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set(
-        [(-3, 123 * 1000, 0)]
-    )
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == {
+        (-3, 123 * 1000, 0)
+    }
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
@@ -380,11 +382,13 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
 
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
-    )
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == {
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    }
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == {(-3, 123 * 1000)}
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_client():
@@ -399,11 +403,14 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
         mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
 
     metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
-        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
-    )
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == {
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    }
+
     metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == {(-3, 123 * 1000)}
 
 
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
@@ -433,7 +440,7 @@ def get_store_mock():
 
 def test_set_tags():
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
-    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    approx_expected_tags = {MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE}
     with start_run() as active_run:
         run_id = active_run.info.run_id
         mlflow.set_tags(exact_expected_tags)
@@ -503,6 +510,24 @@ def test_log_batch_duplicate_entries_raises():
                 run_id=run_id, params=[Param("a", "1"), Param("a", "2")]
             )
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_run_key_names_non_restrictive():
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        quote_embed_key = '"\u5e78\u904b\u3092"'
+        metric_value = 42
+        param_value = 'hyphenated-parameter"'
+        tag_value = '"quote-wrapped_tag"'
+        tracking.MlflowClient().log_metric(run_id=run_id, key=quote_embed_key, value=metric_value)
+        tracking.MlflowClient().log_param(run_id=run_id, key=quote_embed_key, value=param_value)
+        tracking.MlflowClient().set_tag(run_id=run_id, key=quote_embed_key, value=tag_value)
+
+    finished_run = tracking.MlflowClient().get_run(run_id=run_id)
+    assert finished_run.data.metrics.get(quote_embed_key) == metric_value
+    assert finished_run.data.params.get(quote_embed_key) == param_value
+    assert finished_run.data.tags.get(quote_embed_key) == tag_value
 
 
 def test_log_batch_validates_entity_names_and_values():
