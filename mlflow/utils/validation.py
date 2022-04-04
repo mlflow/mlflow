@@ -76,8 +76,17 @@ def path_not_unique(name):
     return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
+def _validate_key_name(name: str, log_type: str):
+    if name is None:
+        raise MlflowException(
+            f"Invalid {log_type} name. A key name must be provided.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_metric_name(name):
     """Check that path-referenced keys are valid and will not collide"""
+    _validate_key_name(name, "metric")
     if path_not_unique(name):
         raise MlflowException(
             "Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
@@ -214,6 +223,7 @@ def _validate_param_keys_unique(params):
 
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name if paths are involved to prevent collisions."""
+    _validate_key_name(name, "param")
     if path_not_unique(name):
         raise MlflowException(
             "Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
@@ -223,6 +233,7 @@ def _validate_param_name(name):
 
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name if paths are involved to prevent collisions."""
+    _validate_key_name(name, "tag")
     if path_not_unique(name):
         raise MlflowException(
             "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE

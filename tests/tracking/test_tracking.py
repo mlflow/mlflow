@@ -559,6 +559,13 @@ def test_log_batch_validates_entity_names_and_values():
             tracking.MlflowClient().log_batch(run_id, tags=tags)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+        metrics = [Metric(key=None, value=42.0, timestamp=4, step=1)]
+        with pytest.raises(
+            MlflowException, match="Invalid metric name. A key name must be provided."
+        ) as e:
+            tracking.MlflowClient().log_batch(run_id, metrics=metrics)
+        assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
 
 def test_log_artifact_with_dirs(tmpdir):
     # Test log artifact with a directory
