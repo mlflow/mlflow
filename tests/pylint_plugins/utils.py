@@ -19,6 +19,7 @@ def get_pylint_msg_ids():
     letters = "".join(MSG_TYPES.keys())
     return set(re.findall(rf"\(([{letters}][0-9]{{4}})\)", stdout))
 
+
 def create_message(msg_id, node):
     import pylint.testutils
 

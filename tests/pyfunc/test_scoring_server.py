@@ -61,6 +61,7 @@ def pandas_df_with_all_types():
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
 
+
 @pytest.fixture
 def pandas_df_with_csv_types():
     pdf = pd.DataFrame(
@@ -69,11 +70,12 @@ def pandas_df_with_csv_types():
             "integer": np.array([1, 2, 3], np.int32),
             "long": np.array([1, 2, 3], np.int64),
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
-            "double": [math.pi, 2 * math.pi, 3 * math.pi]
+            "double": [math.pi, 2 * math.pi, 3 * math.pi],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
+
 
 @pytest.fixture(scope="session")
 def sklearn_model():
