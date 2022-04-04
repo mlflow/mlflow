@@ -41,18 +41,18 @@ def _exec_cmd(
                       If this argument is specified, `kwargs` cannot contain `env`.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
-    :param kwargs: Keyword arguments (except `check`, `capture_output`, and `text`) passed to
-                   `subprocess.run`.
+    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run`.
     :return: A `subprocess.CompletedProcess` instance.
     """
-    illegal_kwargs = set(kwargs.keys()).intersection(("check", "capture_output", "text"))
+    illegal_kwargs = set(kwargs.keys()).intersection(("check", "text"))
     if illegal_kwargs:
-        raise ValueError(f"`kwargs` cannot contain {illegal_kwargs}")
+        raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
 
-    if extra_env is not None and "env" in kwargs:
+    env = kwargs.pop("env", None)
+    if extra_env is not None and env is not None:
         raise ValueError("`extra_env` and `env` cannot be used at the same time")
 
-    env = None if extra_env is None else {**os.environ, **extra_env}
+    env = env if extra_env is None else {**os.environ, **extra_env}
     prc = subprocess.run(
         # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
         # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
