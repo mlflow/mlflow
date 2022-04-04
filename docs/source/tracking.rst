@@ -212,6 +212,13 @@ Enabling the Tracking Server to perform proxied artifact access in order to rout
   * Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
   * Artifacts are passed to the end user through the Tracking Server through the interface of the ``HttpArtifactRepository``
 
+.. note::
+    When an experiment is created, the artifact storage location from the configuration of the tracking server is logged in the experiment's metadata.
+    If enabling proxied artifact storage, any existing experiments that were created while operating a tracking server in non-proxy mode will not
+    be available for adding runs to them. This is due to the default artifact storage locations (``artifact_uri``) of the old experiments logged prior to
+    enabling a tracking server's proxied access while operating in  ``--serve-artifacts`` mode. It is highly advised to create new experiments when performing
+    a migration that enables proxied artifact access to prevent errors in logging run artifacts to an existing experiment from occurring at the client side.
+
 .. warning::
     The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
     Administrators who are enabling this feature should ensure that the access level granted to the Tracking Server for artifact
@@ -243,6 +250,13 @@ Running an MLFlow server in ``--artifacts-only`` mode:
 
   * Listing of artifact responses will pass from the file store through the Tracking Server to the client
   * Loading of artifacts will utilize the access credentials of the MLflow Tracking Server to acquire the files which are then passed on to the client
+
+.. note::
+  - If migrating from Scenario 5 to Scenario 6 due to request volumes, it is important to perform two validations:
+
+    - Ensure that the new tracking server that is operating in ``--artifacts-only`` mode has access permissions to the
+      location set by ``--artifacts-destination`` that the former multi-role tracking server had.
+    - The former multi-role tracking server that was serving artifacts must have the ``-serve-artifacts`` argument disabled.
 
 .. warning::
     Operating the Tracking Server in proxied artifact access mode by setting the parameter ``--serve-artifacts`` during server start, even in ``--artifacts-only`` mode,
