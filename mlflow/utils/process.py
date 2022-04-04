@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+from mlflow.exceptions import MlflowException
+
 
 class ShellCommandException(Exception):
     @classmethod
@@ -40,13 +42,15 @@ def _exec_cmd(
     :param extra_env: Extra environment variables to be defined when running the child process.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
-    :param kwargs: Keyword arguments passed to `subprocess.run`.
+    :param kwargs: Keyword arguments (except `check`, `capture_output`, and `text`) passed to
+                   `subprocess.run`.
     :return: A `subprocess.CompletedProcess` instance.
     """
-    env = os.environ.copy()
-    if extra_env:
-        env.update(extra_env)
+    illegal_kwargs = set(kwargs.keys()).intersection(("check", "capture_output", "text"))
+    if illegal_kwargs:
+        raise ShellCommandException(f"`kwargs` cannot contain {illegal_kwargs}")
 
+    env = None if extra_env is None else {**os.environ, **extra_env}
     prc = subprocess.run(
         cmd,
         env=env,
