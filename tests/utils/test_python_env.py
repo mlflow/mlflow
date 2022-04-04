@@ -87,7 +87,7 @@ dependencies:
     assert python_env.dependencies == ["a", "b"]
 
 
-def test_from_conda_yaml_missing_python(tmp_path):
+def test_from_conda_yaml_python_dependency_is_missing(tmp_path):
     content = """
 name: example
 channels:
@@ -100,5 +100,5 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    with pytest.raises(Exception, match="Failed to create a `PythonEnv` object"):
+    with pytest.raises(Exception, match="Failed to construct a `PythonEnv` object"):
         PythonEnv.from_conda_yaml(yaml_path)

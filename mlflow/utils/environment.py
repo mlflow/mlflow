@@ -136,8 +136,8 @@ class PythonEnv:
 
         if python is None:
             raise MlflowException(
-                f"Failed to construct `PythonEnv`. {path} is missing a conda dependency for "
-                "python (e.g. 'python=3.8').",
+                f"Failed to construct a `PythonEnv` object from {path} which does not contain"
+                "a conda dependency for python (e.g. 'python=3.7.12')"
             )
 
         return cls(
