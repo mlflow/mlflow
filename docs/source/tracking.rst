@@ -231,7 +231,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 
 .. note::
     When starting a Tracking Server in ``--artifacts-only`` mode, the cli argument ``--backend-store-uri`` must be set to a local path for the server's environment.
-    This is a requirement for utilities such as ``client.list_artifacts(<run_id>)`` to function correctly. Providing a non-local file system path will raise an Exception.
+    This is a requirement for utilities such as ``MlflowClient.list_artifacts`` to function correctly. Providing a non-local file system path will raise an Exception.
     If a value is not set, the default configuration will be a local path on the server (``"./mlruns"``).
 
 .. figure:: _static/images/scenario_6.png
