@@ -1,8 +1,6 @@
 import os
 import subprocess
 
-from mlflow.exceptions import MlflowException
-
 
 class ShellCommandException(Exception):
     @classmethod
