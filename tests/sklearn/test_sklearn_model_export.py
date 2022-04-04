@@ -107,6 +107,19 @@ def test_model_save_load(sklearn_knn_model, model_path):
 
 
 @pytest.mark.large
+def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
+    sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
+    sklearn_model_path.mkdir()
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    sklearn_model_path = tmp_path / "sklearn_model_filled_exists"
+    sklearn_model_path.mkdir()
+    (sklearn_model_path / "foo.txt").write_text("dummy content")
+    with pytest.raises(MlflowException, match="already exists and is not empty"):
+        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+
+@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
     data = sklearn_knn_model.inference_data
     model = sklearn_knn_model.model

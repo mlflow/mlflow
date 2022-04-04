@@ -275,7 +275,7 @@ def test_raise_exception(sequential_model):
             mlflow.pytorch.save_model([1, 2, 3], path)
 
         mlflow.pytorch.save_model(sequential_model, path)
-        with pytest.raises(RuntimeError, match=f"Path '{os.path.abspath(path)}' already exists"):
+        with pytest.raises(MlflowException, match=f"Path '{os.path.abspath(path)}' already exists"):
             mlflow.pytorch.save_model(sequential_model, path)
 
         from mlflow import sklearn
