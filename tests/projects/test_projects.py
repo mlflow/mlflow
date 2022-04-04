@@ -4,6 +4,7 @@ import git
 import shutil
 import yaml
 import uuid
+import subprocess
 
 import pytest
 from unittest import mock
@@ -339,11 +340,13 @@ def test_create_env_with_mamba():
 
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
-            return None, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            return subprocess.CompletedProcess(
+                cmd, 0, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            )
         else:
             # Here we are creating the environment, no need to return
             # anything
-            return None
+            return subprocess.CompletedProcess(cmd, 0)
 
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
