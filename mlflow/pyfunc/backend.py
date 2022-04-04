@@ -14,7 +14,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.environment import _EnvManager
 from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _execute_in_virtualenv,
@@ -34,7 +34,7 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(
-        self, config, workers=1, env_manager=EnvManager.CONDA, install_mlflow=False, **kwargs
+        self, config, workers=1, env_manager=_EnvManager.CONDA, install_mlflow=False, **kwargs
     ):
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
@@ -44,11 +44,11 @@ class PyFuncBackend(FlavorBackend):
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
-        if self._env_manager is EnvManager.LOCAL or ENV not in self._config:
+        if self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
             return 0
 
         command = 'python -c ""'
-        if self._env_manager is EnvManager.VIRTUALENV:
+        if self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
             return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
 
@@ -82,13 +82,13 @@ class PyFuncBackend(FlavorBackend):
             content_type=repr(content_type),
             json_format=repr(json_format),
         )
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             conda_env_name = get_or_create_conda_env(
                 conda_env_path, env_id=self._env_id, capture_output=False
             )
             return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
-        elif self._env_manager is EnvManager.VIRTUALENV:
+        elif self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
             return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
         else:
@@ -147,7 +147,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
@@ -164,7 +164,7 @@ class PyFuncBackend(FlavorBackend):
                 stdout=stdout,
                 stderr=stderr,
             )
-        elif self._env_manager is EnvManager.VIRTUALENV:
+        elif self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
             child_proc = _execute_in_virtualenv(
                 activate_cmd, command, self._install_mlflow, command_env
@@ -196,7 +196,7 @@ class PyFuncBackend(FlavorBackend):
             return child_proc
 
     def can_score_model(self):
-        if self._env_manager is EnvManager.LOCAL:
+        if self._env_manager is _EnvManager.LOCAL:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")

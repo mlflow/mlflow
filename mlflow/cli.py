@@ -12,6 +12,7 @@ import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
+from mlflow import version
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -21,7 +22,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import resolve_default_artifact_root
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.environment import _EnvManager
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -29,7 +30,7 @@ _logger = logging.getLogger(__name__)
 
 
 @click.group()
-@click.version_option()
+@click.version_option(version=version.VERSION)
 def cli():
     pass
 
@@ -185,7 +186,7 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            use_conda=env_manager is EnvManager.CONDA,
+            use_conda=env_manager is _EnvManager.CONDA,
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,

@@ -147,7 +147,7 @@ class PythonEnv:
         )
 
 
-class EnvManager(Enum):
+class _EnvManager(Enum):
     LOCAL = "local"
     CONDA = "conda"
     VIRTUALENV = "virtualenv"
