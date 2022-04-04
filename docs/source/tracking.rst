@@ -296,6 +296,9 @@ such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
+:py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
+currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding 
+the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
@@ -410,6 +413,7 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
+You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function.
 
 Scikit-learn
 ------------

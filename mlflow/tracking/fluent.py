@@ -395,13 +395,15 @@ def last_active_run() -> Optional[Run]:
     Examples:
 
     .. code-block:: python
-        :caption: To retrieve the most recent autologged run.
+        :caption: To retrieve the most recent autologged run:
 
         import mlflow
 
         from sklearn.model_selection import train_test_split
         from sklearn.datasets import load_diabetes
         from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
 
         db = load_diabetes()
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
@@ -415,7 +417,7 @@ def last_active_run() -> Optional[Run]:
         autolog_run = mlflow.last_active_run()
 
     .. code-block:: python
-        :caption: To get the most recently active run that ended
+        :caption: To get the most recently active run that ended:
 
         import mlflow
 
@@ -424,7 +426,7 @@ def last_active_run() -> Optional[Run]:
         run = mlflow.last_active_run()
 
     .. code-block:: python
-        :caption: To retrieve the currently active run
+        :caption: To retrieve the currently active run:
 
         import mlflow
 
@@ -434,7 +436,7 @@ def last_active_run() -> Optional[Run]:
 
     :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
              Otherwise, the last run started from the current Python process that reached
-              a terminal status (i.e. FINISHED, FAILED, or KILLED).
+             a terminal status (i.e. FINISHED, FAILED, or KILLED).
     """
     _active_run = active_run()
     if _active_run is not None:
