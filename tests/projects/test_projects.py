@@ -93,7 +93,7 @@ def test_invalid_run_mode():
 def test_use_conda():
     """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    with mock.patch("mlflow.utils.process.exec_cmd", side_effect=EnvironmentError):
+    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=EnvironmentError):
         with pytest.raises(ExecutionException, match="Could not find Conda executable"):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
@@ -355,11 +355,11 @@ def test_create_env_with_mamba():
     with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
 
         # Simulate success
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
             mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
         # Simulate a non-working or non-existent mamba
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock_raise):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock_raise):
             with pytest.raises(
                 ExecutionException,
                 match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
