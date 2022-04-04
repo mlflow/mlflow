@@ -17,9 +17,6 @@ pytest tests/h2o --large
 pytest tests/shap --large
 pytest tests/paddle --large
 
-# TODO: When the Diviner repo is set to public status, move the tests to cross-version testing
-pytest tests/diviner --large
-
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
 find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
