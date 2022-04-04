@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Spacer } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import ExperimentPage from './ExperimentPage';
 import { getExperiments } from '../reducers/Reducers';
@@ -70,21 +71,20 @@ class HomeView extends Component {
     return (
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
-          <PageContainer>
-            {this.state.listExperimentsExpanded ? (
-              <ExperimentListView
-                activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
-                onClickListExperiments={this.onClickListExperiments}
-              />
-            ) : (
-              <i
-                onClick={this.onClickListExperiments}
-                title='Show experiment list'
-                style={styles.showExperimentListExpander}
-                className='expander fa fa-chevron-right login-icon'
-              />
-            )}
-          </PageContainer>
+          <Spacer />
+          {this.state.listExperimentsExpanded ? (
+            <ExperimentListView
+              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+              onClickListExperiments={this.onClickListExperiments}
+            />
+          ) : (
+            <i
+              onClick={this.onClickListExperiments}
+              title='Show experiment list'
+              style={styles.showExperimentListExpander}
+              className='expander fa fa-chevron-right login-icon'
+            />
+          )}
         </div>
         <PageContainer>
           {this.props.experimentIds ? (
