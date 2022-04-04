@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import subprocess
 
@@ -46,7 +47,10 @@ def _exec_cmd(
     """
     illegal_kwargs = set(kwargs.keys()).intersection(("check", "capture_output", "text"))
     if illegal_kwargs:
-        raise ShellCommandException(f"`kwargs` cannot contain {illegal_kwargs}")
+        raise ValueError(f"`kwargs` cannot contain {illegal_kwargs}")
+
+    if extra_env is not None and "env" in kwargs:
+        raise ValueError("`extra_env` and `env` cannot be used at the same time")
 
     env = None if extra_env is None else {**os.environ, **extra_env}
     prc = subprocess.run(
