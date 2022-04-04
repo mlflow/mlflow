@@ -50,7 +50,10 @@ def _exec_cmd(
 
     env = None if extra_env is None else {**os.environ, **extra_env}
     prc = subprocess.run(
-        cmd,
+        # In Python <= 3.7, `subprocess.Popen` doesn't accpet a command containing path-like
+        # objects (e.g. `["ls", pathlib.Path("mlflow")]`) on Windows. To avoid this issue,
+        # stringify all elements in `cmd`. Note `str(pathlib.Path("mlflow"))` returns 'mlflow'.
+        map(str, cmd),
         env=env,
         check=False,
         capture_output=capture_output,
