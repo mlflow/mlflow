@@ -39,6 +39,7 @@ def _exec_cmd(
     :param cmd: The command to run, as a list of strings.
     :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
     :param extra_env: Extra environment variables to be defined when running the child process.
+                      If this argument is specified, `kwargs` cannot contain `env`.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
     :param kwargs: Keyword arguments (except `check`, `capture_output`, and `text`) passed to
@@ -55,8 +56,8 @@ def _exec_cmd(
     env = None if extra_env is None else {**os.environ, **extra_env}
     prc = subprocess.run(
         # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
-        # objects (e.g. `["ls", pathlib.Path("mlflow")]`) on Windows. To avoid this issue,
-        # stringify all elements in `cmd`. Note `str(pathlib.Path("mlflow"))` returns 'mlflow'.
+        # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
+        # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
         map(str, cmd),
         env=env,
         check=False,
