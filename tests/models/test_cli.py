@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 
+from click.testing import CliRunner
 import numpy as np
 import pandas as pd
 import pytest
@@ -21,6 +22,7 @@ except ImportError:
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
+import mlflow.models.cli as models_cli
 
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -42,7 +44,7 @@ from mlflow.pyfunc.scoring_server import (
 )
 
 # NB: for now, windows tests do not have conda available.
-no_conda = ["--no-conda"] if sys.platform == "win32" else []
+no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 
 # NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []
@@ -136,7 +138,6 @@ def test_mlflow_is_not_installed_unless_specified():
         )
         _, stderr = p.communicate()
         stderr = stderr.decode("utf-8")
-        print(stderr)
         assert p.wait() != 0
         if PYTHON_VERSION.startswith("3"):
             assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
@@ -165,7 +166,6 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         )
         _, stderr = p.communicate()
         stderr = stderr.decode("utf-8")
-        print(stderr)
         assert p.wait() != 0
         assert "No suitable flavor backend was found for the model." in stderr
 
@@ -375,7 +375,7 @@ def test_prepare_env_passes(sk_model):
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"],
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"],
             stderr=subprocess.PIPE,
         )
         assert p.wait() == 0
@@ -406,7 +406,9 @@ def test_prepare_env_fails(sk_model):
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
         # Test with no conda
-        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri, "--no-conda"])
+        p = subprocess.Popen(
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"]
+        )
         assert p.wait() == 0
 
         # With conda - should fail due to bad conda environment.
@@ -496,3 +498,39 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             assert scoring_response_dict["error_code"] == ErrorCode.Name(BAD_REQUEST)
             assert "message" in scoring_response_dict
             assert "stack_trace" in scoring_response_dict
+
+
+patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
+
+
+@patch_get_flavor_backend
+def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
+    with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
+        CliRunner().invoke(
+            models_cli.serve,
+            ["--model-uri", "model", "--no-conda"],
+            catch_exceptions=False,
+        )
+    mock_flavor_backend.assert_called_once()
+
+
+def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
+    res = CliRunner().invoke(
+        models_cli.serve,
+        ["--model-uri", "model", "--no-conda", "--env-manager=local"],
+        catch_exceptions=False,
+    )
+    assert res.exit_code != 0
+    assert (
+        "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+        in res.stdout
+    )
+
+
+def test_env_manager_unsupported_value():
+    with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
+        CliRunner().invoke(
+            models_cli.serve,
+            ["--model-uri", "model", "--env-manager=abc"],
+            catch_exceptions=False,
+        )

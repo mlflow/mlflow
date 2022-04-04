@@ -37,9 +37,9 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "prophet"
@@ -121,9 +121,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException(f"Path '{path}' already exists")
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -279,7 +277,7 @@ def _load_model(path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
     """
     return _ProphetModelWrapper(_load_model(path))

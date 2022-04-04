@@ -35,7 +35,7 @@ from tests.helper_functions import (
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def fastai_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])

@@ -38,7 +38,7 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("xgboost") else ["-
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def xgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
@@ -50,7 +50,7 @@ def xgb_model():
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def xgb_sklearn_model():
     wine = datasets.load_wine()
     X = pd.DataFrame(wine.data, columns=wine.feature_names)
@@ -78,7 +78,7 @@ def test_model_save_load(xgb_model, model_path):
 
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
     reloaded_model = mlflow.xgboost.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(xgb_model.inference_dmatrix),
@@ -96,7 +96,7 @@ def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     model = xgb_sklearn_model.model
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
     reloaded_model = mlflow.xgboost.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(xgb_sklearn_model.inference_dataframe),

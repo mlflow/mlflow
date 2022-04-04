@@ -22,6 +22,7 @@ from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.environment import _EnvManager
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
@@ -77,7 +78,7 @@ def pandas_df_with_csv_types():
     return pdf
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -87,7 +88,7 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def keras_model():
     iris = datasets.load_iris()
     data = pd.DataFrame(
@@ -653,7 +654,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     server_proc = None
     try:
         server_proc = _get_flavor_backend(
-            model_path, no_conda=False, workers=1, install_mlflow=False
+            model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=port,

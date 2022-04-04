@@ -4,6 +4,7 @@ import git
 import shutil
 import yaml
 import uuid
+import subprocess
 
 import pytest
 from unittest import mock
@@ -31,6 +32,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV,
 )
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.conda import get_or_create_conda_env
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -92,7 +94,7 @@ def test_invalid_run_mode():
 def test_use_conda():
     """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    with mock.patch("mlflow.utils.process.exec_cmd", side_effect=EnvironmentError):
+    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=EnvironmentError):
         with pytest.raises(ExecutionException, match="Could not find Conda executable"):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
@@ -338,11 +340,13 @@ def test_create_env_with_mamba():
 
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
-            return None, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            return subprocess.CompletedProcess(
+                cmd, 0, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            )
         else:
             # Here we are creating the environment, no need to return
             # anything
-            return None
+            return subprocess.CompletedProcess(cmd, 0)
 
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
@@ -354,11 +358,11 @@ def test_create_env_with_mamba():
     with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
 
         # Simulate success
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
             mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
         # Simulate a non-working or non-existent mamba
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock_raise):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock_raise):
             with pytest.raises(
                 ExecutionException,
                 match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
@@ -537,3 +541,21 @@ def test_credential_propagation(get_config, synchronous):
         env = kwargs["env"]
         assert env["DATABRICKS_HOST"] == "host"
         assert env["DATABRICKS_TOKEN"] == "mytoken"
+
+
+def test_get_or_create_conda_env_capture_output_mode(tmp_path):
+    conda_yaml_file = tmp_path / "conda.yaml"
+    conda_yaml_file.write_text(
+        """
+channels:
+- conda-forge
+dependencies:
+- pip:
+  - scikit-learn==99.99.99
+"""
+    )
+    with pytest.raises(
+        ShellCommandException,
+        match="Could not find a version that satisfies the requirement scikit-learn==99.99.99",
+    ):
+        get_or_create_conda_env(str(conda_yaml_file), capture_output=True)

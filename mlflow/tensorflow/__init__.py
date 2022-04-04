@@ -30,7 +30,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only
@@ -50,6 +49,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -282,9 +282,7 @@ def save_model(
     )
     _logger.info("Validation succeeded!")
 
-    if os.path.exists(path):
-        raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
@@ -462,7 +460,7 @@ def _parse_flavor_configuration(flavor_conf, model_path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
+    Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
     ``pyfunc.predict`` interface.
 

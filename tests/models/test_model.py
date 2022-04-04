@@ -12,6 +12,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
@@ -64,7 +65,7 @@ class TestFlavor:
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
-        os.makedirs(path)
+        _validate_and_prepare_target_save_path(path)
         if signature is not None:
             mlflow_model.signature = signature
         if input_example is not None:
