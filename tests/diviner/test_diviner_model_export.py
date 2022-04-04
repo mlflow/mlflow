@@ -241,7 +241,7 @@ def test_diviner_log_model(grouped_prophet, tmpdir):
     old_uri = mlflow.get_tracking_uri()
     for should_start_run in [False, True]:
         try:
-            mlflow.set_tracking_uri("test")
+            mlflow.set_tracking_uri("mlruns")
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "diviner"
