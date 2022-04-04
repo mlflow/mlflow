@@ -254,6 +254,6 @@ def _execute_in_virtualenv(activate_cmd, command, install_mlflow, command_env=No
     commands = [activate_cmd]
     if install_mlflow:
         commands.append(_get_pip_install_mlflow())
-    return process.exec_cmd(
+    return process._exec_cmd(
         _join_commands(*commands, command), capture_output=False, env=command_env
     )
