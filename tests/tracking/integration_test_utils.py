@@ -14,12 +14,12 @@ from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.helper_functions import LOCALHOST, get_safe_port
 
-LOGGER = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def _await_server_up_or_die(port, timeout=60):
     """Waits until the local flask server is listening on the given port."""
-    LOGGER.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
+    _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
     connected = False
     while not connected and time.time() - start_time < timeout:
@@ -29,18 +29,18 @@ def _await_server_up_or_die(port, timeout=60):
         if result == 0:
             connected = True
         else:
-            LOGGER.info("Server not yet up, waiting...")
+            _logger.info("Server not yet up, waiting...")
             time.sleep(0.5)
     if not connected:
         raise Exception("Failed to connect on %s:%s after %s seconds" % (LOCALHOST, port, timeout))
-    LOGGER.info(f"Server is up on {LOCALHOST}:{port}!")
+    _logger.info(f"Server is up on {LOCALHOST}:{port}!")
 
 
 # NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
 # reveals the cause in the event of a test hang due to the subprocess not exiting.
 def _await_server_down_or_die(process, timeout=60):
     """Waits until the local flask server process is terminated."""
-    LOGGER.info("Awaiting termination of server process...")
+    _logger.info("Awaiting termination of server process...")
     start_time = time.time()
 
     def wait():
@@ -80,5 +80,5 @@ def _init_server(backend_uri, root_artifact_uri):
 
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
-    LOGGER.info(f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}")
+    _logger.info(f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}")
     return url, process

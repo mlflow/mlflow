@@ -34,7 +34,7 @@ from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
-LOGGER = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -230,14 +230,14 @@ class RestEndpoint:
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                LOGGER.info(f"connection attempt {i} server is up! ping status {ping_status}")
+                _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                LOGGER.info(f"connection attempt {i} failed, server is not up yet")
+                _logger.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        LOGGER.info(f"server up, ping status {ping_status}")
+        _logger.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
