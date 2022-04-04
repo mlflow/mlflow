@@ -12,7 +12,7 @@ from mlflow.server.handlers import (
     _add_static_prefix,
     get_model_version_artifact_handler,
 )
-from mlflow.utils.process import exec_cmd
+from mlflow.utils.process import _exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
