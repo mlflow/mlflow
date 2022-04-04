@@ -16,7 +16,6 @@ def main(expected_env_name):
         )
         import gunicorn  # pylint: disable=unused-import
     except ImportError:
-        print("Import of gunicorn failed as expected")
         return
     raise Exception("Expected exception when attempting to import gunicorn.")
 

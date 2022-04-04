@@ -212,7 +212,6 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 
     def _slow_api_req_mock(*args, **kwargs):
         if kwargs.get("method") == "POST":
-            print("Sleeping, %s, %s" % (args, kwargs))
             time.sleep(1)
         return orig(*args, **kwargs)
 

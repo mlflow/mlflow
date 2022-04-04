@@ -23,7 +23,7 @@ def _fetch_dbfs(uri, local_path):
     _logger.info(
         "=== Downloading DBFS file %s to local path %s ===", uri, os.path.abspath(local_path)
     )
-    process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", uri, local_path])
+    process._exec_cmd(cmd=["databricks", "fs", "cp", "-r", uri, local_path])
 
 
 def _fetch_s3(uri, local_path):

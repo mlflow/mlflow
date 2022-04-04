@@ -5,6 +5,7 @@ from unittest import mock
 from contextlib import ExitStack, contextmanager
 
 
+import logging
 import requests
 import time
 import signal
@@ -32,6 +33,8 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -227,14 +230,14 @@ class RestEndpoint:
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                print("connection attempt", i, "server is up! ping status", ping_status)
+                _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                print("connection attempt", i, "failed, server is not up yet")
+                _logger.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        print("server up, ping status", ping_status)
+        _logger.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
