@@ -69,6 +69,7 @@ def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
+        # pylint: disable-next=print-function
         print(" | Free disk space: {:.1f} GiB".format(get_free_disk_space()), end="")
 
 
