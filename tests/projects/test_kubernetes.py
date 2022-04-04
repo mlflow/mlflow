@@ -315,7 +315,6 @@ def test_submitted_run_get_status_running():
         assert RunStatus.RUNNING == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
-
         assert args[0][1]["name"] == job_name
         assert args[0][1]["namespace"] == job_namespace
 
