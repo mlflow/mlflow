@@ -233,7 +233,7 @@ def test_mlflow_models_serve(enable_mlserver):
 
     data = pd.DataFrame({"a": [0]})
 
-    extra_args = ["--no-conda"]
+    extra_args = ["--env-manager", "local"]
     if enable_mlserver:
         # When MLServer is enabled, we want to use Conda to ensure Python 3.7
         # is used

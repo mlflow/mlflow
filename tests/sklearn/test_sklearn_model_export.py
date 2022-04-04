@@ -38,7 +38,7 @@ from tests.helper_functions import (
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])

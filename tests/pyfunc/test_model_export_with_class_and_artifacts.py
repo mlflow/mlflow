@@ -387,7 +387,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
         model_uri=pyfunc_model_path,
         data=sample_input,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
@@ -451,7 +451,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         model_uri=pyfunc_model_path,
         data=sample_input,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
