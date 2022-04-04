@@ -229,7 +229,6 @@ def test_get_experiment_by_id():
         exp_id = mlflow.create_experiment(name)
 
         experiment = mlflow.get_experiment(exp_id)
-        print(experiment)
         assert experiment.experiment_id == exp_id
 
 
@@ -278,7 +277,6 @@ def test_list_experiments(view_type, tmpdir):
 
     try:
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
-        print("In process %s", process)
         mlflow.set_tracking_uri(url)
         # `max_results` is unspecified
         assert len(mlflow.list_experiments(view_type)) == num_experiments
