@@ -408,7 +408,7 @@ export class ExperimentView extends Component {
   }
 
   handleShareButtonClick() {
-    const { updateUrlWithViewState, showEditPermissionModal } = this.props;
+    const { updateUrlWithViewState } = this.props;
     updateUrlWithViewState();
     this.setState({ showGetLinkModal: true });
   }
