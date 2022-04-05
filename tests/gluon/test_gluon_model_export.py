@@ -39,7 +39,9 @@ else:
     array_module = mx.nd
 
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("mxnet") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("mxnet") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture
