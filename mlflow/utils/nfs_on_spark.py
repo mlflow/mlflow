@@ -22,7 +22,7 @@ def get_nfs_cache_root_dir():
             "spark.databricks.mlflow.nfs.enabled", "true"
         ).lower() == "true"
         if nfs_enabled:
-            return "/local_disk0/.ephemeral_nfs/mlflow/cache"
+            return "/local_disk0/.ephemeral_nfs"
         else:
             return None
     else:

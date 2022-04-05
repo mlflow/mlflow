@@ -259,6 +259,7 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -864,51 +865,33 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
 def _get_or_create_model_cache_dir():
     nfs_root_dir = get_nfs_cache_root_dir()
     if nfs_root_dir is not None:
-        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
-        # the data stored in the disk is shared with all remote nodes.
-        root_dir = os.path.join(nfs_root_dir, "models")
-        os.makedirs(root_dir, exist_ok=True)
-        tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
-        # TODO: register deleting tmp_model_dir handler when exit
+        root_tmp_dir = get_or_create_nfs_tmp_dir()
     else:
-        import atexit
-        import shutil
+        root_tmp_dir = get_or_create_tmp_dir()
 
-        tmp_model_dir = tempfile.mkdtemp()
-        atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+    root_model_cache_dir = os.path.join(root_tmp_dir, "models")
+    os.makedirs(root_model_cache_dir, exist_ok=True)
 
+    tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
     return tmp_model_dir
 
 
-_CONDA_ENV_ROOT_DIR = None
+_ENV_ROOT_DIR = None
 
 
-def _get_or_create_conda_env_root_dir(nfs_root_dir):
-    global _CONDA_ENV_ROOT_DIR
-    if _CONDA_ENV_ROOT_DIR is None:
+def _get_or_create_env_root_dir():
+    global _ENV_ROOT_DIR
+    if _ENV_ROOT_DIR is None:
+        nfs_root_dir = get_nfs_cache_root_dir()
         if nfs_root_dir is not None:
-            # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
-            # the data stored in the disk is shared with all remote nodes.
-            root_dir = os.path.join(nfs_root_dir, "conda_envs")
-            os.makedirs(root_dir, exist_ok=True)
-            conda_env_root_dir = tempfile.mkdtemp(dir=root_dir)
-            # TODO: register deleting conda_env_root_dir handler when exit
+            root_tmp_dir = get_or_create_nfs_tmp_dir()
         else:
-            import atexit
-            import shutil
+            root_tmp_dir = get_or_create_tmp_dir()
 
-            conda_env_root_dir = tempfile.mkdtemp()
-            atexit.register(shutil.rmtree, conda_env_root_dir, ignore_errors=True)
+        _ENV_ROOT_DIR = os.path.join(root_tmp_dir, "envs")
+        os.makedirs(_ENV_ROOT_DIR, exist_ok=True)
 
-        # Create individual package cache dir "pkgs" under the conda_env_root_dir
-        # for each python process.
-        # Note: shared conda package cache dir causes race condition issues:
-        # See https://github.com/conda/conda/issues/8870
-        pkg_cache_dir = os.path.join(conda_env_root_dir, "pkgs")
-        os.mkdir(pkg_cache_dir)
-        _CONDA_ENV_ROOT_DIR = conda_env_root_dir
-
-    return _CONDA_ENV_ROOT_DIR
+    return _ENV_ROOT_DIR
 
 
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
@@ -1027,7 +1010,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    conda_env_root_dir = _get_or_create_conda_env_root_dir(nfs_root_dir)
+    conda_env_root_dir = _get_or_create_env_root_dir(nfs_root_dir)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1184,7 +1167,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     archive_path
                 )
                 # Create individual conda_env_root_dir for each spark UDF task process.
-                conda_env_root_dir_on_executor = _get_or_create_conda_env_root_dir(nfs_root_dir)
+                conda_env_root_dir_on_executor = _get_or_create_env_root_dir(nfs_root_dir)
             else:
                 local_model_path_on_executor = local_model_path
                 conda_env_root_dir_on_executor = conda_env_root_dir

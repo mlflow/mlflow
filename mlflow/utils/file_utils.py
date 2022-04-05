@@ -14,6 +14,8 @@ import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
+import atexit
+
 import yaml
 
 try:
@@ -483,3 +485,52 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+_TMP_DIR = None
+
+
+def get_or_create_tmp_dir():
+    """
+    Get or create a temporary directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    global _TMP_DIR
+
+    if _TMP_DIR is None:
+        if is_in_databricks_runtime():
+            # Note: In databricks, atexit does not work.
+            # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
+            _TMP_DIR = f"/tmp/repl_tmp_data/{get_repl_id()}"
+            os.makedirs(_TMP_DIR, exist_ok=True)
+        else:
+            tmp_dir = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+
+    return _TMP_DIR
+
+
+_TMP_NFS_DIR = None
+
+
+def get_or_create_nfs_tmp_dir():
+    """
+    Get or create a temporary NFS directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+    global _TMP_NFS_DIR
+
+    nfs_root_dir = get_nfs_cache_root_dir()
+
+    if _TMP_NFS_DIR is None:
+        if is_in_databricks_runtime():
+            # Note: In databricks, atexit hook does not work.
+            # The /nfs_root_dir/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
+            _TMP_NFS_DIR = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+            os.makedirs(_TMP_NFS_DIR, exist_ok=True)
+        else:
+            tmp_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+            atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+
+    return _TMP_NFS_DIR

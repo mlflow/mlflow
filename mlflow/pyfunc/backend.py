@@ -14,7 +14,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.conda import _get_conda_env_root_dir_env
+from mlflow.utils.conda import _get_conda_extra_envs
 from mlflow.utils.environment import _EnvManager
 from mlflow.version import VERSION
 
@@ -29,19 +29,21 @@ class PyFuncBackend(FlavorBackend):
 
     def __init__(
         self, config, workers=1, env_manager=_EnvManager.CONDA, install_mlflow=False,
-        conda_env_root_dir=None, **kwargs
+        env_root_dir=None, **kwargs
     ):
         """
-        :param: conda_env_root_dir: Root path for conda env. If None, use default one. Note if this is
-                                    set, conda package cache path becomes "conda_env_root_path/pkgs"
-                                    instead of the global package cache path.
+        :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
+                              set, conda package cache path becomes "env_root_path/conda_pkgs"
+                              instead of the global package cache path, and pip package cache path
+                              becomes "env_root_path/pip_pkgs" instead of the global package cache
+                              path.
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
-        self._conda_env_root_dir = conda_env_root_dir
+        self._env_root_dir = env_root_dir
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
@@ -51,13 +53,13 @@ class PyFuncBackend(FlavorBackend):
 
         conda_env_name = get_or_create_conda_env(
             conda_env_path, env_id=self._env_id, capture_output=capture_output,
-            conda_env_root_dir=self._conda_env_root_dir
+            env_root_dir=self._env_root_dir
         )
 
         command = 'python -c ""'
         return _execute_in_conda_env(
             conda_env_name, command, self._install_mlflow,
-            conda_env_root_dir=self._conda_env_root_dir
+            env_root_dir=self._env_root_dir
         )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
@@ -256,7 +258,7 @@ def _execute_in_conda_env(
     preexec_fn=None,
     stdout=None,
     stderr=None,
-    conda_env_root_dir=None,
+    env_root_dir=None,
 ):
     """
     :param conda_env_path conda: conda environment file path
@@ -268,9 +270,11 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
-    :param: conda_env_root_dir: Root path for conda env. If None, use default one. Note if this is
-                                set, conda package cache path becomes "conda_env_root_path/pkgs"
-                                instead of the global package cache path.
+    :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
+                          set, conda package cache path becomes "env_root_path/conda_pkgs"
+                          instead of the global package cache path, and pip package cache path
+                          becomes "env_root_path/pip_pkgs" instead of the global package cache
+                          path.
     """
     if command_env is None:
         command_env = os.environ
@@ -279,8 +283,8 @@ def _execute_in_conda_env(
     # otherwise pip might prompt "yes or no" and ask stdin input
     command_env["PIP_NO_INPUT"] = "1"
 
-    if conda_env_root_dir is not None:
-        command_env.update(_get_conda_env_root_dir_env(conda_env_root_dir))
+    if env_root_dir is not None:
+        command_env.update(_get_conda_extra_envs(env_root_dir))
 
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
