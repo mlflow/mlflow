@@ -1,5 +1,4 @@
 div.artifact-view {
-  height: 690px;
   border: solid 1px #ccc;
   display: flex;
   overflow-x: scroll;

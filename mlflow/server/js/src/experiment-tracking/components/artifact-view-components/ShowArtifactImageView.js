@@ -92,8 +92,7 @@ class ShowArtifactImageView extends Component {
     return (
       <LazyPlot
         layout={{
-          width: width * (500 / height),
-          height: 500,
+          autosize: true,
           xaxis: { visible: false, range: [0, width] },
           yaxis: { visible: false, range: [0, height], scaleanchor: 'x', scaleratio: 1 },
           images: [
@@ -111,6 +110,7 @@ class ShowArtifactImageView extends Component {
           ],
           margin: { l: 0, r: 0, t: 0, b: 0 },
         }}
+        style={{ width: '100%', height: '100%' }}
         config={{
           displaylogo: false,
           scrollZoom: true,
