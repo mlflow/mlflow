@@ -223,7 +223,7 @@ def test_prophet_log_model(prophet_model, tmpdir):
                 generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
             )
 
-            model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+            model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
             model_config = Model.load(str(model_path.joinpath("MLmodel")))
             assert pyfunc.FLAVOR_NAME in model_config.flavors
             assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
