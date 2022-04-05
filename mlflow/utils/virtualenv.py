@@ -134,12 +134,12 @@ def _get_python_env(local_model_path):
 def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
     # Created a command to activate the environment
     paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
-    activator = env_dir.joinpath(*paths)
-    activator = f"source {activator}" if _IS_UNIX else activator
+    activate_cmd = env_dir.joinpath(*paths)
+    activate_cmd = f"source {activate_cmd}" if _IS_UNIX else activate_cmd
 
     if env_dir.exists():
         _logger.info("Environment %s already exists", env_dir)
-        return activator
+        return activate_cmd
 
     _logger.info("Creating a new environment %s", env_dir)
     _exec_cmd(["virtualenv", "--python", python_bin_path, env_dir], capture_output=False)
@@ -152,7 +152,7 @@ def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
         # In windows `pip install pip==x.y.z` causes the following error:
         # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
         # This can be avoided by using `python -m`.
-        cmd = _join_commands(activator, f"python -m pip install -r {tmp_req_file}")
+        cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
         _exec_cmd(
             cmd,
             capture_output=False,
@@ -162,7 +162,7 @@ def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
         )
         tmp_req_file.unlink()
 
-    return activator
+    return activate_cmd
 
 
 def _get_or_create_virtualenv(local_model_path, env_id=None):
@@ -195,7 +195,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
     try:
         return _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env)
     except:
-        _logger.warning("Encountered an unexpected error while creating %s", env_dir)
+        _logger.warning("Encountered unexpected error while creating %s", env_dir)
         if env_dir.exists():
             _logger.warning("Attempting to remove %s", env_dir)
             shutil.rmtree(env_dir, ignore_errors=True)
@@ -215,7 +215,9 @@ def _execute_in_virtualenv(activate_cmd, command, install_mlflow, command_env=No
                            environment.
     :param command_env: Environment variables passed to a process running the command.
     """
-    commands = [activate_cmd]
+    pre_command = [activate_cmd]
     if install_mlflow:
-        commands.append(_get_pip_install_mlflow())
-    return _exec_cmd(_join_commands(*commands, command), capture_output=False, env=command_env)
+        pre_command.append(_get_pip_install_mlflow())
+    cmd = _join_commands(*pre_command, command)
+    _logger.info("Running %s", cmd)
+    return _exec_cmd(cmd, capture_output=False, env=command_env)
