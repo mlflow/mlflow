@@ -2,8 +2,12 @@ import os
 import subprocess
 import sys
 import uuid
+import shutil
+
+import pytest
 
 
+@pytest.mark.skipif(shutil.which("docker") is None, reason="docker is required to run this test")
 def test_import_mlflow(tmp_path):
     tmp_script = tmp_path.joinpath("test.sh")
     uid = uuid.uuid4().hex
