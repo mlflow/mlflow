@@ -82,7 +82,7 @@ def _resolve_env_manager(ctx, _, value):
         if env_manager is _EnvManager.VIRTUALENV:
             warnings.warn(
                 (
-                    "Virtualenv support is still experimental and will be changed in a future "
+                    "Virtualenv support is still experimental and may be changed in a future "
                     "release without warning."
                 ),
                 UserWarning,
