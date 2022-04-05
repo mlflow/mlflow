@@ -131,6 +131,40 @@ def _get_python_env(local_model_path):
         return PythonEnv.from_conda_yaml(conda_yaml_path)
 
 
+def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
+    # Created a command to activate the environment
+    paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
+    activator = env_dir.joinpath(*paths)
+    activator = f"source {activator}" if _IS_UNIX else activator
+
+    if env_dir.exists():
+        _logger.info("Environment %s already exists", env_dir)
+        return activator
+
+    _logger.info("Creating a new environment %s", env_dir)
+    _exec_cmd(["virtualenv", "--python", python_bin_path, env_dir], capture_output=False)
+
+    _logger.info("Installing dependencies")
+    for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
+        # Use a unique name to avoid conflicting custom requirements files logged by a user
+        tmp_req_file = local_model_path / f"requirements.{uuid.uuid4().hex}.txt"
+        tmp_req_file.write_text("\n".join(deps))
+        # In windows `pip install pip==x.y.z` causes the following error:
+        # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
+        # This can be avoided by using `python -m`.
+        cmd = _join_commands(activator, f"python -m pip install -r {tmp_req_file}")
+        _exec_cmd(
+            cmd,
+            capture_output=False,
+            # Run `pip install` in the model directory to resolve references in the
+            # requirements file correctly
+            cwd=local_model_path,
+        )
+        tmp_req_file.unlink()
+
+    return activator
+
+
 def _get_or_create_virtualenv(local_model_path, env_id=None):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command
@@ -154,50 +188,21 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
 
     # Create an environment
     python_bin_path = _install_python(python_env.python)
-    env_name = _get_mlflow_env_name(str(python_env) + (env_id or ""))
     env_root = Path(_get_mlflow_virtualenv_root())
     env_root.mkdir(parents=True, exist_ok=True)
+    env_name = _get_mlflow_env_name(str(python_env) + (env_id or ""))
     env_dir = env_root / env_name
-    env_exists = env_dir.exists()
-    if not env_exists:
-        _logger.info("Creating a new environment %s", env_dir)
-        _exec_cmd(["virtualenv", "--python", python_bin_path, str(env_dir)], capture_output=False)
-    else:
-        _logger.info("Environment %s already exists", env_dir)
-
-    # Construct a command to activate the environment
-    paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
-    activator = env_dir.joinpath(*paths)
-    activate_cmd = f"source {activator}" if _IS_UNIX else activator
-
-    # Install dependencies
-    if not env_exists:
-        try:
-            _logger.info("Installing dependencies")
-            for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
-                tmp_req_file = local_model_path / f"requirements.{uuid.uuid4().hex}.txt"
-                tmp_req_file.write_text("\n".join(deps))
-                # In windows `pip install pip==x.y.z` causes the following error:
-                # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
-                # This can be avoided by using `python -m`.
-                cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
-                _exec_cmd(
-                    cmd,
-                    capture_output=False,
-                    # Run `pip install` in the model directory to resolve references in the
-                    # requirements file correctly
-                    cwd=local_model_path,
-                )
-                tmp_req_file.unlink()
-        except:
-            _logger.warning(
-                "Encountered an unexpected error while installing dependencies. Removing %s",
-                env_dir,
-            )
+    try:
+        return _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env)
+    except:
+        _logger.warning("Encountered an unexpected error while creating %s", env_dir)
+        if env_dir.exists():
+            _logger.warning("Attempting to remove %s", env_dir)
             shutil.rmtree(env_dir, ignore_errors=True)
-            raise
+            msg = "Failed to remove %s" if env_dir.exists() else "Successfully removed %s"
+            _logger.warning(msg, env_dir)
 
-    return activate_cmd
+        raise
 
 
 def _execute_in_virtualenv(activate_cmd, command, install_mlflow, command_env=None):
