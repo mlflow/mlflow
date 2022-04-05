@@ -57,7 +57,7 @@ Specifying Projects
 -------------------
 
 By default, any Git repository or local directory can be treated as an MLflow project; you can
-invoke any bash or Python script contained in the directory as a project entry point. The 
+invoke any bash, Python or R script contained in the directory as a project entry point. The 
 :ref:`project-directories` section describes how MLflow interprets directories as projects.
 
 To provide additional control over a project's attributes, you can also include an :ref:`MLproject
@@ -137,14 +137,15 @@ file, MLflow uses the following conventions to determine the project's attribute
   uses a Conda environment containing only Python (specifically, the latest Python available to
   Conda) when running the project.
 
-* Any ``.py`` and ``.sh`` file in the project can be an entry point. MLflow uses Python
-  to execute entry points with the ``.py`` extension, and it uses bash to execute entry points with
-  the ``.sh`` extension. For more information about specifying project entrypoints at runtime,
+* Any ``.py``, ``.R`` and ``.sh`` file in the project can be an entry point. MLflow uses Python or R
+  to execute entry points with the ``.py`` or ``.R`` extension, and it uses bash to execute entry 
+  points with the ``.sh`` extension. For more information about specifying project entrypoints at runtime,
   see :ref:`running-projects`.
 
 * By default, entry points do not have any parameters when an ``MLproject`` file is not included.
-  Parameters can be supplied at runtime via the ``mlflow run`` CLI or the 
-  :py:func:`mlflow.projects.run` Python API. Runtime parameters are passed to the entry point on the 
+  Parameters can be supplied at runtime via the ``mlflow run`` CLI, the 
+  :py:func:`mlflow.projects.run` Python API or the `mlflow_run() <R-api.html#mlflow-run>`__
+  R API. Runtime parameters are passed to the entry point on the 
   command line using ``--key value`` syntax. For more information about running projects and
   with runtime parameters, see :ref:`running-projects`. 
 
@@ -155,7 +156,7 @@ MLproject File
 
 You can get more control over an MLflow Project by adding an ``MLproject`` file, which is a text
 file in YAML syntax, to the project's root directory. The following is an example of an 
-``MLproject`` file: 
+``MLproject`` file with Python and R entry points: 
 
 .. code-block:: yaml
 
@@ -176,6 +177,11 @@ file in YAML syntax, to the project's root directory. The following is an exampl
         parameters:
           data_file: path
         command: "python validate.py {data_file}"
+      predict:
+        parameters:
+          target: y
+        command: "Rscript -e 'mlflow::mlflow_source(\"predict.R\")' --args --target={target}"
+
 
 The file can specify a name and :ref:`a Conda or Docker environment 
 <mlproject-specify-environment>`, as well as more detailed information about each entry point. 
@@ -253,6 +259,9 @@ Docker container environment
 Command Syntax
 ~~~~~~~~~~~~~~
 
+Python
+##########################
+
 When specifying an entry point in an ``MLproject`` file, the command can be any string in Python
 `format string syntax <https://docs.python.org/2/library/string.html#formatstrings>`_.
 All of the parameters declared in the entry point's ``parameters`` field are passed into this
@@ -263,6 +272,15 @@ string for substitution. If you call the project with additional parameters *not
 Before substituting parameters in the command, MLflow escapes them using the Python
 `shlex.quote <https://docs.python.org/3/library/shlex.html#shlex.quote>`_ function, so you don't 
 need to worry about adding quotes inside your command field.
+
+R
+##########################
+
+Parameters are passed to the script after the ``--args`` keyword as key value pairs, e.g. 
+``--parameter1={parameter1}``. See :ref:`mlproject-file` for a full example.
+
+
+
 
 .. _project_parameters:
 
@@ -312,8 +330,9 @@ uri
 Running Projects
 ----------------
 
-MLflow provides two ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
-the :py:func:`mlflow.projects.run` Python API. Both tools take the following parameters:
+MLflow provides three ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`,
+the :py:func:`mlflow.projects.run` Python API or the `mlflow_run() <R-api.html#mlflow-run>`__ R
+API. All tools take the following parameters:
 
 Project URI
     A directory on the local file system or a Git repository path,
@@ -327,7 +346,7 @@ Project Version
 
 Entry Point
     The name of the entry point, which defaults to ``main``. You can use any
-    entry point named in the ``MLproject`` file, or any ``.py`` or ``.sh`` file in the project,
+    entry point named in the ``MLproject`` file, or any ``.py``, ``.R`` or ``.sh`` file in the project,
     given as a path from the project root (for example, ``src/test.py``).
 
 Parameters
