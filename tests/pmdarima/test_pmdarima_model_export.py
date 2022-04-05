@@ -1,6 +1,7 @@
+import os
+import pathlib
 import pytest
 from unittest import mock
-import pathlib
 
 import pmdarima
 import numpy as np
@@ -174,8 +175,9 @@ def test_pmdarima_load_from_remote_uri_succeeds(
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
-    model_uri = pathlib.Path(artifact_root).joinpath(artifact_path)
-    reloaded_pmdarima_model = mlflow.pmdarima.load_model(model_uri=str(model_uri))
+    # NB: cloudpathlib would need to be used here to handle object store uri
+    model_uri = os.path.join(artifact_root, artifact_path)
+    reloaded_pmdarima_model = mlflow.pmdarima.load_model(model_uri=model_uri)
 
     np.testing.assert_array_equal(
         auto_arima_object_model.predict(30), reloaded_pmdarima_model.predict(30)

@@ -1,3 +1,4 @@
+import os
 import pathlib
 import pytest
 import yaml
@@ -192,8 +193,9 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
     artifact_repo = S3ArtifactRepository(artifact_root)
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
-    model_uri = pathlib.Path(artifact_root).joinpath(artifact_path)
-    reloaded_prophet_model = mlflow.prophet.load_model(model_uri=str(model_uri))
+    # NB: cloudpathlib would need to be used here to handle object store uri
+    model_uri = os.path.join(artifact_root, artifact_path)
+    reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
     np.testing.assert_array_equal(
         generate_forecast(prophet_model.model, FORECAST_HORIZON),
         generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),

@@ -1,3 +1,4 @@
+import os
 import pathlib
 import pytest
 from unittest import mock
@@ -228,8 +229,8 @@ def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, moc
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     # NB: cloudpathlib would need to be used here to handle object store uri
-    model_uri = pathlib.Path(artifact_root).joinpath(artifact_path)
-    reloaded_model = mlflow.diviner.load_model(model_uri=str(model_uri))
+    model_uri = os.path.join(artifact_root, artifact_path)
+    reloaded_model = mlflow.diviner.load_model(model_uri=model_uri)
 
     pd.testing.assert_frame_equal(grouped_pmdarima.predict(10), reloaded_model.predict(10))
 
