@@ -1,6 +1,4 @@
 import pathlib
-import os
-
 import pytest
 from unittest import mock
 
@@ -19,7 +17,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 import mlflow.diviner
@@ -74,9 +71,9 @@ def grouped_pmdarima(diviner_data):
 
 @pytest.fixture
 def diviner_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_pip_deps=["diviner"])
-    return conda_env
+    conda_env = pathlib.Path(tmpdir).joinpath("conda_env.yml")
+    _mlflow_conda_env(str(conda_env), additional_pip_deps=["diviner"])
+    return str(conda_env)
 
 
 def test_diviner_native_save_and_load(grouped_prophet, model_path):
@@ -198,27 +195,28 @@ def test_diviner_pyfunc_group_predict_pmdarima(grouped_pmdarima, model_path, div
     pd.testing.assert_frame_equal(local_group_pred, pyfunc_group_predict)
 
 
-def test_diviner_signature_and_examples_saved_correctly(grouped_prophet, diviner_data):
+def test_diviner_signature_and_examples_saved_correctly(grouped_prophet, diviner_data, model_path):
 
     prediction = grouped_prophet.forecast(horizon=20, frequency="D")
     signature_ = infer_signature(diviner_data.df, prediction)
     example_ = diviner_data.df[0:5].copy(deep=False)
+    idx = 0
     for signature in (None, signature_):
         for example in (None, example_):
-            with TempDir() as tmp:
-                path = tmp.path("model")
-                mlflow.diviner.save_model(
-                    grouped_prophet, path=path, signature=signature, input_example=example
-                )
-                mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
-                if example is None:
-                    assert mlflow_model.saved_input_example_info is None
-                else:
-                    r_example = _read_example(mlflow_model, path).copy(deep=False)
-                    # NB: datetime values are implicitly cast, so this needs to be reverted.
-                    r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
-                    np.testing.assert_array_equal(r_example, example)
+            idx += 1
+            path = str(pathlib.Path(model_path).joinpath(str(idx)))
+            mlflow.diviner.save_model(
+                grouped_prophet, path=path, signature=signature, input_example=example
+            )
+            mlflow_model = Model.load(path)
+            assert signature == mlflow_model.signature
+            if example is None:
+                assert mlflow_model.saved_input_example_info is None
+            else:
+                r_example = _read_example(mlflow_model, path).copy(deep=False)
+                # NB: datetime values are implicitly cast, so this needs to be reverted.
+                r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
+                np.testing.assert_array_equal(r_example, example)
 
 
 def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, mock_s3_bucket):
@@ -230,8 +228,8 @@ def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, moc
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     # NB: cloudpathlib would need to be used here to handle object store uri
-    model_uri = os.path.join(artifact_root, artifact_path)
-    reloaded_model = mlflow.diviner.load_model(model_uri=model_uri)
+    model_uri = pathlib.Path(artifact_root).joinpath(artifact_path)
+    reloaded_model = mlflow.diviner.load_model(model_uri=str(model_uri))
 
     pd.testing.assert_frame_equal(grouped_pmdarima.predict(10), reloaded_model.predict(10))
 
@@ -304,13 +302,13 @@ def test_diviner_model_save_persists_specified_conda_env_in_mlflow_model_directo
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != diviner_custom_env
+    saved_conda_env_path = pathlib.Path(model_path).joinpath(pyfunc_conf[pyfunc.ENV])
+    assert saved_conda_env_path.exists()
+    assert str(saved_conda_env_path) != diviner_custom_env
 
     with open(diviner_custom_env, "r") as f:
         diviner_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_conda_env_path, "r") as f:
+    with open(str(saved_conda_env_path), "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == diviner_custom_env_parsed
 
@@ -321,9 +319,8 @@ def test_diviner_model_save_persists_requirements_in_mlflow_model_directory(
     mlflow.diviner.save_model(
         diviner_model=grouped_pmdarima, path=model_path, conda_env=diviner_custom_env
     )
-
-    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    _compare_conda_env_requirements(diviner_custom_env, saved_pip_req_path)
+    saved_pip_req_path = pathlib.Path(model_path).joinpath("requirements.txt")
+    _compare_conda_env_requirements(diviner_custom_env, str(saved_pip_req_path))
 
 
 def test_diviner_log_model_with_pip_requirements(grouped_prophet, tmp_path):
