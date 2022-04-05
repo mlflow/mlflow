@@ -162,11 +162,20 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         ./dev/run-large-python-tests.sh
-    - name: Database tests - build
+    - name: Run anaconda compatibility tests
+      run: |
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
       run: |
         ./tests/db/compose.sh pull -q postgresql mysql mssql
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-    - name: Database tests - run
+    - name: Run tests
       run: |
         for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
         do
@@ -174,13 +183,9 @@ jobs:
           # https://github.com/actions/virtual-environments/issues/5022
           ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
         done
-    - name: Database tests - clean up
+    - name: Clean up
       run: |
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-    - name: Run anaconda compatibility tests
-      run: |
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
