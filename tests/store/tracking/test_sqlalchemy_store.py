@@ -1683,7 +1683,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             )
         self.assertIn("Duplicate parameter keys have been submitted:", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
+        self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
         run = self._run_factory()
