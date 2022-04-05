@@ -6,7 +6,6 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { CompareModelVersionsPageImpl, CompareModelVersionsPage } from './CompareModelVersionsPage';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 describe('CompareModelVersionPage', () => {
   let wrapper;
@@ -15,7 +14,10 @@ describe('CompareModelVersionPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const modelName = 'normal-model-name';
     minimalProps = {
       location: {
