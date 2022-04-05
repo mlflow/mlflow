@@ -74,7 +74,7 @@ class BaseEndpointClient(abc.ABC):
     """
         Base class exposing Python model endpoint APIs.
 
-        Plugin implementors should define target-specific logic via a subclass of
+        Plugin implementers should define target-specific logic via a subclass of
         ``BaseEndpointClient`` within the plugin module, and customize method docstrings with
         target-specific information.
 
@@ -123,8 +123,8 @@ class BaseEndpointClient(abc.ABC):
     @abc.abstractmethod
     def delete_endpoint(self, endpoint):
         """
-        Delete the endpoint with name ``name`` from the specified target. Deletion should be
-        idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
+        Delete the endpoint from the specified target. Deletion should be idempotent (i.e. deletion
+        should not fail if retried on a non-existent deployment).
 
         :param endpoint: Name of endpoint to delete
         :return: None
