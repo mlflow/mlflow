@@ -32,7 +32,9 @@ from tests.helper_functions import (
 
 pytestmark = pytest.mark.large
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("pmdarima") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("pmdarima") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture(scope="function")
@@ -182,12 +184,9 @@ def test_pmdarima_load_from_remote_uri_succeeds(
 
 
 def test_pmdarima_log_model(auto_arima_model):
-
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
                 artifact_path = "pmdarima"
@@ -213,7 +212,6 @@ def test_pmdarima_log_model(auto_arima_model):
                 assert os.path.exists(os.path.join(model_path, env_path))
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_pmdarima_log_model_calls_register_model(auto_arima_object_model):

@@ -307,26 +307,6 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models --large
 
-  import:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
-      - name: Install mlflow
-        run: |
-          pip install -e .
-      - name: Verify mlflow can be imported without errors
-        run: |
-          python -c "import mlflow"
-
-          # Just importing mlflow should not create `mlruns` directory
-          # See: https://github.com/mlflow/mlflow/issues/3400
-          if [ -d "./mlruns" ]; then
-            exit 1
-          fi
-
   sagemaker:
     runs-on: ubuntu-latest
     steps:

@@ -137,12 +137,10 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
 
 @pytest.mark.large
 def test_model_log(fastai_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     model = fastai_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -178,7 +176,6 @@ def test_model_log(fastai_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(fastai_model):
