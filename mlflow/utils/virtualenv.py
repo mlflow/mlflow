@@ -153,7 +153,7 @@ def _get_python_env(local_model_path):
         if conda_deps:
             raise MlflowException(
                 f"Cannot restore this model's environment with virtualenv because it contains "
-                f"conda dependencies ({conda_deps})."
+                f"conda dependencies: {conda_deps}."
             )
         return PythonEnv.from_conda_yaml(conda_yaml_path)
 
