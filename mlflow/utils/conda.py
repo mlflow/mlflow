@@ -95,6 +95,10 @@ def _list_conda_environments(extra_env=None):
 
 def _get_conda_extra_envs(env_root_dir=None):
     if env_root_dir is not None:
+        # Create isolated conda package cache dir "conda_pkgs" under the env_root_dir
+        # for each python process.
+        # Note: shared conda package cache dir causes race condition issues:
+        # See https://github.com/conda/conda/issues/8870
         # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
         # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
         return {
@@ -156,6 +160,10 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         )
 
     conda_extra_envs = _get_conda_extra_envs(env_root_dir)
+
+    os.makedirs(conda_extra_envs["CONDA_ENVS_PATH"], exist_ok=True)
+    os.makedirs(conda_extra_envs["CONDA_PKGS_DIR"], exist_ok=True)
+    os.makedirs(conda_extra_envs["PIP_CACHE_DIR"], exist_ok=True)
 
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if env_root_dir is not None:
