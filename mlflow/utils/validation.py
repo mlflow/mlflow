@@ -84,7 +84,7 @@ def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Invalid metric name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
+            f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
@@ -230,7 +230,7 @@ def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if name is None:
         raise MlflowException(
-            f"Invalid parameter name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
+            f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
@@ -250,7 +250,7 @@ def _validate_tag_name(name):
     # Reuse param & metric check.
     if name is None:
         raise MlflowException(
-            f"Invalid tag name: '{name}'. {_MISSING_KEY_NAME_MESSAGE}",
+            f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):

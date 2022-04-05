@@ -142,13 +142,12 @@ def test_set_experiment_with_deleted_experiment():
 
 def test_list_experiments():
     def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
-        result = set(
-            [
-                (exp.experiment_id, exp.lifecycle_stage)
-                for exp in client.list_experiments(view_type=view_type_arg)
-            ]
-        )
-        assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
+        result = [
+            (exp.experiment_id, exp.lifecycle_stage)
+            for exp in client.list_experiments(view_type=view_type_arg)
+        ]
+
+        assert result == [(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()]
 
     experiment_id = mlflow.create_experiment("exp_1")
     assert experiment_id == "1"
@@ -178,7 +177,7 @@ def test_list_experiments_paginated():
         returned_experiments.extend(result)
     assert result.token is None
     returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
-    assert set(experiments) - returned_exp_id_set == set()
+    assert set(experiments) - returned_exp_id_set == {}
 
 
 def test_list_experiments_paginated_returns_in_correct_order():
@@ -319,9 +318,9 @@ def test_log_batch():
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     metric_history0 = client.get_metric_history(run_id, "metric-key0")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == {(1.0, t, 0)}
+    assert [(m.value, m.timestamp, m.step) for m in metric_history0] == [(1.0, t, 0)]
     metric_history1 = client.get_metric_history(run_id, "metric-key1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == {(4.0, t, 1)}
+    assert [(m.value, m.timestamp, m.step) for m in metric_history1] == [(4.0, t, 1)]
 
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
@@ -361,15 +360,13 @@ def test_log_metric():
         assert expected_pairs[key] == value
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == {
+    assert [(m.value, m.timestamp, m.step) for m in metric_history_name1] == [
         (25, 123 * 1000, 0),
         (30, 123 * 1000, 5),
         (40, 123 * 1000, -2),
-    }
+    ]
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == {
-        (-3, 123 * 1000, 0)
-    }
+    assert [(m.value, m.timestamp, m.step) for m in metric_history_name2] == [(-3, 123 * 1000, 0)]
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
@@ -382,11 +379,11 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
 
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == {
+    assert [(m.value, m.timestamp) for m in metric_history_name1] == [
         (25, 123 * 1000),
         (30, 123 * 1000),
         (40, 123 * 1000),
-    }
+    ]
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == {(-3, 123 * 1000)}
 
@@ -403,11 +400,11 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
         mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
 
     metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == {
+    assert [(m.value, m.timestamp) for m in metric_history_name1] == [
         (25, 123 * 1000),
         (30, 123 * 1000),
         (40, 123 * 1000),
-    }
+    ]
 
     metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == {(-3, 123 * 1000)}
@@ -543,7 +540,7 @@ def test_log_batch_validates_entity_names_and_values():
 
         metrics = [Metric(key=None, value=42.0, timestamp=4, step=1)]
         with pytest.raises(
-            MlflowException, match="Invalid metric name: 'None'. A key name must be provided."
+            MlflowException, match="Metric name cannot be None. A key name must be provided."
         ) as e:
             tracking.MlflowClient().log_batch(run_id, metrics=metrics)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -563,7 +560,7 @@ def test_log_artifact_with_dirs(tmpdir):
         mlflow.log_artifact(str(art_dir))
         base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
-        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {"child", "file0", "file1"}
+        assert os.listdir(os.path.join(run_artifact_dir, base)) == ["child", "file0", "file1"]
         with open(os.path.join(run_artifact_dir, base, "file0")) as f:
             assert f.read() == "something"
     # Test log artifact with directory and specified parent folder
