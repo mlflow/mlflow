@@ -72,16 +72,16 @@ def target_help():
 
 class BaseEndpointClient(abc.ABC):
     """
-        Base class exposing Python model endpoint APIs.
+    Base class exposing Python model endpoint APIs.
 
-        Plugin implementers should define target-specific logic via a subclass of
-        ``BaseEndpointClient`` within the plugin module, and customize method docstrings with
-        target-specific information.
+    Plugin implementers should define target-specific logic via a subclass of
+    ``BaseEndpointClient`` within the plugin module, and customize method docstrings with
+    target-specific information.
 
-        .. Note::
-            Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases
-            (e.g. on failure to deploy a model).
-        """
+    .. Note::
+        Subclasses should raise :py:class:`mlflow.exceptions.MlflowException` in error cases
+        (e.g. on failure to deploy a model).
+    """
 
     def __init__(self):
         pass
