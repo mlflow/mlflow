@@ -119,6 +119,14 @@ def is_in_databricks_job():
         return False
 
 
+def is_in_databricks_repo_notebook():
+    try:
+        path = get_notebook_path()
+        return path is not None and path.startswith("/Repos")
+    except Exception:
+        return False
+
+
 def is_in_databricks_runtime():
     try:
         # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
@@ -321,6 +329,16 @@ def get_workspace_info_from_dbutils():
     except Exception:
         pass
     return None, None
+
+
+@_use_repl_context_if_available("workspaceUrl")
+def get_workspace_url():
+    try:
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return spark_session.conf.get("spark.databricks.workspaceUrl")
+    except Exception:
+        return None
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):

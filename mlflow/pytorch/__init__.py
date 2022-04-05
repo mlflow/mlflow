@@ -20,7 +20,6 @@ import posixpath
 
 import mlflow
 import shutil
-import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
@@ -41,8 +40,16 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.file_utils import (
+    TempDir,
+    write_to,
+)
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -468,25 +475,23 @@ def save_model(
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
-    if code_paths is not None:
-        if not isinstance(code_paths, list):
-            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise RuntimeError("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
 
-    os.makedirs(path)
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     model_data_subpath = "data"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+
     # Persist the pickle module name as a file in the model's `data` directory. This is necessary
     # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
     # does not contain the MLmodel configuration; therefore, it is not sufficient to place
@@ -542,17 +547,11 @@ def save_model(
             torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
 
-    if code_paths is not None:
-        code_dir_subpath = "code"
-        for code_path in code_paths:
-            _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)
-    else:
-        code_dir_subpath = None
-
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=str(torch.__version__),
+        code=code_dir_subpath,
         **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
@@ -644,7 +643,8 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
+            # `torch.jit.load` does not accept `pickle_module`.
+            kwargs.pop("pickle_module", None)
             return torch.jit.load(model_path, **kwargs)
 
 
@@ -709,19 +709,9 @@ def load_model(model_uri, dst_path=None, **kwargs):
     import torch
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    try:
-        pyfunc_conf = _get_flavor_configuration(
-            model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME
-        )
-    except MlflowException:
-        pyfunc_conf = {}
-    code_subpath = pyfunc_conf.get(pyfunc.CODE)
-    if code_subpath is not None:
-        pyfunc_utils._add_code_to_system_path(
-            code_path=os.path.join(local_model_path, code_subpath)
-        )
-
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, pytorch_conf)
+
     if torch.__version__ != pytorch_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
@@ -734,7 +724,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
 def _load_pyfunc(path, **kwargs):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
     """
@@ -886,11 +876,13 @@ def load_state_dict(state_dict_uri, **kwargs):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,
+    log_every_n_step=None,
     log_models=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -914,6 +906,9 @@ def autolog(
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
+    :param log_every_n_step: If specified, logs batch metrics once every `n` global step.
+                       By default, metrics are not logged for steps. Note that setting this to 1 can
+                       cause performance issues and is not recommended.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
@@ -927,6 +922,9 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
                    Lightning autologging. If ``False``, show all events and warnings during
                    PyTorch Lightning autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     .. code-block:: python
         :caption: Example

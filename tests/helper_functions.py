@@ -5,6 +5,7 @@ from unittest import mock
 from contextlib import ExitStack, contextmanager
 
 
+import logging
 import requests
 import time
 import signal
@@ -22,6 +23,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
+from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
 from mlflow.utils.environment import (
     _get_pip_deps,
     _CONDA_ENV_FILE_NAME,
@@ -31,6 +33,8 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -154,9 +158,9 @@ def pyfunc_serve_and_score_model(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
-                       flag to the scoring server to ensure that conda environment activation
-                       is skipped.
+                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+                       ``--env-manager local`` flag to the scoring server to ensure that conda
+                       environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -194,7 +198,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # Assign the scoring process to a process group. All child processes of the
             # scoring process will be assigned to this group as well. This allows child
@@ -206,7 +210,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # On Windows, `os.setsid` and `preexec_fn` are unavailable
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
@@ -226,14 +230,14 @@ class RestEndpoint:
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                print("connection attempt", i, "server is up! ping status", ping_status)
+                _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                print("connection attempt", i, "failed, server is not up yet")
+                _logger.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        print("server up, ping status", ping_status)
+        _logger.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
@@ -341,6 +345,20 @@ def _read_yaml(path):
 def _read_lines(path):
     with open(path, "r") as f:
         return f.read().splitlines()
+
+
+def _compare_logged_code_paths(code_path, model_path, flavor_name):
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    )
+    flavor_conf = _get_flavor_configuration(model_path, flavor_name=flavor_name)
+    assert pyfunc_conf[mlflow.pyfunc.CODE] == flavor_conf[FLAVOR_CONFIG_CODE]
+    saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
+    assert os.path.exists(saved_code_path)
+
+    with open(os.path.join(saved_code_path, os.path.basename(code_path)), "r") as f1:
+        with open(code_path, "r") as f2:
+            assert f1.read() == f2.read()
 
 
 def _compare_conda_env_requirements(env_path, req_path):
@@ -453,3 +471,8 @@ class StartsWithMatcher:
 
     def __eq__(self, other):
         return isinstance(other, str) and other.startswith(self.prefix)
+
+
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in other

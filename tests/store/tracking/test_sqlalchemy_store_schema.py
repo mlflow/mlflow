@@ -1,5 +1,6 @@
 """Tests verifying that the SQLAlchemyStore generates the expected database schema"""
 import os
+import sqlite3
 
 import pytest
 from alembic import command
@@ -126,4 +127,24 @@ def test_store_generated_schema_matches_base(tmpdir, db_url):
     engine = sqlalchemy.create_engine(db_url)
     mc = MigrationContext.configure(engine.connect())
     diff = compare_metadata(mc, Base.metadata)
+    # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
+    # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes
+    # as tested in `test_create_index_on_run_uuid`.
+    diff = [d for d in diff if d[0] != "remove_index"]
     assert len(diff) == 0
+
+
+def test_create_index_on_run_uuid(tmpdir, db_url):
+    # Test for mlflow/store/db_migrations/versions/bd07f7e963c5_create_index_on_run_uuid.py
+    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        run_uuid_index_names = {
+            "index_params_run_uuid",
+            "index_metrics_run_uuid",
+            "index_latest_metrics_run_uuid",
+            "index_tags_run_uuid",
+        }
+        assert run_uuid_index_names.issubset(all_index_names)

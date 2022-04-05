@@ -92,3 +92,15 @@ def test_autolog_log_models_configuration(log_models):
 
     artifacts = MlflowClient().list_artifacts(run.info.run_id)
     assert any(x.path == "model" for x in artifacts) == log_models
+
+
+@pytest.mark.large
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.paddle.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        train_model()
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

@@ -28,6 +28,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     pyfunc_serve_and_score_model,
+    _compare_logged_code_paths,
 )
 
 
@@ -109,7 +110,7 @@ ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
 pytestmark = pytest.mark.large
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def prophet_model():
     np.random.seed(SEED)
     data = DataGeneration(**TEST_CONFIG).create_series_df()
@@ -151,7 +152,7 @@ def test_model_native_save_load(prophet_model, model_path):
 def test_model_pyfunc_save_load(prophet_model, model_path):
     model = prophet_model.model
     mlflow.prophet.save_model(pr_model=model, path=model_path)
-    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
 
@@ -202,11 +203,9 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
 
 
 def test_model_log(prophet_model):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
                 artifact_path = "prophet"
@@ -234,7 +233,6 @@ def test_model_log(prophet_model):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(prophet_model):
@@ -409,3 +407,15 @@ def test_pyfunc_serve_and_score(prophet_model):
     pd.testing.assert_series_equal(
         left=local_predict["yhat"], right=scores["yhat"], check_dtype=True
     )
+
+
+def test_log_model_with_code_paths(prophet_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.prophet._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.prophet.log_model(prophet_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.prophet.FLAVOR_NAME)
+        mlflow.prophet.load_model(model_uri)
+        add_mock.assert_called()

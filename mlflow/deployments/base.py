@@ -351,12 +351,14 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, config=None):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
+        :param config: (optional) dict containing updated target-specific configuration for the
+                       deployment
         :return: None
         """
         pass
@@ -380,7 +382,7 @@ class BaseDeploymentClient(abc.ABC):
     def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
-        py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
+        :py:class:`mlflow.exceptions.MlflowException` if no deployment exists with the provided
         ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across

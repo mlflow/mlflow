@@ -1,24 +1,29 @@
 # pep8: disable=E501
 
 import collections
-import pytest
-import sys
+import os
 import pickle
-from packaging.version import Version
+import sys
+from unittest.mock import patch
+import json
 
 import numpy as np
 import pandas as pd
+import pytest
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
+from packaging.version import Version
 from tensorflow.keras import layers
+import yaml
 
 import mlflow
-import mlflow.tensorflow
-from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 import mlflow.keras
+import mlflow.tensorflow
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
+from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
-from unittest.mock import patch
-
-import os
 
 np.random.seed(1337)
 
@@ -49,6 +54,76 @@ def random_one_hot_labels():
 
 
 @pytest.fixture
+def random_train_dict_mapping(random_train_data):
+    def _generate_features(pos):
+        return [v[pos] for v in random_train_data]
+
+    features = {
+        "a": np.array(_generate_features(0)),
+        "b": np.array(_generate_features(1)),
+        "c": np.array(_generate_features(2)),
+        "d": np.array(_generate_features(3)),
+    }
+    return features
+
+
+def _create_model_for_dict_mapping():
+    model = tf.keras.Sequential()
+    model.add(
+        layers.DenseFeatures(
+            [
+                tf.feature_column.numeric_column("a"),
+                tf.feature_column.numeric_column("b"),
+                tf.feature_column.numeric_column("c"),
+                tf.feature_column.numeric_column("d"),
+            ]
+        )
+    )
+    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(layers.Dense(3, activation="softmax"))
+
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(), loss="categorical_crossentropy", metrics=["accuracy"]
+    )
+    return model
+
+
+@pytest.fixture
+def fashion_mnist_tf_dataset():
+    train, _ = tf.keras.datasets.fashion_mnist.load_data()
+    images, labels = train
+    images = images / 255.0
+    labels = labels.astype(np.int32)
+    fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
+    return fmnist_train_ds
+
+
+def _create_fashion_mnist_model():
+    model = tf.keras.Sequential([tf.keras.layers.Flatten(), tf.keras.layers.Dense(10)])
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        metrics=["accuracy"],
+    )
+    return model
+
+
+@pytest.fixture
+def keras_data_gen_sequence(random_train_data, random_one_hot_labels):
+    class DataGenerator(tf.keras.utils.Sequence):
+        def __len__(self):
+            return 128
+
+        def __getitem__(self, index):
+            x = random_train_data
+            y = random_one_hot_labels
+            return x, y
+
+    return DataGenerator()
+
+
+@pytest.fixture
 def clear_tf_keras_imports():
     """
     Simulates a state where `tensorflow` and `keras` are not imported by removing these
@@ -73,7 +148,6 @@ def clear_fluent_autologging_import_hooks():
 
 def create_tf_keras_model():
     model = tf.keras.Sequential()
-
     model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
     model.add(layers.Dense(3, activation="softmax"))
 
@@ -294,7 +368,7 @@ def get_tf_keras_random_data_run_with_callback(
 
         class CustomCallback(tf.keras.callbacks.Callback):
             def on_train_end(self, logs=None):
-                print("Training completed")
+                pass
 
         callback = CustomCallback()
 
@@ -581,9 +655,9 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
     for feature in CSV_COLUMN_NAMES:
         feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-    run_config = tf.estimator.RunConfig(
+    run_config = tf_estimator.RunConfig(
         # Emit loss metrics to TensorBoard every step
         save_summary_steps=1,
     )
@@ -601,7 +675,7 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
             config=run_config,
         )
     else:
-        classifier = tf.estimator.DNNClassifier(
+        classifier = tf_estimator.DNNClassifier(
             feature_columns=my_feature_columns,
             # Two hidden layers of 10 nodes each.
             hidden_units=[30, 10],
@@ -855,6 +929,18 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
 
 
 @pytest.mark.large
+def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.tensorflow.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = create_tf_keras_model()
+        model.fit(random_train_data, random_one_hot_labels, epochs=10)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+@pytest.mark.large
 @pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
@@ -974,3 +1060,178 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+
+
+def _assert_keras_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
+    ml_model_filename = "MLmodel"
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+        assert data is not None
+        assert "signature" in data
+        signature = data["signature"]
+        assert signature is not None
+        assert "inputs" in signature
+        assert "outputs" in signature
+        assert json.loads(signature["inputs"]) == input_sig_spec
+        assert json.loads(signature["outputs"]) == output_sig_spec
+
+
+def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data):
+    model_path = os.path.join(run.info.artifact_uri, "model")
+    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+    input_example = _read_example(model_conf, model_path)
+    np.testing.assert_array_almost_equal(input_example, random_train_data[:5])
+    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+    pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_input_example_load_and_predict_with_nparray(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    initial_model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        initial_model.fit(random_train_data, random_one_hot_labels)
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_infers_model_signature_correctly_with_nparray(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog()
+    initial_model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        initial_model.fit(random_train_data, random_one_hot_labels)
+        _assert_keras_autolog_infers_model_signature_correctly(
+            run,
+            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    with mlflow.start_run() as run:
+        fashion_mnist_model.fit(fashion_mnist_tf_dataset)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
+    mlflow.tensorflow.autolog()
+    fashion_mnist_model = _create_fashion_mnist_model()
+    with mlflow.start_run() as run:
+        fashion_mnist_model.fit(fashion_mnist_tf_dataset)
+        _assert_keras_autolog_infers_model_signature_correctly(
+            run,
+            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 28, 28]}}],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 10]}}],
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_input_example_load_and_predict_with_dict(
+    random_train_dict_mapping, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    model = _create_model_for_dict_mapping()
+    with mlflow.start_run() as run:
+        model.fit(random_train_dict_mapping, random_one_hot_labels)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        for k, v in random_train_dict_mapping.items():
+            np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_infers_model_signature_correctly_with_dict(
+    random_train_dict_mapping, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog()
+    model = _create_model_for_dict_mapping()
+    with mlflow.start_run() as run:
+        model.fit(random_train_dict_mapping, random_one_hot_labels)
+        _assert_keras_autolog_infers_model_signature_correctly(
+            run,
+            [
+                {"name": "a", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
+                {"name": "b", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
+                {"name": "c", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
+                {"name": "d", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
+            ],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog(log_input_examples=True)
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        model.fit(keras_data_gen_sequence)
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(
+            run, keras_data_gen_sequence[:][0][:5]
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.6.0"),
+    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+)
+def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
+    keras_data_gen_sequence,
+):
+    mlflow.tensorflow.autolog()
+    initial_model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        initial_model.fit(keras_data_gen_sequence)
+        _assert_keras_autolog_infers_model_signature_correctly(
+            run,
+            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
+        )

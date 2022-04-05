@@ -100,6 +100,31 @@ Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
 For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
 
+.. note::
+    Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
+
+    MLflow models logged before `v1.18 <https://mlflow.org/news/2021/06/18/1.18.0-release/index.html>`_ were by default logged with the conda ``defaults`` channel (`https://repo.anaconda.com/pkgs/ <https://repo.anaconda.com/pkgs/>`_) as a dependency. Because of this license change, MLflow has stopped the use of the ``defaults`` channel for models logged using MLflow v1.18 and above. The default channel logged is now ``conda-forge``, which points at the community managed `https://conda-forge.org/ <https://conda-forge.org/>`_.
+
+    If you logged a model before MLflow v1.18 without excluding the ``defaults`` channel from the conda environment for the model, that model may have a dependency on the ``defaults`` channel that you may not have intended.
+    To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
+
+    .. code-block:: yaml
+
+        name: mlflow-env
+        channels:
+        - defaults
+        dependencies:
+        - python=3.8.8
+        - pip
+        - pip:
+            - mlflow
+            - scikit-learn==0.23.2
+            - cloudpickle==1.6.0
+
+    If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
+
+    For more information on the ``log_model()`` API, see the MLflow documentation for the model flavor you are working with, for example, :py:func:`mlflow.sklearn.log_model() <mlflow.sklearn.log_model>`.
+
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 requirements.txt
@@ -125,18 +150,18 @@ The following shows an example of saving a model with a manually specified conda
 
 The written ``conda.yaml`` file:
 
-.. code-block:: text
+.. code-block:: yaml
 
+    name: mlflow-env
     channels:
       - conda-forge
-      dependencies:
-      - python=3.8.8
-      - pip
-      - pip:
-        - mlflow
-        - scikit-learn==0.23.2
-        - cloudpickle==1.6.0
-    name: mlflow-env
+    dependencies:
+    - python=3.8.8
+    - pip
+    - pip:
+      - mlflow
+      - scikit-learn==0.23.2
+      - cloudpickle==1.6.0
 
 The written ``requirements.txt`` file:
 
@@ -784,6 +809,281 @@ method to load MLflow Models with the ``prophet`` model flavor in native prophet
 
 For more information, see :py:mod:`mlflow.prophet`.
 
+Pmdarima (``pmdarima``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
+format via the :py:func:`mlflow.pmdarima.save_model()` and :py:func:`mlflow.pmdarima.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.pmdarima.load_model()` method to load MLflow Models with the ``pmdarima``
+model flavor in native pmdarima formats.
+
+The interface for utilizing a ``pmdarima`` model loaded as a ``pyfunc`` type for generating forecast predictions uses
+a *single-row* ``Pandas DataFrame`` configuration argument. The following columns in this configuration
+``Pandas DataFrame`` are supported:
+
+* ``n_periods`` (required) - specifies the number of future periods to generate starting from the last datetime value
+    of the training dataset, utilizing the frequency of the input training series when the model was trained.
+    (for example, if the training data series elements represent one value per hour, in order to forecast 3 days of
+    future data, set the column ``n_periods`` to ``72``.
+* ``X`` (optional) - exogenous regressor values (*only supported in pmdarima version >= 1.8.0*) a 2D array of values for
+    future time period events. For more information, read the underlying library
+    `explanation <https://www.statsmodels.org/stable/endog_exog.html>`_.
+* ``return_conf_int`` (optional) - a boolean (Default: ``False``) for whether to return confidence interval values.
+    See above note.
+* ``alpha`` (optional) - the significance value for calculating confidence intervals. (Default: ``0.05``)
+
+An example configuration for the ``pyfunc`` predict of a ``pmdarima`` model is shown below, with a future period
+prediction count of 100, a confidence interval calculation generation, no exogenous regressor elements, and a default
+alpha of ``0.05``:
+
+====== ========= ===============
+Index  n_periods return_conf_int
+====== ========= ===============
+0      100       True
+====== ========= ===============
+
+.. warning::
+    The ``Pandas DataFrame`` passed to a ``pmdarima`` ``pyfunc`` flavor must only contain 1 row.
+
+.. note::
+    When predicting a ``pmdarima`` flavor, the ``predict`` method's ``DataFrame`` configuration column
+    ``return_conf_int``'s value controls the output format. When the column's value is set to ``False`` or ``None``
+    (which is the default if this column is not supplied in the configuration ``DataFrame``), the schema of the
+    returned ``Pandas DataFrame`` is a single column: ``["yhat"]``. When set to ``True``, the schema of the returned
+    ``DataFrame`` is: ``["yhat", "yhat_lower", "yhat_upper"]`` with the respective lower (``yhat_lower``) and
+    upper (``yhat_upper``) confidence intervals added to the forecast predictions (``yhat``).
+
+Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals calculated:
+
+.. code-block:: py
+
+    import pmdarima
+    import mlflow
+    import pandas as pd
+
+    data = pmdarima.datasets.load_airpassengers()
+
+    with mlflow.start_run():
+
+        model = pmdarima.auto_arima(data, seasonal=True)
+        mlflow.pmdarima.save_model(model, "/tmp/model.pmd")
+
+    loaded_pyfunc = mlflow.pyfunc.load_model("/tmp/model.pmd")
+
+    prediction_conf = pd.DataFrame([{"n_periods": 4, "return_conf_int": True, "alpha": 0.1}])
+
+    predictions = loaded_pyfunc.predict(prediction_conf)
+
+Output (``Pandas DataFrame``):
+
+====== ========== ========== ==========
+Index  yhat       yhat_lower yhat_upper
+====== ========== ========== ==========
+0      467.573731 423.30995  511.83751
+1      490.494467 416.17449  564.81444
+2      509.138684 420.56255  597.71117
+3      492.554714 397.30634  587.80309
+====== ========== ========== ==========
+
+.. warning::
+    Signature logging for ``pmdarima`` will not function correctly if ``return_conf_int`` is set to ``True`` from
+    a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
+    a recognized signature type.
+
+Diviner (``diviner``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``diviner`` model flavor enables logging of
+`diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
+:py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
+``python_function`` flavor to the MLflow Models that they produce, allowing the model to be interpreted as generic
+Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
+model flavor in native diviner formats.
+
+Diviner Types
+~~~~~~~~~~~~~
+Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
+related series. Forecasting in ``diviner`` is accomplished through wrapping popular open source libraries such as
+`prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_. The ``diviner``
+library offers a simplified set of APIs to simultaneously generate distinct time series forecasts for multiple data
+groupings using a single input DataFrame and a unified high-level API.
+
+Metrics and Parameters logging for Diviner
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Unlike other flavors that are supported in MLflow, Diviner has the concept of grouped models. As a collection of many
+(perhaps thousands) of individual forecasting models, the burden to the tracking server to log individual metrics
+and parameters for each of these models is significant. For this reason, metrics and parameters are exposed for
+retrieval from Diviner's APIs as ``Pandas`` ``DataFrames``, rather than discrete primitive values.
+
+To illustrate, let us assume we are forecasting hourly electricity consumption from major cities around the world.
+A sample of our input data looks like this:
+
+======= ========== =================== =======
+country city       datetime            watts
+======= ========== =================== =======
+US      NewYork    2022-03-01 00:01:00 23568.9
+US      NewYork    2022-03-01 00:02:00 22331.7
+US      Boston     2022-03-01 00:01:00 14220.1
+US      Boston     2022-03-01 00:02:00 14183.4
+CA      Toronto    2022-03-01 00:01:00 18562.2
+CA      Toronto    2022-03-01 00:02:00 17681.6
+MX      MexicoCity 2022-03-01 00:01:00 19946.8
+MX      MexicoCity 2022-03-01 00:02:00 19444.0
+======= ========== =================== =======
+
+If we were to ``fit`` a model on this data, supplying the grouping keys as:
+
+.. code-block:: py
+
+    grouping_keys = ["country", "city"]
+
+We will have a model generated for each of the grouping keys that have been supplied:
+
+.. code-block:: py
+
+    [("US", "NewYork"),
+     ("US", "Boston"),
+     ("CA", "Toronto"),
+     ("MX", "MexicoCity")]
+
+With a model constructed for each of these, entering each of their metrics and parameters wouldn't be an issue for the
+MLflow tracking server. What would become a problem, however, is if we modeled each major city on the planet and ran
+this forecasting scenario every day. If we were to adhere to the conditions of the World Bank, that would mean just
+over 10,000 models as of 2022. After a mere few weeks of running this forecasting every day we would have a very large
+metrics table.
+
+To eliminate this issue for large-scale forecasting, the metrics and parameters for ``diviner`` are extracted as a
+grouping key indexed ``Pandas DataFrame``, as shown below for example (float values truncated for visibility):
+
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+grouping_key_columns  country city       mse        rmse   mae    mape mdape smape
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+"('country', 'city')" CA      Toronto    8276851.6  2801.7 2417.7 0.16 0.16  0.159
+"('country', 'city')" MX      MexicoCity 3548872.4  1833.8 1584.5 0.15 0.16  0.159
+"('country', 'city')" US      NewYork    3167846.4  1732.4 1498.2 0.15 0.16  0.158
+"('country', 'city')" US      Boston     14082666.4 3653.2 3156.2 0.15 0.16  0.159
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+
+There are two recommended means of logging the metrics and parameters from a ``diviner`` model :
+
+
+* Writing the DataFrames to local storage and using :py:func:`mlflow.log_artifacts`
+
+
+.. code-block:: py
+
+    import os
+    import mlflow
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        params = model.extract_model_params()
+        metrics = model.cross_validate_and_score(
+            horizon="72 hours",
+            period="240 hours",
+            initial="480 hours",
+            parallel="threads",
+            rolling_window=0.1,
+            monthly=False,
+        )
+        params.to_csv(f"{tmpdir}/params.csv", index=False, header=True)
+        metrics.to_csv(f"{tmpdir}/metrics.csv", index=False, header=True)
+
+        mlflow.log_artifacts(tmpdir, artifact_path="data")
+
+
+* Writing directly as a JSON artifact using :py:func:`mlflow.log_dict`
+
+
+.. note::
+    The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using the
+    ``pd.DataFrame.to_dict()`` approach due to the inability of this method to serialize objects.
+
+.. code-block:: py
+
+    import mlflow
+
+    params = model.extract_model_params()
+    metrics = model.cross_validate_and_score(
+        horizon="72 hours",
+        period="240 hours",
+        initial="480 hours",
+        parallel="threads",
+        rolling_window=0.1,
+        monthly=False,
+    )
+    params["t_scale"] = params["t_scale"].astype(str)
+    params["start"] = params["start"].astype(str)
+    params = params.drop("stan_backend", axis=1)
+
+    mlflow.log_dict(params.to_dict(), "params.json")
+    mlflow.log_dict(metrics.to_dict(), "metrics.json")
+
+Logging of the model artifact is shown in the ``pyfunc`` example below.
+
+Diviner pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+The MLflow Diviner flavor includes an implementation of the ``pyfunc`` interface for Diviner models. To control
+prediction behavior, you can specify configuration arguments in the first row of a Pandas DataFrame input.
+
+As this configuration is dependent upon the underlying model type (i.e., the ``diviner.GroupedProphet.forecast()``
+method has a different signature than does ``diviner.GroupedPmdarima.predict()``), the Diviner pyfunc implementation
+attempts to coerce arguments to the types expected by the underlying model.
+
+.. note::
+    Diviner models support both "full group" and "partial group" forecasting. If a column named ``"groups"`` is present
+    in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, the grouping key values in the first row
+    will be used to generate a subset of forecast predictions. This functionality removes the need to filter a subset
+    from the full output of all groups forecasts if the results of only a few (or one) groups are needed.
+
+For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``predict()`` method is:
+
+.. code-block:: py
+
+    import mlflow
+    import pandas as pd
+    from pmdarima.arima.auto import AutoARIMA
+    from diviner import GroupedPmdarima
+
+    with mlflow.start_run():
+        base_model = AutoARIMA(out_of_sample_size=96, maxiter=200)
+        model = GroupedPmdarima(model_template=base_model).fit(
+            df=df,
+            group_key_columns=["country", "city"],
+            y_col="watts",
+            datetime_col="datetime",
+            silence_warnings=True,
+        )
+
+        mlflow.diviner.save_model(diviner_model=model, path="/tmp/diviner_model")
+
+    diviner_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/diviner_model")
+
+    predict_conf = pd.DataFrame(
+        {"n_periods": 120,
+         "groups": [("US", "NewYork"), ("CA", "Toronto"), ("MX", "MexicoCity")],  # NB: List of tuples required.
+         "predict_col": "wattage_forecast",
+         "alpha": 0.1,
+         "return_conf_int": True,
+         "on_error": "warn",
+        },
+        index=[0],
+    )
+
+    subset_forecasts = diviner_pyfunc.predict(predict_conf)
+
+.. note::
+    There are several instances in which a configuration ``DataFrame`` submitted to the ``pyfunc`` ``predict()`` method
+    will cause an ``MlflowException`` to be raised:
+
+        * If neither ``horizon`` or ``n_periods`` are provided.
+        * The value of ``n_periods`` or ``horizon`` is not an integer.
+        * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
+        * If both ``horizon`` and ``n_periods`` are provided with different values.
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -839,7 +1139,91 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 69%
 
-More information about model evaluation behaviors and outputs is available in the
+
+Evaluating with Custom Metrics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+:py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
+functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
+of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
+accept an additional string argument representing the path to the temporary directory that can be used to store such
+artifacts.
+
+The following `short example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
+uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+`California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
+Note that custom metric functions can return both metrics and artifacts. They can either return a single
+dictionary of metrics, or two dictionaries representing metrics and artifacts.
+
+.. code-block:: py
+
+    from sklearn.linear_model import LinearRegression
+    from sklearn.datasets import fetch_california_housing
+    from sklearn.model_selection import train_test_split
+    import numpy as np
+    import mlflow
+    import os
+    import matplotlib.pyplot as plt
+
+    # loading the California housing dataset
+    cali_housing = fetch_california_housing(as_frame=True)
+
+    # split the dataset into train and test partitions
+    X_train, X_test, y_train, y_test = train_test_split(
+        cali_housing.data, cali_housing.target, test_size=0.2, random_state=123
+    )
+
+    # train the model
+    lin_reg = LinearRegression().fit(X_train, y_train)
+
+    # creating the evaluation dataframe
+    eval_data = X_test.copy()
+    eval_data["target"] = y_test
+
+
+    def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
+        """
+        This example custom metric function creates a metric based on the ``prediction`` and
+        ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
+        ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
+        visualizes the relationship between the predictions and targets for the given model to a
+        file as an image artifact.
+        """
+        metrics = {
+            "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
+            "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
+        }
+        plt.scatter(eval_df["prediction"], eval_df["target"])
+        plt.xlabel("Targets")
+        plt.ylabel("Predictions")
+        plt.title("Targets vs. Predictions")
+        plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
+        plt.savefig(plot_path)
+        artifacts = {"example_scatter_plot_artifact": plot_path}
+        return metrics, artifacts
+
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(lin_reg, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+        result = mlflow.evaluate(
+            model=model_uri,
+            data=eval_data,
+            targets="target",
+            model_type="regressor",
+            dataset_name="cali_housing",
+            evaluators=["default"],
+            custom_metrics=[example_custom_metric_fn],
+        )
+
+
+For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
 Model Customization
@@ -1221,54 +1605,101 @@ For more info, see:
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
-platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
-accepts the following data formats as input:
+The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
+
+The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`mlflow.azureml.deploy` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+.. warning::
+    The ``TensorSpec`` input format is not fully supported for deployments on Azure Machine Learning at the moment. Be aware that many ``autolog()`` implementations may use ``TensorSpec`` for model's signatures when logging models and hence those deployments will fail in Azure ML.
 
-.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
+Deployments can be generated using both the Python API or MLflow CLI. In both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. Also, you will also need the Azure ML MLflow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
-.. rubric:: Example workflow using the Python API
+* Through the `Azure ML Studio <https://ml.azure.com>`_:
+
+  * Navigate to `Azure ML Studio <https://ml.azure.com>`_ and select the workspace you are working on.
+  * Click on the name of the workspace at the upper right corner of the page.
+  * Click "View all properties in Azure Portal" on the pane popup.
+  * Copy the ``MLflow tracking URI`` value from the properties section.
+
+* Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
+
+
+.. rubric:: Configuration example for ACI deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aci",
+      "containerResourceRequirements": 
+      {
+        "cpu": 1,
+        "memoryInGB": 1
+      },
+      "location": "eastus2",
+    }
+
+Remarks:
+ * If ``containerResourceRequirements`` is not indicated, a deployment with minimal compute configuration is applied (``cpu: 0.1`` and ``memory: 0.5``).
+ * If ``location`` is not indicated, it defaults to the location of the workspace.
+
+.. rubric:: Configuration example for an AKS deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aks",
+      "computeTargetName": "aks-mlflow"
+    }
+
+Remarks:
+  * In above exmaple, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
+
+The following examples show how to create a deployment in ACI. Please, ensure you have `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ installed before continuing.
+
+.. rubric:: Example: Workflow using the Python API
 
 .. code-block:: py
 
-    import mlflow.azureml
+    import json
+    from mlflow.deployments import get_deploy_client
 
-    from azureml.core import Workspace
-    from azureml.core.webservice import AciWebservice, Webservice
+    # Create the deployment configuration.
+    # If no deployment configuration is provided, then the deployment happens on ACI.
+    deploy_config = {
+        "computeType": "aci"
+    }
 
+    # Write the deployment configuration into a file.
+    deployment_config_path = "deployment_config.json"
+    with open(deployment_config_path, "w") as outfile:
+        outfile.write(json.dumps(deploy_config))
 
-    # Create or load an existing Azure ML workspace. You can also load an existing workspace using
-    # Workspace.get(name="<workspace_name>")
-    workspace_name = "<Name of your Azure ML workspace>"
-    subscription_id = "<Your Azure subscription ID>"
-    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
-    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    azure_workspace = Workspace.create(name=workspace_name,
-                                       subscription_id=subscription_id,
-                                       resource_group=resource_group,
-                                       location=location,
-                                       create_resource_group=True,
-                                       exist_okay=True)
-    # Create a deployment config
-    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
+    # Set the tracking uri in the deployment client.
+    client = get_deploy_client("<azureml-mlflow-tracking-url>")
 
-    # Register and deploy model to Azure Container Instance (ACI)
-    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
-                                                workspace=azure_workspace,
-                                                model_name='mymodelname',
-                                                service_name='myservice',
-                                                deployment_config=aci_config)
+    # MLflow requires the deployment configuration to be passed as a dictionary.
+    config = {'deploy-config-file': deployment_config_path}
+    model_name = "mymodel"
+    model_version = 1
+
+    # define the model path and the name is the service name
+    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below 
+    client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
+                            config=config,
+                            name="mymodel-aci-deployment")
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # webservice's scoring URI. 
     print("Scoring URI is: %s", webservice.scoring_uri)
 
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     import requests
     import json
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
@@ -1296,21 +1727,21 @@ accepts the following data formats as input:
     response_json = json.loads(response.text)
     print(response_json)
 
-.. rubric:: Example workflow using the MLflow CLI
+.. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
+    
+    echo "{ computeType: aci }" > deployment_config.json
+    mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
-    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
-    mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
-
-    az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
-
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # After the deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
+
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
 
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input='
@@ -1338,12 +1769,18 @@ accepts the following data formats as input:
     -H 'Content-Type: application/json'\
     -d @-
 
+You can also test your deployments locally first using the option `run-local`:
+
+.. code-block:: bash
+
+    mlflow deployments run-local --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url>
+
 For more info, see:
 
 .. code-block:: bash
 
-    mlflow azureml --help
-    mlflow azureml build-image --help
+    mlflow deployments help -t azureml
+
 
 .. _sagemaker_deployment:
 

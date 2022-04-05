@@ -124,6 +124,11 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
+    def custom_isfile(*args, **kwargs):
+        if args:
+            return os.path.isfile(args[0])
+        return os.path.isfile(kwargs.get("filename"))
+
     mock_method_chain(
         gcs_mock,
         [
@@ -132,13 +137,17 @@ def test_log_artifact(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        side_effect=os.path.isfile,
+        side_effect=custom_isfile,
     )
     repo.log_artifact(fpath)
 
     gcs_mock.Client().bucket.assert_called_with("test_bucket")
-    gcs_mock.Client().bucket().blob.assert_called_with("some/path/test.txt")
-    gcs_mock.Client().bucket().blob().upload_from_filename.assert_called_with(fpath)
+    gcs_mock.Client().bucket().blob.assert_called_with(
+        "some/path/test.txt", chunk_size=repo._GCS_UPLOAD_CHUNK_SIZE
+    )
+    gcs_mock.Client().bucket().blob().upload_from_filename.assert_called_with(
+        fpath, timeout=repo._GCS_DEFAULT_TIMEOUT
+    )
 
 
 def test_log_artifacts(gcs_mock, tmpdir):
@@ -149,6 +158,11 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
+    def custom_isfile(*args, **kwargs):
+        if args:
+            return os.path.isfile(args[0])
+        return os.path.isfile(kwargs.get("filename"))
+
     mock_method_chain(
         gcs_mock,
         [
@@ -157,16 +171,22 @@ def test_log_artifacts(gcs_mock, tmpdir):
             "blob",
             "upload_from_filename",
         ],
-        side_effect=os.path.isfile,
+        side_effect=custom_isfile,
     )
     repo.log_artifacts(subd.strpath)
 
     gcs_mock.Client().bucket.assert_called_with("test_bucket")
     gcs_mock.Client().bucket().blob().upload_from_filename.assert_has_calls(
         [
-            mock.call(os.path.normpath("%s/a.txt" % subd.strpath)),
-            mock.call(os.path.normpath("%s/b.txt" % subd.strpath)),
-            mock.call(os.path.normpath("%s/c.txt" % subd.strpath)),
+            mock.call(
+                os.path.normpath("%s/a.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
+            ),
+            mock.call(
+                os.path.normpath("%s/b.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
+            ),
+            mock.call(
+                os.path.normpath("%s/c.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
+            ),
         ],
         any_order=True,
     )
@@ -175,7 +195,8 @@ def test_log_artifacts(gcs_mock, tmpdir):
 def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
 
-    def mkfile(fname):
+    def mkfile(fname, **kwargs):
+        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmpdir.join(fname)
         f.write("hello world!")
@@ -194,7 +215,9 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
     gcs_mock.Client().bucket.assert_called_with("test_bucket")
-    gcs_mock.Client().bucket().blob.assert_called_with("some/path/test.txt")
+    gcs_mock.Client().bucket().blob.assert_called_with(
+        "some/path/test.txt", chunk_size=repo._GCS_DOWNLOAD_CHUNK_SIZE
+    )
     download_calls = gcs_mock.Client().bucket().blob().download_to_filename.call_args_list
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
@@ -247,7 +270,8 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         else:
             return mock_empty_results
 
-    def mkfile(fname):
+    def mkfile(fname, **kwargs):
+        # pylint: disable=unused-argument
         fname = os.path.basename(fname)
         f = tmpdir.join(fname)
         f.write("hello world!")

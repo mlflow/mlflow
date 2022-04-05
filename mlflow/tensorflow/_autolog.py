@@ -1,7 +1,9 @@
+import warnings
+
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
-from mlflow.utils.autologging_utils import ExceptionSafeClass
+from mlflow.utils.autologging_utils import ExceptionSafeClass, get_autologging_config
 
 
 class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
@@ -32,9 +34,15 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
             mlflow.log_param("opt_" + attribute, config[attribute])
 
         sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        mlflow.log_text(summary, artifact_file="model_summary.txt")
+        try:
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            mlflow.log_text(summary, artifact_file="model_summary.txt")
+        except ValueError as ex:
+            if "This model has not yet been built" in str(ex):
+                warnings.warn(str(ex))
+            else:
+                raise ex
 
     def on_epoch_end(self, epoch, logs=None):
         # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
@@ -46,4 +54,9 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         if self.log_models:
-            mlflow.keras.log_model(self.model, artifact_path="model")
+            registered_model_name = get_autologging_config(
+                mlflow.tensorflow.FLAVOR_NAME, "registered_model_name", None
+            )
+            mlflow.keras.log_model(
+                self.model, artifact_path="model", registered_model_name=registered_model_name
+            )

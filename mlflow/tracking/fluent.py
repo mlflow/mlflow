@@ -22,6 +22,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
+from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.autologging_utils import (
@@ -30,38 +31,28 @@ from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
 )
-from mlflow.utils.databricks_utils import (
-    get_job_id,
-    is_in_databricks_job,
-    is_in_databricks_notebook,
-    get_notebook_id,
-    get_experiment_name_from_job_id,
-    get_job_type_info,
-)
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_EXPERIMENT_SOURCE_ID,
-    MLFLOW_EXPERIMENT_SOURCE_TYPE,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
-    MLFLOW_DATABRICKS_JOB_TYPE_INFO,
+    MLFLOW_RUN_NOTE,
 )
 from mlflow.utils.validation import _validate_run_id
-from mlflow.entities import SourceType
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
     import matplotlib  # pylint: disable=unused-import
+    import matplotlib.figure
     import plotly  # pylint: disable=unused-import
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
-
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
@@ -69,7 +60,7 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name: str = None, experiment_id: str = None) -> None:
+def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Experiment:
     """
     Set the given experiment as the active experiment. The experiment must either be specified by
     name via `experiment_name` or by ID via `experiment_id`. The experiment name and ID cannot
@@ -171,6 +162,7 @@ def start_run(
     run_name: Optional[str] = None,
     nested: bool = False,
     tags: Optional[Dict[str, Any]] = None,
+    description: Optional[str] = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -202,6 +194,9 @@ def start_run(
     :param tags: An optional dictionary of string keys and values to set as tags on the run.
                  If a run is being resumed, these tags are set on the resumed run. If a new run is
                  being created, these tags are set on the new run.
+    :param description: An optional string that populates the description box of the run.
+                        If a run is being resumed, the description is set on the resumed run.
+                        If a new run is being created, the description is set on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -279,6 +274,16 @@ def start_run(
         _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
+        tags = tags or {}
+        if description:
+            if MLFLOW_RUN_NOTE in tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            tags[MLFLOW_RUN_NOTE] = description
+
         if tags:
             client.log_batch(
                 run_id=existing_run_id,
@@ -294,6 +299,14 @@ def start_run(
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = deepcopy(tags) or {}
+        if description:
+            if MLFLOW_RUN_NOTE in user_specified_tags:
+                raise MlflowException(
+                    f"Description is already set via the tag {MLFLOW_RUN_NOTE} in tags."
+                    f"Remove the key {MLFLOW_RUN_NOTE} from the tags or omit the description.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            user_specified_tags[MLFLOW_RUN_NOTE] = description
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
@@ -337,12 +350,13 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack
+    global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
+        _last_active_run_id = run.info.run_id
 
 
 atexit.register(end_run)
@@ -371,6 +385,64 @@ def active_run() -> Optional[ActiveRun]:
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+
+
+def last_active_run() -> Optional[Run]:
+    """
+    Gets the most recent active run.
+
+    Examples:
+
+    .. code-block:: python
+        :caption: To retrieve the most recent autologged run:
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+        autolog_run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To get the most recently active run that ended:
+
+        import mlflow
+
+        mlflow.start_run()
+        mlflow.end_run()
+        run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To retrieve the currently active run:
+
+        import mlflow
+
+        mlflow.start_run()
+        run = mlflow.last_active_run()
+        mlflow.end_run()
+
+    :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
+             Otherwise, the last run started from the current Python process that reached
+             a terminal status (i.e. FINISHED, FAILED, or KILLED).
+    """
+    _active_run = active_run()
+    if _active_run is not None:
+        return _active_run
+    if _last_active_run_id is None:
+        return None
+    return get_run(_last_active_run_id)
 
 
 def get_run(run_id: str) -> Run:
@@ -1067,11 +1139,16 @@ def search_runs(
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
+    experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
-    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
+                           experiment names, but not both in the same call. Values other than
+                           ``None`` or ``[]`` will result in error if ``experiment_names`` is
+                           also not ``None`` or ``[]``. ``None`` will default to the active
+                           experiment if ``experiment_names`` is ``None`` or ``[]``.
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
@@ -1085,7 +1162,11 @@ def search_runs(
                           is returned.
     :param search_all_experiments: Boolean specifying whether all experiments should be searched.
         Only honored if ``experiment_ids`` is ``[]`` or ``None``.
-
+    :param experiment_names: List of experiment names. Search can work with experiment IDs or
+                             experiment names, but not both in the same call. Values other
+                             than ``None`` or ``[]`` will result in error if ``experiment_ids``
+                             is also not ``None`` or ``[]``. ``None`` will default to the active
+                             experiment if ``experiment_ids`` is ``None`` or ``[]``.
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
              parameter, and tag is expanded into its own column named metrics.*, params.*, or
@@ -1099,7 +1180,8 @@ def search_runs(
         import mlflow
 
         # Create an experiment and log two runs under it
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_name = "Social NLP Experiments"
+        experiment_id = mlflow.create_experiment(experiment_name)
         with mlflow.start_run(experiment_id=experiment_id):
             mlflow.log_metric("m", 1.55)
             mlflow.set_tag("s.release", "1.1.0-RC")
@@ -1107,7 +1189,7 @@ def search_runs(
             mlflow.log_metric("m", 2.50)
             mlflow.set_tag("s.release", "1.2.0-GA")
 
-        # Search all runs in experiment_id
+        # Search for all the runs in the experiment with the given experiment ID
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
@@ -1117,6 +1199,12 @@ def search_runs(
         filter_string = "tags.s.release ILIKE '%rc%'"
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
         print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+
+        # Search for all the runs in the experiment with the given experiment name
+        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+
 
     .. code-block:: text
         :caption: Output
@@ -1127,13 +1215,29 @@ def search_runs(
         --
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
+    no_ids = experiment_ids is None or len(experiment_ids) == 0
+    no_names = experiment_names is None or len(experiment_names) == 0
+    no_ids_or_names = no_ids and no_names
+    if not no_ids and not no_names:
+        raise MlflowException(
+            message="Only experiment_ids or experiment_names can be used, but not both",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if search_all_experiments and no_ids_or_names:
         experiment_ids = [
             exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
-    elif experiment_ids is None or len(experiment_ids) == 0:
+    elif no_ids_or_names:
         experiment_ids = _get_experiment_id()
+    elif not no_names:
+        experiments = [get_experiment_by_name(n) for n in experiment_names if n is not None]
+        experiment_ids = [e.experiment_id for e in experiments if e is not None]
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
@@ -1284,6 +1388,7 @@ def list_run_infos(
         - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
         - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
     """
+
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -1342,31 +1447,11 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    # TODO: Replace with None for 1.0, leaving for 0.9.1 release backcompat with existing servers
-    deprecated_default_exp_id = "0"
-
     return (
         _active_experiment_id
         or _get_experiment_id_from_env()
-        or (is_in_databricks_notebook() and get_notebook_id())
-        or (is_in_databricks_job() and get_job_type_info() == "NORMAL" and _create_job_experiment())
-    ) or deprecated_default_exp_id
-
-
-def _create_job_experiment() -> str:
-    job_id = get_job_id()
-    tags = {}
-    tags[MLFLOW_DATABRICKS_JOB_TYPE_INFO] = get_job_type_info()
-    tags[MLFLOW_EXPERIMENT_SOURCE_TYPE] = SourceType.to_string(SourceType.JOB)
-    tags[MLFLOW_EXPERIMENT_SOURCE_ID] = job_id
-
-    experiment_id = create_experiment(get_experiment_name_from_job_id(job_id), None, tags)
-    _logger.debug(
-        "Job experiment with experiment_id '%s' created",
-        experiment_id,
+        or default_experiment_registry.get_experiment_id()
     )
-
-    return experiment_id
 
 
 @autologging_integration("mlflow")

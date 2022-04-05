@@ -5,6 +5,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.keras
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
@@ -172,7 +173,7 @@ def get_keras_random_data_run_with_callback(
 
         class CustomCallback(keras.callbacks.Callback):
             def on_train_end(self, logs=None):
-                print("Training completed")
+                pass
 
         callback = CustomCallback()
 
@@ -404,3 +405,19 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     assert params["steps_per_epoch"] == "1"
     assert "acc" in metrics
     assert "loss" in metrics
+
+
+@pytest.mark.large
+def test_autolog_registering_model(random_train_data, random_one_hot_labels):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.keras.autolog(registered_model_name=registered_model_name)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_model()
+    with mlflow.start_run():
+        model.fit(data, labels, epochs=10)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

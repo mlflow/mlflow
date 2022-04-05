@@ -5,9 +5,9 @@ import os
 import shutil
 import tempfile
 import pytorch_lightning as pl
-from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     BatchMetricsLogger,
@@ -28,6 +28,13 @@ logging.basicConfig(level=logging.ERROR)
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
+
+
+_pl_version = Version(pl.__version__)
+if _pl_version < Version("1.5.0"):
+    from pytorch_lightning.core.memory import ModelSummary
+else:
+    from pytorch_lightning.utilities.model_summary import ModelSummary
 
 
 def _get_optimizer_name(optimizer):
@@ -57,15 +64,25 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     Callback for auto-logging metrics and parameters.
     """
 
-    def __init__(self, client, metrics_logger, run_id, log_models, log_every_n_epoch):
+    def __init__(
+        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+    ):
+        if log_every_n_step and _pl_version < Version("1.1.0"):
+            raise MlflowException(
+                "log_every_n_step is only supported for PyTorch-Lightning >= 1.1.0"
+            )
         self.early_stopping = False
         self.client = client
         self.metrics_logger = metrics_logger
         self.run_id = run_id
         self.log_models = log_models
         self.log_every_n_epoch = log_every_n_epoch
+        self.log_every_n_step = log_every_n_step
+        # Sets for tracking which metrics are logged on steps and which are logged on epochs
+        self._step_metrics = set()
+        self._epoch_metrics = set()
 
-    def _log_metrics(self, trainer, pl_module):
+    def _log_metrics(self, trainer, step, metric_items):
         # pytorch-lightning runs a few steps of validation in the beginning of training
         # as a sanity check to catch bugs without having to wait for the training routine
         # to complete. During this check, we should skip logging metrics.
@@ -80,13 +97,24 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         if sanity_checking:
             return
 
-        if (pl_module.current_epoch + 1) % self.log_every_n_epoch == 0:
-            # `trainer.callback_metrics` contains both training and validation metrics
-            cur_metrics = trainer.callback_metrics
-            # Cast metric value as  float before passing into logger.
-            metrics = dict(map(lambda x: (x[0], float(x[1])), cur_metrics.items()))
+        # Cast metric value as  float before passing into logger.
+        metrics = dict(map(lambda x: (x[0], float(x[1])), metric_items))
+        self.metrics_logger.record_metrics(metrics, step)
 
-            self.metrics_logger.record_metrics(metrics, pl_module.current_epoch)
+    def _log_epoch_metrics(self, trainer, pl_module):
+        # `trainer.callback_metrics` contains both training and validation metrics
+        # and includes metrics logged on steps and epochs.
+        # If we have logged any metrics on a step basis in mlflow, we exclude these from the
+        # epoch level metrics to prevent mixing epoch and step based values.
+        metric_items = [
+            (name, val)
+            for (name, val) in trainer.callback_metrics.items()
+            if name not in self._step_metrics
+        ]
+        # Record which metrics are logged on epochs, so we don't try to log these on steps
+        self._epoch_metrics.update(name for (name, _) in metric_items)
+        if (pl_module.current_epoch + 1) % self.log_every_n_epoch == 0:
+            self._log_metrics(trainer, pl_module.current_epoch, metric_items)
 
     _pl_version = Version(pl.__version__)
 
@@ -100,7 +128,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         def on_train_epoch_end(
             self, trainer, pl_module, *args
         ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
-            self._log_metrics(trainer, pl_module)
+            self._log_epoch_metrics(trainer, pl_module)
 
     # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
     # metrics records because `on_epoch_end` is called after both train and validation
@@ -128,7 +156,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
             # records twice
             if not trainer.enable_validation:
-                self._log_metrics(trainer, pl_module)
+                self._log_epoch_metrics(trainer, pl_module)
 
         @rank_zero_only
         def on_validation_epoch_end(self, trainer, pl_module):
@@ -138,7 +166,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
-            self._log_metrics(trainer, pl_module)
+            self._log_epoch_metrics(trainer, pl_module)
 
     else:
 
@@ -150,7 +178,35 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
-            self._log_metrics(trainer, pl_module)
+            self._log_epoch_metrics(trainer, pl_module)
+
+    @rank_zero_only
+    def on_train_batch_end(
+        self, trainer, pl_module, *args
+    ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+        """
+        Log metric values after each step
+
+        :param trainer: pytorch lightning trainer instance
+        :param pl_module: pytorch lightning base module
+        """
+        if not self.log_every_n_step:
+            return
+        # When logging at the end of a batch step, we only want to log metrics that are logged
+        # on steps. For forked metrics (metrics logged on both steps and epochs), we exclude the
+        # metric with the non-forked name (eg. "loss" when we have "loss", "loss_step" and
+        # "loss_epoch") so that this is only logged on epochs. We also record which metrics
+        # we've logged per step, so we can later exclude these from metrics logged on epochs.
+        metrics = _get_step_metrics(trainer)
+        metric_items = [
+            (name, val)
+            for (name, val) in metrics.items()
+            if (name not in self._epoch_metrics) and (f"{name}_step" not in metrics.keys())
+        ]
+        self._step_metrics.update(name for (name, _) in metric_items)
+        step = trainer.global_step
+        if (step + 1) % self.log_every_n_step == 0:
+            self._log_metrics(trainer, step, metric_items)
 
     @rank_zero_only
     def on_train_start(self, trainer, pl_module):
@@ -209,6 +265,21 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             {key: float(value) for key, value in trainer.callback_metrics.items()}
         )
         self.metrics_logger.flush()
+
+
+# PyTorch-Lightning refactored the LoggerConnector class in version 1.4.0 and made metrics
+# update on demand. Prior to this, the metrics from the current step were not available to
+# callbacks immediately, so the view of metrics was off by one step.
+# To avoid this problem, we access the metrics via the logger_connector for older versions.
+if _pl_version >= Version("1.4.0"):
+
+    def _get_step_metrics(trainer):
+        return trainer.callback_metrics
+
+else:
+
+    def _get_step_metrics(trainer):
+        return trainer.logger_connector.cached_results.get_latest_batch_log_metrics()
 
 
 def _log_early_stop_params(early_stop_callback, client, run_id):
@@ -276,6 +347,7 @@ def patched_fit(original, self, *args, **kwargs):
 
     log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
     log_every_n_epoch = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_epoch", 1)
+    log_every_n_step = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_every_n_step", None)
 
     early_stop_callback = None
     for callback in self.callbacks:
@@ -285,7 +357,9 @@ def patched_fit(original, self, *args, **kwargs):
 
     if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
         self.callbacks += [
-            __MLflowPLCallback(client, metrics_logger, run_id, log_models, log_every_n_epoch)
+            __MLflowPLCallback(
+                client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step
+            )
         ]
 
     client.flush(synchronous=False)
@@ -311,7 +385,14 @@ def patched_fit(original, self, *args, **kwargs):
         shutil.rmtree(tempdir)
 
     if log_models:
-        mlflow.pytorch.log_model(pytorch_model=self.model, artifact_path="model")
+        registered_model_name = get_autologging_config(
+            mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
+        )
+        mlflow.pytorch.log_model(
+            pytorch_model=self.model,
+            artifact_path="model",
+            registered_model_name=registered_model_name,
+        )
 
         if early_stop_callback is not None and self.checkpoint_callback.best_model_path:
             mlflow.log_artifact(

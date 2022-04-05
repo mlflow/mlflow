@@ -34,7 +34,12 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 
 FLAVOR_NAME = "spacy"
 
@@ -63,6 +68,7 @@ def save_model(
     spacy_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -75,6 +81,9 @@ def save_model(
     :param spacy_model: spaCy model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -103,15 +112,12 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException(
-            "Unable to save MLflow model to {path} - path '{path}' "
-            "already exists".format(path=path)
-        )
+    _validate_and_prepare_target_save_path(path)
 
     model_data_subpath = "model.spacy"
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -122,7 +128,6 @@ def save_model(
 
     # Save spacy-model
     spacy_model.to_disk(path=model_data_path)
-
     # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
     if any(
         [
@@ -135,6 +140,7 @@ def save_model(
             loader_module="mlflow.spacy",
             data=model_data_subpath,
             env=_CONDA_ENV_FILE_NAME,
+            code=code_dir_subpath,
         )
     else:
         _logger.warning(
@@ -145,7 +151,9 @@ def save_model(
             "component that is an instance of spacy.pipeline.TextCategorizer."
         )
 
-    mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath, code=code_dir_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -185,6 +193,7 @@ def log_model(
     spacy_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -198,6 +207,9 @@ def log_model(
     :param spacy_model: spaCy model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -232,6 +244,7 @@ def log_model(
         registered_model_name=registered_model_name,
         spacy_model=spacy_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         pip_requirements=pip_requirements,
@@ -269,7 +282,7 @@ class _SpacyModelWrapper:
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``spacy`` flavor.
     """
@@ -300,6 +313,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
     spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))

@@ -6,6 +6,7 @@ utc_time_created: '2018-08-10 18:34:28.720095'
 run_id: c228016dea284522882b657d91eeffa6
 artifact_path: model
 model_uuid: 4ab08bf9d91e4535bc2719f9210840c3
+mlflow_version: 1.25.0
 signature:
   inputs: '[{"name": "fixed acidity", "type": "double"}, {"name": "volatile acidity",
     "type": "double"}, {"name": "citric acid", "type": "double"}, {"name": "residual
