@@ -7,6 +7,7 @@ import hashlib
 from enum import Enum
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
@@ -133,12 +134,13 @@ class PythonEnv:
                 raise MlflowException(
                     f"Invalid conda dependency: {dep}. Must be str or dict in the form of "
                     '{"pip": [...]}',
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
         if python is None:
             raise MlflowException(
-                f"Failed to construct a `PythonEnv` object from {path} which does not contain"
-                "a conda dependency for python (e.g. 'python=3.7.12')"
+                f"Could not extract python version from {path}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         return cls(
