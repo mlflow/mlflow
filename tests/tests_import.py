@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import uuid
 
 
@@ -29,6 +30,7 @@ fi
     )
     tmp_script.chmod(0o777)
     workdir = "/app"
+    python_ver = ".".join(map(str, sys.version_info[:2]))
     subprocess.run(
         [
             "docker",
@@ -40,7 +42,7 @@ fi
             f"{os.getcwd()}:{workdir}",
             "-v",
             f"{tmp_path}:/tmp/{uid}",
-            "python:3.7",
+            f"python:{python_ver}",
             "bash",
             "-c",
             f"/tmp/{uid}/{tmp_script.name}",
