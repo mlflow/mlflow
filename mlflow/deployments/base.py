@@ -83,8 +83,8 @@ class BaseEndpointClient(abc.ABC):
             (e.g. on failure to deploy a model).
         """
 
-    def __init__(self, target_uri):
-        self.target_uri = target_uri
+    def __init__(self):
+        pass
 
     @abc.abstractmethod
     def create_endpoint(self, name, config=None):
