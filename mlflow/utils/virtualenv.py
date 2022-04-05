@@ -1,6 +1,5 @@
 import os
 import logging
-import subprocess
 import hashlib
 import shutil
 import uuid
@@ -73,7 +72,7 @@ def _is_pyenv_available():
     """
     Returns True if pyenv is available, otherwise False.
     """
-    return subprocess.run(["pyenv", "--version"], capture_output=True, check=False).returncode == 0
+    return shutil.which("pyenv") is not None
 
 
 def _validate_pyenv_is_available():
@@ -92,10 +91,7 @@ def _is_virtualenv_available():
     """
     Returns True if virtualenv is available, otherwise False.
     """
-    return (
-        subprocess.run(["virtualenv", "--version"], capture_output=True, check=False).returncode
-        == 0
-    )
+    return shutil.which("virtualenv") is not None
 
 
 def _validate_virtualenv_is_available():
