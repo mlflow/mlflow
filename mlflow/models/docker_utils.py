@@ -40,6 +40,9 @@ WORKDIR /opt/mlflow
 {install_mlflow}
 
 {custom_setup_steps}
+
+RUN chmod o+rwX /opt/mlflow/
+
 {entrypoint}
 """
 
