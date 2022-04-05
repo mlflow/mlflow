@@ -101,6 +101,9 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
                 safe_patch_call_count = (
                     safe_patch_mock.call_count + sklearn_safe_patch_mock.call_count
                 )
+
+                # Assert autolog integrations use the fluent API for run management. This is to
+                # ensure certain fluent API methods like mlflow.last_active_run behaves as expected.
                 assert any(
                     kwargs["manage_run"]
                     for _, kwargs in sklearn_safe_patch_mock.call_args_list
@@ -111,6 +114,8 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration
             safe_patch_call_count = safe_patch_mock.call_count
 
         if integration.__name__ != "mlflow.spark":
+            # Assert autolog integrations use the fluent API for run management. This is to
+            # ensure certain fluent API methods like mlflow.last_active_run behaves as expected.
             assert any(
                 kwargs["manage_run"]
                 for _, kwargs in safe_patch_mock.call_args_list
