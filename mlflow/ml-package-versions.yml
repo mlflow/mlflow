@@ -383,10 +383,7 @@ diviner:
   package_info:
     pip_release: "diviner"
     install_dev: |
-      if [ ! -d "$CACHE_DIR" ] || [ -z $(find $CACHE_DIR -type f -name "diviner-*.whl") ]; then
-        pip wheel --no-deps --wheel-dir $CACHE_DIR git+https://github.com/databricks/diviner.git
-      fi
-      pip install $CACHE_DIR/diviner-*.whl
+      pip install git+https://github.com/databricks/diviner.git
 
   models:
     minimum: "0.1.0"
