@@ -278,6 +278,51 @@ def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_mo
 
 
 @pytest.mark.large
+def test_scoring_server_can_return_json_in_split_orientation(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_records = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_NUMPY,
+        headers={pyfunc_scoring_server.HEADER_ORIENTATION:pyfunc_scoring_server.ORIENTATION_SPLIT}
+    )
+    assert response_records.status_code == 200
+    assert pd.DataFrame.from_dict(response_records, orient='split') is not None
+
+
+@pytest.mark.large
+def test_scoring_server_can_return_json_in_records_orientation(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_records = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_NUMPY,
+        headers={pyfunc_scoring_server.HEADER_ORIENTATION:pyfunc_scoring_server.ORIENTATION_RECORDS}
+    )
+    assert response_records.status_code == 200
+    assert pd.DataFrame.from_dict(response_records, orient='records') is not None
+
+
+@pytest.mark.large
+def test_scoring_server_can_return_json_in_columns_orientation(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_records = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_NUMPY,
+        headers={pyfunc_scoring_server.HEADER_ORIENTATION:pyfunc_scoring_server.ORIENTATION_COLUMNS}
+    )
+    assert response_records.status_code == 200
+    assert pd.DataFrame.from_dict(response_records, orient='columns') is not None
+
+
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
     sklearn_model, model_path
 ):
