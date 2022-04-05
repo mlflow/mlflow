@@ -302,6 +302,7 @@ def test_mlflow_artifact_only_raises_with_invalid_backend_store_uri():
         result = CliRunner().invoke(
             server,
             ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+            catch_exceptions=False,
         )
         assert result.output.startswith(
             "The server configuration is set as '--artifacts-only` with a non-local "
