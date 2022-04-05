@@ -237,11 +237,8 @@ def test_diviner_load_from_remote_uri_succeeds(grouped_pmdarima, model_path, moc
 
 
 def test_diviner_log_model(grouped_prophet, tmpdir):
-
-    old_uri = mlflow.get_tracking_uri()
     for should_start_run in [False, True]:
         try:
-            mlflow.set_tracking_uri("mlruns")
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "diviner"
@@ -267,7 +264,6 @@ def test_diviner_log_model(grouped_prophet, tmpdir):
             assert model_path.joinpath(env_path).exists()
         finally:
             mlflow.end_run()
-            mlflow.set_tracking_uri(old_uri)
 
 
 def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):

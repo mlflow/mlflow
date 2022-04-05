@@ -203,11 +203,9 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
 
 
 def test_model_log(prophet_model):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
                 artifact_path = "prophet"
@@ -235,7 +233,6 @@ def test_model_log(prophet_model):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(prophet_model):
