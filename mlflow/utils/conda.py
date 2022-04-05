@@ -85,12 +85,15 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments():
-    prc = process._exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+def _list_conda_environments(extra_env=None):
+    prc = process._exec_cmd(
+        [get_conda_bin_executable("conda"), "env", "list", "--json"],
+        extra_env=extra_env
+    )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
-def _get_conda_env_root_dir_env(conda_env_root_dir):
+def _get_conda_env_root_dir_env(conda_env_root_dir=None):
     if conda_env_root_dir is not None:
         # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
         # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
@@ -159,10 +162,10 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
         # be raised.
         project_env_name = project_env_name + "-isolated"
 
-    if project_env_name not in _list_conda_environments():
+    if project_env_name not in _list_conda_environments(extra_env=additional_env):
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         if conda_env_root_dir is not None:
-            _logger.info("Use isolated conda environment root directory: %s", conda_env_root_dir)
+            _logger.info("Using isolated conda environment root directory: %s", conda_env_root_dir)
         try:
             if conda_env_path:
                 process._exec_cmd(
@@ -175,7 +178,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                         "--file",
                         conda_env_path,
                     ],
-                    env=additional_env,
+                    extra_env=additional_env,
                     capture_output=capture_output,
                 )
             else:
@@ -191,12 +194,12 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                         project_env_name,
                         "python",
                     ],
-                    env=additional_env,
+                    extra_env=additional_env,
                     capture_output=capture_output,
                 )
         except Exception:
             try:
-                if project_env_name in _list_conda_environments():
+                if project_env_name in _list_conda_environments(extra_env=additional_env):
                     _logger.warning(
                         "Encountered unexpected error while creating conda environment. "
                         "Removing %s.",
@@ -211,6 +214,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
                             project_env_name,
                             "--all",
                         ],
+                        extra_env=additional_env,
                         capture_output=False,
                     )
             except Exception as e:
@@ -221,7 +225,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, c
     else:
         if conda_env_root_dir is not None:
             _logger.info(
-                "Reuse cached conda environment at %s",
+                "Reusing cached conda environment at %s",
                 os.path.join(conda_env_root_dir, project_env_name)
             )
 

@@ -1020,17 +1020,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     env_manager = _EnvManager.from_string(env_manager)
 
-    if env_manager != "local" and os.name == "nt":
-        # TODO:
-        #  support windows system.
-        #   1. Address the issue killing mlflow server process when pyspark UDF task process died
-        #      (spark job canceled)
-        #   2. Addresss potential pyenv race condition issues on windows.
-        raise MlflowException(
-            f"`mlflow.pyfunc.spark_udf` env_manager value '{env_manager}' dose not support "
-            "windows system."
-        )
-
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
     is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
@@ -1094,7 +1083,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # otherwise user have to check cluster driver log to find command stdout/stderr output.
         if env_manager is _EnvManager.CONDA:
             _get_flavor_backend(
-                local_model_path, no_conda=False, install_mlflow=False,
+                local_model_path, env_manager=_EnvManager.CONDA, install_mlflow=False,
                 conda_env_root_dir=conda_env_root_dir
             ).prepare_env(
                 model_uri=local_model_path,
