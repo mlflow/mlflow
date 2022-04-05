@@ -378,3 +378,15 @@ pmdarima:
     requirements: ["prophet"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py --large
+
+diviner:
+  package_info:
+    pip_release: "diviner"
+    install_dev: |
+      pip install git+https://github.com/databricks/diviner.git
+
+  models:
+    minimum: "0.1.0"
+    maximum: "0.1.0"
+    run: |
+      pytest tests/diviner/test_diviner_model_export.py --large
