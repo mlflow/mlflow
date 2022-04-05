@@ -160,11 +160,9 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
 
 @pytest.mark.large
 def test_model_log(sklearn_logreg_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -197,7 +195,6 @@ def test_model_log(sklearn_logreg_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(sklearn_logreg_model):
