@@ -11,23 +11,15 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
     _get_mlflow_env_name,
+    _get_pip_install_mlflow,
 )
 from mlflow.utils.conda import _get_conda_dependencies
-from mlflow.version import VERSION
 
 
 _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
 
 
 _logger = logging.getLogger(__name__)
-
-
-def _get_pip_install_mlflow():
-    mlflow_home = os.getenv("MLFLOW_HOME")
-    if mlflow_home:  # dev version
-        return "pip install -e {} 1>&2".format(mlflow_home)
-    else:
-        return "pip install mlflow=={} 1>&2".format(VERSION)
 
 
 def _get_mlflow_env_root():

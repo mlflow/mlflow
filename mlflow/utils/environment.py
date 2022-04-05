@@ -13,6 +13,7 @@ from mlflow.utils.requirements_utils import (
     _infer_requirements,
     _get_package_name,
 )
+from mlflow.version import VERSION
 from packaging.requirements import Requirement, InvalidRequirement
 
 _logger = logging.getLogger(__name__)
@@ -501,3 +502,16 @@ def _get_mlflow_env_name(s):
               (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
     """
     return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+def _get_pip_install_mlflow():
+    """
+    Returns a command to pip-install mlflow. If the MLFLOW_HOME environment variable exists,
+    returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
+    "pip install mlflow=={mlflow.__version__} 1>&2".
+    """
+    mlflow_home = os.getenv("MLFLOW_HOME")
+    if mlflow_home:  # dev version
+        return "pip install -e {} 1>&2".format(mlflow_home)
+    else:
+        return "pip install mlflow=={} 1>&2".format(VERSION)
