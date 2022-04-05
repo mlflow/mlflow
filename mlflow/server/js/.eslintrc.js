@@ -4,17 +4,20 @@ module.exports = {
     'react-app',
     'prettier',
   ],
-  'parser': 'babel-eslint',
   'plugins': [
     'prettier',
     'react',
   ],
+  "parser": "@babel/eslint-parser",
   'parserOptions': {
     'sourceType': 'module',
     'ecmaVersion': 7,
     'ecmaFeatures': {
       'jsx': true,
     },
+    "babelOptions": {
+      "presets": ["@babel/preset-react"]
+    }
   },
   'env': {
     'es6': true,

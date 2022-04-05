@@ -193,6 +193,7 @@ export class ExperimentListView extends Component {
                       onClick={this.handleDeleteExperiment}
                       data-experimentid={experiment_id}
                       data-experimentname={name}
+                      style={{ marginRight: 10 }}
                     />
                   </div>
                 );

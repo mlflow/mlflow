@@ -30,6 +30,8 @@ export class SectionErrorBoundary extends React.Component {
             <i className={`fa fa-exclamation-triangle icon-fail ${classNames.wrapper}`} />
             <span> Something went wrong with this section. </span>
             <span>If this error persists, please report an issue </span>
+            {/* Reported during ESLint upgrade */}
+            {/* eslint-disable-next-line react/jsx-no-target-blank */}
             <a href={Utils.getSupportPageUrl()} target='_blank'>
               here
             </a>

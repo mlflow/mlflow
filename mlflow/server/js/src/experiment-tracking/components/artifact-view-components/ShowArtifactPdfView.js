@@ -9,7 +9,7 @@ import './ShowArtifactPdfView.css';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
-pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdf.worker.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
 
 class ShowArtifactPdfView extends Component {
   state = {

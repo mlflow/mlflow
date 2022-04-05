@@ -307,6 +307,8 @@ export class ModelVersionViewImpl extends React.Component {
     const { modelVersion, runInfo } = this.props;
     if (modelVersion.run_link) {
       return (
+        // Reported during ESLint upgrade
+        // eslint-disable-next-line react/jsx-no-target-blank
         <a target='_blank' href={modelVersion.run_link}>
           {this.resolveRunName()}
         </a>

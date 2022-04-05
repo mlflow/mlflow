@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import { getExperimentApi, getRunApi } from '../actions';
+import { getRunApi, getExperimentApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -10,7 +10,7 @@ import { PageContainer } from '../../common/components/PageContainer';
 
 class CompareRunPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     dispatch: PropTypes.func.isRequired,
   };
@@ -20,10 +20,16 @@ class CompareRunPage extends Component {
     this.requestIds = [];
   }
 
+  fetchExperiments() {
+    return this.props.experimentIds.map((experimentId) => {
+      const experimentRequestId = getUUID();
+      this.props.dispatch(getExperimentApi(experimentId, experimentRequestId));
+      return experimentRequestId;
+    });
+  }
+
   componentDidMount() {
-    const experimentRequestId = getUUID();
-    this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
-    this.requestIds.push(experimentRequestId);
+    this.requestIds.push(...this.fetchExperiments());
     this.props.runUuids.forEach((runUuid) => {
       const requestId = getUUID();
       this.requestIds.push(requestId);
@@ -35,7 +41,7 @@ class CompareRunPage extends Component {
     return (
       <PageContainer>
         <RequestStateWrapper requestIds={this.requestIds}>
-          <CompareRunView runUuids={this.props.runUuids} experimentId={this.props.experimentId} />
+          <CompareRunView runUuids={this.props.runUuids} experimentIds={this.props.experimentIds} />
         </RequestStateWrapper>
       </PageContainer>
     );
@@ -46,8 +52,8 @@ const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   const runUuids = JSON.parse(searchValues['?runs']);
-  const experimentId = searchValues['experiment'];
-  return { experimentId, runUuids };
+  const experimentIds = JSON.parse(searchValues['experiments']);
+  return { experimentIds, runUuids };
 };
 
 export default connect(mapStateToProps)(CompareRunPage);

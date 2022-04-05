@@ -52,7 +52,7 @@ describe('GenericInputModal', () => {
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'successful submission case',
-    async (done) => {
+    async () => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       wrapper = shallow(<GenericInputModal {...minimalProps} />);
@@ -68,14 +68,13 @@ describe('GenericInputModal', () => {
       // no longer be submitting
       expect(resetFieldsMock).toBeCalled();
       expect(instance.state.isSubmitting).toEqual(false);
-      done();
     },
   );
 
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'failed validation case',
-    async (done) => {
+    async () => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       const form = <SimpleForm shouldValidationThrow resetFieldsFn={resetFieldsMock} />;
@@ -90,21 +89,25 @@ describe('GenericInputModal', () => {
       };
       const onValidationPromise = instance.onSubmit();
       expect(instance.state.isSubmitting).toEqual(true);
-      await onValidationPromise.catch((e) => {
+      try {
+        await onValidationPromise;
+        // Reported during ESLint upgrade
+        // eslint-disable-next-line no-undef
+        fail('Must throw');
+      } catch (e) {
         // For validation errors, the form should not be reset (so that the user can fix the
         // validation error)
         expect(resetFieldsMock).not.toBeCalled();
         expect(handleSubmit).not.toBeCalled();
         expect(instance.state.isSubmitting).toEqual(false);
-        done();
-      });
+      }
     },
   );
 
   test(
     'should validate form contents and set submitting state in submission handler: ' +
       'failed submission case',
-    async (done) => {
+    async () => {
       // Test that validateFields() is called, and that handleSubmit is not called
       // when validation fails (and submitting state remains false)
       const form = <SimpleForm shouldValidationThrow={false} resetFieldsFn={resetFieldsMock} />;
@@ -129,7 +132,6 @@ describe('GenericInputModal', () => {
       // validation error)
       expect(resetFieldsMock).toBeCalled();
       expect(instance.state.isSubmitting).toEqual(false);
-      done();
     },
   );
 });
