@@ -271,24 +271,6 @@ class BaseEndpointClient(abc.ABC):
         """
         pass
 
-    @experimental
-    def explain(self, endpoint, df, deployment=None):  # pylint: disable=unused-argument
-        """
-        Generate explanations of model predictions on the specified input pandas Dataframe
-        ``df`` for the deployed model. Explanation output formats vary by deployment target,
-        and can include details like feature importance for understanding/debugging predictions.
-
-        :param endpoint: Name of the endpoint to issue the prediction against
-        :param df: Pandas DataFrame to use for explaining feature importance in model prediction
-        :param deployment: If provided issue a prediction against the specified endpoint,
-                           bypassing the endpoint traffic settings
-        :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
-                 an exception if the implementation is not available in deployment target's class
-        """
-        raise MlflowException(
-            "Computing model explanations is not yet supported for this deployment target"
-        )
-
 
 class BaseDeploymentClient(abc.ABC):
     """
