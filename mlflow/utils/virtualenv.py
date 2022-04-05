@@ -68,10 +68,14 @@ def _validate_pyenv_is_available():
     Validates pyenv is available. If not, throws an `MlflowException` with a brief instruction on
     how to install pyenv.
     """
+    url = (
+        "https://github.com/pyenv/pyenv#installation"
+        if _IS_UNIX
+        else "https://github.com/pyenv-win/pyenv-win#installation"
+    )
     if not _is_pyenv_available():
         raise MlflowException(
-            "pyenv must be available to restore a model environment with virtualenv. Follow "
-            "https://github.com/pyenv/pyenv#installation to install."
+            f"Could not find the pyenv binary. See {url} for installation instructions."
         )
 
 
@@ -89,8 +93,8 @@ def _validate_virtualenv_is_available():
     """
     if not _is_virtualenv_available():
         raise MlflowException(
-            "virtualenv must be available to restore a model environment with virtualenv. "
-            "Run `pip install virtualenv` to install."
+            "Could not find the virtualenv binary. Run `pip install virtualenv` to install "
+            "virtualenv."
         )
 
 
