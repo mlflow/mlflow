@@ -22,7 +22,7 @@ _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
 _logger = logging.getLogger(__name__)
 
 
-def _get_mlflow_env_root():
+def _get_mlflow_virtualenv_root():
     """
     Returns the root directory to store virtualenv environments created by MLflow.
     """
@@ -155,7 +155,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
     # Create an environment
     python_bin_path = _install_python(python_env.python)
     env_name = _get_mlflow_env_name(str(python_env) + (env_id or ""))
-    env_root = Path(_get_mlflow_env_root())
+    env_root = Path(_get_mlflow_virtualenv_root())
     env_root.mkdir(parents=True, exist_ok=True)
     env_dir = env_root / env_name
     env_exists = env_dir.exists()
