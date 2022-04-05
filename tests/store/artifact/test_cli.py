@@ -90,7 +90,7 @@ def _run_download_artifact_command(command):
     p = Popen(command, stdout=PIPE, stderr=STDOUT)
     output = p.stdout.readlines()
     download_output_path = pathlib.Path(output[-1].strip().decode("utf-8"))
-    downloaded_file = list(download_output_path.iterdir())[0]
+    downloaded_file = next(download_output_path.iterdir())
     return downloaded_file.read_text()
 
 
@@ -135,8 +135,10 @@ def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_subdi
     artifact_uri = f"runs:/{run.info.run_id}/{artifact_path}"
     dst_path = tmp_path / dst_subdir_path if dst_subdir_path else tmp_path
 
-    command = ["mlflow", "artifacts", "download", "-u", artifact_uri, "-d", dst_path]
-    p = Popen(command, stdout=PIPE, stderr=STDOUT)
+    command = ["mlflow", "artifacts", "download", "-u", artifact_uri, "-d", str(dst_path)]
+    p = Popen(command, stdout=PIPE, stderr=STDOUT, text=True)
+    p.wait()
+    assert p.returncode == 0
     output = p.stdout.readlines()
-    downloaded_file_path = output[-1].strip().decode("utf-8")
+    downloaded_file_path = output[-1].strip()
     assert downloaded_file_path.startswith(str(dst_path))

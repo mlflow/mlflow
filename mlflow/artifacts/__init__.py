@@ -34,9 +34,7 @@ def download_artifacts(
                      filesystem, in which case their local path is returned directly.
     :return: The location of the artifact file or directory on the local filesystem.
     """
-    if (run_id is None and artifact_uri is None) or (
-        run_id is not None and artifact_uri is not None
-    ):
+    if (run_id, artifact_uri).count(None) != 1:
         raise MlflowException(
             message="Exactly one of `run_id` or `artifact_uri` must be specified",
             error_code=INVALID_PARAMETER_VALUE,
@@ -48,7 +46,7 @@ def download_artifacts(
         )
 
     if dst_path is not None:
-        pathlib.Path(dst_path).mkdir(exist_ok=True)
+        pathlib.Path(dst_path).mkdir(exist_ok=True, parents=True)
 
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)

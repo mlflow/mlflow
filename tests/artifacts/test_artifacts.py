@@ -24,7 +24,7 @@ def test_download_artifacts_with_uri(run_with_artifact):
     actual_uri = pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path
     for uri in (run_uri, actual_uri):
         download_output_path = mlflow.artifacts.download_artifacts(artifact_uri=uri)
-        downloaded_artifact_path = list(pathlib.Path(download_output_path).iterdir())[0]
+        downloaded_artifact_path = next(pathlib.Path(download_output_path).iterdir())
         assert downloaded_artifact_path.read_text() == artifact_content
 
 
@@ -33,21 +33,19 @@ def test_download_artifacts_with_run_id_and_path(run_with_artifact):
     download_output_path = mlflow.artifacts.download_artifacts(
         run_id=run.info.run_id, artifact_path=artifact_path
     )
-    downloaded_artifact_path = list(pathlib.Path(download_output_path).iterdir())[0]
+    downloaded_artifact_path = next(pathlib.Path(download_output_path).iterdir())
     assert downloaded_artifact_path.read_text() == artifact_content
 
 
 def test_download_artifacts_with_run_id_no_path(run_with_artifact):
     run, artifact_path, _ = run_with_artifact
-    artifact_relative_path_top_level_dir = pathlib.Path(artifact_path).parts[0]
+    artifact_relative_path_top_level_dir = pathlib.PurePosixPath(artifact_path).parts[0]
     downloaded_output_path = mlflow.artifacts.download_artifacts(run_id=run.info.run_id)
-    downloaded_artifact_directory_name = list(pathlib.Path(downloaded_output_path).iterdir())[
-        0
-    ].name
+    downloaded_artifact_directory_name = next(pathlib.Path(downloaded_output_path).iterdir()).name
     assert downloaded_artifact_directory_name == artifact_relative_path_top_level_dir
 
 
-@pytest.mark.parametrize("dst_subdir_path", [None, "doesnt_exist_yet"])
+@pytest.mark.parametrize("dst_subdir_path", [None, "doesnt_exist_yet/subdiir"])
 def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_subdir_path):
     run, artifact_path, _ = run_with_artifact
     dst_path = tmp_path / dst_subdir_path if dst_subdir_path else tmp_path
@@ -55,7 +53,7 @@ def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_subdi
     download_output_path = mlflow.artifacts.download_artifacts(
         run_id=run.info.run_id, artifact_path=artifact_path, dst_path=dst_path
     )
-    assert download_output_path.startswith(str(download_output_path))
+    assert pathlib.Path(download_output_path).samefile(dst_path / artifact_path)
 
 
 def test_download_artifacts_throws_for_invalid_arguments():
