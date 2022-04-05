@@ -12,8 +12,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import (
     _validate_run_id,
     _validate_experiment_artifact_location,
-    _validate_experiment_name,
-    _validate_param_keys_unique,
     PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
@@ -173,7 +171,6 @@ class TrackingServiceClient:
                                   :py:class:`mlflow.entities.ExperimentTag` objects.
         :return: Integer ID of the created experiment.
         """
-        _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
 
         return self.store.create_experiment(
@@ -292,8 +289,6 @@ class TrackingServiceClient:
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
-        if len(params) > 1:
-            _validate_param_keys_unique(params)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
     def _record_logged_model(self, run_id, mlflow_model):

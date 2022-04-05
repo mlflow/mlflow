@@ -39,6 +39,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
+    _validate_experiment_name as validate_experiment_name,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -295,11 +296,8 @@ class FileStore(AbstractStore):
         return experiment_id
 
     def _validate_experiment_name(self, name):
-        """Check the validity of an experiment name."""
-        if name is None or name == "":
-            raise MlflowException(
-                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE
-            )
+
+        validate_experiment_name(name)
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             if experiment.lifecycle_stage == LifecycleStage.DELETED:
@@ -395,7 +393,7 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore eperiment with ID %d. "
+                "Cannot restore experiment with ID %d. "
                 "An experiment with same ID already exists." % experiment_id,
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
