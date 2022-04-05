@@ -228,15 +228,21 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_model_versions(self, filter_string):
+    def search_model_versions(self, filter_string, max_results, order_by, page_token):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
         pass
 

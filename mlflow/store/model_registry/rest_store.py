@@ -330,17 +330,32 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetModelVersionDownloadUri, req_body)
         return response_proto.artifact_uri
 
-    def search_model_versions(self, filter_string):
+    def search_model_versions(
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
+    ):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects
+                that satisfy the search expressions. The pagination token for the next page can be
+                obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(SearchModelVersions(filter=filter_string))
+        req_body = message_to_json(
+            SearchModelVersions(
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+        )
         response_proto = self._call_endpoint(SearchModelVersions, req_body)
         model_versions = [ModelVersion.from_proto(mvd) for mvd in response_proto.model_versions]
         return PagedList(model_versions, response_proto.next_page_token)

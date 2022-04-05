@@ -68,8 +68,17 @@ class SearchUtils:
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
     ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
     ORDER_BY_KEY_MODEL_NAME = "name"
+    ORDER_BY_KEY_MODEL_VERSION = "version"
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
+    )
+    VALID_ORDER_BY_KEYS_MODEL_VERSIONS = set(
+        [
+            ORDER_BY_KEY_TIMESTAMP,
+            ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP,
+            ORDER_BY_KEY_MODEL_NAME,
+            ORDER_BY_KEY_MODEL_VERSION,
+        ]
     )
     VALID_TIMESTAMP_ORDER_BY_KEYS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP]
@@ -77,6 +86,9 @@ class SearchUtils:
     # We encourage users to use timestamp for order-by
     RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = set(
         [ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP]
+    )
+    RECOMMENDED_ORDER_BY_KEYS_MODEL_VERSIONS = set(
+        [ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_MODEL_VERSION]
     )
 
     filter_ops = {
@@ -456,15 +468,19 @@ class SearchUtils:
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
         elif len(statement.tokens) == 1 and statement.tokens[0].match(
-            ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            ttype=TokenType.Keyword,
+            values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION],
         ):
-            token_value = cls.ORDER_BY_KEY_TIMESTAMP
+            token_value = statement.tokens[0].value
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
+            statement.tokens[0].match(
+                ttype=TokenType.Keyword,
+                values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION],
+            )
             and all([token.is_whitespace for token in statement.tokens[1:-1]])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
-            token_value = cls.ORDER_BY_KEY_TIMESTAMP + " " + statement.tokens[-1].value
+            token_value = statement.tokens[0].value + " " + statement.tokens[-1].value
         else:
             raise MlflowException(
                 "Invalid order_by clause '{}'. Could not be parsed.".format(order_by),
@@ -507,6 +523,18 @@ class SearchUtils:
             raise MlflowException(
                 "Invalid order by key '{}' specified. Valid keys ".format(token_value)
                 + "are '{}'".format(cls.RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return token_value, is_ascending
+
+    @classmethod
+    def parse_order_by_for_search_model_versions(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        token_value = token_value.strip()
+        if token_value not in cls.VALID_ORDER_BY_KEYS_MODEL_VERSIONS:
+            raise MlflowException(
+                "Invalid order by key '{}' specified. Valid keys ".format(token_value)
+                + "are '{}'".format(cls.RECOMMENDED_ORDER_BY_KEYS_MODEL_VERSIONS),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return token_value, is_ascending

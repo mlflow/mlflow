@@ -755,6 +755,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.get_model_version_download_uri(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
+    def _search_model_versions(self, filter_string, max_results=10, order_by=None, page_token=None):
+        result = self.store.search_model_versions(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+        return [model_version.version for model_version in result], result.token
+
     def test_search_model_versions(self):
         # create some model versions
         name = "test_for_search_MV"
@@ -871,6 +880,157 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].run_id == run_id_1
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
+
+    def test_parse_search_model_versions_order_by(self):
+        # test that an exception is raised when order_by contains duplicate fields
+        msg = "`order_by` contains duplicate fields:"
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_model_versions_order_by(
+                ["last_updated_timestamp", "last_updated_timestamp"]
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_model_versions_order_by(["timestamp", "timestamp"])
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_model_versions_order_by(
+                ["timestamp", "last_updated_timestamp"],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_model_versions_order_by(
+                ["last_updated_timestamp ASC", "last_updated_timestamp DESC"],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_model_versions_order_by(
+                ["last_updated_timestamp", "last_updated_timestamp DESC"],
+            )
+
+    def test_search_model_versions_pagination(self):
+        rm_name = "test_for_search_MV"
+        self._rm_maker(rm_name)
+
+        mvs = [self._mv_maker(rm_name).version for i in range(50)]
+        query = "name='{}'".format(rm_name)
+
+        # test that pagination will return all valid results in sorted order
+        # by version ascending
+        result, token1 = self._search_model_versions(query, order_by=["version ASC"], max_results=5)
+        self.assertNotEqual(token1, None)
+        self.assertEqual(result, mvs[0:5])
+
+        result, token2 = self._search_model_versions(
+            query, order_by=["version ASC"], page_token=token1, max_results=10
+        )
+        self.assertNotEqual(token2, None)
+        self.assertEqual(result, mvs[5:15])
+
+        result, token3 = self._search_model_versions(
+            query, order_by=["version ASC"], page_token=token2, max_results=20
+        )
+        self.assertNotEqual(token3, None)
+        self.assertEqual(result, mvs[15:35])
+
+        result, token4 = self._search_model_versions(
+            query, order_by=["version ASC"], page_token=token3, max_results=100
+        )
+        # assert that page token is None
+        self.assertEqual(token4, None)
+        self.assertEqual(result, mvs[35:])
+
+        # test that providing a completely invalid page token throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_model_versions(query, page_token="evilhax", max_results=20)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_model_versions(query, page_token="evilhax", max_results=1e15)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn(
+            "Invalid value for request parameter max_results", exception_context.exception.message
+        )
+
+    def test_search_model_versions_order_by(self):
+        rm_name = "test_for_search_MV_with_order"
+        self._rm_maker(rm_name)
+        mvs = []
+        # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
+        for i in range(50):
+            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+                mvs.append(self._mv_maker(rm_name).version)
+
+        # test flow with fixed max_results and order_by (test stable order across pages)
+        returned_mvs = []
+        query = "name='{}'".format(rm_name)
+        result, token = self._search_model_versions(
+            query, page_token=None, order_by=["version DESC"], max_results=25
+        )
+        returned_mvs.extend(result)
+        while token:
+            result, token = self._search_model_versions(
+                query, page_token=token, order_by=["version DESC"], max_results=25
+            )
+            returned_mvs.extend(result)
+        # version ascending should be the order of the current order
+        self.assertEqual(mvs[::-1], returned_mvs)
+        # last_updated_timestamp descending should have the newest MVs first
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
+        )
+        self.assertEqual(mvs[::-1], result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["timestamp DESC"], max_results=100
+        )
+        self.assertEqual(mvs[::-1], result)
+        # last_updated_timestamp ascending should have the oldest RMs first
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
+        )
+        self.assertEqual(mvs, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["timestamp ASC"], max_results=100
+        )
+        self.assertEqual(mvs, result)
+        # timestamp returns same result as last_updated_timestamp
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["timestamp"], max_results=100
+        )
+        self.assertEqual(mvs, result)
+        # name ascending should have the original order
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["name ASC"], max_results=100
+        )
+        self.assertEqual(mvs, result)
+        # test that no ASC/DESC defaults to ASC
+        result, _ = self._search_model_versions(
+            query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
+        )
+        self.assertEqual(mvs, result)
+
+    def test_search_model_versions_order_by_errors(self):
+        query = "name LIKE 'RM%'"
+        # test that invalid columns throw even if they come after valid columns
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "creation_timestamp DESC"],
+                max_results=5,
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that invalid columns with random text throw even if they come after valid columns
+        with self.assertRaises(MlflowException) as exception_context:
+            self._search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "last_updated_timestamp DESC blah"],
+                max_results=5,
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None

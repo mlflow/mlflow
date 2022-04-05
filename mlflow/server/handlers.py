@@ -1023,9 +1023,16 @@ def _get_model_version_download_uri():
 @_disable_if_artifacts_only
 def _search_model_versions():
     request_message = _get_request_message(SearchModelVersions())
-    model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
+    model_versions = _get_model_registry_store().search_model_versions(
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
+    if model_versions.token:
+        response_message.next_page_token = model_versions.token
     return _wrap_response(response_message)
 
 
