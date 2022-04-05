@@ -61,7 +61,9 @@ else:
     from keras.optimizers import SGD
 
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("keras") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("keras") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
