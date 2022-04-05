@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils import process
+from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.environment import (
     PythonEnv,
     _PYTHON_ENV_FILE_NAME,
@@ -19,16 +19,9 @@ from mlflow.version import VERSION
 
 
 _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
-_IS_UNIX = os.name != "nt"
 
 
 _logger = logging.getLogger(__name__)
-
-
-def _join_commands(*commands):
-    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
-    sep = " && " if _IS_UNIX else " & "
-    return [*entry_point, sep.join(commands)]
 
 
 def _get_pip_install_mlflow():
@@ -113,10 +106,10 @@ def _install_python(version):
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
     # https://github.com/pyenv-win/pyenv-win/pull/314
     pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
-    process._exec_cmd(["pyenv", "install", *pyenv_install_options, version], capture_output=False)
+    _exec_cmd(["pyenv", "install", *pyenv_install_options, version], capture_output=False)
 
     if _IS_UNIX:
-        pyenv_root = process._exec_cmd(["pyenv", "root"], capture_output=True).stdout.strip()
+        pyenv_root = _exec_cmd(["pyenv", "root"], capture_output=True).stdout.strip()
         path_to_bin = ("bin", "python")
     else:
         # pyenv-win doesn't provide the `pyenv root` command
@@ -191,9 +184,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
     env_exists = env_dir.exists()
     if not env_exists:
         _logger.info("Creating a new environment %s", env_dir)
-        process._exec_cmd(
-            ["virtualenv", "--python", python_bin_path, str(env_dir)], capture_output=False
-        )
+        _exec_cmd(["virtualenv", "--python", python_bin_path, str(env_dir)], capture_output=False)
     else:
         _logger.info("Environment %s already exists", env_dir)
 
@@ -213,7 +204,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
                 # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
                 # This can be avoided by using `python -m`.
                 cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
-                process._exec_cmd(
+                _exec_cmd(
                     cmd,
                     capture_output=False,
                     # Run `pip install` in the model directory to resolve references in the
@@ -245,6 +236,4 @@ def _execute_in_virtualenv(activate_cmd, command, install_mlflow, command_env=No
     commands = [activate_cmd]
     if install_mlflow:
         commands.append(_get_pip_install_mlflow())
-    return process._exec_cmd(
-        _join_commands(*commands, command), capture_output=False, env=command_env
-    )
+    return _exec_cmd(_join_commands(*commands, command), capture_output=False, env=command_env)

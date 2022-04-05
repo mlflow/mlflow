@@ -1,6 +1,8 @@
 import os
 import subprocess
 
+_IS_UNIX = os.name != "nt"
+
 
 class ShellCommandException(Exception):
     @classmethod
@@ -68,3 +70,9 @@ def _exec_cmd(
     if throw_on_error and prc.returncode != 0:
         raise ShellCommandException.from_completed_process(prc)
     return prc
+
+
+def _join_commands(*commands):
+    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
+    sep = " && " if _IS_UNIX else " & "
+    return [*entry_point, sep.join(commands)]
