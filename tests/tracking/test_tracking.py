@@ -147,7 +147,7 @@ def test_list_experiments():
             for exp in client.list_experiments(view_type=view_type_arg)
         ]
 
-        assert result == [(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()]
+        assert result == list(ids_to_lifecycle_stage.items())
 
     experiment_id = mlflow.create_experiment("exp_1")
     assert experiment_id == "1"
