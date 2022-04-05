@@ -3,8 +3,11 @@ import json
 import logging
 import os
 
+import yaml
+
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
+from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.utils.environment import _get_mlflow_env_name
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
@@ -193,3 +196,20 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
             raise
 
     return project_env_name
+
+
+def _get_conda_dependencies(conda_yaml_path, exclude=()):
+    """
+    Extracts conda dependencies from a conda yaml file. Packages in `exclude` will be excluded
+    from the result.
+
+    :param conda_yaml_path: Conda yaml file path.
+    :param exclude: Packages to be excluded from the result.
+    """
+    with open(conda_yaml_path) as f:
+        conda_yaml = yaml.safe_load(f)
+    return [
+        d
+        for d in conda_yaml.get("dependencies", [])
+        if isinstance(d, str) and _get_package_name(d) not in exclude
+    ]

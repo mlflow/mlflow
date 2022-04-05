@@ -4,8 +4,6 @@ import shutil
 import uuid
 from pathlib import Path
 
-import yaml
-
 from mlflow.exceptions import MlflowException
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.environment import (
@@ -14,7 +12,7 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _get_mlflow_env_name,
 )
-from mlflow.utils.requirements_utils import _get_package_name
+from mlflow.utils.conda import _get_conda_dependencies
 from mlflow.version import VERSION
 
 
@@ -37,23 +35,6 @@ def _get_mlflow_env_root():
     Returns the root directory to store virtualenv environments created by MLflow.
     """
     return os.getenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(Path.home().joinpath(".mlflow", "envs")))
-
-
-def _get_conda_dependencies(conda_yaml_path, exclude=()):
-    """
-    Extracts conda dependencies from a conda yaml file. Packages in `exclude` will be excluded
-    from the result.
-
-    :param conda_yaml_path: Conda yaml file path.
-    :param exclude: Packages to be excluded from the result.
-    """
-    with open(conda_yaml_path) as f:
-        conda_yaml = yaml.safe_load(f)
-    return [
-        d
-        for d in conda_yaml.get("dependencies", [])
-        if isinstance(d, str) and _get_package_name(d) not in exclude
-    ]
 
 
 def _is_pyenv_available():
