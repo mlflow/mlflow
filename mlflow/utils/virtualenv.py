@@ -1,6 +1,5 @@
 import os
 import logging
-import hashlib
 import shutil
 import uuid
 from pathlib import Path
@@ -24,10 +23,6 @@ _IS_UNIX = os.name != "nt"
 
 
 _logger = logging.getLogger(__name__)
-
-
-def _hash(s):
-    return hashlib.sha1(s.encode("utf-8")).hexdigest()
 
 
 def _join_commands(*commands):
