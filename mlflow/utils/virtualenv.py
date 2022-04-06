@@ -11,6 +11,7 @@ from mlflow.utils.environment import (
     PythonEnv,
     _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
@@ -129,18 +130,20 @@ def _get_python_env(local_model_path):
     :return: `PythonEnv` instance.
     """
     python_env_file = local_model_path / _PYTHON_ENV_FILE_NAME
+    requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
+    conda_env_file = local_model_path / _CONDA_ENV_FILE_NAME
     if python_env_file.exists():
         return PythonEnv.from_yaml(python_env_file)
     else:
         _logger.info(
             "This model is missing %s, which is because it was logged in an older version"
             "of MLflow (< 1.26.0) that does not support restoring a model environment with "
-            "virtualenv. Attempting to extract model dependencies from %s instead.",
+            "virtualenv. Attempting to extract model dependencies from %s and %s instead.",
             _PYTHON_ENV_FILE_NAME,
+            _REQUIREMENTS_FILE_NAME,
             _CONDA_ENV_FILE_NAME,
         )
-        conda_yaml_path = local_model_path / _CONDA_ENV_FILE_NAME
-        conda_deps = _get_conda_dependencies(conda_yaml_path)
+        conda_deps = _get_conda_dependencies(conda_env_file)
         build_packages = ("python", *PythonEnv.BUILD_PACKAGES)
         conda_deps = [d for d in conda_deps if _get_package_name(d) not in build_packages]
         if conda_deps:
@@ -148,7 +151,15 @@ def _get_python_env(local_model_path):
                 f"Cannot restore this model's environment with virtualenv because it contains "
                 f"conda dependencies: {conda_deps}."
             )
-        return PythonEnv.from_conda_yaml(conda_yaml_path)
+        if requirements_file.exists():
+            deps = PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
+            deps.pop("dependencies", None)
+            return PythonEnv(
+                **deps,
+                dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+            )
+        else:
+            return PythonEnv.from_conda_yaml(conda_env_file)
 
 
 def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):

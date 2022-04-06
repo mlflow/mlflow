@@ -104,14 +104,14 @@ class PythonEnv:
         with open(path) as f:
             return cls.from_dict(yaml.safe_load(f))
 
-    @classmethod
-    def from_conda_yaml(cls, path):
+    @staticmethod
+    def get_dependencies_from_conda_yaml(path):
         with open(path) as f:
             conda_env = yaml.safe_load(f)
 
         python = None
-        pip_dependencies = None
-        build_dependencies = []
+        build_dependencies = None
+        dependencies = None
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
                 match = _CONDA_DEPENDENCY_REGEX.match(dep)
@@ -131,11 +131,13 @@ class PythonEnv:
                     continue
 
                 # Build packages
+                if build_dependencies is None:
+                    build_dependencies = []
                 # "=" is an invalid operator for pip
                 operator = "==" if operator == "=" else operator
                 build_dependencies.append(package + operator + version)
             elif _is_pip_deps(dep):
-                pip_dependencies = dep["pip"]
+                dependencies = dep["pip"]
             else:
                 raise MlflowException(
                     f"Invalid conda dependency: {dep}. Must be str or dict in the form of "
@@ -149,11 +151,11 @@ class PythonEnv:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        return cls(
-            python=python,
-            build_dependencies=build_dependencies or None,
-            dependencies=pip_dependencies,
-        )
+        return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
+
+    @classmethod
+    def from_conda_yaml(cls, path):
+        return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
 class _EnvManager(Enum):
