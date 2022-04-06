@@ -136,33 +136,29 @@ def test_pmdarima_signature_and_examples_saved_correctly(
         np.testing.assert_array_equal(r_example, example)
 
 
+@pytest.mark.parametrize("_signature", [True, False])
+@pytest.mark.parametrize("_example", [True, False])
 def test_pmdarima_signature_and_example_for_confidence_interval_mode(
-    auto_arima_model, model_path, test_data
+    auto_arima_model, model_path, test_data, _signature, _example
 ):
-
-    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
-
+    model_path_primary = model_path.joinpath("primary")
+    model_path_secondary = model_path.joinpath("secondary")
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path_primary)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-
-    signature_ = infer_signature(test_data["orders"], forecast)
-    example_ = test_data[0:10].copy(deep=False)
-    idx = 0
-    for signature in (None, signature_):
-        for example in (None, example_):
-            idx += 1
-            path = str(pathlib.Path(model_path).joinpath(str(idx)))
-            mlflow.pmdarima.save_model(
-                auto_arima_model, path=path, signature=signature, input_example=example
-            )
-            mlflow_model = Model.load(path)
-            assert signature == mlflow_model.signature
-            if example is None:
-                assert mlflow_model.saved_input_example_info is None
-            else:
-                r_example = _read_example(mlflow_model, path).copy(deep=False)
-                np.testing.assert_array_equal(r_example, example)
+    signature = infer_signature(test_data["orders"], forecast) if _signature else None
+    example = test_data[0:10].copy(deep=False) if _example else None
+    mlflow.pmdarima.save_model(
+        auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
+    )
+    mlflow_model = Model.load(model_path_secondary)
+    assert signature == mlflow_model.signature
+    if example is None:
+        assert mlflow_model.saved_input_example_info is None
+    else:
+        r_example = _read_example(mlflow_model, model_path_secondary).copy(deep=False)
+        np.testing.assert_array_equal(r_example, example)
 
 
 def test_pmdarima_load_from_remote_uri_succeeds(
