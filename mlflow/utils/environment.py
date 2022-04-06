@@ -30,10 +30,8 @@ _CONSTRAINTS_FILE_NAME = "constraints.txt"
 _PYTHON_ENV_FILE_NAME = "python-env.yaml"
 
 
-_PYTHON_REGEX = re.compile(r"^python(=|==|<=)([\d.]+)$")  # matches, e.g., "python=3.7.12"
-_BUILD_PACKAGE_REGEX = re.compile(
-    r"^(pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$"
-)  # matches, e.g., "pip=22.0.4"
+# Note this regular expression does not cover all possible patterns
+_CONDA_DEPENDENCY_REGEX = re.compile(r"^(python|pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$")
 
 
 class PythonEnv:
@@ -113,22 +111,23 @@ class PythonEnv:
 
         python = None
         pip_dependencies = None
-        build_dependencies = None
+        build_dependencies = []
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
-                if not python:
-                    match = _PYTHON_REGEX.match(dep)
-                    if match:
-                        python = match.group(2)
-                        continue
+                match = _CONDA_DEPENDENCY_REGEX.match(dep)
+                if not match:
+                    continue
+                package, operator, version = match.groups()
 
-                match = _BUILD_PACKAGE_REGEX.match(dep)
-                if match:
-                    if build_dependencies is None:
-                        build_dependencies = []
-                    name, operator, version = match.groups()
-                    operator = "==" if operator == "=" else operator
-                    build_dependencies.append(name + operator + version)
+                # Python
+                if not python and package == "python":
+                    python = version
+                    continue
+
+                # Build packages
+                # "=" is an invalid operator for pip
+                operator = "==" if operator == "=" else operator
+                build_dependencies.append(package + operator + version)
             elif _is_pip_deps(dep):
                 pip_dependencies = dep["pip"]
             else:
@@ -146,7 +145,7 @@ class PythonEnv:
 
         return cls(
             python=python,
-            build_dependencies=build_dependencies,
+            build_dependencies=build_dependencies or None,
             dependencies=pip_dependencies,
         )
 
