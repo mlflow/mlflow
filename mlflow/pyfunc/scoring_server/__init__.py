@@ -43,7 +43,6 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-from mlflow.utils.conda import _get_conda_extra_envs
 
 try:
     from StringIO import StringIO
@@ -354,7 +353,6 @@ def get_cmd(
     port: int = None,
     host: int = None,
     nworkers: int = None,
-    env_root_dir: str = None,
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
@@ -388,8 +386,5 @@ def get_cmd(
 
     command_env = os.environ.copy()
     command_env[_SERVER_MODEL_PATH] = local_uri
-
-    if env_root_dir is not None:
-        command_env.update(_get_conda_extra_envs(env_root_dir))
 
     return command, command_env

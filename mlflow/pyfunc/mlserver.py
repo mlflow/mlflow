@@ -12,14 +12,7 @@ def get_cmd(
     port: int = None,
     host: str = None,
     nworkers: int = None,
-    env_root_dir: str = None,
 ) -> Tuple[str, Dict[str, str]]:
-    if env_root_dir is not None:
-        raise MlflowException(
-            "MLServer does not support setting `env_root_dir`",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     cmd = f"mlserver start {model_uri}"
 
     cmd_env = os.environ.copy()
