@@ -495,6 +495,7 @@ def get_or_create_tmp_dir():
     Get or create a temporary directory which will be removed once python process exit.
     """
     from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+
     global _TMP_DIR
 
     if _TMP_DIR is None:
@@ -504,8 +505,8 @@ def get_or_create_tmp_dir():
             _TMP_DIR = f"/tmp/repl_tmp_data/{get_repl_id()}"
             os.makedirs(_TMP_DIR, exist_ok=True)
         else:
-            tmp_dir = tempfile.mkdtemp()
-            atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+            _TMP_DIR = tempfile.mkdtemp()
+            atexit.register(shutil.rmtree, _TMP_DIR, ignore_errors=True)
 
     return _TMP_DIR
 
@@ -519,6 +520,7 @@ def get_or_create_nfs_tmp_dir():
     """
     from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+
     global _TMP_NFS_DIR
 
     nfs_root_dir = get_nfs_cache_root_dir()

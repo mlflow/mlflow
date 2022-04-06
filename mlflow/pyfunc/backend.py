@@ -28,8 +28,13 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(
-        self, config, workers=1, env_manager=_EnvManager.CONDA, install_mlflow=False,
-        env_root_dir=None, **kwargs
+        self,
+        config,
+        workers=1,
+        env_manager=_EnvManager.CONDA,
+        install_mlflow=False,
+        env_root_dir=None,
+        **kwargs,
     ):
         """
         :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
@@ -52,14 +57,15 @@ class PyFuncBackend(FlavorBackend):
         conda_env_path = os.path.join(local_path, self._config[ENV])
 
         conda_env_name = get_or_create_conda_env(
-            conda_env_path, env_id=self._env_id, capture_output=capture_output,
-            env_root_dir=self._env_root_dir
+            conda_env_path,
+            env_id=self._env_id,
+            capture_output=capture_output,
+            env_root_dir=self._env_root_dir,
         )
 
         command = 'python -c ""'
         return _execute_in_conda_env(
-            conda_env_name, command, self._install_mlflow,
-            env_root_dir=self._env_root_dir
+            conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
         )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
@@ -113,8 +119,7 @@ class PyFuncBackend(FlavorBackend):
 
         server_implementation = mlserver if enable_mlserver else scoring_server
         command, command_env = server_implementation.get_cmd(
-            local_path, port, host, self._nworkers,
-            conda_env_root_dir=self._conda_env_root_dir
+            local_path, port, host, self._nworkers, env_root_dir=self._env_root_dir
         )
 
         if sys.platform.startswith("linux"):
@@ -156,8 +161,10 @@ class PyFuncBackend(FlavorBackend):
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
-                conda_env_path, env_id=self._env_id, capture_output=False,
-                conda_env_root_dir=self._conda_env_root_dir
+                conda_env_path,
+                env_id=self._env_id,
+                capture_output=False,
+                env_root_dir=self._env_root_dir,
             )
 
             child_proc = _execute_in_conda_env(
@@ -169,7 +176,7 @@ class PyFuncBackend(FlavorBackend):
                 preexec_fn=setup_sigterm_on_parent_death,
                 stdout=stdout,
                 stderr=stderr,
-                conda_env_root_dir=self._conda_env_root_dir
+                env_root_dir=self._env_root_dir,
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -278,10 +285,6 @@ def _execute_in_conda_env(
     """
     if command_env is None:
         command_env = os.environ
-
-    # PIP_NO_INPUT=1 make pip run in non-interactive mode,
-    # otherwise pip might prompt "yes or no" and ask stdin input
-    command_env["PIP_NO_INPUT"] = "1"
 
     if env_root_dir is not None:
         command_env.update(_get_conda_extra_envs(env_root_dir))

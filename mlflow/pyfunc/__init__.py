@@ -862,9 +862,8 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         )
 
 
-def _get_or_create_model_cache_dir():
-    nfs_root_dir = get_nfs_cache_root_dir()
-    if nfs_root_dir is not None:
+def _get_or_create_model_cache_dir(should_use_nfs):
+    if should_use_nfs:
         root_tmp_dir = get_or_create_nfs_tmp_dir()
     else:
         root_tmp_dir = get_or_create_tmp_dir()
@@ -879,11 +878,10 @@ def _get_or_create_model_cache_dir():
 _ENV_ROOT_DIR = None
 
 
-def _get_or_create_env_root_dir():
+def _get_or_create_env_root_dir(should_use_nfs):
     global _ENV_ROOT_DIR
     if _ENV_ROOT_DIR is None:
-        nfs_root_dir = get_nfs_cache_root_dir()
-        if nfs_root_dir is not None:
+        if should_use_nfs:
             root_tmp_dir = get_or_create_nfs_tmp_dir()
         else:
             root_tmp_dir = get_or_create_tmp_dir()
@@ -1010,7 +1008,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    conda_env_root_dir = _get_or_create_env_root_dir(nfs_root_dir)
+    conda_env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1029,7 +1027,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
+        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir(should_use_nfs)
     )
 
     if env_manager is _EnvManager.LOCAL:
@@ -1066,12 +1064,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # otherwise user have to check cluster driver log to find command stdout/stderr output.
         if env_manager is _EnvManager.CONDA:
             _get_flavor_backend(
-                local_model_path, env_manager=_EnvManager.CONDA, install_mlflow=False,
-                conda_env_root_dir=conda_env_root_dir
-            ).prepare_env(
-                model_uri=local_model_path,
-                capture_output=is_in_databricks_runtime()
-            )
+                local_model_path,
+                env_manager=_EnvManager.CONDA,
+                install_mlflow=False,
+                env_root_dir=conda_env_root_dir,
+            ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
 
     # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
@@ -1167,15 +1164,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                     archive_path
                 )
                 # Create individual conda_env_root_dir for each spark UDF task process.
-                conda_env_root_dir_on_executor = _get_or_create_env_root_dir(nfs_root_dir)
+                conda_env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
             else:
                 local_model_path_on_executor = local_model_path
                 conda_env_root_dir_on_executor = conda_env_root_dir
 
             pyfunc_backend = _get_flavor_backend(
-                local_model_path_on_executor, workers=1, install_mlflow=False,
+                local_model_path_on_executor,
+                workers=1,
+                install_mlflow=False,
                 env_manager=_EnvManager.CONDA,
-                conda_env_root_dir=conda_env_root_dir_on_executor
+                env_root_dir=conda_env_root_dir_on_executor,
             )
 
             if should_use_spark_to_broadcast_file:
@@ -1187,7 +1186,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 # Set "capture_output" so that if "conda env create" command failed, the command
                 # stdout/stderr output will be attached to the exception message and included in
                 # driver side exception.
-                pyfunc_backend.prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
+                pyfunc_backend.prepare_env(
+                    model_uri=local_model_path_on_executor, capture_output=True
+                )
 
             # launch scoring server
             # TODO: adjust timeout for server requests handler.

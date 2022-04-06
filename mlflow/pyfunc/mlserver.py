@@ -8,12 +8,15 @@ MLServerDefaultModelName = "mlflow-model"
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: str = None, nworkers: int = None,
-    conda_env_root_dir: str = None
+    model_uri: str,
+    port: int = None,
+    host: str = None,
+    nworkers: int = None,
+    env_root_dir: str = None,
 ) -> Tuple[str, Dict[str, str]]:
-    if conda_env_root_dir is not None:
+    if env_root_dir is not None:
         raise MlflowException(
-            "MLServer does not support setting `conda_env_root_dir`",
+            "MLServer does not support setting `env_root_dir`",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

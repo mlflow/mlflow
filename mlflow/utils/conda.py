@@ -87,8 +87,7 @@ def _get_conda_executable_for_create_env():
 
 def _list_conda_environments(extra_env=None):
     prc = process._exec_cmd(
-        [get_conda_bin_executable("conda"), "env", "list", "--json"],
-        extra_env=extra_env
+        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=extra_env
     )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
@@ -101,10 +100,22 @@ def _get_conda_extra_envs(env_root_dir=None):
         # See https://github.com/conda/conda/issues/8870
         # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
         # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
+
+        conda_env_path = os.path.join(env_root_dir, "conda_envs")
+        conda_pkgs_path = os.path.join(env_root_dir, "conda_pkgs")
+        pip_cache_dir = os.path.join(env_root_dir, "pip_pkgs")
+
+        os.makedirs(conda_env_path, exist_ok=True)
+        os.makedirs(conda_pkgs_path, exist_ok=True)
+        os.makedirs(pip_cache_dir, exist_ok=True)
+
         return {
-            "CONDA_ENVS_PATH": os.path.join(env_root_dir, "conda_envs"),
-            "CONDA_PKGS_DIRS": os.path.join(env_root_dir, "conda_pkgs"),
-            "PIP_CACHE_DIR": os.path.join(env_root_dir, "pip_pkgs"),
+            "CONDA_ENVS_PATH": conda_env_path,
+            "CONDA_PKGS_DIRS": conda_pkgs_path,
+            "PIP_CACHE_DIR": pip_cache_dir,
+            # PIP_NO_INPUT=1 make pip run in non-interactive mode,
+            # otherwise pip might prompt "yes or no" and ask stdin input
+            "PIP_NO_INPUT": "1",
         }
     else:
         return None
@@ -122,7 +133,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                    environment after the environment has been activated.
     :param capture_output: Specify the capture_output argument while executing the
                            "conda env create" command.
-    :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
+    :param env_root_dir Root path for conda env. If None, use default one. Note if this is
                           set, conda package cache path becomes "env_root_path/conda_pkgs"
                           instead of the global package cache path, and pip package cache path
                           becomes "env_root_path/pip_pkgs" instead of the global package cache
@@ -161,10 +172,6 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     conda_extra_envs = _get_conda_extra_envs(env_root_dir)
 
-    os.makedirs(conda_extra_envs["CONDA_ENVS_PATH"], exist_ok=True)
-    os.makedirs(conda_extra_envs["CONDA_PKGS_DIR"], exist_ok=True)
-    os.makedirs(conda_extra_envs["PIP_CACHE_DIR"], exist_ok=True)
-
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if env_root_dir is not None:
         # Append a suffix "-isolated" because if a conda env name exist in
@@ -178,7 +185,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         if env_root_dir is not None:
             _logger.info(
                 "Create conda environment at directory %s",
-                os.path.join(env_root_dir, "conda_envs", project_env_name)
+                os.path.join(env_root_dir, "conda_envs", project_env_name),
             )
         try:
             if conda_env_path:
@@ -240,7 +247,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         if env_root_dir is not None:
             _logger.info(
                 "Reusing cached conda environment at %s",
-                os.path.join(os.path.join(env_root_dir, "conda_envs", project_env_name))
+                os.path.join(os.path.join(env_root_dir, "conda_envs", project_env_name)),
             )
 
     return project_env_name
