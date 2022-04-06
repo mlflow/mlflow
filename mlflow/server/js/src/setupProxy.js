@@ -36,4 +36,11 @@ module.exports = function(app) {
       pathRewrite: { '^/mfe/mlflow': '' },
     }),
   );
+  app.use(
+    createProxyMiddleware('/model-versions/get-artifact', {
+      target: proxyStaticTarget,
+      ws: true,
+      changeOrigin: true,
+    }),
+  );
 };
