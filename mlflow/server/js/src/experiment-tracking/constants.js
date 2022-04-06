@@ -9,6 +9,7 @@ export const ONE_MB = 1024 * 1024;
 
 export const ATTRIBUTE_COLUMN_LABELS = {
   DATE: 'Start Time',
+  EXPERIMENT_NAME: 'Experiment Name',
   DURATION: 'Duration',
   USER: 'User',
   RUN_NAME: 'Run Name',

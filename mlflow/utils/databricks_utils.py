@@ -336,7 +336,7 @@ def get_workspace_url():
     try:
         spark_session = _get_active_spark_session()
         if spark_session is not None:
-            return spark_session.conf.get("spark.databricks.workspaceUrl")
+            return "https://" + spark_session.conf.get("spark.databricks.workspaceUrl")
     except Exception:
         return None
 

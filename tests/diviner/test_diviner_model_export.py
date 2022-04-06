@@ -32,9 +32,12 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 
+pytestmark = pytest.mark.large
 
 DS_FORMAT = "%Y-%m-%dT%H:%M:%S"
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("diviner") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("diviner") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture
