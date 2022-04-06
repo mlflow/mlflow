@@ -300,6 +300,7 @@ export const getModelVersionTags = (modelName, version, state) => {
   }
 };
 
+// eslint-disable-next-line import/no-anonymous-default-export
 export default {
   modelByName,
   modelVersionsByModel,
