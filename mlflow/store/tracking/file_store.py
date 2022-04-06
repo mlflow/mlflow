@@ -39,7 +39,7 @@ from mlflow.utils.validation import (
     _validate_batch_log_data,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
-    _validate_experiment_name as validate_experiment_name,
+    _validate_experiment_name,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -295,9 +295,7 @@ class FileStore(AbstractStore):
                 self.set_experiment_tag(experiment_id, tag)
         return experiment_id
 
-    def _validate_experiment_name(self, name):
-
-        validate_experiment_name(name)
+    def _validate_experiment_does_not_exist(self, name):
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             if experiment.lifecycle_stage == LifecycleStage.DELETED:
@@ -316,7 +314,8 @@ class FileStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
-        self._validate_experiment_name(name)
+        _validate_experiment_name(name)
+        self._validate_experiment_does_not_exist(name)
         # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [
@@ -400,6 +399,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
+        _validate_experiment_name(new_name)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
@@ -408,7 +408,7 @@ class FileStore(AbstractStore):
                 "Experiment '%s' does not exist." % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        self._validate_experiment_name(new_name)
+        self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
