@@ -37,11 +37,11 @@ class PyFuncBackend(FlavorBackend):
         **kwargs,
     ):
         """
-        :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
-                              set, conda package cache path becomes "env_root_path/conda_pkgs"
-                              instead of the global package cache path, and pip package cache path
-                              becomes "env_root_path/pip_pkgs" instead of the global package cache
-                              path.
+        :param env_root_dir: Root path for conda env. If None, use default config. Note if this is
+                             set, conda package cache path becomes "env_root_dir/conda_cache_pkgs"
+                             instead of the global package cache path, and pip package cache path
+                             becomes "env_root_dir/pip_cache_pkgs" instead of the global package cache
+                             path.
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
@@ -118,9 +118,7 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = mlserver if enable_mlserver else scoring_server
-        command, command_env = server_implementation.get_cmd(
-            local_path, port, host, self._nworkers
-        )
+        command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
 
         if sys.platform.startswith("linux"):
 
@@ -277,14 +275,14 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
-    :param: env_root_dir: Root path for conda env. If None, use default one. Note if this is
-                          set, conda package cache path becomes "env_root_path/conda_pkgs"
-                          instead of the global package cache path, and pip package cache path
-                          becomes "env_root_path/pip_pkgs" instead of the global package cache
-                          path.
+    :param env_root_dir: Root path for conda env. If None, use default config. Note if this is
+                         set, conda package cache path becomes "env_root_dir/conda_cache_pkgs"
+                         instead of the global package cache path, and pip package cache path
+                         becomes "env_root_dir/pip_cache_pkgs" instead of the global package cache
+                         path.
     """
     if command_env is None:
-        command_env = os.environ
+        command_env = os.environ.copy()
 
     if env_root_dir is not None:
         command_env.update(_get_conda_extra_envs(env_root_dir))

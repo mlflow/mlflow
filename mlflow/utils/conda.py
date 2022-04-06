@@ -85,40 +85,45 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments(extra_env=None):
+def _list_conda_environments():
     prc = process._exec_cmd(
-        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=extra_env
+        [get_conda_bin_executable("conda"), "env", "list", "--json"],
     )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
+_CONDA_ENVS_DIR = "conda_envs"
+_CONDA_CACHE_PKGS_DIR = "conda_cache_pkgs"
+_PIP_CACHE_DIR = "pip_cache_pkgs"
+
+
 def _get_conda_extra_envs(env_root_dir=None):
-    if env_root_dir is not None:
-        # Create isolated conda package cache dir "conda_pkgs" under the env_root_dir
-        # for each python process.
-        # Note: shared conda package cache dir causes race condition issues:
-        # See https://github.com/conda/conda/issues/8870
-        # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
-        # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
-
-        conda_env_path = os.path.join(env_root_dir, "conda_envs")
-        conda_pkgs_path = os.path.join(env_root_dir, "conda_pkgs")
-        pip_cache_dir = os.path.join(env_root_dir, "pip_pkgs")
-
-        os.makedirs(conda_env_path, exist_ok=True)
-        os.makedirs(conda_pkgs_path, exist_ok=True)
-        os.makedirs(pip_cache_dir, exist_ok=True)
-
-        return {
-            "CONDA_ENVS_PATH": conda_env_path,
-            "CONDA_PKGS_DIRS": conda_pkgs_path,
-            "PIP_CACHE_DIR": pip_cache_dir,
-            # PIP_NO_INPUT=1 make pip run in non-interactive mode,
-            # otherwise pip might prompt "yes or no" and ask stdin input
-            "PIP_NO_INPUT": "1",
-        }
-    else:
+    if env_root_dir is None:
         return None
+
+    # Create isolated conda package cache dir "conda_pkgs" under the env_root_dir
+    # for each python process.
+    # Note: shared conda package cache dir causes race condition issues:
+    # See https://github.com/conda/conda/issues/8870
+    # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
+    # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
+
+    conda_envs_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR)
+    conda_pkgs_path = os.path.join(env_root_dir, _CONDA_CACHE_PKGS_DIR)
+    pip_cache_dir = os.path.join(env_root_dir, _PIP_CACHE_DIR)
+
+    os.makedirs(conda_envs_path, exist_ok=True)
+    os.makedirs(conda_pkgs_path, exist_ok=True)
+    os.makedirs(pip_cache_dir, exist_ok=True)
+
+    return {
+        "CONDA_ENVS_PATH": conda_envs_path,
+        "CONDA_PKGS_DIRS": conda_pkgs_path,
+        "PIP_CACHE_DIR": pip_cache_dir,
+        # PIP_NO_INPUT=1 make pip run in non-interactive mode,
+        # otherwise pip might prompt "yes or no" and ask stdin input
+        "PIP_NO_INPUT": "1",
+    }
 
 
 def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, env_root_dir=None):
@@ -134,9 +139,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     :param capture_output: Specify the capture_output argument while executing the
                            "conda env create" command.
     :param env_root_dir Root path for conda env. If None, use default one. Note if this is
-                          set, conda package cache path becomes "env_root_path/conda_pkgs"
+                          set, conda package cache path becomes "env_root_dir/conda_pkgs"
                           instead of the global package cache path, and pip package cache path
-                          becomes "env_root_path/pip_pkgs" instead of the global package cache
+                          becomes "env_root_dir/pip_pkgs" instead of the global package cache
                           path.
     """
 
@@ -180,13 +185,17 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         # be raised.
         project_env_name = project_env_name + "-isolated"
 
-    if project_env_name not in _list_conda_environments(extra_env=conda_extra_envs):
-        _logger.info("=== Creating conda environment %s ===", project_env_name)
-        if env_root_dir is not None:
-            _logger.info(
-                "Create conda environment at directory %s",
-                os.path.join(env_root_dir, "conda_envs", project_env_name),
-            )
+    if env_root_dir is not None:
+        # Generate the full path of the conda env
+        # Checking whether env was created using full path instead of env name,
+        # otherwise it might match existing env under other different env_root_dir.
+        project_env_path = os.path.normpath(
+            os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
+        )
+    else:
+        project_env_path = project_env_name
+    if project_env_path not in _list_conda_environments():
+        _logger.info("=== Creating conda environment %s ===", project_env_path)
         try:
             if conda_env_path:
                 process._exec_cmd(
@@ -220,7 +229,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                 )
         except Exception:
             try:
-                if project_env_name in _list_conda_environments(extra_env=conda_extra_envs):
+                if project_env_path in _list_conda_environments():
                     _logger.warning(
                         "Encountered unexpected error while creating conda environment. "
                         "Removing %s.",
@@ -240,14 +249,14 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                     )
             except Exception as e:
                 _logger.warning(
-                    f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."
+                    f"Removing conda env '{project_env_path}' failed (error: {repr(e)})."
                 )
             raise
     else:
         if env_root_dir is not None:
             _logger.info(
                 "Reusing cached conda environment at %s",
-                os.path.join(os.path.join(env_root_dir, "conda_envs", project_env_name)),
+                os.path.join(os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)),
             )
 
     return project_env_name

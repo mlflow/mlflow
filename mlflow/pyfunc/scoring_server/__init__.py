@@ -11,7 +11,7 @@ Defines two endpoints:
     /invocations used for scoring
 """
 from collections import OrderedDict
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 import flask
 import json
 import logging
@@ -350,9 +350,9 @@ def _serve(model_uri, port, host):
 
 def get_cmd(
     model_uri: str,
-    port: int = None,
-    host: int = None,
-    nworkers: int = None,
+    port: Optional[int] = None,
+    host: Optional[int] = None,
+    nworkers: Optional[int] = None,
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
