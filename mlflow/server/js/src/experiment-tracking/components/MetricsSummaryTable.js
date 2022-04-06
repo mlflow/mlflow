@@ -27,10 +27,10 @@ class MetricsSummaryTable extends React.Component {
   }
 
   renderRunTable(runUuid) {
-    const { metricKeys, latestMetrics, minMetrics, maxMetrics } = this.props;
+    const { metricKeys, latestMetrics, minMetrics, maxMetrics, intl } = this.props;
     const columns = [
       {
-        title: this.props.intl.formatMessage({
+        title: intl.formatMessage({
           defaultMessage: 'Metric',
           description:
             // eslint-disable-next-line max-len
@@ -43,7 +43,14 @@ class MetricsSummaryTable extends React.Component {
     return metricKeys.length === 0 ? null : (
       <HtmlTableView
         columns={columns}
-        values={getRunValuesByMetric(runUuid, metricKeys, latestMetrics, minMetrics, maxMetrics)}
+        values={getRunValuesByMetric(
+          runUuid,
+          metricKeys,
+          latestMetrics,
+          minMetrics,
+          maxMetrics,
+          intl,
+        )}
       />
     );
   }
@@ -56,10 +63,11 @@ class MetricsSummaryTable extends React.Component {
       latestMetrics,
       minMetrics,
       maxMetrics,
+      intl,
     } = this.props;
     const columns = [
       {
-        title: this.props.intl.formatMessage({
+        title: intl.formatMessage({
           defaultMessage: 'Run',
           description:
             // eslint-disable-next-line max-len
@@ -82,6 +90,7 @@ class MetricsSummaryTable extends React.Component {
               latestMetrics,
               minMetrics,
               maxMetrics,
+              intl,
             )}
           />
         </Fragment>
@@ -126,42 +135,57 @@ const getMetricValuesByRun = (
   latestMetrics,
   minMetrics,
   maxMetrics,
+  intl,
 ) => {
   return runUuids.map((runUuid, runIdx) => {
     const runName = runDisplayNames[runIdx];
     return {
       runName,
       key: runUuid,
-      ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics),
+      ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };
   });
 };
 
-const getRunValuesByMetric = (runUuid, metricKeys, latestMetrics, minMetrics, maxMetrics) => {
+const getRunValuesByMetric = (runUuid, metricKeys, latestMetrics, minMetrics, maxMetrics, intl) => {
   return metricKeys.map((metricKey) => {
     return {
       metricKey,
       key: metricKey,
-      ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics),
+      ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };
   });
 };
 
-const rowData = (runUuid, metricKey, latestMetrics, minMetrics, maxMetrics) => {
-  const latestValue = getMetricValue(latestMetrics, runUuid, metricKey);
-  const minValue = getMetricValue(minMetrics, runUuid, metricKey);
-  const maxValue = getMetricValue(maxMetrics, runUuid, metricKey);
+const rowData = (runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl) => {
+  const latestValue = getMetric(latestMetrics, runUuid, metricKey);
+  const minValue = getMetric(minMetrics, runUuid, metricKey);
+  const maxValue = getMetric(maxMetrics, runUuid, metricKey);
   return {
-    latest: <span title={latestValue}>{formatMaybeValue(latestValue)}</span>,
-    min: <span title={minValue}>{formatMaybeValue(minValue)}</span>,
-    max: <span title={maxValue}>{formatMaybeValue(maxValue)}</span>,
+    latest: <span title={getValue(latestValue)}>{formatMetric(latestValue, intl)}</span>,
+    min: <span title={getValue(minValue)}>{formatMetric(minValue, intl)}</span>,
+    max: <span title={getValue(maxValue)}>{formatMetric(maxValue, intl)}</span>,
   };
 };
 
-const getMetricValue = (valuesMap, runUuid, metricKey) =>
-  valuesMap[runUuid] && valuesMap[runUuid][metricKey] && valuesMap[runUuid][metricKey].value;
+const getMetric = (valuesMap, runUuid, metricKey) =>
+  valuesMap[runUuid] && valuesMap[runUuid][metricKey];
 
-const formatMaybeValue = (value) => (value === undefined ? '' : Utils.formatMetric(value));
+const getValue = (metric) => metric && metric.value;
+
+const formatMetric = (metric, intl) =>
+  metric === undefined
+    ? ''
+    : intl.formatMessage(
+        {
+          defaultMessage: '{value} (step={step})',
+          description: 'Formats a metric value along with the step number it corresponds to',
+        },
+        {
+          value: Utils.formatMetric(metric.value),
+          step: metric.step,
+        },
+      );
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;

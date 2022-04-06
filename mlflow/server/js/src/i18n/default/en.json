@@ -839,6 +839,10 @@
     "defaultMessage": "Parameters",
     "description": "Row group title for parameters of runs on the experiment compare runs page"
   },
+  "eQgPEi": {
+    "defaultMessage": "{value} (step={step})",
+    "description": "Formats a metric value along with the step number it corresponds to"
+  },
   "eQsXm7": {
     "defaultMessage": "Last 7 days",
     "description": "Option for the start select dropdown to filter runs from the last 7 days"

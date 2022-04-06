@@ -46,13 +46,19 @@ describe('MetricsSummaryTable', () => {
     const store = mockStore({
       entities: {
         latestMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 1 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
+          },
         },
         minMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 2 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 2, step: 12 }),
+          },
         },
         maxMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 3 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 3, step: 13 }),
+          },
         },
       },
     });
@@ -76,7 +82,7 @@ describe('MetricsSummaryTable', () => {
     expect(html).not.toContain('run 0');
 
     for (let i = 1; i < 4; ++i) {
-      expect(html).toContain(i.toString());
+      expect(html).toContain(`${i} (step=${10 + i})`);
     }
   });
 
@@ -85,20 +91,20 @@ describe('MetricsSummaryTable', () => {
       entities: {
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 1 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 2 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 2, step: 12 }),
           },
         },
         minMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 3 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 4 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 3, step: 13 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 4, step: 14 }),
           },
         },
         maxMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 5 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 6 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 5, step: 15 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 6, step: 16 }),
           },
         },
       },
@@ -128,7 +134,7 @@ describe('MetricsSummaryTable', () => {
     expect(html).not.toContain('run 0');
 
     for (let i = 1; i < 7; ++i) {
-      expect(html).toContain(i.toString());
+      expect(html).toContain(`${i} (step=${10 + i})`);
     }
   });
 
@@ -136,16 +142,28 @@ describe('MetricsSummaryTable', () => {
     const store = mockStore({
       entities: {
         latestMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 1 }) },
-          'uuid-1234-5678-9013': { train_loss: Metric.fromJs({ key: 'train_loss', value: 2 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
+          },
+          'uuid-1234-5678-9013': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 2, step: 12 }),
+          },
         },
         minMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 3 }) },
-          'uuid-1234-5678-9013': { train_loss: Metric.fromJs({ key: 'train_loss', value: 4 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 3, step: 13 }),
+          },
+          'uuid-1234-5678-9013': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 4, step: 14 }),
+          },
         },
         maxMetricsByRunUuid: {
-          'uuid-1234-5678-9012': { train_loss: Metric.fromJs({ key: 'train_loss', value: 5 }) },
-          'uuid-1234-5678-9013': { train_loss: Metric.fromJs({ key: 'train_loss', value: 6 }) },
+          'uuid-1234-5678-9012': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 5, step: 15 }),
+          },
+          'uuid-1234-5678-9013': {
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 6, step: 16 }),
+          },
         },
       },
     });
@@ -175,7 +193,7 @@ describe('MetricsSummaryTable', () => {
     expect(html).toContain('run 1');
 
     for (let i = 1; i < 7; ++i) {
-      expect(html).toContain(i.toString());
+      expect(html).toContain(`${i} (step=${10 + i})`);
     }
   });
 
@@ -184,32 +202,32 @@ describe('MetricsSummaryTable', () => {
       entities: {
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 1 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 2 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 2, step: 12 }),
           },
           'uuid-1234-5678-9013': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 3 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 4 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 3, step: 13 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 4, step: 14 }),
           },
         },
         minMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 5 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 6 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 5, step: 15 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 6, step: 16 }),
           },
           'uuid-1234-5678-9013': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 7 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 8 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 7, step: 17 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 8, step: 18 }),
           },
         },
         maxMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 9 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 10 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 9, step: 19 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 10, step: 20 }),
           },
           'uuid-1234-5678-9013': {
-            train_loss: Metric.fromJs({ key: 'train_loss', value: 11 }),
-            val_loss: Metric.fromJs({ key: 'val_loss', value: 12 }),
+            train_loss: Metric.fromJs({ key: 'train_loss', value: 11, step: 21 }),
+            val_loss: Metric.fromJs({ key: 'val_loss', value: 12, step: 22 }),
           },
         },
       },
@@ -245,7 +263,7 @@ describe('MetricsSummaryTable', () => {
     expect(html).toContain('run 1');
 
     for (let i = 1; i < 13; ++i) {
-      expect(html).toContain(i.toString());
+      expect(html).toContain(`${i} (step=${10 + i})`);
     }
   });
 
