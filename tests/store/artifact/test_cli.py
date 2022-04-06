@@ -98,7 +98,7 @@ def test_download_artifacts_with_uri(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
     base_command = ["mlflow", "artifacts", "download", "-u"]
     run_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-    actual_uri = pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path
+    actual_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
     for uri in (run_uri, actual_uri):
         downloaded_content = _run_download_artifact_command(base_command + [uri])
         assert downloaded_content == artifact_content
