@@ -124,10 +124,10 @@ def model_path(tmp_path):
 
 
 @pytest.fixture
-def prophet_custom_env(tmpdir):
-    conda_env = pathlib.Path(tmpdir).joinpath("conda_env.yml")
-    _mlflow_conda_env(str(conda_env), additional_pip_deps=["pystan", "prophet", "pytest"])
-    return str(conda_env)
+def prophet_custom_env(tmp_path):
+    conda_env = tmp_path.joinpath("conda_env.yml")
+    _mlflow_conda_env(conda_env, additional_pip_deps=["prophet"])
+    return conda_env
 
 
 def future_horizon_df(model, horizon):
@@ -162,27 +162,27 @@ def test_model_pyfunc_save_load(prophet_model, model_path):
     )
 
 
-def test_signature_and_examples_saved_correctly(prophet_model, model_path):
+@pytest.mark.parametrize("_signature", [True, False])
+@pytest.mark.parametrize("_example", [True, False])
+def test_signature_and_examples_saved_correctly(prophet_model, model_path, _signature, _example):
     data = prophet_model.data
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-    signature_ = infer_signature(data, model.predict(horizon_df))
-    example_ = data[0:5].copy(deep=False)
-    example_["y"] = pd.to_numeric(example_["y"])  # cast to appropriate precision
-    idx = 0
-    for signature in (None, signature_):
-        for example in (None, example_):
-            idx += 1
-            path = str(pathlib.Path(model_path).joinpath(str(idx)))
-            mlflow.prophet.save_model(model, path=path, signature=signature, input_example=example)
-            mlflow_model = Model.load(path)
-            assert signature == mlflow_model.signature
-            if example is None:
-                assert mlflow_model.saved_input_example_info is None
-            else:
-                r_example = _read_example(mlflow_model, path).copy(deep=False)
-                r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
-                np.testing.assert_array_equal(r_example, example)
+    signature = infer_signature(data, model.predict(horizon_df)) if _signature else None
+    if _example:
+        example = data[0:5].copy(deep=False)
+        example["y"] = pd.to_numeric(example["y"])  # cast to appropriate precision
+    else:
+        example = None
+    mlflow.prophet.save_model(model, path=model_path, signature=signature, input_example=example)
+    mlflow_model = Model.load(model_path)
+    assert signature == mlflow_model.signature
+    if example is None:
+        assert mlflow_model.saved_input_example_info is None
+    else:
+        r_example = _read_example(mlflow_model, model_path).copy(deep=False)
+        r_example["ds"] = pd.to_datetime(r_example["ds"], format=DS_FORMAT)
+        np.testing.assert_array_equal(r_example, example)
 
 
 def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_bucket):
@@ -202,36 +202,36 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
     )
 
 
-def test_prophet_log_model(prophet_model, tmpdir):
-    for should_start_run in [False, True]:
-        try:
-            if should_start_run:
-                mlflow.start_run()
-            artifact_path = "prophet"
-            conda_env = pathlib.Path(tmpdir).joinpath("conda_env.yaml")
-            _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
+@pytest.mark.parametrize("should_start_run", [True, False])
+def test_prophet_log_model(prophet_model, tmp_path, should_start_run):
+    try:
+        if should_start_run:
+            mlflow.start_run()
+        artifact_path = "prophet"
+        conda_env = tmp_path.joinpath("conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["pystan", "prophet"])
 
-            model_info = mlflow.prophet.log_model(
-                pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=str(conda_env)
-            )
-            model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
-            assert model_info.model_uri == model_uri
-            reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
+        model_info = mlflow.prophet.log_model(
+            pr_model=prophet_model.model, artifact_path=artifact_path, conda_env=str(conda_env)
+        )
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        assert model_info.model_uri == model_uri
+        reloaded_prophet_model = mlflow.prophet.load_model(model_uri=model_uri)
 
-            np.testing.assert_array_equal(
-                generate_forecast(prophet_model.model, FORECAST_HORIZON),
-                generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
-            )
+        np.testing.assert_array_equal(
+            generate_forecast(prophet_model.model, FORECAST_HORIZON),
+            generate_forecast(reloaded_prophet_model, FORECAST_HORIZON),
+        )
 
-            model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
-            model_config = Model.load(str(model_path.joinpath("MLmodel")))
-            assert pyfunc.FLAVOR_NAME in model_config.flavors
-            assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-            env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-            assert model_path.joinpath(env_path).exists()
+        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_config = Model.load(str(model_path.joinpath("MLmodel")))
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        assert model_path.joinpath(env_path).exists()
 
-        finally:
-            mlflow.end_run()
+    finally:
+        mlflow.end_run()
 
 
 def test_log_model_calls_register_model(prophet_model, tmp_path):
@@ -268,41 +268,41 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     prophet_model, model_path, prophet_custom_env
 ):
     mlflow.prophet.save_model(
-        pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
+        pr_model=prophet_model.model, path=model_path, conda_env=str(prophet_custom_env)
     )
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = pathlib.Path(model_path).joinpath(pyfunc_conf[pyfunc.ENV])
+    saved_conda_env_path = model_path.joinpath(pyfunc_conf[pyfunc.ENV])
+
     assert saved_conda_env_path.exists()
-    assert saved_conda_env_path != prophet_custom_env
-    with open(prophet_custom_env, "r") as f:
-        prophet_custom_env_parsed = yaml.safe_load(f)
-    with open(str(saved_conda_env_path), "r") as f:
-        saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == prophet_custom_env_parsed
+    assert not prophet_custom_env.samefile(saved_conda_env_path)
+
+    prophet_custom_env_parsed = yaml.safe_load(prophet_custom_env.read_bytes())
+    saved_conda_env_parsed = yaml.safe_load(saved_conda_env_path.read_bytes())
+    assert prophet_custom_env_parsed == saved_conda_env_parsed
 
 
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     prophet_model, model_path, prophet_custom_env
 ):
     mlflow.prophet.save_model(
-        pr_model=prophet_model.model, path=model_path, conda_env=prophet_custom_env
+        pr_model=prophet_model.model, path=model_path, conda_env=str(prophet_custom_env)
     )
 
-    saved_pip_req_path = pathlib.Path(model_path).joinpath("requirements.txt")
+    saved_pip_req_path = model_path.joinpath("requirements.txt")
     _compare_conda_env_requirements(prophet_custom_env, str(saved_pip_req_path))
 
 
-def test_log_model_with_pip_requirements(prophet_model, tmpdir):
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+def test_log_model_with_pip_requirements(prophet_model, tmp_path):
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.prophet.log_model(prophet_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.prophet.log_model(prophet_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            prophet_model.model, "model", pip_requirements=[f"-r {str(req_file)}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
@@ -311,7 +311,7 @@ def test_log_model_with_pip_requirements(prophet_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            prophet_model.model, "model", pip_requirements=[f"-c {str(req_file)}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -321,22 +321,20 @@ def test_log_model_with_pip_requirements(prophet_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
     default_reqs = mlflow.prophet.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=req_file.strpath
-        )
+        mlflow.prophet.log_model(prophet_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
     # List of requirements
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            prophet_model.model, "model", extra_pip_requirements=[f"-r {str(req_file)}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -345,7 +343,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            prophet_model.model, "model", extra_pip_requirements=[f"-c {str(req_file)}", "b"]
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),
