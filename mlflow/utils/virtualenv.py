@@ -13,6 +13,7 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
+from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.utils.conda import _get_conda_dependencies
 
 
@@ -120,9 +121,9 @@ def _get_python_env(local_model_path):
             _CONDA_ENV_FILE_NAME,
         )
         conda_yaml_path = local_model_path / _CONDA_ENV_FILE_NAME
-        conda_deps = _get_conda_dependencies(
-            conda_yaml_path, exclude=("python", "pip", "setuptools", "wheel")
-        )
+        conda_deps = _get_conda_dependencies(conda_yaml_path)
+        build_packages = ("python", *PythonEnv.BUILD_PACKAGES)
+        conda_deps = [d for d in conda_deps if _get_package_name(d) not in build_packages]
         if conda_deps:
             raise MlflowException(
                 f"Cannot restore this model's environment with virtualenv because it contains "

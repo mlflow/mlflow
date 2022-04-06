@@ -12,7 +12,6 @@ from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.requirements_utils import (
     _parse_requirements,
     _infer_requirements,
-    _get_package_name,
 )
 from mlflow.version import VERSION
 from packaging.requirements import Requirement, InvalidRequirement
@@ -41,6 +40,8 @@ class PythonEnv:
     """
     Represents environment information for an MLflow Model.
     """
+
+    BUILD_PACKAGES = ("pip", "setuptools", "wheel")
 
     def __init__(self, python=None, build_dependencies=None, dependencies=None):
         if python is not None and not isinstance(python, str):
@@ -81,7 +82,7 @@ class PythonEnv:
     @staticmethod
     def get_default_build_dependencies():
         build_dependencies = []
-        for package in ["pip", "setuptools", "wheel"]:
+        for package in PythonEnv.BUILD_PACKAGES:
             version = PythonEnv._get_package_version(package)
             dep = (package + "==" + version) if version else package
             build_dependencies.append(dep)
@@ -263,13 +264,6 @@ def _get_pip_deps(conda_env):
             if _is_pip_deps(dep):
                 return dep["pip"]
     return []
-
-
-def _contains_conda_packages(conda_yaml_dict, exclude=("python", "pip", "setuptools", "wheel")):
-    packages = [
-        _get_package_name(d) for d in conda_yaml_dict.get("dependencies", []) if isinstance(d, str)
-    ]
-    return len(set(packages).difference(exclude)) > 0
 
 
 def _overwrite_pip_deps(conda_env, new_pip_deps):
