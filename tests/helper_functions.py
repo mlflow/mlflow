@@ -15,7 +15,6 @@ import uuid
 import sys
 import yaml
 
-import pandas as pd
 import pytest
 
 import mlflow
@@ -250,6 +249,7 @@ class RestEndpoint:
 
     def invoke(self, data, content_type):
         import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        import pandas as pd
 
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
