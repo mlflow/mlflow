@@ -119,7 +119,7 @@ class PyFuncBackend(FlavorBackend):
 
         server_implementation = mlserver if enable_mlserver else scoring_server
         command, command_env = server_implementation.get_cmd(
-            local_path, port, host, self._nworkers, env_root_dir=self._env_root_dir
+            local_path, port, host, self._nworkers
         )
 
         if sys.platform.startswith("linux"):
