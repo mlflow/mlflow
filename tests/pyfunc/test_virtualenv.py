@@ -5,11 +5,13 @@ from collections import namedtuple
 import pytest
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 
 import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
+from mlflow.utils.environment import PythonEnv
 from mlflow.utils.virtualenv import (
     _MLFLOW_ENV_ROOT_ENV_VAR,
     _is_pyenv_available,
@@ -17,7 +19,7 @@ from mlflow.utils.virtualenv import (
 )
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-requires_pyenv_and_virtualenv = pytest.mark.skipif(
+pytestmark = pytest.mark.skipif(
     not (_is_pyenv_available() and _is_virtualenv_available()),
     reason="requires pyenv and virtualenv",
 )
@@ -53,7 +55,6 @@ def temp_mlflow_env_root(tmp_path, monkeypatch):
 use_temp_mlflow_env_root = pytest.mark.usefixtures(temp_mlflow_env_root.__name__)
 
 
-@requires_pyenv_and_virtualenv
 @use_temp_mlflow_env_root
 def test_serve_and_score(sklearn_model):
     with mlflow.start_run():
@@ -63,21 +64,33 @@ def test_serve_and_score(sklearn_model):
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
-@requires_pyenv_and_virtualenv
 @use_temp_mlflow_env_root
 def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
 
+    # Serve
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    # This call should reuse the environment created in the previous call
+    # Serve again (environment created in the previous serve should be reused)
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
     assert len(os.listdir(temp_mlflow_env_root)) == 1
 
 
-@requires_pyenv_and_virtualenv
+@use_temp_mlflow_env_root
+def test_python_micro_version_is_missing(sklearn_model):
+    with mlflow.start_run():
+        python_env = PythonEnv(
+            python="3.8", dependencies=["mlflow", f"scikit-learn=={sklearn.__version__}"]
+        )
+        model_info = mlflow.sklearn.log_model(
+            sklearn_model.model, artifact_path="model", python_env=python_env
+        )
+    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
+
+
 @use_temp_mlflow_env_root
 def test_python_env_does_not_exist(sklearn_model):
     with mlflow.start_run():
@@ -89,8 +102,7 @@ def test_python_env_does_not_exist(sklearn_model):
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
-@requires_pyenv_and_virtualenv
-def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
+def test_pip_installation_failure(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             sklearn_model.model,
@@ -103,7 +115,6 @@ def test_pip_install_fails(temp_mlflow_env_root, sklearn_model):
     assert len(list(temp_mlflow_env_root.iterdir())) == 0
 
 
-@requires_pyenv_and_virtualenv
 @use_temp_mlflow_env_root
 def test_model_contains_conda_packages(sklearn_model):
     conda_env = {
@@ -121,7 +132,6 @@ def test_model_contains_conda_packages(sklearn_model):
             },
         ],
     }
-
     with mlflow.start_run():
         with mock.patch("mlflow.utils.environment.PythonEnv.to_yaml") as mock_to_yaml:
             model_info = mlflow.sklearn.log_model(

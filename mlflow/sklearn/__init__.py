@@ -151,6 +151,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    python_env=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -218,6 +219,8 @@ def save_model(
         sk_path_dir_2 = ...
         mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
                                   serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
+
+    :param python_env: TODO
     """
     import sklearn
 
@@ -303,7 +306,15 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    PythonEnv.default().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+    if python_env is None:
+        python_env = PythonEnv.default()
+    elif isinstance(python_env, str):
+        python_env = PythonEnv.from_yaml(python_env)
+    elif not isinstance(python_env, PythonEnv):
+        raise TypeError(
+            f"Invalid type for `python_env`: {type(python_env)}. Must be `str` or `PythonEnv`."
+        )
+    python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -319,6 +330,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    python_env=None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -403,6 +415,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        python_env=python_env,
     )
 
 
