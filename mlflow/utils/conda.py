@@ -85,12 +85,17 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments(conda_extra_envs=None):
+def _list_conda_environments(conda_extra_envs=None, return_full_path=False):
     prc = process._exec_cmd(
         [get_conda_bin_executable("conda"), "env", "list", "--json"],
         extra_env=conda_extra_envs
     )
-    return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
+
+    result = list(json.loads(prc.stdout).get("envs", []))
+    if return_full_path:
+        return result
+    else:
+        return list(map(os.path.basename, result))
 
 
 _CONDA_ENVS_DIR = "conda_envs"
@@ -195,7 +200,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         )
     else:
         project_env_path = project_env_name
-    if project_env_path not in _list_conda_environments(conda_extra_envs):
+    if project_env_path not in _list_conda_environments(
+            conda_extra_envs,  return_full_path=(env_root_dir is not None)
+    ):
         _logger.info("=== Creating conda environment %s ===", project_env_path)
         try:
             if conda_env_path:
@@ -230,7 +237,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                 )
         except Exception:
             try:
-                if project_env_path in _list_conda_environments(conda_extra_envs=conda_extra_envs):
+                if project_env_path in _list_conda_environments(
+                        conda_extra_envs, return_full_path=(env_root_dir is not None)
+                ):
                     _logger.warning(
                         "Encountered unexpected error while creating conda environment. "
                         "Removing %s.",
