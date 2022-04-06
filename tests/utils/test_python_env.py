@@ -100,5 +100,22 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    with pytest.raises(Exception, match="Failed to construct a `PythonEnv` object"):
+    with pytest.raises(Exception, match="Could not extract python version"):
+        PythonEnv.from_conda_yaml(yaml_path)
+
+
+def test_from_conda_yaml_invalid_python_comperator(tmp_path):
+    content = """
+name: example
+channels:
+  - conda-forge
+dependencies:
+  - python<3.7.9
+  - pip:
+    - a
+    - b
+"""
+    yaml_path = tmp_path / "conda.yaml"
+    yaml_path.write_text(content)
+    with pytest.raises(Exception, match="Invalid version comperator for python"):
         PythonEnv.from_conda_yaml(yaml_path)
