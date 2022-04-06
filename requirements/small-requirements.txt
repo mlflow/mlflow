@@ -20,4 +20,4 @@ shap>=0.40
 # with many versions of prometheus-flask-exporter (prometheus-flask-exporter is used to provide
 # MLflow server metrics)
 
-prometheus-client!=0.14.0
+# prometheus-client!=0.14.0
