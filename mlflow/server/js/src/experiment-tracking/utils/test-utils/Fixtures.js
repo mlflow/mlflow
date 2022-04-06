@@ -21,9 +21,10 @@ const createRunInfo = () => {
   return RunInfo.fromJs({ run_uuid: 0 });
 };
 
-// eslint-disable-next-line import/no-anonymous-default-export
-export default {
+const fixtures = {
   createExperiment,
   createRunInfo,
   experiments: [createExperiment(), createExperiment({ experiment_id: '1', name: 'Test' })],
 };
+
+export default fixtures;
