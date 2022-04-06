@@ -23,7 +23,18 @@ def _get_user():
 
 def _get_main_file():
     if len(sys.argv) > 0:
-        return sys.argv[0]
+        if 'ipykernel_launcher.py' in sys.argv[0]:
+            # Do something different if it looks like sys.argv[0] returned 
+            # a wrong path (because it's being called from inside a notebook).
+            # 
+            # It seems getting the current notebook path is non-trivial so
+            # I've used a PyPI package for convenience.
+            # - pip install ipynbname
+            # - https://github.com/msm1089/ipynbname
+            import ipynbname
+            return str(ipynbname.path())
+        else:
+            return sys.argv[0]
     return None
 
 

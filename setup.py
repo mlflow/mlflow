@@ -57,6 +57,8 @@ SKINNY_REQUIREMENTS = [
     # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
     # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
     "importlib_metadata>=3.7.0,!=4.7.0",
+    # ipynbname for: https://github.com/mlflow/mlflow/issues/2945
+    "ipynbname>=2021.3.2",
 ]
 
 """
