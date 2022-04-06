@@ -300,6 +300,7 @@ export const getModelVersionTags = (modelName, version, state) => {
   }
 };
 
+/* eslint import/no-anonymous-default-export: [2, {"allowObject": true}] */
 export default {
   modelByName,
   modelVersionsByModel,
