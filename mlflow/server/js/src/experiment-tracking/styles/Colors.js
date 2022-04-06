@@ -1,4 +1,4 @@
-/* eslint import/no-anonymous-default-export: [2, {"allowObject": true}] */
+// eslint-disable-next-line import/no-anonymous-default-export
 export default {
   secondaryText: '#888',
 };
