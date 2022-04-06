@@ -121,6 +121,12 @@ class PythonEnv:
 
                 # Python
                 if not python and package == "python":
+                    if operator in ("<", ">", "!="):
+                        raise MlflowException(
+                            f"Invalid version comperator for python: '{operator}'. "
+                            "Must be one of ['<=', '>=', '=', '=='].",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
                     python = version
                     continue
 
