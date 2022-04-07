@@ -9,8 +9,8 @@ const getCompareRunViewMock = () => {
   return shallow(
     <CompareRunView
       runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
-      experiment={Fixtures.createExperiment()}
-      experimentId={'0'}
+      experiments={[Fixtures.createExperiment()]}
+      experimentIds={['0']}
       runUuids={['0']}
       metricLists={[]}
       paramLists={[]}

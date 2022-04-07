@@ -48,6 +48,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -475,13 +476,11 @@ def save_model(
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise RuntimeError("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
 
     if mlflow_model is None:
         mlflow_model = Model()
 
-    os.makedirs(path)
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -644,7 +643,8 @@ def _load_model(path, **kwargs):
             return torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
-            kwargs.pop("pickle_module", None)  # `torch.jit.load` does not accept `pickle_module`.
+            # `torch.jit.load` does not accept `pickle_module`.
+            kwargs.pop("pickle_module", None)
             return torch.jit.load(model_path, **kwargs)
 
 
@@ -724,7 +724,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
 def _load_pyfunc(path, **kwargs):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
     """
@@ -876,6 +876,7 @@ def load_state_dict(state_dict_uri, **kwargs):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_every_n_epoch=1,
+    log_every_n_step=None,
     log_models=True,
     disable=False,
     exclusive=False,
@@ -905,6 +906,9 @@ def autolog(
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
+    :param log_every_n_step: If specified, logs batch metrics once every `n` global step.
+                       By default, metrics are not logged for steps. Note that setting this to 1 can
+                       cause performance issues and is not recommended.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables the PyTorch Lightning autologging integration.

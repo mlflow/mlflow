@@ -113,7 +113,6 @@ def test_get_endpoints():
 
 def test_all_model_registry_endpoints_available():
     endpoints = {handler: method for (path, handler, method) in get_endpoints()}
-    print(endpoints)
 
     # Test that each of the handler is enabled as an endpoint with appropriate method.
     expected_endpoints = {

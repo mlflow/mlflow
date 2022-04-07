@@ -32,12 +32,14 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("spacy") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("spacy") else ["--env-manager", "local"]
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
-
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
+spacy_version = Version(spacy.__version__)
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = spacy_version >= Version("3.0.0")
 
 
 @pytest.fixture(scope="module")
@@ -103,7 +105,7 @@ def test_model_save_load(spacy_model_with_data, model_path):
     assert spacy_model.meta == loaded_model.meta
 
     # Load pyfunc model using saved model and asserting its predictions are equal to the created one
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(
         _predict(spacy_model, spacy_model_with_data.inference_data)
         == pyfunc_loaded.predict(spacy_model_with_data.inference_data)
@@ -117,7 +119,6 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
     example_ = spacy_model_with_data.inference_data.head(3)
     for signature in (None, signature_):
         for example in (None, example_):
-            print(signature is None, example is None)
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.spacy.save_model(
@@ -134,7 +135,7 @@ def test_model_export_with_schema_and_examples(spacy_model_with_data):
 @pytest.mark.large
 def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
     mlflow.spacy.save_model(spacy_model=spacy_model_with_data.model, path=model_path)
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
     # Concatenating with itself to duplicate column and mess up input shape
     # then asserting n MlflowException is raised
@@ -408,7 +409,13 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
     model, inference_dataframe = spacy_model_with_data
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.spacy.log_model(model, artifact_path)
+        if spacy_version <= Version("3.0.8"):
+            extra_pip_requirements = ["click<8.1.0", "flask<2.1.0"]
+        elif spacy_version < Version("3.2.4"):
+            extra_pip_requirements = ["click<8.1.0"]
+        else:
+            extra_pip_requirements = None
+        mlflow.spacy.log_model(model, artifact_path, extra_pip_requirements=extra_pip_requirements)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(

@@ -6,18 +6,8 @@ import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
 import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
-import {
-  Alert,
-  Badge,
-  Descriptions,
-  Menu,
-  Popover,
-  Select,
-  Tooltip,
-  Typography,
-  Switch,
-  message,
-} from 'antd';
+import { Alert, Badge, Descriptions, Menu, Popover, Select, Tooltip, Switch } from 'antd';
+import { Typography } from '@databricks/design-system';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -31,6 +21,7 @@ import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
+import { GetLinkModal } from './modals/GetLinkModal';
 import { NoteInfo, NOTE_CONTENT_TAG } from '../utils/NoteUtils';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { ExperimentViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
@@ -39,7 +30,11 @@ import { CSSTransition } from 'react-transition-group';
 import { Spinner } from '../../common/components/Spinner';
 import { RunsTableColumnSelectionDropdown } from './RunsTableColumnSelectionDropdown';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { ExperimentTrackingDocUrl, onboarding } from '../../common/constants';
+import {
+  ExperimentSearchSyntaxDocUrl,
+  ExperimentTrackingDocUrl,
+  onboarding,
+} from '../../common/constants';
 import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
@@ -87,8 +82,8 @@ export class ExperimentView extends Component {
     this.getStartTimeColumnDisplayName = this.getStartTimeColumnDisplayName.bind(this);
     this.onHandleStartTimeDropdown = this.onHandleStartTimeDropdown.bind(this);
     this.handleDiffSwitchChange = this.handleDiffSwitchChange.bind(this);
-
-    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
+    this.handleShareButtonClick = this.handleShareButtonClick.bind(this);
+    const store = ExperimentView.getLocalStore(this.stringifyExperimentIds());
     const persistedState = new ExperimentViewPersistedState({
       ...store.loadComponentState(),
     });
@@ -101,10 +96,12 @@ export class ExperimentView extends Component {
       showFilters: false,
       showOnboardingHelper: onboardingInformationStore.getItem('showTrackingHelper') === null,
       searchInput: props.searchInput,
-      lastExperimentId: undefined,
+      lastExperimentIds: undefined,
+      showGetLinkModal: false,
     };
   }
   static propTypes = {
+    compareExperiments: PropTypes.bool,
     onSearch: PropTypes.func.isRequired,
     onClear: PropTypes.func.isRequired,
     setShowMultiColumns: PropTypes.func.isRequired,
@@ -113,8 +110,7 @@ export class ExperimentView extends Component {
     updateUrlWithViewState: PropTypes.func.isRequired,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
-    experimentId: PropTypes.string.isRequired,
-    experiment: PropTypes.instanceOf(Experiment).isRequired,
+    experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)).isRequired,
     history: PropTypes.any,
     // List of all parameter keys available in the runs we're viewing
     paramKeyList: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -159,6 +155,10 @@ export class ExperimentView extends Component {
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
+  static defaultProps = {
+    compareExperiments: false,
+  };
+
   /** Returns default values for state attributes that aren't persisted in local storage. */
   static getDefaultUnpersistedState() {
     return {
@@ -181,10 +181,10 @@ export class ExperimentView extends Component {
   /**
    * Returns a LocalStorageStore instance that can be used to persist data associated with the
    * ExperimentView component (e.g. component state such as table sort settings), for the
-   * specified experiment.
+   * specified id.
    */
-  static getLocalStore(experimentId) {
-    return LocalStorageUtils.getStoreForComponent('ExperimentView', experimentId);
+  static getLocalStore(id) {
+    return LocalStorageUtils.getStoreForComponent('ExperimentView', id);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -202,9 +202,13 @@ export class ExperimentView extends Component {
     return prevState.searchInput !== this.props.searchInput;
   }
 
+  stringifyExperimentIds() {
+    return JSON.stringify(this.props.experiments.map(({ experiment_id }) => experiment_id).sort());
+  }
+
   /** Snapshots desired attributes of the component's current state in local storage. */
   snapshotComponentState() {
-    const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
+    const store = ExperimentView.getLocalStore(this.stringifyExperimentIds());
     store.saveComponentState(new ExperimentViewPersistedState(this.state.persistedState));
   }
 
@@ -224,8 +228,8 @@ export class ExperimentView extends Component {
 
   componentDidMount() {
     let pageTitle = 'MLflow Experiment';
-    if (this.props.experiment.name) {
-      const experimentNameParts = this.props.experiment.name.split('/');
+    if (!this.props.compareExperiments && this.props.experiments[0].name) {
+      const experimentNameParts = this.props.experiments[0].name.split('/');
       const experimentSuffix = experimentNameParts[experimentNameParts.length - 1];
       pageTitle = `${experimentSuffix} - MLflow Experiment`;
     }
@@ -242,15 +246,19 @@ export class ExperimentView extends Component {
       }
     });
     let persistedState;
-    let lastExperimentId;
+    let lastExperimentIds;
     let newPersistedState = {};
-    if (nextProps.experimentId !== prevState.lastExperimentId) {
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/prop-types
+    if (!_.isEqual(nextProps.experimentIds, prevState.lastExperimentIds)) {
       persistedState =
-        prevState.lastExperimentId === undefined
+        prevState.lastExperimentIds === undefined
           ? prevState.persistedState
           : new ExperimentViewPersistedState().toJSON();
-      lastExperimentId = nextProps.experimentId;
-      newPersistedState = { persistedState, lastExperimentId };
+      // Reported during ESLint upgrade
+      // eslint-disable-next-line react/prop-types
+      lastExperimentIds = nextProps.experimentIds;
+      newPersistedState = { persistedState, lastExperimentIds };
     }
     return {
       ...prevState,
@@ -322,7 +330,7 @@ export class ExperimentView extends Component {
   }
 
   handleSubmitEditNote(note) {
-    const { experiment_id } = this.props.experiment;
+    const { experiment_id } = this.props.experiments[0];
     this.props
       .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
       .then(() => this.setState({ showNotesEditor: false }));
@@ -352,7 +360,7 @@ export class ExperimentView extends Component {
       <div>
         <FormattedMessage
           // eslint-disable-next-line max-len
-          defaultMessage='Track machine learning training runs in an experiment. <link>Learn more</link>'
+          defaultMessage='Track machine learning training runs in experiments. <link>Learn more</link>'
           // eslint-disable-next-line max-len
           description='Information banner text to provide more information about experiments runs page'
           values={{
@@ -382,21 +390,41 @@ export class ExperimentView extends Component {
     ) : null;
   }
 
+  shouldShowEditPermissionModal() {
+    const { compareExperiments, experiments } = this.props;
+    return !compareExperiments && experiments[0].allowed_actions.includes('MODIFIY_PERMISSION');
+  }
+  // END-EDGE
+
+  renderGetLinkModal() {
+    const { showGetLinkModal } = this.state;
+    return (
+      <GetLinkModal
+        link={window.top.location.href}
+        visible={showGetLinkModal}
+        onCancel={() => this.setState({ showGetLinkModal: false })}
+      />
+    );
+  }
+
+  handleShareButtonClick() {
+    const { updateUrlWithViewState } = this.props;
+    updateUrlWithViewState();
+    this.setState({ showGetLinkModal: true });
+  }
+
   renderShareButton() {
     return (
-      <Tooltip
-        title={this.props.intl.formatMessage({
-          defaultMessage: 'Share experiment view',
-          description: 'Label for the share experiment view button',
-        })}
+      <HeaderButton
+        type='secondary'
+        onClick={this.handleShareButtonClick}
+        data-test-id='share-button'
       >
-        <HeaderButton onClick={this.onShare}>
-          <FormattedMessage
-            defaultMessage='Share'
-            description='String for the share button to share experiment view'
-          />
-        </HeaderButton>
-      </Tooltip>
+        <FormattedMessage
+          defaultMessage='Share'
+          description='Text for share button on experiment view page header'
+        />
+      </HeaderButton>
     );
   }
 
@@ -449,6 +477,18 @@ export class ExperimentView extends Component {
     return menuItems;
   }
 
+  getCompareExperimentsPageTitle() {
+    return this.props.intl.formatMessage(
+      {
+        defaultMessage: 'Displaying Runs from {numExperiments} Experiments',
+        description: 'Message shown when displaying runs from multiple experiments',
+      },
+      {
+        numExperiments: this.props.experiments.length,
+      },
+    );
+  }
+
   render() {
     const {
       runInfos,
@@ -458,7 +498,7 @@ export class ExperimentView extends Component {
       numRunsFromLatestSearch,
       handleLoadMoreRuns,
       experimentTags,
-      experiment,
+      experiments,
       tagsList,
       paramKeyList,
       metricKeyList,
@@ -471,7 +511,7 @@ export class ExperimentView extends Component {
       nestChildren,
       numberOfNewRuns,
     } = this.props;
-    const { experiment_id, name } = experiment;
+    const { experiment_id, name } = experiments[0];
     const { persistedState } = this.state;
     const { unbaggedParams, unbaggedMetrics } = persistedState;
     const filteredParamKeys = this.getFilteredKeys(paramKeyList, COLUMN_TYPES.PARAMS);
@@ -497,11 +537,7 @@ export class ExperimentView extends Component {
           description='Learn more tooltip link to learn more on how to search in an experiments run table'
           values={{
             link: (chunks) => (
-              <a
-                href='https://www.mlflow.org/docs/latest/search-syntax.html'
-                target='_blank'
-                rel='noopener noreferrer'
-              >
+              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
                 {chunks}
               </a>
             ),
@@ -525,7 +561,7 @@ export class ExperimentView extends Component {
     let form;
 
     const artifactLocationProps = {
-      experiment: this.props.experiment,
+      experiment: this.props.experiments[0],
       intl: this.props.intl,
     };
 
@@ -578,6 +614,29 @@ export class ExperimentView extends Component {
     }, []);
     sortOptions = [...attributesSortBy, ...metricsSortBy, ...paramsSortBy];
 
+    const pageHeaderTitle = this.props.compareExperiments ? (
+      this.getCompareExperimentsPageTitle()
+    ) : (
+      <>
+        {name}
+        <Text
+          size='xl'
+          dangerouslySetAntdProps={{
+            copyable: {
+              text: name,
+              tooltips: [
+                this.props.intl.formatMessage({
+                  defaultMessage: 'Copy',
+                  description:
+                    'Copy tooltip to copy experiment name from experiment runs table header',
+                }),
+              ],
+            },
+          }}
+        />
+      </>
+    );
+
     return (
       <div className='ExperimentView runs-table-flex-container'>
         <DeleteRunModal
@@ -590,54 +649,46 @@ export class ExperimentView extends Component {
           onClose={this.onCloseRestoreRunModal}
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
+        {this.renderGetLinkModal()}
         <PageHeader
-          title={
-            <>
-              {name}
-              <Text
-                copyable={{
-                  text: name,
-                  tooltips: [
-                    this.props.intl.formatMessage({
-                      defaultMessage: 'Copy',
-                      description:
-                        'Copy tooltip to copy experiment name from experiment runs table header',
-                    }),
-                  ],
-                }}
-              />
-            </>
-          }
+          /* prettier-ignore */
+          title={pageHeaderTitle}
           breadcrumbs={breadcrumbs}
           feedbackForm={form}
         >
-          <OverflowMenu
-            data-test-id='experiment-view-page-header'
-            menu={this.getExperimentOverflowItems()}
-          />
+          {!this.props.compareExperiments && (
+            <OverflowMenu
+              data-test-id='experiment-view-page-header'
+              menu={this.getExperimentOverflowItems()}
+            />
+          )}
           {this.renderShareButton()}
         </PageHeader>
         {this.renderOnboardingContent()}
-        <Descriptions className='metadata-list'>
-          <Descriptions.Item
-            label={this.props.intl.formatMessage({
-              defaultMessage: 'Experiment ID',
-              description: 'Label for displaying the current experiment in view',
-            })}
-          >
-            {experiment_id}
-          </Descriptions.Item>
-          <ArtifactLocation {...artifactLocationProps} />
-        </Descriptions>
-        <div className='ExperimentView-info'>
-          <ExperimentNoteSection
-            noteInfo={noteInfo}
-            handleCancelEditNote={this.handleCancelEditNote}
-            handleSubmitEditNote={this.handleSubmitEditNote}
-            showNotesEditor={this.state.showNotesEditor}
-            startEditingDescription={this.startEditingDescription}
-          />
-        </div>
+        {!this.props.compareExperiments && (
+          <>
+            <Descriptions className='metadata-list'>
+              <Descriptions.Item
+                label={this.props.intl.formatMessage({
+                  defaultMessage: 'Experiment ID',
+                  description: 'Label for displaying the current experiment in view',
+                })}
+              >
+                {experiment_id}
+              </Descriptions.Item>
+              <ArtifactLocation {...artifactLocationProps} />
+            </Descriptions>
+            <div className='ExperimentView-info'>
+              <ExperimentNoteSection
+                noteInfo={noteInfo}
+                handleCancelEditNote={this.handleCancelEditNote}
+                handleSubmitEditNote={this.handleSubmitEditNote}
+                showNotesEditor={this.state.showNotesEditor}
+                startEditingDescription={this.startEditingDescription}
+              />
+            </div>
+          </>
+        )}
         <div className='ExperimentView-runs runs-table-flex-container'>
           {this.props.searchRunsError ? (
             <div className='error-message'>
@@ -818,7 +869,7 @@ export class ExperimentView extends Component {
                     >
                       <Switch
                         style={{ margin: '5px' }}
-                        dataTestId='diff-switch'
+                        // dataTestId='diff-switch'
                         checked={diffSwitchSelected}
                         onChange={this.handleDiffSwitchChange}
                       />
@@ -958,7 +1009,8 @@ export class ExperimentView extends Component {
             </div>
             {showMultiColumns && !this.props.forceCompactTableView ? (
               <ExperimentRunsTableMultiColumnView2
-                experimentId={experiment.experiment_id}
+                compareExperiments={this.props.compareExperiments}
+                experiments={experiments}
                 modelVersionsByRunUuid={this.props.modelVersionsByRunUuid}
                 onSelectionChange={this.handleMultiColumnViewSelectionChange}
                 runInfos={this.props.runInfos}
@@ -1183,17 +1235,6 @@ export class ExperimentView extends Component {
     });
   };
 
-  onShare = () => {
-    this.props.updateUrlWithViewState();
-    navigator.clipboard.writeText(window.location.href);
-    message.info(
-      this.props.intl.formatMessage({
-        defaultMessage: 'Experiment view URL copied to clipboard',
-        description: 'Content of the message after clicking the share experiment button',
-      }),
-    );
-  };
-
   onClear = () => {
     this.setState(
       {
@@ -1206,9 +1247,13 @@ export class ExperimentView extends Component {
   };
 
   onCompare = () => {
+    const { runInfos } = this.props;
     const runsSelectedList = Object.keys(this.state.runsSelected);
+    const experimentIds = runInfos
+      .filter(({ run_uuid }) => runsSelectedList.includes(run_uuid))
+      .map(({ experiment_id }) => experiment_id);
     this.props.history.push(
-      Routes.getCompareRunPageRoute(runsSelectedList, this.props.experiment.getExperimentId()),
+      Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()),
     );
   };
 
@@ -1237,9 +1282,10 @@ export const mapStateToProps = (state, ownProps) => {
 
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
+  const experimentIds = ownProps.experiments.map(({ experiment_id }) => experiment_id.toString());
   const runUuids = Object.values(runInfosByUuid)
-    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
-    .map((r) => r.run_uuid);
+    .filter(({ experiment_id }) => experimentIds.includes(experiment_id))
+    .map(({ run_uuid }) => run_uuid);
 
   const { modelVersionsByRunUuid } = state.entities;
 
@@ -1283,7 +1329,9 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
-  const experimentTags = getExperimentTags(ownProps.experimentId, state);
+  // Only show description if we're viewing runs from a single experiment
+  const experimentTags =
+    !ownProps.compareExperiments && getExperimentTags(ownProps.experiments[0].experiment_id, state);
   return {
     runInfos,
     modelVersionsByRunUuid,

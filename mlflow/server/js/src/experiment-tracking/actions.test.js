@@ -34,11 +34,11 @@ const bParent = { info: { run_id: 'bParent' } };
 beforeEach(() => {
   jest
     .spyOn(MlflowService, 'searchRuns')
-    .mockImplementation(({ success }) => success({ runs: [a, b, aParent] }));
+    .mockImplementation(() => Promise.resolve({ runs: [a, b, aParent] }));
 
   jest
     .spyOn(MlflowService, 'getRun')
-    .mockImplementation(({ data, success }) => success({ run: { info: { run_id: data.run_id } } }));
+    .mockImplementation((data) => Promise.resolve({ run: { info: { run_id: data.run_id } } }));
 });
 
 afterEach(() => {
@@ -81,11 +81,11 @@ describe('fetchMissingParents', () => {
       },
     };
 
-    jest.spyOn(MlflowService, 'getRun').mockImplementation(({ data, success }) => {
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => {
       if (data.run_id === 'aParent') {
-        success({ run: { info: { run_id: data.run_id } } });
+        return Promise.resolve({ run: { info: { run_id: data.run_id } } });
       } else {
-        throw mockParentRunDeletedError;
+        return Promise.reject(mockParentRunDeletedError);
       }
     });
 
@@ -102,9 +102,9 @@ describe('fetchMissingParents', () => {
       },
     };
 
-    jest.spyOn(MlflowService, 'getRun').mockImplementation(() => {
-      throw mockUnexpectedGetRunError;
-    });
+    jest
+      .spyOn(MlflowService, 'getRun')
+      .mockImplementation(() => Promise.reject(mockUnexpectedGetRunError));
 
     const res = { runs: [a, b] };
     await expect(fetchMissingParents(res)).rejects.toEqual(mockUnexpectedGetRunError);

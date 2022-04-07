@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
+import { Version, HomePageDocsUrl } from '../../common/constants';
 import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
@@ -46,6 +47,7 @@ class App extends Component {
                 <Link to={Routes.rootRoute} className='App-mlflow'>
                   <img className='mlflow-logo' alt='MLflow' src={logo} />
                 </Link>
+                <span className={'mlflow-version'}>{Version}</span>
               </div>
               <div className='header-route-links'>
                 <NavLink
@@ -76,7 +78,7 @@ class App extends Component {
                     <span>GitHub</span>
                   </div>
                 </a>
-                <a href={'https://mlflow.org/docs/latest/index.html'}>
+                <a href={HomePageDocsUrl}>
                   <div className='docs'>
                     <span>Docs</span>
                   </div>
@@ -92,6 +94,7 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
               <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
               {/* TODO(Zangr) see if route component can be injected here */}
               <Route exact path={modelListPageRoute} component={ModelListPage} />

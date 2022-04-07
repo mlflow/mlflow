@@ -12,10 +12,12 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 from unittest import mock
 from scipy.sparse import csc_matrix
+from packaging.version import Version
 
 
 def test_model_save_load():
@@ -63,7 +65,7 @@ class TestFlavor:
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
         mlflow_model.flavors["flavor1"] = {"a": 1, "b": 2}
         mlflow_model.flavors["flavor2"] = {"x": 1, "y": 2}
-        os.makedirs(path)
+        _validate_and_prepare_target_save_path(path)
         if signature is not None:
             mlflow_model.signature = signature
         if input_example is not None:
@@ -110,6 +112,8 @@ def test_model_log():
         assert isinstance(loaded_example, pd.DataFrame)
         assert loaded_example.to_dict(orient="records")[0] == input_example
 
+        assert Version(loaded_model.mlflow_version) == Version(mlflow.version.VERSION)
+
 
 def test_model_info():
     with TempDir(chdr=True) as tmp:
@@ -146,6 +150,20 @@ def test_model_info():
         assert x.to_dict(orient="records")[0] == input_example
 
         assert model_info.signature_dict == sig.to_dict()
+
+        assert Version(model_info.mlflow_version) == Version(loaded_model.mlflow_version)
+
+
+def test_load_model_without_mlflow_version():
+
+    with TempDir(chdr=True) as tmp:
+        model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
+        path = tmp.path("model")
+        with open(path, "w") as out:
+            model.to_yaml(out)
+        loaded_model = Model.load(path)
+
+        assert loaded_model.mlflow_version is None
 
 
 def test_model_log_with_databricks_runtime():

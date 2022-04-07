@@ -33,7 +33,7 @@ def get_model_conf(artifact_uri, model_subpath="model"):
     return Model.load(model_conf_path)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def bst_params():
     return {
         "objective": "multi:softprob",
@@ -42,7 +42,7 @@ def bst_params():
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def dtrain():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])

@@ -90,7 +90,7 @@ def test_run_local_conda_env():
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:
-        process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
+        process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
     except process.ShellCommandException:
         _logger.error(
             "Unable to remove conda environment %s. The environment may not have been present, "

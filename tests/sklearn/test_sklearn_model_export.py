@@ -38,13 +38,13 @@ from tests.helper_functions import (
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -54,7 +54,7 @@ def sklearn_knn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_logreg_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -64,10 +64,9 @@ def sklearn_logreg_model():
     return ModelWithData(model=linear_lr, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_custom_transformer_model(sklearn_knn_model):
     def transform(vec):
-        print("Invoking custom transformer!")
         return vec + 1
 
     transformer = SKFunctionTransformer(transform, validate=True)
@@ -93,7 +92,7 @@ def test_model_save_load(sklearn_knn_model, model_path):
 
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
     reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         knn_model.predict(sklearn_knn_model.inference_data),
@@ -104,6 +103,19 @@ def test_model_save_load(sklearn_knn_model, model_path):
         reloaded_knn_model.predict(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+@pytest.mark.large
+def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
+    sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
+    sklearn_model_path.mkdir()
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    sklearn_model_path = tmp_path / "sklearn_model_filled_exists"
+    sklearn_model_path.mkdir()
+    (sklearn_model_path / "foo.txt").write_text("dummy content")
+    with pytest.raises(MlflowException, match="already exists and is not empty"):
+        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
 
 @pytest.mark.large
@@ -148,11 +160,9 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
 
 @pytest.mark.large
 def test_model_log(sklearn_logreg_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -185,7 +195,6 @@ def test_model_log(sklearn_logreg_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(sklearn_logreg_model):
@@ -582,7 +591,7 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     assert pyfunc_conf is not None
     pyfunc_conf[pyfunc.DATA] = sklearn_conf["pickled_model"]
 
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),

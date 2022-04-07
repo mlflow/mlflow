@@ -2,6 +2,7 @@ import json
 import math
 import numpy as np
 import os
+import signal
 import pandas as pd
 from collections import namedtuple, OrderedDict
 from packaging.version import Version
@@ -21,6 +22,7 @@ from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.environment import _EnvManager
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
@@ -61,7 +63,7 @@ def pandas_df_with_all_types():
     return pdf
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
@@ -71,7 +73,7 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def keras_model():
     iris = datasets.load_iris()
     data = pd.DataFrame(
@@ -533,7 +535,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--no-conda"],
+            extra_args=["--env-manager", "local"],
         )
         response_json = json.loads(response.content)
 
@@ -544,7 +546,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-            extra_args=["--no-conda"],
+            extra_args=["--env-manager", "local"],
         )
         response_json = json.loads(response.content)
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
@@ -613,3 +615,37 @@ def test_get_cmd(args: dict, expected: str):
     assert cmd == (
         f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
     )
+
+
+@pytest.mark.large
+def test_scoring_server_client(sklearn_model, model_path):
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.utils import find_free_port
+    from mlflow.models.cli import _get_flavor_backend
+
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
+
+    port = find_free_port()
+
+    server_proc = None
+    try:
+        server_proc = _get_flavor_backend(
+            model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
+        ).serve(
+            model_uri=model_path,
+            port=port,
+            host="127.0.0.1",
+            enable_mlserver=False,
+            synchronous=False,
+        )
+
+        client = ScoringServerClient(host="127.0.0.1", port=port)
+        client.wait_server_ready()
+
+        data = pd.DataFrame(sklearn_model.inference_data)
+        result = client.invoke(data).to_numpy()[:, 0]
+        np.testing.assert_allclose(result, expected_result, rtol=1e-5)
+    finally:
+        if server_proc is not None:
+            os.kill(server_proc.pid, signal.SIGTERM)

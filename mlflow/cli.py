@@ -12,6 +12,7 @@ import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
+from mlflow import version
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -20,7 +21,11 @@ from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import resolve_default_artifact_root
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    _validate_artifacts_only_config,
+)
+from mlflow.utils.environment import _EnvManager
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -28,7 +33,7 @@ _logger = logging.getLogger(__name__)
 
 
 @click.group()
-@click.version_option()
+@click.version_option(version=version.VERSION)
 def cli():
     pass
 
@@ -107,6 +112,7 @@ def cli():
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @click.option(
     "--storage-dir",
     envvar="MLFLOW_TMP_DIR",
@@ -121,6 +127,12 @@ def cli():
     "Note: this argument is used internally by the MLflow project APIs "
     "and should not be specified.",
 )
+@click.option(
+    "--run-name",
+    metavar="RUN_NAME",
+    help="The name to give the MLflow Run associated with the project execution. If not specified, "
+    "the MLflow Run name is left unset.",
+)
 def run(
     uri,
     entry_point,
@@ -131,9 +143,11 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
     storage_dir,
     run_id,
+    run_name,
 ):
     """
     Run an MLflow project from the given URI.
@@ -175,10 +189,11 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            use_conda=(not no_conda),
+            use_conda=env_manager is _EnvManager.CONDA,
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
+            run_name=run_name,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
@@ -389,7 +404,7 @@ def server(
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections
+    The server listens on http://localhost:5000 by default, and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
@@ -406,6 +421,8 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
+
+    _validate_artifacts_only_config(serve_artifacts, artifacts_only, backend_store_uri)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -478,7 +495,7 @@ def gc(backend_store_uri, run_ids):
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
-        print("Run with ID %s has been permanently deleted." % str(run_id))
+        click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
 
 cli.add_command(mlflow.deployments.cli.commands)

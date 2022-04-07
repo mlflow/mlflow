@@ -2265,7 +2265,7 @@ class MlflowClient:
             # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
             workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
             if not workspace_id:
-                print(
+                _logger.info(
                     "No workspace ID specified; if your Databricks workspaces share the same"
                     " host URL, you may want to specify the workspace ID (along with the host"
                     " information in the secret manager) for run lineage tracking. For more"

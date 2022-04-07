@@ -40,6 +40,12 @@ WORKDIR /opt/mlflow
 {install_mlflow}
 
 {custom_setup_steps}
+
+# granting read/write access and conditional execution authority to all child directories 
+# and files to allow for deployment to AWS Sagemaker Serverless Endpoints 
+# (see https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html)
+RUN chmod o+rwX /opt/mlflow/
+
 {entrypoint}
 """
 
@@ -127,7 +133,7 @@ def _build_image_from_context(context_dir: str, image_name: str):
         *platform_option,
         ".",
     ]
-    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
+    proc = Popen(commands, cwd=context_dir, stdout=PIPE, stderr=STDOUT, text=True)
     for x in iter(proc.stdout.readline, ""):
         eprint(x, end="")
 

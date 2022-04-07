@@ -84,7 +84,12 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None):
+def _list_conda_environments():
+    prc = process._exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+    return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
+
+
+def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -94,13 +99,15 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                    same conda dependencies but are supposed to be different based on the context.
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
+    :param capture_output: Specify the capture_output argument while executing the
+                           "conda env create" command.
     """
 
     conda_path = get_conda_bin_executable("conda")
     conda_env_create_path = _get_conda_executable_for_create_env()
 
     try:
-        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Conda executable at {0}. "
@@ -113,7 +120,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
         )
 
     try:
-        process.exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
+        process._exec_cmd([conda_env_create_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "You have set the env variable {0}, but {1} does not exist or "
@@ -126,36 +133,62 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             )
         )
 
-    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json.loads(stdout)["envs"]]
+    env_names = _list_conda_environments()
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info("=== Creating conda environment %s ===", project_env_name)
-        if conda_env_path:
-            process.exec_cmd(
-                [
-                    conda_env_create_path,
-                    "env",
-                    "create",
-                    "-n",
-                    project_env_name,
-                    "--file",
-                    conda_env_path,
-                ],
-                stream_output=True,
-            )
-        else:
-            process.exec_cmd(
-                [
-                    conda_env_create_path,
-                    "create",
-                    "--channel",
-                    "conda-forge",
-                    "--override-channels",
-                    "-n",
-                    project_env_name,
-                    "python",
-                ],
-                stream_output=True,
-            )
+        try:
+            if conda_env_path:
+                process._exec_cmd(
+                    [
+                        conda_env_create_path,
+                        "env",
+                        "create",
+                        "-n",
+                        project_env_name,
+                        "--file",
+                        conda_env_path,
+                    ],
+                    capture_output=capture_output,
+                )
+            else:
+                process._exec_cmd(
+                    [
+                        conda_env_create_path,
+                        "create",
+                        "--channel",
+                        "conda-forge",
+                        "--yes",
+                        "--override-channels",
+                        "-n",
+                        project_env_name,
+                        "python",
+                    ],
+                    capture_output=capture_output,
+                )
+        except Exception:
+            try:
+                if project_env_name in _list_conda_environments():
+                    _logger.warning(
+                        "Encountered unexpected error while creating conda environment. "
+                        "Removing %s.",
+                        project_env_name,
+                    )
+                    process._exec_cmd(
+                        [
+                            conda_path,
+                            "remove",
+                            "--yes",
+                            "--name",
+                            project_env_name,
+                            "--all",
+                        ],
+                        capture_output=False,
+                    )
+            except Exception as e:
+                _logger.warning(
+                    f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."
+                )
+            raise
+
     return project_env_name
