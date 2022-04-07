@@ -1,4 +1,5 @@
-// eslint-disable-next-line import/no-anonymous-default-export
-export default {
+const colors = {
   secondaryText: '#888',
 };
+
+export default colors;
