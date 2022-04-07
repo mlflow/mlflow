@@ -14,7 +14,7 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.conda import _get_conda_extra_envs
+from mlflow.utils.conda import _get_conda_extra_env_vars
 from mlflow.utils.environment import _EnvManager
 from mlflow.version import VERSION
 
@@ -37,11 +37,11 @@ class PyFuncBackend(FlavorBackend):
         **kwargs,
     ):
         """
-        :param env_root_dir: Root path for conda env. If None, use default config. Note if this is
-                             set, conda package cache path becomes "env_root_dir/conda_cache_pkgs"
-                             instead of the global package cache path, and pip package cache path
-                             becomes "env_root_dir/pip_cache_pkgs" instead of the global package cache
-                             path.
+        :param env_root_dir: Root path for conda env. If None, use Conda's default environments
+                             directory. Note if this is set, conda package cache path becomes
+                             "env_root_dir/conda_cache_pkgs" instead of the global package cache
+                             path, and pip package cache path becomes "env_root_dir/pip_cache_pkgs"
+                             instead of the global package cache path.
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
@@ -275,17 +275,13 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
-    :param env_root_dir: Root path for conda env. If None, use default config. Note if this is
-                         set, conda package cache path becomes "env_root_dir/conda_cache_pkgs"
-                         instead of the global package cache path, and pip package cache path
-                         becomes "env_root_dir/pip_cache_pkgs" instead of the global package cache
-                         path.
+    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
     """
     if command_env is None:
         command_env = os.environ.copy()
 
     if env_root_dir is not None:
-        command_env.update(_get_conda_extra_envs(env_root_dir))
+        command_env.update(_get_conda_extra_env_vars(env_root_dir))
 
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
