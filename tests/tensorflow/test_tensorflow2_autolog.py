@@ -907,7 +907,7 @@ def test_tf_input_example_with_tuple_dict(tmpdir):
 @pytest.mark.skipif(
     Version(tf.__version__) >= Version("2.1.0"),
     reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
-    )
+)
 def test_fit_generator_signature_autologging(keras_data_gen_sequence):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = create_tf_keras_model()
@@ -925,14 +925,16 @@ def test_fit_generator_signature_autologging(keras_data_gen_sequence):
 @pytest.mark.skipif(
     Version(tf.__version__) >= Version("2.1.0"),
     reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
-    )
+)
 def test_fit_generator_input_example_autologging(keras_data_gen_sequence):
     mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = create_tf_keras_model()
 
     with mlflow.start_run() as run:
         model.fit_generator(keras_data_gen_sequence)
-        _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, keras_data_gen_sequence[:][0])
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(
+            run, keras_data_gen_sequence[:][0]
+        )
 
 
 @pytest.mark.large
