@@ -59,10 +59,10 @@ class PythonEnv:
         return str(self.to_dict())
 
     @classmethod
-    def default(cls):
+    def current(cls):
         return cls(
             python=cls._get_current_python(),
-            build_dependencies=cls.get_default_build_dependencies(),
+            build_dependencies=cls.get_current_build_dependencies(),
             dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
         )
 
@@ -78,7 +78,7 @@ class PythonEnv:
             return None
 
     @staticmethod
-    def get_default_build_dependencies():
+    def get_current_build_dependencies():
         build_dependencies = []
         for package in PythonEnv.BUILD_PACKAGES:
             version = PythonEnv._get_package_version(package)

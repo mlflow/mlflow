@@ -307,7 +307,7 @@ def save_model(
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
     if python_env is None:
-        python_env = PythonEnv.default()
+        python_env = PythonEnv.current()
     elif isinstance(python_env, str):
         python_env = PythonEnv.from_yaml(python_env)
     elif isinstance(python_env, dict):
