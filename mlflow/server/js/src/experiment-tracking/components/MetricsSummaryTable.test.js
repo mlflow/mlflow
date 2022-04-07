@@ -6,7 +6,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import { HtmlTableView } from './HtmlTableView';
-import { Metric } from '../sdk/MlflowMessages';
+import { Metric, RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('MetricsSummaryTable', () => {
@@ -15,21 +15,26 @@ describe('MetricsSummaryTable', () => {
   let minimalStore;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
+  const minimalStoreRaw = {
+    entities: {
+      runInfosByUuid: {
+        'uuid-1234-5678-9012': RunInfo.fromJs({ experiment_id: '1' }),
+        'uuid-1234-5678-9013': RunInfo.fromJs({ experiment_id: '1' }),
+      },
+      latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
+      minMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
+      maxMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
+    },
+  };
+
   beforeEach(() => {
     minimalProps = {
-      experimentId: '1',
       runUuids: ['uuid-1234-5678-9012'],
       runDisplayNames: ['run 0'],
       metricKeys: ['train_loss'],
     };
 
-    minimalStore = mockStore({
-      entities: {
-        latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
-        minMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
-        maxMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
-      },
-    });
+    minimalStore = mockStore(minimalStoreRaw);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -46,6 +51,7 @@ describe('MetricsSummaryTable', () => {
   test('should render metric summary values', () => {
     const store = mockStore({
       entities: {
+        ...minimalStoreRaw.entities,
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
             train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
@@ -90,6 +96,7 @@ describe('MetricsSummaryTable', () => {
   test('should render multiple metric values for single run', () => {
     const store = mockStore({
       entities: {
+        ...minimalStoreRaw.entities,
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
             train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
@@ -142,6 +149,7 @@ describe('MetricsSummaryTable', () => {
   test('should render single metric for multiple runs', () => {
     const store = mockStore({
       entities: {
+        ...minimalStoreRaw.entities,
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
             train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
@@ -169,7 +177,6 @@ describe('MetricsSummaryTable', () => {
       },
     });
     const props = {
-      experimentId: '1',
       runUuids: ['uuid-1234-5678-9012', 'uuid-1234-5678-9013'],
       runDisplayNames: ['run 0', 'run 1'],
       metricKeys: ['train_loss'],
@@ -202,6 +209,7 @@ describe('MetricsSummaryTable', () => {
   test('should render multiple metrics for multiple runs', () => {
     const store = mockStore({
       entities: {
+        ...minimalStoreRaw.entities,
         latestMetricsByRunUuid: {
           'uuid-1234-5678-9012': {
             train_loss: Metric.fromJs({ key: 'train_loss', value: 1, step: 11 }),
@@ -235,7 +243,6 @@ describe('MetricsSummaryTable', () => {
       },
     });
     const props = {
-      experimentId: '1',
       runUuids: ['uuid-1234-5678-9012', 'uuid-1234-5678-9013'],
       runDisplayNames: ['run 0', 'run 1'],
       metricKeys: ['train_loss', 'val_loss'],
@@ -272,7 +279,6 @@ describe('MetricsSummaryTable', () => {
 
   test('should not render table when no metrics', () => {
     const props = {
-      experimentId: '1',
       runUuids: ['uuid-1234-5678-9012'],
       runDisplayNames: ['run 0'],
       metricKeys: [],
@@ -291,7 +297,6 @@ describe('MetricsSummaryTable', () => {
 
   test('should not render table when no metrics with multiple runs', () => {
     const props = {
-      experimentId: '1',
       runUuids: ['uuid-1234-5678-9012', 'uuid-1234-5678-9013'],
       runDisplayNames: ['run 0', 'run 1'],
       metricKeys: [],

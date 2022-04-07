@@ -162,6 +162,7 @@ describe('unit tests', () => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
     minimalStore = mockStore({
       entities: {
+        runInfosByUuid: {},
         latestMetricsByRunUuid: {},
         minMetricsByRunUuid: {},
         maxMetricsByRunUuid: {},

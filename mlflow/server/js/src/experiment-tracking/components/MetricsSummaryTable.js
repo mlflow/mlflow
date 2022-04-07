@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { injectIntl } from 'react-intl';
 import { HtmlTableView } from './HtmlTableView';
+import { getRunInfo } from '../reducers/Reducers';
 import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/MetricReducer';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
@@ -16,8 +17,8 @@ const dataColWidth = 200;
 
 class MetricsSummaryTable extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    runExperimentIds: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     latestMetrics: PropTypes.object.isRequired,
@@ -69,7 +70,7 @@ class MetricsSummaryTable extends React.Component {
 
   renderMetricTables() {
     const {
-      experimentId,
+      runExperimentIds,
       runUuids,
       runDisplayNames,
       metricKeys,
@@ -100,7 +101,7 @@ class MetricsSummaryTable extends React.Component {
             columns={columns}
             values={getMetricValuesByRun(
               metricKey,
-              experimentId,
+              runExperimentIds,
               runUuids,
               runDisplayNames,
               latestMetrics,
@@ -153,7 +154,7 @@ class MetricsSummaryTable extends React.Component {
 
 const getMetricValuesByRun = (
   metricKey,
-  experimentId,
+  runExperimentIds,
   runUuids,
   runDisplayNames,
   latestMetrics,
@@ -165,7 +166,9 @@ const getMetricValuesByRun = (
     const runName = runDisplayNames[runIdx];
     return {
       runName: runName,
-      runLink: <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>,
+      runLink: (
+        <Link to={Routes.getRunPageRoute(runExperimentIds[runUuid], runUuid)}>{runName}</Link>
+      ),
       key: runUuid,
       ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };
@@ -220,15 +223,18 @@ const formatMetric = (metric, intl) =>
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
+  const runExperimentIds = {};
   const latestMetrics = {};
   const minMetrics = {};
   const maxMetrics = {};
   runUuids.forEach((runUuid) => {
+    const runInfo = getRunInfo(runUuid, state);
+    runExperimentIds[runUuid] = runInfo && runInfo.getExperimentId();
     latestMetrics[runUuid] = getLatestMetrics(runUuid, state);
     minMetrics[runUuid] = getMinMetrics(runUuid, state);
     maxMetrics[runUuid] = getMaxMetrics(runUuid, state);
   });
-  return { latestMetrics, minMetrics, maxMetrics };
+  return { runExperimentIds, latestMetrics, minMetrics, maxMetrics };
 };
 
 export const MetricsSummaryTableWithIntl = injectIntl(MetricsSummaryTable);
