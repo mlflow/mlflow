@@ -1,9 +1,14 @@
 import os
 import tempfile
+import pytest
 
 from mlflow.utils.process import cache_return_value_per_process
 
 
+@pytest.mark.skipif(
+    os.name == "nt",
+    reason="Windows does not support fork",
+)
 def test_cache_return_value_per_process():
     @cache_return_value_per_process
     def f1(_):
@@ -34,10 +39,8 @@ def test_cache_return_value_per_process():
         assert os.waitpid(child_pid, 0)[1] == 0
     else:
         # in forked out child process
-        print(f"Child pid: {os.getpid()}")
         child_path1 = f1(True)
         child_path2 = f1(False)
-        print(f"DBG: \n{path1}\n{path3}\n{child_path1}\n{child_path2}")
         test_pass = len({path1, path3, child_path1, child_path2}) == 4
         # exit forked out child process with exit code representing testing pass or fail.
         os._exit(0 if test_pass else 1)

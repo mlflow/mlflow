@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import shutil
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
