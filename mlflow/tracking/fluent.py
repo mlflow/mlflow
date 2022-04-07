@@ -1631,7 +1631,7 @@ def autolog(
         log_model_signature_key = "log_model_signatures"
         if log_model_signature_key in needed_params:
             needed_params[log_model_signature_key] = False
-        return log_model_signature_key
+        return needed_params
 
     def get_autologging_params(autolog_fn):
         try:
