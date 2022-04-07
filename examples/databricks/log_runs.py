@@ -28,7 +28,7 @@ def main():
     os.environ["DATABRICKS_TOKEN"] = args.token
 
     mlflow.set_tracking_uri("databricks")
-    experiment_name = f"/Users/harutaka.kawamura@databricks.com/{uuid.uuid4().hex}"
+    experiment_name = f"/Users/{args.user}/{uuid.uuid4().hex}"
     experiment_id = mlflow.create_experiment(experiment_name)
     mlflow.set_experiment(experiment_id=experiment_id)
 
