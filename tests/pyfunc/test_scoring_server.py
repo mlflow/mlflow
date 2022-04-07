@@ -22,6 +22,7 @@ from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.environment import _EnvManager
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
@@ -534,7 +535,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--no-conda"],
+            extra_args=["--env-manager", "local"],
         )
         response_json = json.loads(response.content)
 
@@ -545,7 +546,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-            extra_args=["--no-conda"],
+            extra_args=["--env-manager", "local"],
         )
         response_json = json.loads(response.content)
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
@@ -630,7 +631,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     server_proc = None
     try:
         server_proc = _get_flavor_backend(
-            model_path, no_conda=False, workers=1, install_mlflow=False
+            model_path, eng_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=port,

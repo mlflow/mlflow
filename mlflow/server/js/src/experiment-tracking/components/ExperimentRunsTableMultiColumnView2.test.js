@@ -37,6 +37,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
   beforeEach(() => {
     minimalProps = {
+      experiments: [],
       runInfos: [],
       paramsList: [],
       metricsList: [],

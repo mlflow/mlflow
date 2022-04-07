@@ -2,6 +2,10 @@
 Definitions of click options shared by several CLI commands.
 """
 import click
+import warnings
+
+
+from mlflow.utils.environment import _EnvManager
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -45,11 +49,61 @@ RUN_ID = click.option(
 NO_CONDA = click.option(
     "--no-conda",
     is_flag=True,
-    help="If specified, will assume that MLmodel/MLproject is running within "
+    help="This flag is deprecated. Use `--env-manager=local` instead. "
+    "If specified, will assume that MLmodel/MLproject is running within "
     "a Conda environment with the necessary dependencies for "
     "the current project instead of attempting to create a new "
     "conda environment.",
 )
+
+
+def _resolve_env_manager(ctx, _, value):
+    no_conda = ctx.params.get("no_conda", False)
+    # Both `--no-conda` and `--env-manager` are specified
+    if no_conda and value is not None:
+        raise click.BadParameter(
+            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+        )
+
+    # Only `--no-conda` is specified
+    if no_conda:
+        warnings.warn(
+            (
+                "`--no-conda` is deprecated and will be removed in a future MLflow release. "
+                "Use `--env-manager=local` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+        return _EnvManager.LOCAL
+
+    # Only `--env-manager` is specified
+    if value is not None:
+        return _EnvManager.from_string(value)
+
+    # Neither `--no-conda` nor `--env-manager` is specified
+    return _EnvManager.CONDA
+
+
+ENV_MANAGER = click.option(
+    "--env-manager",
+    default=None,
+    type=click.UNPROCESSED,
+    callback=_resolve_env_manager,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help="""
+If specified, create an environment for MLmodel/MLproject using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- conda: use conda
+
+If unspecified, default to conda.
+""",
+)
+
 
 INSTALL_MLFLOW = click.option(
     "--install-mlflow",

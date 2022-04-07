@@ -30,7 +30,7 @@ export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     completedRunUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
@@ -84,6 +84,10 @@ export class MetricsPlotPanel extends React.Component {
     this.displayPopover = false;
     this.intervalId = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
+  }
+
+  hasMultipleExperiments() {
+    return this.props.experimentIds && this.props.experimentIds.length > 1;
   }
 
   onFocus = () => {
@@ -185,7 +189,7 @@ export class MetricsPlotPanel extends React.Component {
   // state updates, e.g. in a setState callback
   updateUrlState = (updatedState) => {
     const { runUuids, metricKey, location, history } = this.props;
-    const experimentId = qs.parse(location.search)['experiment'];
+    const experimentIds = JSON.parse(qs.parse(location.search)['experiments']);
     const newState = {
       ...this.getUrlState(),
       ...updatedState,
@@ -204,7 +208,7 @@ export class MetricsPlotPanel extends React.Component {
       Routes.getMetricPageRoute(
         runUuids,
         metricKey,
-        experimentId,
+        experimentIds,
         selectedMetricKeys,
         layout,
         selectedXAxis,
@@ -553,7 +557,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   render() {
-    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
     const state = this.getUrlState();
     const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
@@ -587,16 +591,18 @@ export class MetricsPlotPanel extends React.Component {
             // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
           >
-            <RunLinksPopover
-              experimentId={experimentId}
-              visible={popoverVisible}
-              x={popoverX}
-              y={popoverY}
-              runItems={popoverRunItems}
-              handleKeyDown={this.handleKeyDownOnPopover}
-              handleClose={() => this.setState({ popoverVisible: false })}
-              handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
-            />
+            {this.hasMultipleExperiments() ? null : (
+              <RunLinksPopover
+                experimentId={experimentIds[0]}
+                visible={popoverVisible}
+                x={popoverX}
+                y={popoverY}
+                runItems={popoverRunItems}
+                handleKeyDown={this.handleKeyDownOnPopover}
+                handleClose={() => this.setState({ popoverVisible: false })}
+                handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+              />
+            )}
             <MetricsPlotView
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}

@@ -29,6 +29,12 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     pyfunc_serve_and_score_model,
     _compare_logged_code_paths,
+    _is_available_on_pypi,
+)
+
+
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("prophet") else ["--env-manager", "local"]
 )
 
 
@@ -203,11 +209,9 @@ def test_model_load_from_remote_uri_succeeds(prophet_model, model_path, mock_s3_
 
 
 def test_model_log(prophet_model):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
                 artifact_path = "prophet"
@@ -235,7 +239,6 @@ def test_model_log(prophet_model):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(prophet_model):
@@ -400,6 +403,7 @@ def test_pyfunc_serve_and_score(prophet_model):
         model_uri,
         data=inference_data,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
 
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records")

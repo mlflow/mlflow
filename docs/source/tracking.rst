@@ -229,6 +229,11 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
     Starting a Tracking Server with the ``--artifacts-only`` parameter will disable all Tracking Server functionality apart from API calls related to saving, loading, or listing artifacts.
     Creating runs, logging metrics or parameters, and accessing other attributes about experiments are all not permitted in this mode.
 
+.. note::
+    When starting a Tracking Server in ``--artifacts-only`` mode, the cli argument ``--backend-store-uri`` must be set to a local path for the server's environment.
+    This is a requirement for utilities such as ``MlflowClient.list_artifacts`` to function correctly. Providing a non-local file system path will raise an Exception.
+    If a value is not set, the default configuration will be a local path on the server (``"./mlruns"``).
+
 .. figure:: _static/images/scenario_6.png
 
 Running an MLFlow server in ``--artifacts-only`` mode:
@@ -296,6 +301,9 @@ such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
+:py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
+currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding 
+the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
@@ -410,6 +418,28 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
+You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
+
+.. code-block:: python
+
+    import mlflow
+
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_diabetes
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog()
+
+    db = load_diabetes()
+    X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+    # Create and train models.
+    rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+    rf.fit(X_train, y_train)
+
+    # Use the model to make predictions on the test dataset.
+    predictions = rf.predict(X_test)
+    autolog_run = mlflow.last_active_run()
 
 Scikit-learn
 ------------
@@ -917,6 +947,13 @@ Additionally, if MinIO server is configured with non-default region, you should 
 
   export AWS_DEFAULT_REGION=my_region
 
+.. warning::
+
+        The MLflow tracking server utilizes specific reserved keywords to generate a qualified path. These environment configurations, if present in the client environment, can create path resolution issues.
+        For example, providing ``--default-artifact-root $MLFLOW_S3_ENDPOINT_URL`` on the server side **and** ``MLFLOW_S3_ENDPOINT_URL`` on the client side will create a client path resolution issue for the artifact storage location.
+        Upon resolving the artifact storage location, the MLflow client will use the value provided by ``--default-artifact-root`` and suffixes the location with the values provided in the environment variable  ``MLFLOW_S3_ENDPOINT_URL``.
+        Depending on the value set for the environment variable ``MLFLOW_S3_ENDPOINT_URL``, the resulting artifact storage path for this scenario would be one of the following invalid object store paths:  ``https://<bucketname>.s3.<region>.amazonaws.com/<key>/<bucketname>/<key>`` or  ``s3://<bucketname>/<key>/<bucketname>/<key>``.
+        To prevent path parsing issues, ensure that reserved environment variables are removed (``unset``) from client environments.
 
 Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 

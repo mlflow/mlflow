@@ -47,3 +47,5 @@ paddlepaddle
 prophet
 # Required by mlflow.pmdarima
 pmdarima
+# Required by mlflow.diviner
+diviner

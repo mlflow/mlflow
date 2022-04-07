@@ -20,17 +20,15 @@ def main():
     # this includes xgboost.sklearn estimators
     mlflow.xgboost.autolog()
 
-    with mlflow.start_run() as run:
-
-        regressor = xgb.XGBRegressor(n_estimators=20, reg_lambda=1, gamma=0, max_depth=3)
-        regressor.fit(X_train, y_train, eval_set=[(X_test, y_test)])
-        y_pred = regressor.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred)
-        run_id = run.info.run_id
-        print("Logged data and model in run {}".format(run_id))
+    regressor = xgb.XGBRegressor(n_estimators=20, reg_lambda=1, gamma=0, max_depth=3)
+    regressor.fit(X_train, y_train, eval_set=[(X_test, y_test)])
+    y_pred = regressor.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    run_id = mlflow.last_active_run().info.run_id
+    print("Logged data and model in run {}".format(run_id))
 
     # show logged data
-    for key, data in fetch_logged_data(run.info.run_id).items():
+    for key, data in fetch_logged_data(run_id).items():
         print("\n---------- logged {} ----------".format(key))
         pprint(data)
 

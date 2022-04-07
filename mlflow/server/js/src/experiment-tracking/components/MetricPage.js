@@ -13,7 +13,7 @@ export class MetricPageImpl extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
-    experimentId: PropTypes.string,
+    experimentIds: PropTypes.arrayOf(PropTypes.string),
     dispatch: PropTypes.func.isRequired,
   };
 
@@ -22,11 +22,18 @@ export class MetricPageImpl extends Component {
     this.requestIds = [];
   }
 
-  componentDidMount() {
-    if (this.props.experimentId !== null) {
+  fetchExperiments() {
+    return this.props.experimentIds.map((experimentId) => {
       const experimentRequestId = getUUID();
-      this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
-      this.requestIds.push(experimentRequestId);
+      this.props.dispatch(getExperimentApi(experimentId, experimentRequestId));
+      return experimentRequestId;
+    });
+  }
+
+  componentDidMount() {
+    if (this.props.experimentIds !== null) {
+      const getExperimentsRequestIds = this.fetchExperiments();
+      this.requestIds.push(...getExperimentsRequestIds);
     }
     this.props.runUuids.forEach((runUuid) => {
       const getMetricHistoryReqId = getUUID();
@@ -47,7 +54,7 @@ export class MetricPageImpl extends Component {
       <MetricView
         runUuids={this.props.runUuids}
         metricKey={this.props.metricKey}
-        experimentId={this.props.experimentId}
+        experimentIds={this.props.experimentIds}
       />
     ) : (
       <NotFoundPage />
@@ -69,15 +76,15 @@ const mapStateToProps = (state, ownProps) => {
   const { match, location } = ownProps;
   const searchValues = qs.parse(location.search);
   const runUuids = JSON.parse(searchValues['?runs']);
-  let experimentId = null;
-  if (searchValues.hasOwnProperty('experiment')) {
-    experimentId = searchValues['experiment'];
+  let experimentIds = null;
+  if (searchValues.hasOwnProperty('experiments')) {
+    experimentIds = JSON.parse(searchValues['experiments']);
   }
   const { metricKey } = match.params;
   return {
     runUuids,
     metricKey,
-    experimentId,
+    experimentIds,
   };
 };
 

@@ -38,7 +38,7 @@ from tests.helper_functions import (
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -67,7 +67,6 @@ def sklearn_logreg_model():
 @pytest.fixture(scope="module")
 def sklearn_custom_transformer_model(sklearn_knn_model):
     def transform(vec):
-        print("Invoking custom transformer!")
         return vec + 1
 
     transformer = SKFunctionTransformer(transform, validate=True)
@@ -104,6 +103,19 @@ def test_model_save_load(sklearn_knn_model, model_path):
         reloaded_knn_model.predict(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+@pytest.mark.large
+def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
+    sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
+    sklearn_model_path.mkdir()
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+
+    sklearn_model_path = tmp_path / "sklearn_model_filled_exists"
+    sklearn_model_path.mkdir()
+    (sklearn_model_path / "foo.txt").write_text("dummy content")
+    with pytest.raises(MlflowException, match="already exists and is not empty"):
+        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
 
 @pytest.mark.large
@@ -148,11 +160,9 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
 
 @pytest.mark.large
 def test_model_log(sklearn_logreg_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -185,7 +195,6 @@ def test_model_log(sklearn_logreg_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(sklearn_logreg_model):

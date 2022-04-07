@@ -19,17 +19,9 @@
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
   },
-  "/2SlQ2": {
-    "defaultMessage": "Share",
-    "description": "String for the share button to share experiment view"
-  },
   "/2m1wK": {
     "defaultMessage": "Oops!",
     "description": "Error modal title to rendering errors"
-  },
-  "/3BTaS": {
-    "defaultMessage": "Experiment view URL copied to clipboard",
-    "description": "Content of the message after clicking the share experiment button"
   },
   "/738wy": {
     "defaultMessage": "Filter",
@@ -79,6 +71,10 @@
     "defaultMessage": "Cancel",
     "description": "Text for the cancel button in an editable note in MLflow"
   },
+  "1Iq+NW": {
+    "defaultMessage": "Copy",
+    "description": "Button text for copy button"
+  },
   "1f72BQ": {
     "defaultMessage": "Version",
     "description": "Column title text for model version in model version table"
@@ -118,6 +114,10 @@
   "2kU7bW": {
     "defaultMessage": "No models are registered yet. <link>Learn more</link> about how to register a model.",
     "description": "Message text when no model versions are registerd"
+  },
+  "2oFAO4": {
+    "defaultMessage": "Share",
+    "description": "Text for share button on experiment view page header"
   },
   "36g3aR": {
     "defaultMessage": "Edit",
@@ -319,6 +319,10 @@
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
   },
+  "Dhn7Mb": {
+    "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
+    "description": "Message shown when displaying runs from multiple experiments"
+  },
   "Dxwvus": {
     "defaultMessage": "Stage Transition",
     "description": "Title text for model version stage transitions in confirm modal"
@@ -435,10 +439,6 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
-  "Hirqyq": {
-    "defaultMessage": "Track machine learning training runs in an experiment. <link>Learn more</link>",
-    "description": "Information banner text to provide more information about experiments runs page"
-  },
   "Hq00g9": {
     "defaultMessage": "On",
     "description": "Checked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
@@ -450,6 +450,10 @@
   "ICtiKS": {
     "defaultMessage": "Delete",
     "description": "OK button text for model version deletion modal in model versions view page"
+  },
+  "IEORCP": {
+    "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
+    "description": "Breadcrumb title for compare runs page with multiple experiments"
   },
   "IHyeUr": {
     "defaultMessage": "Stage",
@@ -495,6 +499,10 @@
     "defaultMessage": "Parent Run",
     "description": "Label for displaying a link to the parent experiment run if any present"
   },
+  "LLm5Bo": {
+    "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
+    "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
+  },
   "MZKOA3": {
     "defaultMessage": "Off",
     "description": "Unchecked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
@@ -502,6 +510,10 @@
   "MatV9u": {
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
+  },
+  "NN0ScV": {
+    "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
+    "description": "Breadcrumb title for compare runs page with single experiment"
   },
   "Nj6Ez5": {
     "defaultMessage": "Name",
@@ -555,6 +567,10 @@
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
   },
+  "Qsgg+9": {
+    "defaultMessage": "Experiment Name:",
+    "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
+  },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
@@ -582,10 +598,6 @@
   "SK8RBp": {
     "defaultMessage": "Sort by",
     "description": "Sort by default option for sort by select dropdown for experiment runs"
-  },
-  "Shflcg": {
-    "defaultMessage": "Comparing {runs} Runs",
-    "description": "Breadcrumb title for compare runs page"
   },
   "Shv28w": {
     "defaultMessage": "Save",
@@ -671,6 +683,10 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
+  "X+boXI": {
+    "defaultMessage": "Copied",
+    "description": "Tooltip text shown when copy operation completes"
+  },
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
@@ -694,6 +710,14 @@
   "YINJEO": {
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
+  },
+  "YLvpXM": {
+    "defaultMessage": "Track machine learning training runs in experiments. <link>Learn more</link>",
+    "description": "Information banner text to provide more information about experiments runs page"
+  },
+  "YkcoeV": {
+    "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
+    "description": "Breadcrumb nav item to link to compare-experiments page on compare runs page"
   },
   "Yx7fMC": {
     "defaultMessage": "Search",
@@ -811,10 +835,6 @@
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
   },
-  "dA5sT3": {
-    "defaultMessage": "Share experiment view",
-    "description": "Label for the share experiment view button"
-  },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
     "description": "Tab text for contour plot on the model comparison page"
@@ -826,6 +846,10 @@
   "e8cUzg": {
     "defaultMessage": "Latest Version",
     "description": "Column title for latest model version in the registered model page"
+  },
+  "eBGO2d": {
+    "defaultMessage": "No metrics to display.",
+    "description": "Text shown when there are no metrics to display"
   },
   "eFCjOp": {
     "defaultMessage": "Metrics",
@@ -931,17 +955,21 @@
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
   },
+  "ktiuki": {
+    "defaultMessage": "Get Link",
+    "description": "Title text for get-link modal"
+  },
   "lISqyJ": {
     "defaultMessage": "Run details",
     "description": "Compare table title on the compare runs page"
   },
+  "lNO3kK": {
+    "defaultMessage": "No parameters to display.",
+    "description": "Text shown when there are no parameters to display"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
-  },
-  "lw2NyM": {
-    "defaultMessage": "Comparing {length} Runs",
-    "description": "Breadcrumb title for metrics page when comparing multiple runs"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -958,6 +986,10 @@
   "mpHsCg": {
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
+  },
+  "n/R+cU": {
+    "defaultMessage": "Unable to view experiments",
+    "description": "Error message when all the requested experiments couldn't be fetched"
   },
   "nC54Nf": {
     "defaultMessage": "Tags",

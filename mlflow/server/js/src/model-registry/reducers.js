@@ -300,10 +300,12 @@ export const getModelVersionTags = (modelName, version, state) => {
   }
 };
 
-export default {
+const reducers = {
   modelByName,
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
   mlModelArtifactByModelVersion,
 };
+
+export default reducers;
