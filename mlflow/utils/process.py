@@ -71,27 +71,27 @@ def _exec_cmd(
     return prc
 
 
-# A global map storing name --> (value, args_tuple, pid)
+# A global map storing (function, args_tuple) --> (value, pid)
 _per_process_value_cache_map = {}
 
 
-def cache_return_value_per_process(name):
+def cache_return_value_per_process(fn):
     """
     A decorator which globally cache the return value of the decorated function.
     But if current process forked out a new child process, in child process,
     old cache values are invalidated.
     """
-    def deco(fn):
-        @functools.wraps(fn)
-        def wrapped_fn(*args):
-            if name in _per_process_value_cache_map:
-                prev_value, previous_args, prev_pid = _per_process_value_cache_map.get()
-                if args == previous_args and os.getgid() == prev_pid:
-                    return prev_value
 
-            new_value = fn(*args)
-            new_pid = os.getgid()
-            _per_process_value_cache_map[name] = (new_value, args, new_pid)
-            return new_value
-        return wrapped_fn()
-    return deco
+    @functools.wraps(fn)
+    def wrapped_fn(*args):
+        if (fn, args) in _per_process_value_cache_map:
+            prev_value, prev_pid = _per_process_value_cache_map.get((fn, args))
+            if os.getpid() == prev_pid:
+                return prev_value
+
+        new_value = fn(*args)
+        new_pid = os.getpid()
+        _per_process_value_cache_map[(fn, args)] = (new_value, new_pid)
+        return new_value
+
+    return wrapped_fn

@@ -556,8 +556,16 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
 
     for env_root_path, model_path, sklearn_ver in [
         (env_root1_path, model1_path, "1.0.1"),
-        (env_root2_path, model1_path, "1.0.1"),  # test the same env created in different env root path.
-        (env_root1_path, model2_path, "1.0.2"),  # test different env created in the same env root path.
+        (
+            env_root2_path,
+            model1_path,
+            "1.0.1",
+        ),  # test the same env created in different env root path.
+        (
+            env_root1_path,
+            model2_path,
+            "1.0.2",
+        ),  # test different env created in the same env root path.
     ]:
         _get_flavor_backend(
             str(model_path),
@@ -566,7 +574,9 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             env_root_dir=str(env_root_path),
         ).prepare_env(model_uri=str(model_path))
 
-        conda_env_name = _get_conda_env_name(str(model_path / "conda.yaml"), env_root_dir=env_root_path)
+        conda_env_name = _get_conda_env_name(
+            str(model_path / "conda.yaml"), env_root_dir=env_root_path
+        )
         env_path = env_root_path / "conda_envs" / conda_env_name
         assert env_path.exists()
 
@@ -575,7 +585,8 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         # Test `_execute_in_conda_env` run command under the correct activated python env.
         _execute_in_conda_env(
             conda_env_name,
-            command=f'python -c "import sys; assert sys.executable == \'{python_exec_path}\'; '
-                    f'import sklearn; assert sklearn.__version__ == \'{sklearn_ver}\'"',
-            install_mlflow=False, env_root_dir=str(env_root_path)
+            command=f"python -c \"import sys; assert sys.executable == '{python_exec_path}'; "
+            f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
+            install_mlflow=False,
+            env_root_dir=str(env_root_path),
         )

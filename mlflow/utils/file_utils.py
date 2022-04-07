@@ -488,7 +488,7 @@ def _handle_readonly_on_windows(func, path, exc_info):
     func(path)
 
 
-@cache_return_value_per_process("TMP_DIR")
+@cache_return_value_per_process
 def get_or_create_tmp_dir():
     """
     Get or create a temporary directory which will be removed once python process exit.
@@ -507,7 +507,7 @@ def get_or_create_tmp_dir():
     return tmp_dir
 
 
-@cache_return_value_per_process("TMP_NFS_DIR")
+@cache_return_value_per_process
 def get_or_create_nfs_tmp_dir():
     """
     Get or create a temporary NFS directory which will be removed once python process exit.

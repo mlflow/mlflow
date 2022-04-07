@@ -79,6 +79,7 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
 
     return env_name
 
+
 def _get_conda_executable_for_create_env():
     """
     Returns the executable that should be used to create environments. This is "conda"
@@ -97,8 +98,7 @@ def _get_conda_executable_for_create_env():
 
 def _list_conda_environments(conda_extra_envs=None):
     prc = process._exec_cmd(
-        [get_conda_bin_executable("conda"), "env", "list", "--json"],
-        extra_env=conda_extra_envs
+        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=conda_extra_envs
     )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
@@ -194,8 +194,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     project_env_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
 
     if project_env_name not in _list_conda_environments(conda_extra_envs):
-        _logger.info("=== Creating conda environment %s at path %s ===",
-                     project_env_name, project_env_path)
+        _logger.info(
+            "=== Creating conda environment %s at path %s ===", project_env_name, project_env_path
+        )
         try:
             if conda_env_path:
                 process._exec_cmd(
@@ -230,7 +231,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
         except Exception:
             try:
                 if project_env_name in _list_conda_environments(
-                        conda_extra_envs, return_full_path=(env_root_dir is not None)
+                    conda_extra_envs, return_full_path=(env_root_dir is not None)
                 ):
                     _logger.warning(
                         "Encountered unexpected error while creating conda environment. "
@@ -252,7 +253,8 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
             except Exception as e:
                 _logger.warning(
                     "Removing conda environment at path %s failed (error: %s)",
-                    project_env_path, repr(e)
+                    project_env_path,
+                    repr(e),
                 )
             raise
     else:

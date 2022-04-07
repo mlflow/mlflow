@@ -876,7 +876,7 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     return tmp_model_dir
 
 
-@cache_return_value_per_process("ENV_ROOT_DIR")
+@cache_return_value_per_process
 def _get_or_create_env_root_dir(should_use_nfs):
     if should_use_nfs:
         root_tmp_dir = get_or_create_nfs_tmp_dir()
