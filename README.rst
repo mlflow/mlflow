@@ -30,7 +30,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
     :alt: Examples Action Status
-.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi
+.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white
     :target: https://pypi.org/project/mlflow/
     :alt: Latest Python Release
 .. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda
@@ -45,13 +45,13 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache
     :target: https://github.com/mlflow/mlflow/blob/master/LICENSE.txt
     :alt: Apache 2 License
-.. |downloads| image:: https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi
+.. |downloads| image:: https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi&logoColor=white
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
-.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=cream&labelColor=3F0E40&style=for-the-badge
+.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40&style=for-the-badge
     :target: `Slack`_
     :alt: Slack
-.. |twitter| image:: https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=cream
+.. |twitter| image:: https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
     
