@@ -62,6 +62,10 @@ class MlflowException(Exception):
     def get_http_status_code(self):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
 
+    @classmethod
+    def invalid_parameter_value(cls, message, **kwargs):
+        return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
+
 
 class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
