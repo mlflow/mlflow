@@ -32,9 +32,9 @@ def main():
     experiment_id = mlflow.create_experiment(experiment_name)
     mlflow.set_experiment(experiment_id=experiment_id)
 
-    print(f"Logging runs in {args.host}#/mlflow/experiments/{experiment_id}")
     mlflow.sklearn.autolog()
     num_runs = 5
+    print(f"Logging {num_runs} runs in {args.host}#/mlflow/experiments/{experiment_id}")
     for i in range(num_runs):
         with mlflow.start_run() as run:
             print(f"Logging run:", run.info.run_id, f"{i + 1} / {num_runs} ")
