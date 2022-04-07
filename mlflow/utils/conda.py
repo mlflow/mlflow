@@ -197,12 +197,13 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     # Include the env_root_dir hash in the project_env_name,
     # this is for avoid conda env name conflicts between different CONDA_ENVS_PATH.
     project_env_name = _get_conda_env_name(conda_env_path, env_id=env_id, env_root_dir=env_root_dir)
-    project_env_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
+    if env_root_dir is not None:
+        project_env_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
+    else:
+        project_env_path = project_env_name
 
     if project_env_name not in _list_conda_environments(conda_extra_env_vars):
-        _logger.info(
-            "=== Creating conda environment %s at path %s ===", project_env_name, project_env_path
-        )
+        _logger.info("=== Creating conda environment %s ===", project_env_path)
         try:
             if conda_env_path:
                 process._exec_cmd(
@@ -240,7 +241,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                     _logger.warning(
                         "Encountered unexpected error while creating conda environment. "
                         "Removing %s.",
-                        project_env_name,
+                        project_env_path,
                     )
                     process._exec_cmd(
                         [
@@ -256,7 +257,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                     )
             except Exception as e:
                 _logger.warning(
-                    "Removing conda environment at path %s failed (error: %s)",
+                    "Removing conda environment %s failed (error: %s)",
                     project_env_path,
                     repr(e),
                 )
