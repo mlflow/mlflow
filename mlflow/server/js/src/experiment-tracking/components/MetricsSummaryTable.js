@@ -5,9 +5,12 @@ import { injectIntl } from 'react-intl';
 import { HtmlTableView } from './HtmlTableView';
 import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/MetricReducer';
 import Utils from '../../common/utils/Utils';
+import { Link } from 'react-router-dom';
+import Routes from '../routes';
 
 class MetricsSummaryTable extends React.Component {
   static propTypes = {
+    experimentId: PropTypes.string.isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -57,6 +60,7 @@ class MetricsSummaryTable extends React.Component {
 
   renderMetricTables() {
     const {
+      experimentId,
       runUuids,
       runDisplayNames,
       metricKeys,
@@ -85,6 +89,7 @@ class MetricsSummaryTable extends React.Component {
             columns={columns}
             values={getMetricValuesByRun(
               metricKey,
+              experimentId,
               runUuids,
               runDisplayNames,
               latestMetrics,
@@ -130,6 +135,7 @@ class MetricsSummaryTable extends React.Component {
 
 const getMetricValuesByRun = (
   metricKey,
+  experimentId,
   runUuids,
   runDisplayNames,
   latestMetrics,
@@ -140,7 +146,7 @@ const getMetricValuesByRun = (
   return runUuids.map((runUuid, runIdx) => {
     const runName = runDisplayNames[runIdx];
     return {
-      runName,
+      runName: <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>,
       key: runUuid,
       ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };

@@ -615,6 +615,7 @@ export class MetricsPlotPanel extends React.Component {
               onLegendDoubleClick={this.handleLegendDoubleClick}
             />
             <MetricsSummaryTable
+              experimentId={experimentId}
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}
               metricKeys={selectedMetricKeys}
