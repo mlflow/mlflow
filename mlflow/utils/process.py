@@ -1,5 +1,6 @@
 import os
 import subprocess
+import functools
 
 
 class ShellCommandException(Exception):
@@ -68,3 +69,29 @@ def _exec_cmd(
     if throw_on_error and prc.returncode != 0:
         raise ShellCommandException.from_completed_process(prc)
     return prc
+
+
+# A global map storing name --> (value, args_tuple, pid)
+_per_process_value_cache_map = {}
+
+
+def cache_return_value_per_process(name):
+    """
+    A decorator which globally cache the return value of the decorated function.
+    But if current process forked out a new child process, in child process,
+    old cache values are invalidated.
+    """
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapped_fn(*args):
+            if name in _per_process_value_cache_map:
+                prev_value, previous_args, prev_pid = _per_process_value_cache_map.get()
+                if args == previous_args and os.getgid() == prev_pid:
+                    return prev_value
+
+            new_value = fn(*args)
+            new_pid = os.getgid()
+            _per_process_value_cache_map[name] = (new_value, args, new_pid)
+            return new_value
+        return wrapped_fn()
+    return deco

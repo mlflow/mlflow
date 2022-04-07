@@ -1,17 +1,14 @@
 import os
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
 
 
 def get_cmd(
-    model_uri: str,
-    port: Optional[int] = None,
-    host: Optional[str] = None,
-    nworkers: Optional[int] = None,
+    model_uri: str, port: int = None, host: str = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
 

@@ -260,6 +260,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -862,7 +863,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         )
 
 
-def _get_or_create_model_cache_dir(should_use_nfs):
+def _create_model_downloading_tmp_dir(should_use_nfs):
     if should_use_nfs:
         root_tmp_dir = get_or_create_nfs_tmp_dir()
     else:
@@ -875,21 +876,16 @@ def _get_or_create_model_cache_dir(should_use_nfs):
     return tmp_model_dir
 
 
-_ENV_ROOT_DIR = None
-
-
+@cache_return_value_per_process("ENV_ROOT_DIR")
 def _get_or_create_env_root_dir(should_use_nfs):
-    global _ENV_ROOT_DIR
-    if _ENV_ROOT_DIR is None:
-        if should_use_nfs:
-            root_tmp_dir = get_or_create_nfs_tmp_dir()
-        else:
-            root_tmp_dir = get_or_create_tmp_dir()
+    if should_use_nfs:
+        root_tmp_dir = get_or_create_nfs_tmp_dir()
+    else:
+        root_tmp_dir = get_or_create_tmp_dir()
 
-        _ENV_ROOT_DIR = os.path.join(root_tmp_dir, "envs")
-        os.makedirs(_ENV_ROOT_DIR, exist_ok=True)
-
-    return _ENV_ROOT_DIR
+    env_root_dir = os.path.join(root_tmp_dir, "envs")
+    os.makedirs(env_root_dir, exist_ok=True)
+    return env_root_dir
 
 
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
@@ -1027,7 +1023,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir(should_use_nfs)
+        artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
     )
 
     if env_manager is _EnvManager.LOCAL:

@@ -566,7 +566,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             env_root_dir=str(env_root_path),
         ).prepare_env(model_uri=str(model_path))
 
-        conda_env_name = _get_conda_env_name(str(model_path / "conda.yaml")) + "-isolated"
+        conda_env_name = _get_conda_env_name(str(model_path / "conda.yaml"), env_root_dir=env_root_path)
         env_path = env_root_path / "conda_envs" / conda_env_name
         assert env_path.exists()
 

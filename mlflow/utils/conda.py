@@ -62,12 +62,22 @@ def get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_conda_env_name(conda_env_path, env_id=None):
-    conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
+def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
+    if conda_env_path:
+        with open(conda_env_path) as f:
+            conda_env_contents = f.read()
+    else:
+        conda_env_contents = ""
+
     if env_id:
         conda_env_contents += env_id
-    return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
+    env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    if env_root_dir:
+        env_root_dir = os.path.normpath(env_root_dir)
+        env_name += "-%s" % hashlib.sha1(env_root_dir.encode("utf-8")).hexdigest()
+
+    return env_name
 
 def _get_conda_executable_for_create_env():
     """
@@ -85,17 +95,12 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments(conda_extra_envs=None, return_full_path=False):
+def _list_conda_environments(conda_extra_envs=None):
     prc = process._exec_cmd(
         [get_conda_bin_executable("conda"), "env", "list", "--json"],
         extra_env=conda_extra_envs
     )
-
-    result = list(json.loads(prc.stdout).get("envs", []))
-    if return_full_path:
-        return result
-    else:
-        return list(map(os.path.basename, result))
+    return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
 _CONDA_ENVS_DIR = "conda_envs"
@@ -144,11 +149,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                    environment after the environment has been activated.
     :param capture_output: Specify the capture_output argument while executing the
                            "conda env create" command.
-    :param env_root_dir Root path for conda env. If None, use default one. Note if this is
-                          set, conda package cache path becomes "env_root_dir/conda_pkgs"
-                          instead of the global package cache path, and pip package cache path
-                          becomes "env_root_dir/pip_pkgs" instead of the global package cache
-                          path.
+    :param env_root_dir Root path for conda env. If None, use default config. Note if this is
+                        set, conda package cache path becomes "env_root_dir/conda_cache_pkgs"
+                        instead of the global package cache path, and pip package cache path
+                        becomes "env_root_dir/pip_cache_pkgs" instead of the global package cache
+                        path.
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -183,27 +188,14 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
 
     conda_extra_envs = _get_conda_extra_envs(env_root_dir)
 
-    project_env_name = _get_conda_env_name(conda_env_path, env_id)
-    if env_root_dir is not None:
-        # Append a suffix "-isolated" because if a conda env name exist in
-        # default conda env root dir, then if we set new "CONDA_ENVS_PATH" and run "conda env create"
-        # with the same conda env name, "CondaValueError: prefix already exists" error will
-        # be raised.
-        project_env_name = project_env_name + "-isolated"
+    # Include the env_root_dir hash in the project_env_name,
+    # this is for avoid conda env name conflicts between different CONDA_ENVS_PATH.
+    project_env_name = _get_conda_env_name(conda_env_path, env_id=env_id, env_root_dir=env_root_dir)
+    project_env_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
 
-    if env_root_dir is not None:
-        # Generate the full path of the conda env
-        # Checking whether env was created using full path instead of env name,
-        # otherwise it might match existing env under other different env_root_dir.
-        project_env_path = os.path.normpath(
-            os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
-        )
-    else:
-        project_env_path = project_env_name
-    if project_env_path not in _list_conda_environments(
-            conda_extra_envs,  return_full_path=(env_root_dir is not None)
-    ):
-        _logger.info("=== Creating conda environment %s ===", project_env_path)
+    if project_env_name not in _list_conda_environments(conda_extra_envs):
+        _logger.info("=== Creating conda environment %s at path %s ===",
+                     project_env_name, project_env_path)
         try:
             if conda_env_path:
                 process._exec_cmd(
@@ -237,7 +229,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                 )
         except Exception:
             try:
-                if project_env_path in _list_conda_environments(
+                if project_env_name in _list_conda_environments(
                         conda_extra_envs, return_full_path=(env_root_dir is not None)
                 ):
                     _logger.warning(
@@ -259,14 +251,12 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                     )
             except Exception as e:
                 _logger.warning(
-                    f"Removing conda env '{project_env_path}' failed (error: {repr(e)})."
+                    "Removing conda environment at path %s failed (error: %s)",
+                    project_env_path, repr(e)
                 )
             raise
     else:
         if env_root_dir is not None:
-            _logger.info(
-                "Reusing cached conda environment at %s",
-                os.path.join(os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)),
-            )
+            _logger.info("Reusing cached conda environment at path %s", project_env_path)
 
     return project_env_name

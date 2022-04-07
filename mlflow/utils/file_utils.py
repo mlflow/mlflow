@@ -26,6 +26,7 @@ except ImportError:
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.process import cache_return_value_per_process
 
 ENCODING = "utf-8"
 
@@ -487,33 +488,26 @@ def _handle_readonly_on_windows(func, path, exc_info):
     func(path)
 
 
-_TMP_DIR = None
-
-
+@cache_return_value_per_process("TMP_DIR")
 def get_or_create_tmp_dir():
     """
     Get or create a temporary directory which will be removed once python process exit.
     """
     from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
 
-    global _TMP_DIR
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: For python process attached to databricks notebook, atexit does not work.
+        # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
+        tmp_dir = os.path.join("/tmp/repl_tmp_data", get_repl_id())
+        os.makedirs(tmp_dir, exist_ok=True)
+    else:
+        tmp_dir = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
-    if _TMP_DIR is None:
-        if is_in_databricks_runtime() and get_repl_id() is not None:
-            # Note: For python process attached to databricks notebook, atexit does not work.
-            # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
-            _TMP_DIR = f"/tmp/repl_tmp_data/{get_repl_id()}"
-            os.makedirs(_TMP_DIR, exist_ok=True)
-        else:
-            _TMP_DIR = tempfile.mkdtemp()
-            atexit.register(shutil.rmtree, _TMP_DIR, ignore_errors=True)
-
-    return _TMP_DIR
+    return tmp_dir
 
 
-_TMP_NFS_DIR = None
-
-
+@cache_return_value_per_process("TMP_NFS_DIR")
 def get_or_create_nfs_tmp_dir():
     """
     Get or create a temporary NFS directory which will be removed once python process exit.
@@ -521,18 +515,15 @@ def get_or_create_nfs_tmp_dir():
     from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
     from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
 
-    global _TMP_NFS_DIR
-
     nfs_root_dir = get_nfs_cache_root_dir()
 
-    if _TMP_NFS_DIR is None:
-        if is_in_databricks_runtime():
-            # Note: In databricks, atexit hook does not work.
-            # The /nfs_root_dir/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
-            _TMP_NFS_DIR = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
-            os.makedirs(_TMP_NFS_DIR, exist_ok=True)
-        else:
-            tmp_dir = tempfile.mkdtemp(dir=nfs_root_dir)
-            atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: In databricks, atexit hook does not work.
+        # The /nfs_root_dir/repl_tmp_data/{repl_id} directory will be removed once databricks notebook detached.
+        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+        os.makedirs(tmp_nfs_dir, exist_ok=True)
+    else:
+        tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+        atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
 
-    return _TMP_NFS_DIR
+    return tmp_nfs_dir
