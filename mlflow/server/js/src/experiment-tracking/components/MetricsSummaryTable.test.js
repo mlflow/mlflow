@@ -200,6 +200,8 @@ describe('MetricsSummaryTable', () => {
     expect(html).not.toContain('train_loss');
     expect(html).toContain('run 0');
     expect(html).toContain('run 1');
+    expect(html).toContain('experiments/1/runs/uuid-1234-5678-9012');
+    expect(html).toContain('experiments/1/runs/uuid-1234-5678-9013');
 
     for (let i = 1; i < 7; ++i) {
       expect(html).toContain(`${i} (step=${10 + i})`);
@@ -271,6 +273,8 @@ describe('MetricsSummaryTable', () => {
     expect(html).toContain('val_loss');
     expect(html).toContain('run 0');
     expect(html).toContain('run 1');
+    expect(html).toContain('experiments/1/runs/uuid-1234-5678-9012');
+    expect(html).toContain('experiments/1/runs/uuid-1234-5678-9013');
 
     for (let i = 1; i < 13; ++i) {
       expect(html).toContain(`${i} (step=${10 + i})`);
