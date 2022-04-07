@@ -274,7 +274,7 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
     # List of requirements
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
-            auto_arima_object_model, "model", pip_requirements=[f"-r {str(req_file)}", "b"]
+            auto_arima_object_model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
@@ -283,7 +283,7 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
     # Constraints file
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
-            auto_arima_object_model, "model", pip_requirements=[f"-c {str(req_file)}", "b"]
+            auto_arima_object_model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -306,7 +306,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     # List of requirements
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
-            auto_arima_model, "model", extra_pip_requirements=[f"-r {str(req_file)}", "b"]
+            auto_arima_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -315,7 +315,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     # Constraints file
     with mlflow.start_run():
         mlflow.pmdarima.log_model(
-            auto_arima_model, "model", extra_pip_requirements=[f"-c {str(req_file)}", "b"]
+            auto_arima_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),

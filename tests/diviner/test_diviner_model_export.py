@@ -333,18 +333,14 @@ def test_diviner_log_model_with_pip_requirements(grouped_prophet, tmp_path):
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.diviner.log_model(
-            grouped_prophet, "model", pip_requirements=[f"-r {str(req_file)}", "b"]
-        )
+        mlflow.diviner.log_model(grouped_prophet, "model", pip_requirements=[f"-r {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.diviner.log_model(
-            grouped_prophet, "model", pip_requirements=[f"-c {str(req_file)}", "b"]
-        )
+        mlflow.diviner.log_model(grouped_prophet, "model", pip_requirements=[f"-c {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             ["mlflow", "b", "-c constraints.txt"],
@@ -366,7 +362,7 @@ def test_diviner_log_model_with_extra_pip_requirements(grouped_pmdarima, tmp_pat
     # List of requirements
     with mlflow.start_run():
         mlflow.diviner.log_model(
-            grouped_pmdarima, "model", extra_pip_requirements=[f"-r {str(req_file)}", "b"]
+            grouped_pmdarima, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -375,7 +371,7 @@ def test_diviner_log_model_with_extra_pip_requirements(grouped_pmdarima, tmp_pat
     # Constraints file
     with mlflow.start_run():
         mlflow.diviner.log_model(
-            grouped_pmdarima, "model", extra_pip_requirements=[f"-c {str(req_file)}", "b"]
+            grouped_pmdarima, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),

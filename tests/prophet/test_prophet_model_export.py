@@ -304,7 +304,7 @@ def test_log_model_with_pip_requirements(prophet_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-r {str(req_file)}", "b"]
+            prophet_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
@@ -313,7 +313,7 @@ def test_log_model_with_pip_requirements(prophet_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", pip_requirements=[f"-c {str(req_file)}", "b"]
+            prophet_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -336,7 +336,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-r {str(req_file)}", "b"]
+            prophet_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
@@ -345,7 +345,7 @@ def test_log_model_with_extra_pip_requirements(prophet_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         mlflow.prophet.log_model(
-            prophet_model.model, "model", extra_pip_requirements=[f"-c {str(req_file)}", "b"]
+            prophet_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_uri=mlflow.get_artifact_uri("model"),
