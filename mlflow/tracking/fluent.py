@@ -1616,6 +1616,17 @@ def autolog(
         PyFunc implementation.
         """
 
+        warnings.warn(
+            "When 'log_model_signatures' is set to True, "
+            "it can result in output types that differ from the input type"
+            " for predict using PyFunc implementation. "
+            "For example, if pandas DF is used for prediction input, "
+            "the output could be ndarray or dict of (str -> ndarray) based "
+            "on what the signature of the model was inferred. In order to intentionally use "
+            "'log_model_signatures', the user must explicitly call"
+            " 'mlflow.tensorflow.autolog(log_model_signatures=True)'"
+        )
+
         needed_params = get_autologging_params(LIBRARY_TO_AUTOLOG_FN.get("tensorflow"))
         log_model_signature_key = "log_model_signatures"
         if log_model_signature_key in needed_params:

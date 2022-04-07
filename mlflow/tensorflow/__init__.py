@@ -747,9 +747,7 @@ def autolog(
             " for predict using PyFunc implementation. "
             "For example, if pandas DF is used for prediction input, "
             "the output could be ndarray or dict of (str -> ndarray) based "
-            "on what the signature of the model was inferred. In order to intentionally use "
-            "'log_model_signatures', the user  must call"
-            " 'mlflow.tensorflow.autolog(log_model_signatures=True)'"
+            "on what the signature of the model was inferred."
         )
 
     if Version(tensorflow.__version__) < Version("1.12"):
