@@ -740,6 +740,18 @@ def autolog(
 
     atexit.register(_flush_queue)
 
+    if log_model_signatures:
+        warnings.warn(
+            "When 'log_model_signatures' is set to True, "
+            "it can result in output types that differ from the input type"
+            " for predict using PyFunc implementation. "
+            "For example, if pandas DF is used for prediction input, "
+            "the output could be ndarray or dict of (str -> ndarray) based "
+            "on what the signature of the model was inferred. In order to intentionally use "
+            "'log_model_signatures', the user  must call"
+            " 'mlflow.tensorflow.autolog(log_model_signatures=True)'"
+        )
+
     if Version(tensorflow.__version__) < Version("1.12"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
