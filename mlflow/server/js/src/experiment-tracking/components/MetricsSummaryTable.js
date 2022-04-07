@@ -40,6 +40,7 @@ class MetricsSummaryTable extends React.Component {
             'Column title for the column displaying the metric names for a run',
         }),
         dataIndex: 'metricKey',
+        sorter: (a, b) => (a.metricKey < b.metricKey ? -1 : a.metricKey > b.metricKey ? 1 : 0),
       },
       ...this.dataColumns(),
     ];
@@ -77,7 +78,8 @@ class MetricsSummaryTable extends React.Component {
             // eslint-disable-next-line max-len
             'Column title for the column displaying the run names for a metric',
         }),
-        dataIndex: 'runName',
+        dataIndex: 'runLink',
+        sorter: (a, b) => (a.runName < b.runName ? -1 : a.runName > b.runName ? 1 : 0),
       },
       ...this.dataColumns(),
     ];
@@ -111,7 +113,8 @@ class MetricsSummaryTable extends React.Component {
           description:
             'Column title for the column displaying the latest metric values for a metric',
         }),
-        dataIndex: 'latest',
+        dataIndex: 'latestFormatted',
+        sorter: (a, b) => a.latestValue - b.latestValue,
       },
       {
         title: this.props.intl.formatMessage({
@@ -119,7 +122,8 @@ class MetricsSummaryTable extends React.Component {
           description:
             'Column title for the column displaying the minimum metric values for a metric',
         }),
-        dataIndex: 'min',
+        dataIndex: 'minFormatted',
+        sorter: (a, b) => a.minValue - b.minValue,
       },
       {
         title: this.props.intl.formatMessage({
@@ -127,7 +131,8 @@ class MetricsSummaryTable extends React.Component {
           description:
             'Column title for the column displaying the maximum metric values for a metric',
         }),
-        dataIndex: 'max',
+        dataIndex: 'maxFormatted',
+        sorter: (a, b) => a.maxValue - b.maxValue,
       },
     ];
   }
@@ -146,7 +151,8 @@ const getMetricValuesByRun = (
   return runUuids.map((runUuid, runIdx) => {
     const runName = runDisplayNames[runIdx];
     return {
-      runName: <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>,
+      runName: runName,
+      runLink: <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>,
       key: runUuid,
       ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };
@@ -164,13 +170,19 @@ const getRunValuesByMetric = (runUuid, metricKeys, latestMetrics, minMetrics, ma
 };
 
 const rowData = (runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl) => {
-  const latestValue = getMetric(latestMetrics, runUuid, metricKey);
-  const minValue = getMetric(minMetrics, runUuid, metricKey);
-  const maxValue = getMetric(maxMetrics, runUuid, metricKey);
+  const latestMetric = getMetric(latestMetrics, runUuid, metricKey);
+  const minMetric = getMetric(minMetrics, runUuid, metricKey);
+  const maxMetric = getMetric(maxMetrics, runUuid, metricKey);
+  const latestValue = getValue(latestMetric);
+  const minValue = getValue(minMetric);
+  const maxValue = getValue(maxMetric);
   return {
-    latest: <span title={getValue(latestValue)}>{formatMetric(latestValue, intl)}</span>,
-    min: <span title={getValue(minValue)}>{formatMetric(minValue, intl)}</span>,
-    max: <span title={getValue(maxValue)}>{formatMetric(maxValue, intl)}</span>,
+    latestFormatted: <span title={latestValue}>{formatMetric(latestMetric, intl)}</span>,
+    minFormatted: <span title={minValue}>{formatMetric(minMetric, intl)}</span>,
+    maxFormatted: <span title={maxValue}>{formatMetric(maxMetric, intl)}</span>,
+    latestValue,
+    minValue,
+    maxValue,
   };
 };
 
