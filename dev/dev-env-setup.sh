@@ -28,7 +28,7 @@ EOF
 tput_r="tput setaf 1"
 
 export verbose=0
-while getopts "n:vh" opt
+while getopts "n:d:vh" opt
 do
   case "$opt" in
     n) name="$OPTARG" ;;
@@ -74,12 +74,16 @@ esac
 
 # Install the Python version if it cannot be found
 pyenv install -s $PY_INSTALL_VERSION
+pyenv local $PY_INSTALL_VERSION
+pyenv exec pip install --upgrade pip
+pyenv exec pip install virtualenv
 
 # Create a virtual environment with the specified Python version
+pyenv exec virtualenv "$directory"
+source $directory/bin/activate
 
+echo "Current Python version: $(python --version)"
 
-
-pyenv_root=$(pyenv root)
 
 
 
@@ -94,22 +98,22 @@ pyenv_root=$(pyenv root)
 # activate the environment (need a path for the environment supplied by the user)
 # source path/to/env/bin/activate
 
-
-
-# validate conda
-command -v conda >/dev/null 2>&1 || { echo >&2 "Conda must be installed in order to use this script."; exit 1; }
-
-existing_envs=$(conda env list | grep "\b$name\b\s")
-
-if [ -n "$existing_envs" ]; then
-  read -p "$($tput_r)An existing environment was found with the name '$name'. Do you wish to replace this environment? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "removing environment!" #replace with conda remove 
-  else
-    exit 1
-  fi
-fi
+#
+#
+## validate conda
+#command -v conda >/dev/null 2>&1 || { echo >&2 "Conda must be installed in order to use this script."; exit 1; }
+#
+#existing_envs=$(conda env list | grep "\b$name\b\s")
+#
+#if [ -n "$existing_envs" ]; then
+#  read -p "$($tput_r)An existing environment was found with the name '$name'. Do you wish to replace this environment? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
+#  echo
+#  if [[ $REPLY =~ ^[Yy]$ ]]; then
+#    echo "removing environment!" #replace with conda remove
+#  else
+#    exit 1
+#  fi
+#fi
 
 #conda create --name $name --python=$python_version
 #
