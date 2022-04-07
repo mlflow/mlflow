@@ -114,16 +114,16 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
     np.testing.assert_array_equal(yhat_high, pyfunc_predict["yhat_upper"])
 
 
-@pytest.mark.parametrize("_signature", [True, False])
-@pytest.mark.parametrize("_example", [True, False])
+@pytest.mark.parametrize("use_signature", [True, False])
+@pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_examples_saved_correctly(
-    auto_arima_model, test_data, model_path, _signature, _example
+    auto_arima_model, test_data, model_path, use_signature, use_example
 ):
 
     # NB: Signature inference will only work on the first element of the tuple return
     prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
-    signature = infer_signature(test_data, prediction[0]) if _signature else None
-    example = test_data[0:5].copy(deep=False) if _example else None
+    signature = infer_signature(test_data, prediction[0]) if use_signature else None
+    example = test_data[0:5].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path, signature=signature, input_example=example
     )
@@ -136,10 +136,10 @@ def test_pmdarima_signature_and_examples_saved_correctly(
         np.testing.assert_array_equal(r_example, example)
 
 
-@pytest.mark.parametrize("_signature", [True, False])
-@pytest.mark.parametrize("_example", [True, False])
+@pytest.mark.parametrize("use_signature", [True, False])
+@pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_example_for_confidence_interval_mode(
-    auto_arima_model, model_path, test_data, _signature, _example
+    auto_arima_model, model_path, test_data, use_signature, use_example
 ):
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
@@ -147,8 +147,8 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-    signature = infer_signature(test_data["orders"], forecast) if _signature else None
-    example = test_data[0:10].copy(deep=False) if _example else None
+    signature = infer_signature(test_data["orders"], forecast) if use_signature else None
+    example = test_data[0:10].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
     )

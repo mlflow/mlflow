@@ -162,14 +162,16 @@ def test_model_pyfunc_save_load(prophet_model, model_path):
     )
 
 
-@pytest.mark.parametrize("_signature", [True, False])
-@pytest.mark.parametrize("_example", [True, False])
-def test_signature_and_examples_saved_correctly(prophet_model, model_path, _signature, _example):
+@pytest.mark.parametrize("use_signature", [True, False])
+@pytest.mark.parametrize("use_example", [True, False])
+def test_signature_and_examples_saved_correctly(
+    prophet_model, model_path, use_signature, use_example
+):
     data = prophet_model.data
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-    signature = infer_signature(data, model.predict(horizon_df)) if _signature else None
-    if _example:
+    signature = infer_signature(data, model.predict(horizon_df)) if use_signature else None
+    if use_example:
         example = data[0:5].copy(deep=False)
         example["y"] = pd.to_numeric(example["y"])  # cast to appropriate precision
     else:

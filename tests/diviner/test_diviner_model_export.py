@@ -199,15 +199,15 @@ def test_diviner_pyfunc_group_predict_pmdarima(grouped_pmdarima, model_path, div
     pd.testing.assert_frame_equal(local_group_pred, pyfunc_group_predict)
 
 
-@pytest.mark.parametrize("_signature", [True, False])
-@pytest.mark.parametrize("_example", [True, False])
+@pytest.mark.parametrize("use_signature", [True, False])
+@pytest.mark.parametrize("use_example", [True, False])
 def test_diviner_signature_and_examples_saved_correctly(
-    grouped_prophet, diviner_data, model_path, _signature, _example
+    grouped_prophet, diviner_data, model_path, use_signature, use_example
 ):
 
     prediction = grouped_prophet.forecast(horizon=20, frequency="D")
-    signature = infer_signature(diviner_data.df, prediction) if _signature else None
-    example = diviner_data.df[0:5].copy(deep=False) if _example else None
+    signature = infer_signature(diviner_data.df, prediction) if use_signature else None
+    example = diviner_data.df[0:5].copy(deep=False) if use_example else None
     mlflow.diviner.save_model(
         grouped_prophet, path=model_path, signature=signature, input_example=example
     )
