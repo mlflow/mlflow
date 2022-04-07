@@ -77,11 +77,11 @@ def _validate_virtualenv_is_available():
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
-def _find_latest_version(version_prefix):
+def _find_latest_installable_python_version(version_prefix):
     """
-    Find the latest python version that matches the given version prefix from the output of
-    `pyenv install --list`. For example, `version_prefix("3.8")` returns '3.8.x' where
-    'x' represents the latest micro version in 3.8.
+    Find the latest installable python version that matches the given version prefix
+    from the output of `pyenv install --list`. For example, `version_prefix("3.8")` returns '3.8.x'
+    where 'x' represents the latest micro version in 3.8.
     """
     lines = _exec_cmd(["pyenv", "install", "--list"], capture_output=True).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
@@ -99,7 +99,11 @@ def _install_python(version):
     :param version: Python version to install.
     :return: Path to the installed python binary.
     """
-    version = version if _SEMANTIC_VERSION_REGEX.match(version) else _find_latest_version(version)
+    version = (
+        version
+        if _SEMANTIC_VERSION_REGEX.match(version)
+        else _find_latest_installable_python_version(version)
+    )
     _logger.info("Installing python %s", version)
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
     # https://github.com/pyenv-win/pyenv-win/pull/314
