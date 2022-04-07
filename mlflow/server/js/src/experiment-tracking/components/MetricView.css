@@ -51,9 +51,17 @@
 }
 
 .metrics-plot-container .metrics-summary {
-  margin: 20px 60px;
+  margin: 20px 20px 20px 60px;
 }
 
 .metrics-plot-container .metrics-summary .html-table-view {
   margin-bottom: 25px;
+  /* Shrink to fit, so that scroll bars are aligned with the edge of the table */
+  display: inline-block;
+}
+
+/* Reset min-width which is overridden in HtmlTableView as this breaks the
+   table layout when scrolling is enabled and widths are specified */
+.metrics-plot-container .metrics-summary .html-table-view th {
+  min-width: auto;
 }

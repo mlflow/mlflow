@@ -8,6 +8,12 @@ import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
 
+const maxTableHeight = 300;
+// Because we make the table body scrollable, column widths must be fixed
+// so that the header widths match the table body column widths.
+const headerColWidth = 310;
+const dataColWidth = 200;
+
 class MetricsSummaryTable extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string.isRequired,
@@ -41,6 +47,7 @@ class MetricsSummaryTable extends React.Component {
         }),
         dataIndex: 'metricKey',
         sorter: (a, b) => (a.metricKey < b.metricKey ? -1 : a.metricKey > b.metricKey ? 1 : 0),
+        width: headerColWidth,
       },
       ...this.dataColumns(),
     ];
@@ -55,6 +62,7 @@ class MetricsSummaryTable extends React.Component {
           maxMetrics,
           intl,
         )}
+        scroll={{ y: maxTableHeight }}
       />
     );
   }
@@ -80,6 +88,7 @@ class MetricsSummaryTable extends React.Component {
         }),
         dataIndex: 'runLink',
         sorter: (a, b) => (a.runName < b.runName ? -1 : a.runName > b.runName ? 1 : 0),
+        width: headerColWidth,
       },
       ...this.dataColumns(),
     ];
@@ -99,6 +108,7 @@ class MetricsSummaryTable extends React.Component {
               maxMetrics,
               intl,
             )}
+            scroll={{ y: maxTableHeight }}
           />
         </Fragment>
       );
@@ -115,6 +125,7 @@ class MetricsSummaryTable extends React.Component {
         }),
         dataIndex: 'latestFormatted',
         sorter: (a, b) => a.latestValue - b.latestValue,
+        width: dataColWidth,
       },
       {
         title: this.props.intl.formatMessage({
@@ -124,6 +135,7 @@ class MetricsSummaryTable extends React.Component {
         }),
         dataIndex: 'minFormatted',
         sorter: (a, b) => a.minValue - b.minValue,
+        width: dataColWidth,
       },
       {
         title: this.props.intl.formatMessage({
@@ -133,6 +145,7 @@ class MetricsSummaryTable extends React.Component {
         }),
         dataIndex: 'maxFormatted',
         sorter: (a, b) => a.maxValue - b.maxValue,
+        width: dataColWidth,
       },
     ];
   }
