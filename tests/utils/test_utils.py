@@ -1,8 +1,5 @@
-import os
 from unittest import mock
 import pytest
-import xgboost.rabit
-import tempfile
 
 from mlflow.utils import (
     get_unique_resource_id,
@@ -10,7 +7,6 @@ from mlflow.utils import (
     _truncate_dict,
     _get_fully_qualified_class_name,
 )
-from mlflow.utils.process import cache_return_value_per_process
 
 
 def test_get_unique_resource_id_respects_max_length():
@@ -115,42 +111,3 @@ def test_inspect_original_var_name():
     xyz3 = object()
 
     f3(*[xyz2], **{"b1": xyz3, "expected_a1_name": "xyz2", "expected_b1_name": "xyz3"})
-
-
-def test_cache_return_value_per_process():
-    @cache_return_value_per_process
-    def f1(_):
-        return tempfile.mkdtemp()
-
-    path1 = f1(True)
-    path2 = f1(True)
-
-    assert path1 == path2
-
-    path3 = f1(False)
-    assert path3 != path2
-
-    @cache_return_value_per_process
-    def f2(_):
-        return tempfile.mkdtemp()
-
-    f2_path1 = f2(True)
-    f2_path2 = f2(False)
-
-    assert len({path1, path3, f2_path1, f2_path2}) == 4
-
-    pid = os.fork()
-    if pid > 0:
-        # in parent process
-        child_pid = pid
-        # check child process exit with return value 0.
-        assert os.waitpid(child_pid, 0)[1] == 0
-    else:
-        # in forked out child process
-        print(f"Child pid: {os.getpid()}")
-        child_path1 = f1(True)
-        child_path2 = f1(False)
-        print(f"DBG: \n{path1}\n{path3}\n{child_path1}\n{child_path2}")
-        test_pass = len({path1, path3, child_path1, child_path2}) == 4
-        # exit forked out child process with exit code representing testing pass or fail.
-        os._exit(0 if test_pass else 1)
