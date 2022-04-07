@@ -157,9 +157,9 @@ def _get_python_env(local_model_path):
             )
         if requirements_file.exists():
             deps = PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
-            deps.pop("dependencies", None)
             return PythonEnv(
-                **deps,
+                python=deps["python"],
+                build_dependencies=deps["build_dependencies"],
                 dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
             )
         else:
