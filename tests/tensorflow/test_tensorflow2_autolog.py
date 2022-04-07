@@ -856,7 +856,7 @@ def tf_titanic_estimator_prediction_schema():
 @pytest.mark.large
 def test_tf_signature_with_dataset(tmpdir, iris_dataset_spec, tf_iris_estimator_prediction_schema):
     directory = tmpdir.mkdir("tf_signature_with_dataset")
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     with mlflow.start_run() as run:
         create_tf_estimator_model(str(directory), True)
         _assert_autolog_infers_model_signature_correctly(
@@ -866,7 +866,7 @@ def test_tf_signature_with_dataset(tmpdir, iris_dataset_spec, tf_iris_estimator_
 
 @pytest.mark.large
 def test_tf_input_example_with_dataset(tmpdir):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     directory = tmpdir.mkdir("tf_input_example_with_dataset")
     with mlflow.start_run() as run:
         create_tf_estimator_model(directory=str(directory), export=True, use_v1_estimator=False)
@@ -881,7 +881,7 @@ def _assert_tf_signature(
     tmpdir, data_type, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
 ):
     directory = tmpdir.mkdir("tf_signature")
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     with mlflow.start_run() as run:
         train_tf_titanic_estimator(directory=str(directory), input_data_type=data_type)
         _assert_autolog_infers_model_signature_correctly(
@@ -891,7 +891,7 @@ def _assert_tf_signature(
 
 @pytest.mark.large
 def test_tf_input_example_with_tuple_dict(tmpdir):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     directory = tmpdir.mkdir("tf_input_example_with_tuple_dict")
     with mlflow.start_run() as run:
         train_tf_titanic_estimator(directory=str(directory), input_data_type="tuple_dict")
@@ -909,46 +909,6 @@ def test_tf_signature_with_tuple_dict(
     _assert_tf_signature(
         tmpdir, "tuple_dict", titanic_dataset_spec, tf_titanic_estimator_prediction_schema
     )
-
-
-@pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) >= Version("2.1.0"),
-    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
-)
-def test_fit_generator_signature_autologging(random_train_data, random_one_hot_labels):
-    mlflow.tensorflow.autolog()
-    model = create_tf_keras_model()
-
-    def generator():
-        while True:
-            yield random_train_data, random_one_hot_labels
-
-    with mlflow.start_run() as run:
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
-            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
-        )
-
-
-@pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) >= Version("2.1.0"),
-    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
-)
-def test_fit_generator_input_example_autologging(random_train_data, random_one_hot_labels):
-    mlflow.tensorflow.autolog(log_input_examples=True)
-    model = create_tf_keras_model()
-
-    def generator():
-        while True:
-            yield random_train_data, random_one_hot_labels
-
-    with mlflow.start_run() as run:
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, random_train_data)
 
 
 @pytest.mark.large
@@ -1359,7 +1319,7 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
 def test_keras_autolog_input_example_load_and_predict_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
@@ -1374,7 +1334,7 @@ def test_keras_autolog_input_example_load_and_predict_with_nparray(
 def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
@@ -1391,7 +1351,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
@@ -1408,7 +1368,7 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
     reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
 )
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
@@ -1427,7 +1387,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
 def test_keras_autolog_input_example_load_and_predict_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
@@ -1448,7 +1408,7 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
 def test_keras_autolog_infers_model_signature_correctly_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
@@ -1470,7 +1430,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
     reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(keras_data_gen_sequence)
@@ -1487,7 +1447,7 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(keras_data_gen_sequence)
