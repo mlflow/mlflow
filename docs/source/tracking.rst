@@ -179,6 +179,8 @@ and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/m
 `S3ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/s3_artifact_repo.py#L14>`_ are
 concrete implementations of the abstract class `ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L13>`_.
 
+.. _scenario_5:
+
 Scenario 5: MLflow Tracking Server enabled with proxied artifact storage access
 -------------------------------------------------------------------------------
 
@@ -214,10 +216,10 @@ Enabling the Tracking Server to perform proxied artifact access in order to rout
 
 .. note::
     When an experiment is created, the artifact storage location from the configuration of the tracking server is logged in the experiment's metadata.
-    If enabling proxied artifact storage, any existing experiments that were created while operating a tracking server in non-proxy mode will not
-    be available for adding runs to them. This is due to the default artifact storage locations (``artifact_uri``) of the old experiments logged prior to
-    enabling a tracking server's proxied access while operating in  ``--serve-artifacts`` mode. It is highly advised to create new experiments when performing
-    a migration that enables proxied artifact access to prevent errors in logging run artifacts to an existing experiment from occurring at the client side.
+    When enabling proxied artifact storage, any existing experiments that were created while operating a tracking server in
+    non-proxied mode will continue to use a non-proxied artifact location. In order to use proxied artifact logging, a new experiment must be created.
+    If the intention of enabling a tracking server in ``-serve-artifacts`` mode is to eliminate the need for a client to have authentication to
+    the underlying storage, new experiments should be created for use by clients so that the tracking server can handle authentication after this migration.
 
 .. warning::
     The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
@@ -778,7 +780,6 @@ An MLflow Tracking server can also be run as a proxied artifact handler. An exam
         --port 8889 \
         --serve-artifacts \
         --artifacts-destination s3://my-mlflow-bucket/ \
-        --artifacts-only
 
 .. note::
     When started in ``--artifacts-only`` mode, the tracking server will not permit any operation other than saving, loading, and listing artifacts.
@@ -1078,25 +1079,39 @@ Additionally, you should ensure that the ``--backend-store-uri`` (which defaults
 
 .. _artifact_only_mode:
 
-Using the Tracking Server exclusively for proxied artifact access
------------------------------------------------------------------
+Using the Tracking Server for proxied artifact access
+-----------------------------------------------------
 
-To use an instance of the MLflow Tracking server *exclusively* for artifact operations ( :ref:`scenario_6` ),
-start a server with the optional parameters ``--serve-artifacts`` to enable proxied artifact access and ``--artifacts-only``
-for disabling all other functionality of the Tracking server.
+To use an instance of the MLflow Tracking server for artifact operations ( :ref:`scenario_5` ),
+start a server with the optional parameters ``--serve-artifacts`` to enable proxied artifact access and set a
+path to record artifacts to by providing a value for the argument ``--artifacts-destination``. The tracking server will,
+in this mode, stream any artifacts that a client is logging directly through an assumed (server-side) identity,
+eliminating the need for access credentials to be handled by end-users.
 
-To start the MLflow server in this restricted mode with proxied access to an HDFS location (as an example):
+.. note::
+    Authentication access to the value set by ``--artifacts-destination`` must be configured when starting the tracking
+    server, if required.
+
+To start the MLflow server with proxy artifact access enabled to an HDFS location (as an example):
 
 .. code-block:: bash
+
+    export HADOOP_USER_NAME=mlflowserverauth
 
     mlflow server \
         --host 0.0.0.0 \
         --port 8885 \
         --artifacts-destination hdfs://myhost:8887/mlprojects/models \
-        --serve-artifacts \
-        --artifacts-only
+        --serve-artifacts
 
-Using an MLflow server configured in ``--artifacts-only`` mode for any tasks aside from those concerned with artifact
+Optionally using a Tracking Server instance exclusively for artifact handling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If the volume of tracking server requests is sufficiently large and performance issues are noticed, a tracking server
+can be configured to serve in ``--artifacts-only`` mode ( :ref:`scenario_6` ), operating in tandem with an instance that
+operates without ``--serve-artifacts`` enabled. This configuration ensures that the processing of artifacts is isolated
+from all other tracking server event handling.
+
+When a tracking server is configured in ``--artifacts-only`` mode, any tasks apart from those concerned with artifact
 handling (i.e., model logging, loading models, logging artifacts, listing artifacts, etc.) will return an HTTPError.
 See the following example of a client REST call in Python attempting to list experiments from a server that is configured in
 ``--artifacts-only`` mode:
@@ -1116,9 +1131,6 @@ Using an additional MLflow server to handle artifacts exclusively can be useful 
 Decoupling the longer running and more compute-intensive tasks of artifact handling from the faster and higher-volume
 metadata functionality of the other Tracking API requests can help minimize the burden of an otherwise single MLflow
 server handling both types of payloads.
-Additionally, this mode to control access to artifacts without exposing the server endpoint's ability to create experiments,
-manage runs, or perform any action apart from artifact handling can be useful in some scenarios (continuous deployment
-by an external team, for instance).
 
 
 .. _logging_to_a_tracking_server:
