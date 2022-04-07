@@ -310,10 +310,10 @@ def save_model(
         python_env = PythonEnv.default()
     elif isinstance(python_env, str):
         python_env = PythonEnv.from_yaml(python_env)
-    elif not isinstance(python_env, PythonEnv):
-        raise TypeError(
-            f"Invalid type for `python_env`: {type(python_env)}. Must be `str` or `PythonEnv`."
-        )
+    elif isinstance(python_env, dict):
+        python_env = PythonEnv.from_dict(python_env)
+    else:
+        raise TypeError(f"Invalid type for `python_env`: {type(python_env)}. Must be str or dict.")
     python_env.to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 

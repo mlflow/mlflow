@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from unittest import mock
 from collections import namedtuple
 
 import pytest
@@ -12,7 +11,7 @@ from sklearn.datasets import load_iris
 
 import mlflow
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
-from mlflow.utils.environment import PythonEnv, _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
+from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
 from mlflow.utils.virtualenv import (
     _MLFLOW_ENV_ROOT_ENV_VAR,
     _is_pyenv_available,
@@ -82,7 +81,7 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
 @use_temp_mlflow_env_root
 def test_python_micro_version_is_missing(sklearn_model):
     with mlflow.start_run():
-        python_env = PythonEnv(
+        python_env = dict(
             python="3.8", dependencies=["mlflow", f"scikit-learn=={sklearn.__version__}"]
         )
         model_info = mlflow.sklearn.log_model(
@@ -95,10 +94,10 @@ def test_python_micro_version_is_missing(sklearn_model):
 @use_temp_mlflow_env_root
 def test_python_env_file_is_missing(sklearn_model):
     with mlflow.start_run():
-        with mock.patch("mlflow.utils.environment.PythonEnv.to_yaml") as mock_to_yaml:
-            model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
-            mock_to_yaml.assert_called_once()
+        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+        model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
 
+    model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
