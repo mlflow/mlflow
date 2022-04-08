@@ -562,12 +562,10 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
         mlflow.pytorch.load_model(model_uri=model_path)
 
     assert any(
-        [
-            "does not match installed PyTorch version" in log_message
-            and saver_pytorch_version in log_message
-            and loader_pytorch_version in log_message
-            for log_message in log_messages
-        ]
+        "does not match installed PyTorch version" in log_message
+        and saver_pytorch_version in log_message
+        and loader_pytorch_version in log_message
+        for log_message in log_messages
     )
 
 

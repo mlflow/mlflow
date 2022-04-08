@@ -715,10 +715,8 @@ class FileStore(AbstractStore):
         run_dirs = list_all(
             experiment_dir,
             filter_func=lambda x: all(
-                [
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                ]
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
             )
             and os.path.isdir(x),
             full_path=True,
