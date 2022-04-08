@@ -154,11 +154,9 @@ def pyfunc_serve_and_score_model(
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
                        example, passing ``extra_args=["--env-manager", "local"]`` will pass the
-                       ``--env-manager local`` flag to the scoring server to ensure that conda environment activation is skipped.
+                       ``--env-manager local`` flag to the scoring server to ensure that conda
+                       environment activation is skipped.
     """
-    a = 1  # dummy
-    print(b)  # dummy
-
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
