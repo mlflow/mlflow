@@ -1,6 +1,5 @@
 import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { Services as ModelRegistryService } from '../../model-registry/services';
-import { wrapDeferred } from '../utils/ActionUtils';
 
 export const getExperimentNameValidator = (getExistingExperimentNames) => {
   return (rule, value, callback) => {
@@ -15,7 +14,7 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
       callback(`Experiment "${value}" already exists.`);
     } else {
       // on-demand validation whether experiment already exists in deleted state
-      wrapDeferred(MlflowService.getExperimentByName, { experiment_name: value })
+      MlflowService.getExperimentByName({ experiment_name: value })
         .then((res) =>
           callback(`Experiment "${value}" already exists in deleted state.
                                  You can restore the experiment, or permanently delete the

@@ -15,22 +15,17 @@ import uuid
 import sys
 import yaml
 
-import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
-from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
 from mlflow.utils.environment import (
     _get_pip_deps,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.utils.requirements_utils import _get_installed_version
 
 LOCALHOST = "127.0.0.1"
 
@@ -68,7 +63,7 @@ def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
     content_type,
-    flavor=mlflow.pyfunc.FLAVOR_NAME,
+    flavor="python_function",
     activity_polling_timeout_seconds=500,
 ):
     """
@@ -158,9 +153,9 @@ def pyfunc_serve_and_score_model(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
-                       flag to the scoring server to ensure that conda environment activation
-                       is skipped.
+                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+                       ``--env-manager local`` flag to the scoring server to ensure that conda
+                       environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -253,6 +248,9 @@ class RestEndpoint:
                 self._proc.kill()
 
     def invoke(self, data, content_type):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        import pandas as pd
+
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
@@ -348,6 +346,9 @@ def _read_lines(path):
 
 
 def _compare_logged_code_paths(code_path, model_path, flavor_name):
+    import mlflow.pyfunc
+    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+
     pyfunc_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -401,6 +402,8 @@ def _is_available_on_pypi(package, version=None, module=None):
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     """
+    from mlflow.utils.requirements_utils import _get_installed_version
+
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
         return False

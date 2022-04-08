@@ -21,8 +21,10 @@ from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import resolve_default_artifact_root
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    _validate_artifacts_only_config,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -186,7 +188,7 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            use_conda=env_manager is _EnvManager.CONDA,
+            env_manager=str(env_manager),
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,
@@ -401,7 +403,7 @@ def server(
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections
+    The server listens on http://localhost:5000 by default, and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
@@ -418,6 +420,8 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
+
+    _validate_artifacts_only_config(serve_artifacts, artifacts_only, backend_store_uri)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)

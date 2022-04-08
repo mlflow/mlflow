@@ -22,6 +22,8 @@ export class ExperimentRunsTableEmptyOverlay extends Component {
             description='Empty state text for experiment runs page'
             values={{
               link: (chunks) => (
+                // Reported during ESLint upgrade
+                // eslint-disable-next-line react/jsx-no-target-blank
                 <a target='_blank' href={learnMoreLinkUrl}>
                   {chunks}
                 </a>

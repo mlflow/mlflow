@@ -47,6 +47,8 @@ from mlflow.utils.validation import (
     _validate_experiment_tag,
     _validate_tag,
     _validate_list_experiments_max_results,
+    _validate_param_keys_unique,
+    _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -229,8 +231,7 @@ class SqlAlchemyStore(AbstractStore):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None, tags=None):
-        if name is None or name == "":
-            raise MlflowException("Invalid experiment name", INVALID_PARAMETER_VALUE)
+        _validate_experiment_name(name)
 
         with self.ManagedSessionMaker() as session:
             try:
@@ -812,6 +813,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
+        _validate_param_keys_unique(params)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)

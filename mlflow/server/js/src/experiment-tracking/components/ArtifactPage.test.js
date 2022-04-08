@@ -1,10 +1,11 @@
 import React from 'react';
-import { mountWithIntl, shallowWithIntl, mockAjax } from '../../common/utils/TestUtils';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { ErrorWrapper, pending } from '../../common/utils/ActionUtils';
+import { pending } from '../../common/utils/ActionUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import {
   ModelVersionStatus,
@@ -27,7 +28,10 @@ describe('ArtifactPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -126,9 +130,10 @@ describe('ArtifactPage', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
     wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
-    const responseErrorWrapper = new ErrorWrapper({
-      responseText: `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
-    });
+    const responseErrorWrapper = new ErrorWrapper(
+      `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
+      403,
+    );
     const artifactPageInstance = wrapper.instance();
     const listArtifactsErrorRequest = {
       id: artifactPageInstance.listArtifactsRequestId,
@@ -166,7 +171,7 @@ describe('ArtifactPage', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
     getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
@@ -178,7 +183,7 @@ describe('ArtifactPage', () => {
     const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
     getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
@@ -191,7 +196,7 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
     expect(getArtifactPageInstance().state.activeNodeIsDirectory).toEqual(false);
 
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });

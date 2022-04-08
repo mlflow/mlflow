@@ -5,16 +5,7 @@ from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
 
-IGNORE_DIRS = list(
-    map(
-        os.path.abspath,
-        [
-            "dev",
-            # TODO: Remove (or replace) print functions in tests
-            "tests",
-        ],
-    )
-)
+IGNORE_DIRS = list(map(os.path.abspath, ["dev"]))
 
 
 def _is_print_function(node: astroid.Call):

@@ -41,7 +41,9 @@ from tests.statsmodels.model_fixtures import (
     wls_model,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("statsmodels") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("statsmodels") else ["--env-manager", "local"]
+)
 
 # The code in this file has been adapted from the test cases of the lightgbm flavor.
 

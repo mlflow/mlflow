@@ -19,6 +19,10 @@ describe('RunView', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       runUuid: 'uuid-1234-5678-9012',
       experimentId: '12345',
@@ -68,6 +72,7 @@ describe('RunView', () => {
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
       apis: {},
+      compareExperiments: {},
     };
     minimalStore = mockStore(minimalStoreRaw);
   });
