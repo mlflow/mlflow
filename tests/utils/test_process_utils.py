@@ -15,6 +15,11 @@ def _gen_random_str2(v):
     return str(v) + uuid.uuid4().hex
 
 
+@cache_return_value_per_process
+def _gen_random_no_arg():
+    return uuid.uuid4().hex
+
+
 def _test_cache_return_value_per_process_child_proc_target(path1, path3, queue):
     # in forked out child process
     child_path1 = _gen_random_str1(True)
@@ -27,6 +32,10 @@ def test_cache_return_value_per_process():
 
     path1 = _gen_random_str1(True)
     path2 = _gen_random_str1(True)
+
+    no_arg_path1 = _gen_random_no_arg()
+    no_arg_path2 = _gen_random_no_arg()
+    assert no_arg_path1 == no_arg_path2
 
     assert path1 == path2
 
