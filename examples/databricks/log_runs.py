@@ -28,13 +28,11 @@ def main():
     os.environ["DATABRICKS_TOKEN"] = args.token
 
     mlflow.set_tracking_uri("databricks")
-    experiment_name = f"/Users/{args.user}/{uuid.uuid4().hex}"
-    experiment_id = mlflow.create_experiment(experiment_name)
-    mlflow.set_experiment(experiment_id=experiment_id)
+    experiment = mlflow.set_experiment(f"/Users/{args.user}/{uuid.uuid4().hex}")
 
     mlflow.sklearn.autolog()
     num_runs = 5
-    print(f"Logging {num_runs} runs in {args.host}#/mlflow/experiments/{experiment_id}")
+    print(f"Logging {num_runs} runs in {args.host}#/mlflow/experiments/{experiment.experiment_id}")
     for i in range(num_runs):
         with mlflow.start_run() as run:
             print(f"Logging run:", run.info.run_id, f"{i + 1} / {num_runs} ")
