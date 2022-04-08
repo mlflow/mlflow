@@ -34,7 +34,7 @@ def load_project(directory):
 
     # Validate the project config does't contain multiple environment fields
     env_fields = set(yaml_obj.keys()).intersection({"conda_env", "docker_env"})
-    if env_fields != 1:
+    if len(env_fields) > 1:
         raise ExecutionException(
             f"Project cannot contain multiple environment fields: {env_fields}"
         )
