@@ -34,7 +34,7 @@ _PYTHON_ENV_FILE_NAME = "python-env.yaml"
 _CONDA_DEPENDENCY_REGEX = re.compile(r"^(python|pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$")
 
 
-class PythonEnv:
+class _PythonEnv:
     """
     Represents environment information for an MLflow Model.
     """
@@ -80,8 +80,8 @@ class PythonEnv:
     @staticmethod
     def get_current_build_dependencies():
         build_dependencies = []
-        for package in PythonEnv.BUILD_PACKAGES:
-            version = PythonEnv._get_package_version(package)
+        for package in _PythonEnv.BUILD_PACKAGES:
+            version = _PythonEnv._get_package_version(package)
             dep = (package + "==" + version) if version else package
             build_dependencies.append(dep)
         return build_dependencies

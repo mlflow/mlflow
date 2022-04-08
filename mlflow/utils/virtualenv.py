@@ -9,7 +9,7 @@ from pathlib import Path
 from mlflow.exceptions import MlflowException
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.environment import (
-    PythonEnv,
+    _PythonEnv,
     _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
@@ -126,20 +126,20 @@ def _install_python(version):
 
 def _get_python_env(local_model_path):
     """
-    Constructs `PythonEnv` from the model artifacts stored in `local_model_path`. If
+    Constructs `_PythonEnv` from the model artifacts stored in `local_model_path`. If
     `python_env.yaml` is available, use it, otherwise extract model dependencies from `conda.yaml`.
     If `conda.yaml` contains conda dependencies except `python`, `pip`, `setuptools`, and, `wheel`,
     an `MlflowException` is thrown because conda dependencies cannot be installed in a virtualenv
     environment.
 
     :param local_model_path: Local directory containing the model artifacts.
-    :return: `PythonEnv` instance.
+    :return: `_PythonEnv` instance.
     """
     python_env_file = local_model_path / _PYTHON_ENV_FILE_NAME
     requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
     conda_env_file = local_model_path / _CONDA_ENV_FILE_NAME
     if python_env_file.exists():
-        return PythonEnv.from_yaml(python_env_file)
+        return _PythonEnv.from_yaml(python_env_file)
     else:
         _logger.info(
             "This model is missing %s, which is because it was logged in an older version"
@@ -150,7 +150,7 @@ def _get_python_env(local_model_path):
             _CONDA_ENV_FILE_NAME,
         )
         conda_deps = _get_conda_dependencies(conda_env_file)
-        build_packages = ("python", *PythonEnv.BUILD_PACKAGES)
+        build_packages = ("python", *_PythonEnv.BUILD_PACKAGES)
         conda_deps = [d for d in conda_deps if _get_package_name(d) not in build_packages]
         if conda_deps:
             _logger.warning(
@@ -159,14 +159,14 @@ def _get_python_env(local_model_path):
                 "model."
             )
         if requirements_file.exists():
-            deps = PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
-            return PythonEnv(
+            deps = _PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
+            return _PythonEnv(
                 python=deps["python"],
                 build_dependencies=deps["build_dependencies"],
                 dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
             )
         else:
-            return PythonEnv.from_conda_yaml(conda_env_file)
+            return _PythonEnv.from_conda_yaml(conda_env_file)
 
 
 def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):

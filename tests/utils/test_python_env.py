@@ -1,22 +1,22 @@
 import pytest
 
-from mlflow.utils.environment import PythonEnv
+from mlflow.utils.environment import _PythonEnv
 
 
 def test_constructor_argument_validation():
     with pytest.raises(TypeError, match="`python` must be a string"):
-        PythonEnv(python=1)
+        _PythonEnv(python=1)
 
     with pytest.raises(TypeError, match="`build_dependencies` must be a list"):
-        PythonEnv(build_dependencies=0)
+        _PythonEnv(build_dependencies=0)
 
     with pytest.raises(TypeError, match="`dependencies` must be a list"):
-        PythonEnv(dependencies=0)
+        _PythonEnv(dependencies=0)
 
 
 def test_to_yaml(tmp_path):
     yaml_path = tmp_path / "python-env.yaml"
-    PythonEnv("3.7.5", ["a"], ["b"]).to_yaml(yaml_path)
+    _PythonEnv("3.7.5", ["a"], ["b"]).to_yaml(yaml_path)
     expected_content = """
 python: 3.7.5
 build_dependencies:
@@ -39,7 +39,7 @@ dependencies:
 """
     yaml_path = tmp_path / "test.yaml"
     yaml_path.write_text(content)
-    python_env = PythonEnv.from_yaml(yaml_path)
+    python_env = _PythonEnv.from_yaml(yaml_path)
     assert python_env.python == "3.7.5"
     assert python_env.build_dependencies == ["a", "b"]
     assert python_env.dependencies == ["c", "d"]
@@ -59,7 +59,7 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    python_env = PythonEnv.from_conda_yaml(yaml_path)
+    python_env = _PythonEnv.from_conda_yaml(yaml_path)
     assert python_env.python == "3.7.5"
     assert python_env.build_dependencies is None
     assert python_env.dependencies == ["a", "b"]
@@ -81,7 +81,7 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    python_env = PythonEnv.from_conda_yaml(yaml_path)
+    python_env = _PythonEnv.from_conda_yaml(yaml_path)
     assert python_env.python == "3.7.5"
     assert python_env.build_dependencies == ["pip==1.2.3", "wheel==4.5.6", "setuptools<=7.8.9"]
     assert python_env.dependencies == ["a", "b"]
@@ -101,7 +101,7 @@ dependencies:
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
     with pytest.raises(Exception, match="Could not extract python version"):
-        PythonEnv.from_conda_yaml(yaml_path)
+        _PythonEnv.from_conda_yaml(yaml_path)
 
 
 def test_from_conda_yaml_invalid_python_comperator(tmp_path):
@@ -118,4 +118,4 @@ dependencies:
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
     with pytest.raises(Exception, match="Invalid version comperator for python"):
-        PythonEnv.from_conda_yaml(yaml_path)
+        _PythonEnv.from_conda_yaml(yaml_path)
