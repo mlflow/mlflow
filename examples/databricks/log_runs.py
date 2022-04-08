@@ -19,10 +19,14 @@ import mlflow
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host")
-    parser.add_argument("--token")
-    parser.add_argument("--user")
-    parser.add_argument("--experiment-id", default=None)
+    parser.add_argument("--host", help="Databricks workspace URL")
+    parser.add_argument("--token", help="Databricks personal access token")
+    parser.add_argument("--user", help="Databricks username")
+    parser.add_argument(
+        "--experiment-id",
+        default=None,
+        help="ID of the experiment to log runs in. If unspecified, a new experiment will be created.",
+    )
     args = parser.parse_args()
 
     os.environ["DATABRICKS_HOST"] = args.host
