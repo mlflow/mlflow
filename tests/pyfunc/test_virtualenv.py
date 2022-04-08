@@ -68,10 +68,10 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
 
-    # Serve
+    # Serve the model
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    # Serve again (environment created in the previous serve should be reused)
+    # Serve the model again (environment created in the previous serving should be reused)
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
     assert len(os.listdir(temp_mlflow_env_root)) == 1
