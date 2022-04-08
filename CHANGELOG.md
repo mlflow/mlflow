@@ -1,4 +1,51 @@
-# Changelog
+# CHANGELOG
+
+## 1.24.1.dev0 (2022-04-08)
+
+MLflow 1.24.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Introduce an mlflow.artifacts.download_artifacts() API, equivalent to the preexisting CLI (#5585, @dbczumar)
+- Update UI (#5577, @harupy)
+- Introduce mlflow.last_active_run fluent API (#5584, @MarkYHZhang)
+- Diviner flavor (#5553, @BenWilson2)
+- Implement issue-5507 - add search_runs_by_name (#5564, @r3stl355)
+- Add mlflow_version to Java model spec to fix serving behavior (#5576, @dbczumar)
+- Add feature to set and delete description of a run. (#5534, @dogeplusplus)
+- Implement function to get MLflow pyfunc model dependencies (#5503, @WeichenXu123)
+- Make tensorflow model prediction support array type input (#5545, @WeichenXu123)
+- feat: pyspark autologging enhancement (#5481, @serena-ruan)
+- Restoring virtual python environment for mlflow pyfunc spark_udf (#5487, @WeichenXu123)
+- Implement issue-5501 - add mlflow_version info to logged model (#5515, @r3stl355)
+- Support logging PyTorch metrics on training batch steps with autolog (#5516, @adamreeve)
+- Add version to header and use version specific documentation links (#5504, @adamreeve)
+- Support logging PyTorch metrics on training batch steps (#5497, @adamreeve)
+- [Custom Metrics] Artifact type detection and logging (#5405, @MarkYHZhang)
+- Adds input example and model signature to autologging for tf.keras for certain x types on tf.keras.Model.fit (#5461, @bali0019)
+- Add `code_paths` parameter to all flavors (#5448, @stevenchen-db)
+- feat: Support spark transformers tracking with mlflow (#5466, @serena-ruan)
+
+Bug fixes and documentation updates:
+
+- Add ability to run docker image in AWS Sagemaker Serverless environment (#5610, @matthewmayo)
+- Fixed /model-versions/get-artifact not being proxied (#5621, @MarkYHZhang)
+- Add cli validation checks for backend-store-uri in artifacts-only mode (#5571, @BenWilson2)
+- Remove client name validation from metrics params and tags (#5593, @BenWilson2)
+- Fix mlflow-skinny version stack frame inspection failure (#5573, @BenWilson2)
+- Do not fail save_model if existing empty folder (#5572, @akshaya-a)
+- Fix issue #2804 - Set run name in MLProject execution (#5187, @bramrodenburg)
+- Use split (#5522, @dbczumar)
+- fix for MSSQL paginated list experiments on behalf of @HaraldVanWoerkom (#5508, @BenWilson2)
+- Fixed EvaluationResult not saving or loading artifacts with proper file names (#5476, @MarkYHZhang)
+- fix: func _parse_mlflow_gcs_vars (#5483, @sebastian-montero)
+- Remove deprecated numpy type aliases (#5286, @harupy)
+- Add ENV variables to control GCS upload/download chunk size and timeouts (#5438, @mokrueger)
+- Create index on `run_uuid` columns for PostgreSQL to improve SQL operations (#5443, @harupy)
+- Add cli validation checks for backend-store-uri in artifacts-only mode (#5571, @BenWilson2)
+- [docs] Deploy a python_function model on Microsoft Azure ML - guidance (#5491, @santiagxf)
+
+Small bug fixes and doc updates (#5629, #5597, #5592, #5562, #5477, @BenWilson2; #5554, @juntai-zheng; #5570, @tahesse; #5605, @guelate; #5623, #5615, #5608, #5600, #5603, #5602, #5596, #5587, #5586, #5580, #5567, #5568, #5290, #5556, #5560, #5557, #5540, #5548, #5547, #5538, #5513, #5505, #5464, #5495, #5488, #5485, #5468, #5455, #5453, #5454, #5452, #5446, #5445, #5431, @harupy; #5520, #5422, @Ark-kun; #5604, @nishipy; #5543, #5532, #5447, #5435, @WeichenXu123; #5502, @singankit; #5500, @Sohamkayal4103; #5449, #5442, @apurva-koti; #5552, @vinijaiswal; #5511, @adamreeve; #5428, @jinzhang21; #5309, @sunishsheth2009; #5581, #5559, @Kr4is; #5626, #5618, #5529, @sisp; #5624, #5622, #5613, #5509, #5459, #5437, @dbczumar; #5616, @liangz1)
 
 ## 1.24.0 (2022-02-27)
 
