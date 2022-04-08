@@ -11,8 +11,9 @@ import os
 import uuid
 import argparse
 
-from sklearn.linear_model import LinearRegression
-from sklearn.datasets import load_iris
+from sklearn import svm, datasets
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import ParameterGrid
 
 import mlflow
 
@@ -38,13 +39,17 @@ def main():
     else:
         experiment = mlflow.set_experiment(f"/Users/{args.user}/{uuid.uuid4().hex}")
 
-    mlflow.sklearn.autolog()
-    num_runs = 5
-    print(f"Logging {num_runs} runs in {args.host}#/mlflow/experiments/{experiment.experiment_id}")
-    for i in range(num_runs):
-        with mlflow.start_run() as run:
-            print(f"Logging run:", run.info.run_id, f"{i + 1} / {num_runs} ")
-            LinearRegression().fit(*load_iris(as_frame=True, return_X_y=True))
+    print(f"Logging runs in {args.host}#/mlflow/experiments/{experiment.experiment_id}")
+    mlflow.sklearn.autolog(max_tuning_runs=None)
+    iris = datasets.load_iris()
+    parameters = {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}
+    clf = GridSearchCV(svm.SVC(), parameters)
+    clf.fit(iris.data, iris.target)
+
+    # Log unnested runs
+    for params in ParameterGrid(parameters):
+        clf = svm.SVC(**params)
+        clf.fit(iris.data, iris.target)
 
 
 if __name__ == "__main__":
