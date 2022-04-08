@@ -2,7 +2,7 @@
 Logs MLflow runs in Databricks from an external host.
 
 How to run:
-$ python examples/databricks/log_runs.py --host <host> --token <token> --user <user>
+$ python examples/databricks/log_runs.py --host <host> --token <token> --user <user> [--experiment-id 123]
 
 See also:
 https://docs.databricks.com/dev-tools/api/latest/authentication.html#generate-a-personal-access-token
@@ -22,13 +22,17 @@ def main():
     parser.add_argument("--host")
     parser.add_argument("--token")
     parser.add_argument("--user")
+    parser.add_argument("--experiment-id", default=None)
     args = parser.parse_args()
 
     os.environ["DATABRICKS_HOST"] = args.host
     os.environ["DATABRICKS_TOKEN"] = args.token
 
     mlflow.set_tracking_uri("databricks")
-    experiment = mlflow.set_experiment(f"/Users/{args.user}/{uuid.uuid4().hex}")
+    if args.experiment_id:
+        experiment = mlflow.set_experiment(experiment_id=args.experiment_id)
+    else:
+        experiment = mlflow.set_experiment(f"/Users/{args.user}/{uuid.uuid4().hex}")
 
     mlflow.sklearn.autolog()
     num_runs = 5
