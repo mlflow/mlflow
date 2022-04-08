@@ -282,11 +282,8 @@ def test_metric_timestamp():
     finished_run = client.get_run(run_id)
     assert len(history) == 2
     assert all(
-        [
-            m.timestamp >= finished_run.info.start_time
-            and m.timestamp <= finished_run.info.end_time
-            for m in history
-        ]
+        m.timestamp >= finished_run.info.start_time and m.timestamp <= finished_run.info.end_time
+        for m in history
     )
 
 

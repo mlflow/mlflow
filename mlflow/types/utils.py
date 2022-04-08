@@ -145,7 +145,7 @@ def _infer_schema(data: Any) -> Schema:
             "but got '{}'".format(type(data))
         )
     if not schema.is_tensor_spec() and any(
-        [t in (DataType.integer, DataType.long) for t in schema.input_types()]
+        t in (DataType.integer, DataType.long) for t in schema.input_types()
     ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "

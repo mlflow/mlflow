@@ -110,7 +110,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlRegisteredModel.__tablename__,
             SqlModelVersion.__tablename__,
         ]
-        if any([table not in inspected_tables for table in expected_tables]):
+        if any(table not in inspected_tables for table in expected_tables):
             # TODO: Replace the MlflowException with the following line once it's possible to run
             # the registry against a different DB than the tracking server:
             # mlflow.store.db.utils._initialize_tables(self.engine)
