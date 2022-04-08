@@ -76,7 +76,7 @@ def _exec_cmd(
 def _join_commands(*commands):
     entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
     sep = " && " if _IS_UNIX else " & "
-    return [*entry_point, sep.join(commands)]
+    return [*entry_point, sep.join(map(str, commands))]
 
 
 # A global map storing (function, args_tuple) --> (value, pid)
