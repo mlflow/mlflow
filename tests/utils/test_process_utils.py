@@ -24,10 +24,6 @@ def _test_cache_return_value_per_process_child_proc_target(path1, path3, queue):
     queue.put(result)
 
 
-@pytest.mark.skipif(
-    os.name == "nt",
-    reason="Windows does not support fork",
-)
 def test_cache_return_value_per_process():
 
     path1 = _gen_temp_dir1(True)
