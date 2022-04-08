@@ -61,11 +61,24 @@ def get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_conda_env_name(conda_env_path, env_id=None):
-    conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
+def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
+    if conda_env_path:
+        with open(conda_env_path) as f:
+            conda_env_contents = f.read()
+    else:
+        conda_env_contents = ""
+
     if env_id:
         conda_env_contents += env_id
-    return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+
+    env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    if env_root_dir:
+        env_root_dir = os.path.normpath(env_root_dir)
+        # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
+        # hashing `conda_env_contents` and `env_root_dir` separately helps debugging
+        env_name += "-%s" % hashlib.sha1(env_root_dir.encode("utf-8")).hexdigest()
+
+    return env_name
 
 
 def _get_conda_executable_for_create_env():
@@ -84,12 +97,58 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments():
-    prc = process._exec_cmd([get_conda_bin_executable("conda"), "env", "list", "--json"])
+def _list_conda_environments(extra_env=None):
+    """
+    Return a list of names of conda environments.
+
+    :param extra_env: extra environment variables for running "conda env list" command.
+    """
+    prc = process._exec_cmd(
+        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=extra_env
+    )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 
 
-def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
+_CONDA_ENVS_DIR = "conda_envs"
+_CONDA_CACHE_PKGS_DIR = "conda_cache_pkgs"
+_PIP_CACHE_DIR = "pip_cache_pkgs"
+
+
+def _get_conda_extra_env_vars(env_root_dir=None):
+    """
+    Given the `env_root_dir` (See doc of PyFuncBackend constructor argument `env_root_dir`),
+    return a dict of environment variables which are used to config conda to generate envs
+    under the expected `env_root_dir`.
+    """
+    if env_root_dir is None:
+        return None
+
+    # Create isolated conda package cache dir "conda_pkgs" under the env_root_dir
+    # for each python process.
+    # Note: shared conda package cache dir causes race condition issues:
+    # See https://github.com/conda/conda/issues/8870
+    # See https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-environment-directories-envs-dirs
+    # and https://docs.conda.io/projects/conda/en/latest/user-guide/configuration/use-condarc.html#specify-package-directories-pkgs-dirs
+
+    conda_envs_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR)
+    conda_pkgs_path = os.path.join(env_root_dir, _CONDA_CACHE_PKGS_DIR)
+    pip_cache_dir = os.path.join(env_root_dir, _PIP_CACHE_DIR)
+
+    os.makedirs(conda_envs_path, exist_ok=True)
+    os.makedirs(conda_pkgs_path, exist_ok=True)
+    os.makedirs(pip_cache_dir, exist_ok=True)
+
+    return {
+        "CONDA_ENVS_PATH": conda_envs_path,
+        "CONDA_PKGS_DIRS": conda_pkgs_path,
+        "PIP_CACHE_DIR": pip_cache_dir,
+        # PIP_NO_INPUT=1 make pip run in non-interactive mode,
+        # otherwise pip might prompt "yes or no" and ask stdin input
+        "PIP_NO_INPUT": "1",
+    }
+
+
+def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, env_root_dir=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -101,6 +160,7 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
                    environment after the environment has been activated.
     :param capture_output: Specify the capture_output argument while executing the
                            "conda env create" command.
+    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
     """
 
     conda_path = get_conda_bin_executable("conda")
@@ -133,62 +193,77 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False):
             )
         )
 
-    env_names = _list_conda_environments()
-    project_env_name = _get_conda_env_name(conda_env_path, env_id)
-    if project_env_name not in env_names:
-        _logger.info("=== Creating conda environment %s ===", project_env_name)
-        try:
-            if conda_env_path:
-                process._exec_cmd(
-                    [
-                        conda_env_create_path,
-                        "env",
-                        "create",
-                        "-n",
-                        project_env_name,
-                        "--file",
-                        conda_env_path,
-                    ],
-                    capture_output=capture_output,
-                )
-            else:
-                process._exec_cmd(
-                    [
-                        conda_env_create_path,
-                        "create",
-                        "--channel",
-                        "conda-forge",
-                        "--yes",
-                        "--override-channels",
-                        "-n",
-                        project_env_name,
-                        "python",
-                    ],
-                    capture_output=capture_output,
-                )
-        except Exception:
-            try:
-                if project_env_name in _list_conda_environments():
-                    _logger.warning(
-                        "Encountered unexpected error while creating conda environment. "
-                        "Removing %s.",
-                        project_env_name,
-                    )
-                    process._exec_cmd(
-                        [
-                            conda_path,
-                            "remove",
-                            "--yes",
-                            "--name",
-                            project_env_name,
-                            "--all",
-                        ],
-                        capture_output=False,
-                    )
-            except Exception as e:
-                _logger.warning(
-                    f"Removing conda env '{project_env_name}' failed (error: {repr(e)})."
-                )
-            raise
+    conda_extra_env_vars = _get_conda_extra_env_vars(env_root_dir)
 
-    return project_env_name
+    # Include the env_root_dir hash in the project_env_name,
+    # this is for avoid conda env name conflicts between different CONDA_ENVS_PATH.
+    project_env_name = _get_conda_env_name(conda_env_path, env_id=env_id, env_root_dir=env_root_dir)
+    if env_root_dir is not None:
+        project_env_path = os.path.join(env_root_dir, _CONDA_ENVS_DIR, project_env_name)
+    else:
+        project_env_path = project_env_name
+
+    if project_env_name in _list_conda_environments(conda_extra_env_vars):
+        _logger.info("Conda environment %s already exists.", project_env_path)
+        return project_env_name
+
+    _logger.info("=== Creating conda environment %s ===", project_env_path)
+    try:
+        if conda_env_path:
+            process._exec_cmd(
+                [
+                    conda_env_create_path,
+                    "env",
+                    "create",
+                    "-n",
+                    project_env_name,
+                    "--file",
+                    conda_env_path,
+                ],
+                extra_env=conda_extra_env_vars,
+                capture_output=capture_output,
+            )
+        else:
+            process._exec_cmd(
+                [
+                    conda_env_create_path,
+                    "create",
+                    "--channel",
+                    "conda-forge",
+                    "--yes",
+                    "--override-channels",
+                    "-n",
+                    project_env_name,
+                    "python",
+                ],
+                extra_env=conda_extra_env_vars,
+                capture_output=capture_output,
+            )
+        return project_env_name
+    except Exception:
+        try:
+            if project_env_name in _list_conda_environments(conda_extra_env_vars):
+                _logger.warning(
+                    "Encountered unexpected error while creating conda environment. "
+                    "Removing %s.",
+                    project_env_path,
+                )
+                process._exec_cmd(
+                    [
+                        conda_path,
+                        "remove",
+                        "--yes",
+                        "--name",
+                        project_env_name,
+                        "--all",
+                    ],
+                    extra_env=conda_extra_env_vars,
+                    capture_output=False,
+                )
+        except Exception as e:
+            _logger.warning(
+                "Removing conda environment %s failed (error: %s)",
+                project_env_path,
+                repr(e),
+            )
+        raise

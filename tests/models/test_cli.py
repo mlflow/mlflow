@@ -22,10 +22,14 @@ except ImportError:
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
+from mlflow.models.cli import _get_flavor_backend
+from mlflow.utils.conda import _get_conda_env_name
+from mlflow.pyfunc.backend import _execute_in_conda_env
+
 import mlflow.models.cli as models_cli
 
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _EnvManager
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import (
@@ -535,3 +539,58 @@ def test_env_manager_unsupported_value():
             ["--model-uri", "model", "--env-manager=abc"],
             catch_exceptions=False,
         )
+
+
+def test_change_conda_env_root_location(tmp_path, sk_model):
+    env_root1_path = tmp_path / "root1"
+    env_root1_path.mkdir()
+
+    env_root2_path = tmp_path / "root2"
+    env_root2_path.mkdir()
+
+    model1_path = tmp_path / "model1"
+    mlflow.sklearn.save_model(sk_model, str(model1_path), pip_requirements=["scikit-learn==1.0.1"])
+
+    model2_path = tmp_path / "model2"
+    mlflow.sklearn.save_model(sk_model, str(model2_path), pip_requirements=["scikit-learn==1.0.2"])
+
+    env_path_set = set()
+    for env_root_path, model_path, sklearn_ver in [
+        (env_root1_path, model1_path, "1.0.1"),
+        (
+            env_root2_path,
+            model1_path,
+            "1.0.1",
+        ),  # test the same env created in different env root path.
+        (
+            env_root1_path,
+            model2_path,
+            "1.0.2",
+        ),  # test different env created in the same env root path.
+    ]:
+        _get_flavor_backend(
+            str(model_path),
+            env_manager=_EnvManager.CONDA,
+            install_mlflow=False,
+            env_root_dir=str(env_root_path),
+        ).prepare_env(model_uri=str(model_path))
+
+        conda_env_name = _get_conda_env_name(
+            str(model_path / "conda.yaml"), env_root_dir=env_root_path
+        )
+        env_path = env_root_path / "conda_envs" / conda_env_name
+        assert env_path.exists()
+        env_path_set.add(str(env_path))
+
+        python_exec_path = str(env_path / "bin" / "python")
+
+        # Test `_execute_in_conda_env` run command under the correct activated python env.
+        _execute_in_conda_env(
+            conda_env_name,
+            command=f"python -c \"import sys; assert sys.executable == '{python_exec_path}'; "
+            f"import sklearn; assert sklearn.__version__ == '{sklearn_ver}'\"",
+            install_mlflow=False,
+            env_root_dir=str(env_root_path),
+        )
+
+    assert len(env_path_set) == 3
