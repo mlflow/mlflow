@@ -1331,7 +1331,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r2],
             self._search(
                 experiment_id,
-                filter_string="tags.generic_2 ILIKE '%Other%' " "and tags.generic_tag = 'p_val'",
+                filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag = 'p_val'",
             ),
         )
         self.assertCountEqual(

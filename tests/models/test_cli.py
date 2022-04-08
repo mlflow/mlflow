@@ -477,7 +477,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
-                "Failed to serve prediction, got " "response %s" % scoring_response.text
+                "Failed to serve prediction, got response %s" % scoring_response.text
             )
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)), sk_model.predict(x)
