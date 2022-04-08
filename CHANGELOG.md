@@ -24,6 +24,7 @@ Features:
 - [Tracking] Add support for `pyspark.ml.param.Params` types for `Estimators`. (#5481, @serena-ruan)
 - [Tracking] Add support for tracking `pyspark.ml.Transformer` for autologging. (#5466, @serena-ruan)
 - [Tracking] Add support for custom metrics to support auto detection and loading of user-generated artifacts. (#5405, @MarkYHZhang)
+- [UI] Update UI (#5577, @harupy)
 
 Bug fixes and documentation updates:
 
