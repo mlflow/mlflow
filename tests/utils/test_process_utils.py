@@ -2,7 +2,7 @@ import pytest
 import uuid
 
 from mlflow.utils.process import cache_return_value_per_process
-from multiprocessing import Process, Queue
+import os
 
 
 @cache_return_value_per_process
@@ -20,8 +20,16 @@ def _gen_random_no_arg():
     return uuid.uuid4().hex
 
 
+_v1 = {}
+
+
+def _f1():
+    print(f"DBG child: {str(_v1)}")
+
+
 def _test_cache_return_value_per_process_child_proc_target(path1, path3, queue):
     # in forked out child process
+    _f1()
     child_path1 = _gen_random_str1(True)
     child_path2 = _gen_random_str1(False)
     result = len({path1, path3, child_path1, child_path2}) == 4
@@ -54,10 +62,23 @@ def test_cache_return_value_per_process():
 
     assert len({path1, path3, f2_path1, f2_path2}) == 4
 
-    queue = Queue()
-    child_proc = Process(
-        target=_test_cache_return_value_per_process_child_proc_target, args=(path1, path3, queue)
-    )
-    child_proc.start()
-    child_proc.join()
-    assert queue.get(), "Testing inside child process failed."
+    if os.name != 'nt':
+        # Test child process invalidates the cache.
+        # We don't create child process by `multiprocessing.Process` because
+        # `multiprocessing.Process` creates child process by pickling the target function
+        # and start a new process to run the pickled function. But the global variable
+        # `_per_process_value_cache_map` dict content is not pickled, this make child process
+        # automatically clear the `_per_process_value_cache_map` dict content.
+        pid = os.fork()
+        if pid > 0:
+            # in parent process
+            child_pid = pid
+            # check child process exit with return value 0.
+            assert os.waitpid(child_pid, 0)[1] == 0
+        else:
+            # in forked out child process
+            child_path1 = _gen_random_str1(True)
+            child_path2 = _gen_random_str1(False)
+            test_pass = len({path1, path3, child_path1, child_path2}) == 4
+            # exit forked out child process with exit code representing testing pass or fail.
+            os._exit(0 if test_pass else 1)
