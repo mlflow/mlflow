@@ -435,7 +435,7 @@ class SearchUtils:
         parsed = cls.parse_search_filter(filter_string)
 
         def run_matches(run):
-            return all([cls._does_run_match_clause(run, s) for s in parsed])
+            return all(cls._does_run_match_clause(run, s) for s in parsed)
 
         return [run for run in runs if run_matches(run)]
 
@@ -462,7 +462,7 @@ class SearchUtils:
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
             statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
-            and all([token.is_whitespace for token in statement.tokens[1:-1]])
+            and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP + " " + statement.tokens[-1].value

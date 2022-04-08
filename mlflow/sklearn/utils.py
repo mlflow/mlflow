@@ -597,10 +597,8 @@ def _is_parameter_search_estimator(estimator):
     ]
 
     return any(
-        [
-            isinstance(estimator, param_search_estimator)
-            for param_search_estimator in parameter_search_estimators
-        ]
+        isinstance(estimator, param_search_estimator)
+        for param_search_estimator in parameter_search_estimators
     )
 
 
@@ -735,7 +733,7 @@ def _create_child_runs_for_parameter_search(
         metrics_to_log = {
             key: value
             for key, value in result_row.iteritems()
-            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
         autologging_client.log_metrics(

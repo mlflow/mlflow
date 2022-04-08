@@ -401,7 +401,7 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         def all_ints(xs):
-            return all([pandas.isnull(x) or int(x) == x for x in xs])
+            return all(pandas.isnull(x) or int(x) == x for x in xs)
 
         hint = ""
         if (
@@ -1015,7 +1015,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
 
-    if not any([isinstance(elem_type, x) for x in supported_types]):
+    if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
             "of the following types: {}".format(str(elem_type), str(supported_types)),
@@ -1416,8 +1416,8 @@ def save_model(
         "artifacts": artifacts,
         "python_model": python_model,
     }
-    first_argument_set_specified = any([item is not None for item in first_argument_set.values()])
-    second_argument_set_specified = any([item is not None for item in second_argument_set.values()])
+    first_argument_set_specified = any(item is not None for item in first_argument_set.values())
+    second_argument_set_specified = any(item is not None for item in second_argument_set.values())
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
