@@ -44,9 +44,7 @@ class TestMlflowException:
 
     def test_invalid_parameter_value(self):
         mlflow_exception = MlflowException.invalid_parameter_value("test")
-        deserialized_exception = json.loads(mlflow_exception.serialize_as_json())
-        assert deserialized_exception["message"] == "test"
-        assert deserialized_exception["error_code"] == INVALID_PARAMETER_VALUE
+        assert mlflow_exception == INVALID_PARAMETER_VALUE
 
 
 def test_rest_exception():
