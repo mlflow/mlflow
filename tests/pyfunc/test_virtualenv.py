@@ -5,7 +5,6 @@ from collections import namedtuple
 import pytest
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 
@@ -76,19 +75,6 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
     assert len(os.listdir(temp_mlflow_env_root)) == 1
-
-
-@use_temp_mlflow_env_root
-def test_python_micro_version_is_missing(sklearn_model):
-    with mlflow.start_run():
-        python_env = dict(
-            python="3.8", dependencies=["mlflow", f"scikit-learn=={sklearn.__version__}"]
-        )
-        model_info = mlflow.sklearn.log_model(
-            sklearn_model.model, artifact_path="model", python_env=python_env
-        )
-    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
-    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
 @use_temp_mlflow_env_root
