@@ -139,5 +139,4 @@ def test_model_contains_conda_packages(sklearn_model):
         model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
 
     model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
-    with pytest.raises(AssertionError, match="scoring process died"):
-        serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    serve_and_score(model_info.model_uri, sklearn_model.X_pred)

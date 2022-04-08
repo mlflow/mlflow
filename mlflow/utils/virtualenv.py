@@ -159,9 +159,8 @@ def _get_python_env(local_model_path):
         conda_deps = [d for d in conda_deps if _get_package_name(d) not in build_packages]
         if conda_deps:
             _logger.warning(
-                f"Found this model contains conda dependencies: {conda_deps}. The resulting "
-                "virtualenv environment will not install them and may not be able to load the "
-                "model."
+                f"This model contains conda dependencies: {conda_deps}. The resulting virtualenv "
+                "environment will not install them and may not be able to load the model."
             )
         if requirements_file.exists():
             deps = _PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
