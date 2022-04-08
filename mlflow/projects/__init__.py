@@ -232,7 +232,7 @@ def run(
                            be passed as config to the backend. The exact content which should be
                            provided is different for each execution backend and is documented
                            at https://www.mlflow.org/docs/latest/projects.html.
-    :param use_conda: This argument is deprecated. Use `env_manager="local"` instead.
+    :param use_conda: This argument is deprecated. Use `env_manager='local'` instead.
                       If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
@@ -306,7 +306,7 @@ def run(
         warnings.warn(
             (
                 "`use_conda` is deprecated and will be removed in a future MLflow release. "
-                "Use `env_manager=local` instead."
+                "Use `env_manager='local'` instead."
             ),
             FutureWarning,
             stacklevel=2,
