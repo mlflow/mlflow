@@ -144,7 +144,6 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
-    - uses: ./.github/actions/setup-pyenv
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -265,6 +264,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
+      - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
         with:
           java-version: 11
