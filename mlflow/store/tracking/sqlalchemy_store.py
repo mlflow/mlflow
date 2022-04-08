@@ -250,7 +250,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 

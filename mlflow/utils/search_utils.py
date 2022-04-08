@@ -189,7 +189,7 @@ class SearchUtils:
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. " "Found {}".format(token.value),
+                    "Expected numeric value type for metric. Found {}".format(token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
@@ -798,7 +798,7 @@ class SearchUtils:
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                "Invalid clause(s) in filter string: %s. %s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         token_list = cls._process_statement_tokens(statement.tokens, filter_string)
