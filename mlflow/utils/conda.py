@@ -75,7 +75,7 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
     if env_root_dir:
         env_root_dir = os.path.normpath(env_root_dir)
         # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
-        # hash `conda_env_contents` and `env_root_dir` separately helps debugging
+        # hashing `conda_env_contents` and `env_root_dir` separately helps debugging
         env_name += "-%s" % hashlib.sha1(env_root_dir.encode("utf-8")).hexdigest()
 
     return env_name
@@ -97,14 +97,14 @@ def _get_conda_executable_for_create_env():
     return conda_env_create_path
 
 
-def _list_conda_environments(conda_extra_envs=None):
+def _list_conda_environments(extra_env=None):
     """
     Return a list of names of conda environments.
 
-    :param conda_extra_envs: extra environment variables for running "conda env list" command.
+    :param extra_env: extra environment variables for running "conda env list" command.
     """
     prc = process._exec_cmd(
-        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=conda_extra_envs
+        [get_conda_bin_executable("conda"), "env", "list", "--json"], extra_env=extra_env
     )
     return list(map(os.path.basename, json.loads(prc.stdout).get("envs", [])))
 

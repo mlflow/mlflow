@@ -1055,11 +1055,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
         # Note: In databricks runtime, because databricks notebook cell output cannot capture
-        # child process output, so that set capture_output to be True so that when conda prepare
-        # env command failed, the exception message will include command stdout/stderr output.
-        # otherwise user have to check cluster driver log to find command stdout/stderr output.
+        # child process output, so that set capture_output to be True so that when `conda prepare
+        # env` command failed, the exception message will include command stdout/stderr output.
+        # Otherwise user have to check cluster driver log to find command stdout/stderr output.
         # In non-databricks runtime, set capture_output to be False, because the benefit of
-        # "do not capture output" is the output will be printed immediately, otherwise you have
+        # "capture_output=False" is the output will be printed immediately, otherwise you have
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
         if env_manager is _EnvManager.CONDA:

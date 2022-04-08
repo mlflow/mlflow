@@ -498,7 +498,7 @@ def get_or_create_tmp_dir():
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: For python process attached to databricks notebook, atexit does not work.
         # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
-        # detached.
+        # detaches.
         tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
         os.makedirs(tmp_dir, exist_ok=True)
     else:
@@ -521,7 +521,7 @@ def get_or_create_nfs_tmp_dir():
     if is_in_databricks_runtime() and get_repl_id() is not None:
         # Note: In databricks, atexit hook does not work.
         # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
-        # notebook detached.
+        # notebook detaches.
         tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
         os.makedirs(tmp_nfs_dir, exist_ok=True)
     else:
