@@ -360,7 +360,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
     )
 
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
-    assert all([item in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME] for item in custom_kwargs])
+    assert all(item in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME] for item in custom_kwargs)
 
 
 @pytest.mark.large
@@ -1005,12 +1005,10 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
         mlflow.pyfunc.load_model(model_uri=model_path)
 
     assert any(
-        [
-            "differs from the version of CloudPickle that is currently running" in log_message
-            and saver_cloudpickle_version in log_message
-            and loader_cloudpickle_version in log_message
-            for log_message in log_messages
-        ]
+        "differs from the version of CloudPickle that is currently running" in log_message
+        and saver_cloudpickle_version in log_message
+        and loader_cloudpickle_version in log_message
+        for log_message in log_messages
     )
 
 
@@ -1038,14 +1036,12 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
         mlflow.pyfunc.load_model(model_uri=model_path)
 
     assert any(
-        [
-            (
-                "The version of CloudPickle used to save the model could not be found"
-                " in the MLmodel configuration"
-            )
-            in log_message
-            for log_message in log_messages
-        ]
+        (
+            "The version of CloudPickle used to save the model could not be found"
+            " in the MLmodel configuration"
+        )
+        in log_message
+        for log_message in log_messages
     )
 
 
