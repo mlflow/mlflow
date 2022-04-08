@@ -1,5 +1,5 @@
 """
-Logs MLflow runs in Databricks.
+Logs MLflow runs in Databricks from an external host.
 
 How to run:
 $ python examples/databricks/log_runs.py --host <host> --token <token> --user <user>
