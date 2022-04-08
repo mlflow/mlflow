@@ -110,7 +110,12 @@ def _install_python(version):
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
     # https://github.com/pyenv-win/pyenv-win/pull/314
     pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
-    _exec_cmd(["pyenv", "install", *pyenv_install_options, version], capture_output=False)
+    _exec_cmd(
+        ["pyenv", "install", *pyenv_install_options, version],
+        capture_output=False,
+        # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
+        shell=not _IS_UNIX,
+    )
 
     if _IS_UNIX:
         pyenv_root = _exec_cmd(["pyenv", "root"], capture_output=True).stdout.strip()
