@@ -83,7 +83,12 @@ def cache_return_value_per_process(fn):
     """
 
     @functools.wraps(fn)
-    def wrapped_fn(*args):
+    def wrapped_fn(*args, **kwargs):
+        if len(kwargs) > 0:
+            raise ValueError(
+                "The function decorated by `cache_return_value_per_process` is not allowed to be"
+                "called with key-word style arguments."
+            )
         if (fn, args) in _per_process_value_cache_map:
             prev_value, prev_pid = _per_process_value_cache_map.get((fn, args))
             if os.getpid() == prev_pid:

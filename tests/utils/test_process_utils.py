@@ -1,41 +1,47 @@
-import os
-import tempfile
 import pytest
+import uuid
 
 from mlflow.utils.process import cache_return_value_per_process
 from multiprocessing import Process, Queue
 
 
 @cache_return_value_per_process
-def _gen_temp_dir1(_):
-    return tempfile.mkdtemp()
+def _gen_random_str1(v):
+    return str(v) + uuid.uuid4().hex
 
 
 @cache_return_value_per_process
-def _gen_temp_dir2(_):
-    return tempfile.mkdtemp()
+def _gen_random_str2(v):
+    return str(v) + uuid.uuid4().hex
 
 
 def _test_cache_return_value_per_process_child_proc_target(path1, path3, queue):
     # in forked out child process
-    child_path1 = _gen_temp_dir1(True)
-    child_path2 = _gen_temp_dir1(False)
+    child_path1 = _gen_random_str1(True)
+    child_path2 = _gen_random_str1(False)
     result = len({path1, path3, child_path1, child_path2}) == 4
     queue.put(result)
 
 
 def test_cache_return_value_per_process():
 
-    path1 = _gen_temp_dir1(True)
-    path2 = _gen_temp_dir1(True)
+    path1 = _gen_random_str1(True)
+    path2 = _gen_random_str1(True)
 
     assert path1 == path2
 
-    path3 = _gen_temp_dir1(False)
+    path3 = _gen_random_str1(False)
     assert path3 != path2
 
-    f2_path1 = _gen_temp_dir2(True)
-    f2_path2 = _gen_temp_dir2(False)
+    with pytest.raises(
+        ValueError,
+        match="The function decorated by `cache_return_value_per_process` is not allowed to be"
+        "called with key-word style arguments.",
+    ):
+        _gen_random_str1(v=True)
+
+    f2_path1 = _gen_random_str2(True)
+    f2_path2 = _gen_random_str2(False)
 
     assert len({path1, path3, f2_path1, f2_path2}) == 4
 
