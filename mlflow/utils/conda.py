@@ -74,6 +74,8 @@ def _get_conda_env_name(conda_env_path, env_id=None, env_root_dir=None):
     env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     if env_root_dir:
         env_root_dir = os.path.normpath(env_root_dir)
+        # Generate env name with format "mlflow-{conda_env_contents_hash}-{env_root_dir_hash}"
+        # hash `conda_env_contents` and `env_root_dir` separately helps debugging
         env_name += "-%s" % hashlib.sha1(env_root_dir.encode("utf-8")).hexdigest()
 
     return env_name
@@ -201,68 +203,67 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
     else:
         project_env_path = project_env_name
 
-    if project_env_name not in _list_conda_environments(conda_extra_env_vars):
-        _logger.info("=== Creating conda environment %s ===", project_env_path)
-        try:
-            if conda_env_path:
-                process._exec_cmd(
-                    [
-                        conda_env_create_path,
-                        "env",
-                        "create",
-                        "-n",
-                        project_env_name,
-                        "--file",
-                        conda_env_path,
-                    ],
-                    extra_env=conda_extra_env_vars,
-                    capture_output=capture_output,
-                )
-            else:
-                process._exec_cmd(
-                    [
-                        conda_env_create_path,
-                        "create",
-                        "--channel",
-                        "conda-forge",
-                        "--yes",
-                        "--override-channels",
-                        "-n",
-                        project_env_name,
-                        "python",
-                    ],
-                    extra_env=conda_extra_env_vars,
-                    capture_output=capture_output,
-                )
-        except Exception:
-            try:
-                if project_env_name in _list_conda_environments(conda_extra_env_vars):
-                    _logger.warning(
-                        "Encountered unexpected error while creating conda environment. "
-                        "Removing %s.",
-                        project_env_path,
-                    )
-                    process._exec_cmd(
-                        [
-                            conda_path,
-                            "remove",
-                            "--yes",
-                            "--name",
-                            project_env_name,
-                            "--all",
-                        ],
-                        extra_env=conda_extra_env_vars,
-                        capture_output=False,
-                    )
-            except Exception as e:
-                _logger.warning(
-                    "Removing conda environment %s failed (error: %s)",
-                    project_env_path,
-                    repr(e),
-                )
-            raise
-    else:
-        if env_root_dir is not None:
-            _logger.info("Reusing cached conda environment at path %s", project_env_path)
+    if project_env_name in _list_conda_environments(conda_extra_env_vars):
+        _logger.info("Reusing cached conda environment %s", project_env_path)
+        return project_env_name
 
-    return project_env_name
+    _logger.info("=== Creating conda environment %s ===", project_env_path)
+    try:
+        if conda_env_path:
+            process._exec_cmd(
+                [
+                    conda_env_create_path,
+                    "env",
+                    "create",
+                    "-n",
+                    project_env_name,
+                    "--file",
+                    conda_env_path,
+                ],
+                extra_env=conda_extra_env_vars,
+                capture_output=capture_output,
+            )
+        else:
+            process._exec_cmd(
+                [
+                    conda_env_create_path,
+                    "create",
+                    "--channel",
+                    "conda-forge",
+                    "--yes",
+                    "--override-channels",
+                    "-n",
+                    project_env_name,
+                    "python",
+                ],
+                extra_env=conda_extra_env_vars,
+                capture_output=capture_output,
+            )
+            return project_env_name
+    except Exception:
+        try:
+            if project_env_name in _list_conda_environments(conda_extra_env_vars):
+                _logger.warning(
+                    "Encountered unexpected error while creating conda environment. "
+                    "Removing %s.",
+                    project_env_path,
+                )
+                process._exec_cmd(
+                    [
+                        conda_path,
+                        "remove",
+                        "--yes",
+                        "--name",
+                        project_env_name,
+                        "--all",
+                    ],
+                    extra_env=conda_extra_env_vars,
+                    capture_output=False,
+                )
+        except Exception as e:
+            _logger.warning(
+                "Removing conda environment %s failed (error: %s)",
+                project_env_path,
+                repr(e),
+            )
+        raise

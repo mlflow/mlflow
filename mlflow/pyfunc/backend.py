@@ -39,9 +39,10 @@ class PyFuncBackend(FlavorBackend):
         """
         :param env_root_dir: Root path for conda env. If None, use Conda's default environments
                              directory. Note if this is set, conda package cache path becomes
-                             "env_root_dir/conda_cache_pkgs" instead of the global package cache
-                             path, and pip package cache path becomes "env_root_dir/pip_cache_pkgs"
-                             instead of the global package cache path.
+                             "{env_root_dir}/conda_cache_pkgs" instead of the global package cache
+                             path, and pip package cache path becomes
+                             "{env_root_dir}/pip_cache_pkgs" instead of the global package cache
+                             path.
         """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1

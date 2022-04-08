@@ -33,14 +33,14 @@ def test_cache_return_value_per_process():
     path1 = _gen_random_str1(True)
     path2 = _gen_random_str1(True)
 
-    no_arg_path1 = _gen_random_no_arg()
-    no_arg_path2 = _gen_random_no_arg()
-    assert no_arg_path1 == no_arg_path2
-
     assert path1 == path2
 
     path3 = _gen_random_str1(False)
     assert path3 != path2
+
+    no_arg_path1 = _gen_random_no_arg()
+    no_arg_path2 = _gen_random_no_arg()
+    assert no_arg_path1 == no_arg_path2
 
     with pytest.raises(
         ValueError,

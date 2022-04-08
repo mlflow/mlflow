@@ -554,6 +554,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
     model2_path = tmp_path / "model2"
     mlflow.sklearn.save_model(sk_model, str(model2_path), pip_requirements=["scikit-learn==1.0.2"])
 
+    env_path_set = set()
     for env_root_path, model_path, sklearn_ver in [
         (env_root1_path, model1_path, "1.0.1"),
         (
@@ -579,6 +580,7 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         )
         env_path = env_root_path / "conda_envs" / conda_env_name
         assert env_path.exists()
+        env_path_set.add(str(env_path))
 
         python_exec_path = str(env_path / "bin" / "python")
 
@@ -590,3 +592,5 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
             install_mlflow=False,
             env_root_dir=str(env_root_path),
         )
+
+    assert len(env_path_set) == 3
