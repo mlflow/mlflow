@@ -32,6 +32,13 @@ def load_project(directory):
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file)
 
+    # Validate the project config does't contain multiple environment fields
+    env_fields = set(yaml_obj.keys()).intersection({"conda_env", "docker_env"})
+    if env_fields != 1:
+        raise ExecutionException(
+            f"Project cannot contain multiple environment fields: {env_fields}"
+        )
+
     project_name = yaml_obj.get("name")
 
     # Validate config if docker_env parameter is present
@@ -67,11 +74,6 @@ def load_project(directory):
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
 
-    # Validate config if conda_env parameter is present
-    conda_path = yaml_obj.get("conda_env")
-    if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
-
     # Parse entry points
     entry_points = {}
     for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
@@ -79,6 +81,7 @@ def load_project(directory):
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
 
+    conda_path = yaml_obj.get("conda_env")
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
