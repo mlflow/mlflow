@@ -186,7 +186,7 @@ class SqlAlchemyStore(AbstractStore):
                 return registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Registered Model (name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Registered Model (name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -570,7 +570,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if len(versions) == 0:
             raise MlflowException(
-                "Model Version (name={}, version={}) " "not found".format(name, version),
+                "Model Version (name={}, version={}) not found".format(name, version),
                 RESOURCE_DOES_NOT_EXIST,
             )
         if len(versions) > 1:
