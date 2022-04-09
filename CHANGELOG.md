@@ -37,7 +37,7 @@ Bug fixes and documentation updates:
 - [Projects] Supporting setting the name of the MLflow Run when executing an MLflow Project (#5187, @bramrodenburg)
 - [Scoring] Use pandas `split` orientation for DataFrame inputs to SageMaker deployment `predict()` API to preserve column ordering (#5522, @dbczumar)
 - [Server-Infra] Add backend database testing against PostgreSQL, MySQL, and MSSQL (#5540, @harupy)
-- [Server-Infra] Create an index on `run_uuid` for PostgreSQL to improve query performance. (#5446, @harupy)
+- [Tracking/SQLAlchemy] Create an index on `run_uuid` for PostgreSQL to improve query performance (#5446, @harupy)
 - [Server-Infra] Add validation checks to cli to prevent server from being started in `--artifacts-only` mode if `--backend-store-uri` is set to non-local (#5571, @BenWilson2)
 - [Tracking] Remove client-side validation of metrics, params, tags, and experiment name (#5593, @BenWilson2)
 - [UI] Add MLflow version to header beneath logo. (#5504, @adamreeve)
