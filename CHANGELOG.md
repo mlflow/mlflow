@@ -11,7 +11,7 @@ Features:
 - [Models] Introduce `mlflow.diviner` flavor for Diviner models. (#5553, @BenWilson2)
 - [Models] Add `mlflow_version` to logged model metadata. (#5515, @r3stl355)
 - [Models] Add `pyfunc.get_model_dependencies()` API to retrieve reproducible environment specifications for MLflow Models with the pyfunc flavor. (#5503, @WeichenXu123)
-- [Models] Add input example and signature autologging for `tensorflow.keras`. (#5461, @bali0019)
+- [Tracking] Add input example and signature autologging for Keras models (#5461, @bali0019)
 - [Models] Add `code_paths` argument to all model flavors to support packaging custom module code with MLflow Models. (#5448, @stevenchen-db)
 - [Scoring / Projects] Introduce `--env-manager` configuration for specifying environment restoration tools (e.g. `conda`). Deprecate `--no-conda` (#5567, @harupy)
 - [Scoring] Support restoring model dependencies in `mlflow.pyfunc.spark_udf()` to ensure accurate predictions (#5487, #5561, @WeichenXu123)
