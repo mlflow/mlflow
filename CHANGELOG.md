@@ -13,7 +13,7 @@ Features:
 - [Models] Add `pyfunc.get_model_dependencies()` API to retrieve reproducible environment specifications for MLflow Models with the pyfunc flavor. (#5503, @WeichenXu123)
 - [Models] Add input example and signature autologging for `tensorflow.keras`. (#5461, @bali0019)
 - [Models] Add `code_paths` argument to all model flavors to support packaging custom module code with MLflow Models. (#5448, @stevenchen-db)
-- [Models / Projects] Introduce `--env-manager` configuration to prepare for support for pyenv & virtualenv. Deprecate `--no-conda` (#5567, @harupy)
+- [Scoring / Projects] Introduce `--env-manager` configuration for specifying environment restoration tools (e.g. `conda`). Deprecate `--no-conda` (#5567, @harupy)
 - [Scoring] Introduce `--env-manager` configuration for selection of either local or conda environment for serving. (#5487, @WeichenXu123)
 - [Scoring] Add support for `numpy.ndarray` type inputs to `tensorflow` predict function (#5545, @WeichenXu123)
 - [Scoring] Add support for Docker image deployment to Sagemaker Serverless (#5610, @matthewmayo)
