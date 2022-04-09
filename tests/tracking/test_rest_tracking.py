@@ -413,6 +413,13 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.timestamp == 789
     assert metric.step == 3
 
+    with pytest.raises(MlflowException, match=r"Invalid value foo for parameter 'metrics' supplied"):
+        mlflow_client.log_batch(
+            run_id=run_id,
+            metrics="foo",
+            params=[Param("param", "value")],
+            tags=[RunTag("taggity", "do-dah")],
+        )
 
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client, backend_store_uri):
