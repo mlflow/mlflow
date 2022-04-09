@@ -34,7 +34,7 @@ Bug fixes and documentation updates:
 - [Build] Fix mlflow-skinny version stack frame inspection failure (#5573, @BenWilson2)
 - [Docs] Update example for deployment to AzureML and guidance on using the officially supported Microsoft plugin. (#5491, @santiagxf)
 - [Models] Add mlflow_version to Java model spec to fix MLeap serving issue (#5576, @dbczumar)
-- [Projects] Set the `run_name` argument within an MLproject. (#5187, @bramrodenburg)
+- [Projects] Supporting setting the name of the MLflow Run when executing an MLflow Project (#5187, @bramrodenburg)
 - [Scoring] Use `split` pandas orientation for sagemaker deployment `predict()` function to preserve column ordering. (#5522, @dbczumar)
 - [Server-Infra] Add backend database testing against PostgreSQL, MySQL, and MSSQL (#5540, @harupy)
 - [Server-Infra] Create an index on `run_uuid` for PostgreSQL to improve query performance. (#5446, @harupy)
