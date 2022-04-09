@@ -23,7 +23,7 @@ Features:
 - [Tracking] Add `log_every_n_step` parameter to `mlflow.pytorch.autolog()` to control metric logging frequency (#5516, @adamreeve)
 - [Tracking] Log `pyspark.ml.param.Params` values as MLflow parameters during PySpark autologging. (#5481, @serena-ruan)
 - [Tracking] Add support for  `pyspark.ml.Transformer`s to PySpark autologging. (#5466, @serena-ruan)
-- [Tracking] Add support for custom metrics to support auto detection and loading of user-generated artifacts. (#5405, @MarkYHZhang)
+- [Models] Support creating custom artifacts when evaluating models with `mlflow.evaluate()` (#5405, @MarkYHZhang)
 - [UI] Update UI (#5577, @harupy)
 
 Bug fixes and documentation updates:
