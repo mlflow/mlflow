@@ -39,7 +39,7 @@ Bug fixes and documentation updates:
 - [Server-Infra] Add backend database testing against PostgreSQL, MySQL, and MSSQL (#5540, @harupy)
 - [Tracking/SQLAlchemy] Create an index on `run_uuid` for PostgreSQL to improve query performance (#5446, @harupy)
 - [Server-Infra] Add validation checks to cli to prevent server from being started in `--artifacts-only` mode if `--backend-store-uri` is set to non-local (#5571, @BenWilson2)
-- [Tracking] Remove client-side validation of metrics, params, tags, and experiment name (#5593, @BenWilson2)
+- [Tracking] Remove client-side validation of metric, param, tag, and experiment fields (#5593, @BenWilson2)
 - [UI] Add MLflow version to header beneath logo. (#5504, @adamreeve)
 
 Small bug fixes and doc updates (#5591, #5629, #5597, #5592, #5562, #5477, @BenWilson2; #5554, @juntai-zheng; #5570, @tahesse; #5605, @guelate; #5633, #5632, #5625, #5623, #5615, #5608, #5600, #5603, #5602, #5596, #5587, #5586, #5580, #5568, #5290, #5556, #5560, #5557, #5548, #5547, #5538, #5513, #5505, #5464, #5495, #5488, #5485, #5468, #5455, #5453, #5454, #5452, #5445, #5431, @harupy; #5640, @nchittela; #5520, #5422, @Ark-kun; #5639, #5604, @nishipy; #5543, #5532, #5447, #5435, @WeichenXu123; #5502, @singankit; #5500, @Sohamkayal4103; #5449, #5442, @apurva-koti; #5552, @vinijaiswal; #5511, @adamreeve; #5428, @jinzhang21; #5309, @sunishsheth2009; #5581, #5559, @Kr4is; #5626, #5618, #5529, @sisp; #5624, #5622, #5613, #5509, #5459, #5437, @dbczumar; #5616, @liangz1)
