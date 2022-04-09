@@ -1109,7 +1109,7 @@ def _log_batch():
             _assert_required(s)
             _assert_intlike(s)
 
-    def _assert_params_correctly_constructed(params):
+    def _assert_params_tags_correctly_constructed(params):
         for p in params:
             ## Key
             k = p["key"]
@@ -1135,10 +1135,11 @@ def _log_batch():
             ],
             "params": [
                 _assert_array,
-                _assert_params_correctly_constructed
+                _assert_params_tags_correctly_constructed
             ],
             "tags": [
-                _assert_array
+                _assert_array,
+                _assert_params_tags_correctly_constructed
             ]
         }
     )
