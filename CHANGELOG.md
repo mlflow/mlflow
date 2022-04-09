@@ -8,7 +8,7 @@ Features:
 
 - [Artifacts] Introduce a new `mlflow.artifacts.download_artifacts()` API that mirrors functionality of CLI `download_artifacts` (#5585, @dbczumar)
 - [Models] Add support for logging models to preexisting destination directories. (#5572, @akshaya-a)
-- [Models] Introduce support for `diviner` as a flavor. (#5553, @BenWilson2)
+- [Models] Introduce `mlflow.diviner` flavor for Diviner models. (#5553, @BenWilson2)
 - [Models] Add `mlflow_version` to logged model metadata. (#5515, @r3stl355)
 - [Models] Add `pyfunc.get_model_dependencies()` API to retrieve reproducible environment specifications for MLflow Models with the pyfunc flavor. (#5503, @WeichenXu123)
 - [Models] Add input example and signature autologging for `tensorflow.keras`. (#5461, @bali0019)
