@@ -15,25 +15,10 @@ module.exports = function(app) {
     }),
   );
   app.use(
-    createProxyMiddleware('/mfe/mlflow/ajax-api', {
-      target: proxyTarget,
-      changeOrigin: true,
-      pathRewrite: { '^/mfe/mlflow': '' },
-    }),
-  );
-  app.use(
     createProxyMiddleware('/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
       changeOrigin: true,
-    }),
-  );
-  app.use(
-    createProxyMiddleware('/mfe/mlflow/get-artifact', {
-      target: proxyStaticTarget,
-      ws: true,
-      changeOrigin: true,
-      pathRewrite: { '^/mfe/mlflow': '' },
     }),
   );
   app.use(
