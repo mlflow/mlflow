@@ -294,8 +294,7 @@ def _assert_less_than_or_equal(x, max):
     assert x <= max
 
 def _assert_item_type_string(x):
-    for item in x:
-        _assert_string(item)
+    assert all(map(lambda item: isinstance(item, str), x))
 
 _TYPE_VALIDATORS = {
     _assert_intlike,
