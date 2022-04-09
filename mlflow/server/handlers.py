@@ -288,7 +288,7 @@ def _assert_item_type_string(x):
         _assert_string(item)
 
 
-def _validate_param_against_schema(schema, param, value, parsing_succeeded = False):
+def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded = False):
     for f in schema:
         # If the validator is a type checker and dict parsing already
         #  succeeeded, we can safely skip re-checking types
@@ -300,7 +300,7 @@ def _validate_param_against_schema(schema, param, value, parsing_succeeded = Fal
             _assert_float,
             _assert_array,
             _assert_item_type_string
-        ] and parsing_succeeded:
+        ] and proto_parsing_succeeded:
             continue
 
         try:
@@ -357,15 +357,15 @@ def _get_request_message(request_message, flask_request=request, schema = {}):
     if request_json is None:
         request_json = {}
 
-    parsing_succeeded = True
+    proto_parsing_succeeded = True
     try:
         parse_dict(request_json, request_message)
     except ParseError as e:
-        parsing_succeeded = False
+        proto_parsing_succeeded = False
 
     for k, v in request_json.items():
         if (k in schema.keys()):
-            _validate_param_against_schema(schema[k], k, v, parsing_succeeded)
+            _validate_param_against_schema(schema[k], k, v, proto_parsing_succeeded)
 
     return request_message
 
