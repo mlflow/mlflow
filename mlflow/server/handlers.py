@@ -1086,40 +1086,17 @@ def _get_artifact_repo(run):
 @_disable_if_artifacts_only
 def _log_batch():
 
-    def _assert_metrics_correctly_constructed(metrics):
+    def _assert_metrics_fields_present(metrics):
         for m in metrics:
-            print("This is a metric: ", m)
-            ## Key
-            k = m["key"]
-            _assert_required(k)
-            _assert_string(k)
+            _assert_required(m["key"])
+            _assert_required(m["value"])
+            _assert_required(m["timestamp"])
+            _assert_required(m["step"])
 
-            ## Value
-            v = m["value"]
-            _assert_required(v)
-            _assert_floatlike(v)
-
-            ## Timestamp
-            t = m["timestamp"]
-            _assert_required(t)
-            _assert_intlike(t)
-
-            ## Step
-            s = m["step"]
-            _assert_required(s)
-            _assert_intlike(s)
-
-    def _assert_params_tags_correctly_constructed(params):
+    def _assert_params_tags_fields_present(params):
         for p in params:
-            ## Key
-            k = p["key"]
-            _assert_required(k)
-            _assert_string(k)
-
-            ## Value
-            v = p["value"]
-            _assert_required(v)
-            _assert_string(v)
+            _assert_required(p["key"])
+            _assert_required(p["value"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1131,15 +1108,15 @@ def _log_batch():
             ],
             "metrics": [
                 _assert_array,
-                _assert_metrics_correctly_constructed
+                _assert_metrics_fields_present
             ],
             "params": [
                 _assert_array,
-                _assert_params_tags_correctly_constructed
+                _assert_params_tags_fields_present
             ],
             "tags": [
                 _assert_array,
-                _assert_params_tags_correctly_constructed
+                _assert_params_tags_fields_present
             ]
         }
     )
