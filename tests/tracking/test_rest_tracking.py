@@ -294,6 +294,21 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
         mlflow_client.log_metric(run_id, key="foo", value=31, timestamp="foo", step=41)
 
     with pytest.raises(MlflowException, match=r"Invalid value for 'run_id' supplied"):
+        mlflow_client.log_metric(run_id=None, key="foo", value=31, timestamp="foo", step=41)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'key' supplied"):
+        mlflow_client.log_metric(run_id, key=None, value=31, timestamp="foo", step=41)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'value' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=None, timestamp="foo", step=41)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'timestamp' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=31, timestamp=None, step=41)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'step' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=31, timestamp=41, step=None)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'run_id' supplied"):
         mlflow_client.log_param(31, key="foo", value="bar", timestamp=59, step=26)
 
     with pytest.raises(MlflowException, match=r"Invalid value for 'key' supplied"):
@@ -499,6 +514,11 @@ def test_search_pagination(mlflow_client):
     assert [r.info.run_id for r in result] == runs[8:]
     assert result.token is None
 
+    with pytest.raises(MlflowException, match=r"Invalid value for 'max_results' supplied"):
+        mlflow_client.search_runs([experiment_id], max_results=123456789, page_token=result.token)
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'experiment_ids' supplied"):
+        mlflow_client.search_runs("foobar", max_results=4, page_token=result.token)
 
 def test_get_experiment_by_name(mlflow_client, backend_store_uri):
     name = "test_get_experiment_by_name"
