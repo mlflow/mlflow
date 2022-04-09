@@ -17,7 +17,7 @@ Features:
 - [Scoring] Introduce `--env-manager` configuration for selection of either local or conda environment for serving. (#5487, @WeichenXu123)
 - [Scoring] Add support for `numpy.ndarray` type inputs to `tensorflow` predict function (#5545, @WeichenXu123)
 - [Scoring] Add support for Docker image deployment to Sagemaker Serverless (#5610, @matthewmayo)
-- [Tracking] Introduce a new fluent API `mlflow.last_active_run()` that will return `mlflow.active_run()` when called. (#5584, @MarkYHZhang)
+- [Tracking] Introduce a new fluent API `mlflow.last_active_run()` that provides the most recent fluent active run. (#5584, @MarkYHZhang)
 - [Tracking] Add argument `experiment_names` in the fluent `mlflow.search_runs()` API to support run search by experiment names. (#5564, @r3stl355)
 - [Tracking] Add support for specifying or overriding a run description in the fluent API `start_run()` with an argument. (#5534, @dogeplusplus)
 - [Tracking] Add `log_every_n_step` feature to `mlflow.pytorch.autolog()` to log metrics during training for PyTorch. (#5516, @adamreeve)
