@@ -1155,7 +1155,8 @@ def _log_model():
                 _assert_required
             ],
             "model_json": [
-                _assert_string
+                _assert_string,
+                _assert_required
             ]
         }
     )
