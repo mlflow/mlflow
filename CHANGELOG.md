@@ -20,7 +20,7 @@ Features:
 - [Tracking] Introduce a new fluent API `mlflow.last_active_run()` that provides the most recent fluent active run. (#5584, @MarkYHZhang)
 - [Tracking] Add `experiment_names` argument to the `mlflow.search_runs()` API to support searching runs by experiment names. (#5564, @r3stl355)
 - [Tracking] Add a `description` parameter to `mlflow.start_run()` (#5534, @dogeplusplus)
-- [Tracking] Add `log_every_n_step` feature to `mlflow.pytorch.autolog()` to log metrics during training for PyTorch. (#5516, @adamreeve)
+- [Tracking] Add `log_every_n_step` parameter to `mlflow.pytorch.autolog()` to control metric logging frequency (#5516, @adamreeve)
 - [Tracking] Add support for `pyspark.ml.param.Params` types for `Estimators`. (#5481, @serena-ruan)
 - [Tracking] Add support for tracking `pyspark.ml.Transformer` for autologging. (#5466, @serena-ruan)
 - [Tracking] Add support for custom metrics to support auto detection and loading of user-generated artifacts. (#5405, @MarkYHZhang)
