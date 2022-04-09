@@ -4,7 +4,7 @@ set +exv
 
 showHelp() {
 cat << EOF
-Usage: ./install-dev-env.sh [-n] [environment name] [-d] [directory to install virtual environment] [-v]
+Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v]
 Development environment setup script for Python.
 This script will:
 
@@ -15,8 +15,6 @@ This script will:
   - Install required dependencies for the dev envrionment
 
 -h, -help,        --help        Display help
-
--n, -name,        --name        The name of the conda environment that you would like to create.
 
 -d, -directory    --directory   The path to install the virtual environment into
 
@@ -31,7 +29,6 @@ export verbose=0
 while getopts "n:d:vh" opt
 do
   case "$opt" in
-    n) name="$OPTARG" ;;
     d) directory="$OPTARG" ;;
     v) verbose=1 ;;
     h) showHelp; exit ;;
@@ -78,52 +75,70 @@ pyenv local $PY_INSTALL_VERSION
 pyenv exec pip install --upgrade pip
 pyenv exec pip install virtualenv
 
-# Create a virtual environment with the specified Python version
-pyenv exec virtualenv "$directory"
-source $directory/bin/activate
+VENV_DIR="$directory/bin/activate"
 
-echo "Current Python version: $(python --version)"
+# Check if the virtualenv already exists at the specified path
+if [[ -d "$directory" ]]; then
+  read -p "A virtual environment is already located at $VENV_DIR. Do you wish to replace it? $(tput bold; tput setaf 2)(y/n) $(tput sgr0)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    deactivate
+    rm -rf "$directory"
+    echo "Virtual environment removed from '$directory'. Installing new instance."
+    pyenv exec virtualenv "$directory"
+  fi
+else
+  # Create a virtual environment with the specified Python version
+  pyenv exec virtualenv "$directory"
+fi
+
+# Activate the virtual environment
+source "$VENV_DIR"
+
+echo "$(tput setaf 2)Current Python version: $(tput bold)$(python --version)$(tput sgr0)"
+echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
+
+# Install dev requirements and test plugin
+pip install -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
+
+# Install current checked out version of MLflow (local)
+pip install -e .[extras]
+
+# Install test plugin
+pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+
+command -v docker >/dev/null 2>&1 || echo "$(tput bold; tput setaf 1)A docker installation cannot be found. Please install docker to run all tests.$(tput sgr0)"
+
+# Setup git environment configuration for proper signing of commits
+git_user=$(git config user.name)
+git_email=$(git config user.email)
+
+if [[ -z "$git_email" || -z "$git_user" ]]; then
+  read -p "Your git environment is not setup to automatically sign your commits. Would you like to configure it? $(tput bold; tput setaf 2)(y/n): $(tput sgr0)" -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    read -p "Enter the user name you would like to have associated with your commit signature: " -r git_user_name
+    echo
+    git config --global user.name "$git_user_name"
+    echo "Git user name set as: $(git config user.name)"
+    read -p "Enter your email address for your commit signature: " -r git_user_email
+    git config --global user.email "$git_user_email"
+    echo "Git user email set as: $(git config user.email)"
+  else
+    echo "Failing to set git user.name and user.email will result in unsigned commits. Ensure that you sign commits manually for CI checks to pass."
+  fi
+fi
+
+# setup pre-commit hooks
+git config core.hooksPath "$MLFLOW_HOME/hooks"
+
+# Install pytest
+pip install pytest
+
+echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)'source $VENV_DIR'$(tput sgr0)"
+# JS stuff with yarn?
 
 
-
-
-# check if the python version is already installed?
-
-# check if virtualenv already exists and prompt for replacement from scratch
-# deactivate the environment if active
-# rm -rf path/root/of/venv
-
-# create new virtualenv
-
-# activate the environment (need a path for the environment supplied by the user)
-# source path/to/env/bin/activate
-
-#
-#
-## validate conda
-#command -v conda >/dev/null 2>&1 || { echo >&2 "Conda must be installed in order to use this script."; exit 1; }
-#
-#existing_envs=$(conda env list | grep "\b$name\b\s")
-#
-#if [ -n "$existing_envs" ]; then
-#  read -p "$($tput_r)An existing environment was found with the name '$name'. Do you wish to replace this environment? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
-#  echo
-#  if [[ $REPLY =~ ^[Yy]$ ]]; then
-#    echo "removing environment!" #replace with conda remove
-#  else
-#    exit 1
-#  fi
-#fi
-
-#conda create --name $name --python=$python_version
-#
-#conda activate $name
-
-# install the base requirements
-
-# install the test module
-
-# install
 
 
 
