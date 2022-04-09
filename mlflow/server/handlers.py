@@ -289,6 +289,27 @@ def _assert_item_type_string(x):
 
 
 def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded = False):
+    '''
+    Attempts to validate a single parameter against a specified schema.
+    Examples of the elements of the schema are type assertions and checks for required parameters.
+    Returns None on validation success. Otherwise, raises an MLFlowException if an assertion fails.
+    This method is intended to be called for side effects.
+
+            Parameters:
+                    schema (list): A list of functions to validate the parameter against
+                    param (str): The name of the parameter being validated
+                    value: The value being validated. The type of `value` can vary.
+                    proto_parsing_succeeded (bool): A boolean value indicating whether proto parsing has already succeeded.
+                        If the proto was successfully parsed, we assume all of the types of the parameters in the request
+                        body were correctly specified, and thus we skip validating types. If proto parsing failed,
+                        then we validate types in addition to the rest of the schema.
+                        See link for details: https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870
+
+
+            Returns:
+                    None on success. This method is intended to be called for side effects.
+    '''
+
     for f in schema:
         # If the validator is a type checker and dict parsing already
         #  succeeeded, we can safely skip re-checking types
