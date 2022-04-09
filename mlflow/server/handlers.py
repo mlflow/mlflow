@@ -328,9 +328,6 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
     '''
 
     for f in schema:
-        # If the validator is a type checker and dict parsing already
-        #  succeeeded, we can safely skip re-checking types
-        #  see: https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870
         if f in _TYPE_VALIDATORS and proto_parsing_succeeded:
             continue
 
