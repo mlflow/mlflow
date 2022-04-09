@@ -21,7 +21,10 @@ from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import resolve_default_artifact_root
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    artifacts_only_config_warning,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -417,6 +420,7 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
+    artifacts_only_config_warning(artifacts_only, backend_store_uri)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)

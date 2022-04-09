@@ -294,3 +294,21 @@ def test_mlflow_artifact_service_unavailable_without_config():
         )
     finally:
         process.kill()
+
+
+def test_mlflow_artifact_only_prints_warning_for_configs():
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+    ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
+        result = CliRunner(mix_stderr=False).invoke(
+            server,
+            ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+            catch_exceptions=False,
+        )
+        assert result.stdout.startswith(
+            "You are starting a tracking server in `--artifacts-only` mode with a "
+            "non-default `--backend_store_uri`:"
+        )
+        assert result.exit_code == 0
+        run_server_mock.assert_called()
