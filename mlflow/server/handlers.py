@@ -627,7 +627,7 @@ def _update_experiment():
                 _assert_string
             ],
             "new_name": [
-                _assert_string
+                _assert_string,
                 _assert_required
             ]
         }
@@ -1263,7 +1263,7 @@ def _rename_registered_model():
                 _assert_required
             ],
             "new_name": [
-                _assert_string
+                _assert_string,
                 _assert_required
             ]
         }

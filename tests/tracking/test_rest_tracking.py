@@ -287,6 +287,12 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     with pytest.raises(MlflowException, match=r"Invalid value for 'value' supplied"):
         mlflow_client.log_metric(run_id, key="foo", value=True, timestamp=31, step=41)
 
+    with pytest.raises(MlflowException, match=r"Invalid value for 'step' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=31, timestamp=41, step="foo")
+
+    with pytest.raises(MlflowException, match=r"Invalid value for 'timestamp' supplied"):
+        mlflow_client.log_metric(run_id, key="foo", value=31, timestamp="foo", step=41)
+
     with pytest.raises(MlflowException, match=r"Invalid value for 'run_id' supplied"):
         mlflow_client.log_param(31, key="foo", value="bar", timestamp=59, step=26)
 
