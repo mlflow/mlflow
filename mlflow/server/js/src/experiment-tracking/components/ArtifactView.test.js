@@ -16,6 +16,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
 
+
 const { Text } = Typography;
 
 describe('ArtifactView', () => {

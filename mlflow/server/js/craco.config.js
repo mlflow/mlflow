@@ -6,7 +6,6 @@ const { ModuleFederationPlugin } = require('webpack').container;
 const { execSync } = require('child_process');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
-const REMOTE_ENTRY_FILE = 'remoteEntry.js';
 
 function mayProxy(pathname) {
   const publicPrefixPrefix = '/static-files/';
@@ -44,6 +43,11 @@ function rewriteCookies(proxyRes) {
   }
 }
 
+
+function configureWebShared(config) {
+  config.resolve.alias['@databricks/web-shared-bundle'] = null;
+  return config;
+}
 
 function i18nOverrides(config) {
   // https://github.com/webpack/webpack/issues/11467#issuecomment-691873586
@@ -113,7 +117,6 @@ module.exports = function({ env }) {
             context: function(pathname) {
               return mayProxy(pathname);
             },
-            pathRewrite: { '^/mfe/mlflow': '' },
             target: proxyTarget,
             secure: false,
             changeOrigin: true,
@@ -154,6 +157,9 @@ module.exports = function({ env }) {
     },
     webpack: {
       resolve: {
+        alias: {
+          '@databricks/web-shared-bundle': null,
+        },
         fallback: {
           buffer: require.resolve('buffer'), // Needed by js-yaml
           defineProperty: require.resolve('define-property'), // Needed by babel
@@ -162,6 +168,7 @@ module.exports = function({ env }) {
       configure: (webpackConfig, { env, paths }) => {
         webpackConfig.output.publicPath = 'static-files/';
         webpackConfig = i18nOverrides(webpackConfig);
+        webpackConfig = configureWebShared(webpackConfig);
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;
       },
