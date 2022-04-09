@@ -16,7 +16,7 @@ Features:
 - [Scoring / Projects] Introduce `--env-manager` configuration for specifying environment restoration tools (e.g. `conda`). Deprecate `--no-conda` (#5567, @harupy)
 - [Scoring] Support restoring model dependencies in `mlflow.pyfunc.spark_udf()` to ensure accurate predictions (#5487, #5561, @WeichenXu123)
 - [Scoring] Add support for `numpy.ndarray` type inputs to `tensorflow` predict function (#5545, @WeichenXu123)
-- [Scoring] Add support for Docker image deployment to Sagemaker Serverless (#5610, @matthewmayo)
+- [Scoring] Support deployment of MLflow Models to Sagemaker Serverless (#5610, @matthewmayo)
 - [Tracking] Introduce a new fluent API `mlflow.last_active_run()` that provides the most recent fluent active run. (#5584, @MarkYHZhang)
 - [Tracking] Add `experiment_names` argument to the `mlflow.search_runs()` API to support searching runs by experiment names. (#5564, @r3stl355)
 - [Tracking] Add a `description` parameter to `mlflow.start_run()` (#5534, @dogeplusplus)
