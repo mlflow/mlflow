@@ -265,13 +265,23 @@ def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None
 def _assert_string(x):
     assert isinstance(x, str)
 
-def _assert_int(x):
+def _assert_intlike(x):
+    try:
+        x = int(x)
+    except ValueError:
+        pass
+
     assert isinstance(x, int)
 
 def _assert_bool(x):
     assert isinstance(x, bool)
 
-def _assert_float(x):
+def _assert_floatlike(x):
+    try:
+        x = float(x)
+    except ValueError:
+        pass
+
     assert isinstance(x, float)
 
 def _assert_array(x):
