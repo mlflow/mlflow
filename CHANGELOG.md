@@ -30,7 +30,7 @@ Bug fixes and documentation updates:
 
 - [Artifacts] Add compatibility for reading `ENV` variables for GCS to prevent timeouts. (#5483, @sebastian-montero)
 - [Artifacts] Fix for EvaluationResult to save artifacts with appropriate file names. (#5476, @MarkYHZhang)
-- [Artifacts] Add `ENV` variables for GCS to control upload/download chunk size and timeouts (#5438, @mokrueger)
+- [Artifacts] Introduce environment variables for controlling GCS artifact upload/download chunk size and timeouts (#5438, #5483, @mokrueger)
 - [Build] Fix mlflow-skinny version stack frame inspection failure (#5573, @BenWilson2)
 - [Docs] Update example for deployment to AzureML and guidance on using the officially supported Microsoft plugin. (#5491, @santiagxf)
 - [Models] Add mlflow_version to Java model spec to fix MLeap serving issue (#5576, @dbczumar)
