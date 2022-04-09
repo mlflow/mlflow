@@ -298,10 +298,10 @@ def _assert_item_type_string(x):
         _assert_string(item)
 
 _TYPE_VALIDATORS = {
-    _assert_int,
+    _assert_intlike,
     _assert_string,
     _assert_bool,
-    _assert_float,
+    _assert_floatlike,
     _assert_array,
     _assert_item_type_string
 }
@@ -653,7 +653,7 @@ def _create_run():
                 _assert_string
             ],
             "start_time": [
-                _assert_int
+                _assert_intlike
             ]
         }
     )
@@ -684,7 +684,7 @@ def _update_run():
                 _assert_string
             ],
             "end_time": [
-                _assert_int
+                _assert_intlike
             ],
             "status": [
                 _assert_string
@@ -755,14 +755,14 @@ def _log_metric():
             ],
             "value": [
                 _assert_required,
-                _assert_float
+                _assert_floatlike
             ],
             "timestamp": [
-                _assert_int,
+                _assert_intlike,
                 _assert_required
             ],
             "step": [
-                _assert_int
+                _assert_intlike
             ]
         }
     )
@@ -920,7 +920,7 @@ def _search_runs():
                 _assert_string
             ],
             "max_results": [
-                _assert_int,
+                _assert_intlike,
                 lambda x: _assert_less_than_or_equal(x, 50000)
             ],
             "order_by": [
@@ -1057,7 +1057,7 @@ def _list_experiments():
         ListExperiments(),
         schema = {
             "max_results": [
-                _assert_int
+                _assert_intlike
             ],
             "page_token": [
                 _assert_string
@@ -1098,17 +1098,17 @@ def _log_batch():
             ## Value
             v = m["value"]
             _assert_required(v)
-            _assert_float(v)
+            _assert_floatlike(v)
 
             ## Timestamp
             t = m["timestamp"]
             _assert_required(t)
-            _assert_int(t)
+            _assert_intlike(t)
 
             ## Step
             s = m["step"]
             _assert_required(s)
-            _assert_int(s)
+            _assert_intlike(s)
 
     def _assert_params_correctly_constructed(params):
         for p in params:
@@ -1324,7 +1324,7 @@ def _list_registered_models():
         ListRegisteredModels(),
         schema = {
             "max_results": [
-                _assert_int,
+                _assert_intlike,
                 lambda x: _assert_less_than_or_equal(x, 1000)
             ],
             "page_token": [
@@ -1357,7 +1357,7 @@ def _search_registered_models():
                 _assert_string
             ],
             "max_results": [
-                _assert_int,
+                _assert_intlike,
                 lambda x: _assert_less_than_or_equal(x, 1000)
             ],
             "order_by": [
