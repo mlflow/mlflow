@@ -1346,10 +1346,6 @@ def _list_registered_models():
 @_disable_if_artifacts_only
 def _search_registered_models():
 
-    def _assert_item_type_string(x):
-        for item in x:
-            _assert_string(x)
-
     request_message = _get_request_message(
         SearchRegisteredModels(),
         schema = {
