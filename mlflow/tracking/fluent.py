@@ -30,6 +30,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -1604,8 +1605,6 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
-
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1622,20 +1621,22 @@ def autolog(
             # Logic is as follows:
             # - if a previous_config exists, that means either `mlflow.autolog` or
             #   `mlflow.integration.autolog` was called.
-            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
-            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
-            #   `autologging_params`.
+            # - if the config contains `AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED`, the
+            #   configuration was set by `mlflow.autolog`, and so we can safely call `autolog_fn`
+            #   with `autologging_params`.
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
             prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
-            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+            if prev_config and not prev_config.get(
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            ):
                 return
 
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
-                CONF_KEY_IS_GLOBALLY_CONFIGURED
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(
                 autolog_fn.integration_name
