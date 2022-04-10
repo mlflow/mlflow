@@ -936,7 +936,12 @@ def autolog(
                         input_example_slice = None
                         if isinstance(input_training_data, np.ndarray):
                             input_example_slice = input_training_data[:INPUT_EXAMPLE_SAMPLE_ROWS]
-                        elif isinstance(input_training_data, tensorflow.data.Dataset):
+                        elif (
+                            isinstance(input_training_data, tensorflow.data.Dataset) and
+                            # TensorFlow < 2.1.0 does not include methods for converting
+                            # a tf.data.Dataset to a numpy array, such as `as_numpy_iterator()`
+                            Version(tensorflow.__version__) >=  Version("2.1.0")
+                        ):
                             steps = 1
                             if history.params is not None and "steps" in history.params:
                                 steps = history.params["steps"]
@@ -972,38 +977,35 @@ def autolog(
                             ]
 
                         else:
-                            warnings.warn(
-                                "Tensorflow keras autologging only "
-                                "supports input types of: numpy.ndarray, "
-                                "dict(<key> -> numpy.ndarray), tensorflow.data.Dataset, "
-                                "or tensorflow.keras.utils.Sequence"
+                            raise MlflowException(
+                                "Cannot log input example or model signature for input with type"
+                                f" {type(input_training_data)}. TensorFlow Keras autologging can"
+                                " only log input examples and model signatures for the following"
+                                " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
+                                " tensorflow.keras.utils.Sequence, and"
+                                " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)"
                             )
 
                         return input_example_slice
 
                     def _infer_model_signature(input_data_slice):
-                        try:
-                            original_stop_training = history.model.stop_training
-                            model_output = history.model.predict(input_data_slice)
+                        original_stop_training = history.model.stop_training
+                        model_output = history.model.predict(input_data_slice)
 
-                            if (
-                                Version(tensorflow.__version__) <= Version("2.1.4")
-                                and original_stop_training
-                            ):
-                                # For these versions, `stop_training` flag on Model is set to False
-                                # This flag is used by the callback
-                                # (inside ``_log_early_stop_callback_metrics``)
-                                # for logging of early stop metrics. In order for
-                                # that to work, need to force that flag to be True again since doing
-                                # predict on that model sets `stop_training` to false for
-                                # those TF versions
-                                history.model.stop_training = True
+                        if (
+                            Version(tensorflow.__version__) <= Version("2.1.4")
+                            and original_stop_training
+                        ):
+                            # For these versions, `stop_training` flag on Model is set to False
+                            # This flag is used by the callback
+                            # (inside ``_log_early_stop_callback_metrics``)
+                            # for logging of early stop metrics. In order for
+                            # that to work, need to force that flag to be True again since doing
+                            # predict on that model sets `stop_training` to false for
+                            # those TF versions
+                            history.model.stop_training = True
 
-                            model_signature = infer_signature(input_data_slice, model_output)
-                        except TypeError as te:
-                            warnings.warn(str(te))
-                            model_signature = None
-                        return model_signature
+                        return infer_signature(input_data_slice, model_output)
 
                     input_example, signature = resolve_input_example_and_signature(
                         _get_input_data_slice,

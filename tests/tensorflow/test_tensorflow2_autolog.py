@@ -23,7 +23,11 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
+from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_INTEGRATIONS,
+    BatchMetricsLogger,
+    autologging_is_disabled,
+)
 
 np.random.seed(1337)
 
@@ -144,6 +148,15 @@ def clear_fluent_autologging_import_hooks():
     """
     mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_autologging_config():
+    """
+    Clears TensorFlow autologging config, simulating a fresh state where autologging has not
+    been previously enabled with any particular configuration
+    """
+    del AUTOLOGGING_INTEGRATIONS[mlflow.tensorflow.FLAVOR_NAME]
 
 
 def create_tf_keras_model():
@@ -1117,6 +1130,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for input example logging in TensorFlow < 2.1.0",
+)
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog(log_input_examples=True)
     fashion_mnist_model = _create_fashion_mnist_model()
@@ -1130,6 +1147,10 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for signature logging in TensorFlow < 2.1.0",
+)
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog(log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
@@ -1191,6 +1212,7 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 
 
 @pytest.mark.large
+@pytest.mark.bungus
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
@@ -1206,6 +1228,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
 
 
 @pytest.mark.large
+@pytest.mark.bungus
 def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
     keras_data_gen_sequence,
 ):
@@ -1217,4 +1240,4 @@ def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
         f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
     )
     mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
-    assert "signature" not in mlmodel_contents
+    assert "signature" not in mlmodel_contents, mlmodel_contents.keys()
