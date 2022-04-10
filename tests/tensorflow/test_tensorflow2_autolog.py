@@ -1239,7 +1239,7 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
 
 @pytest.mark.large
 def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
-    keras_data_gen_sequence
+    keras_data_gen_sequence,
 ):
     mlflow.tensorflow.autolog()
     initial_model = create_tf_keras_model()
