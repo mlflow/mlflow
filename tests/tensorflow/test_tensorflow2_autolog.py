@@ -3,7 +3,6 @@
 import collections
 import os
 import pickle
-import sys
 from unittest.mock import patch
 import json
 

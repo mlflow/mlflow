@@ -998,8 +998,8 @@ def autolog(
                         return input_example_slice
 
                     def _infer_model_signature(input_data_slice):
-                        # In certain TensorFlow versions, calling `predict()` on model  may modify the
-                        # `stop_training` attribute, so we save and restore it accordingly
+                        # In certain TensorFlow versions, calling `predict()` on model  may modify
+                        # the `stop_training` attribute, so we save and restore it accordingly
                         original_stop_training = history.model.stop_training
                         model_output = history.model.predict(input_data_slice)
                         history.model.stop_training = original_stop_training
