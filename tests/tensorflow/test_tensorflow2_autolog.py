@@ -156,7 +156,7 @@ def clear_autologging_config():
     Clears TensorFlow autologging config, simulating a fresh state where autologging has not
     been previously enabled with any particular configuration
     """
-    del AUTOLOGGING_INTEGRATIONS[mlflow.tensorflow.FLAVOR_NAME]
+    AUTOLOGGING_INTEGRATIONS.pop(mlflow.tensorflow.FLAVOR_NAME, None)
 
 
 def create_tf_keras_model():
@@ -1212,7 +1212,6 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 
 
 @pytest.mark.large
-@pytest.mark.bungus
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
@@ -1228,7 +1227,6 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
 
 
 @pytest.mark.large
-@pytest.mark.bungus
 def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
     keras_data_gen_sequence,
 ):
