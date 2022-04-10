@@ -938,10 +938,11 @@ def autolog(
                         if isinstance(input_training_data, np.ndarray):
                             input_example_slice = input_training_data[:INPUT_EXAMPLE_SAMPLE_ROWS]
                         elif (
-                            isinstance(input_training_data, tensorflow.data.Dataset) and
+                            isinstance(input_training_data, tensorflow.data.Dataset)
+                            and
                             # TensorFlow < 2.1.0 does not include methods for converting
                             # a tf.data.Dataset to a numpy array, such as `as_numpy_iterator()`
-                            Version(tensorflow.__version__) >=  Version("2.1.0")
+                            Version(tensorflow.__version__) >= Version("2.1.0")
                         ):
                             steps = 1
                             if history.params is not None and "steps" in history.params:
