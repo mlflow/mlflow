@@ -1010,7 +1010,8 @@ def autolog(
                         _infer_model_signature,
                         log_input_examples,
                         (
-                            log_model_signatures and
+                            log_model_signatures
+                            and
                             # `log_model_signatures` is `False` by default for
                             # `mlflow.tensorflow.autolog()` in order to to preserve
                             # backwards-compatible inference behavior with older versions of MLflow
@@ -1024,9 +1025,7 @@ def autolog(
                             # we only enable signature logging if `mlflow.tensorflow.autolog()` is
                             # called explicitly with `log_model_signatures=True`
                             not get_autologging_config(
-                                FLAVOR_NAME,
-                                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
-                                False
+                                FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
                             )
                         ),
                         _logger,

@@ -1636,7 +1636,7 @@ def autolog(
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
-               AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED 
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(
                 autolog_fn.integration_name
