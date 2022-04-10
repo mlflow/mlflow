@@ -733,7 +733,13 @@ def autolog(
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with tf/keras model artifacts during training. If ``False``,
-                                 signatures are not logged.
+                                 signatures are not logged. ``False`` by default because
+                                 logging TensorFlow models with signatures changes their pyfunc
+                                 inference behavior when Pandas DataFrames are passed to
+                                 ``predict()``: when a signature is present, an ``np.ndarray``
+                                 (for single-output models) or a mapping from
+                                 ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
+                                 when a signature is not present, a Pandas DataFrame is returned.
     """
     import tensorflow
 
