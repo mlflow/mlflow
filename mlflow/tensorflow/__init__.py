@@ -61,6 +61,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     batch_metrics_logger,
     get_autologging_config,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -654,7 +655,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     log_input_examples=False,
-    log_model_signatures=True,
+    log_model_signatures=False,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -1008,7 +1009,26 @@ def autolog(
                         _get_input_data_slice,
                         _infer_model_signature,
                         log_input_examples,
-                        log_model_signatures,
+                        (
+                            log_model_signatures and
+                            # `log_model_signatures` is `False` by default for
+                            # `mlflow.tensorflow.autolog()` in order to to preserve
+                            # backwards-compatible inference behavior with older versions of MLflow
+                            # that did not support signature autologging for TensorFlow (
+                            # unfortunately, adding a signature to a TensorFlow model has the
+                            # unintended consequence of changing the output type produced by
+                            # inference with pyfunc `predict()` for Pandas DataFrame inputs).
+                            # However, `log_model_signatures` is `True` by default for
+                            # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
+                            # when TensorFlow autologging is enabled via `mlflow.autolog()`,
+                            # we only enable signature logging if `mlflow.tensorflow.autolog()` is
+                            # called explicitly with `log_model_signatures=True`
+                            not get_autologging_config(
+                                FLAVOR_NAME,
+                                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
+                                False
+                            )
+                        ),
                         _logger,
                     )
 
