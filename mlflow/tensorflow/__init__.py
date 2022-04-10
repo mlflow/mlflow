@@ -991,22 +991,11 @@ def autolog(
                         return input_example_slice
 
                     def _infer_model_signature(input_data_slice):
+                        # In certain TensorFlow versions, calling `predict()` on model  may modify the
+                        # `stop_training` attribute, so we save and restore it accordingly
                         original_stop_training = history.model.stop_training
                         model_output = history.model.predict(input_data_slice)
-
-                        if (
-                            Version(tensorflow.__version__) <= Version("2.1.4")
-                            and original_stop_training
-                        ):
-                            # For these versions, `stop_training` flag on Model is set to False
-                            # This flag is used by the callback
-                            # (inside ``_log_early_stop_callback_metrics``)
-                            # for logging of early stop metrics. In order for
-                            # that to work, need to force that flag to be True again since doing
-                            # predict on that model sets `stop_training` to false for
-                            # those TF versions
-                            history.model.stop_training = True
-
+                        history.model.stop_training = original_stop_training
                         return infer_signature(input_data_slice, model_output)
 
                     input_example, signature = resolve_input_example_and_signature(
