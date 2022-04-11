@@ -38,7 +38,7 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def serve(
-        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None
+        self, model_uri, port, host, timeout, enable_mlserver, synchronous=True, stdout=None, stderr=None
     ):
         """
         Generate R model locally.
@@ -49,6 +49,9 @@ class RFuncBackend(FlavorBackend):
         """
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
+
+        if timeout:
+            raise Exception("Timeout is not yet supported in the R backend.")
 
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")
