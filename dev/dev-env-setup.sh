@@ -14,6 +14,14 @@ This script will:
   - Activate the environment
   - Install required dependencies for the dev envrionment
 
+  Example usage:
+
+  From root of MLflow repository on local with a destination virtualenv path of <root>/.venvs/mlflow-dev:
+
+  dev/dev-env-setup.sh -d ~/.venvs/mlflow-dev
+
+  Note: it is recommended to preface virtualenv locations with a directory name prefaced by '.' (i.e., ".venvs").
+
 -h, -help,        --help        Display help
 
 -d, -directory    --directory   The path to install the virtual environment into
@@ -22,8 +30,6 @@ This script will:
 
 EOF
 }
-
-tput_r="tput setaf 1"
 
 export verbose=0
 while getopts "n:d:vh" opt
@@ -93,6 +99,7 @@ else
 fi
 
 # Activate the virtual environment
+# shellcheck source=/dev/null
 source "$VENV_DIR"
 
 echo "$(tput setaf 2)Current Python version: $(tput bold)$(python --version)$(tput sgr0)"
@@ -125,7 +132,7 @@ if [[ -z "$git_email" || -z "$git_user" ]]; then
     git config --global user.email "$git_user_email"
     echo "Git user email set as: $(git config user.email)"
   else
-    echo "Failing to set git user.name and user.email will result in unsigned commits. Ensure that you sign commits manually for CI checks to pass."
+    echo "Failing to set git 'user.name' and 'user.email' will result in unsigned commits. Ensure that you sign commits manually for CI checks to pass."
   fi
 fi
 
@@ -136,13 +143,3 @@ git config core.hooksPath "$MLFLOW_HOME/hooks"
 pip install pytest
 
 echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)'source $VENV_DIR'$(tput sgr0)"
-# JS stuff with yarn?
-
-
-
-
-
-
-
-
-
