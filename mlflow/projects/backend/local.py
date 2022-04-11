@@ -90,6 +90,12 @@ class LocalBackend(AbstractBackend):
             command_separator = " && "
             conda_env_name = get_or_create_conda_env(project.conda_env_path)
             command_args += get_conda_command(conda_env_name)
+        elif env_manager is _EnvManager.VIRTUALENV:
+            tracking.MlflowClient().set_tag(
+                active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
+            )
+            command_separator = " && "
+            # Create a virtualenv environment and run the command in it.
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
