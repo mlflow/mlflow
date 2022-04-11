@@ -107,7 +107,9 @@ def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_v
 
 
 @pytest.mark.parametrize(
-    "commit", requests.get(" https://api.github.com/repos/mlflow/mlflow-example/commits").json()[:2]
+    "commit",
+    # Fetch the most recent two commits
+    requests.get("https://api.github.com/repos/mlflow/mlflow-example/commits").json()[:2],
 )
 def test_fetch_git_repo_commit(tmp_path, commit):
     _fetch_git_repo(
