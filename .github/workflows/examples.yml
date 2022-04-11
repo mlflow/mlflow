@@ -8,6 +8,12 @@ on:
     - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
       ref:
         description: >
           [Optional] The branch, tag or SHA to checkout. When checking out the repository that
