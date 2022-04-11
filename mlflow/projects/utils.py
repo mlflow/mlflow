@@ -199,6 +199,7 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
+        origin.fetch(depth=GIT_FETCH_DEPTH)
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
     repo.submodule_update(init=True, recursive=True)
