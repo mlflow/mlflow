@@ -670,7 +670,7 @@ class SqlAlchemyStore(AbstractStore):
                 metric_b.value,
             )
 
-        def _merge_metric(new_metric, old_metric):
+        def _overwrite_metric(new_metric, old_metric):
             """
             writes content of new_metric over old_metric. The content are
             `value`, `step`, `timestamp`, and `is_nan`.
@@ -733,14 +733,14 @@ class SqlAlchemyStore(AbstractStore):
             # metric comparison is successful.
             elif not latest_metric and new_latest_metric:
                 if _compare_metrics(logged_metric, new_latest_metric):
-                    new_latest_metric = _merge_metric(logged_metric, new_latest_metric)
+                    new_latest_metric = _overwrite_metric(logged_metric, new_latest_metric)
                     new_latest_metric_dict[logged_metric.key] = new_latest_metric
 
             # compare with the row
             elif _compare_metrics(logged_metric, latest_metric):
                 # editing the attributes of latest_metric, which is a
                 # SqlLatestMetric instance will result in UPDATE in DB side.
-                latest_metric = _merge_metric(logged_metric, latest_metric)
+                latest_metric = _overwrite_metric(logged_metric, latest_metric)
 
         if new_latest_metric_dict:
             self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
@@ -800,13 +800,10 @@ class SqlAlchemyStore(AbstractStore):
         if not params:
             return
         # eliminate duplicate Param entities
-        param_instances = {}
-        for param in params:
-            if param.key not in param_instances:
-                param_instances[param.key] = SqlParam(
-                    run_uuid=run_id, key=param.key, value=param.value
-                )
-        param_instances = list(param_instances.values())
+        params = set(params)
+        param_instances = [
+            SqlParam(run_uuid=run_id, key=param.key, value=param.value) for param in params
+        ]
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
