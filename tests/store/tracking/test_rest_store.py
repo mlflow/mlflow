@@ -47,7 +47,10 @@ from mlflow.store.tracking.rest_store import (
     DatabricksRestStore,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
+)
 
 
 class MyCoolException(Exception):
@@ -75,7 +78,7 @@ class TestRestStore:
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "params": {"view_type": "ACTIVE_ONLY"},
-                "headers": _DEFAULT_HEADERS,
+                "headers": DefaultRequestHeaderProvider().request_headers(),
                 "verify": True,
                 "timeout": 120,
             }

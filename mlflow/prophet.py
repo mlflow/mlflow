@@ -33,9 +33,13 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.models import Model, ModelInputExample
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "prophet"
@@ -70,6 +74,7 @@ def save_model(
     pr_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -83,6 +88,9 @@ def save_model(
                      on a temporal series.
     :param path: Local path where the serialized model (as JSON) is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -113,9 +121,9 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException(f"Path '{path}' already exists")
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -128,7 +136,11 @@ def save_model(
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.prophet", env=_CONDA_ENV_FILE_NAME, **model_bin_kwargs
+        mlflow_model,
+        loader_module="mlflow.prophet",
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+        **model_bin_kwargs,
     )
     flavor_conf = {
         _MODEL_TYPE_KEY: pr_model.__class__.__name__,
@@ -137,6 +149,7 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         prophet_version=prophet.__version__,
+        code=code_dir_subpath,
         **flavor_conf,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -174,6 +187,7 @@ def log_model(
     pr_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -187,6 +201,10 @@ def log_model(
     :param pr_model: Prophet model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
+
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
@@ -230,6 +248,7 @@ def log_model(
         registered_model_name=registered_model_name,
         pr_model=pr_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -258,7 +277,7 @@ def _load_model(path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
     """
     return _ProphetModelWrapper(_load_model(path))
@@ -286,6 +305,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pr_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )

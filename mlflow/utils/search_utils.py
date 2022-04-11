@@ -16,10 +16,12 @@ from sqlparse.sql import (
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
+import sqlalchemy as sa
 
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 
 import math
 
@@ -89,8 +91,20 @@ class SearchUtils:
     }
 
     @classmethod
-    def get_sql_filter_ops(cls, column, operator):
-        sql_filter_ops = {"LIKE": column.like, "ILIKE": column.ilike}
+    def get_sql_filter_ops(cls, column, operator, dialect):
+        if dialect == MYSQL:
+
+            def like_op(value):
+                # Filter by `LIKE` ahead of `LIKE BINARY` for runtime performance
+                return sa.and_(
+                    column.like(value), column.op("LIKE BINARY", is_comparison=True)(value)
+                )
+
+        elif dialect == MSSQL:
+            like_op = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS").like
+        else:
+            like_op = column.like
+        sql_filter_ops = {"LIKE": like_op, "ILIKE": column.ilike}
         return sql_filter_ops[operator]
 
     @classmethod

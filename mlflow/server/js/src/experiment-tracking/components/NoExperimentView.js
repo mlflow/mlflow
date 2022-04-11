@@ -1,11 +1,11 @@
 import React, { Component } from 'react';
 import Colors from '../styles/Colors';
 import noExperiments from '../../common/static/no-experiments.svg';
+import { ExperimentCliDocUrl } from '../../common/constants';
 
-const MLFLOW_EXPERIMENT_DOC_URL = 'https://www.mlflow.org/docs/latest/cli.html#experiments';
 export class NoExperimentView extends Component {
   render() {
-    const mlflowExperimentLink = <a href={MLFLOW_EXPERIMENT_DOC_URL}>mlflow experiments</a>;
+    const mlflowExperimentLink = <a href={ExperimentCliDocUrl}>mlflow experiments</a>;
     return (
       <div>
         <img

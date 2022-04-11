@@ -17,12 +17,10 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -36,7 +34,12 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -68,6 +71,7 @@ def save_model(
     path,
     training=False,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -88,6 +92,9 @@ def save_model(
                      If set to True, the saved model supports both re-training and
                      inference. If set to False, it only supports inference.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -192,12 +199,9 @@ def save_model(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -219,11 +223,13 @@ def save_model(
         loader_module="mlflow.paddle",
         model_path=model_data_subpath,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
         paddle_version=paddle.__version__,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -297,6 +303,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
@@ -323,6 +330,7 @@ def log_model(
     artifact_path,
     training=False,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -330,7 +338,6 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
 ):
-
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
     containing the following flavors:
@@ -345,7 +352,9 @@ def log_model(
                      If set to True, the saved model supports both re-training and
                      inference. If set to False, it only supports inference.
     :param conda_env: {{ conda_env }}
-
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -403,6 +412,7 @@ def log_model(
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
@@ -415,7 +425,7 @@ def log_model(
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``paddle`` flavor.
     """
     return _PaddleWrapper(load_model(path))

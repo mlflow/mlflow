@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
 import iris_data_utils
 
 import mlflow
@@ -29,12 +30,14 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tensorflow import _TF2Wrapper
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -67,7 +70,7 @@ def saved_tf_iris_model(tmpdir):
         my_feature_columns.append(tf.feature_column.numeric_column(key=key))
 
     # Build 2 hidden layer DNN with 10, 10 units respectively.
-    estimator = tf.estimator.DNNClassifier(
+    estimator = tf_estimator.DNNClassifier(
         feature_columns=my_feature_columns,
         # Two hidden layers of 10 nodes each.
         hidden_units=[10, 10],
@@ -124,7 +127,7 @@ def saved_tf_iris_model(tmpdir):
     for name in my_feature_columns:
         feature_spec[name.key] = tf.Variable([], dtype=tf.float64, name=name.key)
 
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
@@ -178,7 +181,7 @@ def saved_tf_categorical_model(tmpdir):
 
     # Build a DNNRegressor, with 20x20-unit hidden layers, with the feature columns
     # defined above as input
-    estimator = tf.estimator.DNNRegressor(hidden_units=[20, 20], feature_columns=feature_columns)
+    estimator = tf_estimator.DNNRegressor(hidden_units=[20, 20], feature_columns=feature_columns)
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(
@@ -200,7 +203,7 @@ def saved_tf_categorical_model(tmpdir):
         "curb-weight": tf.Variable([], dtype=tf.float64, name="curb-weight"),
         "highway-mpg": tf.Variable([], dtype=tf.float64, name="highway-mpg"),
     }
-    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
@@ -794,3 +797,34 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
 
     load_and_predict()
+
+
+def test_log_model_with_code_paths(saved_tf_iris_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.tensorflow._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.tensorflow.log_model(
+            tf_saved_model_dir=saved_tf_iris_model.path,
+            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+            artifact_path=artifact_path,
+            code_paths=[__file__],
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
+        mlflow.tensorflow.load_model(model_uri)
+        add_mock.assert_called()
+
+
+def test_saved_model_support_array_type_input():
+    def infer(features):
+        res = np.expand_dims(features.numpy().sum(axis=1), axis=1)
+        return {"prediction": tf.constant(res)}
+
+    model = _TF2Wrapper(None, infer)
+    infer_df = pd.DataFrame({"features": [[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]]})
+
+    result = model.predict(infer_df)
+
+    np.testing.assert_allclose(result["prediction"], infer_df.applymap(sum).values[:, 0])

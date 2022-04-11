@@ -25,6 +25,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -270,7 +271,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05)
 
     # pyfunc serve
@@ -307,7 +308,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs).values,
         predicted_multiple_inputs.values,
@@ -348,7 +349,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
         predicted_multiple_inputs.astype("float32").values,
@@ -422,7 +423,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         )
 
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
         assert np.allclose(
             pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
         )
@@ -447,7 +448,7 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
         path = "onnx_model"
         mlflow.onnx.save_model(onnx_model=multi_tensor_onnx_model, path=path)
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=path)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=path)
         data, _ = data
         # get prediction
         feeds = {
@@ -638,3 +639,16 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, mo
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)
     wrapper.predict(pd.DataFrame(x))
+
+
+@pytest.mark.large
+def test_log_model_with_code_paths(onnx_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.onnx._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.onnx.log_model(onnx_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.onnx.FLAVOR_NAME)
+        mlflow.onnx.load_model(model_uri)
+        add_mock.assert_called()

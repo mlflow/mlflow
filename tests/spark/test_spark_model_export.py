@@ -21,7 +21,6 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -36,6 +35,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _get_pip_deps,
     _assert_pip_requirements,
+    _compare_logged_code_paths,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
@@ -56,11 +56,24 @@ SparkModelWithData = namedtuple(
 )
 
 
+def _get_spark_session_with_retry(max_tries=3):
+    conf = pyspark.SparkConf()
+    for num_tries in range(max_tries):
+        try:
+            return get_spark_session(conf)
+        except Exception as e:
+            if num_tries >= max_tries - 1:
+                raise
+            _logger.exception(
+                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
+            )
+
+
 # Specify `autouse=True` to ensure that a context is created
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
 # other tests.
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def spark_context():
     if Version(pyspark.__version__) < Version("3.1"):
         # A workaround for this issue:
@@ -78,21 +91,12 @@ spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 """
             f.write(conf)
-    conf = pyspark.SparkConf()
-    max_tries = 3
-    for num_tries in range(max_tries):
-        try:
-            spark = get_spark_session(conf)
-            return spark.sparkContext
-        except Exception as e:
-            if num_tries >= max_tries - 1:
-                raise
-            _logger.exception(
-                e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
-            )
+    spark = _get_spark_session_with_retry()
+    yield spark.sparkContext
+    spark.stop()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def iris_df(spark_context):
     iris = datasets.load_iris()
     X = iris.data  # we only take the first two features.
@@ -105,7 +109,7 @@ def iris_df(spark_context):
     return feature_names, iris_pandas_df, iris_spark_df
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_iris(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -120,7 +124,7 @@ def spark_model_iris(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_transformer(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -132,7 +136,7 @@ def spark_model_transformer(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_estimator(iris_df, spark_context):
     # pylint: disable=unused-argument
     feature_names, iris_pandas_df, iris_spark_df = iris_df
@@ -204,7 +208,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
@@ -268,17 +272,23 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
     preds = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_estimator.predictions == preds
     # 2. score and compare reloaded pyfunc
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     preds2 = m.predict(spark_model_estimator.spark_df.toPandas())
     assert spark_model_estimator.predictions == preds2
 
 
 @pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.save_model(
-            spark_model_transformer.model, path=model_path, conda_env=spark_custom_env
-        )
+    sparkm.save_model(spark_model_transformer.model, path=model_path, conda_env=spark_custom_env)
+    # score and compare the reloaded sparkml model
+    reloaded_model = sparkm.load_model(model_uri=model_path)
+    preds_df = reloaded_model.transform(spark_model_transformer.spark_df)
+    preds = [x.features for x in preds_df.select("features").collect()]
+    assert spark_model_transformer.predictions == preds
+    # 2. score and compare reloaded pyfunc
+    m = pyfunc.load_model(model_path)
+    preds2 = m.predict(spark_model_transformer.spark_df.toPandas())
+    assert spark_model_transformer.predictions == preds2
 
 
 @pytest.mark.large
@@ -388,13 +398,6 @@ def test_sparkml_estimator_model_log(
     finally:
         mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)
-
-
-@pytest.mark.large
-def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
-    # pylint: disable=unused-argument
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
 
 
 @pytest.mark.large
@@ -676,3 +679,17 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
     assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
     assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
     assert dst_dir.join("top-level-file.txt").read() == "hi"
+
+
+def test_log_model_with_code_paths(spark_model_iris):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.spark._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        sparkm.log_model(
+            spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
+        sparkm.load_model(model_uri)
+        add_mock.assert_called()

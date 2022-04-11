@@ -39,7 +39,7 @@ from mlflow.store.db.utils import (
     _get_latest_schema_revision,
 )
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
@@ -47,11 +47,23 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+from mlflow.store.tracking.dbmodels.models import (
+    SqlParam,
+    SqlTag,
+    SqlMetric,
+    SqlLatestMetric,
+    SqlRun,
+    SqlExperimentTag,
+    SqlExperiment,
+)
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
+
+pytestmark = pytest.mark.notrackingurimock
 
 
 class TestParseDbUri(unittest.TestCase):
@@ -114,27 +126,64 @@ class TestParseDbUri(unittest.TestCase):
         )
 
 
-class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
+class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def create_test_run(self):
         return self._run_factory()
 
+    def _setup_db_uri(self):
+        if _TRACKING_URI_ENV_VAR in os.environ:
+            self.temp_dbfile = None
+            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+        else:
+            fd, self.temp_dbfile = tempfile.mkstemp()
+            # Close handle immediately so that we can remove the file later on in Windows
+            os.close(fd)
+            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+
     def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self._setup_db_uri()
         self.store = self._get_store(self.db_url)
 
     def get_store(self):
         return self.store
 
+    def _get_query_to_reset_experiment_id(self):
+        dialect = self.store._get_dialect()
+        if dialect == POSTGRES:
+            return "ALTER SEQUENCE experiments_experiment_id_seq RESTART WITH 1"
+        elif dialect == MYSQL:
+            return "ALTER TABLE experiments AUTO_INCREMENT = 1"
+        elif dialect == MSSQL:
+            return "DBCC CHECKIDENT (experiments, RESEED, 0)"
+        elif dialect == SQLITE:
+            # In SQLite, deleting all experiments resets experiment_id
+            return None
+        raise ValueError(f"Invalid dialect: {dialect}")
+
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
-        os.remove(self.temp_dbfile)
+        if self.temp_dbfile:
+            os.remove(self.temp_dbfile)
+        else:
+            with self.store.ManagedSessionMaker() as session:
+                # Delete all rows in all tables
+                for model in (
+                    SqlParam,
+                    SqlMetric,
+                    SqlLatestMetric,
+                    SqlTag,
+                    SqlRun,
+                    SqlExperimentTag,
+                    SqlExperiment,
+                ):
+                    session.query(model).delete()
+
+                # Reset experiment_id to start at 1
+                reset_experiment_id = self._get_query_to_reset_experiment_id()
+                if reset_experiment_id:
+                    session.execute(reset_experiment_id)
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -1063,42 +1112,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # the expected order in ascending sort is :
         # inf > number > -inf > None > nan
         for names in zip(
-            ["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
+            [None, "nan", "inf", "-inf", "-1000", "0", "0", "1000"],
             ["1", "2", "3", "4", "5", "6", "7", "8"],
         ):
             create_and_log_run(names)
 
         # asc/asc
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id),
         )
 
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id),
         )
 
         # asc/desc
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id),
         )
 
         self.assertListEqual(
-            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id),
         )
 
         # desc / asc
         self.assertListEqual(
-            ["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            ["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id),
         )
 
         # desc / desc
         self.assertListEqual(
-            ["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            ["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4", "nan/2", "None/1"],
             self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id),
         )
 
@@ -1518,6 +1567,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         assert runs[:1000] == self._search(exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
+            if n == 0 and self.store._get_dialect() == MSSQL:
+                # In SQL server, `max_results = 0` results in the following error:
+                # The number of rows provided for a FETCH clause must be greater then zero.
+                continue
             assert runs[: min(1200, n)] == self._search(exp, max_results=n)
 
         with self.assertRaises(MlflowException) as e:
@@ -1535,6 +1588,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             ]
         )
         for n in [0, 1, 2, 4, 8, 10, 20]:
+            if n == 0 and self.store._get_dialect() == MSSQL:
+                # In SQL server, `max_results = 0` results in the following error:
+                # The number of rows provided for a FETCH clause must be greater then zero.
+                continue
             assert runs[: min(10, n)] == self._search(exp, max_results=n)
 
     def test_search_runs_pagination(self):
@@ -1810,18 +1867,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
         following code from the directory containing this test suite:
 
-        >>> import json
-        >>> import mlflow
-        >>> from mlflow.tracking.client import MlflowClient
-        >>> mlflow.set_tracking_uri(
-        ...     "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
-        >>> client = MlflowClient()
-        >>> summary_metrics = {
-        ...     run.info.run_id: run.data.metrics for run
-        ...     in client.search_runs(experiment_ids="0")
-        ... }
-        >>> with open("dump.json", "w") as dump_file:
-        >>>     json.dump(summary_metrics, dump_file, indent=4)
+        .. code-block:: python
+
+          import json
+          import mlflow
+          from mlflow.tracking.client import MlflowClient
+
+          mlflow.set_tracking_uri(
+              "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+          client = MlflowClient()
+          summary_metrics = {
+              run.info.run_id: run.data.metrics for run
+              in client.search_runs(experiment_ids="0")
+          }
+          with open("dump.json", "w") as dump_file:
+              json.dump(summary_metrics, dump_file, indent=4)
+
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         db_resources_path = os.path.normpath(
@@ -1871,7 +1932,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     "value": i,
                     "timestamp": i * 2,
                     "step": i * 3,
-                    "is_nan": 0,
+                    "is_nan": False,
                     "run_uuid": run_id,
                 }
                 metrics_list.append(metric)
@@ -1893,7 +1954,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                     "value": current_run,
                     "timestamp": 100 * 2,
                     "step": 100 * 3,
-                    "is_nan": 0,
+                    "is_nan": False,
                     "run_uuid": run_id,
                 }
             )
@@ -1995,23 +2056,18 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
 
-class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
+class TestSqlAlchemyStoreMigratedDB(TestSqlAlchemyStore):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
     then migrates their DB.
     """
 
     def setUp(self):
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        super()._setup_db_uri()
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
         invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
-
-    def tearDown(self):
-        os.remove(self.temp_dbfile)
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)

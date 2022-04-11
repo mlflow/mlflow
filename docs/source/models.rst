@@ -100,6 +100,31 @@ Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
 For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
 
+.. note::
+    Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
+
+    MLflow models logged before `v1.18 <https://mlflow.org/news/2021/06/18/1.18.0-release/index.html>`_ were by default logged with the conda ``defaults`` channel (`https://repo.anaconda.com/pkgs/ <https://repo.anaconda.com/pkgs/>`_) as a dependency. Because of this license change, MLflow has stopped the use of the ``defaults`` channel for models logged using MLflow v1.18 and above. The default channel logged is now ``conda-forge``, which points at the community managed `https://conda-forge.org/ <https://conda-forge.org/>`_.
+
+    If you logged a model before MLflow v1.18 without excluding the ``defaults`` channel from the conda environment for the model, that model may have a dependency on the ``defaults`` channel that you may not have intended.
+    To manually confirm whether a model has this dependency, you can examine ``channel`` value in the ``conda.yaml`` file that is packaged with the logged model. For example, a model’s ``conda.yaml`` with a ``defaults`` channel dependency may look like this:
+
+    .. code-block:: yaml
+
+        name: mlflow-env
+        channels:
+        - defaults
+        dependencies:
+        - python=3.8.8
+        - pip
+        - pip:
+            - mlflow
+            - scikit-learn==0.23.2
+            - cloudpickle==1.6.0
+
+    If you would like to change the channel used in a model’s environment, you can re-register the model to the model registry with a new ``conda.yaml``. You can do this by specifying the channel in the ``conda_env`` parameter of ``log_model()``.
+
+    For more information on the ``log_model()`` API, see the MLflow documentation for the model flavor you are working with, for example, :py:func:`mlflow.sklearn.log_model() <mlflow.sklearn.log_model>`.
+
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 requirements.txt
@@ -125,18 +150,18 @@ The following shows an example of saving a model with a manually specified conda
 
 The written ``conda.yaml`` file:
 
-.. code-block:: text
+.. code-block:: yaml
 
+    name: mlflow-env
     channels:
       - conda-forge
-      dependencies:
-      - python=3.8.8
-      - pip
-      - pip:
-        - mlflow
-        - scikit-learn==0.23.2
-        - cloudpickle==1.6.0
-    name: mlflow-env
+    dependencies:
+    - python=3.8.8
+    - pip
+    - pip:
+      - mlflow
+      - scikit-learn==0.23.2
+      - cloudpickle==1.6.0
 
 The written ``requirements.txt`` file:
 
@@ -922,7 +947,91 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 69%
 
-More information about model evaluation behaviors and outputs is available in the
+
+Evaluating with Custom Metrics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+:py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
+functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
+of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
+accept an additional string argument representing the path to the temporary directory that can be used to store such
+artifacts.
+
+The following `short example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
+uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
+`California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
+Note that custom metric functions can return both metrics and artifacts. They can either return a single
+dictionary of metrics, or two dictionaries representing metrics and artifacts.
+
+.. code-block:: py
+
+    from sklearn.linear_model import LinearRegression
+    from sklearn.datasets import fetch_california_housing
+    from sklearn.model_selection import train_test_split
+    import numpy as np
+    import mlflow
+    import os
+    import matplotlib.pyplot as plt
+
+    # loading the California housing dataset
+    cali_housing = fetch_california_housing(as_frame=True)
+
+    # split the dataset into train and test partitions
+    X_train, X_test, y_train, y_test = train_test_split(
+        cali_housing.data, cali_housing.target, test_size=0.2, random_state=123
+    )
+
+    # train the model
+    lin_reg = LinearRegression().fit(X_train, y_train)
+
+    # creating the evaluation dataframe
+    eval_data = X_test.copy()
+    eval_data["target"] = y_test
+
+
+    def example_custom_metric_fn(eval_df, builtin_metrics, artifacts_dir):
+        """
+        This example custom metric function creates a metric based on the ``prediction`` and
+        ``target`` columns in ``eval_df`` and a metric derived from existing metrics in
+        ``builtin_metrics``. It also generates and saves a scatter plot to ``artifacts_dir`` that
+        visualizes the relationship between the predictions and targets for the given model to a
+        file as an image artifact.
+        """
+        metrics = {
+            "squared_diff_plus_one": np.sum(np.abs(eval_df["prediction"] - eval_df["target"] + 1) ** 2),
+            "sum_on_label_divided_by_two": builtin_metrics["sum_on_label"] / 2,
+        }
+        plt.scatter(eval_df["prediction"], eval_df["target"])
+        plt.xlabel("Targets")
+        plt.ylabel("Predictions")
+        plt.title("Targets vs. Predictions")
+        plot_path = os.path.join(artifacts_dir, "example_scatter_plot.png")
+        plt.savefig(plot_path)
+        artifacts = {"example_scatter_plot_artifact": plot_path}
+        return metrics, artifacts
+
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(lin_reg, "model")
+        model_uri = mlflow.get_artifact_uri("model")
+        result = mlflow.evaluate(
+            model=model_uri,
+            data=eval_data,
+            targets="target",
+            model_type="regressor",
+            dataset_name="cali_housing",
+            evaluators=["default"],
+            custom_metrics=[example_custom_metric_fn],
+        )
+
+
+For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
+
+Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 
 Model Customization
@@ -1304,54 +1413,101 @@ For more info, see:
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
-platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
-accepts the following data formats as input:
+The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
+
+The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`mlflow.azureml.deploy` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+.. warning::
+    The ``TensorSpec`` input format is not fully supported for deployments on Azure Machine Learning at the moment. Be aware that many ``autolog()`` implementations may use ``TensorSpec`` for model's signatures when logging models and hence those deployments will fail in Azure ML.
 
-.. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
+Deployments can be generated using both the Python API or MLflow CLI. In both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. The full specification of this configuration file can be checked at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_. Also, you will also need the Azure ML MLflow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
-.. rubric:: Example workflow using the Python API
+* Through the `Azure ML Studio <https://ml.azure.com>`_:
+
+  * Navigate to `Azure ML Studio <https://ml.azure.com>`_ and select the workspace you are working on.
+  * Click on the name of the workspace at the upper right corner of the page.
+  * Click "View all properties in Azure Portal" on the pane popup.
+  * Copy the ``MLflow tracking URI`` value from the properties section.
+
+* Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
+
+
+.. rubric:: Configuration example for ACI deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aci",
+      "containerResourceRequirements": 
+      {
+        "cpu": 1,
+        "memoryInGB": 1
+      },
+      "location": "eastus2",
+    }
+
+Remarks:
+ * If ``containerResourceRequirements`` is not indicated, a deployment with minimal compute configuration is applied (``cpu: 0.1`` and ``memory: 0.5``).
+ * If ``location`` is not indicated, it defaults to the location of the workspace.
+
+.. rubric:: Configuration example for an AKS deployment
+
+.. code-block:: json
+
+    {
+      "computeType": "aks",
+      "computeTargetName": "aks-mlflow"
+    }
+
+Remarks:
+  * In above exmaple, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
+
+The following examples show how to create a deployment in ACI. Please, ensure you have `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ installed before continuing.
+
+.. rubric:: Example: Workflow using the Python API
 
 .. code-block:: py
 
-    import mlflow.azureml
+    import json
+    from mlflow.deployments import get_deploy_client
 
-    from azureml.core import Workspace
-    from azureml.core.webservice import AciWebservice, Webservice
+    # Create the deployment configuration.
+    # If no deployment configuration is provided, then the deployment happens on ACI.
+    deploy_config = {
+        "computeType": "aci"
+    }
 
+    # Write the deployment configuration into a file.
+    deployment_config_path = "deployment_config.json"
+    with open(deployment_config_path, "w") as outfile:
+        outfile.write(json.dumps(deploy_config))
 
-    # Create or load an existing Azure ML workspace. You can also load an existing workspace using
-    # Workspace.get(name="<workspace_name>")
-    workspace_name = "<Name of your Azure ML workspace>"
-    subscription_id = "<Your Azure subscription ID>"
-    resource_group = "<Name of the Azure resource group in which to create Azure ML resources>"
-    location = "<Name of the Azure location (region) in which to create Azure ML resources>"
-    azure_workspace = Workspace.create(name=workspace_name,
-                                       subscription_id=subscription_id,
-                                       resource_group=resource_group,
-                                       location=location,
-                                       create_resource_group=True,
-                                       exist_okay=True)
-    # Create a deployment config
-    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
+    # Set the tracking uri in the deployment client.
+    client = get_deploy_client("<azureml-mlflow-tracking-url>")
 
-    # Register and deploy model to Azure Container Instance (ACI)
-    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
-                                                workspace=azure_workspace,
-                                                model_name='mymodelname',
-                                                service_name='myservice',
-                                                deployment_config=aci_config)
+    # MLflow requires the deployment configuration to be passed as a dictionary.
+    config = {'deploy-config-file': deployment_config_path}
+    model_name = "mymodel"
+    model_version = 1
+
+    # define the model path and the name is the service name
+    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below 
+    client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
+                            config=config,
+                            name="mymodel-aci-deployment")
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # webservice's scoring URI. 
     print("Scoring URI is: %s", webservice.scoring_uri)
 
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     import requests
     import json
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
@@ -1379,21 +1535,21 @@ accepts the following data formats as input:
     response_json = json.loads(response.text)
     print(response_json)
 
-.. rubric:: Example workflow using the MLflow CLI
+.. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
+    
+    echo "{ computeType: aci }" > deployment_config.json
+    mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
-    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
-    mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
-
-    az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
-
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. The following example posts a sample input from the wine dataset
-    # used in the MLflow ElasticNet example:
-    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
+    # After the deployment completes, requests can be posted via HTTP to the new ACI
+    # webservice's scoring URI.
 
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
+
+    # The following example posts a sample input from the wine dataset
+    # used in the MLflow ElasticNet example:
+    # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
 
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input='
@@ -1421,12 +1577,18 @@ accepts the following data formats as input:
     -H 'Content-Type: application/json'\
     -d @-
 
+You can also test your deployments locally first using the option `run-local`:
+
+.. code-block:: bash
+
+    mlflow deployments run-local --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url>
+
 For more info, see:
 
 .. code-block:: bash
 
-    mlflow azureml --help
-    mlflow azureml build-image --help
+    mlflow deployments help -t azureml
+
 
 .. _sagemaker_deployment:
 

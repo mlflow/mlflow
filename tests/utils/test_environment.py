@@ -51,7 +51,7 @@ def test_mlflow_conda_env_includes_pip_dependencies_but_pip_is_not_specified(con
     if conda_deps is not None:
         for conda_dep in conda_deps:
             assert conda_dep in env["dependencies"]
-    assert f"pip={pip.__version__}" in env["dependencies"]
+    assert f"pip<={pip.__version__}" in env["dependencies"]
 
 
 @pytest.mark.parametrize("pip_specification", ["pip", "pip==20.0.02"])

@@ -46,11 +46,11 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
       - name: Install dependencies
@@ -99,7 +99,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
@@ -113,7 +113,7 @@ jobs:
             java_version=11
           fi
           echo "::set-output name=version::$java_version"
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v3
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"

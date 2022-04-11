@@ -37,7 +37,7 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="package")
 def docker_example_base_image():
     import docker
     from docker.errors import BuildError, APIError

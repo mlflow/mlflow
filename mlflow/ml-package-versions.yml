@@ -42,7 +42,9 @@ pytorch-lightning:
   autologging:
     minimum: "1.0.5"
     maximum: "1.5.10"
-    requirements: ["torchvision", "scikit-learn"]
+    requirements:
+      "< 1.2.0": ["torch<1.11.0", "torchvision", "scikit-learn"]
+      ">= 1.2.0": ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
 
@@ -244,7 +246,9 @@ spacy:
   models:
     minimum: "2.2.4"
     maximum: "3.2.2"
-    requirements: ["scikit-learn"]
+    requirements:
+      "<= 3.0.8": ["scikit-learn", "click<8.1.0", "flask<2.1.0"]
+      "> 3.0.8": ["scikit-learn", "click<8.1.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
 

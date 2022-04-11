@@ -28,6 +28,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("catboost") else ["--no-conda"]
@@ -108,7 +109,7 @@ def test_model_save_load(cb_model, model_path):
         loaded_model.predict(inference_dataframe),
     )
 
-    loaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
     np.testing.assert_array_almost_equal(
         loaded_model.predict(inference_dataframe),
         loaded_pyfunc.predict(inference_dataframe),
@@ -419,3 +420,15 @@ def test_pyfunc_serve_and_score_sklearn(reg_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe.head(3)))
+
+
+def test_log_model_with_code_paths(cb_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.catboost._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.catboost.log_model(cb_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.catboost.FLAVOR_NAME)
+        mlflow.catboost.load_model(model_uri=model_uri)
+        add_mock.assert_called()

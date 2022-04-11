@@ -9,19 +9,32 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.string_utils import truncate_str_from_middle
 from mlflow.models.utils import plot_lines
-from mlflow.models.evaluation.artifacts import ImageEvaluationArtifact, CsvEvaluationArtifact
+from mlflow.models.evaluation.artifacts import (
+    ImageEvaluationArtifact,
+    CsvEvaluationArtifact,
+    NumpyEvaluationArtifact,
+    _infer_artifact_type_and_ext,
+    JsonEvaluationArtifact,
+)
 
 from sklearn import metrics as sk_metrics
 import math
+import json
 from collections import namedtuple
+from typing import NamedTuple, Callable
+import tempfile
 import numbers
 import pandas as pd
 import numpy as np
 import copy
+import shutil
 import time
+import pickle
 from functools import partial
 import logging
 from packaging.version import Version
+import inspect
+import pathlib
 
 _logger = logging.getLogger(__name__)
 
@@ -263,15 +276,30 @@ _matplotlib_config = {
 }
 
 
-def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
+class _CustomMetric(NamedTuple):
+    """
+    A namedtuple representing a custom metric function and its properties.
+
+    function : the custom metric function
+    name : the name of the custom metric function
+    index : the index of the function in the ``custom_metrics`` argument of mlflow.evaluate
+    artifacts_dir : the path to a temporary directory to store produced artifacts of the function
+    """
+
+    function: Callable
+    name: str
+    index: int
+    artifacts_dir: str
+
+
+def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     """
     This function calls the `custom_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
     the result is not in the expected format.
 
-    :param index: The index of the custom metric function in the custom_metrics parameter
-                  of the mlflow.evaluate function.
-    :param custom_metric: A user provided custom metric function.
+    :param custom_metric_tuple: Containing a user provided function and its index in the
+                                ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
     :return: A tuple of dictionaries. The first is a dictionary of metrics, the second is
@@ -279,12 +307,17 @@ def _evaluate_custom_metric(index, custom_metric, eval_df, builtin_metrics):
              not produce any).
     """
     exception_header = (
-        f"Custom metric function "
-        f"'{getattr(custom_metric, '__name__', repr(custom_metric))}' at index {index} in the "
-        f"`custom_metrics` parameter"
+        f"Custom metric function '{custom_metric_tuple.name}' at index {custom_metric_tuple.index}"
+        " in the `custom_metrics` parameter"
     )
 
-    result = custom_metric(eval_df, builtin_metrics)
+    if len(inspect.signature(custom_metric_tuple.function).parameters) == 3:
+        result = custom_metric_tuple.function(
+            eval_df, builtin_metrics, custom_metric_tuple.artifacts_dir
+        )
+    else:
+        result = custom_metric_tuple.function(eval_df, builtin_metrics)
+
     if result is None:
         raise MlflowException(f"{exception_header} returned None.")
 
@@ -616,7 +649,84 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _evaluate_custom_metrics(self):
+    def _log_custom_metric_artifact(self, artifact_name, raw_artifact, custom_metric_tuple):
+        """
+        This function logs and returns a custom metric artifact. Two cases:
+            - The provided artifact is a path to a file, the function will make a copy of it with
+              a formatted name in a temporary directory and call mlflow.log_artifact.
+            - Otherwise: will attempt to save the artifact to an temporary path with an inferred
+              type. Then call mlflow.log_artifact.
+
+        :param artifact_name: the name of the artifact
+        :param raw_artifact:  the object representing the artifact
+        :param custom_metric_tuple: an instance of the _CustomMetric namedtuple
+        :return: EvaluationArtifact
+        """
+
+        exception_and_warning_header = (
+            f"Custom metric function '{custom_metric_tuple.name}' at index "
+            f"{custom_metric_tuple.index} in the `custom_metrics` parameter"
+        )
+
+        inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
+            artifact_name, raw_artifact, custom_metric_tuple
+        )
+        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + inferred_ext
+        artifact_file_local_path = self.temp_dir.path(artifact_file_name)
+
+        if pathlib.Path(artifact_file_local_path).exists():
+            raise MlflowException(
+                f"{exception_and_warning_header} produced an artifact '{artifact_name}' that "
+                "cannot be logged because there already exists an artifact with the same name."
+            )
+
+        # ParquetEvaluationArtifact isn't explicitly stated here because such artifacts can only
+        # be supplied through file. Which is handled by the first if clause. This is because
+        # DataFrame objects default to be stored as CsvEvaluationArtifact.
+        if inferred_from_path:
+            shutil.copyfile(raw_artifact, artifact_file_local_path)
+        elif inferred_type is JsonEvaluationArtifact:
+            with open(artifact_file_local_path, "w") as f:
+                if isinstance(raw_artifact, str):
+                    f.write(raw_artifact)
+                else:
+                    json.dump(raw_artifact, f)
+        elif inferred_type is CsvEvaluationArtifact:
+            raw_artifact.to_csv(artifact_file_local_path, index=False)
+        elif inferred_type is NumpyEvaluationArtifact:
+            np.save(artifact_file_local_path, raw_artifact, allow_pickle=False)
+        elif inferred_type is ImageEvaluationArtifact:
+            raw_artifact.savefig(artifact_file_local_path)
+        else:
+            # storing as pickle
+            try:
+                with open(artifact_file_local_path, "wb") as f:
+                    pickle.dump(raw_artifact, f)
+                _logger.warning(
+                    f"{exception_and_warning_header} produced an artifact '{artifact_name}'"
+                    f" with type '{type(raw_artifact)}' that is logged as a pickle artifact."
+                )
+            except pickle.PickleError:
+                raise MlflowException(
+                    f"{exception_and_warning_header} produced an unsupported artifact "
+                    f"'{artifact_name}' with type '{type(raw_artifact)}' that cannot be pickled. "
+                    "Supported object types for artifacts are:\n"
+                    "- A string uri representing the file path to the artifact. MLflow"
+                    "  will infer the type of the artifact based on the file extension.\n"
+                    "- A string representation of a JSON object. This will be saved as a "
+                    ".json artifact.\n"
+                    "- Pandas DataFrame. This will be saved as a .csv artifact."
+                    "- Numpy array. This will be saved as a .npy artifact."
+                    "- Matplotlib Figure. This will be saved as an .png image artifact."
+                    "- Other objects will be attempted to be pickled with default protocol."
+                )
+
+        mlflow.log_artifact(artifact_file_local_path)
+        artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
+        artifact._load(artifact_file_local_path)
+        return artifact
+
+    def _evaluate_custom_metrics_and_log_produced_artifacts(self):
         if self.custom_metrics is None:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
@@ -624,13 +734,39 @@ class DefaultEvaluator(ModelEvaluator):
             {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
         )
         for index, custom_metric in enumerate(self.custom_metrics):
-            # deepcopying eval_df and builtin_metrics for each custom metric function call,
-            # in case the user modifies them inside their function(s).
-            metric_results, _ = _evaluate_custom_metric(
-                index, custom_metric, eval_df.copy(), copy.deepcopy(builtin_metrics)
-            )
-            self.metrics.update(metric_results)
-            # TODO: artifact detection and logging.
+            with tempfile.TemporaryDirectory() as artifacts_dir:
+                custom_metric_tuple = _CustomMetric(
+                    function=custom_metric,
+                    index=index,
+                    name=getattr(custom_metric, "__name__", repr(custom_metric)),
+                    artifacts_dir=artifacts_dir,
+                )
+                # deepcopying eval_df and builtin_metrics for each custom metric function call,
+                # in case the user modifies them inside their function(s).
+                metric_results, artifact_results = _evaluate_custom_metric(
+                    custom_metric_tuple,
+                    eval_df.copy(),
+                    copy.deepcopy(builtin_metrics),
+                )
+                self.metrics.update(metric_results)
+                if artifact_results is not None:
+                    for artifact_name, raw_artifact in artifact_results.items():
+                        self.artifacts[artifact_name] = self._log_custom_metric_artifact(
+                            artifact_name,
+                            raw_artifact,
+                            custom_metric_tuple,
+                        )
+
+    def _log_and_return_evaluation_result(self):
+        """
+        This function logs all of the produced metrics and artifacts (including custom metrics)
+        along with model explainability. Then, returns an instance of EvaluationResult.
+        :return:
+        """
+        self._evaluate_custom_metrics_and_log_produced_artifacts()
+        self._log_metrics()
+        self._log_model_explainability()
+        return EvaluationResult(self.metrics, self.artifacts)
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
@@ -710,19 +846,13 @@ class DefaultEvaluator(ModelEvaluator):
                 "confusion_matrix",
             )
 
-        self._evaluate_custom_metrics()
-        self._log_metrics()
-        self._log_model_explainability()
-        return EvaluationResult(self.metrics, self.artifacts)
+        return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
-        self._evaluate_custom_metrics()
-        self._log_metrics()
-        self._log_model_explainability()
-        return EvaluationResult(self.metrics, self.artifacts)
+        return self._log_and_return_evaluation_result()
 
     def evaluate(
         self,

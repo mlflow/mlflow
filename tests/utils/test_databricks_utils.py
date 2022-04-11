@@ -21,6 +21,7 @@ def test_no_throw():
     None.
     """
     assert not databricks_utils.is_in_databricks_notebook()
+    assert not databricks_utils.is_in_databricks_repo_notebook()
     assert not databricks_utils.is_in_databricks_job()
     assert not databricks_utils.is_dbfs_fuse_available()
     assert not databricks_utils.is_in_databricks_runtime()
@@ -304,13 +305,22 @@ def get_context():
 
     with mock.patch(
         "dbruntime.databricks_repl_context.get_context",
-        return_value=mock.MagicMock(notebookId="notebook_id"),
+        return_value=mock.MagicMock(notebookId="notebook_id", notebookPath="/Repos/notebook_path"),
     ) as mock_get_context, mock.patch(
         "mlflow.utils.databricks_utils._get_property_from_spark_context"
     ) as mock_spark_context:
         assert databricks_utils.get_notebook_id() == "notebook_id"
-        mock_get_context.assert_called_once()
+        assert databricks_utils.is_in_databricks_repo_notebook()
+        assert mock_get_context.call_count == 2
         mock_spark_context.assert_not_called()
+
+    with mock.patch(
+        "dbruntime.databricks_repl_context.get_context",
+        return_value=mock.MagicMock(notebookId="notebook_id", notebookPath="/Users/notebook_path"),
+    ) as mock_get_context, mock.patch(
+        "mlflow.utils.databricks_utils._get_property_from_spark_context"
+    ) as mock_spark_context:
+        assert not databricks_utils.is_in_databricks_repo_notebook()
 
     with mock.patch(
         "dbruntime.databricks_repl_context.get_context",

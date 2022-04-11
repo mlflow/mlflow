@@ -56,7 +56,11 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration_from_uri,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -100,6 +104,7 @@ def log_model(
     spark_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     registered_model_name=None,
@@ -116,7 +121,8 @@ def log_model(
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
@@ -211,6 +217,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -231,6 +238,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -251,6 +259,7 @@ def log_model(
             mlflow_model,
             sample_input,
             conda_env,
+            code_paths,
             signature=signature,
             input_example=input_example,
         )
@@ -381,6 +390,7 @@ def _save_model_metadata(
     mlflow_model,
     sample_input,
     conda_env,
+    code_paths,
     signature=None,
     input_example=None,
     pip_requirements=None,
@@ -405,14 +415,19 @@ def _save_model_metadata(
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
 
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, dst_dir)
     mlflow_model.add_flavor(
-        FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
+        FLAVOR_NAME,
+        pyspark_version=pyspark.__version__,
+        model_data=_SPARK_MODEL_PATH_SUB,
+        code=code_dir_subpath,
     )
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
@@ -451,15 +466,19 @@ def _save_model_metadata(
 def _validate_model(spark_model):
     from pyspark.ml.util import MLReadable, MLWritable
     from pyspark.ml import Model as PySparkModel
+    from pyspark.ml import Transformer as PySparkTransformer
 
     if (
-        not isinstance(spark_model, PySparkModel)
+        (
+            not isinstance(spark_model, PySparkModel)
+            and not isinstance(spark_model, PySparkTransformer)
+        )
         or not isinstance(spark_model, MLReadable)
         or not isinstance(spark_model, MLWritable)
     ):
         raise MlflowException(
-            "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
-            "that implement MLWritable and MLReadable.",
+            "Cannot serialize this model. MLflow can only save descendants of pyspark.ml.Model "
+            "or pyspark.ml.Transformer that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -470,6 +489,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     signature: ModelSignature = None,
@@ -485,7 +505,8 @@ def save_model(
     is also serialized in MLeap format and the MLeap flavor is added.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -579,6 +600,7 @@ def save_model(
         mlflow_model=mlflow_model,
         sample_input=sample_input,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         pip_requirements=pip_requirements,
@@ -679,12 +701,15 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_model_path = _download_artifact_from_uri(model_uri)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
@@ -728,7 +753,14 @@ class _PyFuncModelWrapper:
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
+        from pyspark.ml import PipelineModel
+
         spark_df = self.spark.createDataFrame(pandas_df)
+        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
+            "outputCol"
+        ):
+            # make sure predict work by default for Transformers
+            self.spark_model.stages[-1].setOutputCol("prediction")
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()

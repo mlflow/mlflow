@@ -30,7 +30,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
@@ -48,7 +47,12 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -138,6 +142,7 @@ def save_model(
     sk_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     signature: ModelSignature = None,
@@ -156,6 +161,9 @@ def save_model(
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -225,11 +233,9 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -252,12 +258,14 @@ def save_model(
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
             env=_CONDA_ENV_FILE_NAME,
+            code=code_path_subdir,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
         sklearn_version=sklearn.__version__,
         serialization_format=serialization_format,
+        code=code_path_subdir,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -299,6 +307,7 @@ def log_model(
     sk_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
@@ -318,6 +327,9 @@ def log_model(
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
@@ -379,6 +391,7 @@ def log_model(
         flavor=mlflow.sklearn,
         sk_model=sk_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         serialization_format=serialization_format,
         registered_model_name=registered_model_name,
         signature=signature,
@@ -422,7 +435,7 @@ def _load_model_from_local_file(path, serialization_format):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
@@ -550,6 +563,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(
@@ -650,7 +664,7 @@ class _AutologgingMetricsManager:
         as an MLflow metric.
         """
         return isinstance(metric_value, (int, float, np.number)) and not isinstance(
-            metric_value, (bool, np.bool)
+            metric_value, bool
         )
 
     def register_model(self, model, run_id):
