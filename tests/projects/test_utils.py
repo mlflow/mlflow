@@ -2,6 +2,7 @@ import git
 import os
 import tempfile
 
+import requests
 import pytest
 from unittest import mock
 
@@ -103,6 +104,21 @@ def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_v
     _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
     repo = git.Repo(local_git_repo)
     assert repo.active_branch.name == expected_version
+
+
+@pytest.mark.parametrize(
+    "commit",
+    # Fetch the most recent two commits
+    requests.get("https://api.github.com/repos/mlflow/mlflow-example/commits").json()[:2],
+)
+def test_fetch_git_repo_commit(tmp_path, commit):
+    _fetch_git_repo(
+        "https://github.com/mlflow/mlflow-example.git",
+        commit["sha"],
+        tmp_path,
+    )
+    repo = git.Repo(tmp_path)
+    assert repo.commit().hexsha == commit["sha"]
 
 
 def test_fetching_non_existing_version_fails(local_git_repo, local_git_repo_uri):
