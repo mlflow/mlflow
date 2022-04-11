@@ -137,6 +137,10 @@ HOST = click.option(
 
 PORT = click.option("--port", "-p", default=5000, help="The port to listen on (default: 5000).")
 
+TIMEOUT = click.option(
+    "--timeout", "-t", default=60, help="Timeout in seconds to serve a request (default: 60)."
+)
+
 # We use None to disambiguate manually selecting "4"
 WORKERS = click.option(
     "--workers",
