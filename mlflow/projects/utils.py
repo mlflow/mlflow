@@ -188,7 +188,7 @@ def _fetch_git_repo(uri, version, dst_dir):
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch(depth=GIT_FETCH_DEPTH)
+    origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
     if version is not None:
         try:
             repo.git.checkout(version)
