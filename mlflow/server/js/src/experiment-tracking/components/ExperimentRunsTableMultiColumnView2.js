@@ -354,6 +354,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       }));
       const runInfo = runInfos[idx];
 
+      const runUuid = runInfo.getRunUuid();
       const { experiment_id: experimentId } = runInfo;
       const { name: experimentName, basename: experimentBasename } = experimentNameMap[
         experimentId
@@ -369,6 +370,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       }));
 
       return {
+        runUuid,
         runInfo,
         experimentName,
         experimentBasename,
@@ -550,6 +552,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           loadingOverlayComponentParams={{ showImmediately: true }}
           isRowSelectable={this.isRowSelectable}
           noRowsOverlayComponent='noRowsOverlayComponent'
+          getRowId={getRowId}
         />
         <div style={{ textAlign: 'center' }}>
           {// don't show LoadMoreBar if there are no runs at all
@@ -570,6 +573,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   }
 }
 
+function getRowId(params) {
+  return params.data.runUuid;
+}
 
 function DateCellRenderer(props) {
   const {
