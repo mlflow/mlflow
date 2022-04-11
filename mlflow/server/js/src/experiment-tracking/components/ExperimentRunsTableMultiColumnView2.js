@@ -137,10 +137,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     return map;
   }
 
-  static isFullWidthCell(rowNode) {
-    return rowNode.data.isFullWidth;
-  }
-
   getLocalStore = () =>
     LocalStorageUtils.getStoreForComponent(
       'ExperimentRunsTableMultiColumnView2',
@@ -335,11 +331,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       metricKeyList,
       modelVersionsByRunUuid,
       tagsList,
-      nextPageToken,
-      numRunsFromLatestSearch,
       runsExpanded,
       onExpand,
-      loadingMore,
       visibleTagKeyList,
       nestChildren,
     } = this.props;
@@ -397,16 +390,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
       };
     });
-
-    // don't show LoadMoreBar if there are no runs at all
-    if (runs.length) {
-      runs.push({
-        isFullWidth: true,
-        loadingMore,
-        numRunsFromLatestSearch,
-        nextPageToken,
-      });
-    }
 
     return runs;
   }
@@ -526,17 +509,14 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   render() {
     const {
+      runInfos,
       handleLoadMoreRuns,
       loadingMore,
       nextPageToken,
       numRunsFromLatestSearch,
       nestChildren,
     } = this.props;
-    const {
-      defaultColDef,
-      frameworkComponents,
-      isFullWidthCell,
-    } = ExperimentRunsTableMultiColumnView2;
+    const { defaultColDef, frameworkComponents } = ExperimentRunsTableMultiColumnView2;
     const agGridOverrides = css({
       '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
       '--ag-header-foreground-color': '#20272e',
@@ -566,54 +546,30 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           suppressFieldDotNotation
           enableCellTextSelection
           components={frameworkComponents}
-          fullWidthCellRenderer={FullWidthCellRenderer}
-          fullWidthCellRendererParams={{
-            handleLoadMoreRuns,
-            loadingMore,
-            nextPageToken,
-            numRunsFromLatestSearch,
-            nestChildren,
-          }}
           loadingOverlayComponent='loadingOverlayComponent'
           loadingOverlayComponentParams={{ showImmediately: true }}
-          isFullWidthCell={isFullWidthCell}
           isRowSelectable={this.isRowSelectable}
           noRowsOverlayComponent='noRowsOverlayComponent'
         />
+        <div style={{ textAlign: 'center' }}>
+          {// don't show LoadMoreBar if there are no runs at all
+          runInfos.length ? (
+            <LoadMoreBar
+              loadingMore={loadingMore}
+              onLoadMore={handleLoadMoreRuns}
+              disableButton={ExperimentViewUtil.disableLoadMoreButton({
+                numRunsFromLatestSearch,
+                nextPageToken,
+              })}
+              nestChildren={nestChildren}
+            />
+          ) : null}
+        </div>
       </div>
     );
   }
 }
 
-function FullWidthCellRenderer({
-  handleLoadMoreRuns,
-  loadingMore,
-  nextPageToken,
-  numRunsFromLatestSearch,
-  nestChildren,
-}) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <LoadMoreBar
-        loadingMore={loadingMore}
-        onLoadMore={handleLoadMoreRuns}
-        disableButton={ExperimentViewUtil.disableLoadMoreButton({
-          numRunsFromLatestSearch,
-          nextPageToken,
-        })}
-        nestChildren={nestChildren}
-      />
-    </div>
-  );
-}
-
-FullWidthCellRenderer.propTypes = {
-  handleLoadMoreRuns: PropTypes.func,
-  loadingMore: PropTypes.bool,
-  nestChildren: PropTypes.bool,
-  nextPageToken: PropTypes.string,
-  numRunsFromLatestSearch: PropTypes.number,
-};
 
 function DateCellRenderer(props) {
   const {
