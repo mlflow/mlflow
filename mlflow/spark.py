@@ -356,7 +356,7 @@ class _HadoopFileSystem:
             # Log a debug-level message, since existence checks may raise exceptions
             # in normal operating circumstances that do not warrant warnings
             _logger.debug(
-                "Unexpected exception while checking if model uri is visible on " "DFS: %s", ex
+                "Unexpected exception while checking if model uri is visible on DFS: %s", ex
             )
         return False
 

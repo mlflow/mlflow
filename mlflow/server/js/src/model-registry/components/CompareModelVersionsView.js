@@ -468,7 +468,7 @@ export class CompareModelVersionsViewImpl extends Component {
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
-            runInfos[0].experiment_id,
+            [runInfos[0].experiment_id],
           )}
           target='_blank'
           title='Plot chart'

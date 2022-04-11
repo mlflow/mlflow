@@ -91,6 +91,10 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
 
     if module_name == "pyspark" and is_in_databricks_runtime():
+        # MLflow 1.25.0 is known to be compatible with PySpark 3.3.0 on Databricks, despite the
+        # fact that PySpark 3.3.0 was not available in PyPI at the time of the MLflow 1.25.0 release
+        if Version(max_version) < Version("3.3.0"):
+            max_version = "3.3.0"
         return _check_spark_version_in_range(actual_version, min_version, max_version)
     else:
         return _check_version_in_range(actual_version, min_version, max_version)

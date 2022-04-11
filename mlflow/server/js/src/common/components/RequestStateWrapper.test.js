@@ -3,7 +3,7 @@ import { RequestStateWrapper, DEFAULT_ERROR_MESSAGE } from './RequestStateWrappe
 import { ErrorCodes } from '../constants';
 import { shallow } from 'enzyme';
 import { Spinner } from './Spinner';
-import { ErrorWrapper } from '../utils/ActionUtils';
+import { ErrorWrapper } from '../utils/ErrorWrapper';
 
 const activeRequest = {
   id: 'a',
@@ -19,17 +19,13 @@ const completeRequest = {
 const errorRequest = {
   id: 'errorId',
   active: false,
-  error: new ErrorWrapper({
-    responseText: `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`,
-  }),
+  error: new ErrorWrapper(`{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}"}`, 404),
 };
 
 const non404ErrorRequest = {
   id: 'errorId2',
   active: false,
-  error: new ErrorWrapper({
-    responseText: `{"error_code": "${ErrorCodes.INTERNAL_ERROR}"}`,
-  }),
+  error: new ErrorWrapper(`{"error_code": "${ErrorCodes.INTERNAL_ERROR}"}`, 500),
 };
 
 test('Renders loading page when requests are not complete', () => {

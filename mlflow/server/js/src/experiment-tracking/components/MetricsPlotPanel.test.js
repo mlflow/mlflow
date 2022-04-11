@@ -29,7 +29,7 @@ describe('unit tests', () => {
   beforeEach(() => {
     const location = {
       search:
-        '?runs=["runUuid1","runUuid2"]&experiment=0' +
+        '?runs=["runUuid1","runUuid2"]&experiments=["1"]' +
         '&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
     const history = {
@@ -41,7 +41,7 @@ describe('unit tests', () => {
     getRunApi = jest.fn(() => Promise.resolve());
     const now = new Date().getTime();
     minimalPropsForLineChart = {
-      experimentId: '1',
+      experimentIds: ['1'],
       runUuids: ['runUuid1', 'runUuid2'],
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
@@ -106,7 +106,7 @@ describe('unit tests', () => {
     };
 
     minimalPropsForBarChart = {
-      experimentId: '1',
+      experimentIds: ['1'],
       runUuids: ['runUuid1', 'runUuid2'],
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
@@ -377,7 +377,7 @@ describe('unit tests', () => {
       ],
     };
     const props = {
-      experimentId: '1',
+      experimentIds: ['1'],
       visible: true,
       x: 1,
       y: 1,
@@ -407,7 +407,7 @@ describe('unit tests', () => {
       expect(popover.props().x).toEqual(props.x);
       expect(popover.props().y).toEqual(props.y);
       expect(popover.props().visible).toEqual(props.visible);
-      expect(popover.props().experimentId).toEqual(props.experimentId);
+      expect(popover.props().experimentIds).toEqual(props.experimentId);
       expect(popover.props().runItems).toEqual(props.runItems);
       done();
     }, 1000);

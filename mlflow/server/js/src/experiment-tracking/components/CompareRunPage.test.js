@@ -15,14 +15,18 @@ describe('CompareRunPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       location: {
         search: {
           '?runs': '["runn-1234-5678-9012", "runn-1234-5678-9034"]',
-          experiment: '12345',
+          experiments: '["12345"]',
         },
       },
-      experimentId: '12345',
+      experimentIds: ['12345'],
       runUuids: ['runn-1234-5678-9012', 'runn-1234-5678-9034'],
       dispatch: jest.fn(),
     };

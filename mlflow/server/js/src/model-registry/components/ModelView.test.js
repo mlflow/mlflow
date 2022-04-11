@@ -45,6 +45,10 @@ describe('ModelView', () => {
   };
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     historyMock = jest.fn();
     minimalProps = {
       model: mockRegisteredModelDetailed(

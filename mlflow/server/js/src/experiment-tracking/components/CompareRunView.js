@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
+import { withRouter } from 'react-router';
 import { injectIntl, FormattedMessage } from 'react-intl';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
@@ -21,8 +22,10 @@ const { TabPane } = Tabs;
 
 export class CompareRunView extends Component {
   static propTypes = {
-    experiment: PropTypes.instanceOf(Experiment).isRequired,
-    experimentId: PropTypes.string.isRequired,
+    experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)).isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+    comparedExperimentIds: PropTypes.arrayOf(PropTypes.string),
+    hasComparedExperimentsBefore: PropTypes.bool,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
@@ -45,7 +48,6 @@ export class CompareRunView extends Component {
       onlyShowMetricDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
-    this.onTableBlockScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
 
     this.runDetailsTableRef = React.createRef();
@@ -104,45 +106,185 @@ export class CompareRunView extends Component {
     return colWidth;
   }
 
-  render() {
-    const { experiment } = this.props;
-    const experimentId = experiment.getExperimentId();
-    const { runInfos, runNames } = this.props;
+  renderExperimentNameRowItems() {
+    const { experiments } = this.props;
+    const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments));
+    return this.props.runInfos.map(({ experiment_id, run_uuid }) => {
+      const { name, basename } = experimentNameMap[experiment_id];
+      return (
+        <td className='meta-info' key={run_uuid}>
+          <Link to={Routes.getExperimentPageRoute(experiment_id)} title={name}>
+            {basename}
+          </Link>
+        </td>
+      );
+    });
+  }
 
-    const colWidth = this.getTableColumnWidth();
-    const colWidthStyle = {
-      width: `${colWidth}px`,
-      minWidth: `${colWidth}px`,
-      maxWidth: `${colWidth}px`,
-    };
+  hasMultipleExperiments() {
+    return this.props.experimentIds.length > 1;
+  }
 
-    const title = (
+  shouldShowExperimentNameRow() {
+    return this.props.hasComparedExperimentsBefore || this.hasMultipleExperiments();
+  }
+
+  getExperimentPageLink(experimentId, experimentName) {
+    return <Link to={Routes.getExperimentPageRoute(experimentId)}>{experimentName}</Link>;
+  }
+
+  getCompareExperimentsPageLinkText(numExperiments) {
+    return (
       <FormattedMessage
-        defaultMessage='Comparing {runs} Runs'
-        description='Breadcrumb title for compare runs page'
+        defaultMessage='Displaying Runs from {numExperiments} Experiments'
+        // eslint-disable-next-line max-len
+        description='Breadcrumb nav item to link to compare-experiments page on compare runs page'
+        values={{ numExperiments }}
+      />
+    );
+  }
+
+  getCompareExperimentsPageLink(experimentIds) {
+    return (
+      <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>
+        {this.getCompareExperimentsPageLinkText(experimentIds.length)}
+      </Link>
+    );
+  }
+
+  getExperimentLink() {
+    const {
+      comparedExperimentIds,
+      hasComparedExperimentsBefore,
+      experimentIds,
+      experiments,
+    } = this.props;
+
+    if (hasComparedExperimentsBefore) {
+      return this.getCompareExperimentsPageLink(comparedExperimentIds);
+    }
+
+    if (this.hasMultipleExperiments()) {
+      return this.getCompareExperimentsPageLink(experimentIds);
+    }
+
+    return this.getExperimentPageLink(experimentIds[0], experiments[0].name);
+  }
+
+  getTitle() {
+    return this.hasMultipleExperiments() ? (
+      <FormattedMessage
+        defaultMessage='Comparing {numRuns} Runs from {numExperiments} Experiments'
+        // eslint-disable-next-line max-len
+        description='Breadcrumb title for compare runs page with multiple experiments'
         values={{
-          runs: this.props.runInfos.length,
+          numRuns: this.props.runInfos.length,
+          numExperiments: this.props.experimentIds.length,
+        }}
+      />
+    ) : (
+      <FormattedMessage
+        defaultMessage='Comparing {numRuns} Runs from 1 Experiment'
+        description='Breadcrumb title for compare runs page with single experiment'
+        values={{
+          numRuns: this.props.runInfos.length,
         }}
       />
     );
-    /* eslint-disable-next-line prefer-const */
-    let breadcrumbs = [
-      <Link to={Routes.getExperimentPageRoute(experimentId)}>{experiment.getName()}</Link>,
-      title,
-    ];
+  }
 
+  renderParamTable(colWidth) {
+    const dataRows = this.renderDataRows(
+      this.props.paramLists,
+      colWidth,
+      this.state.onlyShowParamDiff,
+      true,
+    );
+    if (dataRows.length === 0) {
+      return (
+        <h2>
+          <FormattedMessage
+            defaultMessage='No parameters to display.'
+            description='Text shown when there are no parameters to display'
+          />
+        </h2>
+      );
+    }
+    return (
+      <table
+        className='table compare-table compare-run-table'
+        style={{ maxHeight: '500px' }}
+        onScroll={this.onCompareRunTableScrollHandler}
+      >
+        <tbody>{dataRows}</tbody>
+      </table>
+    );
+  }
+
+  renderMetricTable(colWidth, experimentIds) {
+    const dataRows = this.renderDataRows(
+      this.props.metricLists,
+      colWidth,
+      this.state.onlyShowMetricDiff,
+      false,
+      (key, data) => {
+        return (
+          <Link
+            to={Routes.getMetricPageRoute(
+              this.props.runInfos
+                .map((info) => info.run_uuid)
+                .filter((uuid, idx) => data[idx] !== undefined),
+              key,
+              experimentIds,
+            )}
+            title='Plot chart'
+          >
+            {key}
+            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+          </Link>
+        );
+      },
+      Utils.formatMetric,
+    );
+    if (dataRows.length === 0) {
+      return (
+        <h2>
+          <FormattedMessage
+            defaultMessage='No metrics to display.'
+            description='Text shown when there are no metrics to display'
+          />
+        </h2>
+      );
+    }
+    return (
+      <table
+        className='table compare-table compare-run-table'
+        style={{ maxHeight: '300px' }}
+        onScroll={this.onCompareRunTableScrollHandler}
+      >
+        <tbody>{dataRows}</tbody>
+      </table>
+    );
+  }
+
+  render() {
+    const { experimentIds } = this.props;
+    const { runInfos, runNames } = this.props;
+
+    const colWidth = this.getTableColumnWidth();
+    const colWidthStyle = this.genWidthStyle(colWidth);
+
+    const title = this.getTitle();
+    /* eslint-disable-next-line prefer-const */
+    let breadcrumbs = [this.getExperimentLink(), title];
     return (
       <div className='CompareRunView' ref={this.compareRunViewRef}>
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <CollapsibleSection
-          title={
-            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
-              <FormattedMessage
-                defaultMessage='Visualizations'
-                description='Tabs title for plots on the compare runs page'
-              />
-            </h1>
-          }
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Visualizations',
+            description: 'Tabs title for plots on the compare runs page',
+          })}
         >
           <Tabs>
             <TabPane
@@ -188,15 +330,10 @@ export class CompareRunView extends Component {
           </Tabs>
         </CollapsibleSection>
         <CollapsibleSection
-          title={
-            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
-              <FormattedMessage
-                defaultMessage='Run details'
-                // eslint-disable-next-line max-len
-                description='Compare table title on the compare runs page'
-              />
-            </h1>
-          }
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Run details',
+            description: 'Compare table title on the compare runs page',
+          })}
         >
           <table
             className='table compare-table compare-run-table'
@@ -281,19 +418,27 @@ export class CompareRunView extends Component {
                   );
                 })}
               </tr>
+              {this.shouldShowExperimentNameRow() && (
+                <tr>
+                  <th scope='row' className='data-value'>
+                    <FormattedMessage
+                      defaultMessage='Experiment Name:'
+                      // eslint-disable-next-line max-len
+                      description='Row title for the experiment IDs of runs on the experiment compare runs page'
+                    />
+                  </th>
+                  {this.renderExperimentNameRowItems()}
+                </tr>
+              )}
             </tbody>
           </table>
         </CollapsibleSection>
         <CollapsibleSection
-          title={
-            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
-              <FormattedMessage
-                defaultMessage='Parameters'
-                // eslint-disable-next-line max-len
-                description='Row group title for parameters of runs on the experiment compare runs page'
-              />
-            </h1>
-          }
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Parameters',
+            description:
+              'Row group title for parameters of runs on the experiment compare runs page',
+          })}
         >
           <Switch
             checkedChildren='Show diff only'
@@ -302,31 +447,13 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <table
-            className='table compare-table compare-run-table'
-            style={{ maxHeight: '500px' }}
-            onScroll={this.onCompareRunTableScrollHandler}
-          >
-            <tbody>
-              {this.renderDataRows(
-                this.props.paramLists,
-                colWidth,
-                this.state.onlyShowParamDiff,
-                true,
-              )}
-            </tbody>
-          </table>
+          {this.renderParamTable(colWidth)}
         </CollapsibleSection>
         <CollapsibleSection
-          title={
-            <h1 style={{ marginTop: 0, marginBottom: 0 }}>
-              <FormattedMessage
-                defaultMessage='Metrics'
-                // eslint-disable-next-line max-len
-                description='Row group title for metrics of runs on the experiment compare runs page'
-              />
-            </h1>
-          }
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Metrics',
+            description: 'Row group title for metrics of runs on the experiment compare runs page',
+          })}
         >
           <Switch
             checkedChildren='Show diff only'
@@ -335,41 +462,18 @@ export class CompareRunView extends Component {
           />
           <br />
           <br />
-          <table
-            className='table compare-table compare-run-table'
-            style={{ maxHeight: '300px' }}
-            onScroll={this.onCompareRunTableScrollHandler}
-          >
-            <tbody>
-              {this.renderDataRows(
-                this.props.metricLists,
-                colWidth,
-                this.state.onlyShowMetricDiff,
-                false,
-                (key, data) => {
-                  return (
-                    <Link
-                      to={Routes.getMetricPageRoute(
-                        this.props.runInfos
-                          .map((info) => info.run_uuid)
-                          .filter((uuid, idx) => data[idx] !== undefined),
-                        key,
-                        experimentId,
-                      )}
-                      title='Plot chart'
-                    >
-                      {key}
-                      <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
-                    </Link>
-                  );
-                },
-                Utils.formatMetric,
-              )}
-            </tbody>
-          </table>
+          {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
       </div>
     );
+  }
+
+  genWidthStyle(width) {
+    return {
+      width: `${width}px`,
+      minWidth: `${width}px`,
+      maxWidth: `${width}px`,
+    };
   }
 
   // eslint-disable-next-line no-unused-vars
@@ -383,69 +487,60 @@ export class CompareRunView extends Component {
   ) {
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
-    keys.forEach((k) => (data[k] = []));
+    const checkHasDiff = (values) => values.some((x) => x !== values[0]);
+    keys.forEach((k) => (data[k] = { values: Array(list.length).fill(undefined) }));
     list.forEach((records, i) => {
-      keys.forEach((k) => data[k].push(undefined));
-      records.forEach((r) => (data[r.key][i] = r.value));
+      records.forEach((r) => (data[r.key].values[i] = r.value));
     });
+    keys.forEach((k) => (data[k].hasDiff = checkHasDiff(data[k].values)));
 
-    const colWidthStyle = {
-      width: `${colWidth}px`,
-      minWidth: `${colWidth}px`,
-      maxWidth: `${colWidth}px`,
-    };
+    const colWidthStyle = this.genWidthStyle(colWidth);
 
-    function isAllEqual(k) {
-      return data[k].every((x) => x === data[k][0]);
-    }
-
-    return keys.map((k) => {
-      const allEqual = isAllEqual(k);
-
-      let rowClass = undefined;
-      if (highlightDiff && !allEqual) {
-        rowClass = 'diff-row';
-      }
-
-      return onlyShowDiff && allEqual ? null : (
-        <tr key={k} className={rowClass}>
-          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-            {headerMap(k, data[k])}
-          </th>
-          {data[k].map((value, i) => {
-            const cellText = value === undefined ? '' : formatter(value);
-            return (
-              <td
-                className='data-value'
-                key={this.props.runInfos[i].run_uuid}
-                style={colWidthStyle}
-              >
-                <Tooltip
-                  title={cellText}
-                  color='gray'
-                  placement='topLeft'
-                  overlayStyle={{ maxWidth: '400px' }}
-                  mouseEnterDelay={1.0}
+    return keys
+      .filter((k) => !onlyShowDiff || data[k].hasDiff)
+      .map((k) => {
+        const { values, hasDiff } = data[k];
+        const rowClass = highlightDiff && hasDiff ? 'diff-row' : undefined;
+        return (
+          <tr key={k} className={rowClass}>
+            <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+              {headerMap(k, values)}
+            </th>
+            {values.map((value, i) => {
+              const cellText = value === undefined ? '' : formatter(value);
+              return (
+                <td
+                  className='data-value'
+                  key={this.props.runInfos[i].run_uuid}
+                  style={colWidthStyle}
                 >
-                  <span className='truncate-text single-line'>{cellText}</span>
-                </Tooltip>
-              </td>
-            );
-          })}
-        </tr>
-      );
-    });
+                  <Tooltip
+                    title={cellText}
+                    color='gray'
+                    placement='topLeft'
+                    overlayStyle={{ maxWidth: '400px' }}
+                    mouseEnterDelay={1.0}
+                  >
+                    <span className='truncate-text single-line'>{cellText}</span>
+                  </Tooltip>
+                </td>
+              );
+            })}
+          </tr>
+        );
+      });
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
+  const { comparedExperimentIds, hasComparedExperimentsBefore } = state.compareExperiments;
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
   const runNames = [];
   const runDisplayNames = [];
-  const { experimentId, runUuids } = ownProps;
-  const experiment = getExperiment(experimentId, state);
+  const { experimentIds, runUuids } = ownProps;
+  const experiments = experimentIds.map((experimentId) => getExperiment(experimentId, state));
   runUuids.forEach((runUuid) => {
     runInfos.push(getRunInfo(runUuid, state));
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
@@ -454,7 +549,16 @@ const mapStateToProps = (state, ownProps) => {
     runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
     runNames.push(Utils.getRunName(runTags));
   });
-  return { experiment, runInfos, metricLists, paramLists, runNames, runDisplayNames };
+  return {
+    experiments,
+    runInfos,
+    metricLists,
+    paramLists,
+    runNames,
+    runDisplayNames,
+    comparedExperimentIds,
+    hasComparedExperimentsBefore,
+  };
 };
 
-export default connect(mapStateToProps)(injectIntl(CompareRunView));
+export default withRouter(connect(mapStateToProps)(injectIntl(CompareRunView)));

@@ -74,8 +74,8 @@ const getDefaultExperimentViewProps = () => {
         lifecycle_stage: 'active',
       }),
     ],
-    experiment: Fixtures.createExperiment(),
-    experimentId: EXPERIMENT_ID,
+    experiments: [Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID })],
+    experimentIds: [EXPERIMENT_ID],
     history: {
       location: {
         pathname: '/',
@@ -106,6 +106,7 @@ const getDefaultExperimentViewProps = () => {
     setExperimentTagApi: jest.fn(),
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
+    compareExperiments: false,
   };
 };
 
@@ -187,14 +188,15 @@ test('Page title is set', () => {
 test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const searchRunsId = getUUID();
   let state = emptyState;
-  const experiment = Fixtures.createExperiment();
+  const experiment = Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID });
   state = addApiToState(state, createPendingApi(searchRunsId));
   state = addExperimentToState(state, experiment);
   state = addExperimentTagsToState(state, experiment.experiment_id, []);
   const newProps = mapStateToProps(state, {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
-    experimentId: experiment.experiment_id,
+    experiments: [experiment],
+    experimentIds: [experiment.experiment_id],
   });
   expect(newProps).toEqual({
     runInfos: [],
@@ -320,15 +322,6 @@ describe('ExperimentView event handlers', () => {
     expect(onSearchSpy).toBeCalledWith({
       modelVersionFilter: newFilterInput,
     });
-  });
-
-  test('onShare copies state to clipboard', () => {
-    const writeTextSpy = jest.spyOn(navigator.clipboard, 'writeText');
-
-    instance.onShare();
-
-    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
-    expect(writeTextSpy).toHaveBeenCalledTimes(1);
   });
 
   test('search filters are correctly applied', () => {

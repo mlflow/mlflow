@@ -316,7 +316,7 @@ def deploy(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -665,7 +665,7 @@ def deploy_transform_job(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -941,7 +941,7 @@ def push_model_to_sagemaker(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )

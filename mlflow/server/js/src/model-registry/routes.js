@@ -10,3 +10,7 @@ export const getModelVersionPageRoute = (modelName, version) =>
 export const getCompareModelVersionsPageRoute = (modelName, runsToVersions) =>
   `/compare-model-versions?name=${JSON.stringify(encodeURIComponent(modelName))}` +
   `&runs=${JSON.stringify(runsToVersions, (k, v) => (v === undefined ? null : v))}`;
+export const PANES = Object.freeze({
+  DETAILS: 'details',
+  SERVING: 'serving',
+});

@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import yaml from 'js-yaml';
+import { css } from 'emotion';
 import '../../../common/styles/CodeSnippet.css';
 import { MLMODEL_FILE_NAME } from '../../constants';
 import { getSrc } from './ShowArtifactPage';
@@ -12,10 +13,10 @@ import {
   PyfuncDocUrl,
   CustomPyfuncModelsDocUrl,
 } from '../../../common/constants';
-import { Typography } from 'antd';
+import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-const { Paragraph } = Typography;
+const { Paragraph, Text, Title } = Typography;
 
 class ShowArtifactLoggedModelView extends Component {
   constructor(props) {
@@ -62,6 +63,8 @@ class ShowArtifactLoggedModelView extends Component {
           description='Sub text to tell the users where the registered models are located '
           values={{
             link: (chunks) => (
+              // Reported during ESLint upgrade
+              // eslint-disable-next-line react/jsx-no-target-blank
               <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target='_blank'>
                 {chunks}
               </a>
@@ -77,6 +80,8 @@ class ShowArtifactLoggedModelView extends Component {
           description='Sub text to tell the users where one can go to register the model artifact'
           values={{
             link: (chunks) => (
+              // Reported during ESLint upgrade
+              // eslint-disable-next-line react/jsx-no-target-blank
               <a href={ShowArtifactLoggedModelView.getLearnModelRegistryLinkUrl()} target='_blank'>
                 {chunks}
               </a>
@@ -134,16 +139,20 @@ class ShowArtifactLoggedModelView extends Component {
 
     return (
       <>
-        <h2 style={styles.columnLabel}>
+        <Title level={3}>
           <FormattedMessage
             defaultMessage='Load the model'
             // eslint-disable-next-line max-len
             description='Heading text for stating how to load the model from the experiment run'
           />
-        </h2>
+        </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className='content' style={styles.item}>
-            <Paragraph copyable={{ text: this.loadModelCodeText(modelPath, flavor) }}>
+          <div className={css(styles.item)}>
+            <Paragraph
+              dangerouslySetAntdProps={{
+                copyable: { text: this.loadModelCodeText(modelPath, flavor) },
+              }}
+            >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
@@ -189,23 +198,27 @@ class ShowArtifactLoggedModelView extends Component {
     const modelPath = `runs:/${runUuid}/${path}`;
     return (
       <>
-        <h2 style={styles.columnLabel}>
+        <Title level={3}>
           <FormattedMessage
             defaultMessage='Make Predictions'
             // eslint-disable-next-line max-len
             description='Heading text for the prediction section on the registered model from the experiment run'
           />
-        </h2>
+        </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className='content' style={styles.item}>
-            <h3 style={styles.itemHeader}>
+          <div className={css(styles.item)}>
+            <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Spark DataFrame:'
                 // eslint-disable-next-line max-len
                 description='Section heading to display the code block on how we can use registered model to predict using spark DataFrame'
               />
-            </h3>
-            <Paragraph copyable={{ text: this.sparkDataFrameCodeText(modelPath) }}>
+            </Text>
+            <Paragraph
+              dangerouslySetAntdProps={{
+                copyable: { text: this.sparkDataFrameCodeText(modelPath) },
+              }}
+            >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap', marginTop: 10 }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
@@ -244,14 +257,18 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
           </div>
-          <div className='content' style={styles.item}>
-            <h3 style={styles.itemHeader}>
+          <div className={css(styles.item)}>
+            <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len
                 description='Section heading to display the code block on how we can use registered model to predict using pandas DataFrame'
               />
-            </h3>
-            <Paragraph copyable={{ text: this.pandasDataFrameCodeText(modelPath) }}>
+            </Text>
+            <Paragraph
+              dangerouslySetAntdProps={{
+                copyable: { text: this.pandasDataFrameCodeText(modelPath) },
+              }}
+            >
               <pre style={{ wordBreak: 'break-all', whiteSpace: 'pre-wrap' }}>
                 <div className='code'>
                   <span className='code-keyword'>import</span> mlflow{`\n`}
@@ -318,12 +335,12 @@ class ShowArtifactLoggedModelView extends Component {
             className='artifact-logged-model-view-header'
             style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
           >
-            <h1>
+            <Title level={2}>
               <FormattedMessage
                 defaultMessage='MLflow Model'
                 description='Heading text for mlflow model artifact'
               />
-            </h1>
+            </Title>
             {this.state.flavor === 'pyfunc' ? (
               <FormattedMessage
                 // eslint-disable-next-line max-len
@@ -346,28 +363,30 @@ class ShowArtifactLoggedModelView extends Component {
             className='artifact-logged-model-view-schema-table'
             style={{ width: '35%', marginLeft: 16, float: 'left' }}
           >
-            <h2 style={styles.columnLabel}>
+            <Title level={3}>
               <FormattedMessage
                 defaultMessage='Model schema'
                 // eslint-disable-next-line max-len
                 description='Heading text for the model schema of the registered model from the experiment run'
               />
-            </h2>
+            </Title>
             <div className='content'>
-              <h3 style={styles.itemHeader}>
+              <Text>
                 <FormattedMessage
                   defaultMessage='Input and output schema for your model. <link>Learn more</link>'
                   // eslint-disable-next-line max-len
                   description='Input and output params of the model that is registered from the experiment run'
                   values={{
                     link: (chunks) => (
+                      // Reported during ESLint upgrade
+                      // eslint-disable-next-line react/jsx-no-target-blank
                       <a href={ModelSignatureUrl} target='_blank'>
                         {chunks}
                       </a>
                     ),
                   }}
                 />
-              </h3>
+              </Text>
             </div>
             <div style={{ marginTop: 12 }}>
               <SchemaTable
@@ -420,15 +439,14 @@ class ShowArtifactLoggedModelView extends Component {
 }
 
 const styles = {
-  columnLabel: {
-    fontSize: 18,
-    marginBottom: 16,
-  },
   item: {
     position: 'relative',
-  },
-  itemHeader: {
-    fontSize: 15,
+    pre: { margin: 0 },
+    '.du-bois-light-typography-copy': {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+    },
   },
 };
 

@@ -95,7 +95,7 @@ class _Example:
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
-                if all([_is_scalar(x) for x in input_ex.values()]):
+                if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
                 else:
                     raise TypeError(
@@ -107,7 +107,7 @@ class _Example:
                         raise TensorsNotSupportedException(
                             "Row '{0}' has shape {1}".format(i, x.shape)
                         )
-                if all([_is_scalar(x) for x in input_ex]):
+                if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
