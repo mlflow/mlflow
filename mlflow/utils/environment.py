@@ -27,7 +27,7 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
-_PYTHON_ENV_FILE_NAME = "python-env.yaml"
+_PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
 
 # Note this regular expression does not cover all possible patterns
