@@ -89,11 +89,11 @@ export const runInfosByUuid = (state = {}, action) => {
       return {};
     }
     case fulfilled(LOAD_MORE_RUNS_API): {
-      let newState = { ...state };
+      const newState = { ...state };
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);
-          newState = amendRunInfosByUuid(newState, runInfo);
+          newState[runInfo.getRunUuid()] = runInfo;
         });
       }
       return newState;
