@@ -5,7 +5,6 @@ import {
   ModelsCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
 import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
-import { RunTag } from '../sdk/MlflowMessages';
 import { MemoryRouter as Router } from 'react-router-dom';
 
 function getChildColumnNames(columnDefs, parentName) {
@@ -21,19 +20,13 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   let minimalProps;
   let commonProps;
   let setColumnDefsSpy;
-  const runTags = {
-    'mlflow.log-model.history': RunTag.fromJs({
-      key: 'mlflow.log-model.history',
-      value: JSON.stringify([
-        {
-          run_id: 'run-uuid',
-          artifact_path: 'somePath',
-          utc_time_created: '2020-10-22',
-          flavors: { keras: {}, python_function: {} },
-        },
-      ]),
-    }),
-  };
+  const loggedModels = [
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: new Date('2020-10-22').getTime() / 1000,
+    },
+  ];
 
   beforeEach(() => {
     minimalProps = {
@@ -80,10 +73,11 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
   test('should show placeholder in logged model cells when no logged models', () => {
     const props = {
-      data: {
-        runInfo: {},
-        tags: {},
-        modelVersionsByRunUuid: {},
+      value: {
+        runUuid: 'runUuid',
+        experimentId: 'experimentId',
+        registeredModels: [],
+        loggedModels: [],
       },
     };
     const output = ModelsCellRenderer(props);
@@ -92,10 +86,11 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
   test('should show only logged model link if no registered models', () => {
     const props = {
-      data: {
-        runInfo: { run_uuid: 'run-uuid' },
-        tags: runTags,
-        modelVersionsByRunUuid: {},
+      value: {
+        runUuid: 'runUuid',
+        experimentId: 'experimentId',
+        loggedModels: loggedModels,
+        registeredModels: [],
       },
     };
     const output = ModelsCellRenderer(props);
@@ -109,10 +104,11 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   test('should show correct logged and registered model links', () => {
     const tester = (modelVersions, expectedPath, linkSelector) => {
       const props = {
-        data: {
-          runInfo: { run_uuid: 'runUuid', experiment_id: 'experimentId' },
-          tags: runTags,
-          modelVersionsByRunUuid: modelVersions,
+        value: {
+          runUuid: 'runUuid',
+          experimentId: 'experimentId',
+          loggedModels: loggedModels,
+          registeredModels: modelVersions,
         },
       };
       let output = ModelsCellRenderer(props);
@@ -134,18 +130,16 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
       expect(href.indexOf('http')).toEqual(href.lastIndexOf('http'));
       window.isTestingIframe = false;
     };
-    tester({}, 'experiments/experimentId/runs/runUuid/artifactPath/somePath', '.logged-model-link');
+    tester([], 'experiments/experimentId/runs/runUuid/artifactPath/somePath', '.logged-model-link');
 
     tester(
-      {
-        runUuid: [
-          {
-            name: 'someModel',
-            source: 'dbfs/runUuid/artifacts/somePath',
-            version: 2,
-          },
-        ],
-      },
+      [
+        {
+          name: 'someModel',
+          source: 'dbfs/runUuid/artifacts/somePath',
+          version: 2,
+        },
+      ],
       'models/someModel/versions/2',
       '.registered-model-link',
     );
@@ -153,18 +147,17 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
 
   test('should only show registered model link if registered model', () => {
     const props = {
-      data: {
-        runInfo: { run_uuid: 'someUuid' },
-        tags: runTags,
-        modelVersionsByRunUuid: {
-          someUuid: [
-            {
-              name: 'someName',
-              source: 'dbfs/someUuid/artifacts/somePath',
-              version: 2,
-            },
-          ],
-        },
+      value: {
+        runUuid: 'someUuid',
+        experimentId: 'experimentId',
+        loggedModels: loggedModels,
+        registeredModels: [
+          {
+            name: 'someName',
+            source: 'dbfs/someUuid/artifacts/somePath',
+            version: 2,
+          },
+        ],
       },
     };
     const output = ModelsCellRenderer(props);
@@ -182,34 +175,25 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
    * containing model artifacts with semantically equivalent paths.
    */
   test('should show registered model link for semantically equivalent artifact paths', () => {
-    const runArtifactPath = 'somePath////subdir///';
-    const tags = {
-      'mlflow.log-model.history': RunTag.fromJs({
-        key: 'mlflow.log-model.history',
-        value: JSON.stringify([
-          {
-            run_id: 'run-uuid',
-            artifact_path: `${runArtifactPath}`,
-            utc_time_created: '2020-10-22',
-            flavors: { keras: {}, python_function: {} },
-          },
-        ]),
-      }),
-    };
+    const runLoggedModels = [
+      {
+        artifactPath: 'somePath////subdir///',
+        flavors: ['keras'],
+        utcTimeCreated: new Date('2020-10-22').getTime() / 1000,
+      },
+    ];
 
     const props = {
-      data: {
-        runInfo: { run_uuid: 'someUuid' },
-        tags: tags,
-        modelVersionsByRunUuid: {
-          someUuid: [
-            {
-              name: 'someName',
-              source: 'dbfs:///someUuid/artifacts///somePath///subdir/',
-              version: 2,
-            },
-          ],
-        },
+      value: {
+        runUuid: 'someUuid',
+        loggedModels: runLoggedModels,
+        registeredModels: [
+          {
+            name: 'someName',
+            source: 'dbfs:///someUuid/artifacts///somePath///subdir/',
+            version: 2,
+          },
+        ],
       },
     };
     const output = ModelsCellRenderer(props);
@@ -220,30 +204,24 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   });
 
   test('should show 1 more if two logged models', () => {
-    const tags = {
-      'mlflow.log-model.history': RunTag.fromJs({
-        key: 'mlflow.log-model.history',
-        value: JSON.stringify([
-          {
-            run_id: 'run-uuid',
-            artifact_path: 'somePath',
-            utc_time_created: '2020-10-22',
-            flavors: { keras: {}, python_function: {} },
-          },
-          {
-            run_id: 'run-uuid',
-            artifact_path: 'someOtherPath',
-            utc_time_created: '2020-10-22',
-            flavors: { keras: {}, python_function: {} },
-          },
-        ]),
-      }),
-    };
+    const runLoggedModels = [
+      {
+        artifactPath: 'somePath',
+        flavors: ['keras'],
+        utcTimeCreated: new Date('2020-10-22').getTime() / 1000,
+      },
+      {
+        artifactPath: 'someOtherPath',
+        flavors: ['keras'],
+        utcTimeCreated: new Date('2020-10-22').getTime() / 1000,
+      },
+    ];
     const props = {
-      data: {
-        runInfo: { run_uuid: 'run-uuid' },
-        tags: tags,
-        modelVersionsByRunUuid: {},
+      value: {
+        runUuid: 'runUuid',
+        experimentId: 'experimentId',
+        loggedModels: runLoggedModels,
+        registeredModels: [],
       },
     };
     const output = ModelsCellRenderer(props);

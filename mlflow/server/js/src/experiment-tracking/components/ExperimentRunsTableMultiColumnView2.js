@@ -258,6 +258,14 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           field: 'models',
           cellRenderer: 'modelsCellRenderer',
           initialWidth: 200,
+          equals: (models1, models2) => {
+            return (
+              models1.experimentId === models2.experimentId &&
+              models1.runUuid === models2.runUuid &&
+              _.isEqual(models1.registeredModels, models2.registeredModels) &&
+              _.isEqual(models1.loggedModels, models2.loggedModels)
+            );
+          },
         },
       ].filter((c) => !categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(c.headerName)),
       {
@@ -369,6 +377,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         value,
       }));
 
+      const models = {
+        registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
+        loggedModels: Utils.getLoggedModelsFromTags(tags),
+        experimentId: runInfo.experiment_id,
+        runUuid: runInfo.runUuid,
+      };
+
       return {
         runUuid,
         runInfo,
@@ -381,7 +396,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         runName,
         tags,
         queryParams,
-        modelVersionsByRunUuid,
+        models,
         isParent,
         hasExpander,
         expanderOpen,
@@ -648,9 +663,7 @@ function ExperimentNameRenderer(props) {
 }
 
 export function ModelsCellRenderer(props) {
-  const { runInfo, tags, modelVersionsByRunUuid } = props.data;
-  const registeredModels = modelVersionsByRunUuid[runInfo.run_uuid] || [];
-  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
   const imageStyle = {
     wrapper: css({
@@ -691,7 +704,7 @@ export function ModelsCellRenderer(props) {
     } else if (modelToRender.flavors) {
       const loggedModelFlavorText = modelToRender.flavors ? modelToRender.flavors[0] : 'Model';
       const loggedModelLink = Utils.getIframeCorrectedRoute(
-        `${Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}/artifactPath/${
+        `${Routes.getRunPageRoute(experimentId, runUuid)}/artifactPath/${
           modelToRender.artifactPath
         }`,
       );
@@ -717,4 +730,4 @@ export function ModelsCellRenderer(props) {
   return EMPTY_CELL_PLACEHOLDER;
 }
 
-ModelsCellRenderer.propTypes = { data: PropTypes.object };
+ModelsCellRenderer.propTypes = { value: PropTypes.object };
