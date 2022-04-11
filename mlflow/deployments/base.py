@@ -83,7 +83,12 @@ class BaseEndpointClient(abc.ABC):
         (e.g. on failure to deploy a model).
     """
 
-    def __init__(self):
+    def __init__(self, target_uri):
+        """
+
+        :param target_uri: The URI for the target to deploy to. Provided as a part of dynamic
+                           instantiation from mlflow.deployments.get_endpoint_client
+        """
         pass
 
     @abc.abstractmethod

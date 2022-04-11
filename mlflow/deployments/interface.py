@@ -1,6 +1,6 @@
 import inspect
 from mlflow.deployments.plugin_manager import DeploymentPlugins
-from mlflow.deployments.base import BaseDeploymentClient
+from mlflow.deployments.base import BaseDeploymentClient, BaseEndpointClient
 from mlflow.deployments.utils import parse_target_uri
 
 plugin_store = DeploymentPlugins()
@@ -44,6 +44,55 @@ def get_deploy_client(target_uri):
     for _, obj in inspect.getmembers(plugin):
         if inspect.isclass(obj):
             if issubclass(obj, BaseDeploymentClient) and not obj == BaseDeploymentClient:
+                return obj(target_uri)
+
+
+def get_endpoint_client(target_uri):
+    """
+    Returns a subclass of :py:class:`mlflow.deployments.BaseEndpointClient` exposing standard
+    APIs for deploying models to the specified target. See available deployment APIs
+    by calling ``help()`` on the returned object or viewing docs for
+    :py:class:`mlflow.deployments.BaseEndpointClient`.
+
+    :param target_uri: URI of target to deploy to.
+
+
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow.deployments import get_endpoint_client
+        import pandas as pd
+        client = get_endpoint_client('azureml')
+        # Create an endpoint for model deployments. The endpoint allows for deploying new versions
+        # of a model and allowing for in place updates of the model being predicted against
+        client.create_endpoint("spamDetectorEndpoint")
+        # Deploy the model stored at artifact path 'myModel' under run with ID 'someRunId'. The
+        # model artifacts are fetched from the current tracking server and then used for deployment.
+        client.create_deployment("spamDetector", "spamDetectorEndpoint", "runs:/someRunId/myModel")
+        # Load a CSV of emails and score it against our deployment
+        emails_df = pd.read_csv("...")
+        prediction_df = client.predict("spamDetectorEndpoint", emails_df)
+        # List all endpoints, get details of our particular endpoint
+        print(client.list_endpoints())
+        print(client.get_endpoint("spamDetectorEndpoint")
+        # List all deployments, get details of our particular deployment
+        print(client.list_deployments("spamDetectorEndpoint"))
+        print(client.get_deployment("spamDetector", "spamDetectorEndpoint"))
+        # Create a new deployment to serve v2 of the model
+        client.create_deployment("spamDetectorv2", "spamDetectorEndpoint",
+                                 "runs:/someRunId/myModelv2")
+        # Update the endpoint to route traffic to the new model
+        client.update_endpoint("spamDetectorEndpoint", {"traffic": {"spamDetectorv2": 100}})
+        # Delete the v1 deployment
+        client.delete_deployment("spamDetector", "spamDetectorEndpoint")
+        # Delete our endpoint
+        client.delete_endpoint("spamDetectorEndpoint")
+    """
+    target = parse_target_uri(target_uri)
+    plugin = plugin_store[target]
+    for _, obj in inspect.getmembers(plugin):
+        if inspect.isclass(obj):
+            if issubclass(obj, BaseEndpointClient) and not obj == BaseEndpointClient:
                 return obj(target_uri)
 
 
