@@ -64,6 +64,14 @@ class MlflowException(Exception):
 
     @classmethod
     def invalid_parameter_value(cls, message, **kwargs):
+        """
+        Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
+
+        :param message: The message describing the error that occured. This will be included in the
+                        exception's serialized JSON representation.
+        :param kwargs: Additional key-value pairs to include in the serialized JSON representation
+                       of the MlflowException.
+        """
         return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
 
