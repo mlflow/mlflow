@@ -175,9 +175,14 @@ def _save_model_with_class_artifacts_params(
         with TempDir() as tmp_artifacts_dir:
             tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
-            for artifact_name, artifact_uri in artifacts.items():
+            for artifact_index, (artifact_name, artifact_uri) in enumerate(artifacts.items()):
+                artifact_download_output_path = (
+                    os.path.join(tmp_artifacts_dir.path(), str(artifact_index)) if len(artifacts) > 1
+                    else tmp_artifacts_dir.path()
+                )
+                os.makedirs(artifact_download_output_path, exist_ok=True)
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    artifact_uri=artifact_uri, output_path=artifact_download_output_path
                 )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
