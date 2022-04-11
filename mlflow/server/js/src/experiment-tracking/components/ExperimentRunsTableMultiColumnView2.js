@@ -561,17 +561,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
           onColumnGroupOpened={this.persistGridState}
-          // TODO: Remove `applyColumnDefOrder` if we upgrade AG-Grid to >= 26.0.0 where the order
-          // of the columns in the grid will always match the order of the column definitions.
-          // AG-5392 in https://www.ag-grid.com/ag-grid-changelog/?fixVersion=26.0.0 provides
-          // more details.
-          applyColumnDefOrder
           suppressRowClickSelection
           suppressScrollOnNewData // retain scroll position after nested run toggling operations
           suppressFieldDotNotation
           enableCellTextSelection
-          frameworkComponents={frameworkComponents}
-          fullWidthCellRendererFramework={FullWidthCellRenderer}
+          components={frameworkComponents}
+          fullWidthCellRenderer={FullWidthCellRenderer}
           fullWidthCellRendererParams={{
             handleLoadMoreRuns,
             loadingMore,
