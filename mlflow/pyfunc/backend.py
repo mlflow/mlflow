@@ -14,7 +14,8 @@ from mlflow.pyfunc import ENV, scoring_server, mlserver
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.utils.environment import EnvManager
+from mlflow.utils.conda import _get_conda_extra_env_vars
+from mlflow.utils.environment import _EnvManager
 from mlflow.version import VERSION
 
 
@@ -27,26 +28,46 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(
-        self, config, workers=1, env_manager=EnvManager.CONDA, install_mlflow=False, **kwargs
+        self,
+        config,
+        workers=1,
+        env_manager=_EnvManager.CONDA,
+        install_mlflow=False,
+        env_root_dir=None,
+        **kwargs,
     ):
+        """
+        :param env_root_dir: Root path for conda env. If None, use Conda's default environments
+                             directory. Note if this is set, conda package cache path becomes
+                             "{env_root_dir}/conda_cache_pkgs" instead of the global package cache
+                             path, and pip package cache path becomes
+                             "{env_root_dir}/pip_cache_pkgs" instead of the global package cache
+                             path.
+        """
         super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._env_manager = env_manager
         self._install_mlflow = install_mlflow
         self._env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
+        self._env_root_dir = env_root_dir
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
-        if self._env_manager is EnvManager.LOCAL or ENV not in self._config:
+        if self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
             return 0
         conda_env_path = os.path.join(local_path, self._config[ENV])
 
         conda_env_name = get_or_create_conda_env(
-            conda_env_path, env_id=self._env_id, capture_output=capture_output
+            conda_env_path,
+            env_id=self._env_id,
+            capture_output=capture_output,
+            env_root_dir=self._env_root_dir,
         )
 
         command = 'python -c ""'
-        return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
+        return _execute_in_conda_env(
+            conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
+        )
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -57,7 +78,7 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
@@ -135,11 +156,14 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
-        if self._env_manager is EnvManager.CONDA and ENV in self._config:
+        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
-                conda_env_path, env_id=self._env_id, capture_output=False
+                conda_env_path,
+                env_id=self._env_id,
+                capture_output=False,
+                env_root_dir=self._env_root_dir,
             )
 
             child_proc = _execute_in_conda_env(
@@ -151,6 +175,7 @@ class PyFuncBackend(FlavorBackend):
                 preexec_fn=setup_sigterm_on_parent_death,
                 stdout=stdout,
                 stderr=stderr,
+                env_root_dir=self._env_root_dir,
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -179,7 +204,7 @@ class PyFuncBackend(FlavorBackend):
             return child_proc
 
     def can_score_model(self):
-        if self._env_manager is EnvManager.LOCAL:
+        if self._env_manager is _EnvManager.LOCAL:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")
@@ -239,6 +264,7 @@ def _execute_in_conda_env(
     preexec_fn=None,
     stdout=None,
     stderr=None,
+    env_root_dir=None,
 ):
     """
     :param conda_env_path conda: conda environment file path
@@ -250,13 +276,13 @@ def _execute_in_conda_env(
                         If False, return the server process `Popen` instance immediately.
     :param stdout: Redirect server stdout
     :param stderr: Redirect server stderr
+    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
     """
     if command_env is None:
-        command_env = os.environ
+        command_env = os.environ.copy()
 
-    # PIP_NO_INPUT=1 make pip run in non-interactive mode,
-    # otherwise pip might prompt "yes or no" and ask stdin input
-    command_env["PIP_NO_INPUT"] = "1"
+    if env_root_dir is not None:
+        command_env.update(_get_conda_extra_env_vars(env_root_dir))
 
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:

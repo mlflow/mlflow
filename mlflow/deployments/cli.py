@@ -29,7 +29,7 @@ def _user_args_to_dict(user_list):
 
 installed_targets = [target for target in interface.plugin_store.registry]
 if len(installed_targets) > 0:
-    supported_targets_msg = "Support is currently installed for deployment to: " "{targets}".format(
+    supported_targets_msg = "Support is currently installed for deployment to: {targets}".format(
         targets=", ".join(installed_targets)
     )
 else:
@@ -120,7 +120,7 @@ def commands():
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def create_deployment(flavor, model_uri, target, name, config):
     """
@@ -152,7 +152,7 @@ def create_deployment(flavor, model_uri, target, name, config):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def update_deployment(flavor, model_uri, target, name, config):
     """
@@ -233,7 +233,7 @@ def target_help(target):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def run_local(flavor, model_uri, target, name, config):
     """

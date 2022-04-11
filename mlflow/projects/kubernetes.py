@@ -26,7 +26,7 @@ def push_image_to_registry(image_tag):
     for line in client.images.push(repository=image_tag, stream=True, decode=True):
         if "error" in line and line["error"]:
             raise ExecutionException(
-                "Error while pushing to docker registry: " "{error}".format(error=line["error"])
+                "Error while pushing to docker registry: {error}".format(error=line["error"])
             )
     return client.images.get_registry_data(image_tag).id
 

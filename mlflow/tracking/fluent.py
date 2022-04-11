@@ -30,6 +30,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -47,12 +48,12 @@ if TYPE_CHECKING:
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
 
-
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
@@ -350,12 +351,13 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack
+    global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
+        _last_active_run_id = run.info.run_id
 
 
 atexit.register(end_run)
@@ -384,6 +386,64 @@ def active_run() -> Optional[ActiveRun]:
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+
+
+def last_active_run() -> Optional[Run]:
+    """
+    Gets the most recent active run.
+
+    Examples:
+
+    .. code-block:: python
+        :caption: To retrieve the most recent autologged run:
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+        autolog_run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To get the most recently active run that ended:
+
+        import mlflow
+
+        mlflow.start_run()
+        mlflow.end_run()
+        run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To retrieve the currently active run:
+
+        import mlflow
+
+        mlflow.start_run()
+        run = mlflow.last_active_run()
+        mlflow.end_run()
+
+    :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
+             Otherwise, the last run started from the current Python process that reached
+             a terminal status (i.e. FINISHED, FAILED, or KILLED).
+    """
+    _active_run = active_run()
+    if _active_run is not None:
+        return _active_run
+    if _last_active_run_id is None:
+        return None
+    return get_run(_last_active_run_id)
 
 
 def get_run(run_id: str) -> Run:
@@ -1080,11 +1140,16 @@ def search_runs(
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
+    experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
-    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
+                           experiment names, but not both in the same call. Values other than
+                           ``None`` or ``[]`` will result in error if ``experiment_names`` is
+                           also not ``None`` or ``[]``. ``None`` will default to the active
+                           experiment if ``experiment_names`` is ``None`` or ``[]``.
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
@@ -1098,7 +1163,11 @@ def search_runs(
                           is returned.
     :param search_all_experiments: Boolean specifying whether all experiments should be searched.
         Only honored if ``experiment_ids`` is ``[]`` or ``None``.
-
+    :param experiment_names: List of experiment names. Search can work with experiment IDs or
+                             experiment names, but not both in the same call. Values other
+                             than ``None`` or ``[]`` will result in error if ``experiment_ids``
+                             is also not ``None`` or ``[]``. ``None`` will default to the active
+                             experiment if ``experiment_ids`` is ``None`` or ``[]``.
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
              parameter, and tag is expanded into its own column named metrics.*, params.*, or
@@ -1112,7 +1181,8 @@ def search_runs(
         import mlflow
 
         # Create an experiment and log two runs under it
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_name = "Social NLP Experiments"
+        experiment_id = mlflow.create_experiment(experiment_name)
         with mlflow.start_run(experiment_id=experiment_id):
             mlflow.log_metric("m", 1.55)
             mlflow.set_tag("s.release", "1.1.0-RC")
@@ -1120,7 +1190,7 @@ def search_runs(
             mlflow.log_metric("m", 2.50)
             mlflow.set_tag("s.release", "1.2.0-GA")
 
-        # Search all runs in experiment_id
+        # Search for all the runs in the experiment with the given experiment ID
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
@@ -1130,6 +1200,12 @@ def search_runs(
         filter_string = "tags.s.release ILIKE '%rc%'"
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
         print(df[["metrics.m", "tags.s.release", "run_id"]])
+        print("--")
+
+        # Search for all the runs in the experiment with the given experiment name
+        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
+
 
     .. code-block:: text
         :caption: Output
@@ -1140,13 +1216,29 @@ def search_runs(
         --
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    if search_all_experiments and (experiment_ids is None or len(experiment_ids) == 0):
+    no_ids = experiment_ids is None or len(experiment_ids) == 0
+    no_names = experiment_names is None or len(experiment_names) == 0
+    no_ids_or_names = no_ids and no_names
+    if not no_ids and not no_names:
+        raise MlflowException(
+            message="Only experiment_ids or experiment_names can be used, but not both",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if search_all_experiments and no_ids_or_names:
         experiment_ids = [
             exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
-    elif experiment_ids is None or len(experiment_ids) == 0:
+    elif no_ids_or_names:
         experiment_ids = _get_experiment_id()
+    elif not no_names:
+        experiments = [get_experiment_by_name(n) for n in experiment_names if n is not None]
+        experiment_ids = [e.experiment_id for e in experiments if e is not None]
 
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
@@ -1297,6 +1389,7 @@ def list_run_infos(
         - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
         - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
     """
+
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -1512,8 +1605,6 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
-
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1530,20 +1621,22 @@ def autolog(
             # Logic is as follows:
             # - if a previous_config exists, that means either `mlflow.autolog` or
             #   `mlflow.integration.autolog` was called.
-            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
-            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
-            #   `autologging_params`.
+            # - if the config contains `AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED`, the
+            #   configuration was set by `mlflow.autolog`, and so we can safely call `autolog_fn`
+            #   with `autologging_params`.
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
             prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
-            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+            if prev_config and not prev_config.get(
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            ):
                 return
 
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
-                CONF_KEY_IS_GLOBALLY_CONFIGURED
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(
                 autolog_fn.integration_name

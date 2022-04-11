@@ -30,7 +30,7 @@ def validate_docker_installation():
     """
     try:
         docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
+        process._exec_cmd([docker_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Docker executable. "
@@ -42,7 +42,7 @@ def validate_docker_installation():
 def validate_docker_env(project):
     if not project.name:
         raise ExecutionException(
-            "Project name in MLProject must be specified when using docker " "for image tagging."
+            "Project name in MLProject must be specified when using docker for image tagging."
         )
     if not project.docker_env.get("image"):
         raise ExecutionException(
@@ -57,7 +57,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
-        "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
+        "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
     ).format(
         imagename=base_image,
         build_context_path=_PROJECT_TAR_ARCHIVE_NAME,

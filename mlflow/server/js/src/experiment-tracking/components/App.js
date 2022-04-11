@@ -94,6 +94,7 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
               <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
               {/* TODO(Zangr) see if route component can be injected here */}
               <Route exact path={modelListPageRoute} component={ModelListPage} />

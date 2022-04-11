@@ -14,6 +14,8 @@ import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
+import atexit
+
 import yaml
 
 try:
@@ -24,6 +26,7 @@ except ImportError:
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.process import cache_return_value_per_process
 
 ENCODING = "utf-8"
 
@@ -483,3 +486,46 @@ def _handle_readonly_on_windows(func, path, exc_info):
         raise exc_value
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+
+@cache_return_value_per_process
+def get_or_create_tmp_dir():
+    """
+    Get or create a temporary directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: For python process attached to databricks notebook, atexit does not work.
+        # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
+        # detaches.
+        tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+        os.makedirs(tmp_dir, exist_ok=True)
+    else:
+        tmp_dir = tempfile.mkdtemp()
+        atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+
+    return tmp_dir
+
+
+@cache_return_value_per_process
+def get_or_create_nfs_tmp_dir():
+    """
+    Get or create a temporary NFS directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+
+    nfs_root_dir = get_nfs_cache_root_dir()
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: In databricks, atexit hook does not work.
+        # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
+        # notebook detaches.
+        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+        os.makedirs(tmp_nfs_dir, exist_ok=True)
+    else:
+        tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+        atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
+
+    return tmp_nfs_dir

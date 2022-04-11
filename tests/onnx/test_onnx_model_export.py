@@ -39,7 +39,7 @@ pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--env-manager", "local"]
 
 
 @pytest.fixture(scope="module")
@@ -459,7 +459,7 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
         assert np.allclose(preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05)
         # single numpy array input should fail with the right error message:
         with pytest.raises(
-            MlflowException, match="Unable to map numpy array input to the expected model " "input."
+            MlflowException, match="Unable to map numpy array input to the expected model input."
         ):
             pyfunc_loaded.predict(data.values)
 

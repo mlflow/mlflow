@@ -3,7 +3,6 @@
 import collections
 import os
 import pickle
-import sys
 from unittest.mock import patch
 import json
 
@@ -23,7 +22,11 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
+from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_INTEGRATIONS,
+    BatchMetricsLogger,
+    autologging_is_disabled,
+)
 
 np.random.seed(1337)
 
@@ -123,18 +126,6 @@ def keras_data_gen_sequence(random_train_data, random_one_hot_labels):
     return DataGenerator()
 
 
-@pytest.fixture
-def clear_tf_keras_imports():
-    """
-    Simulates a state where `tensorflow` and `keras` are not imported by removing these
-    libraries from the `sys.modules` dictionary. This is useful for testing the interaction
-    between TensorFlow / Keras and the fluent `mlflow.autolog()` API because it will cause import
-    hooks to be re-triggered upon re-import after `mlflow.autolog()` is enabled.
-    """
-    sys.modules.pop("tensorflow", None)
-    sys.modules.pop("keras", None)
-
-
 @pytest.fixture(autouse=True)
 def clear_fluent_autologging_import_hooks():
     """
@@ -144,6 +135,15 @@ def clear_fluent_autologging_import_hooks():
     """
     mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_autologging_config():
+    """
+    Clears TensorFlow autologging config, simulating a fresh state where autologging has not
+    been previously enabled with any particular configuration
+    """
+    AUTOLOGGING_INTEGRATIONS.pop(mlflow.tensorflow.FLAVOR_NAME, None)
 
 
 def create_tf_keras_model():
@@ -368,7 +368,7 @@ def get_tf_keras_random_data_run_with_callback(
 
         class CustomCallback(tf.keras.callbacks.Callback):
             def on_train_end(self, logs=None):
-                print("Training completed")
+                pass
 
         callback = CustomCallback()
 
@@ -761,7 +761,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
-    assert any(["tensorboard_logs" in a.path and a.is_dir for a in artifacts])
+    assert any("tensorboard_logs" in a.path and a.is_dir for a in artifacts)
 
 
 @pytest.mark.large
@@ -941,7 +941,6 @@ def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
 ):
@@ -999,7 +998,6 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
 )
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     """
     Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
@@ -1015,7 +1013,6 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     assert tensorflow.keras.Model is ModelV2
 
 
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -1032,7 +1029,6 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -1052,7 +1048,6 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
 )
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
@@ -1091,10 +1086,6 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_nparray(
     random_train_data, random_one_hot_labels
 ):
@@ -1106,14 +1097,10 @@ def test_keras_autolog_input_example_load_and_predict_with_nparray(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
@@ -1126,8 +1113,8 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 
 @pytest.mark.large
 @pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for input example logging in TensorFlow < 2.1.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
     mlflow.tensorflow.autolog(log_input_examples=True)
@@ -1143,11 +1130,11 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
 
 @pytest.mark.large
 @pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for signature logging in TensorFlow < 2.1.0",
 )
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
@@ -1159,10 +1146,6 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
@@ -1180,14 +1163,10 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
@@ -1204,10 +1183,6 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
     mlflow.tensorflow.autolog(log_input_examples=True)
     model = create_tf_keras_model()
@@ -1219,14 +1194,10 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(keras_data_gen_sequence)
@@ -1235,3 +1206,18 @@ def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
+
+
+@pytest.mark.large
+def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
+    keras_data_gen_sequence,
+):
+    mlflow.autolog()
+    initial_model = create_tf_keras_model()
+    initial_model.fit(keras_data_gen_sequence)
+
+    mlmodel_path = mlflow.artifacts.download_artifacts(
+        f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
+    )
+    mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
+    assert "signature" not in mlmodel_contents, mlmodel_contents.keys()

@@ -228,7 +228,7 @@ def test_schema_inference_on_pandas_series():
 
 
 def test_get_tensor_shape(dict_of_ndarrays):
-    assert all([-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values()])
+    assert all(-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values())
 
     data = dict_of_ndarrays["4D"]
     # Specify variable dimension

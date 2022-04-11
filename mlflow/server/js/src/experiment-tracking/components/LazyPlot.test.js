@@ -29,14 +29,6 @@ describe('retry', () => {
 });
 
 describe('LazyPlot', () => {
-  beforeEach(() => {
-    jest.mock('react-plotly.js', () => <div />);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it('should render with minimal props without exploding', () => {
     const wrapper = shallowWithIntl(<LazyPlot />);
     expect(wrapper.length).toBe(1);

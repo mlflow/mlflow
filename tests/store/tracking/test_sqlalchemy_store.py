@@ -1331,7 +1331,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [r2],
             self._search(
                 experiment_id,
-                filter_string="tags.generic_2 ILIKE '%Other%' " "and tags.generic_tag = 'p_val'",
+                filter_string="tags.generic_2 ILIKE '%Other%' and tags.generic_tag = 'p_val'",
             ),
         )
         self.assertCountEqual(
@@ -1672,7 +1672,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
-        # Test that attempting to overwrite a param via log_batch results in an exception
+        # Test that attempting to overwrite a param via log_batch handles multiple params sharing
+        # the same key
         run = self._run_factory()
         pkey = "common-key"
         param0 = entities.Param(pkey, "orig-val")
