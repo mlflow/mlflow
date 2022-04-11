@@ -46,13 +46,14 @@ def test_cache_return_value_per_process():
 
     assert len({path1, path3, f2_path1, f2_path2}) == 4
 
+    # Following testing code relying on "os.fork" which windows system does not support.
     if os.name != "nt":
         # Test child process invalidates the cache.
         # We don't create child process by `multiprocessing.Process` because
         # `multiprocessing.Process` creates child process by pickling the target function
         # and start a new process to run the pickled function. But the global variable
-        # `_per_process_value_cache_map` dict content is not pickled, this make child process
-        # automatically clear the `_per_process_value_cache_map` dict content.
+        # `_per_process_value_cache_map` dict content is not pickled, this makes child
+        # and parent don't share the same global variables.
         pid = os.fork()
         if pid > 0:
             # in parent process
