@@ -177,7 +177,8 @@ def _save_model_with_class_artifacts_params(
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_index, (artifact_name, artifact_uri) in enumerate(artifacts.items()):
                 artifact_download_output_path = (
-                    os.path.join(tmp_artifacts_dir.path(), str(artifact_index)) if len(artifacts) > 1
+                    tmp_artifacts_dir.path(str(artifact_index))
+                    if len(artifacts) > 1
                     else tmp_artifacts_dir.path()
                 )
                 os.makedirs(artifact_download_output_path, exist_ok=True)

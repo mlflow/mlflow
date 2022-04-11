@@ -852,16 +852,16 @@ def test_multiple_artifacts_with_common_sub_paths_resolve_correctly_when_saving_
 ):
     default_model_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=default_model_path)
-        first_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=default_model_path
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model, artifact_path=default_model_path
         )
+        first_model_uri = model_info.model_uri
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=default_model_path)
-        second_model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=default_model_path
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model, artifact_path=default_model_path
         )
+        second_model_uri = model_info.model_uri
 
     class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
