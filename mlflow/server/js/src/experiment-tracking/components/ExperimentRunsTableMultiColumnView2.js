@@ -268,6 +268,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           headerName: ATTRIBUTE_COLUMN_LABELS.VERSION,
           field: 'version',
           cellRenderer: 'versionCellRenderer',
+          equals: (version1, version2) => {
+            return (
+              version1.version === version2.version &&
+              version1.name === version2.name &&
+              version1.type === version2.type
+            );
+          },
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
@@ -418,6 +425,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         runUuid: runInfo.runUuid,
       };
 
+      const version = {
+        version: Utils.getSourceVersion(tags),
+        name: Utils.getSourceName(tags),
+        type: Utils.getSourceType(tags),
+      };
+
       return {
         runUuid,
         runDateInfo,
@@ -430,6 +443,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         tags,
         queryParams,
         models,
+        version,
         ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
         ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
@@ -683,9 +697,11 @@ function SourceCellRenderer(props) {
 SourceCellRenderer.propTypes = { data: PropTypes.object };
 
 function VersionCellRenderer(props) {
-  const { tags } = props.data;
-  return Utils.renderVersion(tags) || EMPTY_CELL_PLACEHOLDER;
+  const { version, name, type } = props.value;
+  return Utils.renderSourceVersion(version, name, type) || EMPTY_CELL_PLACEHOLDER;
 }
+
+VersionCellRenderer.propTypes = { value: PropTypes.object };
 
 function ExperimentNameRenderer(props) {
   const { experimentId } = props.data;

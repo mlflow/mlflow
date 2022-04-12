@@ -609,6 +609,10 @@ class Utils {
     const sourceVersion = Utils.getSourceVersion(tags);
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
+    return Utils.renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion);
+  }
+
+  static renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion = true) {
     if (sourceVersion) {
       const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
       if (sourceType === 'PROJECT') {
