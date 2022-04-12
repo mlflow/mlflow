@@ -158,6 +158,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       orderByKey,
       orderByAsc,
       onSortBy,
+      onExpand,
     } = this.props;
     const commonSortOrderProps = { orderByKey, orderByAsc, onSortBy };
     const getStyle = (key) => (key === this.props.orderByKey ? { backgroundColor: '#e6f7ff' } : {});
@@ -175,10 +176,26 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         },
         {
           headerName: ATTRIBUTE_COLUMN_LABELS.DATE,
-          field: 'startTime',
+          field: 'runDateInfo',
           pinned: 'left',
           initialWidth: 150,
           cellRenderer: 'dateCellRenderer',
+          cellRendererParams: {
+            onExpand: onExpand,
+          },
+          equals: (dateInfo1, dateInfo2) => {
+            return (
+              dateInfo1.referenceTime === dateInfo2.referenceTime &&
+              dateInfo1.startTime === dateInfo2.startTime &&
+              dateInfo1.experimentId === dateInfo2.experimentId &&
+              dateInfo1.runUuid === dateInfo2.runUuid &&
+              dateInfo1.runStatus === dateInfo2.runStatus &&
+              dateInfo1.isParent === dateInfo2.isParent &&
+              dateInfo1.hasExpander === dateInfo2.hasExpander &&
+              dateInfo1.expanderOpen === dateInfo2.expanderOpen &&
+              _.isEqual(dateInfo1.childrenIds, dateInfo2.childrenIds)
+            );
+          },
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
@@ -340,7 +357,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       modelVersionsByRunUuid,
       tagsList,
       runsExpanded,
-      onExpand,
       visibleTagKeyList,
       nestChildren,
     } = this.props;
@@ -353,6 +369,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     });
 
     const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments));
+    const referenceTime = new Date();
+    // Round reference time down to the nearest second, to avoid unnecessary re-renders
+    referenceTime.setMilliseconds(0);
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
@@ -369,13 +388,24 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       ];
       const user = Utils.getUser(runInfo, tags);
       const queryParams = window.location && window.location.search ? window.location.search : '';
-      const startTime = runInfo.start_time;
       const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
       const runName = Utils.getRunName(tags) || '-';
       const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
         key,
         value,
       }));
+
+      const runDateInfo = {
+        startTime: runInfo.start_time,
+        referenceTime,
+        experimentId,
+        runUuid,
+        runStatus: runInfo.status,
+        isParent,
+        hasExpander,
+        expanderOpen,
+        childrenIds,
+      };
 
       const models = {
         registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
@@ -386,10 +416,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
       return {
         runUuid,
+        runDateInfo,
         runInfo,
         experimentName,
         experimentBasename,
-        startTime,
         experimentId,
         duration,
         user,
@@ -397,11 +427,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         tags,
         queryParams,
         models,
-        isParent,
-        hasExpander,
-        expanderOpen,
-        childrenIds,
-        onExpand,
         ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
         ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
         ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
@@ -595,21 +620,24 @@ function getRowId(params) {
 function DateCellRenderer(props) {
   const {
     startTime,
-    runInfo,
+    referenceTime,
+    experimentId,
+    runUuid,
+    runStatus,
     isParent,
     hasExpander,
     expanderOpen,
     childrenIds,
-    onExpand,
-  } = props.data;
+  } = props.value;
+  const { onExpand } = props;
   return (
     <div>
       {hasExpander ? (
         <div
           onClick={() => {
-            onExpand(runInfo.run_uuid, childrenIds);
+            onExpand(runUuid, childrenIds);
           }}
-          key={'Expander-' + runInfo.run_uuid}
+          key={'Expander-' + runUuid}
           style={{ paddingRight: 8, display: 'inline' }}
         >
           <i
@@ -620,17 +648,21 @@ function DateCellRenderer(props) {
         <span style={{ paddingLeft: 18 }} />
       )}
       <Link
-        to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}
+        to={Routes.getRunPageRoute(experimentId, runUuid)}
         style={{ paddingLeft: isParent ? 0 : 16 }}
         title={Utils.formatTimestamp(startTime)}
       >
-        {ExperimentViewUtil.getRunStatusIcon(runInfo.status)} {Utils.timeSinceStr(startTime)}
+        {ExperimentViewUtil.getRunStatusIcon(runStatus)}{' '}
+        {Utils.timeSinceStr(startTime, referenceTime)}
       </Link>
     </div>
   );
 }
 
-DateCellRenderer.propTypes = { data: PropTypes.object };
+DateCellRenderer.propTypes = {
+  value: PropTypes.object,
+  onExpand: PropTypes.func,
+};
 
 function SourceCellRenderer(props) {
   const { tags, queryParams } = props.data;
