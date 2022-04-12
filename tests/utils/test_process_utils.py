@@ -46,7 +46,7 @@ def test_cache_return_value_per_process():
 
     assert len({path1, path3, f2_path1, f2_path2}) == 4
 
-    # Skip the following block for Windows which doesn't support `os.fork`
+    # Skip the following block on Windows which doesn't support `os.fork`
     if os.name != "nt":
         # Test child process invalidates the cache.
         # We don't create child process by `multiprocessing.Process` because
