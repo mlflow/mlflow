@@ -48,7 +48,7 @@ class AssertRaisesWithoutMsg(BaseChecker):
         "W0003": (
             "assertRaises must be called with `msg` argument",
             name,
-            "Use assertRaisesRegex with ",
+            "Use `msg` argument",
         ),
     }
     priority = -1
