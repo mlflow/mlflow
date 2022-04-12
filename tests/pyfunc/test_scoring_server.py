@@ -12,6 +12,11 @@ import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
@@ -448,7 +453,7 @@ def test_parse_with_schema_csv(pandas_df_with_csv_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_csv_types.columns])
     df = _shuffle_pdf(pandas_df_with_csv_types)
     csv_str = df.to_csv(index=False)
-    df = pyfunc_scoring_server.parse_csv_input(csv_str, schema=schema)
+    df = pyfunc_scoring_server.parse_csv_input(StringIO(csv_str), schema=schema)
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
 
