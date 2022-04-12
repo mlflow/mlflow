@@ -48,12 +48,8 @@ def test_cache_return_value_per_process():
 
     # Skip the following block on Windows which doesn't support `os.fork`
     if os.name != "nt":
-        # Test child process invalidates the cache.
-        # We don't create child process by `multiprocessing.Process` because
-        # `multiprocessing.Process` creates child process by pickling the target function
-        # and starts a new process to run the pickled function. But the global variable
-        # `_per_process_value_cache_map` dict content is not pickled, this makes child
-        #         # and parent don't share the same global variables.
+        # Use `os.fork()` to make parent and child processes share the same global variable
+        # `_per_process_value_cache_map`.
         pid = os.fork()
         if pid > 0:
             # in parent process
