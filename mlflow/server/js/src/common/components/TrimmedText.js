@@ -8,6 +8,8 @@ export const TrimmedText = ({ text, maxSize, className, allowShowMore = false })
     return <span className={className}>{text}</span>;
   }
   const trimmedText = `${text.substr(0, maxSize)}...`;
+  // Reported during ESLint upgrade
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const [showMore, setShowMore] = useState(false);
   return (
     <span className={className}>

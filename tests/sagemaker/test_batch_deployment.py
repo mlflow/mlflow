@@ -196,7 +196,7 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
@@ -239,7 +239,7 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
@@ -280,7 +280,7 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
@@ -333,7 +333,7 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]

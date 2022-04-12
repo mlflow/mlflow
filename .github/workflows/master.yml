@@ -9,6 +9,21 @@ on:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
@@ -30,10 +45,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
     - uses: ./.github/actions/cache-pip
+    - name: Add problem matchers
+      run: |
+        echo "::add-matcher::.github/workflows/matchers/pylint.json"
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -54,6 +75,9 @@ jobs:
         working-directory: mlflow/R/mlflow
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -103,6 +127,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -120,6 +147,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -136,6 +166,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
@@ -162,11 +195,23 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         ./dev/run-large-python-tests.sh
-    - name: Database tests - build
+    - name: Run anaconda compatibility tests
+      run: |
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Build
       run: |
         ./tests/db/compose.sh pull -q postgresql mysql mssql
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
-    - name: Database tests - run
+    - name: Run tests
       run: |
         for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
         do
@@ -174,18 +219,17 @@ jobs:
           # https://github.com/actions/virtual-environments/issues/5022
           ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
         done
-    - name: Database tests - clean up
+    - name: Clean up
       run: |
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
-    - name: Run anaconda compatibility tests
-      run: |
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -211,6 +255,9 @@ jobs:
         working-directory: mlflow/server/js
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
@@ -233,6 +280,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Test building Docker image
       working-directory: dev
       env:
@@ -252,6 +302,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Increase available disk space
         run: |
           # Increase available disk space by removing unnecessary tool chains:
@@ -286,6 +339,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
@@ -307,30 +363,13 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models --large
 
-  import:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
-      - name: Install mlflow
-        run: |
-          pip install -e .
-      - name: Verify mlflow can be imported without errors
-        run: |
-          python -c "import mlflow"
-
-          # Just importing mlflow should not create `mlruns` directory
-          # See: https://github.com/mlflow/mlflow/issues/3400
-          if [ -d "./mlruns" ]; then
-            exit 1
-          fi
-
   sagemaker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
@@ -354,6 +393,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v3
         with:
           python-version: "3.7"

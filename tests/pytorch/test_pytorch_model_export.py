@@ -52,7 +52,9 @@ except ImportError:
         "Failed to import test helper functions. Tests depending on these functions may fail!"
     )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("torch") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("torch") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture(scope="module")
@@ -560,12 +562,10 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
         mlflow.pytorch.load_model(model_uri=model_path)
 
     assert any(
-        [
-            "does not match installed PyTorch version" in log_message
-            and saver_pytorch_version in log_message
-            and loader_pytorch_version in log_message
-            for log_message in log_messages
-        ]
+        "does not match installed PyTorch version" in log_message
+        and saver_pytorch_version in log_message
+        and loader_pytorch_version in log_message
+        for log_message in log_messages
     )
 
 
@@ -583,7 +583,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
@@ -619,7 +619,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 
@@ -676,7 +676,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         model_uri=pyfunc_model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=["--no-conda"],
+        extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
 

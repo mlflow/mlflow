@@ -38,7 +38,7 @@ def commands():
     "--subscription-id",
     "-s",
     default=None,
-    help=("The subscription id associated with the Azure Workspace in which to build" " the image"),
+    help=("The subscription id associated with the Azure Workspace in which to build the image"),
 )
 @click.option(
     "--image-name",

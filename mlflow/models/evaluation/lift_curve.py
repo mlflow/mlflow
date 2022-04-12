@@ -134,7 +134,7 @@ def plot_lift_curve(
     classes = np.unique(y_true)
     if len(classes) != 2:
         raise ValueError(
-            "Cannot calculate Lift Curve for data with " "{} category/ies".format(len(classes))
+            "Cannot calculate Lift Curve for data with {} category/ies".format(len(classes))
         )
 
     # Compute Cumulative Gain Curves

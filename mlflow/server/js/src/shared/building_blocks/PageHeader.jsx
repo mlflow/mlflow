@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { css } from 'emotion';
-import { Title } from './Title';
+import { Typography } from '@databricks/design-system';
 import { Dropdown, Menu } from 'antd';
 import { Breadcrumb } from './antd/Breadcrumb';
 import { Button } from './antd/Button';
@@ -45,6 +45,8 @@ OverflowMenu.propTypes = {
   ),
 };
 
+const { Title } = Typography;
+
 /**
  * A page header that includes a title, optional breadcrumb content, and a divider.
  * @param props title: Title text.
@@ -64,7 +66,7 @@ export class PageHeader extends React.Component {
     let feedbackLink = null;
     return (
       <>
-        {breadcrumbs && (
+        {breadcrumbs.length > 0 && (
           <Breadcrumb
             className={css(styles.breadcrumbOverride)}
             separator={
@@ -81,7 +83,7 @@ export class PageHeader extends React.Component {
         <div className={css(styles.titleContainer)}>
           <div className={css(styles.title)}>
             <Spacer size={1} direction='horizontal'>
-              <Title level={3}>{title}</Title>
+              <Title level={2}>{title}</Title>
               {preview && <PreviewIcon />}
               {feedbackLink}
             </Spacer>
@@ -112,6 +114,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     minHeight: antButtonHeight,
+    'h1, h2, h3': { marginTop: 0, marginBottom: 0 },
   },
   buttonGroup: {
     flexShrink: 1,

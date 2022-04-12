@@ -96,7 +96,7 @@ def test_load_docker_project(tmpdir):
     conda_env: some-file.yaml
     """
             ),
-            "cannot contain both a docker and conda env",
+            "cannot contain multiple environment fields",
         ),
         (
             textwrap.dedent(

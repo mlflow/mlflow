@@ -386,7 +386,7 @@ def test_numpy_encoder():
 
 def test_numpy_encoder_fail():
     if not hasattr(numpy, "float128"):
-        pytest.skip("numpy on exit" "this platform has no float128")
+        pytest.skip("numpy on exit this platform has no float128")
     test_number = numpy.float128
     with pytest.raises(TypeError, match="not JSON serializable"):
         ne = NumpyEncoder()

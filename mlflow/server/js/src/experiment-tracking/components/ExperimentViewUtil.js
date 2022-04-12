@@ -344,6 +344,11 @@ export default class ExperimentViewUtil {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
+        key: 'duration',
+        displayName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+        canonicalSortKey: null,
+      },
+      {
         key: 'user_id',
         displayName: ATTRIBUTE_COLUMN_LABELS.USER,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
@@ -450,6 +455,8 @@ export default class ExperimentViewUtil {
       <div className='version-link'>
         <img src={registryIcon} alt='MLflow Model Registry Icon' />
         <span className='model-link-text'>
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/jsx-no-target-blank */}
           <a
             href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
             className='model-version-link'

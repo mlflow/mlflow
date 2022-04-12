@@ -42,7 +42,9 @@ from tests.helper_functions import (
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("tensorflow") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
+)
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
