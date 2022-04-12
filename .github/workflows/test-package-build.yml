@@ -37,6 +37,9 @@ jobs:
         type: ["full", "skinny"]
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-node@v1
         with:
           node-version: "16"

@@ -38,6 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+        
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
@@ -92,6 +96,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+
     - name: Increase available disk space
       run: |
         rm -rf "$AGENT_TOOLSDIRECTORY"

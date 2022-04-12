@@ -45,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -72,6 +75,9 @@ jobs:
         working-directory: mlflow/R/mlflow
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -121,6 +127,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -138,6 +147,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -154,6 +166,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
@@ -189,6 +204,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Build
       run: |
         ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -209,6 +227,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
@@ -234,6 +255,9 @@ jobs:
         working-directory: mlflow/server/js
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
@@ -256,6 +280,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Test building Docker image
       working-directory: dev
       env:
@@ -275,6 +302,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - name: Increase available disk space
         run: |
           # Increase available disk space by removing unnecessary tool chains:
@@ -309,6 +339,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
@@ -334,6 +367,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
@@ -357,6 +393,9 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
