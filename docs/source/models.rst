@@ -529,6 +529,16 @@ shape and type against the shape and type specified in the model's schema and th
 For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
 propogate any errors raised by the model if the model does not accept the provided input type.
 
+
+The model might be trained in a different python environment which mismatch with current python environment,
+In this case, when calling :py:func:`mlflow.pyfunc.load_model`, a warning message will be printed
+saying which python packages are mismatched. In order to get full dependencies of the model, you can
+call :py:func:`mlflow.pyfunc.get_model_dependencies`. Furthermore, if you want to run model inference
+in the same environment used in model training, you can call
+:py:func:`mlflow.pyfunc.spark_udf(spark, model_uri, env_manager="conda")` which return a python UDF,
+and the UDF runs inference in the training model python environment restored by Conda.
+
+
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1900,6 +1910,25 @@ argument. The following values are supported:
     pyfunc_udf = mlflow.pyfunc.spark_udf("path/to/model", result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
+
+If you want to use conda to restore the software environment that was used to train the model,
+set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
+
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql.types import ArrayType, FloatType
+    from pyspark.sql.functions import struct
+
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        "path/to/model", result_type=ArrayType(FloatType()),
+        env_manager="conda"  # Use conda to restore the environment used in training
+    )
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
 
 
 .. _deployment_plugin:
