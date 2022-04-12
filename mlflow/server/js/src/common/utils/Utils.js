@@ -375,10 +375,8 @@ class Utils {
   /**
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param tags Object containing tag key value pairs.
-   * @param queryParams Query params to add to certain source type links.
-   * @param runUuid ID of the MLflow run to add to certain source (revision) links.
    */
-  static renderSource(tags, queryParams, runUuid) {
+  static renderSource(tags) {
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);

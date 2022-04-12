@@ -100,8 +100,7 @@ export default class ExperimentViewUtil {
   static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle, excludedKeys) {
     const CellComponent = `${cellType}`;
     const user = Utils.getUser(runInfo, tags);
-    const queryParams = window.location && window.location.search ? window.location.search : '';
-    const sourceType = Utils.renderSource(tags, queryParams);
+    const sourceType = Utils.renderSource(tags);
     const { status, start_time: startTime, end_time: endTime } = runInfo;
     const duration = Utils.getDuration(startTime, endTime);
     const runName = Utils.getRunName(tags);

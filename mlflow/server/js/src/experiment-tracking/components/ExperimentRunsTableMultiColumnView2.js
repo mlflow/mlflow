@@ -254,8 +254,9 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         },
         {
           headerName: ATTRIBUTE_COLUMN_LABELS.SOURCE,
-          field: 'source',
+          field: 'tags',
           cellRenderer: 'sourceCellRenderer',
+          equals: (tags1, tags2) => Utils.getSourceName(tags1) === Utils.getSourceName(tags2),
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
@@ -398,7 +399,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       const { experiment_id: experimentId } = runInfo;
       const experimentName = experimentNameMap[experimentId];
       const user = Utils.getUser(runInfo, tags);
-      const queryParams = window.location && window.location.search ? window.location.search : '';
       const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
       const runName = Utils.getRunName(tags) || '-';
       const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
@@ -441,7 +441,6 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         user,
         runName,
         tags,
-        queryParams,
         models,
         version,
         ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
@@ -682,8 +681,8 @@ DateCellRenderer.propTypes = {
 };
 
 function SourceCellRenderer(props) {
-  const { tags, queryParams } = props.data;
-  const sourceType = Utils.renderSource(tags, queryParams);
+  const tags = props.value;
+  const sourceType = Utils.renderSource(tags);
   return sourceType ? (
     <React.Fragment>
       {Utils.renderSourceTypeIcon(tags)}
@@ -694,7 +693,7 @@ function SourceCellRenderer(props) {
   );
 }
 
-SourceCellRenderer.propTypes = { data: PropTypes.object };
+SourceCellRenderer.propTypes = { value: PropTypes.object };
 
 function VersionCellRenderer(props) {
   const { version, name, type } = props.value;
