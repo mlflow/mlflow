@@ -1203,7 +1203,7 @@ def search_runs(
         print("--")
 
         # Search for all the runs in the experiment with the given experiment name
-        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        df = mlflow.search_runs(experiment_names=[experiment_name], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
 
 
