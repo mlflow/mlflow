@@ -24,7 +24,6 @@ def test_assert_raises_without_msg(test_case):
         test_case.walk(node)
 
     node = extract_node("self.assertRaises(Exception, msg='test')")
-    print(node)
     with test_case.assertNoMessages():
         test_case.walk(node)
 
