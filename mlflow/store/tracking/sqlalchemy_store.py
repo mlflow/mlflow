@@ -804,8 +804,7 @@ class SqlAlchemyStore(AbstractStore):
     def _log_params(self, run_id, params):
         if not params:
             return
-        # eliminate duplicate Param entities
-        params = set(params)
+
         param_instances = [
             SqlParam(run_uuid=run_id, key=param.key, value=param.value) for param in params
         ]
@@ -1040,7 +1039,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
-        
+
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
