@@ -4,6 +4,7 @@ import itertools
 import functools
 import os
 import uuid
+import types
 from abc import abstractmethod
 from contextlib import contextmanager
 
@@ -23,6 +24,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 _AUTOLOGGING_PATCHES = {}
+
+_MUTABLE_ARGS_ALLOWLIST = {
+    # This mutation is allowed since when patching the tensorflow keras fit function for autolog,
+    # we need to infer batch_size from 'x' if 'x' is a generator. This is because the documentation
+    # for the fit function instructs user not to supply batch_size explicitly if 'x' is a generator
+    "tensorflow": {"fit": (types.GeneratorType,)}
+}
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -500,7 +508,14 @@ def safe_patch(
                     def call_original(*og_args, **og_kwargs):
                         def _original_fn(*_og_args, **_og_kwargs):
                             if is_testing():
-                                _validate_args(args, kwargs, og_args, og_kwargs)
+                                _validate_args(
+                                    autologging_integration,
+                                    function_name,
+                                    args,
+                                    kwargs,
+                                    og_args,
+                                    og_kwargs,
+                                )
                                 # By the time `original` is called by the patch implementation, we
                                 # assume that either: 1. the patch implementation has already
                                 # created an MLflow run or 2. the patch code will not create an
@@ -774,7 +789,12 @@ def _validate_autologging_run(autologging_integration, run_id):
 
 
 def _validate_args(
-    user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs
+    autologging_integration,
+    function_name,
+    user_call_args,
+    user_call_kwargs,
+    autologging_call_args,
+    autologging_call_kwargs,
 ):
     """
     Used for testing purposes to verify that, when a patched ML function calls its underlying
@@ -834,6 +854,8 @@ def _validate_args(
             - for all other input types, `autologging_call_input` and `user_call_input`
               must be equivalent by reference equality or by object equality
         """
+        nonlocal autologging_integration, function_name
+
         if user_call_input is None and autologging_call_input is not None:
             _validate_new_input(autologging_call_input)
             return
@@ -866,6 +888,13 @@ def _validate_args(
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
         else:
+            if isinstance(
+                user_call_input,
+                _MUTABLE_ARGS_ALLOWLIST.get(autologging_integration, {}).get(
+                    function_name, tuple()
+                ),
+            ):
+                return
             assert (
                 autologging_call_input is user_call_input
                 or autologging_call_input == user_call_input

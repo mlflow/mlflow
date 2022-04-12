@@ -16,6 +16,7 @@ import warnings
 import atexit
 import time
 import tempfile
+import inspect
 from collections import namedtuple
 import pandas
 from packaging.version import Version
@@ -896,6 +897,26 @@ def autolog(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+
+            batch_size = None
+            if isinstance(args[0], tensorflow.data.Dataset):
+                batch_size = args[0]._batch_size.numpy()
+            elif isinstance(args[0], tensorflow.keras.utils.Sequence):
+                # args[0] is the sequence, args[0][0] gets the first batch
+                # args[0][0][0] gets the inputs of the first batch.
+                batch_size = len(args[0][0][0])
+            elif inspect.isgenerator(args[0]) or inspect.isgeneratorfunction(args[0]):
+                peek = next(args[0])
+                batch_size = len(peek[0])
+
+                def __restored_generator(prev_generator):
+                    yield peek
+                    yield from prev_generator
+
+                args = (__restored_generator(args[0]),) + args[1:]
+            if batch_size is not None:
+                mlflow.log_param("batch_size", batch_size)
+                unlogged_params.append("batch_size")
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 

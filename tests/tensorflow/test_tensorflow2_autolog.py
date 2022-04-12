@@ -260,6 +260,44 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "model_summary.txt" in artifacts
 
 
+def __example_tf_dataset(batch_size):
+    a = tf.data.Dataset.range(1)
+    b = tf.data.Dataset.range(1)
+    ds = tf.data.Dataset.zip((a, b))
+    return ds.batch(batch_size)
+
+
+class __ExampleSequence(tf.keras.utils.Sequence):
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return 10
+
+    def __getitem__(self, idx):
+        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+
+
+def __example_generator(batch_size):
+    while True:
+        for _ in range(10):
+            yield np.array([1] * batch_size), np.array([1] * batch_size)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize(
+    "generate_data", [__example_tf_dataset, __ExampleSequence, __example_generator]
+)
+@pytest.mark.parametrize("batch_size", [5, 10])
+def test_tf_keras_autolog_logs_implicit_batch_size(generate_data, batch_size):
+    mlflow.autolog()
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Dense(1, input_shape=(1,)))
+    model.compile(loss="mse")
+    model.fit(generate_data(batch_size), epochs=1, verbose=0, steps_per_epoch=1)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+
 @pytest.mark.large
 def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
     every_n_iter = 5
