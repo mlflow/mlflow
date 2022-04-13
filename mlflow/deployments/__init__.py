@@ -17,5 +17,10 @@ from mlflow.deployments.base import BaseDeploymentClient, BaseEndpointClient
 from mlflow.deployments.interface import get_deploy_client, get_endpoint_client, run_local
 
 
-__all__ = ["get_deploy_client", "get_endpoint_client", "run_local", "BaseDeploymentClient",
-           "BaseEndpointClient"]
+__all__ = [
+    "get_deploy_client",
+    "get_endpoint_client",
+    "run_local",
+    "BaseDeploymentClient",
+    "BaseEndpointClient",
+]
