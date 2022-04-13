@@ -65,6 +65,15 @@ def test_serve_and_score(sklearn_model):
 
 
 @use_temp_mlflow_env_root
+def test_restore_environment_with_virtualenv(sklearn_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
+
+    scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
+    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
+
+
+@use_temp_mlflow_env_root
 def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
@@ -79,7 +88,7 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_different_requirements(temp_mlflow_env_root, sklearn_model):
+def test_differenet_requirements_create_different_environments(temp_mlflow_env_root, sklearn_model):
     sklearn_req = f"scikit-learn=={sklearn.__version__}"
     with mlflow.start_run():
         model_info1 = mlflow.sklearn.log_model(
@@ -105,7 +114,7 @@ def test_different_requirements(temp_mlflow_env_root, sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_python_env_file_is_missing(sklearn_model):
+def test_python_env_file_does_not_exist(sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
         model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
@@ -127,7 +136,9 @@ def test_python_env_file_and_requirements_file_do_not_exist(sklearn_model):
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
 
 
-def test_pip_installation_failure(temp_mlflow_env_root, sklearn_model):
+def test_environment_is_removed_when_package_installation_fails(
+    temp_mlflow_env_root, sklearn_model
+):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             sklearn_model.model,
@@ -141,7 +152,7 @@ def test_pip_installation_failure(temp_mlflow_env_root, sklearn_model):
 
 
 @use_temp_mlflow_env_root
-def test_model_contains_conda_packages(sklearn_model):
+def test_restore_environment_from_conda_yaml_containing_conda_packages(sklearn_model):
     conda_env = {
         "name": "mlflow-env",
         "channels": ["conda-forge"],
