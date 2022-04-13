@@ -36,7 +36,15 @@ class FlavorBackend:
 
     @abstractmethod
     def serve(
-        self, model_uri, port, host, timeout, enable_mlserver, synchronous=True, stdout=None, stderr=None
+        self,
+        model_uri,
+        port,
+        host,
+        timeout,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
     ):
         """
         Serve the specified MLflow model locally.

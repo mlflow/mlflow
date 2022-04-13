@@ -66,7 +66,10 @@ def serve(
     """
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver)
+    ).serve(
+        model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
+    )
+
 
 @commands.command("predict")
 @cli_args.MODEL_URI
