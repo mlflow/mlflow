@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 1.25.1 (2022-04-13)
+
+MLflow 1.25.1 is a patch release containing the following bug fixes:
+
+- [Models] Fix a `pyfunc` artifact overwrite bug for when multiple artifacts are saved in sub-directories (#5657, @kyle-jarvis)
+- [Scoring] Fix permissions issue for Spark workers accessing model artifacts from a temp directory created by the driver (#5684, @WeichenXu123)
+
 ## 1.25.0 (2022-04-11)
 
 MLflow 1.25.0 includes several major features and improvements:
