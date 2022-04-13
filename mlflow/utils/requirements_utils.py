@@ -89,6 +89,7 @@ def _parse_requirements(requirements, is_constraint, base_dir=None):
     :param requirements: A string path to a requirements file on the local filesystem or
                          an iterable of pip requirement strings.
     :param is_constraint: Indicates the parsed requirements file is a constraint file.
+    :param base_dir: If specified, resolve file references relative to the specified directory.
     :return: A list of ``_Requirement`` instances.
 
     References:
