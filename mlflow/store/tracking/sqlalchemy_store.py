@@ -696,13 +696,16 @@ class SqlAlchemyStore(AbstractStore):
         # isolation
         latest_metrics = {}
         metric_keys = [m.key for m in logged_metrics]
-        metric_key_batches = [metric_keys[i:i + 500] for i in range(len(metric_keys), 500)]
+        # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
+        # query, which may produce limit exceeded errors or poor performance on certain database
+        # platforms
+        metric_key_batches = [metric_keys[i:i + 500] for i in range(0, len(metric_keys), 500)]
         for metric_key_batch in metric_key_batches:
             latest_metrics_batch = (
                 session.query(SqlLatestMetric)
                 .filter(
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
-                    SqlLatestMetric.key.in_([m.key for m in logged_metrics]),
+                    SqlLatestMetric.key.in_(metric_key_batch),
                 )
                 .with_for_update()
                 .all()
