@@ -55,7 +55,7 @@ jobs:
           python-version: "3.7"
       - name: Install dependencies
         run: |
-          pip install packaging requests pyyaml pytest
+          pip install packaging requests pyyaml pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v4
         id: enable-dev-tests
