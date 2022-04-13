@@ -12,7 +12,7 @@ import Routes from '../routes';
 const maxTableHeight = 300;
 // Because we make the table body scrollable, column widths must be fixed
 // so that the header widths match the table body column widths.
-const headerColWidth = 310;
+const headerColWidth = 350;
 const dataColWidth = 200;
 
 class MetricsSummaryTable extends React.Component {
