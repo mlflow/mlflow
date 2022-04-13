@@ -503,6 +503,7 @@ def get_or_create_tmp_dir():
         os.makedirs(tmp_dir, exist_ok=True)
     else:
         tmp_dir = tempfile.mkdtemp()
+        os.chmod(tmp_dir, 0o777)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
@@ -526,6 +527,7 @@ def get_or_create_nfs_tmp_dir():
         os.makedirs(tmp_nfs_dir, exist_ok=True)
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+        os.chmod(tmp_nfs_dir, 0o777)
         atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
 
     return tmp_nfs_dir
