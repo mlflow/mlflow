@@ -873,6 +873,8 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     os.makedirs(root_model_cache_dir, exist_ok=True)
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
+    # mkdtemp create directory with permission 0o700
+    # change it to be 0o777 to ensure it can be seen in spark UDF
     os.chmod(tmp_model_dir, 0o777)
     return tmp_model_dir
 
