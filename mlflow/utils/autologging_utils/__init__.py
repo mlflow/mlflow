@@ -585,3 +585,11 @@ def get_method_call_arg_value(arg_index, arg_name, default_value, call_pos_args,
         return call_pos_args[arg_index]
     else:
         return default_value
+
+
+def is_generator(obj):
+    """
+    :param obj: any object
+    :return: boolean representing whether or not 'obj' is a generator or a generator class.
+    """
+    return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")

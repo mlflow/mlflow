@@ -1402,7 +1402,7 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_validate_args_allows_mutable_tensorflow_keras_fit_x_generator():
+def test_validate_args_exempts_tensorflow_keras_fit_x_generator():
     def get_gen_a():
         for i in range(3):
             yield i

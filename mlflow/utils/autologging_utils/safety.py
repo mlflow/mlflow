@@ -4,7 +4,6 @@ import itertools
 import functools
 import os
 import uuid
-import types
 from abc import abstractmethod
 from contextlib import contextmanager
 
@@ -24,13 +23,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 _AUTOLOGGING_PATCHES = {}
-
-_MUTABLE_ARGS_ALLOWLIST = {
-    # This mutation is allowed since when patching the tensorflow keras fit function for autolog,
-    # we need to infer batch_size from 'x' if 'x' is a generator. This is because the documentation
-    # for the fit function instructs user not to supply batch_size explicitly if 'x' is a generator
-    "tensorflow": {"fit": (types.GeneratorType,)}
-}
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -788,6 +780,43 @@ def _validate_autologging_run(autologging_integration, run_id):
     ), "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
 
 
+def __is_arg_exempt_from_validation(
+    autologging_integration,
+    function_name,
+    arg,
+    pos_arg_index=None,
+    arg_name=None,  # pylint: disable=unused-argument
+):
+    """
+    This function is responsible for determining whether or not an argument is exempt from autolog
+    safety validations. This includes both type checking and immutable checking.
+
+    WARNING: Exemptions should NOT be introduced unless absolutely necessary. If deemed necessary,
+             clear reasons must be provided as comment in addition to thorough integration tests.
+
+    :param autologging_integration: the name of the autologging integration
+    :param function_name: the name of the function that is being validated
+    :param arg: the actual argument
+    :param pos_arg_index: the index of the argument, if it is a positional argument
+    :param arg_name: the name of the argument, if it is a keyword argument
+    :return: True or False
+    """
+
+    # When extracting implicitly defined `batch_size` in the case that `x` is a generator or a
+    # generator class, we need to consume and restore the first element back to the generator to
+    # calculate the `batch_size`. This means that:
+    # 1. The type of `x` will become 'generator' regardless if user provided `x` as a generator or a
+    #    custom generator class.
+    # 2. The instance of `x` will be different, since we reconstructed the generator after consuming
+    #    the first element.
+    if autologging_integration == "tensorflow":
+        if function_name == "fit":
+            if pos_arg_index == 1:
+                from mlflow.utils.autologging_utils import is_generator
+
+                return is_generator(arg)
+
+
 def _validate_args(
     autologging_integration,
     function_name,
@@ -854,7 +883,6 @@ def _validate_args(
             - for all other input types, `autologging_call_input` and `user_call_input`
               must be equivalent by reference equality or by object equality
         """
-        nonlocal autologging_integration, function_name
 
         if user_call_input is None and autologging_call_input is not None:
             _validate_new_input(autologging_call_input)
@@ -888,13 +916,6 @@ def _validate_args(
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
         else:
-            if isinstance(
-                user_call_input,
-                _MUTABLE_ARGS_ALLOWLIST.get(autologging_integration, {}).get(
-                    function_name, tuple()
-                ),
-            ):
-                return
             assert (
                 autologging_call_input is user_call_input
                 or autologging_call_input == user_call_input
@@ -903,7 +924,15 @@ def _validate_args(
                 " Original: '{}'. Expected: '{}'".format(autologging_call_input, user_call_input)
             )
 
-    _validate(autologging_call_args, user_call_args)
+    # Iterating over indices for the purpose of skipping validation exempt arguments
+    for i, autologging_arg, user_arg in itertools.zip_longest(
+        range(len(user_call_args)), autologging_call_args, user_call_args
+    ):
+        if user_arg is not None and __is_arg_exempt_from_validation(
+            autologging_integration, function_name, user_arg, pos_arg_index=i
+        ):
+            continue
+        _validate(autologging_arg, user_arg)
     _validate(autologging_call_kwargs, user_call_kwargs)
 
 

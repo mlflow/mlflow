@@ -16,7 +16,6 @@ import warnings
 import atexit
 import time
 import tempfile
-import inspect
 from collections import namedtuple
 import pandas
 from packaging.version import Version
@@ -62,6 +61,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     batch_metrics_logger,
     get_autologging_config,
+    is_generator,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -899,13 +899,14 @@ def autolog(
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
-            if isinstance(args[0], tensorflow.data.Dataset):
-                batch_size = args[0]._batch_size.numpy()
-            elif isinstance(args[0], tensorflow.keras.utils.Sequence):
-                # args[0] is the sequence, args[0][0] gets the first batch
-                # args[0][0][0] gets the inputs of the first batch.
-                batch_size = len(args[0][0][0])
-            elif inspect.isgenerator(args[0]) or inspect.isgeneratorfunction(args[0]):
+            training_data = args[0]
+            if isinstance(training_data, tensorflow.data.Dataset):
+                batch_size = training_data._batch_size.numpy()
+            elif isinstance(training_data, tensorflow.keras.utils.Sequence):
+                first_batch = training_data[0]
+                first_batch_inputs, _ = first_batch
+                batch_size = len(first_batch_inputs)
+            elif is_generator(args[0]):
                 peek = next(args[0])
                 batch_size = len(peek[0])
 
