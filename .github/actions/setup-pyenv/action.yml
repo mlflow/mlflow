@@ -43,6 +43,7 @@ runs:
       shell: bash
       run: |
         echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
+        echo "PYENV_ROOT=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
         echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\" >> $GITHUB_ENV
         echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> $GITHUB_PATH
     - name: Check pyenv version

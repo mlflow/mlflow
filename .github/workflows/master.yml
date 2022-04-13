@@ -177,7 +177,6 @@ jobs:
     - uses: ./.github/actions/setup-python
       with:
         python-version: "3.7"
-    - uses: ./.github/actions/setup-pyenv
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -313,6 +312,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: "3.7"
+      - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
         with:
           java-version: 11
@@ -408,6 +408,7 @@ jobs:
       - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects tests
+          pytest tests/pyfunc/test_virtualenv.py
       - name: Set up Node
         uses: actions/setup-node@v1
         with:
