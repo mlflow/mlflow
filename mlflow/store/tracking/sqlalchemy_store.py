@@ -892,11 +892,8 @@ class SqlAlchemyStore(AbstractStore):
         if not tags:
             return
 
-        valid_tags = []
         for tag in tags:
             _validate_tag(tag.key, tag.value)
-            valid_tags.append(tag)
-        tags = valid_tags
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)

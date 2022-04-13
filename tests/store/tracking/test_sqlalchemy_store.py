@@ -1835,10 +1835,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         metrics = [metric_1, metric_2]
 
-        warnings.simplefilter("ignore")
-        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
+        with self.assertRaises(MlflowException) as exception_context:
             self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
-            warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_upgrade_cli_idempotence(self):
