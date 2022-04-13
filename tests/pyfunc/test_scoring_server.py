@@ -630,13 +630,14 @@ def test_parse_json_input_including_path():
 @pytest.mark.parametrize(
     "args, expected",
     [
-        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
+        (
+            {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
             "--timeout=60 -b 0.0.0.0:5000 -w 4",
         ),
         ({"host": "0.0.0.0", "nworkers": 4, "timeout": 60}, "--timeout=60 -b 0.0.0.0 -w 4"),
         ({"port": 5000, "nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
         ({"nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"timeout": 60}, "--timeout=60")
+        ({"timeout": 60}, "--timeout=60"),
     ],
 )
 def test_get_cmd(args: dict, expected: str):

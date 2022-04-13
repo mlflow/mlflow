@@ -38,7 +38,15 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def serve(
-        self, model_uri, port, host, timeout, enable_mlserver, synchronous=True, stdout=None, stderr=None
+        self,
+        model_uri,
+        port,
+        host,
+        timeout,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
     ):
         """
         Generate R model locally.

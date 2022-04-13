@@ -153,7 +153,9 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = mlserver if enable_mlserver else scoring_server
-        command, command_env = server_implementation.get_cmd(local_path, port, host, timeout, self._nworkers)
+        command, command_env = server_implementation.get_cmd(  # pylint: disable-msg=E1121
+            local_path, port, host, timeout, self._nworkers
+        )
 
         if sys.platform.startswith("linux"):
 
