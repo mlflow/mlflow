@@ -106,7 +106,7 @@ def _install_python(version):
         if _SEMANTIC_VERSION_REGEX.match(version)
         else _find_latest_installable_python_version(version)
     )
-    _logger.info("Installing python %s", version)
+    _logger.info("Installing python %s if it does not exist", version)
     # pyenv-win doesn't support `--skip-existing` but its behavior is enabled by default
     # https://github.com/pyenv-win/pyenv-win/pull/314
     pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
