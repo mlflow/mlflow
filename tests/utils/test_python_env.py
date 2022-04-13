@@ -15,7 +15,7 @@ def test_constructor_argument_validation():
 
 
 def test_to_yaml(tmp_path):
-    yaml_path = tmp_path / "python-env.yaml"
+    yaml_path = tmp_path / "python_env.yaml"
     _PythonEnv("3.7.5", ["a"], ["b"]).to_yaml(yaml_path)
     expected_content = """
 python: 3.7.5
