@@ -197,7 +197,7 @@ describe('MetricsSummaryTable', () => {
     expect(values.length).toBe(2);
 
     const html = wrapper.html();
-    expect(html).not.toContain('train_loss');
+    expect(html).toContain('train_loss');
     expect(html).toContain('run 0');
     expect(html).toContain('run 1');
     expect(html).toContain('experiments/1/runs/uuid-1234-5678-9012');

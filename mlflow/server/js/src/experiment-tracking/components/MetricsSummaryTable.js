@@ -96,7 +96,7 @@ class MetricsSummaryTable extends React.Component {
     return metricKeys.map((metricKey) => {
       return (
         <Fragment key={metricKey}>
-          {metricKeys.length > 1 ? <h1>{metricKey}</h1> : null}
+          <h1>{metricKey}</h1>
           <HtmlTableView
             columns={columns}
             values={getMetricValuesByRun(
