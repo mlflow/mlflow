@@ -694,16 +694,20 @@ class SqlAlchemyStore(AbstractStore):
         # Fetch the latest metric value corresponding to the specified run_id and metric keys and
         # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
-        latest_metrics = (
-            session.query(SqlLatestMetric)
-            .filter(
-                SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
-                SqlLatestMetric.key.in_([m.key for m in logged_metrics]),
+        latest_metrics = {}
+        metric_keys = [m.key for m in logged_metrics]
+        metric_key_batches = [metric_keys[i:i + 500] for i in range(len(metric_keys), 500)]
+        for metric_key_batch in metric_key_batches:
+            latest_metrics_batch = (
+                session.query(SqlLatestMetric)
+                .filter(
+                    SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
+                    SqlLatestMetric.key.in_([m.key for m in logged_metrics]),
+                )
+                .with_for_update()
+                .all()
             )
-            .with_for_update()
-            .all()
-        )
-        latest_metrics = {m.key: m for m in latest_metrics}
+            latest_metrics.update({m.key: m for m in latest_metrics_batch})
 
         # iterate over all logged metrics and compare them with corresponding
         # SqlLatestMetric entries
