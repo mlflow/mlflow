@@ -13,8 +13,9 @@ your own plugin for deployment to a custom serving tool, see
 `plugin docs <http://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_.
 """
 
-from mlflow.deployments.base import BaseDeploymentClient
-from mlflow.deployments.interface import get_deploy_client, run_local
+from mlflow.deployments.base import BaseDeploymentClient, BaseEndpointClient
+from mlflow.deployments.interface import get_deploy_client, get_endpoint_client, run_local
 
 
-__all__ = ["get_deploy_client", "run_local", "BaseDeploymentClient"]
+__all__ = ["get_deploy_client", "get_endpoint_client", "run_local", "BaseDeploymentClient",
+           "BaseEndpointClient"]
