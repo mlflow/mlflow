@@ -535,7 +535,7 @@ In this case, when calling :py:func:`mlflow.pyfunc.load_model`, a warning messag
 saying which python packages are mismatched. In order to get full dependencies of the model, you can
 call :py:func:`mlflow.pyfunc.get_model_dependencies`. Furthermore, if you want to run model inference
 in the same environment used in model training, you can call
-:py:func:`mlflow.pyfunc.spark_udf(spark, model_uri, env_manager="conda")` which return a python UDF,
+:py:func:`mlflow.pyfunc.spark_udf` with `env_manager` argument set as "conda" which return a python UDF,
 and the UDF runs inference in the training model python environment restored by Conda.
 
 
