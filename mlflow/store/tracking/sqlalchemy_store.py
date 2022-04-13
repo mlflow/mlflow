@@ -138,9 +138,9 @@ class SqlAlchemyStore(AbstractStore):
         if any(table not in inspected_tables for table in expected_tables):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
-        self.SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
-            self.SessionMaker, self.db_type
+            SessionMaker, self.db_type
         )
         mlflow.store.db.utils._verify_schema(self.engine)
 
@@ -620,48 +620,45 @@ class SqlAlchemyStore(AbstractStore):
                 )
             seen.add(metric)
 
-        # use SessionManager instead of ManagedSessionManager to set
-        # isolation level for individual transaction.
-        # Here, we open a connection with SERIALIZABLE isolation level.
-        # it will be released when session.commit is called.
-        session = self.SessionMaker()
-        session.connection(execution_options={"isolation_level": "SERIALIZABLE"})
+        # Create a session that uses a SERIALIZABLE transaction isolation level
+        with self.ManagedSessionMaker(
+            connection_kwargs={"execution_options": {"isolation_level": "SERIALIZABLE"}}
+        ) as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
 
-        run = self._get_run(run_uuid=run_id, session=session)
-        self._check_run_is_active(run)
-
-        # commit the session to make sure that we catch any IntegrityError
-        # and try to handle them.
-        try:
-            self._save_to_db(session=session, objs=metric_instances)
-            self._update_latest_metrics_if_necessary(metric_instances, session)
-            session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            # Primary key can be violated if it is tried to log a metric with same value,
-            # timestamp, step, and key within the same run.
-            # Roll back the current session to make it usable for further transactions. In the
-            # event of an error during "commit", a rollback is required in order to continue
-            # using the session. In this case, we re-use the session to query SqlMetric
-            session.rollback()
-            # obtain the metric history corresponding to the given metrics
-            metric_history = (
-                session.query(SqlMetric)
-                .filter(
-                    SqlMetric.run_uuid == run_id,
-                    SqlMetric.key.in_([m.key for m in metric_instances]),
+            # commit the session to make sure that we catch any IntegrityError
+            # and try to handle them.
+            try:
+                self._save_to_db(session=session, objs=metric_instances)
+                self._update_latest_metrics_if_necessary(metric_instances, session)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # Primary key can be violated if it is tried to log a metric with same value,
+                # timestamp, step, and key within the same run.
+                # Roll back the current session to make it usable for further transactions. In the
+                # event of an error during "commit", a rollback is required in order to continue
+                # using the session. In this case, we re-use the session to query SqlMetric
+                session.rollback()
+                # obtain the metric history corresponding to the given metrics
+                metric_history = (
+                    session.query(SqlMetric)
+                    .filter(
+                        SqlMetric.run_uuid == run_id,
+                        SqlMetric.key.in_([m.key for m in metric_instances]),
+                    )
+                    .all()
                 )
-                .all()
-            )
-            # convert to a set of Metric instance to take advantage of its hashable
-            # and then obtain the metrics that were not logged earlier within this run_id
-            metric_history = {m.to_mlflow_entity() for m in metric_history}
-            non_existing_metrics = [
-                m for m in metric_instances if m.to_mlflow_entity() not in metric_history
-            ]
-            # if there exist metrics that were tried to be logged & rolled back even though
-            # they were not violating the PK, log them.
-            if non_existing_metrics:
-                self._log_metrics(run_id, non_existing_metrics)
+                # convert to a set of Metric instance to take advantage of its hashable
+                # and then obtain the metrics that were not logged earlier within this run_id
+                metric_history = {m.to_mlflow_entity() for m in metric_history}
+                non_existing_metrics = [
+                    m for m in metric_instances if m.to_mlflow_entity() not in metric_history
+                ]
+                # if there exist metrics that were tried to be logged & rolled back even though
+                # they were not violating the PK, log them.
+                if non_existing_metrics:
+                    self._log_metrics(run_id, non_existing_metrics)
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -699,7 +696,7 @@ class SqlAlchemyStore(AbstractStore):
         # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
         # query, which may produce limit exceeded errors or poor performance on certain database
         # platforms
-        metric_key_batches = [metric_keys[i:i + 500] for i in range(0, len(metric_keys), 500)]
+        metric_key_batches = [metric_keys[i : i + 500] for i in range(0, len(metric_keys), 500)]
         for metric_key_batch in metric_key_batches:
             latest_metrics_batch = (
                 session.query(SqlLatestMetric)
@@ -951,7 +948,7 @@ class SqlAlchemyStore(AbstractStore):
                             max_retries, [t.key for t in tags]
                         )
                     )
-                sleep_duration = (2 ** attempt) - 1
+                sleep_duration = (2**attempt) - 1
                 sleep_duration += random.uniform(0, 1)
                 time.sleep(sleep_duration)
                 self._set_tags(run_id, tags, attempt=attempt)
