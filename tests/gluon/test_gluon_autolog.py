@@ -1,7 +1,6 @@
 from packaging.version import Version
 import pickle
 import random
-import warnings
 
 import mxnet as mx
 import numpy as np
@@ -65,9 +64,7 @@ def get_gluon_random_data_run(log_models=True):
         )
         est = get_estimator(model, trainer)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            est.fit(data, epochs=3, val_data=validation)
+        est.fit(data, epochs=3, val_data=validation)
     client = mlflow.tracking.MlflowClient()
     return client.get_run(run.info.run_id)
 
@@ -166,9 +163,7 @@ def test_autolog_ends_auto_created_run():
     )
     est = get_estimator(model, trainer)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        est.fit(data, epochs=3)
+    est.fit(data, epochs=3)
 
     assert mlflow.active_run() is None
 
@@ -194,9 +189,7 @@ def test_autolog_persists_manually_created_run():
         )
         est = get_estimator(model, trainer)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            est.fit(data, epochs=3)
+        est.fit(data, epochs=3)
 
         assert mlflow.active_run().info.run_id == run.info.run_id
 
@@ -224,8 +217,7 @@ def test_autolog_registering_model():
     )
     est = get_estimator(model, trainer)
 
-    with mlflow.start_run(), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with mlflow.start_run():
         est.fit(data, epochs=3)
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)

@@ -256,6 +256,8 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
@@ -873,6 +875,9 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     os.makedirs(root_model_cache_dir, exist_ok=True)
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
+    # mkdtemp creates a directory with permission 0o700
+    # change it to be 0o777 to ensure it can be seen in spark UDF
+    os.chmod(tmp_model_dir, 0o777)
     return tmp_model_dir
 
 
@@ -1668,6 +1673,8 @@ def _save_model_with_loader_module_and_data_path(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 

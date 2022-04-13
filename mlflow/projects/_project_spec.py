@@ -217,7 +217,7 @@ class Parameter:
     def _compute_uri_value(self, user_param_value):
         if not data.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter %s but got " "%s" % (self.name, user_param_value)
+                "Expected URI for parameter %s but got %s" % (self.name, user_param_value)
             )
         return user_param_value
 

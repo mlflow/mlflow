@@ -12,9 +12,7 @@ from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 class TensorsNotSupportedException(MlflowException):
     def __init__(self, msg):
-        super().__init__(
-            "Multidimensional arrays (aka tensors) are not supported. " "{}".format(msg)
-        )
+        super().__init__("Multidimensional arrays (aka tensors) are not supported. {}".format(msg))
 
 
 def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:

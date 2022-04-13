@@ -47,6 +47,12 @@ _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 # Flag indicating whether autologging is globally disabled for all integrations.
 _AUTOLOGGING_GLOBALLY_DISABLED = False
 
+# Autologging config key indicating whether or not a particular autologging integration
+# was configured (i.e. its various `log_models`, `disable`, etc. configuration options
+# were set) via a call to `mlflow.autolog()`, rather than via a call to the integration-specific
+# autologging method (e.g., `mlflow.tensorflow.autolog()`, ...)
+AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
+
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 

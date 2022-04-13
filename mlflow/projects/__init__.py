@@ -396,7 +396,7 @@ def _parse_kubernetes_config(backend_config):
     kube_config = backend_config.copy()
     if "kube-job-template-path" not in backend_config.keys():
         raise ExecutionException(
-            "'kube-job-template-path' attribute must be specified in " "backend_config."
+            "'kube-job-template-path' attribute must be specified in backend_config."
         )
     kube_job_template = backend_config["kube-job-template-path"]
     if os.path.exists(kube_job_template):

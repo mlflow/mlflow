@@ -42,6 +42,10 @@ class TestMlflowException:
             == 400
         )
 
+    def test_invalid_parameter_value(self):
+        mlflow_exception = MlflowException.invalid_parameter_value("test")
+        assert mlflow_exception.error_code == "INVALID_PARAMETER_VALUE"
+
 
 def test_rest_exception():
     mlflow_exception = MlflowException("test", error_code=RESOURCE_ALREADY_EXISTS)
