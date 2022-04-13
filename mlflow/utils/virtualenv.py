@@ -3,7 +3,6 @@ import logging
 import shutil
 import uuid
 import re
-import tempfile
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
@@ -13,11 +12,10 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.requirements_utils import _get_package_name
+from mlflow.utils.requirements_utils import _get_package_name, _parse_requirements
 from mlflow.utils.conda import _get_conda_dependencies
 
 
@@ -188,29 +186,15 @@ def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
 
     _logger.info("Installing dependencies")
     for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
-        # Use a unique name to avoid conflicting custom requirements files logged by a user
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create a temporary requirements file
-            tmpdir = Path(tmpdir)
-            tmp_req_file = tmpdir.joinpath(f"requirements.{uuid.uuid4().hex}.txt")
-            tmp_req_file.write_text("\n".join(deps))
-            # Copy `requirements.txt` and `constraints.txt` in the temporary directory.
-            # --- Why do we need to copy them? ---
-            # Let's say `tmp_req_file` is stored in /tmp/123 and it contains '-r requirements.txt'.
-            # pip resolves this reference to '-r /tmp/123/requirements.txt'. If we didn't copy
-            # requirements.txt in /tmp/123, pip would complain /tmp/123/requirements.txt is not
-            # found. The same thing applies to constraints.txt.
-            req_file = local_model_path.joinpath(_REQUIREMENTS_FILE_NAME)
-            if req_file.exists():
-                shutil.copy(req_file, tmpdir)
-            con_file = local_model_path.joinpath(_CONSTRAINTS_FILE_NAME)
-            if con_file.exists():
-                shutil.copy(con_file, tmpdir)
-            # In windows `pip install pip==x.y.z` causes the following error:
-            # `[WinError 5] Access is denied: 'C:\path\to\pip.exe`
-            # This can be avoided by using `python -m`.
+        # Create a temporary requirements file in the model directory to resolve the references
+        # in it correctly.
+        tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
+        local_model_path.joinpath(tmp_req_file).write_text("\n".join(deps))
+        try:
             cmd = _join_commands(activate_cmd, f"python -m pip install -r {tmp_req_file}")
-            _exec_cmd(cmd, capture_output=False)
+            _exec_cmd(cmd, capture_output=False, cwd=local_model_path)
+        finally:
+            local_model_path.joinpath(tmp_req_file).unlink()
 
     return activate_cmd
 
@@ -240,7 +224,14 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
     python_bin_path = _install_python(python_env.python)
     env_root = Path(_get_mlflow_virtualenv_root())
     env_root.mkdir(parents=True, exist_ok=True)
-    env_name = _get_mlflow_env_name(str(python_env) + (env_id or ""))
+    requirements = _parse_requirements(
+        python_env.dependencies,
+        is_constraint=False,
+        base_dir=local_model_path,
+    )
+    env_name = _get_mlflow_env_name(
+        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
+    )
     env_dir = env_root / env_name
     try:
         return _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env)
@@ -251,7 +242,6 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
             shutil.rmtree(env_dir, ignore_errors=True)
             msg = "Failed to remove %s" if env_dir.exists() else "Successfully removed %s"
             _logger.warning(msg, env_dir)
-
         raise
 
 

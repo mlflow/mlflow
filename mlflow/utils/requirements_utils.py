@@ -15,6 +15,7 @@ from collections import namedtuple
 import logging
 import re
 from typing import NamedTuple, Optional
+from pathlib import Path
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -75,7 +76,7 @@ def _join_continued_lines(lines):
 _Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
 
 
-def _parse_requirements(requirements, is_constraint):
+def _parse_requirements(requirements, is_constraint, base_dir=None):
     """
     A simplified version of `pip._internal.req.parse_requirements` which performs the following
     operations on the given requirements file and yields the parsed requirements.
@@ -98,12 +99,13 @@ def _parse_requirements(requirements, is_constraint):
     - Constraints Files:
       https://pip.pypa.io/en/stable/user_guide/#constraints-files
     """
-    if isinstance(requirements, str):
-        base_dir = os.path.dirname(requirements)
-        with open(requirements) as f:
-            requirements = f.read().splitlines()
-    else:
-        base_dir = os.getcwd()
+    if base_dir is None:
+        if isinstance(requirements, (str, Path)):
+            base_dir = os.path.dirname(requirements)
+            with open(requirements) as f:
+                requirements = f.read().splitlines()
+        else:
+            base_dir = os.getcwd()
 
     lines = map(str.strip, requirements)
     lines = map(_strip_inline_comment, lines)

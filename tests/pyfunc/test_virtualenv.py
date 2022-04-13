@@ -1,10 +1,11 @@
-import os
+import sys
 from pathlib import Path
 from collections import namedtuple
 
 import pytest
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 
@@ -71,10 +72,36 @@ def test_reuse_environment(temp_mlflow_env_root, sklearn_model):
     # Serve the model
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    # Serve the model again (environment created in the previous serving should be reused)
+    # Serve the model again. The environment created in the previous serving should be reused.
     scores = serve_and_score(model_info.model_uri, sklearn_model.X_pred)
     np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
-    assert len(os.listdir(temp_mlflow_env_root)) == 1
+    assert len(list(temp_mlflow_env_root.iterdir())) == 1
+
+
+@use_temp_mlflow_env_root
+def test_different_requirements(temp_mlflow_env_root, sklearn_model):
+    sklearn_req = f"scikit-learn=={sklearn.__version__}"
+    with mlflow.start_run():
+        model_info1 = mlflow.sklearn.log_model(
+            sklearn_model.model,
+            artifact_path="model",
+            pip_requirements=[sklearn_req],
+        )
+    scores = serve_and_score(model_info1.model_uri, sklearn_model.X_pred)
+    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
+
+    # Log the same model with different requirements
+    with mlflow.start_run():
+        model_info2 = mlflow.sklearn.log_model(
+            sklearn_model.model,
+            artifact_path="model",
+            pip_requirements=[sklearn_req, "numpy"],
+        )
+    scores = serve_and_score(model_info2.model_uri, sklearn_model.X_pred)
+    np.testing.assert_array_almost_equal(scores, sklearn_model.y_pred)
+    # Two environments should exist now because the first and second models have different
+    # requirements
+    assert len(list(temp_mlflow_env_root.iterdir())) == 2
 
 
 @use_temp_mlflow_env_root
@@ -119,13 +146,13 @@ def test_model_contains_conda_packages(sklearn_model):
         "name": "mlflow-env",
         "channels": ["conda-forge"],
         "dependencies": [
-            "python=3.7.9",
-            "conda-package=1.2.3",  # <- conda package
-            "pip<=21.3.1",
+            "python=" + ".".join(map(str, sys.version_info[:3])),
+            "conda-package=1.2.3",  # conda package
+            "pip",
             {
                 "pip": [
                     "mlflow",
-                    "scikit-learn==1.0.2",
+                    f"scikit-learn=={sklearn.__version__}",
                 ]
             },
         ],
@@ -137,6 +164,5 @@ def test_model_contains_conda_packages(sklearn_model):
             conda_env=conda_env,
         )
         model_artifact_path = Path(mlflow.get_artifact_uri("model").replace("file://", ""))
-
     model_artifact_path.joinpath(_PYTHON_ENV_FILE_NAME).unlink()
     serve_and_score(model_info.model_uri, sklearn_model.X_pred)
