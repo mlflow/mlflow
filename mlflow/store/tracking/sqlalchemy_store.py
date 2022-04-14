@@ -719,7 +719,9 @@ class SqlAlchemyStore(AbstractStore):
             # and next-key locking which may otherwise occur when issuing a `SELECT FOR UPDATE`
             # against nonexistent rows
             if len(latest_metrics_key_records_from_db) > 0:
-                latest_metric_keys_from_db = [record[0] for record in latest_metrics_key_records_from_db]
+                latest_metric_keys_from_db = [
+                    record[0] for record in latest_metrics_key_records_from_db
+                ]
                 latest_metrics_batch = (
                     session.query(SqlLatestMetric)
                     .filter(

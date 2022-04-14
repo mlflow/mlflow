@@ -774,7 +774,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         log_metrics_futures = []
         with ThreadPoolExecutor(max_workers=4) as executor:
             # Log metrics to two runs across four threads
-            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]]
+            log_metrics_futures = [
+                executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
+            ]
 
         for future in log_metrics_futures:
             assert future.result() == "success"
