@@ -346,16 +346,13 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     model.compile(loss="mae", optimizer="adam", metrics=["mse"])
 
     mlflow.autolog()
-    actual_mse = model.fit(
-        generator(data, target, batch_size), batch_size=batch_size, verbose=0
-    ).history["mse"][-1]
+    actual_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
 
     mlflow.autolog(disable=True)
-    expected_mse = model.fit(
-        generator(data, target, batch_size), batch_size=batch_size, verbose=0
-    ).history["mse"][-1]
+    expected_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
 
     np.testing.assert_allclose(actual_mse, expected_mse, atol=1)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
 @pytest.mark.large
