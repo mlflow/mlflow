@@ -911,22 +911,25 @@ def autolog(
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
-            training_data = args[0]
+            training_data = kwargs["x"] if "x" in kwargs else args[0]
             if isinstance(training_data, tensorflow.data.Dataset):
                 batch_size = training_data._batch_size.numpy()
             elif isinstance(training_data, tensorflow.keras.utils.Sequence):
-                first_batch = training_data[0]
-                first_batch_inputs, _ = first_batch
+                first_batch_inputs, _ = training_data[0]
                 batch_size = len(first_batch_inputs)
-            elif is_generator(args[0]):
-                peek = next(args[0])
+            elif is_generator(training_data):
+                peek = next(training_data)
                 batch_size = len(peek[0])
 
-                def __restored_generator(prev_generator):
+                def __restore_generator(prev_generator):
                     yield peek
                     yield from prev_generator
 
-                args = (__restored_generator(args[0]),) + args[1:]
+                restored_generator = __restore_generator(training_data)
+                if "x" in kwargs:
+                    kwargs["x"] = restored_generator
+                else:
+                    args = (restored_generator,) + args[1:]
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)
                 unlogged_params.append("batch_size")

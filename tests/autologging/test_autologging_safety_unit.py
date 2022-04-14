@@ -1427,6 +1427,9 @@ def test_validate_args_exempts_tensorflow_keras_fit_x_generator():
         {},
     )
 
+    # same as above, except passing 'x' as a kwarg
+    _validate_args("tensorflow", "fit", tuple(), {"x": get_gen_a()}, tuple(), {"x": get_gen_b()})
+
 
 def test_validate_autologging_run_validates_autologging_tag_correctly():
     with mlflow.start_run():

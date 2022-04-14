@@ -785,7 +785,7 @@ def __is_arg_exempt_from_validation(
     function_name,
     arg,
     pos_arg_index=None,
-    arg_name=None,  # pylint: disable=unused-argument
+    kwarg_name=None,
 ):
     """
     This function is responsible for determining whether or not an argument is exempt from autolog
@@ -798,7 +798,7 @@ def __is_arg_exempt_from_validation(
     :param function_name: the name of the function that is being validated
     :param arg: the actual argument
     :param pos_arg_index: the index of the argument, if it is a positional argument
-    :param arg_name: the name of the argument, if it is a keyword argument
+    :param kwarg_name: the name of the argument, if it is a keyword argument
     :return: True or False
     """
 
@@ -809,9 +809,9 @@ def __is_arg_exempt_from_validation(
     #    custom generator class.
     # 2. The instance of `x` will be different, since we reconstructed the generator after consuming
     #    the first element.
-    if autologging_integration == "tensorflow":
+    if autologging_integration == mlflow.tensorflow.FLAVOR_NAME:
         if function_name == "fit":
-            if pos_arg_index == 1:
+            if pos_arg_index == 1 or kwarg_name == "x":
                 from mlflow.utils.autologging_utils import is_generator
 
                 return is_generator(arg)
@@ -869,7 +869,9 @@ def _validate_args(
                 "such exception safe functions / classes.".format(inp)
             )
 
-    def _validate(depth, autologging_call_input, user_call_input=None, pos_arg_index=None):
+    def _validate(
+        depth, autologging_call_input, user_call_input=None, pos_arg_index=None, kwarg_name=None
+    ):
         """
         Validates that the specified `autologging_call_input` and `user_call_input`
         are compatible. If `user_call_input` is `None`, then `autologging_call_input`
@@ -896,7 +898,11 @@ def _validate_args(
 
         if depth == 1:
             if __is_arg_exempt_from_validation(
-                autologging_integration, function_name, user_call_input, pos_arg_index=pos_arg_index
+                autologging_integration,
+                function_name,
+                user_call_input,
+                pos_arg_index=pos_arg_index,
+                kwarg_name=kwarg_name,
             ):
                 return
 
@@ -918,7 +924,7 @@ def _validate_args(
             # to `_validate` identify new inputs added by the autologging call
             cur_pos_arg_index = 0 if depth == 0 else None
             for a, u in itertools.zip_longest(autologging_call_input, user_call_input):
-                _validate(depth + 1, a, u, pos_arg_index=cur_pos_arg_index)
+                _validate(depth + 1, a, u, pos_arg_index=cur_pos_arg_index, kwarg_name=kwarg_name)
                 if depth == 0:
                     cur_pos_arg_index += 1
         elif type(autologging_call_input) == dict:
@@ -929,7 +935,13 @@ def _validate_args(
                 )
             )
             for key in autologging_call_input.keys():
-                _validate(depth + 1, autologging_call_input[key], user_call_input.get(key, None))
+                _validate(
+                    depth + 1,
+                    autologging_call_input[key],
+                    user_call_input.get(key, None),
+                    pos_arg_index=pos_arg_index,
+                    kwarg_name=key,
+                )
         else:
             assert (
                 autologging_call_input is user_call_input
