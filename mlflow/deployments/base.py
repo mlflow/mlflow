@@ -199,7 +199,9 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @experimental
-    def explain(self, deployment_name=None, df=None, endpoint=None):  # pylint: disable=unused-argument
+    def explain(
+        self, deployment_name=None, df=None, endpoint=None
+    ):  # pylint: disable=unused-argument
         """
         Generate explanations of model predictions on the specified input pandas Dataframe
         ``df`` for the deployed model. Explanation output formats vary by deployment target,
