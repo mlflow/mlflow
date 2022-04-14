@@ -13,6 +13,7 @@ import mlflow
 import uuid
 import json
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import mlflow.db
@@ -734,6 +735,35 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(math.isnan(run.data.metrics["NaN"]))
             self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
             self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+
+    def test_log_metric_concurrency_doesnt_cause_deadlock(self):
+        experiment_id = self._experiment_factory("concurrency_exp")
+        run_config = self._get_run_configs(experiment_id=experiment_id)
+        run1 = self._run_factory(run_config)
+        run2 = self._run_factory(run_config)
+
+        def log_metrics(run):
+            for metric_val in range(100):
+                self.store.log_metric(run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0))
+            for batch_idx in range(5):
+                self.store.log_batch(
+                    run.info.run_id,
+                    metrics=[
+                        Metric(f"metric_batch_{batch_idx}", (batch_idx * 100) + val_offset, int(1000 * time.time()), 0)
+                        for val_offset in range(100)
+                    ],
+                    params=[],
+                    tags=[],
+                )
+            return "success"
+
+        log_metrics_futures = []
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run2]]
+
+        for future in log_metrics_futures:
+            assert future.result() == "success"
+        
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
