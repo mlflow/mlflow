@@ -736,7 +736,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
             self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
-    def test_log_metric_concurrency_doesnt_cause_deadlock(self):
+    def test_log_metric_concurrent_logging_succeeds(self):
+        """
+        Verifies that concurrent logging succeeds without deadlock, which has been an issue
+        in previous MLflow releases
+        """
         experiment_id = self._experiment_factory("concurrency_exp")
         run_config = self._get_run_configs(experiment_id=experiment_id)
         run1 = self._run_factory(run_config)
@@ -744,12 +748,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         def log_metrics(run):
             for metric_val in range(100):
-                self.store.log_metric(run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0))
+                self.store.log_metric(
+                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                )
             for batch_idx in range(5):
                 self.store.log_batch(
                     run.info.run_id,
                     metrics=[
-                        Metric(f"metric_batch_{batch_idx}", (batch_idx * 100) + val_offset, int(1000 * time.time()), 0)
+                        Metric(
+                            f"metric_batch_{batch_idx}",
+                            (batch_idx * 100) + val_offset,
+                            int(1000 * time.time()),
+                            0,
+                        )
                         for val_offset in range(100)
                     ],
                     params=[],
@@ -763,7 +774,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for future in log_metrics_futures:
             assert future.result() == "success"
-        
+
+        for run in [run1, run2]:
+            assert len(self.store.get_metric_history(run.info.run_id, "metric_key")) == 100
+            for batch_idx in range(5):
+                assert (
+                    len(self.store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}"))
+                    == 100
+                )
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
