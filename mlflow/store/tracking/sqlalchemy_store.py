@@ -12,7 +12,7 @@ from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
@@ -620,7 +620,14 @@ class SqlAlchemyStore(AbstractStore):
                 )
             seen.add(metric)
 
-        # Create a session that uses a SERIALIZABLE transaction isolation level
+        # Create a session that uses a REPEATABLE READ transaction isolation level,
+        # ensuring that values read from the `latest_metrics` table for comparison / udpate
+        # purposes aren't changed by another transaction while the comparison / update procedure
+        # is in progress.
+        #
+        # Note: For sqlite, we use SERIALIZABLE because REPEATABLE READ is not supported;
+        # SERIALIZABLE is the default isolation level for sqlite
+        isolation_level = "REPEATABLE_READ" if self.db_type != SQLITE else "SERIALIZABLE"
         with self.ManagedSessionMaker(
             connection_kwargs={"execution_options": {"isolation_level": "SERIALIZABLE"}}
         ) as session:
@@ -713,7 +720,6 @@ class SqlAlchemyStore(AbstractStore):
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                     SqlLatestMetric.key.in_(metric_key_batch),
                 )
-                # .with_for_update()
                 .all()
             )
             latest_metrics.update({m.key: m for m in latest_metrics_batch})
