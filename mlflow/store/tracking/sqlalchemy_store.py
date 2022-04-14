@@ -627,9 +627,9 @@ class SqlAlchemyStore(AbstractStore):
         #
         # Note: For sqlite, we use SERIALIZABLE because REPEATABLE READ is not supported;
         # SERIALIZABLE is the default isolation level for sqlite
-        isolation_level = "REPEATABLE_READ" if self.db_type != SQLITE else "SERIALIZABLE"
+        # isolation_level = "REPEATABLE_READ" if self.db_type != SQLITE else "SERIALIZABLE"
         with self.ManagedSessionMaker(
-            connection_kwargs={"execution_options": {"isolation_level": isolation_level}}
+            # connection_kwargs={"execution_options": {"isolation_level": isolation_level}}
         ) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -714,15 +714,30 @@ class SqlAlchemyStore(AbstractStore):
         # platforms
         metric_key_batches = [metric_keys[i : i + 500] for i in range(0, len(metric_keys), 500)]
         for metric_key_batch in metric_key_batches:
-            latest_metrics_batch = (
-                session.query(SqlLatestMetric)
+            # First, determine which metric keys are present in the database
+            latest_metrics_key_records_from_db = (
+                session.query(SqlLatestMetric.key)
                 .filter(
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                     SqlLatestMetric.key.in_(metric_key_batch),
                 )
                 .all()
             )
-            latest_metrics.update({m.key: m for m in latest_metrics_batch})
+            # Then, only lock the rows corresponding to metric keys that are present,
+            # avoiding gap locking and next-key locking which may otherwise occur
+            # when issuing a `SELECT FOR UPDATE` against nonexistent rows
+            if len(latest_metrics_key_records_from_db) > 0:
+                latest_metric_keys_from_db = [record[0] for record in latest_metrics_key_records_from_db]
+                latest_metrics_batch = (
+                    session.query(SqlLatestMetric)
+                    .filter(
+                        SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
+                        SqlLatestMetric.key.in_(latest_metric_keys_from_db),
+                    )
+                    .with_for_update()
+                    .all()
+                )
+                latest_metrics.update({m.key: m for m in latest_metrics_batch})
 
         # iterate over all logged metrics and compare them with corresponding
         # SqlLatestMetric entries

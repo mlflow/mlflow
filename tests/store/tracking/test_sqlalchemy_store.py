@@ -765,21 +765,29 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     params=[],
                     tags=[],
                 )
+            for metric_val in range(100):
+                self.store.log_metric(
+                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                )
             return "success"
 
         log_metrics_futures = []
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run2]]
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Log metrics to two runs across four threads
+            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run1, run2, run2]]
 
         for future in log_metrics_futures:
             assert future.result() == "success"
 
-        for run in [run1, run2]:
-            assert len(self.store.get_metric_history(run.info.run_id, "metric_key")) == 100
+        for run in [run1, run1, run2, run2]:
+            # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
+            # may be written multiple times concurrently; we assert that at least 100 metric entries
+            # are present because at least 100 unique entries must have been written
+            assert len(self.store.get_metric_history(run.info.run_id, "metric_key")) >= 100
             for batch_idx in range(5):
                 assert (
                     len(self.store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}"))
-                    == 100
+                    >= 100
                 )
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
