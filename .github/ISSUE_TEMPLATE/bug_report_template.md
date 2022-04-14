@@ -27,7 +27,7 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
 
-For issues related to the tracking features (e.g. mlflow doesn't log a run in my database), please run the following code:
+For issues related to the tracking features (e.g. mlflow doesn't log a run in my database), please insert the following lines in your python script / notebook and run them:
 
 ```python
 print("MLflow version:", mlflow.__version__)
@@ -35,10 +35,10 @@ print("Tracking URI:", mlflow.get_tracking_uri())
 print("Artifact URI:", mlflow.get_artifact_uri())
 ```
 
-and paste the result here:
+Then, paste the result here:
 
-```bash
-# paste the result here
+```
+
 ```
 
 ### Code to reproduce issue
