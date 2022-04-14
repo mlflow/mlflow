@@ -645,7 +645,9 @@ class SqlAlchemyStore(AbstractStore):
                 # Divide metric keys into batches of 100 to avoid loading too much metric
                 # history data into memory at once
                 metric_keys = [m.key for m in metric_instances]
-                metric_key_batches = [metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)]
+                metric_key_batches = [
+                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
+                ]
                 for metric_key_batch in metric_key_batches:
                     # obtain the metric history corresponding to the given metrics
                     metric_history = (
