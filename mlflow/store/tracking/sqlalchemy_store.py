@@ -629,7 +629,7 @@ class SqlAlchemyStore(AbstractStore):
         # SERIALIZABLE is the default isolation level for sqlite
         isolation_level = "REPEATABLE_READ" if self.db_type != SQLITE else "SERIALIZABLE"
         with self.ManagedSessionMaker(
-            connection_kwargs={"execution_options": {"isolation_level": "SERIALIZABLE"}}
+            connection_kwargs={"execution_options": {"isolation_level": isolation_level}}
         ) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
