@@ -1178,7 +1178,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 local_model_path_on_executor,
                 workers=1,
                 install_mlflow=False,
-                env_manager=_EnvManager.CONDA,
+                env_manager=env_manager,
                 env_root_dir=env_root_dir_on_executor,
             )
 
