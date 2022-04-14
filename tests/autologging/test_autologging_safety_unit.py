@@ -1411,7 +1411,21 @@ def test_validate_args_exempts_tensorflow_keras_fit_x_generator():
         for i in range(3):
             yield i
 
-    _validate_args("tensorflow", "fit", (get_gen_a(),), {}, (get_gen_b(),), {})
+    # padding the first positional argument as None, to emulate a spot for the 'self' object
+    _validate_args(
+        "tensorflow",
+        "fit",
+        (
+            None,
+            get_gen_a(),
+        ),
+        {},
+        (
+            None,
+            get_gen_b(),
+        ),
+        {},
+    )
 
 
 def test_validate_autologging_run_validates_autologging_tag_correctly():

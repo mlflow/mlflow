@@ -869,7 +869,7 @@ def _validate_args(
                 "such exception safe functions / classes.".format(inp)
             )
 
-    def _validate(autologging_call_input, user_call_input=None):
+    def _validate(depth, autologging_call_input, user_call_input=None, pos_arg_index=None):
         """
         Validates that the specified `autologging_call_input` and `user_call_input`
         are compatible. If `user_call_input` is `None`, then `autologging_call_input`
@@ -882,11 +882,23 @@ def _validate_args(
               be equivalent to `user_call_input` or be a superset of `user_call_input`
             - for all other input types, `autologging_call_input` and `user_call_input`
               must be equivalent by reference equality or by object equality
+
+        :param depth: the recursion depth of the validation function. This is used during parameter
+                      validation exemption.
+        :param autologging_call_input: call input from autologging
+        :param user_call_input: call input from user
+        :param pos_arg_index: the index of a positional argument, this is none for keyword arguments
         """
 
         if user_call_input is None and autologging_call_input is not None:
             _validate_new_input(autologging_call_input)
             return
+
+        if depth == 1:
+            if __is_arg_exempt_from_validation(
+                autologging_integration, function_name, user_call_input, pos_arg_index=pos_arg_index
+            ):
+                return
 
         assert type(autologging_call_input) == type(
             user_call_input
@@ -904,8 +916,11 @@ def _validate_args(
             # If the autologging call input is longer than the user call input, we `zip_longest`
             # will pad the user call input with `None` values to ensure that the subsequent calls
             # to `_validate` identify new inputs added by the autologging call
+            cur_pos_arg_index = 0 if depth == 0 else None
             for a, u in itertools.zip_longest(autologging_call_input, user_call_input):
-                _validate(a, u)
+                _validate(depth + 1, a, u, pos_arg_index=cur_pos_arg_index)
+                if depth == 0:
+                    cur_pos_arg_index += 1
         elif type(autologging_call_input) == dict:
             assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
                 "Keyword or dictionary arguments to original function omit"
@@ -914,7 +929,7 @@ def _validate_args(
                 )
             )
             for key in autologging_call_input.keys():
-                _validate(autologging_call_input[key], user_call_input.get(key, None))
+                _validate(depth + 1, autologging_call_input[key], user_call_input.get(key, None))
         else:
             assert (
                 autologging_call_input is user_call_input
@@ -924,16 +939,8 @@ def _validate_args(
                 " Original: '{}'. Expected: '{}'".format(autologging_call_input, user_call_input)
             )
 
-    # Iterating over indices for the purpose of skipping validation exempt arguments
-    for i, autologging_arg, user_arg in itertools.zip_longest(
-        range(len(user_call_args)), autologging_call_args, user_call_args
-    ):
-        if user_arg is not None and __is_arg_exempt_from_validation(
-            autologging_integration, function_name, user_arg, pos_arg_index=i
-        ):
-            continue
-        _validate(autologging_arg, user_arg)
-    _validate(autologging_call_kwargs, user_call_kwargs)
+    _validate(0, autologging_call_args, user_call_args)
+    _validate(0, autologging_call_kwargs, user_call_kwargs)
 
 
 __all__ = [
