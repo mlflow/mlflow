@@ -396,11 +396,15 @@ export class ExperimentView extends Component {
   }
   // END-EDGE
 
+  getUrl() {
+    return window.location.href
+  }
+
   renderGetLinkModal() {
     const { showGetLinkModal } = this.state;
     return (
       <GetLinkModal
-        link={window.location.href}
+        link={this.getUrl()}
         visible={showGetLinkModal}
         onCancel={() => this.setState({ showGetLinkModal: false })}
       />
