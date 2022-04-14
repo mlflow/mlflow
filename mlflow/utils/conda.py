@@ -3,9 +3,10 @@ import json
 import logging
 import os
 
+import yaml
+
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
-
 
 # Environment variable indicating a path to a conda installation. MLflow will default to running
 # "conda" if unset
@@ -267,3 +268,14 @@ def get_or_create_conda_env(conda_env_path, env_id=None, capture_output=False, e
                 repr(e),
             )
         raise
+
+
+def _get_conda_dependencies(conda_yaml_path):
+    """
+    Extracts conda dependencies from a conda yaml file.
+
+    :param conda_yaml_path: Conda yaml file path.
+    """
+    with open(conda_yaml_path) as f:
+        conda_yaml = yaml.safe_load(f)
+        return [d for d in conda_yaml.get("dependencies", []) if isinstance(d, str)]

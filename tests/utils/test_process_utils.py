@@ -2,7 +2,7 @@ import pytest
 import uuid
 
 from mlflow.utils.process import cache_return_value_per_process
-from multiprocessing import Process, Queue
+import os
 
 
 @cache_return_value_per_process
@@ -18,14 +18,6 @@ def _gen_random_str2(v):
 @cache_return_value_per_process
 def _gen_random_no_arg():
     return uuid.uuid4().hex
-
-
-def _test_cache_return_value_per_process_child_proc_target(path1, path3, queue):
-    # in forked out child process
-    child_path1 = _gen_random_str1(True)
-    child_path2 = _gen_random_str1(False)
-    result = len({path1, path3, child_path1, child_path2}) == 4
-    queue.put(result)
 
 
 def test_cache_return_value_per_process():
@@ -54,10 +46,20 @@ def test_cache_return_value_per_process():
 
     assert len({path1, path3, f2_path1, f2_path2}) == 4
 
-    queue = Queue()
-    child_proc = Process(
-        target=_test_cache_return_value_per_process_child_proc_target, args=(path1, path3, queue)
-    )
-    child_proc.start()
-    child_proc.join()
-    assert queue.get(), "Testing inside child process failed."
+    # Skip the following block on Windows which doesn't support `os.fork`
+    if os.name != "nt":
+        # Use `os.fork()` to make parent and child processes share the same global variable
+        # `_per_process_value_cache_map`.
+        pid = os.fork()
+        if pid > 0:
+            # in parent process
+            child_pid = pid
+            # check child process exit with return value 0.
+            assert os.waitpid(child_pid, 0)[1] == 0
+        else:
+            # in forked out child process
+            child_path1 = _gen_random_str1(True)
+            child_path2 = _gen_random_str1(False)
+            test_pass = len({path1, path3, child_path1, child_path2}) == 4
+            # exit forked out child process with exit code representing testing pass or fail.
+            os._exit(0 if test_pass else 1)

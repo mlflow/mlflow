@@ -13012,6 +13012,7 @@ __metadata:
     "@babel/eslint-parser": ^7.16.3
     "@craco/craco": 7.0.0-alpha.0
     "@databricks/design-system": ^1.0.0
+    "@emotion/cache": ^11.7.1
     "@emotion/react": ^11.7.1
     "@formatjs/cli": ^4.2.15
     "@wojtekmaj/enzyme-adapter-react-17": ^0.6.3
@@ -13087,6 +13088,7 @@ __metadata:
     redux-thunk: ^2.3.0
     sanitize-html: ^1.18.5
     showdown: ^1.8.6
+    stylis: ^4.0.10
     url: ^0.11.0
   languageName: unknown
   linkType: soft
@@ -19999,7 +20001,7 @@ resolve@^0.6.1:
   languageName: node
   linkType: hard
 
-"stylis@npm:4.0.13":
+"stylis@npm:4.0.13, stylis@npm:^4.0.10":
   version: 4.0.13
   resolution: "stylis@npm:4.0.13"
   checksum: 8ea7a87028b6383c6a982231c4b5b6150031ce028e0fdaf7b2ace82253d28a8af50cc5a9da8a421d3c7c4441592f393086e332795add672aa4a825f0fe3713a3
