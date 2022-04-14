@@ -912,7 +912,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
-            def _try_insert_tags(attempt_number, max_retries=3):
+            def _try_insert_tags(attempt_number, max_retries):
                 try:
                     current_tags = (
                         session.query(SqlTag)
