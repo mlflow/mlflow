@@ -85,6 +85,25 @@ def test_load_docker_project(tmpdir):
     assert project.docker_env.get("image") == "some-image"
 
 
+def test_load_virtualenv_project(tmp_path):
+    tmp_path.joinpath("MLproject").write_text(
+        textwrap.dedent(
+            """
+python_env: python_env.yaml
+"""
+        )
+    )
+    python_env = tmp_path.joinpath("python_env.yaml")
+    python_env.write_text(
+        """
+python: 3.7.10
+"""
+    )
+    project = _project_spec.load_project(tmp_path)
+    assert project._entry_points == {}
+    assert python_env.samefile(project.env_config_path)
+
+
 @pytest.mark.parametrize(
     "invalid_project_contents, expected_error_msg",
     [
