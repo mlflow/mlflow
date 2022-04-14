@@ -33,7 +33,7 @@ def load_project(directory):
             yaml_obj = yaml.safe_load(mlproject_file)
 
     # Validate the project config does't contain multiple environment fields
-    env_fields = set(yaml_obj.keys()).intersection({"conda_env", "docker_env"})
+    env_fields = set(yaml_obj.keys()).intersection({"conda_env", "docker_env", "python_env"})
     if len(env_fields) > 1:
         raise ExecutionException(
             f"Project cannot contain multiple environment fields: {env_fields}"
@@ -81,6 +81,22 @@ def load_project(directory):
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
 
+    python_env = yaml_obj.get("python_env")
+    if python_env:
+        python_env_path = os.path.join(directory, python_env)
+        if not os.path.exists(python_env_path):
+            raise ExecutionException(
+                "Project specified conda environment file %s, but no such "
+                "file was found." % python_env_path
+            )
+        return Project(
+            conda_env_path=None,
+            python_env_path=python_env_path,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
+
     conda_path = yaml_obj.get("conda_env")
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
@@ -91,6 +107,7 @@ def load_project(directory):
             )
         return Project(
             conda_env_path=conda_env_path,
+            python_env_path=None,
             entry_points=entry_points,
             docker_env=docker_env,
             name=project_name,
@@ -100,21 +117,27 @@ def load_project(directory):
     if os.path.exists(default_conda_path):
         return Project(
             conda_env_path=default_conda_path,
+            python_env_path=None,
             entry_points=entry_points,
             docker_env=docker_env,
             name=project_name,
         )
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+        conda_env_path=None,
+        python_env_path=None,
+        entry_points=entry_points,
+        docker_env=docker_env,
+        name=project_name,
     )
 
 
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
+    def __init__(self, conda_env_path, python_env_path, entry_points, docker_env, name):
         self.conda_env_path = conda_env_path
+        self.python_env_path = python_env_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name

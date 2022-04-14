@@ -199,6 +199,17 @@ def _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env):
     return activate_cmd
 
 
+def _get_virtualenv_name(python_env, base_dir, env_id=None):
+    requirements = _parse_requirements(
+        python_env.dependencies,
+        is_constraint=False,
+        base_dir=base_dir,
+    )
+    return _get_mlflow_env_name(
+        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
+    )
+
+
 def _get_or_create_virtualenv(local_model_path, env_id=None):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command
@@ -224,14 +235,7 @@ def _get_or_create_virtualenv(local_model_path, env_id=None):
     python_bin_path = _install_python(python_env.python)
     env_root = Path(_get_mlflow_virtualenv_root())
     env_root.mkdir(parents=True, exist_ok=True)
-    requirements = _parse_requirements(
-        python_env.dependencies,
-        is_constraint=False,
-        base_dir=local_model_path,
-    )
-    env_name = _get_mlflow_env_name(
-        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
-    )
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = env_root / env_name
     try:
         return _create_virtualenv(local_model_path, python_bin_path, env_dir, python_env)

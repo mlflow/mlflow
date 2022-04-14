@@ -4,6 +4,7 @@ import platform
 import posixpath
 import subprocess
 import sys
+from pathlib import Path
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -24,7 +25,14 @@ from mlflow.projects.utils import (
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
 )
+from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
+from mlflow.utils.virtualenv import (
+    _install_python,
+    _create_virtualenv,
+    _get_virtualenv_name,
+    _get_mlflow_virtualenv_root,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -95,7 +103,15 @@ class LocalBackend(AbstractBackend):
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
             command_separator = " && "
-            # Create a virtualenv environment and run the command in it.
+            python_env = _PythonEnv.from_yaml(project.python_env_path)
+            python_bin_path = _install_python(python_env.python)
+            env_root = _get_mlflow_virtualenv_root()
+            work_dir_path = Path(work_dir)
+            env_name = _get_virtualenv_name(python_env, work_dir_path)
+            env_dir = Path(env_root).joinpath(env_name)
+            activate_cmd = _create_virtualenv(work_dir_path, python_bin_path, env_dir, python_env)
+            command_args += [activate_cmd]
+
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
