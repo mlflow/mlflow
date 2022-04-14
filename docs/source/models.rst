@@ -42,6 +42,7 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
     ├── MLmodel
     ├── model.pkl
     ├── conda.yaml
+    ├── python_env.yaml
     └── requirements.txt
     
 
@@ -98,7 +99,7 @@ databricks_runtime
 
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
 
 .. note::
     Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
@@ -127,6 +128,13 @@ For environment recreation, we automatically log ``conda.yaml`` and ``requiremen
 
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
+python_env.yaml
+    This file contains the following information that's required to restore a model environment using virtualenv and pyenv.
+
+    - Python version
+    - Pip requirements for ``pip``, ``setuptools``, and ``wheel``
+    - Pip requirements of the model (reference to ``requirements.txt``)
+
 requirements.txt
     The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
 
@@ -162,6 +170,18 @@ The written ``conda.yaml`` file:
       - mlflow
       - scikit-learn==0.23.2
       - cloudpickle==1.6.0
+
+The written ``python_env.yaml`` file:
+
+.. code-block:: yaml
+
+    python: 3.8.8
+    build_dependencies:
+    - pip==21.1.3
+    - setuptools==57.4.0
+    - wheel==0.37.0
+    dependencies:
+    - -r requirements.txt
 
 The written ``requirements.txt`` file:
 
@@ -1599,6 +1619,37 @@ For more info, see:
     mlflow models serve --help
     mlflow models predict --help
     mlflow models build-docker --help
+
+Environment Management Tools
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MLflow currently supports the following environment management tools to restore model environments:
+
+local
+    Use the local environment. No extra tools are required.
+conda
+    Create environments using conda. conda is required.
+
+    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
+virtualenv
+    .. note::
+        virtualenv support is still experimental and may be changed in a future MLflow release.
+
+    Create environments using virtualenv and pyenv (for python version management). virtualenv and
+    pyenv (for Linux and macOX) or pyenv-win (for Windows) are required.
+
+    - `virtualenv installation instructions <https://virtualenv.pypa.io/en/latest/installation.html>`_
+    - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
+    - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
+
+The ``mlflow models`` commands provide an optional arugment ``--env-manager`` to specify which environment management tool to use.
+
+.. code-block:: bash
+
+    # Use conda
+    mlflow models serve ... --env-manager=conda
+    # Use virtualenv
+    mlflow models predict ... --env-manager=virtualenv
 
 .. _azureml_deployment:
 
