@@ -20,6 +20,7 @@ from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _execute_in_virtualenv,
     _get_pip_install_mlflow,
+    _get_virtualenv_extra_env_vars,
 )
 from mlflow.version import VERSION
 
@@ -65,8 +66,13 @@ class PyFuncBackend(FlavorBackend):
 
         command = 'python -c ""'
         if self._env_manager is _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
-            return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
+            activate_cmd = _get_or_create_virtualenv(
+                local_path, self._env_id, env_root_dir=self._env_root_dir
+            )
+            return _execute_in_virtualenv(
+                activate_cmd, command, self._install_mlflow,
+                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
+            )
 
         conda_env_path = os.path.join(local_path, self._config[ENV])
         conda_env_name = get_or_create_conda_env(
@@ -107,12 +113,21 @@ class PyFuncBackend(FlavorBackend):
         if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             conda_env_name = get_or_create_conda_env(
-                conda_env_path, env_id=self._env_id, capture_output=False
+                conda_env_path, env_id=self._env_id, capture_output=False,
+                env_root_dir=self._env_root_dir
             )
-            return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
+            return _execute_in_conda_env(
+                conda_env_name, command, self._install_mlflow,
+                env_root_dir=self._env_root_dir
+            )
         elif self._env_manager is _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
-            return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
+            activate_cmd = _get_or_create_virtualenv(
+                local_path, self._env_id, env_root_dir=self._env_root_dir
+            )
+            return _execute_in_virtualenv(
+                activate_cmd, command, self._install_mlflow,
+                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
+            )
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
@@ -191,9 +206,12 @@ class PyFuncBackend(FlavorBackend):
                 env_root_dir=self._env_root_dir,
             )
         elif self._env_manager is _EnvManager.VIRTUALENV:
-            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
+            activate_cmd = _get_or_create_virtualenv(
+                local_path, self._env_id, env_root_dir=self._env_root_dir
+            )
             child_proc = _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow, command_env
+                activate_cmd, command, self._install_mlflow, command_env,
+                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
             )
         else:
             _logger.info("=== Running command '%s'", command)

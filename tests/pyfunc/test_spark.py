@@ -157,7 +157,8 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
-def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_version):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -185,13 +186,14 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
         ],
     )
 
-    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager="conda")
+    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager=env_manager)
     result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
 
     assert result == 1
 
 
-def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, model_path):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model_path, env_manager):
     model, inference_data = sklearn_model
 
     mlflow.sklearn.save_model(model, model_path)
@@ -200,7 +202,7 @@ def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, mod
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
     infer_spark_df = spark.createDataFrame(infer_data)
 
-    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+    pyfunc_udf = spark_udf(spark, model_path, env_manager=env_manager)
     result = (
         infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
         .toPandas()
