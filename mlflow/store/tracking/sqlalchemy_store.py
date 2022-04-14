@@ -627,38 +627,45 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
-            # commit the session to make sure that we catch any IntegrityError
-            # and try to handle them.
-            try:
+            def _insert_metrics(metric_instances):
                 self._save_to_db(session=session, objs=metric_instances)
                 self._update_latest_metrics_if_necessary(metric_instances, session)
                 session.commit()
+
+            try:
+                _insert_metrics(metric_instances)
             except sqlalchemy.exc.IntegrityError:
                 # Primary key can be violated if it is tried to log a metric with same value,
                 # timestamp, step, and key within the same run.
-                # Roll back the current session to make it usable for further transactions. In the
-                # event of an error during "commit", a rollback is required in order to continue
-                # using the session. In this case, we re-use the session to query SqlMetric
+                # Roll back the current session to make it usable for further transactions. In
+                # the event of an error during "commit", a rollback is required in order to
+                # continue using the session. In this case, we re-use the session to query
+                # SqlMetric
                 session.rollback()
-                # obtain the metric history corresponding to the given metrics
-                metric_history = (
-                    session.query(SqlMetric)
-                    .filter(
-                        SqlMetric.run_uuid == run_id,
-                        SqlMetric.key.in_([m.key for m in metric_instances]),
+                # Divide metric keys into batches of 100 to avoid loading too much metric
+                # history data into memory at once
+                metric_keys = [m.key for m in metric_instances]
+                metric_key_batches = [metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)]
+                for metric_key_batch in metric_key_batches:
+                    # obtain the metric history corresponding to the given metrics
+                    metric_history = (
+                        session.query(SqlMetric)
+                        .filter(
+                            SqlMetric.run_uuid == run_id,
+                            SqlMetric.key.in_(metric_key_batch),
+                        )
+                        .all()
                     )
-                    .all()
-                )
-                # convert to a set of Metric instance to take advantage of its hashable
-                # and then obtain the metrics that were not logged earlier within this run_id
-                metric_history = {m.to_mlflow_entity() for m in metric_history}
-                non_existing_metrics = [
-                    m for m in metric_instances if m.to_mlflow_entity() not in metric_history
-                ]
-                # if there exist metrics that were tried to be logged & rolled back even though
-                # they were not violating the PK, log them.
-                if non_existing_metrics:
-                    self._log_metrics(run_id, non_existing_metrics)
+                    # convert to a set of Metric instance to take advantage of its hashable
+                    # and then obtain the metrics that were not logged earlier within this
+                    # run_id
+                    metric_history = {m.to_mlflow_entity() for m in metric_history}
+                    non_existing_metrics = [
+                        m for m in metric_instances if m.to_mlflow_entity() not in metric_history
+                    ]
+                    # if there exist metrics that were tried to be logged & rolled back even
+                    # though they were not violating the PK, log them
+                    _insert_metrics(non_existing_metrics)
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -886,7 +893,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def _set_tags(self, run_id, tags, attempt=None):
+    def _set_tags(self, run_id, tags):
         """
         Set multiple tags on a run
 
@@ -903,55 +910,56 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
-            try:
-                current_tags = (
-                    session.query(SqlTag)
-                    .filter(SqlTag.run_uuid == run_id, SqlTag.key.in_([t.key for t in tags]))
-                    .all()
-                )
-                current_tags = {t.key: t for t in current_tags}
-
-                new_tag_dict = {}
-                for tag in tags:
-                    current_tag = current_tags.get(tag.key)
-                    new_tag = new_tag_dict.get(tag.key)
-
-                    # update the SqlTag if it is already present in DB
-                    if current_tag:
-                        current_tag.value = tag.value
-                        continue
-
-                    # if a SqlTag instance is already present in `new_tag_dict`,
-                    # this means that multiple tags with the same key were passed to `set_tags`.
-                    # In this case, we resolve potential conflicts by updating the value of the
-                    # existing instance to the value of `tag`
-                    if new_tag:
-                        new_tag.value = tag.value
-                    # otherwise, put it into the dict
-                    else:
-                        new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
-
-                    new_tag_dict[tag.key] = new_tag
-
-                # finally, save new entries to DB.
-                self._save_to_db(session=session, objs=list(new_tag_dict.values()))
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                session.rollback()
-                # two concurrent operations may try to attempt to insert tags.
-                # apply retry here.
-                max_retries = 3
-                attempt = (attempt or 0) + 1
-                if attempt > max_retries:
-                    raise MlflowException(
-                        "Failed to set tags with given within {} retries. Keys: {}".format(
-                            max_retries, [t.key for t in tags]
-                        )
+            def _try_insert_tags(attempt_number, max_retries=3):
+                try:
+                    current_tags = (
+                        session.query(SqlTag)
+                        .filter(SqlTag.run_uuid == run_id, SqlTag.key.in_([t.key for t in tags]))
+                        .all()
                     )
-                sleep_duration = (2**attempt) - 1
-                sleep_duration += random.uniform(0, 1)
-                time.sleep(sleep_duration)
-                self._set_tags(run_id, tags, attempt=attempt)
+                    current_tags = {t.key: t for t in current_tags}
+
+                    new_tag_dict = {}
+                    for tag in tags:
+                        current_tag = current_tags.get(tag.key)
+                        new_tag = new_tag_dict.get(tag.key)
+
+                        # update the SqlTag if it is already present in DB
+                        if current_tag:
+                            current_tag.value = tag.value
+                            continue
+
+                        # if a SqlTag instance is already present in `new_tag_dict`,
+                        # this means that multiple tags with the same key were passed to `set_tags`.
+                        # In this case, we resolve potential conflicts by updating the value of the
+                        # existing instance to the value of `tag`
+                        if new_tag:
+                            new_tag.value = tag.value
+                        # otherwise, put it into the dict
+                        else:
+                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                        new_tag_dict[tag.key] = new_tag
+
+                    # finally, save new entries to DB.
+                    self._save_to_db(session=session, objs=list(new_tag_dict.values()))
+                    session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
+                    # two concurrent operations may try to attempt to insert tags.
+                    # apply retry here.
+                    if attempt_number > max_retries:
+                        raise MlflowException(
+                            "Failed to set tags with given within {} retries. Keys: {}".format(
+                                max_retries, [t.key for t in tags]
+                            )
+                        )
+                    sleep_duration = (2**attempt_number) - 1
+                    sleep_duration += random.uniform(0, 1)
+                    time.sleep(sleep_duration)
+                    _try_insert_tags(attempt_number + 1, max_retries=max_retries)
+
+            _try_insert_tags(attempt_number=0, max_retries=3)
 
     def delete_tag(self, run_id, key):
         """
