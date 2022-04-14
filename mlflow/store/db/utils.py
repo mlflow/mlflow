@@ -66,40 +66,12 @@ def _get_managed_session_maker(SessionMaker, db_type):
     if no exceptions are encountered within its associated context. If an exception is
     encountered, the session is rolled back. Finally, any session produced by this factory is
     automatically closed when the session's associated context is exited.
-
-    :param SessionMaker: A SQLAlchemy session factory method that, when called with no arguments,
-                         produces a SQLAlchemy session.
-    :param db_type: The type of the database for which to obtain a managed session maker, such
-                    as `mlflow.store.db.db_types.SQLITE`.
     """
 
     @contextmanager
-    def make_managed_session(connection_kwargs=None):
-        """
-        Provide a transactional scope around a series of operations by constructing
-        a SQLALchemy Session.
-
-
-        :param connection_kwargs: An optional dictionary of keyword arguments to pass when creating
-                                  a database connection for the session. For example, to set a
-                                  serializable transaction isolation level for operations executed
-                                  by the session, pass the following:
-
-                                  ```
-                                  connection_kwargs={
-                                      "execution_options": {"isolation_level": "SERIALIZABLE"}
-                                  }
-                                  ```
-
-                                  (see https://docs.sqlalchemy.org/en/14/orm/session_transaction.html
-                                  #setting-isolation-for-individual-transactions for more
-                                  information about this example). If `None`, no connection options
-                                  are applied upon session creation.
-
-        """
+    def make_managed_session():
+        """Provide a transactional scope around a series of operations."""
         session = SessionMaker()
-        if connection_kwargs is not None:
-            session.connection(**connection_kwargs)
         try:
             if db_type == SQLITE:
                 session.execute("PRAGMA foreign_keys = ON;")

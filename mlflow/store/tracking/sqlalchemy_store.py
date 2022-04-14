@@ -12,7 +12,7 @@ from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
@@ -620,17 +620,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             seen.add(metric)
 
-        # Create a session that uses a REPEATABLE READ transaction isolation level,
-        # ensuring that values read from the `latest_metrics` table for comparison / update
-        # purposes aren't changed by another transaction while the comparison / update procedure
-        # is in progress
-        #
-        # Note: For sqlite, we use SERIALIZABLE because REPEATABLE READ is not supported;
-        # SERIALIZABLE is the default isolation level for sqlite
-        # isolation_level = "REPEATABLE_READ" if self.db_type != SQLITE else "SERIALIZABLE"
-        with self.ManagedSessionMaker(
-            # connection_kwargs={"execution_options": {"isolation_level": isolation_level}}
-        ) as session:
+        with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
 
@@ -723,9 +713,11 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 .all()
             )
-            # Then, only lock the rows corresponding to metric keys that are present,
-            # avoiding gap locking and next-key locking which may otherwise occur
-            # when issuing a `SELECT FOR UPDATE` against nonexistent rows
+            # Then, take a write lock on the rows corresponding to metric keys that are present,
+            # ensuring that they aren't modified by another transaction until they can be
+            # compared to the metric values logged by this transaction while avoiding gap locking
+            # and next-key locking which may otherwise occur when issuing a `SELECT FOR UPDATE`
+            # against nonexistent rows
             if len(latest_metrics_key_records_from_db) > 0:
                 latest_metric_keys_from_db = [record[0] for record in latest_metrics_key_records_from_db]
                 latest_metrics_batch = (
@@ -734,6 +726,9 @@ class SqlAlchemyStore(AbstractStore):
                         SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                         SqlLatestMetric.key.in_(latest_metric_keys_from_db),
                     )
+                    # Order by the metric run ID and key to ensure a consistent locking order
+                    # across transactions, reducing deadlock likelihood
+                    .order_by(SqlLatestMetric.run_uuid, SqlLatestMetric.key)
                     .with_for_update()
                     .all()
                 )

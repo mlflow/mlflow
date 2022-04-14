@@ -774,12 +774,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         log_metrics_futures = []
         with ThreadPoolExecutor(max_workers=4) as executor:
             # Log metrics to two runs across four threads
-            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run1, run2, run2]]
+            log_metrics_futures = [executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]]
 
         for future in log_metrics_futures:
             assert future.result() == "success"
 
-        for run in [run1, run1, run2, run2]:
+        for run in [run1, run2, run1, run2]:
             # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
             # may be written multiple times concurrently; we assert that at least 100 metric entries
             # are present because at least 100 unique entries must have been written
