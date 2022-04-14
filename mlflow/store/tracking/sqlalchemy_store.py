@@ -713,7 +713,7 @@ class SqlAlchemyStore(AbstractStore):
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                     SqlLatestMetric.key.in_(metric_key_batch),
                 )
-                .with_for_update()
+                # .with_for_update()
                 .all()
             )
             latest_metrics.update({m.key: m for m in latest_metrics_batch})
