@@ -621,9 +621,9 @@ class SqlAlchemyStore(AbstractStore):
             seen.add(metric)
 
         # Create a session that uses a REPEATABLE READ transaction isolation level,
-        # ensuring that values read from the `latest_metrics` table for comparison / udpate
+        # ensuring that values read from the `latest_metrics` table for comparison / update
         # purposes aren't changed by another transaction while the comparison / update procedure
-        # is in progress.
+        # is in progress
         #
         # Note: For sqlite, we use SERIALIZABLE because REPEATABLE READ is not supported;
         # SERIALIZABLE is the default isolation level for sqlite
