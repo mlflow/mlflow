@@ -198,7 +198,7 @@ To get all runs from the experiment named "Social NLP Experiments", use:
 
   import mlflow
 
-  runs = mlflow.search_runs(experiment_name=["Social NLP Experiments"])
+  runs = mlflow.search_runs(experiment_names=["Social NLP Experiments"])
 
 R
 ^^^^^^

@@ -1,4 +1,50 @@
-# Changelog
+# CHANGELOG
+
+## 1.25.1 (2022-04-13)
+
+MLflow 1.25.1 is a patch release containing the following bug fixes:
+
+- [Models] Fix a `pyfunc` artifact overwrite bug for when multiple artifacts are saved in sub-directories (#5657, @kyle-jarvis)
+- [Scoring] Fix permissions issue for Spark workers accessing model artifacts from a temp directory created by the driver (#5684, @WeichenXu123)
+
+## 1.25.0 (2022-04-11)
+
+MLflow 1.25.0 includes several major features and improvements:
+
+Features:
+
+- [Tracking] Introduce a new fluent API `mlflow.last_active_run()` that provides the most recent fluent active run (#5584, @MarkYHZhang)
+- [Tracking] Add `experiment_names` argument to the `mlflow.search_runs()` API to support searching runs by experiment names (#5564, @r3stl355)
+- [Tracking] Add a `description` parameter to `mlflow.start_run()` (#5534, @dogeplusplus)
+- [Tracking] Add `log_every_n_step` parameter to `mlflow.pytorch.autolog()` to control metric logging frequency (#5516, @adamreeve)
+- [Tracking] Log `pyspark.ml.param.Params` values as MLflow parameters during PySpark autologging (#5481, @serena-ruan)
+- [Tracking] Add support for  `pyspark.ml.Transformer`s to PySpark autologging (#5466, @serena-ruan)
+- [Tracking] Add input example and signature autologging for Keras models (#5461, @bali0019)
+- [Models] Introduce `mlflow.diviner` flavor for large-scale [time series forecasting](https://databricks-diviner.readthedocs.io/en/latest/?badge=latest) (#5553, @BenWilson2)
+- [Models] Add `pyfunc.get_model_dependencies()` API to retrieve reproducible environment specifications for MLflow Models with the pyfunc flavor (#5503, @WeichenXu123)
+- [Models] Add `code_paths` argument to all model flavors to support packaging custom module code with MLflow Models (#5448, @stevenchen-db)
+- [Models] Support creating custom artifacts when evaluating models with `mlflow.evaluate()` (#5405, #5476 @MarkYHZhang)
+- [Models] Add `mlflow_version` field to MLModel specification (#5515, #5576, @r3stl355)
+- [Models] Add support for logging models to preexisting destination directories (#5572, @akshaya-a)
+- [Scoring / Projects] Introduce `--env-manager` configuration for specifying environment restoration tools (e.g. `conda`) and deprecate `--no-conda` (#5567, @harupy)
+- [Scoring] Support restoring model dependencies in `mlflow.pyfunc.spark_udf()` to ensure accurate predictions (#5487, #5561, @WeichenXu123)
+- [Scoring] Add support for `numpy.ndarray` type inputs to the TensorFlow pyfunc `predict()` function (#5545, @WeichenXu123)
+- [Scoring] Support deployment of MLflow Models to Sagemaker Serverless (#5610, @matthewmayo)
+- [UI] Add MLflow version to header beneath logo (#5504, @adamreeve)
+- [Artifacts] Introduce a `mlflow.artifacts.download_artifacts()` API mirroring the functionality of the `mlflow artifacts download` CLI (#5585, @dbczumar)
+- [Artifacts] Introduce environment variables for controlling GCS artifact upload/download chunk size and timeouts (#5438, #5483, @mokrueger)
+
+Bug fixes and documentation updates:
+
+- [Tracking/SQLAlchemy] Create an index on `run_uuid` for PostgreSQL to improve query performance (#5446, @harupy)
+- [Tracking] Remove client-side validation of metric, param, tag, and experiment fields (#5593, @BenWilson2)
+- [Projects] Support setting the name of the MLflow Run when executing an MLflow Project (#5187, @bramrodenburg)
+- [Scoring] Use pandas `split` orientation for DataFrame inputs to SageMaker deployment `predict()` API to preserve column ordering (#5522, @dbczumar)
+- [Server-Infra] Fix runs search compatibility bugs with PostgreSQL, MySQL, and MSSQL (#5540, @harupy)
+- [CLI] Fix a bug in the `mlflow-skinny` client that caused `mlflow --version` to fail (#5573, @BenWilson2)
+- [Docs] Update guidance and examples for model deployment to AzureML to recommend using the `mlflow-azureml` package (#5491, @santiagxf)
+
+Small bug fixes and doc updates (#5591, #5629, #5597, #5592, #5562, #5477, @BenWilson2; #5554, @juntai-zheng; #5570, @tahesse; #5605, @guelate; #5633, #5632, #5625, #5623, #5615, #5608, #5600, #5603, #5602, #5596, #5587, #5586, #5580, #5577, #5568, #5290, #5556, #5560, #5557, #5548, #5547, #5538, #5513, #5505, #5464, #5495, #5488, #5485, #5468, #5455, #5453, #5454, #5452, #5445, #5431, @harupy; #5640, @nchittela; #5520, #5422, @Ark-kun; #5639, #5604, @nishipy; #5543, #5532, #5447, #5435, @WeichenXu123; #5502, @singankit; #5500, @Sohamkayal4103; #5449, #5442, @apurva-koti; #5552, @vinijaiswal; #5511, @adamreeve; #5428, @jinzhang21; #5309, @sunishsheth2009; #5581, #5559, @Kr4is; #5626, #5618, #5529, @sisp; #5652, #5624, #5622, #5613, #5509, #5459, #5437, @dbczumar; #5616, @liangz1)
 
 ## 1.24.0 (2022-02-27)
 
