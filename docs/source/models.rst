@@ -99,7 +99,7 @@ databricks_runtime
 
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using one of ``conda``, ``virtualenv``, and ``pip``.
 
 .. note::
     Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
@@ -129,7 +129,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 python_env.yaml
-    This file contains the following information that's required to restore a model environment using virtualenv and pyenv.
+    This file contains the following information that's required to restore a model environment using virtualenv.
 
     - Python version
     - Pip requirements for ``pip``, ``setuptools``, and ``wheel``
