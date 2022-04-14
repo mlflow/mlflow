@@ -530,13 +530,15 @@ For models where no schema is defined, no changes to the model inputs and output
 propogate any errors raised by the model if the model does not accept the provided input type.
 
 
-The model might be trained in a different python environment which mismatch with current python environment,
-In this case, when calling :py:func:`mlflow.pyfunc.load_model`, a warning message will be printed
-saying which python packages are mismatched. In order to get full dependencies of the model, you can
-call :py:func:`mlflow.pyfunc.get_model_dependencies`. Furthermore, if you want to run model inference
-in the same environment used in model training, you can call
-:py:func:`mlflow.pyfunc.spark_udf` with `env_manager` argument set as "conda" which return a python UDF,
-and the UDF runs inference in the training model python environment restored by Conda.
+The python environment that a PyFunc model is loaded into for prediction or inference may differ from the environment
+in which it was trained. In the case of an environment mismatch, a warning message will be printed when calling
+:py:func:`mlflow.pyfunc.load_model`. This warning statement will identify the packages that have a version mismatch
+between those used during training and the current environment.  In order to get the full dependencies of the
+environment in which the model was trained, you can call :py:func:`mlflow.pyfunc.get_model_dependencies`.
+Furthermore, if you want to run model inference in the same environment used in model training, you can call
+:py:func:`mlflow.pyfunc.spark_udf` with the `env_manager` argument set as "conda". This will generate the environment
+from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
+during training.
 
 
 R Function (``crate``)
