@@ -212,7 +212,7 @@ def _get_virtualenv_extra_env_vars(env_root_dir=None):
         "PIP_NO_INPUT": "1",
     }
     if env_root_dir is not None:
-        extra_env["PIP_CACHE_DIR"] = str(env_root_dir / "pip_cache_pkgs")
+        extra_env["PIP_CACHE_DIR"] = os.path.join(env_root_dir, "pip_cache_pkgs")
     return extra_env
 
 
@@ -239,16 +239,16 @@ def _get_or_create_virtualenv(local_model_path, env_id=None, env_root_dir=None):
 
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
     if env_root_dir is not None:
-        virtual_envs_root_path = env_root_dir / "virtualenv_envs"
-        pyenv_root = str(env_root_dir / "pyenv")
+        virtual_envs_root_path = Path(env_root_dir) / "virtualenv_envs"
+        pyenv_root_dir = os.path.join(env_root_dir, "pyenv")
     else:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
-        pyenv_root = None
+        pyenv_root_dir = None
 
     virtual_envs_root_path.mkdir(parents=True, exist_ok=True)
 
     # Create an environment
-    python_bin_path = _install_python(python_env.python, pyenv_root=pyenv_root)
+    python_bin_path = _install_python(python_env.python, pyenv_root=pyenv_root_dir)
     requirements = _parse_requirements(
         python_env.dependencies,
         is_constraint=False,
