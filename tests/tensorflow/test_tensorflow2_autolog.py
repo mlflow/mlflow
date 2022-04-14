@@ -324,6 +324,11 @@ def test_tf_keras_autolog_implicit_batch_size_works(generate_data, batch_size):
     assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.4"),
+    reason=("Does not support passing of generator classes as `x` in `fit`"),
+)
 @pytest.mark.parametrize("generator", [__generator, __GeneratorClass])
 @pytest.mark.parametrize("batch_size", [2, 3, 6])
 def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side_effects(
