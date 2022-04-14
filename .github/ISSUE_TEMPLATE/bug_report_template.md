@@ -27,12 +27,24 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
 
+For issues related to the tracking features (e.g. mlflow doesn't log a run in my database), please run the following code:
+
+```python
+print("MLflow version:", mlflow.__version__)
+print("Tracking URI:", mlflow.get_tracking_uri())
+print("Artifact URI:", mlflow.get_artifact_uri())
+```
+
+and paste the result here:
+
+```bash
+# paste the result here
+```
+
 ### Code to reproduce issue
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
-
 ### Other info / logs
 Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
-
 
 ### What component(s), interfaces, languages, and integrations does this bug affect?
 Components 
