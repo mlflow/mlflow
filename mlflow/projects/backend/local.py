@@ -96,14 +96,14 @@ class LocalBackend(AbstractBackend):
         elif env_manager is _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
-            conda_env_name = get_or_create_conda_env(project.conda_env_path)
+            conda_env_name = get_or_create_conda_env(project.env_config_path)
             command_args += get_conda_command(conda_env_name)
         elif env_manager is _EnvManager.VIRTUALENV:
             tracking.MlflowClient().set_tag(
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
             command_separator = " && "
-            python_env = _PythonEnv.from_yaml(project.python_env_path)
+            python_env = _PythonEnv.from_yaml(project.env_config_path)
             python_bin_path = _install_python(python_env.python)
             env_root = _get_mlflow_virtualenv_root()
             work_dir_path = Path(work_dir)

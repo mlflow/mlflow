@@ -90,8 +90,7 @@ def load_project(directory):
                 "file was found." % python_env_path
             )
         return Project(
-            conda_env_path=None,
-            python_env_path=python_env_path,
+            env_config_path=python_env_path,
             entry_points=entry_points,
             docker_env=docker_env,
             name=project_name,
@@ -106,8 +105,7 @@ def load_project(directory):
                 "file was found." % conda_env_path
             )
         return Project(
-            conda_env_path=conda_env_path,
-            python_env_path=None,
+            env_config_path=conda_env_path,
             entry_points=entry_points,
             docker_env=docker_env,
             name=project_name,
@@ -116,16 +114,14 @@ def load_project(directory):
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(
-            conda_env_path=default_conda_path,
-            python_env_path=None,
+            env_config_path=default_conda_path,
             entry_points=entry_points,
             docker_env=docker_env,
             name=project_name,
         )
 
     return Project(
-        conda_env_path=None,
-        python_env_path=None,
+        env_config_path=None,
         entry_points=entry_points,
         docker_env=docker_env,
         name=project_name,
@@ -135,9 +131,8 @@ def load_project(directory):
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, python_env_path, entry_points, docker_env, name):
-        self.conda_env_path = conda_env_path
-        self.python_env_path = python_env_path
+    def __init__(self, env_config_path, entry_points, docker_env, name):
+        self.env_config_path = env_config_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name

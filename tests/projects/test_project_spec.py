@@ -65,9 +65,9 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
     expected_env_path = (
         os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
     )
-    assert project.conda_env_path == expected_env_path
+    assert project.env_config_path == expected_env_path
     if conda_env_path:
-        assert open(project.conda_env_path).read() == conda_env_contents
+        assert open(project.env_config_path).read() == conda_env_contents
 
 
 def test_load_docker_project(tmpdir):
@@ -81,7 +81,7 @@ def test_load_docker_project(tmpdir):
     )
     project = _project_spec.load_project(tmpdir.strpath)
     assert project._entry_points == {}
-    assert project.conda_env_path is None
+    assert project.env_config_path is None
     assert project.docker_env.get("image") == "some-image"
 
 
