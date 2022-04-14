@@ -537,8 +537,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with self.assertRaises(MlflowException) as exception_context:
-            warnings.simplefilter("ignore")
-            with self.store.ManagedSessionMaker() as session, warnings.catch_warnings():
+            with self.store.ManagedSessionMaker() as session:
                 run = models.SqlRun()
                 session.add(run)
                 warnings.resetwarnings()
@@ -774,8 +773,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tval = None
         metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
-        warnings.simplefilter("ignore")
-        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
+        with self.assertRaises(MlflowException) as exception_context:
             self.store.log_metric(run.info.run_id, metric)
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

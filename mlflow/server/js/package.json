@@ -13,6 +13,7 @@
     "@babel/eslint-parser": "^7.16.3",
     "@craco/craco": "7.0.0-alpha.0",
     "@databricks/design-system": "^1.0.0",
+    "@emotion/cache": "^11.7.1",
     "@emotion/react": "^11.7.1",
     "antd": "^4.16.8",
     "babel-jest": "^27.5.1",
@@ -77,6 +78,7 @@
     "redux-thunk": "^2.3.0",
     "sanitize-html": "^1.18.5",
     "showdown": "^1.8.6",
+    "stylis": "^4.0.10",
     "url": "^0.11.0"
   },
   "devDependencies": {
@@ -95,7 +97,8 @@
   "scripts": {
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`, `start:mfe` and `test:ci`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
     "start": "craco start",
-    "start:mfe": "MLFLOW_MFE_DEV=true PUBLIC_URL=/ SERVE_WEBAPP=true HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true craco start",
+    "start:iframe": "PUBLIC_URL=/ SERVE_WEBAPP=true HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true craco start",
+    "start:mfe": "MLFLOW_MFE_DEV=true npm run start:iframe",
     "start-web": "SERVE_WEBAPP=true HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true PORT=3001 craco start",
     "build": "craco --max_old_space_size=8192 build",
     "build:mfe": "MLFLOW_MFE_DEV=true craco --max_old_space_size=8192 build",

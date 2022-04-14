@@ -4,7 +4,6 @@ Definitions of click options shared by several CLI commands.
 import click
 import warnings
 
-
 from mlflow.utils.environment import _EnvManager
 
 MODEL_PATH = click.option(
@@ -79,7 +78,17 @@ def _resolve_env_manager(ctx, _, value):
 
     # Only `--env-manager` is specified
     if value is not None:
-        return _EnvManager.from_string(value)
+        env_manager = _EnvManager.from_string(value)
+        if env_manager is _EnvManager.VIRTUALENV:
+            warnings.warn(
+                (
+                    "Virtualenv support is still experimental and may be changed in a future "
+                    "release without warning."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+        return env_manager
 
     # Neither `--no-conda` nor `--env-manager` is specified
     return _EnvManager.CONDA
@@ -99,6 +108,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - conda: use conda
+- virtualenv: use virtualenv (and pyenv for Python version management)
 
 If unspecified, default to conda.
 """,
