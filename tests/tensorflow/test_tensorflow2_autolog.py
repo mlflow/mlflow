@@ -330,8 +330,6 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     generator,
     batch_size,
 ):
-    tf.keras.utils.set_random_seed(123)
-
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Dense
 
