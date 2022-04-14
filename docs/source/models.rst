@@ -1914,7 +1914,7 @@ argument. The following values are supported:
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
 
 
-If you want to use conda to restore the software environment that was used to train the model,
+If you want to use conda to restore the python environment that was used to train the model,
 set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
 
 
