@@ -274,7 +274,7 @@ export class CompareRunView extends Component {
       return {
         runUuid: runInfo.run_uuid,
         startTime: startTime ? Utils.formatTimestamp(startTime) : '(unknown)',
-        endTime: startTime ? Utils.formatTimestamp(endTime) : '(unknown)',
+        endTime: endTime ? Utils.formatTimestamp(endTime) : '(unknown)',
         duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : '(unknown)',
       };
     };
