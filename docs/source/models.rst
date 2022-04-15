@@ -136,7 +136,7 @@ python_env.yaml
     - Pip requirements of the model (reference to ``requirements.txt``)
 
 requirements.txt
-    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
+    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment or using the ``pip_requirements`` argument of the `mlflow.<flavor>.log_model` API.
 
 The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
 
