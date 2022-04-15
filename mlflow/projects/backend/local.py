@@ -149,7 +149,7 @@ def _build_mlflow_run_cmd(
             mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
-    mlflow_run_arr.extend(["--env-manager", str(env_manager)])
+    mlflow_run_arr.extend(["--env-manager", env_manager])
     for key, value in parameters.items():
         mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     return mlflow_run_arr
