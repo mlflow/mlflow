@@ -270,12 +270,18 @@ export class CompareRunView extends Component {
   renderTimeRows(colWidthStyle) {
     const getTimeAttributes = (runInfo) => {
       const startTime = runInfo.getStartTime();
+      const unknown = (
+        <FormattedMessage
+          defaultMessage='(unknown)'
+          description='Filler text when a table cell value is unavailable'
+        />
+      );
       const endTime = runInfo.getEndTime();
       return {
         runUuid: runInfo.run_uuid,
-        startTime: startTime ? Utils.formatTimestamp(startTime) : '(unknown)',
-        endTime: endTime ? Utils.formatTimestamp(endTime) : '(unknown)',
-        duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : '(unknown)',
+        startTime: startTime ? Utils.formatTimestamp(startTime) : unknown,
+        endTime: endTime ? Utils.formatTimestamp(endTime) : unknown,
+        duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : unknown,
       };
     };
     const timeAttributes = this.props.runInfos.map(getTimeAttributes);
@@ -285,7 +291,6 @@ export class CompareRunView extends Component {
         title: (
           <FormattedMessage
             defaultMessage='Start Time:'
-            // eslint-disable-next-line max-len
             description='Row title for the start time of runs on the experiment compare runs page'
           />
         ),
@@ -296,7 +301,6 @@ export class CompareRunView extends Component {
         title: (
           <FormattedMessage
             defaultMessage='End Time:'
-            // eslint-disable-next-line max-len
             description='Row title for the end time of runs on the experiment compare runs page'
           />
         ),
@@ -307,7 +311,6 @@ export class CompareRunView extends Component {
         title: (
           <FormattedMessage
             defaultMessage='Duration:'
-            // eslint-disable-next-line max-len
             description='Row title for the duration of runs on the experiment compare runs page'
           />
         ),
