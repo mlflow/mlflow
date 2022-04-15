@@ -278,55 +278,62 @@ export class CompareRunView extends Component {
         duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : '(unknown)',
       };
     };
-    const runTimeAttributes = this.props.runInfos.map(getTimeAttributes);
-    const renderCell = ([key, value]) => (
-      <td className='data-value' key={key} style={colWidthStyle}>
-        <Tooltip
-          title={value}
-          color='gray'
-          placement='topLeft'
-          overlayStyle={{ maxWidth: '400px' }}
-          mouseEnterDelay={1.0}
-        >
-          {value}
-        </Tooltip>
-      </td>
-    );
-
-    return (
-      <>
-        <tr>
-          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-            <FormattedMessage
-              defaultMessage='Start Time:'
-              // eslint-disable-next-line max-len
-              description='Row title for the start time of runs on the experiment compare runs page'
-            />
-          </th>
-          {runTimeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]).map(renderCell)}
-        </tr>
-        <tr>
-          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-            <FormattedMessage
-              defaultMessage='End Time:'
-              // eslint-disable-next-line max-len
-              description='Row title for the end time of runs on the experiment compare runs page'
-            />
-          </th>
-          {runTimeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]).map(renderCell)}
-        </tr>
-        <tr>
-          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-            <FormattedMessage
-              defaultMessage='Duration:'
-              // eslint-disable-next-line max-len
-              description='Row title for the duration of runs on the experiment compare runs page'
-            />
-          </th>
-          {runTimeAttributes.map(({ runUuid, duration }) => [runUuid, duration]).map(renderCell)}
-        </tr>
-      </>
-    );
+    const timeAttributes = this.props.runInfos.map(getTimeAttributes);
+    const rows = [
+      {
+        key: 'startTime',
+        title: (
+          <FormattedMessage
+            defaultMessage='Start Time:'
+            // eslint-disable-next-line max-len
+            description='Row title for the start time of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]),
+      },
+      {
+        key: 'endTime',
+        title: (
+          <FormattedMessage
+            defaultMessage='End Time:'
+            // eslint-disable-next-line max-len
+            description='Row title for the end time of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]),
+      },
+      {
+        key: 'duration',
+        title: (
+          <FormattedMessage
+            defaultMessage='Duration:'
+            // eslint-disable-next-line max-len
+            description='Row title for the duration of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, duration }) => [runUuid, duration]),
+      },
+    ];
+    return rows.map(({ key, title, data }) => (
+      <tr key={key}>
+        <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+          {title}
+        </th>
+        {data.map(([runUuid, value]) => (
+          <td className='data-value' key={runUuid} style={colWidthStyle}>
+            <Tooltip
+              title={value}
+              color='gray'
+              placement='topLeft'
+              overlayStyle={{ maxWidth: '400px' }}
+              mouseEnterDelay={1.0}
+            >
+              {value}
+            </Tooltip>
+          </td>
+        ))}
+      </tr>
+    ));
   }
 
   render() {
