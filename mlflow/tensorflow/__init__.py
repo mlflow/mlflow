@@ -30,7 +30,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only
@@ -194,6 +193,18 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    if signature is not None:
+        warnings.warn(
+            " The pyfunc inference behavior of TensorFlow models logged "
+            "with signatures differs from the behavior of TensorFlow "
+            "models logged without signatures. Specifically, when a "
+            "signature is present, passing a Pandas DataFrame as "
+            "input to the pyfunc `predict()` API produces an `ndarray` "
+            "(for single-output models) or a dictionary of `str -> ndarray`:"
+            " (for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces"
+            " a Pandas DataFrame output in response to a Pandas DataFrame input."
+        )
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.tensorflow,
@@ -751,19 +762,6 @@ def autolog(
 
     atexit.register(_flush_queue)
 
-    if log_model_signatures:
-        warnings.warn(
-            " The pyfunc inference behavior of TensorFlow models logged "
-            "with signatures differs from the behavior of TensorFlow "
-            "models logged without signatures. Specifically, when a "
-            "signature is present, passing a Pandas DataFrame as "
-            "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`:"
-            " (for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces"
-            " a Pandas DataFrame output in response to a Pandas DataFrame input."
-        )
-
     if Version(tensorflow.__version__) < Version("1.12"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
@@ -778,7 +776,27 @@ def autolog(
         return
 
     input_example_slice = None
-    tf_model = None
+
+    def _log_model_signatures():
+        return (
+            log_model_signatures
+            and
+            # `log_model_signatures` is `False` by default for
+            # `mlflow.tensorflow.autolog()` in order to to preserve
+            # backwards-compatible inference behavior with older versions of MLflow
+            # that did not support signature autologging for TensorFlow (
+            # unfortunately, adding a signature to a TensorFlow model has the
+            # unintended consequence of changing the output type produced by
+            # inference with pyfunc `predict()` for Pandas DataFrame inputs).
+            # However, `log_model_signatures` is `True` by default for
+            # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
+            # when TensorFlow autologging is enabled via `mlflow.autolog()`,
+            # we only enable signature logging if `mlflow.tensorflow.autolog()` is
+            # called explicitly with `log_model_signatures=True`
+            not get_autologging_config(
+                FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            )
+        )
 
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
@@ -797,38 +815,11 @@ def autolog(
 
         result = original(self, *args, **kwargs)
 
-        def _extract_data_from_input_fn():
-            """
-            Extracts sample data from dict (str -> ndarray) or Tensor type.
-
-            :return: a slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
-                     of the input of type `np.ndarray`
-            """
-            from mlflow.tensorflow._autolog import (
-                extract_sample_dict_or_tensor,
-                extract_sample_features_from_batched_tf_dataset,
-            )
-
-            input_training_data = kwargs.get("input_fn")()
-            input_features = None
-            if isinstance(input_training_data, tuple):
-                input_features = extract_sample_dict_or_tensor(input_training_data[0])
-            elif isinstance(input_training_data, tensorflow.data.Dataset):
-                input_features = extract_sample_features_from_batched_tf_dataset(
-                    input_training_data
-                )
-            else:
-                warnings.warn(
-                    "Tensorflow autologging doesn't support this "
-                    f"type for input example: {type(input_training_data)}."
-                )
-            return input_features
-
         if log_input_examples:
             nonlocal input_example_slice
-            nonlocal tf_model
-            input_example_slice = _extract_data_from_input_fn()
-            tf_model = result
+            from mlflow.tensorflow._autolog import extract_data_from_tf_input_fn
+
+            input_example_slice = extract_data_from_tf_input_fn(kwargs.get("input_fn"))
 
         # Flush the metrics queue after training completes
         _flush_queue()
@@ -885,13 +876,13 @@ def autolog(
                                 }
                             return tensorflow.data.Dataset.from_tensor_slices(input_slices).batch(1)
 
-                        predicted_values = list(tf_model.predict(predict_input_fn))
+                        predicted_values = list(self.predict(predict_input_fn))
 
                         input_example, signature = resolve_input_example_and_signature(
                             lambda: input_example_slice,
                             lambda in_ex: infer_signature(input_example_slice, predicted_values[0]),
                             log_input_examples,
-                            log_model_signatures,
+                            _log_model_signatures(),
                             _logger,
                         )
 
@@ -985,49 +976,6 @@ def autolog(
             metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
     def _log_keras_model(history, args):
-        def _get_input_data_slice():
-            """
-            Generates a sample ndarray or dict (str -> ndarray)
-            from the input type 'x' for keras ``fit`` or ``fit_generator``
-
-            :return: a slice of type ndarray or
-                     dict (str -> ndarray) limited to
-                     ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``
-            """
-
-            from mlflow.tensorflow._autolog import (
-                extract_sample_features_from_batched_tf_dataset,
-                extract_sample_tensor_as_numpy_input_example_slice,
-                extract_sample_dict_or_tensor,
-            )
-
-            input_training_data = args[0]
-            if isinstance(input_training_data, tensorflow.keras.utils.Sequence):
-                input_training_data = input_training_data[:][0]
-
-            if isinstance(input_training_data, (np.ndarray, tensorflow.Tensor)):
-                input_data_slice = extract_sample_tensor_as_numpy_input_example_slice(
-                    input_training_data
-                )
-            elif isinstance(input_training_data, dict):
-                input_data_slice = extract_sample_dict_or_tensor(input_training_data)
-            elif isinstance(input_training_data, tensorflow.data.Dataset):
-                input_data_slice = extract_sample_features_from_batched_tf_dataset(
-                    input_training_data
-                )
-            else:
-                raise MlflowException(
-                    "Cannot log input example or model signature for input with type"
-                    f" {type(input_training_data)}. TensorFlow Keras autologging can"
-                    " only log input examples and model signatures for the following"
-                    " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
-                    " tensorflow.keras.utils.Sequence, and"
-                    " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)",
-                    INVALID_PARAMETER_VALUE,
-                )
-
-            return input_data_slice
-
         def _infer_model_signature(input_data_slice):
             # In certain TensorFlow versions, calling `predict()` on model  may modify
             # the `stop_training` attribute, so we save and restore it accordingly
@@ -1036,29 +984,13 @@ def autolog(
             history.model.stop_training = original_stop_training
             return infer_signature(input_data_slice, model_output)
 
+        from mlflow.tensorflow._autolog import get_input_data_slice
+
         input_example, signature = resolve_input_example_and_signature(
-            _get_input_data_slice,
+            lambda: get_input_data_slice(args[0]),
             _infer_model_signature,
             log_input_examples,
-            (
-                log_model_signatures
-                and
-                # `log_model_signatures` is `False` by default for
-                # `mlflow.tensorflow.autolog()` in order to to preserve
-                # backwards-compatible inference behavior with older versions of MLflow
-                # that did not support signature autologging for TensorFlow (
-                # unfortunately, adding a signature to a TensorFlow model has the
-                # unintended consequence of changing the output type produced by
-                # inference with pyfunc `predict()` for Pandas DataFrame inputs).
-                # However, `log_model_signatures` is `True` by default for
-                # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
-                # when TensorFlow autologging is enabled via `mlflow.autolog()`,
-                # we only enable signature logging if `mlflow.tensorflow.autolog()` is
-                # called explicitly with `log_model_signatures=True`
-                not get_autologging_config(
-                    FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
-                )
-            ),
+            _log_model_signatures(),
             _logger,
         )
 

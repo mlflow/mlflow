@@ -1,11 +1,13 @@
 import warnings
-
-import tensorflow
-import numpy as np
-from tensorflow.keras.callbacks import Callback, TensorBoard
 from typing import Union, Dict
 
+import numpy as np
+import tensorflow
+from tensorflow.keras.callbacks import Callback, TensorBoard
+
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.autologging_utils import ExceptionSafeClass
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
@@ -58,76 +60,70 @@ class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
             self.metrics_logger.record_metrics(logs, epoch)
 
 
-def extract_sample_tensor_as_numpy_input_example_slice(
-    next_input: Union[tensorflow.Tensor, np.ndarray]
+def _extract_input_example_from_tensor_or_ndarray(
+    input_features: Union[tensorflow.Tensor, np.ndarray]
 ) -> np.ndarray:
     """
     Extracts first `INPUT_EXAMPLE_SAMPLE_ROWS` from the next_input, which can either be of
     numpy array or tensor type.
 
-    :param next_input: an input of type `np.ndarray` or `tensorflow.Tensor`
+    :param input_features: an input of type `np.ndarray` or `tensorflow.Tensor`
     :return: a slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of type `np.ndarray`
 
     Examples
     --------
     when next_input is nd.array:
     >>> input_data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-    >>> extract_sample_tensor_as_numpy_input_example_slice(input_data)
+    >>> _extract_input_example_from_tensor_or_ndarray(input_data)
     array([1, 2, 3, 4, 5])
 
 
     when next_input is tensorflow.Tensor:
     >>> input_data = tensorflow.convert_to_tensor([1, 2, 3, 4, 5, 6])
-    >>> extract_sample_tensor_as_numpy_input_example_slice(input_data)
+    >>> _extract_input_example_from_tensor_or_ndarray(input_data)
     array([1, 2, 3, 4, 5])
     """
 
     input_feature_slice = None
-    if isinstance(next_input, tensorflow.Tensor):
-        input_feature_slice = next_input.numpy()[0:INPUT_EXAMPLE_SAMPLE_ROWS]
-    elif isinstance(next_input, np.ndarray):
-        input_feature_slice = next_input[0:INPUT_EXAMPLE_SAMPLE_ROWS]
+    if isinstance(input_features, tensorflow.Tensor):
+        input_feature_slice = input_features.numpy()[0:INPUT_EXAMPLE_SAMPLE_ROWS]
+    elif isinstance(input_features, np.ndarray):
+        input_feature_slice = input_features[0:INPUT_EXAMPLE_SAMPLE_ROWS]
     else:
         warnings.warn(
-            f"Tensorflow estimator doesn't support '{type(next_input)}' type for features"
+            f"Tensorflow estimator doesn't support '{type(input_features)}' type for features"
         )
     return input_feature_slice
 
 
-def extract_sample_dict_or_tensor(
-    next_input: Union[Dict[str, Union[tensorflow.Tensor, np.ndarray]], tensorflow.Tensor]
+def _extract_sample_numpy_dict(
+    input_numpy_features_dict: Dict[str, np.ndarray]
 ) -> Union[Dict[str, np.ndarray], np.ndarray]:
     """
     Extracts `INPUT_EXAMPLE_SAMPLE_ROWS` sample from next_input
     as numpy array of dict(str -> ndarray) type.
 
-    :param next_input: A tensor or numpy array
+    :param input_numpy_features_dict: A tensor or numpy array
     :return:a slice (limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of same type as next_input
 
     Examples
     --------
     when next_input is dict:
     >>> input_data = {"a": np.array([1, 2, 3, 4, 5, 6, 7, 8])}
-    >>> extract_sample_dict_or_tensor(input_data)
+    >>> _extract_sample_numpy_dict(input_data)
     {'a': array([1, 2, 3, 4, 5])}
 
-
-    when next_input is tensorflow.Tensor:
-    >>> input_data = tensorflow.convert_to_tensor([1, 2, 3, 4, 5, 6])
-    >>> extract_sample_dict_or_tensor(input_data)
-    array([1, 2, 3, 4, 5])
     """
     sliced_data_as_numpy = None
-    if isinstance(next_input, dict):
+    if isinstance(input_numpy_features_dict, dict):
         sliced_data_as_numpy = {
-            k: extract_sample_tensor_as_numpy_input_example_slice(v) for k, v in next_input.items()
+            k: _extract_input_example_from_tensor_or_ndarray(v)
+            for k, v in input_numpy_features_dict.items()
         }
-    elif isinstance(next_input, tensorflow.Tensor):
-        sliced_data_as_numpy = extract_sample_tensor_as_numpy_input_example_slice(next_input)
     return sliced_data_as_numpy
 
 
-def extract_sample_features_from_batched_tf_dataset(
+def _extract_input_example_from_batched_tf_dataset(
     dataset: tensorflow.data.Dataset,
 ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
     """
@@ -147,7 +143,7 @@ def extract_sample_features_from_batched_tf_dataset(
     ...                 'PetalLength': np.array(list(range(0, 20))),
     ...                 'PetalWidth': np.array(list(range(0, 20)))},
     ...                 np.array(list(range(0, 20))))).batch(10)
-    >>> extract_sample_features_from_batched_tf_dataset(input_dataset)
+    >>> _extract_input_example_from_batched_tf_dataset(input_dataset)
     {'SepalLength': array([0, 1, 2, 3, 4]),
     'SepalWidth': array([0, 1, 2, 3, 4]),
     'PetalLength': array([0, 1, 2, 3, 4]),
@@ -158,9 +154,76 @@ def extract_sample_features_from_batched_tf_dataset(
     first_batch = limited_df_iter[0]
     if isinstance(first_batch, tuple):
         features = first_batch[0]
-        if isinstance(features, (dict, tensorflow.Tensor)):
-            return extract_sample_dict_or_tensor(features)
-        elif isinstance(features, np.ndarray):
-            return extract_sample_tensor_as_numpy_input_example_slice(features)
+        if isinstance(features, dict):
+            return _extract_sample_numpy_dict(features)
+        elif isinstance(features, (np.ndarray, tensorflow.Tensor)):
+            return _extract_input_example_from_tensor_or_ndarray(features)
         raise TypeError(f"Unsupported type for features of type: {type(features)}")
     raise TypeError(f"Unsupported type for dataset batch slice of type: {type(first_batch)}")
+
+
+def extract_data_from_tf_input_fn(input_fn):
+    """
+    Extracts sample data from dict (str -> ndarray),
+    ``tensorflow.Tensor`` or ``tensorflow.data.Dataset`` type.
+
+    :param input_fn: Tensorflow's input function used for train method
+    :return: a slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
+             of the input of type `np.ndarray`
+    """
+
+    input_training_data = input_fn()
+    input_features = None
+    if isinstance(input_training_data, tuple):
+        features = input_training_data[0]
+        if isinstance(features, dict):
+            input_features = _extract_sample_numpy_dict(features)
+        elif isinstance(features, (np.ndarray, tensorflow.Tensor)):
+            input_features = _extract_input_example_from_tensor_or_ndarray(features)
+    elif isinstance(input_training_data, tensorflow.data.Dataset):
+        input_features = _extract_input_example_from_batched_tf_dataset(input_training_data)
+    else:
+        raise MlflowException(
+            "Cannot log input example or model signature for input with type"
+            f" {type(input_training_data)}. TensorFlow autologging can"
+            " only log input examples and model signatures for the following"
+            " input types: tuple, tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)"
+            " or tensorflow.Tensor",
+            INVALID_PARAMETER_VALUE,
+        )
+    return input_features
+
+
+def get_input_data_slice(input_training_data):
+    """
+    Generates a sample ndarray or dict (str -> ndarray)
+    from the input type 'x' for keras ``fit`` or ``fit_generator``
+
+    :param input_training_data: Keras input function used for ``fit`` or
+                                ``fit_generator`` methods
+    :return: a slice of type ndarray or
+             dict (str -> ndarray) limited to
+             ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``
+    """
+
+    if isinstance(input_training_data, tensorflow.keras.utils.Sequence):
+        input_training_data = input_training_data[:][0]
+
+    if isinstance(input_training_data, (np.ndarray, tensorflow.Tensor)):
+        input_data_slice = _extract_input_example_from_tensor_or_ndarray(input_training_data)
+    elif isinstance(input_training_data, dict):
+        input_data_slice = _extract_sample_numpy_dict(input_training_data)
+    elif isinstance(input_training_data, tensorflow.data.Dataset):
+        input_data_slice = _extract_input_example_from_batched_tf_dataset(input_training_data)
+    else:
+        raise MlflowException(
+            "Cannot log input example or model signature for input with type"
+            f" {type(input_training_data)}. TensorFlow Keras autologging can"
+            " only log input examples and model signatures for the following"
+            " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
+            " tensorflow.keras.utils.Sequence, and"
+            " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    return input_data_slice
