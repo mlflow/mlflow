@@ -44,7 +44,7 @@ Then, make sure the printed out information matches what you expect and paste it
 ```
 ```
 
-If you know the command that was used to launch the tracking server (e.g. `mlflow server -h 0.0.0.0 --p 5000`), please provide it:
+If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 --p 5000`), please provide it:
 
 ```
 ```
