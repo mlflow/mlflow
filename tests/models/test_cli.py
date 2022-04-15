@@ -534,10 +534,10 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
+    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--env-manager=abc"],
+            ["--model-uri", "model", "--env-manager", "abc"],
             catch_exceptions=False,
         )
 
