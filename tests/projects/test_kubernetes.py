@@ -1,6 +1,6 @@
-import mock
 import yaml
 import pytest
+from unittest import mock
 
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
@@ -232,7 +232,10 @@ def test_push_image_to_registry():
 
 def test_push_image_to_registry_handling_errors():
     image_uri = "dockerhub_account/mlflow-kubernetes-example"
-    with pytest.raises(ExecutionException):
+    with pytest.raises(
+        ExecutionException,
+        match="Error while pushing to docker registry: An image does not exist locally",
+    ):
         kb.push_image_to_registry(image_uri)
 
 
@@ -267,7 +270,6 @@ def test_submitted_run_get_status_failed():
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
-        print("status", submitted_run.get_status())
         assert RunStatus.FAILED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -292,7 +294,6 @@ def test_submitted_run_get_status_succeeded():
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
-        print("status", submitted_run.get_status())
         assert RunStatus.FINISHED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -314,7 +315,6 @@ def test_submitted_run_get_status_running():
         assert RunStatus.RUNNING == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
-        print(args)
         assert args[0][1]["name"] == job_name
         assert args[0][1]["namespace"] == job_namespace
 

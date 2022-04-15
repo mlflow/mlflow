@@ -4,17 +4,20 @@ module.exports = {
     'react-app',
     'prettier',
   ],
-  'parser': 'babel-eslint',
   'plugins': [
     'prettier',
     'react',
   ],
+  "parser": "@babel/eslint-parser",
   'parserOptions': {
     'sourceType': 'module',
     'ecmaVersion': 7,
     'ecmaFeatures': {
       'jsx': true,
     },
+    "babelOptions": {
+      "presets": ["@babel/preset-react"]
+    }
   },
   'env': {
     'es6': true,
@@ -81,7 +84,7 @@ module.exports = {
     'id-match': 2,
     'import/default': 0,
     'import/export': 2,
-    'import/extensions': ['error', 'always', {
+    'import/extensions': ['error', 'ignorePackages', {
       'js': 'never',
       'jsx': 'never',
       'ts': 'never',
@@ -129,7 +132,7 @@ module.exports = {
       'ignoreTemplateLiterals': false,
       'ignorePattern': "^import\\s.+\\sfrom\\s'.+';",  // ignore import statements
     }],
-    'max-lines': [2, 1000],
+    'max-lines': [2, 1500],
     'max-nested-callbacks': 2,
     'max-params': [2, 12],
     'max-statements': 0,

@@ -2,11 +2,10 @@ import os
 import sys
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.exceptions import MlflowException
 
 
 # Based on: https://stackoverflow.com/a/58466685
@@ -69,7 +68,7 @@ class SFTPArtifactRepository(ArtifactRepository):
 
             self.sftp = pysftp.Connection(**self.config)
 
-        super(SFTPArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
@@ -110,4 +109,10 @@ class SFTPArtifactRepository(ArtifactRepository):
         self.sftp.get(remote_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        if self.sftp.isdir(artifact_path):
+            with self.sftp.cd(artifact_path):
+                for element in self.sftp.listdir():
+                    self.delete_artifacts(element)
+            self.sftp.rmdir(artifact_path)
+        elif self.sftp.isfile(artifact_path):
+            self.sftp.remove(artifact_path)

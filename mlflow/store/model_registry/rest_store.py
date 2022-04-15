@@ -26,11 +26,16 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    call_endpoints,
+    extract_api_info_for_service,
+    extract_all_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 
-_PATH_PREFIX = "/api/2.0"
-_METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _PATH_PREFIX)
-
+_METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
 
 _logger = logging.getLogger(__name__)
 
@@ -46,13 +51,17 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super(RestStore, self).__init__()
+        super().__init__()
         self.get_host_creds = get_host_creds
 
-    def _call_endpoint(self, api, json_body):
-        endpoint, method = _METHOD_TO_INFO[api]
+    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
         response_proto = api.Response()
-        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        if call_all_endpoints:
+            endpoints = _METHOD_TO_ALL_INFO[api]
+            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
+        else:
+            endpoint, method = _METHOD_TO_INFO[api]
+            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
     # CRUD API for RegisteredModel objects
 
@@ -181,11 +190,11 @@ class RestStore(AbstractStore):
 
         :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
-                       for 'Staging' and 'Production' stages.
+                       each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         req_body = message_to_json(GetLatestVersions(name=name, stages=stages))
-        response_proto = self._call_endpoint(GetLatestVersions, req_body)
+        response_proto = self._call_endpoint(GetLatestVersions, req_body, call_all_endpoints=True)
         return [
             ModelVersion.from_proto(model_version)
             for model_version in response_proto.model_versions
@@ -216,7 +225,7 @@ class RestStore(AbstractStore):
     # CRUD API for ModelVersion objects
 
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.

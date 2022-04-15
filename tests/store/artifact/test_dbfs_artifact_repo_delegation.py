@@ -1,6 +1,6 @@
 import os
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository

@@ -12,9 +12,9 @@ In particular, a valid deployment plugin module must implement:
 import abc
 
 from mlflow.utils.annotations import experimental
+from mlflow.exceptions import MlflowException
 
 
-@experimental
 def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: disable=W0613
     """
     .. Note::
@@ -43,7 +43,6 @@ def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: dis
     )
 
 
-@experimental
 def target_help():
     """
     .. Note::
@@ -88,7 +87,6 @@ class BaseDeploymentClient(abc.ABC):
         self.target_uri = target_uri
 
     @abc.abstractmethod
-    @experimental
     def create_deployment(self, name, model_uri, flavor=None, config=None):
         """
         Deploy a model to the specified target. By default, this method should block until
@@ -111,7 +109,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
         """
         Update the deployment with the specified name. You can update the URI of the model, the
@@ -134,19 +131,19 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, config=None):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
+        :param config: (optional) dict containing updated target-specific configuration for the
+                       deployment
         :return: None
         """
         pass
 
     @abc.abstractmethod
-    @experimental
     def list_deployments(self):
         """
         List deployments. This method is expected to return an unpaginated list of all
@@ -162,11 +159,10 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def get_deployment(self, name):
         """
         Returns a dictionary describing the specified deployment, throwing a
-        py:class:`mlflow.exception.MlflowException` if no deployment exists with the provided
+        :py:class:`mlflow.exceptions.MlflowException` if no deployment exists with the provided
         ID.
         The dict is guaranteed to contain an 'name' key containing the deployment name.
         The other fields of the returned dictionary and their types may vary across
@@ -177,7 +173,6 @@ class BaseDeploymentClient(abc.ABC):
         pass
 
     @abc.abstractmethod
-    @experimental
     def predict(self, deployment_name, df):
         """
         Compute predictions on the pandas DataFrame ``df`` using the specified deployment.
@@ -190,3 +185,19 @@ class BaseDeploymentClient(abc.ABC):
         :return: A pandas DataFrame, pandas Series, or numpy array
         """
         pass
+
+    @experimental
+    def explain(self, deployment_name, df):  # pylint: disable=unused-argument
+        """
+        Generate explanations of model predictions on the specified input pandas Dataframe
+        ``df`` for the deployed model. Explanation output formats vary by deployment target,
+        and can include details like feature importance for understanding/debugging predictions.
+
+        :param deployment_name: Name of deployment to predict against
+        :param df: Pandas DataFrame to use for explaining feature importance in model prediction
+        :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
+                 an exception if the implementation is not available in deployment target's class
+        """
+        raise MlflowException(
+            "Computing model explanations is not yet supported for this deployment target"
+        )

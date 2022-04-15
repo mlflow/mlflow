@@ -1,0 +1,11 @@
+name: lightgbm-example
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - pip
+  - pip:
+      - mlflow>=1.6.0
+      - matplotlib
+      - lightgbm
+      - cloudpickle>=2.0.0

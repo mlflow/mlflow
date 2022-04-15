@@ -1,6 +1,6 @@
-import mock
+from importlib import reload
+from unittest import mock
 import pytest
-from six.moves import reload_module as reload
 
 import mlflow.tracking.context.registry
 from mlflow.tracking.context.default_context import DefaultRunContext
@@ -74,7 +74,7 @@ def test_registry_instance_defaults():
 
 
 def test_registry_instance_loads_entrypoints():
-    class MockRunContext(object):
+    class MockRunContext:
         pass
 
     mock_entrypoint = mock.Mock()
@@ -83,7 +83,7 @@ def test_registry_instance_loads_entrypoints():
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-        # Entrypoints are registered at import time, so we need to reload the module to register th
+        # Entrypoints are registered at import time, so we need to reload the module to register the
         # entrypoint given by the mocked extrypoints.get_group_all
         reload(mlflow.tracking.context.registry)
 
@@ -117,11 +117,20 @@ def mock_run_context_providers():
     skipped_provider = mock.Mock()
     skipped_provider.in_context.return_value = False
 
+    exception_provider = mock.Mock()
+    exception_provider.in_context.return_value = True
+    exception_provider.tags.return_value = {
+        "random-key": "This val will never make it to tag resolution"
+    }
+    exception_provider.tags.side_effect = Exception(
+        "This should be caught by logic in resolve_tags()"
+    )
+
     override_provider = mock.Mock()
     override_provider.in_context.return_value = True
     override_provider.tags.return_value = {"one": "override", "new": "new-val"}
 
-    providers = [base_provider, skipped_provider, override_provider]
+    providers = [base_provider, skipped_provider, exception_provider, override_provider]
 
     with mock.patch("mlflow.tracking.context.registry._run_context_provider_registry", providers):
         yield

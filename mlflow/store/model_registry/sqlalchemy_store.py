@@ -5,6 +5,7 @@ import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
+    ALL_STAGES,
     DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS,
     STAGE_DELETED_INTERNAL,
     STAGE_ARCHIVED,
@@ -57,7 +58,7 @@ def now():
 
 class SqlAlchemyStore(AbstractStore):
     """
-    Note:: Experimental: This entity may change or be removed in a future release without warning.
+    This entity may change or be removed in a future release without warning.
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
     As specified in the
@@ -85,10 +86,10 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
+        super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         Base.metadata.create_all(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
@@ -109,7 +110,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlRegisteredModel.__tablename__,
             SqlModelVersion.__tablename__,
         ]
-        if any([table not in inspected_tables for table in expected_tables]):
+        if any(table not in inspected_tables for table in expected_tables):
             # TODO: Replace the MlflowException with the following line once it's possible to run
             # the registry against a different DB than the tracking server:
             # mlflow.store.db.utils._initialize_tables(self.engine)
@@ -185,7 +186,7 @@ class SqlAlchemyStore(AbstractStore):
                 return registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Registered Model (name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Registered Model (name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -432,7 +433,7 @@ class SqlAlchemyStore(AbstractStore):
 
         :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
-                       for 'Staging' and 'Production' stages.
+                       each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         with self.ManagedSessionMaker() as session:
@@ -440,9 +441,7 @@ class SqlAlchemyStore(AbstractStore):
             # Convert to RegisteredModel entity first and then extract latest_versions
             latest_versions = sql_registered_model.to_mlflow_entity().latest_versions
             if stages is None or len(stages) == 0:
-                expected_stages = set(
-                    [get_canonical_stage(stage) for stage in DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS]
-                )
+                expected_stages = set([get_canonical_stage(stage) for stage in ALL_STAGES])
             else:
                 expected_stages = set([get_canonical_stage(stage) for stage in stages])
             return [mv for mv in latest_versions if mv.current_stage in expected_stages]
@@ -499,7 +498,7 @@ class SqlAlchemyStore(AbstractStore):
     # CRUD API for ModelVersion objects
 
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
@@ -571,7 +570,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if len(versions) == 0:
             raise MlflowException(
-                "Model Version (name={}, version={}) " "not found".format(name, version),
+                "Model Version (name={}, version={}) not found".format(name, version),
                 RESOURCE_DOES_NOT_EXIST,
             )
         if len(versions) > 1:
@@ -662,7 +661,7 @@ class SqlAlchemyStore(AbstractStore):
                 conditions = [
                     SqlModelVersion.name == name,
                     SqlModelVersion.version != version,
-                    SqlModelVersion.current_stage == stage,
+                    SqlModelVersion.current_stage == get_canonical_stage(stage),
                 ]
                 model_versions = session.query(SqlModelVersion).filter(*conditions).all()
                 for mv in model_versions:
@@ -744,10 +743,11 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] != "=":
+            if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
                 raise MlflowException(
-                    "Model Registry search filter only supports equality(=) "
-                    "comparator. Input filter string: %s" % filter_string,
+                    "Model Registry search filter only supports the equality(=) "
+                    "comparator and the IN operator "
+                    "for the run_id parameter. Input filter string: %s" % filter_string,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if filter_dict["key"] == "name":
@@ -755,7 +755,10 @@ class SqlAlchemyStore(AbstractStore):
             elif filter_dict["key"] == "source_path":
                 conditions = [SqlModelVersion.source == filter_dict["value"]]
             elif filter_dict["key"] == "run_id":
-                conditions = [SqlModelVersion.run_id == filter_dict["value"]]
+                if filter_dict["comparator"] == "IN":
+                    conditions = [SqlModelVersion.run_id.in_(filter_dict["value"])]
+                else:
+                    conditions = [SqlModelVersion.run_id == filter_dict["value"]]
             else:
                 raise MlflowException(
                     "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
@@ -764,7 +767,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(
                 "Model Registry expects filter to be one of "
                 "\"name = '<model_name>'\" or "
-                "\"source_path = '<source_path>'\" or \"run_id = '<run_id>'."
+                "\"source_path = '<source_path>'\" "
+                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
                 "Input filter string: %s. " % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )

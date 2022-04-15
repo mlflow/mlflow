@@ -9,9 +9,6 @@ from mlflow.protos.model_registry_pb2 import (
 
 class ModelVersion(_ModelRegistryEntity):
     """
-    .. note::
-        Experimental: This entity may change or be removed in a future release without warning.
-
     MLflow entity for Model Version.
     """
 
@@ -26,12 +23,12 @@ class ModelVersion(_ModelRegistryEntity):
         current_stage=None,
         source=None,
         run_id=None,
-        status=None,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
         status_message=None,
         tags=None,
         run_link=None,
     ):
-        super(ModelVersion, self).__init__()
+        super().__init__()
         self._name = name
         self._version = version
         self._creation_time = creation_timestamp

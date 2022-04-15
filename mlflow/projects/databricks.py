@@ -8,7 +8,7 @@ import time
 import logging
 import posixpath
 
-from six.moves import shlex_quote
+from shlex import quote as shlex_quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
@@ -25,7 +25,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
-from mlflow.version import VERSION
+from mlflow.version import is_release_version, VERSION
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
@@ -47,7 +47,7 @@ def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
     if backend_config is None:
         raise ExecutionException(
-            "Backend spec must be provided when launching MLflow project " "runs on Databricks."
+            "Backend spec must be provided when launching MLflow project runs on Databricks."
         )
     elif "existing_cluster_id" in backend_config:
         raise MlflowException(
@@ -69,7 +69,7 @@ def before_run_validations(tracking_uri, backend_config):
         )
 
 
-class DatabricksJobRunner(object):
+class DatabricksJobRunner:
     """
     Helper class for running an MLflow project as a Databricks Job.
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
@@ -122,7 +122,7 @@ class DatabricksJobRunner(object):
         )
         try:
             json_response_obj = json.loads(response.text)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             raise MlflowException(
                 "API request to check existence of file at DBFS path %s failed with status code "
                 "%s. Response body: %s" % (dbfs_path, response.status_code, response.text)
@@ -153,6 +153,11 @@ class DatabricksJobRunner(object):
             return None if os.path.basename(x.name) == "mlruns" else x
 
         try:
+            directory_size = file_utils._get_local_project_dir_size(project_dir)
+            _logger.info(
+                f"=== Creating tarball from {project_dir} in temp directory {temp_tarfile_dir} ==="
+            )
+            _logger.info(f"=== Total file size to compress: {directory_size} KB ===")
             file_utils.make_tarfile(
                 temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, custom_filter=custom_filter
             )
@@ -165,8 +170,12 @@ class DatabricksJobRunner(object):
                 "projects-code",
                 "%s.tar.gz" % tarfile_hash,
             )
+            tar_size = file_utils._get_local_file_size(temp_tar_filename)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
+                _logger.info(
+                    f"=== Uploading project tarball (size: {tar_size} KB) to {dbfs_fuse_uri} ==="
+                )
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
@@ -193,10 +202,20 @@ class DatabricksJobRunner(object):
                  Databricks
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
-        # NB: We use <= on the version specifier to allow running projects on pre-release
-        # versions, where we will select the most up-to-date mlflow version available.
-        # Also note, that we escape this so '<' is not treated as a shell pipe.
-        libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+        if is_release_version():
+            libraries = [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+        else:
+            # When running a non-release version as the client the same version will not be
+            # available within Databricks.
+            _logger.warning(
+                (
+                    "Your client is running a non-release version of MLFlow. "
+                    "This version is not avaialable on the databricks runtime. "
+                    "MLFlow will fallback the MLFlow version provided by the runtime. "
+                    "This might lead to unforeseen issues. "
+                )
+            )
+            libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
@@ -212,6 +231,7 @@ class DatabricksJobRunner(object):
             "shell_command_task": {"command": command, "env_vars": env_vars},
             "libraries": libraries,
         }
+        _logger.info("=== Submitting a run to execute the MLflow project... ===")
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id
@@ -356,7 +376,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     POLL_STATUS_INTERVAL = 30
 
     def __init__(self, databricks_run_id, mlflow_run_id, databricks_job_runner):
-        super(DatabricksSubmittedRun, self).__init__()
+        super().__init__()
         self._databricks_run_id = databricks_run_id
         self._mlflow_run_id = mlflow_run_id
         self._job_runner = databricks_job_runner

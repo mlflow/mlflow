@@ -1,5 +1,4 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -9,7 +8,7 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
-import { mockAjax } from '../../common/utils/TestUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 import { modelListPageRoute } from '../routes';
 
 describe('ModelPage', () => {
@@ -20,11 +19,10 @@ describe('ModelPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     minimalProps = {
       match: {
         params: {
-          modelName: 'Model A',
+          modelName: encodeURIComponent('Model A'),
         },
       },
       history: {
@@ -57,7 +55,7 @@ describe('ModelPage', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelPage {...minimalProps} />
@@ -68,7 +66,7 @@ describe('ModelPage', () => {
   });
 
   test('should redirect to model listing page when model is deleted', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelPage {...minimalProps} />

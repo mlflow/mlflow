@@ -1,6 +1,11 @@
 import os
+import logging
+import distutils
+
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
+
+_MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
 version = (
     SourceFileLoader("mlflow.version", os.path.join("mlflow", "version.py")).load_module().VERSION
@@ -24,64 +29,134 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
+extra_files = [
+    "ml-package-versions.yml",
+    "pypi_package_index.json",
+    "pyspark/ml/log_model_allowlist.txt",
+]
+
+"""
+Minimal requirements for the skinny MLflow client which provides a limited
+subset of functionality such as: RESTful client functionality for Tracking and
+Model Registry, as well as support for Project execution against local backends
+and Databricks.
+"""
+SKINNY_REQUIREMENTS = [
+    "click>=7.0",
+    "cloudpickle",
+    "databricks-cli>=0.8.7",
+    "entrypoints",
+    "gitpython>=2.1.0",
+    "pyyaml>=5.1",
+    "protobuf>=3.7.0",
+    "pytz",
+    "requests>=2.17.3",
+    "packaging",
+    # Automated dependency detection in MLflow Models relies on
+    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
+    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
+    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
+    "importlib_metadata>=3.7.0,!=4.7.0",
+]
+
+"""
+These are the core requirements for the complete MLflow platform, which augments
+the skinny client functionality with support for running the MLflow Tracking
+Server & UI. It also adds project backends such as Docker and Kubernetes among
+other capabilities.
+"""
+CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
+    "alembic",
+    # Required
+    "docker>=4.0.0",
+    "Flask",
+    "gunicorn; platform_system != 'Windows'",
+    "numpy",
+    "scipy",
+    "pandas",
+    "prometheus-flask-exporter",
+    "querystring_parser",
+    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+    "sqlparse>=0.3.1",
+    # Required to run the MLflow server against SQL-backed storage
+    "sqlalchemy",
+    "waitress; platform_system == 'Windows'",
+]
+
+_is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
+logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
+
+
+class ListDependencies(distutils.cmd.Command):
+    # `python setup.py <command name>` prints out "running <command name>" by default.
+    # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
+    # of this command to `pip install`.
+    description = "List mlflow dependencies"
+    user_options = [
+        ("skinny", None, "List mlflow-skinny dependencies"),
+    ]
+
+    def initialize_options(self):
+        self.skinny = False
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        dependencies = SKINNY_REQUIREMENTS if self.skinny else CORE_REQUIREMENTS
+        print("\n".join(dependencies))
+
 
 setup(
-    name="mlflow",
+    name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    package_data={"mlflow": js_files + models_container_server_files + alembic_files},
-    install_requires=[
-        "alembic<=1.4.1",
-        "azure-storage-blob>=12.0",
-        "click>=7.0",
-        "cloudpickle",
-        "databricks-cli>=0.8.7",
-        "requests>=2.17.3",
-        "six>=1.10.0",
-        'waitress; platform_system == "Windows"',
-        'gunicorn; platform_system != "Windows"',
-        "Flask",
-        "numpy",
-        "pandas",
-        "python-dateutil",
-        "protobuf>=3.6.0",
-        "gitpython>=2.1.0",
-        "pyyaml",
-        "querystring_parser",
-        "docker>=4.0.0",
-        "entrypoints",
-        "sqlparse",
-        "sqlalchemy<=1.3.13",
-        "gorilla",
-        "prometheus-flask-exporter",
-    ],
+    package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
+    if not _is_mlflow_skinny
+    # include alembic files to enable usage of the skinny client with SQL databases
+    # if users install sqlalchemy, alembic, and sqlparse independently
+    else {"mlflow": alembic_files + extra_files},
+    install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
-            "scikit-learn; python_version >= '3.5'",
-            # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
-            "scikit-learn==0.20; python_version < '3.5'",
-            "boto3>=1.7.12",
-            "mleap>=0.16.0",
-            "azure-storage-blob>=12.0",
+            "scikit-learn",
+            # Required to log artifacts and models to HDFS artifact locations
+            "pyarrow",
+            # Required to log artifacts and models to AWS S3 artifact locations
+            "boto3",
+            # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
             "azureml-core>=1.2.0",
+            # Required to log artifacts to SFTP artifact locations
+            "pysftp",
+            # Required by the mlflow.projects module, when running projects against
+            # a remote Kubernetes cluster
+            "kubernetes",
+            # Required to serve models through MLServer
+            "mlserver>=0.5.3",
+            "mlserver-mlflow>=0.5.3",
+            "virtualenv",
         ],
-        "sqlserver": ["mlflow-dbstore",],
-        "aliyun-oss": ["aliyunstoreplugin",],
+        "sqlserver": ["mlflow-dbstore"],
+        "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
     """,
+    cmdclass={"dependencies": ListDependencies},
     zip_safe=False,
     author="Databricks",
-    description="MLflow: An ML Workflow Tool",
-    long_description=open("README.rst").read(),
+    description="MLflow: A Platform for ML Development and Productionization",
+    long_description=open("README.rst").read()
+    if not _is_mlflow_skinny
+    else open("README_SKINNY.rst").read() + open("README.rst").read(),
+    long_description_content_type="text/x-rst",
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6",],
+    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.7"],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.5",
+    python_requires=">=3.7",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

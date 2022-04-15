@@ -1,6 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { Button } from '../../shared/building_blocks/Button';
 import { TreeSelect } from 'antd';
+import { FormattedMessage } from 'react-intl';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
@@ -12,6 +14,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    onClearAllSelect: PropTypes.func.isRequired,
   };
 
   static handleFilterChange = (text, option) =>
@@ -25,13 +28,24 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedMetricKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
+      onClearAllSelect,
     } = this.props;
     return (
       <div className='plot-controls'>
-        <div>Parameters:</div>
+        <div>
+          <FormattedMessage
+            defaultMessage='Parameters:'
+            description='Label text for parameters in parallel coordinates plot in MLflow'
+          />
+        </div>
         <TreeSelect
           className='metrics-select'
-          searchPlaceholder='Please select parameters'
+          placeholder={
+            <FormattedMessage
+              defaultMessage='Please select parameters'
+              description='Placeholder text for parameters in parallel coordinates plot in MLflow'
+            />
+          }
           value={selectedParamKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
@@ -39,10 +53,20 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           onChange={handleParamsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
-        <div style={{ marginTop: 20 }}>Metrics:</div>
+        <div style={{ marginTop: 20 }}>
+          <FormattedMessage
+            defaultMessage='Metrics:'
+            description='Label text for metrics in parallel coordinates plot in MLflow'
+          />
+        </div>
         <TreeSelect
           className='metrics-select'
-          searchPlaceholder='Please select metrics'
+          placeholder={
+            <FormattedMessage
+              defaultMessage='Please select metrics'
+              description='Placeholder text for metrics in parallel coordinates plot in MLflow'
+            />
+          }
           value={selectedMetricKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
@@ -50,6 +74,14 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           onChange={handleMetricsSelectChange}
           filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
+        <div style={{ marginTop: 20 }}>
+          <Button dataTestId='clear-button' onClick={onClearAllSelect}>
+            <FormattedMessage
+              defaultMessage='Clear All'
+              description='String for the clear button to clear any selected parameters and metrics'
+            />
+          </Button>
+        </div>
       </div>
     );
   }

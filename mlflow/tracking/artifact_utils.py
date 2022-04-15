@@ -1,12 +1,12 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+import os
 import pathlib
 import posixpath
 import shutil
 import tempfile
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -15,6 +15,7 @@ from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, append_to_uri_path
+from mlflow.utils.file_utils import path_to_local_file_uri
 
 
 def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
@@ -60,7 +61,21 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    parsed_uri = urllib.parse.urlparse(artifact_uri)
+    if os.path.exists(artifact_uri):
+        if os.name != "nt":
+            # If we're dealing with local files, just reference the direct pathing.
+            # non-nt-based file systems can directly reference path information, while nt-based
+            # systems need to url-encode special characters in directory listings to be able to
+            # resolve them (i.e., spaces converted to %20 within a file name or path listing)
+            root_uri = os.path.dirname(artifact_uri)
+            artifact_path = os.path.basename(artifact_uri)
+            return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+                artifact_path=artifact_path, dst_path=output_path
+            )
+        else:  # if we're dealing with nt-based systems, we need to utilize pathname2url to encode.
+            artifact_uri = path_to_local_file_uri(artifact_uri)
+
+    parsed_uri = urllib.parse.urlparse(str(artifact_uri))
     prefix = ""
     if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
         # relative path is a special case, urllib does not reconstruct it properly

@@ -1,6 +1,6 @@
 import os
 
-import mock
+from unittest import mock
 from unittest.mock import ANY
 
 import mlflow
@@ -44,6 +44,35 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
         artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_subdir)
 
     artifact_output_path = tmpdir.join("artifact_output").strpath
+    os.makedirs(artifact_output_path)
+    _download_artifact_from_uri(artifact_uri=artifact_uri, output_path=artifact_output_path)
+    assert logged_artifact_subdir in os.listdir(artifact_output_path)
+    assert artifact_file_name in os.listdir(
+        os.path.join(artifact_output_path, logged_artifact_subdir)
+    )
+    with open(
+        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r"
+    ) as f:
+        assert f.read() == artifact_text
+
+
+def test_download_artifact_with_special_characters_in_file_name_and_path(tmpdir):
+    artifact_file_name = " artifact_ with! special  characters.txt"
+    artifact_sub_dir = " path with ! special  characters"
+    artifact_text = "Sample artifact text"
+    local_sub_path = os.path.join(tmpdir, artifact_sub_dir)
+    os.makedirs(local_sub_path)
+
+    local_artifact_path = os.path.join(local_sub_path, artifact_file_name)
+    with open(local_artifact_path, "w") as out:
+        out.write(artifact_text)
+
+    logged_artifact_subdir = "logged_artifact"
+    with mlflow.start_run():
+        mlflow.log_artifact(local_path=local_artifact_path, artifact_path=logged_artifact_subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path=logged_artifact_subdir)
+
+    artifact_output_path = os.path.join(tmpdir, "artifact output path!")
     os.makedirs(artifact_output_path)
     _download_artifact_from_uri(artifact_uri=artifact_uri, output_path=artifact_output_path)
     assert logged_artifact_subdir in os.listdir(artifact_output_path)

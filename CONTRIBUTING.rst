@@ -41,7 +41,7 @@ actively review pull requests and are also happy to provide implementation guida
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.md>`_.
 
 Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
@@ -125,8 +125,9 @@ you can `sign your work`_ when committing code changes and opening pull requests
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
 
-For convenience, we provide a pre-commit git hook that validates that commits are signed-off.
-Enable it by running:
+For convenience, we provide a pre-commit git hook that validates that commits are signed-off and
+runs `black --check` and `pylint` to ensure the code will pass the lint check for python.
+You can enable it by running:
 
 .. code-block:: bash
 
@@ -138,11 +139,17 @@ by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env python=3.6
-    source activate mlflow-dev-env
-    pip install -r dev-requirements.txt
-    pip install -r test-requirements.txt
-    pip install -e .  # installs mlflow from current checkout
+    conda create --name mlflow-dev-env python=3.7
+    conda activate mlflow-dev-env
+    pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
+
+If you plan on doing development and testing, you will also need to install the following into the conda environment:
+
+.. code-block:: bash
+
+    pip install -r requirements/dev-requirements.txt
+    pip install -e .[extras]  # installs mlflow from current checkout
+    pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
@@ -160,6 +167,17 @@ JavaScript and UI
 The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
+
+Install Node Module Dependencies
+++++++++++++++++++++++++++++++++
+
+On OSX, install the following packages required by the node modules:
+
+.. code-block:: bash
+
+    brew install pixman cairo pango jpeg
+
+Linux/Windows users will need to source these dependencies using the appropriate package manager on their platforms.
 
 Install Node Modules
 ++++++++++++++++++++
@@ -319,13 +337,13 @@ You can auto-format your code by running:
 
 .. code-block:: bash
 
-    black --line-length=100 --exclude=mlflow/protos .
+    black .
 
 Then, verify that the unit tests & linter pass before submitting a pull request by running:
 
 .. code-block:: bash
 
-    ./lint.sh
+    ./dev/lint.sh
     ./dev/run-small-python-tests.sh
     # Optionally, run large tests as well. Github actions will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
@@ -336,7 +354,7 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"
 category by default. Tests that take 10 or more seconds to run should be marked as large tests
 via the ``@pytest.mark.large`` annotation. Dependencies for small and large tests can be added to
-``dev/small-requirements.txt`` and ``dev/large-requirements.txt``, respectively.
+``requirements/small-requirements.txt`` and ``requirements/large-requirements.txt``, respectively.
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
@@ -351,7 +369,7 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
 process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you'd like to
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
-``pytest --verbose tests/sklearn --large && pytest --verbose tests/tensorflow --large``
+``pytest tests/sklearn --large && pytest tests/tensorflow --large``
 
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
@@ -372,7 +390,7 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``dev/large-requirements.txt``: add your framework and version to the list of requirements
+4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
@@ -400,7 +418,20 @@ Then, run the following to install ``protoc``:
     sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
     rm -f $PROTOC_ZIP
 
-Verify that .proto files and autogenerated code are in sync by running ``./test-generate-protos.sh.``
+Alternatively, you can build protobuf files using Docker:
+
+.. code-block:: bash
+
+    pushd dev
+    DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
+    popd
+    docker run --rm \
+      -v $(pwd)/mlflow/protos:/app/mlflow/protos \
+      -v $(pwd)/mlflow/java/client/src/main/java:/app/mlflow/java/client/src/main/java \
+      -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
+      gen-protos ./generate-protos.sh
+
+Verify that .proto files and autogenerated code are in sync by running ``./dev/test-generate-protos.sh.``
 
 
 Database Schema Changes
@@ -418,6 +449,8 @@ checkout of MLflow:
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
     $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
+    # Update schema files
+    $ ./tests/db/update_schemas.sh
 
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
@@ -570,3 +603,7 @@ Then add a line to every git commit message::
 
 Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
+
+Code of Conduct
+###############
+Refer to the `MLflow Contributor Covenant Code of Conduct <./CODE_OF_CONDUCT.rst>`_ for more information.

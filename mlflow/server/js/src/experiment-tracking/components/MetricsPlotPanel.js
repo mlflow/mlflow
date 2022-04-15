@@ -2,11 +2,11 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import { getMetricHistoryApi } from '../actions';
+import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
-import { getRunTags } from '../reducers/Reducers';
+import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
   X_AXIS_WALL,
@@ -22,10 +22,16 @@ import { getUUID } from '../../common/utils/ActionUtils';
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
+export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
+// A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
+// prior to this threshold. The metrics plot doesn't automatically update hanging runs.
+export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
+
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    completedRunUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
     latestMetricsByRunUuid: PropTypes.object.isRequired,
@@ -34,6 +40,7 @@ export class MetricsPlotPanel extends React.Component {
     // An array of { metricKey, history, runUuid, runDisplayName }
     metricsWithRunInfoAndHistory: PropTypes.arrayOf(PropTypes.object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
+    getRunApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -71,9 +78,88 @@ export class MetricsPlotPanel extends React.Component {
       popoverX: 0,
       popoverY: 0,
       popoverRunItems: [],
+      focused: true,
     };
     this.displayPopover = false;
+    this.intervalId = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
+  }
+
+  hasMultipleExperiments() {
+    return this.props.experimentIds && this.props.experimentIds.length > 1;
+  }
+
+  onFocus = () => {
+    this.setState({ focused: true });
+  };
+
+  onBlur = () => {
+    this.setState({ focused: false });
+  };
+
+  clearEventListeners = () => {
+    // `window.removeEventListener` does nothing when called with an unregistered event listener:
+    // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener
+    window.removeEventListener('focus', this.onFocus);
+    window.removeEventListener('blur', this.onBlur);
+  };
+
+  clearInterval = () => {
+    // `clearInterval` does nothing when called with `null` or `undefine`:
+    // https://www.w3.org/TR/2011/WD-html5-20110525/timers.html#dom-windowtimers-cleartimeout
+    clearInterval(this.intervalId);
+    this.intervalId = null;
+  };
+
+  allRunsCompleted = () => {
+    return this.props.completedRunUuids.length === this.props.runUuids.length;
+  };
+
+  isHangingRunUuid = (activeRunUuid) => {
+    const metrics = this.props.latestMetricsByRunUuid[activeRunUuid];
+    if (!metrics) {
+      return false;
+    }
+    const timestamps = Object.values(metrics).map(({ timestamp }) => timestamp);
+    const latestTimestamp = Math.max(...timestamps);
+    return new Date().getTime() - latestTimestamp > METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
+  };
+
+  getActiveRunUuids = () => {
+    const { completedRunUuids, runUuids } = this.props;
+    const activeRunUuids = _.difference(runUuids, completedRunUuids);
+    return activeRunUuids.filter(_.negate(this.isHangingRunUuid)); // Exclude hanging runs
+  };
+
+  shouldPoll = () => {
+    return !(this.allRunsCompleted() || this.getActiveRunUuids().length === 0);
+  };
+
+  componentDidMount() {
+    if (this.shouldPoll()) {
+      // Set event listeners to detect when this component gains/loses focus,
+      // e.g., a user switches to a different browser tab or app.
+      window.addEventListener('blur', this.onBlur);
+      window.addEventListener('focus', this.onFocus);
+      this.intervalId = setInterval(() => {
+        // Skip polling if this component is out of focus.
+        if (this.state.focused) {
+          const activeRunUuids = this.getActiveRunUuids();
+          this.loadMetricHistory(activeRunUuids, this.getUrlState().selectedMetricKeys);
+          this.loadRuns(activeRunUuids);
+
+          if (!this.shouldPoll()) {
+            this.clearEventListeners();
+            this.clearInterval();
+          }
+        }
+      }, METRICS_PLOT_POLLING_INTERVAL_MS);
+    }
+  }
+
+  componentWillUnmount() {
+    this.clearEventListeners();
+    this.clearInterval();
   }
 
   getUrlState() {
@@ -102,7 +188,7 @@ export class MetricsPlotPanel extends React.Component {
   // state updates, e.g. in a setState callback
   updateUrlState = (updatedState) => {
     const { runUuids, metricKey, location, history } = this.props;
-    const experimentId = qs.parse(location.search)['experiment'];
+    const experimentIds = JSON.parse(qs.parse(location.search)['experiments']);
     const newState = {
       ...this.getUrlState(),
       ...updatedState,
@@ -121,7 +207,7 @@ export class MetricsPlotPanel extends React.Component {
       Routes.getMetricPageRoute(
         runUuids,
         metricKey,
-        experimentId,
+        experimentIds,
         selectedMetricKeys,
         layout,
         selectedXAxis,
@@ -145,6 +231,16 @@ export class MetricsPlotPanel extends React.Component {
           requestIds.push(id);
         }
       });
+    });
+    return requestIds;
+  };
+
+  loadRuns = (runUuids) => {
+    const requestIds = [];
+    runUuids.forEach((runUuid) => {
+      const id = getUUID();
+      this.props.getRunApi(runUuid);
+      requestIds.push(id);
     });
     return requestIds;
   };
@@ -446,7 +542,7 @@ export class MetricsPlotPanel extends React.Component {
             runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
-            y: point.text,
+            y: point.y,
           }));
 
         this.setState({
@@ -460,7 +556,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   render() {
-    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
     const state = this.getUrlState();
     const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
@@ -471,6 +567,8 @@ export class MetricsPlotPanel extends React.Component {
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
+          numRuns={this.props.runUuids.length}
+          numCompletedRuns={this.props.completedRunUuids.length}
           distinctMetricKeys={distinctMetricKeys}
           selectedXAxis={selectedXAxis}
           selectedMetricKeys={selectedMetricKeys}
@@ -491,16 +589,18 @@ export class MetricsPlotPanel extends React.Component {
           // optimistically render the children
           shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
-          <RunLinksPopover
-            experimentId={experimentId}
-            visible={popoverVisible}
-            x={popoverX}
-            y={popoverY}
-            runItems={popoverRunItems}
-            handleKeyDown={this.handleKeyDownOnPopover}
-            handleClose={() => this.setState({ popoverVisible: false })}
-            handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
-          />
+          {this.hasMultipleExperiments() ? null : (
+            <RunLinksPopover
+              experimentId={experimentIds[0]}
+              visible={popoverVisible}
+              x={popoverX}
+              y={popoverY}
+              runItems={popoverRunItems}
+              handleKeyDown={this.handleKeyDownOnPopover}
+              handleClose={() => this.setState({ popoverVisible: false })}
+              handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+            />
+          )}
           <MetricsPlotView
             runUuids={runUuids}
             runDisplayNames={runDisplayNames}
@@ -526,6 +626,9 @@ export class MetricsPlotPanel extends React.Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
+  const completedRunUuids = runUuids.filter(
+    (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
+  );
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
@@ -534,7 +637,6 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
-
   const runDisplayNames = [];
 
   // Flat array of all metrics, with history and information of the run it belongs to
@@ -561,9 +663,10 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
+    completedRunUuids,
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi };
+const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));

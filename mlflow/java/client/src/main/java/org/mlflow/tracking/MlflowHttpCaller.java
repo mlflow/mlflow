@@ -1,5 +1,7 @@
 package org.mlflow.tracking;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -36,33 +38,51 @@ class MlflowHttpCaller {
   private final MlflowHostCredsProvider hostCredsProvider;
   private final int maxRateLimitIntervalMillis;
   private final int rateLimitRetrySleepInitMillis;
+  private final int maxRetryAttempts;
 
+  /**
+   * Construct a new MlflowHttpCaller with a default configuration for request retries.
+   */
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
-    this(hostCredsProvider, 60000);
+    this(hostCredsProvider, 60000, 1000, 3);
   }
 
-  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider, int maxRateLimitIntervalSeconds) {
-    this(hostCredsProvider, maxRateLimitIntervalSeconds, 1000);
-  }
-
+  /**
+   * Construct a new MlflowHttpCaller.
+   *
+   * @param maxRateLimitIntervalMs The maximum amount of time, in milliseconds, to spend retrying a
+   *                               single request in response to rate limiting (error code 429).
+   * @param rateLimitRetrySleepInitMs The initial backoff delay, in milliseconds, when retrying a
+   *                                  request in response to rate limiting (error code 429). The
+   *                                  delay is increased exponentially after each rate limiting
+   *                                  response until the total delay incurred across all retries for
+   *                                  the request exceeds the specified maxRateLimitIntervalSeconds.
+   * @param maxRetryAttempts The maximum number of times to retry a request, excluding rate limit
+   *                         retries.
+   */
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
-                   int rateLimitRetrySleepInitMs) {
-    this.hostCredsProvider = hostCredsProvider;
-    this.maxRateLimitIntervalMillis = maxRateLimitIntervalSeconds;
-    this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
-  }
-
-  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
+                   int maxRateLimitIntervalMs,
                    int rateLimitRetrySleepInitMs,
+                   int maxRetryAttempts) {
+    this.hostCredsProvider = hostCredsProvider;
+    this.maxRateLimitIntervalMillis = maxRateLimitIntervalMs;
+    this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
+    this.maxRetryAttempts = maxRetryAttempts;
+  }
+
+  @VisibleForTesting
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
+                   int maxRateLimitIntervalMs,
+                   int rateLimitRetrySleepInitMs,
+                   int maxRetryAttempts,
                    HttpClient client) {
-    this(hostCredsProvider, maxRateLimitIntervalSeconds, rateLimitRetrySleepInitMs);
+    this(
+      hostCredsProvider, maxRateLimitIntervalMs, rateLimitRetrySleepInitMs, maxRetryAttempts);
     this.httpClient = client;
   }
 
-
-  HttpResponse executeRequest(HttpRequestBase request) throws IOException {
+  private HttpResponse executeRequestWithRateLimitRetries(HttpRequestBase request)
+      throws IOException {
     int timeLeft = maxRateLimitIntervalMillis;
     int sleepFor = rateLimitRetrySleepInitMillis;
     HttpResponse response = httpClient.execute(request);
@@ -82,6 +102,30 @@ class MlflowHttpCaller {
       response = httpClient.execute(request);
     }
     checkError(response);
+    return response;
+  }
+
+  private HttpResponse executeRequest(HttpRequestBase request) throws IOException {
+    HttpResponse response = null;
+    int attemptsRemaining = this.maxRetryAttempts;
+    while (attemptsRemaining > 0) {
+      attemptsRemaining -= 1;
+      try {
+        response = executeRequestWithRateLimitRetries(request);
+        break;
+      } catch (MlflowHttpException e) {
+        if (attemptsRemaining > 0 && e.getStatusCode() != 429) {
+          logger.warn("Request returned with status code {} (Rate limit exceeded)."
+                      + " Retrying up to {} more times. Response body: {}",
+                      e.getStatusCode(),
+                      attemptsRemaining,
+                      e.getBodyMessage());
+          continue;
+        } else {
+          throw e;
+        }
+      }
+    }
     return response;
   }
 

@@ -26,6 +26,7 @@ The MLflow Python API supports several types of plugins:
   :py:func:`mlflow.start_run` fluent API.
 * **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
 * **MLFlow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
+* **MLFlow ModelEvaluator**: Define custom model evaluator, which can be used in :py:func:`mlflow.evaluate` API.
 
 .. contents:: Table of Contents
   :local:
@@ -105,6 +106,9 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a RunContextProvider plugin. The entry point name for run context providers
             # is not used, and so is set to the string "unused" here
             "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",
+            # Define a RequestHeaderProvider plugin. The entry point name for request header providers
+            # is not used, and so is set to the string "unused" here
+            "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",
             # Define a Model Registry Store plugin for tracking URIs with scheme 'file-plugin'
             "mlflow.model_registry_store":
                 "file-plugin=mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore",
@@ -113,6 +117,8 @@ The example package contains a ``setup.py`` that declares a number of
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
             # Define a MLflow model deployment plugin for target 'faketarget'
             "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
+            # Define a Mlflow model evaluator with name "dummy_evaluator"
+            "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",
         },
     )
 
@@ -160,16 +166,21 @@ plugin:
    * - Plugins for specifying custom context tags at run creation time, e.g. tags identifying the git repository associated with a run.
      - mlflow.run_context_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.run_context_provider:PluginRunContextProvider``) specifies a custom subclass of
-       `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/abstract_context.py#L4>`_
-       (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L23>`_
+       `mlflow.tracking.context.abstract_context.RunContextProvider <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/abstract_context.py#L4>`_
+       (e.g., the `PluginRunContextProvider class <https://github.com/mlflow/mlflow/blob/branch-1.13/tests/resources/mlflow-test-plugin/mlflow_test_plugin/run_context_provider.py>`_
        within the ``mlflow_test_plugin`` module) to register.
-     - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/git_context.py#L36>`_,
-       `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/tracking/context/default_context.py#L41>`_
+     - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/git_context.py#L38>`_,
+       `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/default_context.py#L41>`_
+   * - Plugins for specifying custom context request headers to attach to outgoing requests, e.g. headers identifying the client's environment.
+     - mlflow.request_header_provider
+     - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider``) specifies a custom subclass of
+       `mlflow.tracking.request_header.abstract_request_header_provider.RequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/abstract_request_header_provider.py#L4>`_
+       (e.g., the `PluginRequestHeaderProvider class <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/request_header_provider.py>`_
+       within the ``mlflow_test_plugin`` module) to register.
+     - `DatabricksRequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/databricks_request_header_provider.py>`_
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
-     - .. note:: The Model Registry is in beta (as of MLflow 1.5). Model Registry APIs are not guaranteed to be stable, and Model Registry plugins may break in the future.
-
-       The entry point value (e.g. ``mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
+     - The entry point value (e.g. ``mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
        `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/abstract_store.py#L6>`_
        (e.g., the `PluginRegistrySqlAlchemyStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L33>`_
        within the ``mlflow_test_plugin`` module)
@@ -195,6 +206,19 @@ plugin:
        2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
        `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
      - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
+   * - Plugins for :ref:`MLflow Model Evaluation <model-evaluation>`
+     - mlflow.model_evaluator
+     - The entry point name (e.g. ``dummy_evaluator``) is the evaluator name which is used in the ``evaluators`` argument of the ``mlflow.evaluate`` API.
+       The entry point value (e.g. ``dummy_evaluator:DummyEvaluator``) must refer to a subclass of ``mlflow.models.evaluation.ModelEvaluator``;
+       the subclass must implement 2 methods:
+       1) ``can_evaluate``: Accepts the keyword-only arguments ``model_type`` and ``evaluator_config``.
+       Returns ``True`` if the evaluator can evaluate the specified model type with the specified evaluator config. Returns ``False`` otherwise.
+       2) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
+       of ``mlflow.models.EvaluationResult``. Accepts the following arguments: ``model`` (a pyfunc model instance),
+       ``model_type`` (identical to the ``model_type`` argument from :py:func:`mlflow.evaluate()`),
+       ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
+       ``run_id`` (the ID of the MLflow Run to which to log results), and ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
+     - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
 
 
 Testing Your Plugin
@@ -209,6 +233,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
+* `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
 
 
 Distributing Your Plugin
@@ -302,3 +327,26 @@ for installation instructions, and see the
 for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
+- `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
+- `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
+- `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
+- `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
+
+Project Backend Plugins
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for running `MLflow projects <https://www.mlflow.org/docs/latest/projects.html>`_
+against custom execution backends.
+
+- `mlflow-yarn <https://github.com/criteo/mlflow-yarn>`_ Running mlflow on Hadoop/YARN
+
+Tracking Store Plugins
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for running `MLflow Tracking Store <https://www.mlflow.org/docs/latest/tracking.html>`_
+against custom databases.
+
+- `mlflow-elasticsearchstore <https://github.com/criteo/mlflow-elasticsearchstore>`_ Running MLflow Tracking Store with Elasticsearch
+
+This plugin is experimental please refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues> to have the list of limitations.
+Library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>

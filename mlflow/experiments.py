@@ -3,6 +3,7 @@ import os
 import click
 from tabulate import tabulate
 
+import mlflow
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
@@ -43,7 +44,7 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
+    click.echo("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
 @commands.command("list")
@@ -58,9 +59,8 @@ def list_experiments(view):
     """
     List all experiments in the configured tracking server.
     """
-    store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = store.list_experiments(view_type)
+    experiments = mlflow.list_experiments(view_type)
     table = [
         [
             exp.experiment_id,
@@ -71,7 +71,7 @@ def list_experiments(view):
         ]
         for exp in experiments
     ]
-    print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+    click.echo(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
 @commands.command("delete")
@@ -94,7 +94,7 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    print("Experiment with ID %s has been deleted." % str(experiment_id))
+    click.echo("Experiment with ID %s has been deleted." % str(experiment_id))
 
 
 @commands.command("restore")
@@ -107,7 +107,7 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
-    print("Experiment with id %s has been restored." % str(experiment_id))
+    click.echo("Experiment with id %s has been restored." % str(experiment_id))
 
 
 @commands.command("rename")
@@ -120,7 +120,7 @@ def rename_experiment(experiment_id, new_name):
     """
     store = _get_store()
     store.rename_experiment(experiment_id, new_name)
-    print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
+    click.echo("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
 
 
 @commands.command("csv")
@@ -134,9 +134,9 @@ def generate_csv_with_runs(experiment_id, filename):
     runs = fluent.search_runs(experiment_ids=experiment_id)
     if filename:
         runs.to_csv(filename, index=False)
-        print(
+        click.echo(
             "Experiment with ID %s has been exported as a CSV to file: %s."
             % (experiment_id, filename)
         )
     else:
-        print(runs.to_csv(index=False))
+        click.echo(runs.to_csv(index=False))

@@ -1200,8 +1200,6 @@ Create RegisteredModel
 | ``2.0/preview/mlflow/registered-models/create`` | ``POST``    |
 +-------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
 
@@ -1258,8 +1256,6 @@ Get RegisteredModel Details
 | ``2.0/preview/mlflow/registered-models/get-details`` | ``POST``    |
 +------------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1314,8 +1310,6 @@ Update RegisteredModel
 | ``2.0/preview/mlflow/registered-models/update`` | ``PATCH``   |
 +-------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1374,8 +1368,6 @@ Delete RegisteredModel
 | ``2.0/preview/mlflow/registered-models/delete`` | ``DELETE``  |
 +-------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1414,8 +1406,6 @@ List RegisteredModels
 | ``2.0/preview/mlflow/registered-models/list`` | ``GET``     |
 +-----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1452,8 +1442,6 @@ Get Latest ModelVersions
 | ``2.0/preview/mlflow/registered-models/get-latest-versions`` | ``POST``    |
 +--------------------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1511,8 +1499,6 @@ Create ModelVersion
 | ``2.0/preview/mlflow/model-versions/create`` | ``POST``    |
 +----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1574,8 +1560,6 @@ Get ModelVersion Details
 | ``2.0/preview/mlflow/model-versions/get-details`` | ``POST``    |
 +---------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1630,8 +1614,6 @@ Update ModelVersion
 | ``2.0/preview/mlflow/model-versions/update`` | ``PATCH``   |
 +----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1674,8 +1656,6 @@ Delete ModelVersion
 | ``2.0/preview/mlflow/model-versions/delete`` | ``DELETE``  |
 +----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1714,8 +1694,6 @@ Search ModelVersions
 | ``2.0/preview/mlflow/model-versions/search`` | ``GET``     |
 +----------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 
@@ -1780,8 +1758,6 @@ Get Download URI For ModelVersion Artifacts
 | ``2.0/preview/mlflow/model-versions/get-download-uri`` | ``POST``    |
 +--------------------------------------------------------+-------------+
 
-.. note::
-    Experimental: This API may change or be removed in a future release without warning.
 
 
 

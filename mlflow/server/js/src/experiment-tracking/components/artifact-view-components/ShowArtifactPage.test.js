@@ -1,16 +1,18 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 import ShowArtifactPage from './ShowArtifactPage';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
+import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
+import { RunTag } from '../../sdk/MlflowMessages';
 
 describe('ShowArtifactPage', () => {
   let wrapper;
@@ -20,30 +22,61 @@ describe('ShowArtifactPage', () => {
   beforeEach(() => {
     minimalProps = {
       runUuid: 'fakeUuid',
+      artifactRootUri: 'path/to/root/artifact',
     };
     ShowArtifactPage.prototype.fetchArtifacts = jest.fn();
     commonProps = { ...minimalProps, path: 'fakepath' };
-    wrapper = shallow(<ShowArtifactPage {...commonProps} />);
+    wrapper = mountWithIntl(<ShowArtifactPage {...commonProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ShowArtifactPage {...minimalProps} />);
+    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
-  test('should render select-to-preview view when path is unspecified', () => {
-    wrapper = shallow(<ShowArtifactPage {...minimalProps} />);
-    expect(wrapper.find('.select-preview-outer-container').length).toBe(1);
+  test('should render "select to preview" view when path is unspecified', () => {
+    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
+    expect(wrapper.text().includes('Select a file to preview')).toBe(true);
   });
 
-  test('should render select-to-preview view when path has no extension', () => {
+  test('should render "select to preview" view when path is unspecified', () => {
+    wrapper = mountWithIntl(<ShowArtifactPage {...minimalProps} />);
+    expect(wrapper.text().includes('Select a file to preview')).toBe(true);
+  });
+
+  test('should render "too large to preview" view when size is too large', () => {
+    wrapper.setProps({ path: 'file_without_extension', runUuid: 'runId', size: 100000000 });
+    expect(wrapper.text().includes('Select a file to preview')).toBe(false);
+    expect(wrapper.text().includes('File is too large to preview')).toBe(true);
+  });
+
+  test('should render logged model view when path is in runs tag logged model history', () => {
+    wrapper.setProps({
+      path: 'somePath',
+      runTags: {
+        'mlflow.log-model.history': RunTag.fromJs({
+          key: 'mlflow.log-model.history',
+          value: JSON.stringify([
+            {
+              run_id: 'run-uuid',
+              artifact_path: 'somePath',
+              flavors: { keras: {}, python_function: {} },
+            },
+          ]),
+        }),
+      },
+    });
+    expect(wrapper.find(ShowArtifactLoggedModelView).length).toBe(1);
+  });
+
+  test('should render "select to preview" view when path has no extension', () => {
     wrapper.setProps({ path: 'file_without_extension', runUuid: 'runId' });
-    expect(wrapper.find('.select-preview-outer-container').length).toBe(1);
+    expect(wrapper.text().includes('Select a file to preview')).toBe(true);
   });
 
-  test('should render select-to-preview view when path has unknown extension', () => {
+  test('should render "select to preview" view when path has unknown extension', () => {
     wrapper.setProps({ path: 'file.unknown', runUuid: 'runId' });
-    expect(wrapper.find('.select-preview-outer-container').length).toBe(1);
+    expect(wrapper.text().includes('Select a file to preview')).toBe(true);
   });
 
   test('should render image view for common image extensions', () => {

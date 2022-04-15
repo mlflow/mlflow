@@ -4,7 +4,6 @@ mlflow: R interface for MLflow
 [![Build
 Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
 [![CRAN\_Status\_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
-[![codecov](https://codecov.io/gh/mlflow/mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/mlflow/mlflow)
 
   - Install [MLflow](https://mlflow.org/) from R to track experiments
     locally.
@@ -20,8 +19,8 @@ devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
 mlflow::install_mlflow()
 ```
 
-Notice also that [Anaconda](https://www.anaconda.com/download/) or
-[Miniconda](https://conda.io/miniconda.html) need to be manually
+Notice also that [Anaconda](https://www.anaconda.com/products/distribution) or
+[Miniconda](https://docs.conda.io/en/latest/miniconda.html) need to be manually
 installed.
 
 ### Development

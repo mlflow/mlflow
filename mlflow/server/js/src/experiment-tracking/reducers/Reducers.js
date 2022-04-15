@@ -11,6 +11,7 @@ import {
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API,
   DELETE_TAG_API,
+  SET_COMPARE_EXPERIMENTS,
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -24,6 +25,8 @@ import {
   isRejectedApi,
   rejected,
 } from '../../common/utils/ActionUtils';
+import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
+import { getProtoField } from '../../model-registry/utils';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -93,6 +96,31 @@ export const runInfosByUuid = (state = {}, action) => {
           newState = amendRunInfosByUuid(newState, runInfo);
         });
       }
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+export const modelVersionsByRunUuid = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(SEARCH_MODEL_VERSIONS): {
+      let newState = { ...state };
+      const updatedState = {};
+      if (action.payload) {
+        const modelVersions = action.payload[getProtoField('model_versions')];
+        if (modelVersions) {
+          modelVersions.forEach((model_version) => {
+            if (model_version.run_id in updatedState) {
+              updatedState[model_version.run_id].push(model_version);
+            } else {
+              updatedState[model_version.run_id] = [model_version];
+            }
+          });
+        }
+      }
+      newState = { ...newState, ...updatedState };
       return newState;
     }
     default:
@@ -292,7 +320,14 @@ export const artifactsByRunUuid = (state = {}, action) => {
           curArtifactNode = curArtifactNode.children[part];
         });
         // Then set children on that artifact node.
-        curArtifactNode.setChildren(files);
+        // ML-12477: This can throw error if we supply an invalid queryPath in the URL.
+        try {
+          if (curArtifactNode.fileInfo.is_dir) {
+            curArtifactNode.setChildren(files);
+          }
+        } catch (err) {
+          console.error(err);
+        }
       }
       return {
         ...state,
@@ -333,6 +368,7 @@ export const entities = combineReducers({
   experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  modelVersionsByRunUuid,
   ...modelRegistryReducers,
 });
 
@@ -379,6 +415,31 @@ export const apis = (state = {}, action) => {
   }
 };
 
+// This state is used in the following components to show a breadcrumb link for navigating back to
+// the compare-experiments page.
+// - RunView
+// - CompareRunView
+// - MetricView
+const defaultCompareExperimentsState = {
+  // Experiment IDs compared on `/compare-experiments`.
+  comparedExperimentIds: [],
+  // Indicates whether the user has navigated to `/compare-experiments` before
+  // Should be set to false when the user navigates to `/experiments/<experiment_id>`
+  hasComparedExperimentsBefore: false,
+};
+export const compareExperiments = (state = defaultCompareExperimentsState, action) => {
+  if (action.type === SET_COMPARE_EXPERIMENTS) {
+    const { comparedExperimentIds, hasComparedExperimentsBefore } = action.payload;
+    return {
+      ...state,
+      comparedExperimentIds,
+      hasComparedExperimentsBefore,
+    };
+  } else {
+    return state;
+  }
+};
+
 export const isErrorModalOpen = (state) => {
   return state.views.errorModal.isOpen;
 };
@@ -411,7 +472,7 @@ const errorModal = (state = errorModalDefault, action) => {
   }
 };
 
-const views = combineReducers({
+export const views = combineReducers({
   errorModal,
 });
 
@@ -419,4 +480,9 @@ export const rootReducer = combineReducers({
   entities,
   views,
   apis,
+  compareExperiments,
 });
+
+export const getEntities = (state) => {
+  return state.entities;
+};

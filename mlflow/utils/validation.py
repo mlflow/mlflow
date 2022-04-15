@@ -22,6 +22,8 @@ _BAD_CHARACTERS_MESSAGE = (
     " spaces ( ), and slashes (/)."
 )
 
+_MISSING_KEY_NAME_MESSAGE = "A key name must be provided."
+
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
@@ -33,8 +35,37 @@ MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
+MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
+
+PARAM_VALIDATION_MSG = """
+
+The cause of this error is typically due to repeated calls
+to an individual run_id event logging.
+
+Incorrect Example:
+---------------------------------------
+with mlflow.start_run():
+    mlflow.log_param("depth", 3)
+    mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will throw an MlflowException for overwriting a
+logged parameter.
+
+Correct Example:
+---------------------------------------
+with mlflow.start_run():
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 3)
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will create a new nested run for each individual
+model and prevent parameter key collisions within the
+tracking store."""
 
 
 def bad_path_message(name):
@@ -51,7 +82,12 @@ def path_not_unique(name):
 
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
@@ -63,13 +99,24 @@ def _validate_metric_name(name):
         )
 
 
+def _is_numeric(value):
+    """
+    Returns True if the passed-in value is numeric.
+    """
+    # Note that `isinstance(bool_value, numbers.Number)` returns `True` because `bool` is a
+    # subclass of `int`.
+    return not isinstance(value, bool) and isinstance(value, numbers.Number)
+
+
 def _validate_metric(key, value, timestamp, step):
     """
     Check that a param with the specified key, value, timestamp is valid and raise an exception if
     it isn't.
     """
     _validate_metric_name(key)
-    if not isinstance(value, numbers.Number):
+    # value must be a Number
+    # since bool is an instance of Number check for bool additionally
+    if not _is_numeric(value):
         raise MlflowException(
             "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
             "double (64-bit floating point)" % (value, key, timestamp),
@@ -137,9 +184,56 @@ def _validate_model_version_tag(key, value):
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
+def _validate_list_experiments_max_results(max_results):
+    """
+    Check that `max_results` is within an acceptable range and raise an exception if it isn't.
+    """
+    if max_results is None:
+        return
+
+    if max_results < 1:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at least 1, but got value {}".format(max_results),
+            INVALID_PARAMETER_VALUE,
+        )
+
+    if max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at most {}, but got value {}".format(
+                MAX_EXPERIMENTS_LISTED_PER_PAGE, max_results
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_param_keys_unique(params):
+    """Ensures that duplicate param keys are not present in the `log_batch()` params argument"""
+    unique_keys = []
+    dupe_keys = []
+    for param in params:
+        if param.key not in unique_keys:
+            unique_keys.append(param.key)
+        else:
+            dupe_keys.append(param.key)
+
+    if dupe_keys:
+        raise MlflowException(
+            f"Duplicate parameter keys have been submitted: {dupe_keys}. Please ensure "
+            "the request contains only one param value per param key.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
@@ -154,7 +248,12 @@ def _validate_param_name(name):
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
         )

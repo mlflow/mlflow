@@ -14,7 +14,7 @@ class Experiment(_MLflowObject):
     DEFAULT_EXPERIMENT_NAME = "Default"
 
     def __init__(self, experiment_id, name, artifact_location, lifecycle_stage, tags=None):
-        super(Experiment, self).__init__()
+        super().__init__()
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location

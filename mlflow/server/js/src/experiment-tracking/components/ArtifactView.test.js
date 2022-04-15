@@ -1,5 +1,6 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { Typography } from '@databricks/design-system';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
 import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageView';
@@ -14,7 +15,8 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
-import { mockAjax } from '../../common/utils/TestUtils';
+
+const { Text } = Typography;
 
 describe('ArtifactView', () => {
   let wrapper;
@@ -32,8 +34,20 @@ describe('ArtifactView', () => {
     });
   };
 
+  const getWrapper = (fakeStore, mockProps) =>
+    mountWithIntl(
+      <Provider store={fakeStore}>
+        <BrowserRouter>
+          <ArtifactView {...mockProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -71,35 +85,30 @@ describe('ArtifactView', () => {
   };
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ArtifactViewImpl {...minimalProps} />);
+    wrapper = shallowWithIntl(<ArtifactViewImpl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render NoArtifactView when no artifacts are present', () => {
     const emptyNode = new ArtifactNode(true, undefined);
     const props = { ...minimalProps, artifactNode: emptyNode };
-    wrapper = mount(
-      <Provider store={getMockStore(emptyNode)}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(getMockStore(emptyNode), props);
     expect(wrapper.find('.no-artifacts')).toHaveLength(1);
   });
 
   test('should render selected file artifact', () => {
     const props = { ...minimalProps };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(minimalStore, props);
     const file1Element = wrapper.find('NodeHeader').at(0);
     file1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/file1');
+    expect(
+      wrapper.containsMatchingElement(
+        <Text ellipsis copyable>
+          test_root/file1
+        </Text>,
+      ),
+    ).toEqual(true);
     expect(wrapper.find('.artifact-info-size').html()).toContain('159B');
     // Selecting a file artifact should display a download link
     expect(wrapper.find('.artifact-info-link')).toHaveLength(1);
@@ -115,13 +124,7 @@ describe('ArtifactView', () => {
     });
     rootNode.setChildren([textFile.fileInfo]);
 
-    wrapper = mount(
-      <Provider store={getMockStore(rootNode)}>
-        <BrowserRouter>
-          <ArtifactView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
     const textFileElement = wrapper.find('NodeHeader').at(0);
     textFileElement.simulate('click');
     expect(wrapper.find(ShowArtifactTextView)).toHaveLength(1);
@@ -137,13 +140,7 @@ describe('ArtifactView', () => {
     });
     rootNode.setChildren([imageFile.fileInfo]);
 
-    wrapper = mount(
-      <Provider store={getMockStore(rootNode)}>
-        <BrowserRouter>
-          <ArtifactView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
     const imageFileElement = wrapper.find('NodeHeader').at(0);
     imageFileElement.simulate('click');
     expect(wrapper.find(ShowArtifactImageView)).toHaveLength(1);
@@ -159,13 +156,7 @@ describe('ArtifactView', () => {
     });
     rootNode.setChildren([htmlFile.fileInfo]);
 
-    wrapper = mount(
-      <Provider store={getMockStore(rootNode)}>
-        <BrowserRouter>
-          <ArtifactView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
     const htmlFileElement = wrapper.find('NodeHeader').at(0);
     htmlFileElement.simulate('click');
     expect(wrapper.find(ShowArtifactHtmlView)).toHaveLength(1);
@@ -181,13 +172,7 @@ describe('ArtifactView', () => {
     });
     rootNode.setChildren([geojsonFile.fileInfo]);
 
-    wrapper = mount(
-      <Provider store={getMockStore(rootNode)}>
-        <BrowserRouter>
-          <ArtifactView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(getMockStore(rootNode), minimalProps);
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
     expect(wrapper.find(ShowArtifactMapView)).toHaveLength(1);
@@ -195,33 +180,21 @@ describe('ArtifactView', () => {
 
   test('should render selected directory artifact', () => {
     const props = { ...minimalProps };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(minimalStore, props);
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
     // Now that `dir1` has been selected, we expect the visible artifact tree
     // to contain 5 elements: file1, dir2, dir1, file2, and file3
     expect(wrapper.find('NodeHeader')).toHaveLength(5);
-    // Directories should be displayed as zero bytes in size
-    expect(wrapper.find('.artifact-info-size').html()).toContain('0B');
+    // Size info should not be displayed
+    expect(wrapper.find('.artifact-info-size')).toHaveLength(0);
   });
 
   test('should not render register model button for directory with no MLmodel file', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
     const props = { ...minimalProps };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(minimalStore, props);
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
@@ -231,13 +204,7 @@ describe('ArtifactView', () => {
   test('should render register model button for directory with MLmodel file', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
     const props = { ...minimalProps };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(minimalStore, props);
     const dir2Element = wrapper.find('NodeHeader').at(2);
     dir2Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
@@ -248,13 +215,7 @@ describe('ArtifactView', () => {
     const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
     const props = { ...minimalProps };
-    wrapper = mount(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(minimalStore, props);
     const dir1Element = wrapper.find('NodeHeader').at(1);
     dir1Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir1');
@@ -286,13 +247,50 @@ describe('ArtifactView', () => {
     const store = mockStore({
       entities: entities,
     });
-    wrapper = mount(
-      <Provider store={store}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(store, props);
+    const dir2Element = wrapper.find('NodeHeader').at(2);
+    dir2Element.simulate('click');
+    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
+    expect(wrapper.find('.model-version-info')).toHaveLength(1);
+    expect(wrapper.find('.model-version-link')).toHaveLength(1);
+    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
+  });
+
+  /**
+   * A model version's source may be semantically equivalent to a run artifact path
+   * but syntactically distinct; this occurs when there are redundant or trailing
+   * slashes present in the version source or run artifact path. This test verifies that,
+   * in these cases, model version information is still displayed correctly for a run artifact.
+   */
+  test('should render model version link for semantically equivalent artifact paths', () => {
+    expect(Utils.isModelRegistryEnabled()).toEqual(true);
+
+    // Construct a model version source that is semantically equivalent to a run artifact path
+    // but syntactically different because it contains extra slashes. We expect that the UI
+    // should still render the version source for this artifact
+    const modelVersionSource = 'test_root////dir2///';
+
+    const modelVersionsBySource = {
+      modelVersionSource: [
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+      ],
+    };
+    const props = { ...minimalProps, modelVersionsBySource };
+    const entities = {
+      ...minimalEntities,
+      modelVersionsByModel: {
+        'Model A': {
+          '1': {
+            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+            source: modelVersionSource,
+          },
+        },
+      },
+    };
+    const store = mockStore({
+      entities: entities,
+    });
+    wrapper = getWrapper(store, props);
     const dir2Element = wrapper.find('NodeHeader').at(2);
     dir2Element.simulate('click');
     expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
@@ -324,13 +322,7 @@ describe('ArtifactView', () => {
     const store = mockStore({
       entities: entities,
     });
-    wrapper = mount(
-      <Provider store={store}>
-        <BrowserRouter>
-          <ArtifactView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = getWrapper(store, props);
     const dir2Element = wrapper.find('NodeHeader').at(2);
     dir2Element.simulate('click');
     const file4Element = wrapper.find('NodeHeader').at(3);

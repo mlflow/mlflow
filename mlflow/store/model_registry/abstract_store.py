@@ -116,7 +116,7 @@ class AbstractStore:
 
         :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
-                       for 'Staging' and 'Production' stages.
+                       each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         pass
@@ -147,7 +147,7 @@ class AbstractStore:
 
     @abstractmethod
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.

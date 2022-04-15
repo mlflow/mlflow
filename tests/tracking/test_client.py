@@ -1,12 +1,18 @@
-import mock
 import pytest
+import pickle
+from unittest import mock
 
-from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
+from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo, ExperimentTag
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import set_registry_uri, MlflowClient
+from mlflow.tracking._model_registry.utils import (
+    _get_store_registry as _get_model_registry_store_registry,
+)
+from mlflow.tracking._tracking_service.utils import _tracking_store_registry
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
@@ -17,6 +23,11 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
 )
 from mlflow.utils.uri import construct_run_url
+from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
+from mlflow.store.model_registry.sqlalchemy_store import (
+    SqlAlchemyStore as SqlAlchemyModelRegistryStore,
+)
 
 
 @pytest.fixture
@@ -32,6 +43,14 @@ def mock_registry_store():
 
 
 @pytest.fixture
+def mock_spark_session():
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_active_spark_session"
+    ) as mock_spark_session:
+        yield mock_spark_session.return_value
+
+
+@pytest.fixture
 def mock_time():
     time = 1552319350.244724
     with mock.patch("time.time", return_value=time):
@@ -44,7 +63,20 @@ def test_client_create_run(mock_store, mock_time):
     MlflowClient().create_run(experiment_id)
 
     mock_store.create_run.assert_called_once_with(
-        experiment_id=experiment_id, user_id="unknown", start_time=int(mock_time * 1000), tags=[]
+        experiment_id=experiment_id,
+        user_id="unknown",
+        start_time=int(mock_time * 1000),
+        tags=[],
+    )
+
+
+def test_client_create_experiment(mock_store):
+    MlflowClient().create_experiment("someName", "someLocation", {"key1": "val1", "key2": "val2"})
+
+    mock_store.create_experiment.assert_called_once_with(
+        artifact_location="someLocation",
+        tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
+        name="someName",
     )
 
 
@@ -192,7 +224,9 @@ def test_client_registry_operations_raise_exception_with_unsupported_registry_st
             lambda: client.get_model_version("test", 1),
         ]
         for func in expected_failure_functions:
-            with pytest.raises(MlflowException) as exc:
+            with pytest.raises(
+                MlflowException, match="Model Registry features are not supported"
+            ) as exc:
                 func()
             assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
 
@@ -219,14 +253,18 @@ def test_create_model_version(mock_registry_store):
     """
     Basic test for create model version.
     """
-    expected_return_value = "some faux expected return value."
-    mock_registry_store.create_model_version.return_value = expected_return_value
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     res = MlflowClient(registry_uri="sqlite:///somedb.db").create_model_version(
         "orig name", "source", "run-id", tags={"key": "value"}, description="desc"
     )
-    assert res == expected_return_value
+    assert res == _default_model_version()
     mock_registry_store.create_model_version.assert_called_once_with(
-        "orig name", "source", "run-id", [ModelVersionTag(key="key", value="value")], None, "desc"
+        "orig name",
+        "source",
+        "run-id",
+        [ModelVersionTag(key="key", value="value")],
+        None,
+        "desc",
     )
 
 
@@ -234,12 +272,11 @@ def test_update_model_version(mock_registry_store):
     """
     Update registered model no longer support state changes.
     """
-    expected_return_value = "some expected return value."
-    mock_registry_store.update_model_version.return_value = expected_return_value
+    mock_registry_store.update_model_version.return_value = _default_model_version()
     res = MlflowClient(registry_uri="sqlite:///somedb.db").update_model_version(
         name="orig name", version="1", description="desc"
     )
-    assert expected_return_value == res
+    assert _default_model_version() == res
     mock_registry_store.update_model_version.assert_called_once_with(
         name="orig name", version="1", description="desc"
     )
@@ -299,7 +336,12 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     run_id = "runid"
     client = MlflowClient(tracking_uri="http://10.123.1231.11")
     mock_registry_store.create_model_version.return_value = ModelVersion(
-        "name", 1, 0, 1, source="source", run_id=run_id
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id=run_id,
     )
     model_version = client.create_model_version("name", "source", "runid")
     assert model_version.name == "name"
@@ -308,6 +350,21 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
         "name", "source", "runid", [], None, None
+    )
+
+
+def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store):
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name", 1, 0, 1, source="source"
+    )
+    model_version = client.create_model_version("name", "source")
+    assert model_version.name == "name"
+    assert model_version.source == "source"
+    assert model_version.run_id is None
+    # verify that the store was not provided a run id
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "name", "source", None, [], None, None
     )
 
 
@@ -364,6 +421,22 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         )
 
 
+def test_create_model_version_non_ready_model(mock_registry_store):
+    run_id = "runid"
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id=run_id,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
+    )
+    with pytest.raises(MlflowException, match="Model version creation failed for model name"):
+        client.create_model_version("name", "source")
+
+
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
     experiment_id = "test-exp-id"
     hostname = "https://workspace.databricks.com/"
@@ -395,15 +468,22 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
 
 def test_create_model_version_copy_called_db_to_db(mock_registry_store):
     client = MlflowClient(
-        tracking_uri="databricks://tracking", registry_uri="databricks://registry:workspace"
+        tracking_uri="databricks://tracking",
+        registry_uri="databricks://registry:workspace",
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name",
+            "dbfs:/source",
+            "run_12345",
+            run_link="not:/important/for/test",
         )
         upload_mock.assert_called_once_with(
-            "dbfs:/source", "run_12345", "databricks://tracking", "databricks://registry:workspace"
+            "dbfs:/source",
+            "run_12345",
+            "databricks://tracking",
+            "databricks://registry:workspace",
         )
 
 
@@ -411,13 +491,16 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
     client = MlflowClient(
         tracking_uri="https://tracking", registry_uri="databricks://registry:workspace"
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "s3:/source", "run_12345", run_link="not:/important/for/test"
         )
         upload_mock.assert_called_once_with(
-            "s3:/source", "run_12345", "https://tracking", "databricks://registry:workspace"
+            "s3:/source",
+            "run_12345",
+            "https://tracking",
+            "databricks://registry:workspace",
         )
 
 
@@ -426,19 +509,86 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
         tracking_uri="databricks://registry:workspace",
         registry_uri="databricks://registry:workspace",
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name",
+            "dbfs:/source",
+            "run_12345",
+            run_link="not:/important/for/test",
         )
         upload_mock.assert_not_called()
 
 
 def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking", registry_uri="https://registry")
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name",
+            "dbfs:/source",
+            "run_12345",
+            run_link="not:/important/for/test",
         )
         upload_mock.assert_not_called()
+
+
+def _default_model_version():
+    return ModelVersion("model name", 1, creation_timestamp=123, status="READY")
+
+
+def test_get_databricks_runtime_no_spark_session():
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
+    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
+        runtime = get_databricks_runtime()
+        assert runtime is None
+
+
+def test_get_databricks_runtime_nondb(mock_spark_session):
+    runtime = get_databricks_runtime()
+    assert runtime is None
+    mock_spark_session.conf.get.assert_not_called()
+
+
+def test_client_can_be_serialized_with_pickle(tmpdir):
+    """
+    Verifies that instances of `MlflowClient` can be serialized using pickle, even if the underlying
+    Tracking and Model Registry stores used by the client are not serializable using pickle
+    """
+
+    class MockUnpickleableTrackingStore(SqlAlchemyTrackingStore):
+        pass
+
+    class MockUnpickleableModelRegistryStore(SqlAlchemyModelRegistryStore):
+        pass
+
+    backend_store_path = tmpdir.join("test.db").strpath
+    artifact_store_path = tmpdir.join("artfiacts").strpath
+
+    mock_tracking_store = MockUnpickleableTrackingStore(
+        "sqlite:///" + backend_store_path, artifact_store_path
+    )
+    mock_model_registry_store = MockUnpickleableModelRegistryStore(
+        "sqlite:///" + backend_store_path
+    )
+
+    # Verify that the mock stores cannot be pickled because they are defined within a function
+    # (i.e. the test function)
+    with pytest.raises(AttributeError, match="<locals>.MockUnpickleableTrackingStore'"):
+        pickle.dumps(mock_tracking_store)
+
+    with pytest.raises(AttributeError, match="<locals>.MockUnpickleableModelRegistryStore'"):
+        pickle.dumps(mock_model_registry_store)
+
+    _tracking_store_registry.register("pickle", lambda *args, **kwargs: mock_tracking_store)
+    _get_model_registry_store_registry().register(
+        "pickle", lambda *args, **kwargs: mock_model_registry_store
+    )
+
+    # Create an MlflowClient with the store that cannot be pickled, perform
+    # tracking & model registry operations, and verify that the client can still be pickled
+    client = MlflowClient("pickle://foo")
+    client.create_experiment("test_experiment")
+    client.create_registered_model("test_model")
+    pickle.dumps(client)

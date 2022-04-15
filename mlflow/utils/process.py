@@ -1,59 +1,113 @@
 import os
 import subprocess
+import functools
+
+_IS_UNIX = os.name != "nt"
 
 
 class ShellCommandException(Exception):
-    pass
+    @classmethod
+    def from_completed_process(cls, process):
+        lines = [
+            f"Non-zero exit code: {process.returncode}",
+            f"Command: {process.args}",
+        ]
+        if process.stdout:
+            lines += [
+                "",
+                "STDOUT:",
+                process.stdout,
+            ]
+        if process.stderr:
+            lines += [
+                "",
+                "STDERR:",
+                process.stderr,
+            ]
+        return cls("\n".join(lines))
 
 
-def exec_cmd(
-    cmd, throw_on_error=True, env=None, stream_output=False, cwd=None, cmd_stdin=None, **kwargs
+def _exec_cmd(
+    cmd,
+    *,
+    throw_on_error=True,
+    extra_env=None,
+    capture_output=True,
+    **kwargs,
 ):
     """
-    Runs a command as a child process.
+    A convenience wrapper of `subprocess.run` for running a command from a Python script.
 
-    A convenience wrapper for running a command from a Python script.
-    Keyword arguments:
-    cmd -- the command to run, as a list of strings
-    throw_on_error -- if true, raises an Exception if the exit code of the program is nonzero
-    env -- additional environment variables to be defined when running the child process
-    cwd -- working directory for child process
-    stream_output -- if true, does not capture standard output and error; if false, captures these
-      streams and returns them
-    cmd_stdin -- if specified, passes the specified string as stdin to the child process.
-
-    Note on the return value: If stream_output is true, then only the exit code is returned. If
-    stream_output is false, then a tuple of the exit code, standard output and standard error is
-    returned.
+    :param cmd: The command to run, as a list of strings.
+    :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
+    :param extra_env: Extra environment variables to be defined when running the child process.
+                      If this argument is specified, `kwargs` cannot contain `env`.
+    :param: capture_output: If True, stdout and stderr will be captured and included in an exception
+                            message on failure; if False, these streams won't be captured.
+    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run`.
+    :return: A `subprocess.CompletedProcess` instance.
     """
-    cmd_env = os.environ.copy()
-    if env:
-        cmd_env.update(env)
+    illegal_kwargs = set(kwargs.keys()).intersection(("check", "text"))
+    if illegal_kwargs:
+        raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
 
-    if stream_output:
-        child = subprocess.Popen(
-            cmd, env=cmd_env, cwd=cwd, universal_newlines=True, stdin=subprocess.PIPE, **kwargs
-        )
-        child.communicate(cmd_stdin)
-        exit_code = child.wait()
-        if throw_on_error and exit_code != 0:
-            raise ShellCommandException("Non-zero exitcode: %s" % (exit_code))
-        return exit_code
-    else:
-        child = subprocess.Popen(
-            cmd,
-            env=cmd_env,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=cwd,
-            universal_newlines=True,
-            **kwargs
-        )
-        (stdout, stderr) = child.communicate(cmd_stdin)
-        exit_code = child.wait()
-        if throw_on_error and exit_code != 0:
-            raise ShellCommandException(
-                "Non-zero exit code: %s\n\nSTDOUT:\n%s\n\nSTDERR:%s" % (exit_code, stdout, stderr)
+    env = kwargs.pop("env", None)
+    if extra_env is not None and env is not None:
+        raise ValueError("`extra_env` and `env` cannot be used at the same time")
+
+    env = env if extra_env is None else {**os.environ, **extra_env}
+    prc = subprocess.run(
+        # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
+        # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
+        # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
+        map(str, cmd),
+        env=env,
+        check=False,
+        capture_output=capture_output,
+        text=True,
+        **kwargs,
+    )
+
+    if throw_on_error and prc.returncode != 0:
+        raise ShellCommandException.from_completed_process(prc)
+    return prc
+
+
+def _join_commands(*commands):
+    entry_point = ["bash", "-c"] if _IS_UNIX else ["cmd", "/c"]
+    sep = " && " if _IS_UNIX else " & "
+    return [*entry_point, sep.join(map(str, commands))]
+
+
+# A global map storing (function, args_tuple) --> (value, pid)
+_per_process_value_cache_map = {}
+
+
+def cache_return_value_per_process(fn):
+    """
+    A decorator which globally caches the return value of the decorated function.
+    But if current process forked out a new child process, in child process,
+    old cache values are invalidated.
+
+    Restrictions: The decorated function must be called with only positional arguments,
+    and all the argument values must be hashable.
+    """
+
+    @functools.wraps(fn)
+    def wrapped_fn(*args, **kwargs):
+        if len(kwargs) > 0:
+            raise ValueError(
+                "The function decorated by `cache_return_value_per_process` is not allowed to be"
+                "called with key-word style arguments."
             )
-        return exit_code, stdout, stderr
+        if (fn, args) in _per_process_value_cache_map:
+            prev_value, prev_pid = _per_process_value_cache_map.get((fn, args))
+            if os.getpid() == prev_pid:
+                return prev_value
+
+        new_value = fn(*args)
+        new_pid = os.getpid()
+        _per_process_value_cache_map[(fn, args)] = (new_value, new_pid)
+        return new_value
+
+    return wrapped_fn

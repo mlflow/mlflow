@@ -2,9 +2,10 @@
 Simple unit tests to confirm that ModelRegistryClient properly calls the registry Store methods
 and returns values when required.
 """
-from mock import ANY
+
 import pytest
-import mock
+from unittest import mock
+from unittest.mock import ANY, patch
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -98,7 +99,7 @@ def test_rename_registered_model(mock_store):
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
     # pylint: disable=unused-argument
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="The name must not be an empty string"):
         newModelRegistryClient().rename_registered_model("Model 1", " ")
 
 
@@ -194,6 +195,44 @@ def test_delete_registered_model_tag(mock_store):
 
 
 # Model Version API
+@patch(
+    "mlflow.tracking._model_registry.client.AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS", 1
+)
+def test_create_model_version_when_wait_exceeds_time(mock_store):
+    name = "Model 1"
+    version = "1"
+
+    mv = ModelVersion(
+        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+    )
+    mock_store.create_model_version.return_value = mv
+    mock_store.get_model_version.return_value = mv
+
+    with pytest.raises(MlflowException, match="Exceeded max wait time"):
+        newModelRegistryClient().create_model_version(
+            name, "uri:/source", "run123", await_creation_for=1
+        )
+
+
+def test_create_model_version_does_not_wait_when_await_creation_param_is_false(mock_store):
+    name = "Model 1"
+    version = "1"
+
+    mock_store.create_model_version.return_value = ModelVersion(
+        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+    )
+
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/source", "run123", await_creation_for=None
+    )
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/source", "run123", await_creation_for=0
+    )
+
+    mock_store.get_model_version.assert_not_called()
+
+    assert result.name == name
+    assert result.version == version
 
 
 def test_create_model_version(mock_store):
@@ -221,6 +260,34 @@ def test_create_model_version(mock_store):
     assert result.name == name
     assert result.version == version
     assert result.tags == tags_dict
+
+
+def test_create_model_version_no_run_id(mock_store):
+    name = "Model 1"
+    version = "1"
+    tags_dict = {"key": "value", "another key": "some other value"}
+    tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
+    description = "best model ever"
+
+    mock_store.create_model_version.return_value = ModelVersion(
+        name=name,
+        version=version,
+        creation_timestamp=123,
+        tags=tags,
+        run_link=None,
+        description=description,
+    )
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
+    )
+    mock_store.create_model_version.assert_called_once_with(
+        name, "uri:/for/source", None, tags, None, description
+    )
+
+    assert result.name == name
+    assert result.version == version
+    assert result.tags == tags_dict
+    assert result.run_id is None
 
 
 def test_update_model_version(mock_store):
@@ -251,7 +318,7 @@ def test_transition_model_version_stage(mock_store):
 
 def test_transition_model_version_stage_validation_errors(mock_store):
     # pylint: disable=unused-argument
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="The stage must not be an empty string"):
         newModelRegistryClient().transition_model_version_stage("Model 1", "12", stage=" ")
 
 

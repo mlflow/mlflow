@@ -78,13 +78,15 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: py
 
-        python examples/sklearn_elasticnet_wine/train.py
+        # Make sure the current working directory is 'examples'
+        python sklearn_elasticnet_wine/train.py
 
     Try out some other values for ``alpha`` and ``l1_ratio`` by passing them as arguments to ``train.py``:
 
     .. code-block:: py
 
-        python examples/sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
+        # Make sure the current working directory is 'examples'
+        python sklearn_elasticnet_wine/train.py <alpha> <l1_ratio>
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -107,13 +109,15 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R")
+        # Make sure the current working directory is 'examples'
+        mlflow_run(uri = "r_wine", entry_point = "train.R")
 
     Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
+        # Make sure the current working directory is 'examples'
+        mlflow_run(uri = "r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -168,44 +172,18 @@ Now that you have your training code, you can package it so that other data scie
       You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. code-block:: yaml
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
 
-          # sklearn_elasticnet_wine/MLproject
+      ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
 
-          name: tutorial
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
 
-          conda_env: conda.yaml
-
-          entry_points:
-            main:
-              parameters:
-                alpha: float
-                l1_ratio: {type: float, default: 0.1}
-              command: "python train.py {alpha} {l1_ratio}"
-
-
-      The Conda file lists the dependencies:
-
-      .. code-block:: yaml
-
-          # sklearn_elasticnet_wine/conda.yaml
-
-          name: tutorial
-          channels:
-            - defaults
-          dependencies:
-            - numpy=1.14.3
-            - pandas=0.22.0
-            - scikit-learn=0.19.1
-            - pip:
-              - mlflow
-
-      To run this project, invoke ``mlflow run examples/sklearn_elasticnet_wine -P alpha=0.42``. After running
+      To run this project, invoke ``mlflow run sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5``.
+      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0``.
 
     .. container:: R
 
@@ -239,7 +217,8 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code-block:: r
 
-        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
+        # Make sure the current working directory is 'examples'
+        mlflow_run("r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       After running this command, MLflow runs your training code in a new R session.
 
@@ -248,7 +227,8 @@ Now that you have your training code, you can package it so that other data scie
       .. code-block:: r
 
         mlflow_restore_snapshot()
-        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
+        # Make sure the current working directory is 'examples'
+        mlflow_run("r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
@@ -259,6 +239,14 @@ Now that you have your training code, you can package it so that other data scie
           "https://github.com/rstudio/mlflow-example",
           parameters = list(alpha = 0.2)
         )
+
+.. _pip-requirements-example:
+
+Specifying pip requirements using ``pip_requirements`` and ``extra_pip_requirements``
+-------------------------------------------------------------------------------------
+
+.. literalinclude:: ../../../examples/pip_requirements/pip_requirements.py
+
 
 Serving the Model
 -----------------
@@ -312,7 +300,11 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
           curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
+
+          # On Windows
+          curl -X POST -H "Content-Type:application/json; format=pandas-split" --data "{\"columns\":[\"alcohol\", \"chlorides\", \"citric acid\", \"density\", \"fixed acidity\", \"free sulfur dioxide\", \"pH\", \"residual sugar\", \"sulphates\", \"total sulfur dioxide\", \"volatile acidity\"],\"data\":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}" http://127.0.0.1:1234/invocations
 
       the server should respond with output similar to::
 
@@ -381,11 +373,122 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
+          curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}"
+
+          # On Windows
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 
       the server should respond with output similar to::
 
         [[6.4287492410792]]
+
+Deploy the Model to Seldon Core or KServe (experimental)
+--------------------------------------------------------
+
+After training and testing our model, we are now ready to deploy it to
+production. 
+MLflow allows you to :ref:`serve your model using
+MLServer<serving_with_mlserver>`, which is already used as the core Python
+inference server in Kubernetes-native frameworks including `Seldon Core
+<https://docs.seldon.io/projects/seldon-core/en/latest/>`_ and `KServe
+(formerly known as KFServing) <https://kserve.github.io/website/>`_.
+Therefore, we can leverage this support to build a Docker image compatible with
+these frameworks.
+
+.. note::
+  Note that this an **optional step**, which is currently only available for
+  Python models.
+  Besides this, it's also worth noting that:
+
+  - This feature is **experimental** and is subject to change.
+  - MLServer requires **Python 3.7** or above.
+  - This step requires some basic Kubernetes knowledge, including familiarity with ``kubectl``.
+
+To build a Docker image containing our model, we can use the ``mlflow models
+build-docker`` subcommand, alongside the ``--enable-mlserver`` flag.
+For example, to build a image named ``my-docker-image``, we could do:
+
+.. code-block:: bash
+
+  mlflow models build-docker \
+    -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model \
+    -n my-docker-image \
+    --enable-mlserver
+
+Once we have our image built, the next step will be to deploy it to our
+cluster. 
+One way to do this is by applying the respective Kubernetes manifests through
+the ``kubectl`` CLI:
+
+.. code-block:: bash
+
+  kubectl apply -f my-manifest.yaml
+
+.. plain-section::
+
+    .. container:: Seldon-Core
+
+      This step assumes that you've got ``kubectl`` access to a Kubernetes
+      cluster already setup with Seldon Core.
+      To read more on how to set this up, you can refer to the `Seldon Core
+      quickstart guide
+      <https://docs.seldon.io/projects/seldon-core/en/latest/workflow/github-readme.html>`_.
+
+      .. code-block:: yaml
+
+        apiVersion: machinelearning.seldon.io/v1
+        kind: SeldonDeployment
+        metadata:
+          name: mlflow-model
+        spec:
+          predictors:
+            - name: default
+              annotations:
+                seldon.io/no-engine: "true"
+              graph:
+                name: mlflow-model
+                type: MODEL
+              componentSpecs:
+                - spec:
+                    containers:
+                      - name: mlflow-model
+                        image: my-docker-image
+                        imagePullPolicy: IfNotPresent
+                        securityContext:
+                          runAsUser: 0
+                        ports:
+                          - containerPort: 8080
+                            name: http
+                            protocol: TCP
+                          - containerPort: 8081
+                            name: grpc
+                            protocol: TCP
+
+    .. container:: KServe
+
+      This step assumes that you've got ``kubectl`` access to a Kubernetes
+      cluster already setup with KServe.
+      To read more on how to set this up, you can refer to the `KServe
+      quickstart guide <https://kserve.github.io/website/get_started/>`_.
+
+      .. code-block:: yaml
+
+        apiVersion: serving.kserve.io/v1beta1
+        kind: InferenceService
+        metadata:
+          name: mlflow-model
+        spec:
+          predictor:
+            containers:
+              - name: mlflow-model
+                image: my-docker-image
+                ports:
+                  - containerPort: 8080
+                    protocol: TCP
+                env:
+                  - name: PROTOCOL
+                    value: v2
 
 
 More Resources

@@ -1,9 +1,9 @@
 import json
 import hashlib
-import mock
 import os
 import shutil
 import logging
+from unittest import mock
 
 from click.testing import CliRunner
 import pytest
@@ -90,7 +90,7 @@ def test_run_local_conda_env():
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:
-        process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
+        process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
     except process.ShellCommandException:
         _logger.error(
             "Unable to remove conda environment %s. The environment may not have been present, "
@@ -187,3 +187,29 @@ def test_run_databricks_cluster_spec(tmpdir):
             env={"MLFLOW_TRACKING_URI": "databricks://profile"},
         )
         assert res.exit_code != 0
+
+
+def test_mlflow_run():
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        result = CliRunner().invoke(cli.run)
+        mock_projects.run.assert_not_called()
+        assert "Missing argument 'URI'" in result.output
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["project_uri"])
+        mock_projects.run.assert_called_once()
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "5", "project_uri"])
+        mock_projects.run.assert_called_once()
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-name", "random name", "project_uri"])
+        mock_projects.run.assert_called_once()
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        result = CliRunner().invoke(
+            cli.run, ["--experiment-id", "51", "--experiment-name", "name blah", "uri"]
+        )
+        mock_projects.run.assert_not_called()
+        assert "Specify only one of 'experiment-name' or 'experiment-id' options." in result.output

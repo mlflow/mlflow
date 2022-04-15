@@ -52,7 +52,7 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         self.message = message
         self.json_kwargs = kwargs
-        super(MlflowException, self).__init__(message)
+        super().__init__(message)
 
     def serialize_as_json(self):
         exception_dict = {"error_code": self.error_code, "message": self.message}
@@ -61,6 +61,18 @@ class MlflowException(Exception):
 
     def get_http_status_code(self):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
+
+    @classmethod
+    def invalid_parameter_value(cls, message, **kwargs):
+        """
+        Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
+
+        :param message: The message describing the error that occured. This will be included in the
+                        exception's serialized JSON representation.
+        :param kwargs: Additional key-value pairs to include in the serialized JSON representation
+                       of the MlflowException.
+        """
+        return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
 
 class RestException(MlflowException):
@@ -72,7 +84,7 @@ class RestException(MlflowException):
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
         )
-        super(RestException, self).__init__(message, error_code=ErrorCode.Value(error_code))
+        super().__init__(message, error_code=ErrorCode.Value(error_code))
         self.json = json
 
 

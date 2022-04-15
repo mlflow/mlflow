@@ -1,6 +1,7 @@
 import dateFormat from 'dateformat';
 import React from 'react';
 import notebookSvg from '../static/notebook.svg';
+import revisionSvg from '../static/revision.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
@@ -9,7 +10,9 @@ import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 import _ from 'lodash';
-import { ErrorCodes } from '../constants';
+import { ErrorCodes, SupportPageUrl } from '../constants';
+import { FormattedMessage } from 'react-intl';
+import { ErrorWrapper } from './ErrorWrapper';
 
 message.config({
   maxCount: 1,
@@ -45,6 +48,7 @@ class Utils {
   static entryPointTag = 'mlflow.project.entryPoint';
   static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
+  static loggedModelsTag = 'mlflow.log-model.history';
 
   static formatMetric(value) {
     if (value === 0) {
@@ -99,31 +103,67 @@ class Utils {
     return dateFormat(d, format);
   }
 
-  static timeSince(date) {
+  static timeSinceStr(date) {
     const seconds = Math.max(0, Math.floor((new Date() - date) / 1000));
 
     let interval = Math.floor(seconds / 31536000);
 
     if (interval >= 1) {
-      return interval + ' year' + (interval === 1 ? '' : 's');
+      return (
+        <FormattedMessage
+          defaultMessage='{timeSince, plural, =1 {1 year} other {# years}} ago'
+          description='Text for time in years since given date for MLflow views'
+          values={{ timeSince: interval }}
+        />
+      );
     }
     interval = Math.floor(seconds / 2592000);
     if (interval >= 1) {
-      return interval + ' month' + (interval === 1 ? '' : 's');
+      return (
+        <FormattedMessage
+          defaultMessage='{timeSince, plural, =1 {1 month} other {# months}} ago'
+          description='Text for time in months since given date for MLflow views'
+          values={{ timeSince: interval }}
+        />
+      );
     }
     interval = Math.floor(seconds / 86400);
     if (interval >= 1) {
-      return interval + ' day' + (interval === 1 ? '' : 's');
+      return (
+        <FormattedMessage
+          defaultMessage='{timeSince, plural, =1 {1 day} other {# days}} ago'
+          description='Text for time in days since given date for MLflow views'
+          values={{ timeSince: interval }}
+        />
+      );
     }
     interval = Math.floor(seconds / 3600);
     if (interval >= 1) {
-      return interval + ' hour' + (interval === 1 ? '' : 's');
+      return (
+        <FormattedMessage
+          defaultMessage='{timeSince, plural, =1 {1 hour} other {# hours}} ago'
+          description='Text for time in hours since given date for MLflow views'
+          values={{ timeSince: interval }}
+        />
+      );
     }
     interval = Math.floor(seconds / 60);
     if (interval >= 1) {
-      return interval + ' minute' + (interval === 1 ? '' : 's');
+      return (
+        <FormattedMessage
+          defaultMessage='{timeSince, plural, =1 {1 minute} other {# minutes}} ago'
+          description='Text for time in minutes since given date for MLflow views'
+          values={{ timeSince: interval }}
+        />
+      );
     }
-    return Math.floor(seconds) + ' seconds';
+    return (
+      <FormattedMessage
+        defaultMessage='{timeSince, plural, =1 {1 second} other {# seconds}} ago'
+        description='Text for time in seconds since given date for MLflow views'
+        values={{ timeSince: seconds }}
+      />
+    );
   }
 
   /**
@@ -145,6 +185,16 @@ class Utils {
     }
   }
 
+  /**
+   * Get the duration of a run given start- and end time.
+   *
+   * @param startTime in milliseconds
+   * @param endTime in milliseconds
+   */
+  static getDuration(startTime, endTime) {
+    return startTime && endTime ? this.formatDuration(endTime - startTime) : null;
+  }
+
   static baseName(path) {
     const pieces = path.split('/');
     return pieces[pieces.length - 1];
@@ -152,6 +202,20 @@ class Utils {
 
   static dropExtension(path) {
     return path.replace(/(.*[^/])\.[^/.]+$/, '$1');
+  }
+
+  /**
+   * Normalizes a URI, removing redundant slashes and trailing slashes
+   * For example, normalize("foo://bar///baz/") === "foo://bar/baz"
+   */
+  static normalize(uri) {
+    // Remove empty authority component (e.g., "foo:///" becomes "foo:/")
+    const withNormalizedAuthority = uri.replace(/[:]\/\/\/+/, ':/');
+    // Remove redundant slashes while ensuring that double slashes immediately following
+    // the scheme component are preserved
+    const withoutRedundantSlashes = withNormalizedAuthority.replace(/(^\/|[^:]\/)\/+/g, '$1');
+    const withoutTrailingSlash = withoutRedundantSlashes.replace(/\/$/, '');
+    return withoutTrailingSlash;
   }
 
   static getGitHubRegex() {
@@ -220,6 +284,10 @@ class Utils {
     return url;
   }
 
+  static getQueryParams = () => {
+    return window.location && window.location.search ? window.location.search : '';
+  };
+
   /**
    * Returns a copy of the provided URL with its query parameters set to `queryParams`.
    * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
@@ -232,9 +300,71 @@ class Utils {
     return urlObj.toString();
   }
 
+  /**
+   * Set query params and returns the updated query params.
+   * @returns {string} updated query params
+   */
+  static addQueryParams(currentQueryParams, newQueryParams) {
+    if (!newQueryParams || Object.keys(newQueryParams).length === 0) {
+      return currentQueryParams;
+    }
+    const urlSearchParams = new URLSearchParams(currentQueryParams);
+    Object.entries(newQueryParams).forEach(
+      ([key, value]) => !!key && !!value && urlSearchParams.set(key, value),
+    );
+    const queryParams = urlSearchParams.toString();
+    if (queryParams !== '' && !queryParams.includes('?')) {
+      return `?${queryParams}`;
+    }
+    return queryParams;
+  }
+
+  static getDefaultJobRunName(jobId, runId, workspaceId = null) {
+    if (!jobId) {
+      return '-';
+    }
+    let name = `job ${jobId}`;
+    if (runId) {
+      name = `run ${runId} of ` + name;
+    }
+    if (workspaceId) {
+      name = `workspace ${workspaceId}: ` + name;
+    }
+    return name;
+  }
+
+  static getDefaultNotebookRevisionName(notebookId, revisionId, workspaceId = null) {
+    if (!notebookId) {
+      return '-';
+    }
+    let name = `notebook ${notebookId}`;
+    if (revisionId) {
+      name = `revision ${revisionId} of ` + name;
+    }
+    if (workspaceId) {
+      name = `workspace ${workspaceId}: ` + name;
+    }
+    return name;
+  }
+
   static getNotebookId(tags) {
     const notebookIdTag = 'mlflow.databricks.notebookID';
     return tags && tags[notebookIdTag] && tags[notebookIdTag].value;
+  }
+
+  static getClusterSpecJson(tags) {
+    const clusterSpecJsonTag = 'mlflow.databricks.cluster.info';
+    return tags && tags[clusterSpecJsonTag] && tags[clusterSpecJsonTag].value;
+  }
+
+  static getClusterLibrariesJson(tags) {
+    const clusterLibrariesJsonTag = 'mlflow.databricks.cluster.libraries';
+    return tags && tags[clusterLibrariesJsonTag] && tags[clusterLibrariesJsonTag].value;
+  }
+
+  static getClusterId(tags) {
+    const clusterIdTag = 'mlflow.databricks.cluster.id';
+    return tags && tags[clusterIdTag] && tags[clusterIdTag].value;
   }
 
   static getNotebookRevisionId(tags) {
@@ -246,8 +376,9 @@ class Utils {
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param tags Object containing tag key value pairs.
    * @param queryParams Query params to add to certain source type links.
+   * @param runUuid ID of the MLflow run to add to certain source (revision) links.
    */
-  static renderSource(tags, queryParams) {
+  static renderSource(tags, queryParams, runUuid) {
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);
@@ -261,62 +392,115 @@ class Utils {
         );
       }
       return res;
-    } else if (sourceType === 'NOTEBOOK') {
-      const revisionId = Utils.getNotebookRevisionId(tags);
-      const notebookId = Utils.getNotebookId(tags);
-      if (notebookId) {
-        let url = Utils.setQueryParams(window.location.origin, queryParams);
-        url += `#notebook/${notebookId}`;
-        if (revisionId) {
-          url += `/revision/${revisionId}`;
+    }
+    return res;
+  }
+
+  /**
+   * Renders the notebook source name and entry point into an HTML element. Used for display.
+   */
+  static renderNotebookSource(
+    queryParams,
+    notebookId,
+    revisionId,
+    runUuid,
+    sourceName,
+    workspaceUrl = null,
+    nameOverride = null,
+  ) {
+    // sourceName may not be present when rendering feature table notebook consumers from remote
+    // workspaces or when notebook fetcher failed to fetch the sourceName. Always provide a default
+    // notebook name in such case.
+    const baseName = sourceName
+      ? Utils.baseName(sourceName)
+      : Utils.getDefaultNotebookRevisionName(notebookId, revisionId);
+    if (notebookId) {
+      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
+      url += `#notebook/${notebookId}`;
+      if (revisionId) {
+        url += `/revision/${revisionId}`;
+        if (runUuid) {
+          url += `/mlflow/run/${runUuid}`;
         }
-        res = (
-          <a title={sourceName} href={url} target='_top'>
-            {Utils.baseName(sourceName)}
-          </a>
-        );
       }
-      return res;
-    } else if (sourceType === 'JOB') {
-      const jobIdTag = 'mlflow.databricks.jobID';
-      const jobRunIdTag = 'mlflow.databricks.jobRunID';
-      const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
-      const jobRunId = tags && tags[jobRunIdTag] && tags[jobRunIdTag].value;
-      if (jobId && jobRunId) {
-        let url = Utils.setQueryParams(window.location.origin, queryParams);
-        url += `#job/${jobId}/run/${jobRunId}`;
-        res = (
-          <a title={res} href={url} target='_top'>
-            {res}
-          </a>
-        );
-      }
-      return res;
+      return (
+        <a
+          title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+          href={url}
+          target='_top'
+        >
+          {nameOverride || baseName}
+        </a>
+      );
     } else {
-      return res;
+      return nameOverride || baseName;
+    }
+  }
+
+  /**
+   * Renders the job source name and entry point into an HTML element. Used for display.
+   */
+  static renderJobSource(
+    queryParams,
+    jobId,
+    jobRunId,
+    jobName,
+    workspaceUrl = null,
+    nameOverride = null,
+  ) {
+    if (jobId) {
+      // jobName may not be present when rendering feature table job consumers from remote
+      // workspaces or when getJob API failed to fetch the jobName. Always provide a default
+      // job name in such case.
+      const reformatJobName = jobName || Utils.getDefaultJobRunName(jobId, jobRunId);
+      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
+      url += `#job/${jobId}`;
+      if (jobRunId) {
+        url += `/run/${jobRunId}`;
+      }
+      return (
+        <a title={reformatJobName} href={url} target='_top'>
+          {nameOverride || reformatJobName}
+        </a>
+      );
+    } else {
+      return nameOverride || jobName;
     }
   }
 
   /**
    * Returns an svg with some styling applied.
    */
-  static renderSourceTypeIcon(sourceType) {
+  static renderSourceTypeIcon(tags) {
     const imageStyle = {
       height: '20px',
-      position: 'relative',
-      top: '-3px',
       marginRight: '4px',
     };
+
+    const sourceType = this.getSourceType(tags);
     if (sourceType === 'NOTEBOOK') {
-      return <img alt='' title='Notebook' style={imageStyle} src={notebookSvg} />;
+      if (Utils.getNotebookRevisionId(tags)) {
+        return (
+          <img
+            alt='Notebook Revision Icon'
+            title='Notebook Revision'
+            style={imageStyle}
+            src={revisionSvg}
+          />
+        );
+      } else {
+        return <img alt='Notebook Icon' title='Notebook' style={imageStyle} src={notebookSvg} />;
+      }
     } else if (sourceType === 'LOCAL') {
-      return <img alt='' title='Local Source' style={imageStyle} src={laptopSvg} />;
+      return (
+        <img alt='Local Source Icon' title='Local Source' style={imageStyle} src={laptopSvg} />
+      );
     } else if (sourceType === 'PROJECT') {
-      return <img alt='' title='Project' style={imageStyle} src={projectSvg} />;
+      return <img alt='Project Icon' title='Project' style={imageStyle} src={projectSvg} />;
     } else if (sourceType === 'JOB') {
-      return <img alt='' title='Job' style={imageStyle} src={jobSvg} />;
+      return <img alt='Job Icon' title='Job' style={imageStyle} src={jobSvg} />;
     }
-    return <img alt='' style={imageStyle} src={emptySvg} />;
+    return <img alt='No icon' style={imageStyle} src={emptySvg} />;
   }
 
   /**
@@ -339,12 +523,21 @@ class Utils {
       const jobId = tags && tags[jobIdTag] && tags[jobIdTag].value;
       const jobRunId = tags && tags[jobRunIdTag] && tags[jobRunIdTag].value;
       if (jobId && jobRunId) {
-        return `run ${jobRunId} of job ${jobId}`;
+        return Utils.getDefaultJobRunName(jobId, jobRunId);
       }
       return sourceName;
     } else {
       return Utils.baseName(sourceName);
     }
+  }
+
+  /**
+   * Returns the absolute path to a notebook given a notebook id
+   * @param notebookId Notebook object id
+   * @returns
+   */
+  static getNotebookLink(notebookId) {
+    return window.location.origin + '/#notebook/' + notebookId;
   }
 
   /**
@@ -516,10 +709,9 @@ class Utils {
 
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, { ignoreQueryPrefix: true });
-    const str = JSON.stringify(params, function replaceUndefined(key, value) {
-      return value === undefined ? '' : value;
+    const str = JSON.stringify(params, function replaceUndefinedAndBools(key, value) {
+      return value === undefined ? '' : value === 'true' ? true : value === 'false' ? false : value;
     });
-
     return params ? JSON.parse(str) : [];
   }
 
@@ -547,7 +739,7 @@ class Utils {
   static getVisibleTagValues(tags) {
     // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
     return Object.values(tags)
-      .map((t) => [t.getKey(), t.getValue()])
+      .map((t) => [t.key || t.getKey(), t.value || t.getValue()])
       .filter((t) => !t[0].startsWith(MLFLOW_INTERNAL_PREFIX));
   }
 
@@ -557,20 +749,153 @@ class Utils {
     );
   }
 
-  static getAjaxUrl(relativeUrl) {
-    if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
-      return '/' + relativeUrl;
+  /**
+   * Concat array with arrayToConcat and group by specified key 'id'.
+   * if array==[{'theId': 123, 'a': 2}, {'theId': 456, 'b': 3}]
+   * and arrayToConcat==[{'theId': 123, 'c': 3}, {'theId': 456, 'd': 4}]
+   * then concatAndGroupArraysById(array, arrayToConcat, 'theId')
+   * == [{'theId': 123, 'a': 2, 'c': 3}, {'theId': 456, 'b': 3, 'd': 4}].
+   * From https://stackoverflow.com/a/38506572/13837474
+   */
+  static concatAndGroupArraysById(array, arrayToConcat, id) {
+    return (
+      _(array)
+        .concat(arrayToConcat)
+        .groupBy(id)
+        // complication of _.merge necessary to avoid mutating arguments
+        .map(_.spread((obj, source) => _.merge({}, obj, source)))
+        .value()
+    );
+  }
+
+  /**
+   * Parses the mlflow.log-model.history tag and returns a list of logged models,
+   * with duplicates (as defined by two logged models with the same path) removed by
+   * keeping the logged model with the most recent creation date.
+   * Each logged model will be of the form:
+   * { artifactPath: string, flavors: string[], utcTimeCreated: number }
+   */
+  static getLoggedModelsFromTags(tags) {
+    const modelsTag = tags[this.loggedModelsTag];
+    if (modelsTag) {
+      const models = JSON.parse(modelsTag.value);
+      if (models) {
+        // extract artifact path, flavors and creation time from tag.
+        // 'python_function' should be interpreted as pyfunc flavor
+        const filtered = models.map((model) => {
+          const removeFunc = Object.keys(_.omit(model.flavors, 'python_function'));
+          const flavors = removeFunc.length ? removeFunc : ['pyfunc'];
+          return {
+            artifactPath: model.artifact_path,
+            flavors: flavors,
+            utcTimeCreated: new Date(model.utc_time_created).getTime() / 1000,
+          };
+        });
+        // sort in descending order of creation time
+        const sorted = filtered.sort(
+          (a, b) => parseFloat(b.utcTimeCreated) - parseFloat(a.utcTimeCreated),
+        );
+        return _.uniqWith(sorted, (a, b) => a.artifactPath === b.artifactPath);
+      }
     }
-    return relativeUrl;
+    return [];
+  }
+
+  /**
+   * Returns a list of models formed by merging the given logged models and registered models.
+   * Sort such that models that are logged and registered come first, followed by
+   * only registered models, followed by only logged models. Ties broken in favor of newer creation
+   * time.
+   * @param loggedModels
+   * @param registeredModels Model versions by run uuid, from redux state.
+   */
+  static mergeLoggedAndRegisteredModels(loggedModels, registeredModels) {
+    // use artifactPath for grouping while merging lists
+    const registeredModelsWithNormalizedPath = registeredModels.map((model) => {
+      return {
+        registeredModelName: model.name,
+        artifactPath: this.normalize(model.source).split('/artifacts/')[1],
+        registeredModelVersion: model.version,
+        registeredModelCreationTimestamp: model.creation_timestamp,
+      };
+    });
+    const loggedModelsWithNormalizedPath = loggedModels.map((model) => {
+      return { ...model, artifactPath: this.normalize(model.artifactPath) };
+    });
+    const models = this.concatAndGroupArraysById(
+      loggedModelsWithNormalizedPath,
+      registeredModelsWithNormalizedPath,
+      'artifactPath',
+    );
+    return models.sort((a, b) => {
+      if (a.registeredModelVersion && b.registeredModelVersion) {
+        if (a.flavors && !b.flavors) {
+          return -1;
+        } else if (!a.flavors && b.flavors) {
+          return 1;
+        } else {
+          return (
+            parseInt(b.registeredModelCreationTimestamp, 10) -
+            parseInt(a.registeredModelCreationTimestamp, 10)
+          );
+        }
+      } else if (a.registeredModelVersion && !b.registeredModelVersion) {
+        return -1;
+      } else if (!a.registeredModelVersion && b.registeredModelVersion) {
+        return 1;
+      }
+      return b.utcTimeCreated - a.utcTimeCreated;
+    });
   }
 
   static logErrorAndNotifyUser(e) {
     console.error(e);
-    // not all error is wrapped by ErrorWrapper
-    if (e.renderHttpError) {
+    if (typeof e === 'string') {
+      message.error(e);
+    } else if (e instanceof ErrorWrapper) {
+      // not all error is wrapped by ErrorWrapper
       message.error(e.renderHttpError());
     }
   }
+
+  static sortExperimentsById = (experiments) => {
+    return _.sortBy(experiments, [({ experiment_id }) => experiment_id]);
+  };
+
+  static getExperimentNameMap = (experiments) => {
+    // Input:
+    // [
+    //  { experiment_id: 1, name: '/1/bar' },
+    //  { experiment_id: 2, name: '/2/foo' },
+    //  { experiment_id: 3, name: '/3/bar' },
+    // ]
+    //
+    // Output:
+    // {
+    //   1: {name: '/1/bar', basename: 'bar (1)'},
+    //   2: {name: '/2/foo', basename: 'foo'},
+    //   3: {name: '/3/bar', basename: 'bar (2)'},
+    // }
+    const experimentsByBasename = {};
+    experiments.forEach((experiment) => {
+      const { name } = experiment;
+      const basename = name.split('/').pop();
+      experimentsByBasename[basename] = [...(experimentsByBasename[basename] || []), experiment];
+    });
+
+    const idToNames = {};
+    Object.entries(experimentsByBasename).forEach(([basename, exps]) => {
+      const isUnique = exps.length === 1;
+      exps.forEach(({ experiment_id, name }, index) => {
+        idToNames[experiment_id] = {
+          name,
+          basename: isUnique ? basename : `${basename} (${index + 1})`,
+        };
+      });
+    });
+
+    return idToNames;
+  };
 
   static isModelRegistryEnabled() {
     return true;
@@ -625,6 +950,18 @@ class Utils {
     }
 
     return aId.localeCompare(bId);
+  }
+
+  static getSupportPageUrl = () => SupportPageUrl;
+
+  static getIframeCorrectedRoute(route) {
+    if (window.self !== window.top || window.isTestingIframe) {
+      // If running in an iframe, include the parent params and assume mlflow served at #
+      const parentHref = window.parent.location.href;
+      const parentHrefBeforeMlflowHash = parentHref.split('#')[0];
+      return `${parentHrefBeforeMlflowHash}#mlflow${route}`;
+    }
+    return `./#${route}`; // issue-2213 use relative path in case there is a url prefix
   }
 }
 

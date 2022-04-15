@@ -47,9 +47,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
 
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
-        super(DbfsRestArtifactRepository, self).__init__(
-            remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        )
+        super().__init__(remove_databricks_profile_info_from_artifact_uri(artifact_uri))
 
         databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
         if databricks_profile_uri:
@@ -58,9 +56,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         else:
             self.get_host_creds = _get_host_creds_from_default_store()
 
-    def _databricks_api_request(self, endpoint, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()

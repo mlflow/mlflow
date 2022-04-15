@@ -18,6 +18,7 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
+    dbfs_hdfs_uri_to_fuse_path,
 )
 
 
@@ -32,7 +33,7 @@ def test_extract_db_type_from_uri():
         assert legit_db == get_uri_scheme(uri.format(with_driver))
 
     for unsupported_db in ["a", "aa", "sql"]:
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Invalid database engine"):
             extract_db_type_from_uri(unsupported_db)
 
 
@@ -47,11 +48,19 @@ def test_extract_db_type_from_uri():
         ("nondatabricks://profile:prefix", (None, None)),
         ("databricks://profile", ("profile", None)),
         ("databricks://profile/", ("profile", None)),
-        ("databricks://", ("", None)),
     ],
 )
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
+
+
+@pytest.mark.parametrize(
+    "server_uri",
+    ["databricks:/profile:prefix", "databricks:/", "databricks://"],
+)
+def test_get_db_info_from_uri_errors_no_netloc(server_uri):
+    with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
+        get_db_info_from_uri(server_uri)
 
 
 @pytest.mark.parametrize(
@@ -66,8 +75,8 @@ def test_get_db_info_from_uri(server_uri, result):
         "databricks://profile: ",
     ],
 )
-def test_get_db_info_from_uri_errors(server_uri):
-    with pytest.raises(MlflowException):
+def test_get_db_info_from_uri_errors_invalid_profile(server_uri):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_db_info_from_uri(server_uri)
 
 
@@ -117,7 +126,9 @@ def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result
     ],
 )
 def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="Hostname, experiment ID, and run ID are all required"
+    ):
         construct_run_url(hostname, experiment_id, run_id, workspace_id)
 
 
@@ -195,6 +206,13 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     not receive special treatment. This test case verifies that `append_to_uri_path` properly joins
     POSIX paths containing these characters.
     """
+
+    def create_char_case(special_char):
+        def char_case(*case_args):
+            return tuple([item.format(c=special_char) for item in case_args])
+
+        return char_case
+
     for special_char in [
         ".",
         "-",
@@ -214,10 +232,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         "'",
         ",",
     ]:
-
-        def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
-
+        char_case = create_char_case(special_char)
         validate_append_to_uri_path_test_cases(
             [
                 char_case("", "{c}subpath", "{c}subpath"),
@@ -259,24 +274,24 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
             ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
             ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
             (
-                "dbscheme+dbdriver://root:password?creds=mycreds",
+                "dbscheme+dbdriver://root:password?creds=creds",
                 "subpath",
-                "dbscheme+dbdriver://root:password/subpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password/subpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password/path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password/path/?creds=creds",
                 "/subpath/anotherpath",
-                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/?creds=creds",
                 "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=creds",
             ),
             (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/?creds=creds",
                 "/subpath",
-                "dbscheme+dbdriver://root:password///path/subpath?creds=mycreds",
+                "dbscheme+dbdriver://root:password///path/subpath?creds=creds",
             ),
             (
                 "dbscheme+dbdriver://root:password#myfragment",
@@ -284,30 +299,30 @@ def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
                 "dbscheme+dbdriver://root:password/subpath#myfragment",
             ),
             (
-                "dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@",
+                "dbscheme+dbdriver://root:password//path/#fragmentwith$pecial@",
                 "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#fragmentwith$pecial@",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
+                "dbscheme+dbdriver://root:password@host?creds=creds#fragmentwith$pecial@",
                 "subpath",
-                "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@",  # noqa
+                "dbscheme+dbdriver://root:password@host/subpath?creds=creds#fragmentwith$pecial@",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+                "dbscheme+dbdriver://root:password@host.com/path?creds=creds#*frag@*",
                 "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
             ),
             (
-                "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
+                "dbscheme-dbdriver://root:password@host.com/path?creds=creds#*frag@*",
                 "subpath/dir",
-                "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
+                "dbscheme-dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
             ),
             (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",  # noqa
+                "dbscheme+dbdriver://root:password@host.com/path?creds=creds,param=value#*frag@*",
                 "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
-                "creds=mycreds,param=value#*frag@*",
+                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?"
+                "creds=creds,param=value#*frag@*",
             ),
         ]
     )
@@ -410,7 +425,7 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     ],
 )
 def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_databricks_profile_uri_from_artifact_uri(uri)
 
 
@@ -454,7 +469,6 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
         # test various profile URIs
         ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
         ("dbfs:/path/a/b/", "databricks", "dbfs://databricks/path/a/b/"),
-        ("dbfs:/path/a/b/", "databricks://", "dbfs://@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://Profile", "dbfs://Profile@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://profile/", "dbfs://profile@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://scope:key", "dbfs://scope:key@databricks/path/a/b/"),
@@ -513,7 +527,7 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
     ],
 )
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri)
 
 
@@ -538,3 +552,25 @@ def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profil
 )
 def test_is_valid_dbfs_uri(uri, result):
     assert is_valid_dbfs_uri(uri) == result
+
+
+@pytest.mark.parametrize(
+    "uri, result",
+    [
+        ("/tmp/path", "/dbfs/tmp/path"),
+        ("dbfs:/path", "/dbfs/path"),
+        ("dbfs:/path/a/b", "/dbfs/path/a/b"),
+        ("dbfs:/dbfs/123/abc", "/dbfs/dbfs/123/abc"),
+    ],
+)
+def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
+    assert dbfs_hdfs_uri_to_fuse_path(uri) == result
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
+)
+def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
+    with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
+        dbfs_hdfs_uri_to_fuse_path(path)

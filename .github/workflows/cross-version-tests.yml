@@ -1,0 +1,170 @@
+name: Cross version tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+      flavors:
+        description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
+        required: false
+        default: ""
+      versions:
+        description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
+        required: false
+        default: ""
+  schedule:
+    # Run this workflow daily at 7:00 UTC
+    - cron: "0 7 * * *"
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          pip install packaging requests pyyaml pytest pytest-cov
+      - name: Check labels
+        uses: actions/github-script@v4
+        id: enable-dev-tests
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          result-encoding: string
+          script: |
+            const labels = await github.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            return labels.data.some(({ name }) => name === "enable-dev-tests");
+      - name: Test set_matrix.py
+        run: |
+          python -m pytest --noconftest tests/dev/test_set_matrix.py --doctest-modules dev/set_matrix.py
+      - id: set-matrix
+        name: Set matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EVENT_NAME="${{ github.event_name }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REPO="${{ github.repository }}"
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/master/mlflow/ml-package-versions.yml"
+            CHANGED_FILES="$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER)"
+            ENABLE_DEV_TESTS="${{ steps.enable-dev-tests.outputs.result }}"
+            EXCLUDE_DEV_VERSIONS_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--exclude-dev-versions")
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES" $EXCLUDE_DEV_VERSIONS_FLAG
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            python dev/set_matrix.py --flavors "${{ github.event.inputs.flavors }}" --versions "${{ github.event.inputs.versions }}"
+          else
+            python dev/set_matrix.py
+          fi
+  test:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          if [ "${{ matrix.package }}" = "mleap" ]
+          then
+            java_version=8
+          else
+            java_version=11
+          fi
+          echo "::set-output name=version::$java_version"
+      - uses: actions/setup-java@v3
+        with:
+          java-version: ${{ steps.get-java-version.outputs.version }}
+          distribution: "adopt"
+      - name: Get python version
+        id: get-python-version
+        run: |
+          if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
+             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]
+          then
+            python_version=3.8
+          else
+            python_version=3.7
+          fi
+          echo "::set-output name=version::$python_version"
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ steps.get-python-version.outputs.version }}
+      - name: Get cache key
+        env:
+          INSTALL_COMMAND: ${{ matrix.install }}
+        id: get-cache-key
+        run: |
+          date=$(date -u "+%Y%m%d")
+          hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
+          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
+      - uses: actions/cache@v2
+        # We only cache wheels that take long (> 10 min) to build
+        if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
+        with:
+          path: /home/runner/.cache/wheels
+          key: ${{ steps.get-cache-key.outputs.key }}
+          restore-keys: |
+            ${{ steps.get-cache-key.outputs.key }}
+      - name: Install mlflow & test dependencies
+        run: |
+          python --version
+          pip install --upgrade pip wheel
+          pip install -e .
+          pip install -r requirements/small-requirements.txt
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        env:
+          CACHE_DIR: /home/runner/.cache/wheels
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          python dev/show_package_release_dates.py
+      - name: Run tests
+        env:
+          MLFLOW_CONDA_HOME: /usr/share/miniconda
+          SPARK_LOCAL_IP: 127.0.0.1
+          PACKAGE_VERSION: ${{ matrix.version }}
+        run: |
+          ${{ matrix.run }}

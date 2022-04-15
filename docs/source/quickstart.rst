@@ -19,11 +19,22 @@ You install MLflow by running:
         install.packages("mlflow")
         mlflow::install_mlflow()
 
+    .. code-block:: python
+
+        pip install mlflow-skinny
+
 .. note::
 
     MLflow works on MacOS. If you run into issues with the default system Python on MacOS, try
     installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
+
+To use certain MLflow modules and functionality (ML model persistence/inference, artifact storage options, etc),
+you may need to install extra libraries. For example, the ``mlflow.tensorflow`` module requires TensorFlow to be installed.
+See https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details
+
+MLflow skinny will also need installation of extra dependencies for certain MLflow modules and functionality. For example, 
+``mlflow.set_tracking_uri("sqlite:///my.db")`` requires ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.

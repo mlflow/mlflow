@@ -5,6 +5,7 @@ import json
 import yaml
 import os
 import logging
+import warnings
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
@@ -19,21 +20,14 @@ from mlflow.projects.utils import (
     get_or_create_run,
     load_project,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    PROJECT_USE_CONDA,
+    PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
 )
-from mlflow.projects.docker import (
-    build_docker_image,
-    validate_docker_env,
-    validate_docker_installation,
-)
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV,
-    MLFLOW_PROJECT_BACKEND,
-)
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
+from mlflow.utils.environment import _EnvManager
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -65,7 +59,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
         if exp:
             return exp.experiment_id
         else:
-            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            _logger.info("'%s' does not exist. Creating a new experiment", experiment_name)
             return client.create_experiment(experiment_name)
 
     return _get_experiment_id()
@@ -80,16 +74,17 @@ def _run(
     docker_args,
     backend_name,
     backend_config,
-    use_conda,
     storage_dir,
+    env_manager,
     synchronous,
+    run_name,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
     tracking_store_uri = tracking.get_tracking_uri()
-    backend_config[PROJECT_USE_CONDA] = use_conda
+    backend_config[PROJECT_ENV_MANAGER] = env_manager
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
@@ -109,6 +104,8 @@ def _run(
             tracking.MlflowClient().set_tag(
                 submitted_run.run_id, MLFLOW_PROJECT_BACKEND, backend_name
             )
+            if run_name is not None:
+                tracking.MlflowClient().set_tag(submitted_run.run_id, MLFLOW_RUN_NAME, run_name)
             return submitted_run
 
     work_dir = fetch_and_validate_project(uri, version, entry_point, parameters)
@@ -118,6 +115,9 @@ def _run(
     active_run = get_or_create_run(
         None, uri, experiment_id, work_dir, version, entry_point, parameters
     )
+
+    if run_name is not None:
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_RUN_NAME, run_name)
 
     if backend_name == "databricks":
         tracking.MlflowClient().set_tag(
@@ -136,6 +136,11 @@ def _run(
         )
 
     elif backend_name == "kubernetes":
+        from mlflow.projects.docker import (
+            build_docker_image,
+            validate_docker_env,
+            validate_docker_installation,
+        )
         from mlflow.projects import kubernetes as kb
 
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
@@ -187,6 +192,8 @@ def run(
     storage_dir=None,
     synchronous=True,
     run_id=None,
+    run_name=None,
+    env_manager=None,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -225,7 +232,8 @@ def run(
                            be passed as config to the backend. The exact content which should be
                            provided is different for each execution backend and is documented
                            at https://www.mlflow.org/docs/latest/projects.html.
-    :param use_conda: If True (the default), create a new Conda environment for the run and
+    :param use_conda: This argument is deprecated. Use `env_manager='local'` instead.
+                      If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
                       dependencies.
@@ -242,8 +250,41 @@ def run(
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
+    :param run_name: The name to give the MLflow Run associated with the project execution.
+                     If ``None``, the MLflow Run name is left unset.
+    :param env_manager: Specify an environment manager to create a new environment for the run and
+                        install project dependencies within that environment. The following values
+                        are suppported:
+
+                        - local: use the local environment
+                        - conda: use conda
+
+                        If unspecified, default to conda.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        project_uri = "https://github.com/mlflow/mlflow-example"
+        params = {"alpha": 0.5, "l1_ratio": 0.01}
+
+        # Run MLflow project and create a reproducible conda environment
+        # on a local host
+        mlflow.run(project_uri, parameters=params)
+
+    .. code-block:: text
+        :caption: Output
+
+        ...
+        ...
+        Elasticnet model (alpha=0.500000, l1_ratio=0.010000):
+        RMSE: 0.788347345611717
+        MAE: 0.6155576449938276
+        R2: 0.19729662005412607
+        ... mlflow.projects: === Run (ID '6a5109febe5e4a549461e149590d0a7c') succeeded ===
     """
     backend_config_dict = backend_config if backend_config is not None else {}
     if (
@@ -260,6 +301,21 @@ def run(
                     backend_config,
                 )
                 raise
+
+    if not use_conda:
+        warnings.warn(
+            (
+                "`use_conda` is deprecated and will be removed in a future MLflow release. "
+                "Use `env_manager='local'` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
+    if env_manager:
+        env_manager = _EnvManager.from_string(env_manager)
+    else:
+        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
 
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
@@ -279,9 +335,10 @@ def run(
         docker_args=docker_args,
         backend_name=backend,
         backend_config=backend_config_dict,
-        use_conda=use_conda,
+        env_manager=env_manager,
         storage_dir=storage_dir,
         synchronous=synchronous,
+        run_name=run_name,
     )
     if synchronous:
         _wait_for(submitted_run_obj)
@@ -339,7 +396,7 @@ def _parse_kubernetes_config(backend_config):
     kube_config = backend_config.copy()
     if "kube-job-template-path" not in backend_config.keys():
         raise ExecutionException(
-            "'kube-job-template-path' attribute must be specified in " "backend_config."
+            "'kube-job-template-path' attribute must be specified in backend_config."
         )
     kube_job_template = backend_config["kube-job-template-path"]
     if os.path.exists(kube_job_template):

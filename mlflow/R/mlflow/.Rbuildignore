@@ -4,6 +4,9 @@ mlruns
 ^mlflow-model$
 packrat
 ^\.run-tests\.R$
+^\.create-test-env\.R$
+^\.spark-version$
+^\.dump-r-dependencies\.R$
 ^README.Rmd$
 ^docs$
 ^model$
@@ -14,3 +17,12 @@ Reference_Manual_mlflow.md
 ^man-roxygen/
 ^internal/
 ^logs/
+^depends\.Rds
+^R-version
+^\.utils\.R$
+^\.install-deps\.R$
+^\.build-package\.R$
+^\.build-doc\.R$
+^build-package\.sh$
+^Dockerfile\.dev$
+^Dockerfile\.r-devel$

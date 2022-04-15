@@ -1,23 +1,25 @@
-import { ErrorWrapper } from './ActionUtils';
+import {
+  fulfilled,
+  getUUID,
+  isFulfilledApi,
+  isPendingApi,
+  isRejectedApi,
+  pending,
+  rejected,
+} from './ActionUtils';
 
-test('renderHttpError works on DatabricksServiceExceptions', () => {
-  const xhr = {
-    responseText: '{ "error_code": "INVALID_REQUEST", "message": "Foo!", "stack_trace": "Boop!" }',
-  };
-  const error = new ErrorWrapper(xhr).renderHttpError();
-  expect(error).toEqual('INVALID_REQUEST: Foo!');
-});
+describe('ActionUtils', () => {
+  it('getUUID', () => {
+    const uuid = getUUID();
+    expect(uuid.length).toEqual(21);
+  });
 
-test('renderHttpError works on HTML', () => {
-  const xhr = {
-    responseText: '<div>This\n\n\n</div>Is an error!<br/>',
-  };
-  const error = new ErrorWrapper(xhr).renderHttpError();
-  expect(error).toEqual('This\nIs an error!');
-});
-
-test('renderHttpError works weird stuff', () => {
-  const xhr = {};
-  const error = new ErrorWrapper(xhr).renderHttpError();
-  expect(error).toEqual('Request Failed');
+  it('apiActionTypes', () => {
+    const actionType = 'GRAB_ME_A_COKE';
+    [pending(actionType), fulfilled(actionType), rejected(actionType)].forEach((type) => {
+      expect(isPendingApi({ type })).toEqual(type === pending(actionType));
+      expect(isFulfilledApi({ type })).toEqual(type === fulfilled(actionType));
+      expect(isRejectedApi({ type })).toEqual(type === rejected(actionType));
+    });
+  });
 });

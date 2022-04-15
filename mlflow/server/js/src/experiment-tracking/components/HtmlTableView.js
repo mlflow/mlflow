@@ -1,54 +1,29 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import './HtmlTableView.css';
-import { Table } from 'react-bootstrap';
+import { Table } from 'antd';
 
 export class HtmlTableView extends Component {
   static propTypes = {
     columns: PropTypes.array.isRequired,
     values: PropTypes.array.isRequired,
     styles: PropTypes.object,
+    testId: PropTypes.string,
   };
 
   render() {
     const styles = this.props.styles || {};
+
     return (
-      <Table hover className='HtmlTableView' style={styles['table']}>
-        <tbody>
-          <tr style={styles['tr']}>
-            {this.props.columns.map((c, idx) => {
-              let style;
-              if (idx === 0) {
-                style = styles['th-first'] || styles['th'];
-              } else {
-                style = styles['th'];
-              }
-              return (
-                <th key={idx} style={style}>
-                  {c}
-                </th>
-              );
-            })}
-          </tr>
-          {this.props.values.map((vArray, index) => (
-            <tr key={index} style={styles['tr']}>
-              {vArray.map((v, idx) => {
-                let style;
-                if (idx === 0) {
-                  style = styles['td-first'] || styles['td'];
-                } else {
-                  style = styles['td'];
-                }
-                return (
-                  <td key={idx} style={style}>
-                    {v}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <Table
+        className='html-table-view'
+        data-test-id={this.props.testId}
+        dataSource={this.props.values}
+        columns={this.props.columns}
+        size='middle'
+        pagination={false}
+        style={styles}
+      />
     );
   }
 }

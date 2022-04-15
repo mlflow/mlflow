@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 
 import pytest
-import mock
-from mock import Mock
+from unittest import mock
+from unittest.mock import Mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -26,9 +25,9 @@ def dbfs_artifact_repo():
         return get_artifact_repository("dbfs:/test/")
 
 
-TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
-TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
-TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
+TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 DBFS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.dbfs_artifact_repo"
 DBFS_ARTIFACT_REPOSITORY = DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".DbfsRestArtifactRepository"
@@ -65,7 +64,7 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 }
 
 
-class TestDbfsArtifactRepository(object):
+class TestDbfsArtifactRepository:
     def test_init_validation_and_cleaning(self):
         with mock.patch(
             DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store"
@@ -73,9 +72,10 @@ class TestDbfsArtifactRepository(object):
             get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
             repo = get_artifact_repository("dbfs:/test/")
             assert repo.artifact_uri == "dbfs:/test"
-            with pytest.raises(MlflowException):
+            match = "DBFS URI must be of the form dbfs:/<path>"
+            with pytest.raises(MlflowException, match=match):
                 DbfsRestArtifactRepository("s3://test")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=match):
                 DbfsRestArtifactRepository("dbfs://profile@notdatabricks/test/")
 
     def test_init_get_host_creds_with_databricks_profile_uri(self):
@@ -109,7 +109,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs["endpoint"])
                 data.append(kwargs["data"].read())
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, artifact_path)
@@ -122,7 +122,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/empty-file"
                 assert kwargs["data"] == ""
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
@@ -133,7 +133,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/test.txt"
                 assert kwargs["data"].read() == TEST_FILE_1_CONTENT
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, "")
@@ -141,7 +141,7 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
         with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409, text="")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r"API request to endpoint .+ failed"):
                 dbfs_artifact_repo.log_artifact(test_file.strpath)
 
     @pytest.mark.parametrize(
@@ -163,7 +163,7 @@ class TestDbfsArtifactRepository(object):
                     data.append(kwargs["data"])
                 else:
                     data.append(kwargs["data"].read())
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
@@ -181,7 +181,7 @@ class TestDbfsArtifactRepository(object):
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
         with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
             http_request_mock.return_value = Mock(status_code=409, text="")
-            with pytest.raises(MlflowException):
+            with pytest.raises(MlflowException, match=r"API request to endpoint .+ failed"):
                 dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
     @pytest.mark.parametrize(
@@ -214,7 +214,7 @@ class TestDbfsArtifactRepository(object):
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs["endpoint"])
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
@@ -263,7 +263,7 @@ class TestDbfsArtifactRepository(object):
 def test_get_host_creds_from_default_store_file_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore()
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Failed to get credentials for DBFS"):
             _get_host_creds_from_default_store()
 
 

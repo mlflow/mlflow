@@ -10,7 +10,9 @@ class PluginDeploymentClient(BaseDeploymentClient):
             raise RuntimeError("Error requested")
         return {"name": f_deployment_name, "flavor": flavor}
 
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, config=None):
+        if config and config.get("raiseError") == "True":
+            raise RuntimeError("Error requested")
         return None
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
@@ -25,10 +27,14 @@ class PluginDeploymentClient(BaseDeploymentClient):
         return {"key1": "val1", "key2": "val2"}
 
     def predict(self, deployment_name, df):
-        return 1
+        return "1"
+
+    def explain(self, deployment_name, df):
+        return "1"
 
 
 def run_local(name, model_uri, flavor=None, config=None):
+    # pylint: disable-next=print-function
     print(
         "Deployed locally at the key {} using the model from {}. ".format(name, model_uri)
         + "It's flavor is {} and config is {}".format(flavor, config)

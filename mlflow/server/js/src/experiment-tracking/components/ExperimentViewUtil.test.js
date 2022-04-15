@@ -1,7 +1,22 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { BrowserRouter } from 'react-router-dom';
+import {
+  ATTRIBUTE_COLUMN_LABELS,
+  COLUMN_TYPES,
+  DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
+} from '../constants';
+import { Metric, Param, RunTag, RunInfo } from '../sdk/MlflowMessages';
+import Utils from '../../common/utils/Utils';
+
+const createCategorizedUncheckedKeys = (arr) => ({
+  [COLUMN_TYPES.ATTRIBUTES]: arr,
+  [COLUMN_TYPES.PARAMS]: arr,
+  [COLUMN_TYPES.METRICS]: arr,
+  [COLUMN_TYPES.TAGS]: arr,
+});
 
 describe('ExperimentViewUtil', () => {
   test('getCheckboxForRow should render', () => {
@@ -76,17 +91,15 @@ describe('ExperimentViewUtil', () => {
       'user_id',
       true,
       'div',
-      [ExperimentViewUtil.AttributeColumnLabels.DATE],
+      [ATTRIBUTE_COLUMN_LABELS.DATE],
     );
     const headers = headerComponents.map((c) => shallow(c));
     headers.forEach((h) => {
-      expect(h.text()).not.toContain(ExperimentViewUtil.AttributeColumnLabels.DATE);
+      expect(h.text()).not.toContain(ATTRIBUTE_COLUMN_LABELS.DATE);
     });
 
     // As a sanity check, let's make sure the headers contain some other column
-    const userHeaders = headers.filter(
-      (h) => h.text() === ExperimentViewUtil.AttributeColumnLabels.USER,
-    );
+    const userHeaders = headers.filter((h) => h.text() === ATTRIBUTE_COLUMN_LABELS.USER);
     expect(userHeaders.length).toBe(1);
   });
 
@@ -100,6 +113,85 @@ describe('ExperimentViewUtil', () => {
     const ranges = ExperimentViewUtil.computeMetricRanges(metricsByRun);
     expect(ranges.foo.min).toBe(0);
     expect(ranges.foo.max).toBe(2);
+  });
+
+  test('disable loadMoreButton when numRunsFromLatestSearch is not null and there is no nextPageToken', () => {
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: null,
+        nextPageToken: null,
+      }),
+    ).toBe(false);
+
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: 50,
+        nextPageToken: null,
+      }),
+    ).toBe(true);
+
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: 50,
+        nextPageToken: 'There is a page token',
+      }),
+    ).toBe(false);
+  });
+
+  test('get linked model cell displays model name with a single model version', () => {
+    const modelName = 'model1';
+    const model_versions = [{ name: modelName, version: 2 }];
+    const linkedModelDiv = shallow(ExperimentViewUtil.getLinkedModelCell(model_versions));
+    expect(
+      linkedModelDiv
+        .find('.model-version-link')
+        .at(0)
+        .props().href,
+    ).toContain(getModelVersionPageRoute(model_versions[0].name, model_versions[0].version));
+  });
+
+  test('should not nest children if nestChildren is false', () => {
+    const runInfos = [{ run_uuid: 1 }, { run_uuid: 2 }];
+    const tagsList = [
+      {
+        'mlflow.parentRunId': {
+          value: 2,
+        },
+      },
+      {},
+    ];
+    const runsExpanded = { 1: true, 2: true };
+
+    expect(
+      ExperimentViewUtil.getRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
+        nestChildren: true,
+      }),
+    ).toEqual([
+      {
+        childrenIds: [1],
+        expanderOpen: true,
+        hasExpander: true,
+        idx: 1,
+        isParent: true,
+        runId: 2,
+      },
+      { hasExpander: false, idx: 0, isParent: false },
+    ]);
+
+    expect(
+      ExperimentViewUtil.getRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
+        nestChildren: false,
+      }),
+    ).toEqual([
+      { hasExpander: false, idx: 0, isParent: true, runId: 1 },
+      { hasExpander: false, idx: 1, isParent: true, runId: 2 },
+    ]);
   });
 
   test('TreeNode finds the correct root', () => {
@@ -132,5 +224,286 @@ describe('ExperimentViewUtil', () => {
     root.parent = grandchild;
 
     expect(grandchild.isCycle()).toBeTruthy();
+  });
+
+  test('getCategorizedUncheckedKeysDiffView returns the correct column keys to uncheck standard case', () => {
+    const categorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
+    const runInfos = [
+      RunInfo.fromJs({
+        run_uuid: 'run-id1',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 1,
+        end_time: 1,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+      RunInfo.fromJs({
+        run_uuid: 'run-id2',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 2,
+        end_time: 2,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+    ];
+    const paramKeyList = ['param1', 'param2', 'param3', 'param4'];
+    const metricKeyList = ['metric1', 'metric2', 'metric3', 'metric4'];
+    const paramsList = [
+      [
+        Param.fromJs({ key: 'param1', value: '1' }),
+        Param.fromJs({ key: 'param2', value: '1' }),
+        Param.fromJs({ key: 'param3', value: '1' }),
+      ],
+      [Param.fromJs({ key: 'param1', value: '1' }), Param.fromJs({ key: 'param2', value: '2' })],
+    ];
+    const metricsList = [
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '1' }),
+        Metric.fromJs({ key: 'metric3', value: '1' }),
+      ],
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '2' }),
+      ],
+    ];
+
+    const createTags = (tags) => {
+      // Converts {key: value, ...} to {key: RunTag(key, value), ...}
+      return Object.entries(tags).reduce(
+        (acc, [key, value]) => ({ ...acc, [key]: RunTag.fromJs({ key, value }) }),
+        {},
+      );
+    };
+    const tagsList = [
+      createTags({
+        tag1: '1',
+        tag2: '1',
+        tag3: '1',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.gitCommitTag]: 'gitcommit1',
+      }),
+      createTags({
+        tag1: '1',
+        tag2: '2',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.gitCommitTag]: 'gitcommit2',
+      }),
+    ];
+    const expectedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.MODELS],
+      [COLUMN_TYPES.PARAMS]: ['param1', 'param4'],
+      [COLUMN_TYPES.METRICS]: ['metric1', 'metric4'],
+      [COLUMN_TYPES.TAGS]: ['tag1'],
+    };
+
+    expect(
+      ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+        categorizedUncheckedKeys,
+        runInfos,
+        paramKeyList,
+        metricKeyList,
+        paramsList,
+        metricsList,
+        tagsList,
+      }),
+    ).toEqual(expectedUncheckedKeys);
+  });
+
+  test('getCategorizedUncheckedKeysDiffView with columns already unchecked', () => {
+    const categorizedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME],
+      [COLUMN_TYPES.PARAMS]: ['param2'],
+      [COLUMN_TYPES.METRICS]: ['metric2'],
+      [COLUMN_TYPES.TAGS]: ['tag2'],
+    };
+    const runInfos = [
+      RunInfo.fromJs({
+        run_uuid: 'run-id1',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 1,
+        end_time: 1,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+      RunInfo.fromJs({
+        run_uuid: 'run-id2',
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 2,
+        end_time: 2,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      }),
+    ];
+    const paramKeyList = ['param1', 'param2', 'param3', 'param4'];
+    const metricKeyList = ['metric1', 'metric2', 'metric3', 'metric4'];
+    const paramsList = [
+      [
+        Param.fromJs({ key: 'param1', value: '1' }),
+        Param.fromJs({ key: 'param2', value: '1' }),
+        Param.fromJs({ key: 'param3', value: '1' }),
+      ],
+      [Param.fromJs({ key: 'param1', value: '1' }), Param.fromJs({ key: 'param2', value: '2' })],
+    ];
+    const metricsList = [
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '1' }),
+        Metric.fromJs({ key: 'metric3', value: '1' }),
+      ],
+      [
+        Metric.fromJs({ key: 'metric1', value: '1' }),
+        Metric.fromJs({ key: 'metric2', value: '2' }),
+      ],
+    ];
+
+    const createTags = (tags) => {
+      // Converts {key: value, ...} to {key: RunTag(key, value), ...}
+      return Object.entries(tags).reduce(
+        (acc, [key, value]) => ({ ...acc, [key]: RunTag.fromJs({ key, value }) }),
+        {},
+      );
+    };
+    const tagsList = [
+      createTags({
+        tag1: '1',
+        tag2: '1',
+        tag3: '1',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.gitCommitTag]: 'gitcommit2',
+      }),
+      createTags({
+        tag1: '1',
+        tag2: '2',
+        [Utils.runNameTag]: 'runname1',
+        [Utils.gitCommitTag]: 'gitcommit1',
+      }),
+    ];
+    const expectedUncheckedKeys = {
+      [COLUMN_TYPES.ATTRIBUTES]: [ATTRIBUTE_COLUMN_LABELS.RUN_NAME, ATTRIBUTE_COLUMN_LABELS.MODELS],
+      [COLUMN_TYPES.PARAMS]: ['param2', 'param1', 'param4'],
+      [COLUMN_TYPES.METRICS]: ['metric2', 'metric1', 'metric4'],
+      [COLUMN_TYPES.TAGS]: ['tag2', 'tag1'],
+    };
+
+    expect(
+      ExperimentViewUtil.getCategorizedUncheckedKeysDiffView({
+        categorizedUncheckedKeys,
+        runInfos,
+        paramKeyList,
+        metricKeyList,
+        paramsList,
+        metricsList,
+        tagsList,
+      }),
+    ).toEqual(expectedUncheckedKeys);
+  });
+
+  test('getRestoredCategorizedUncheckedKeys no state change during switch', () => {
+    const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
+    expect(
+      ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+
+  test('getRestoredCategorizedUncheckedKeys column unselected during switch', () => {
+    const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys([]);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k3']);
+    expect(
+      ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+
+  test('getRestoredCategorizedUncheckedKeys column selected during switch', () => {
+    const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2', 'k3']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1']);
+    const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1']);
+    expect(
+      ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+
+  test('getRestoredCategorizedUncheckedKeys column selected & unselected during switch', () => {
+    const preSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const postSwitchCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k2']);
+    const currCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k3']);
+    const expectedCategorizedUncheckedKeys = createCategorizedUncheckedKeys(['k1', 'k3']);
+    expect(
+      ExperimentViewUtil.getRestoredCategorizedUncheckedKeys({
+        preSwitchCategorizedUncheckedKeys,
+        postSwitchCategorizedUncheckedKeys,
+        currCategorizedUncheckedKeys,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
+  });
+
+  test('getNestedRowRenderMetadata ensures the UI renders properly when parent runs have been deleted and are referenced by their children', () => {
+    const createRun = (runId) =>
+      RunInfo.fromJs({
+        run_uuid: runId,
+        experiment_id: '3',
+        status: 'FINISHED',
+        start_time: 1,
+        end_time: 1,
+        artifact_uri: 'dummypath',
+        lifecycle_stage: 'active',
+      });
+    const runInfos = [createRun('run-id1'), createRun('run-id2')];
+    const createTag = (parentId) => ({
+      tag1: '1',
+      tag2: '1',
+      tag3: '1',
+      [Utils.runNameTag]: 'runname1',
+      [Utils.gitCommitTag]: 'gitcommit1',
+      'mlflow.parentRunId': parentId,
+    });
+    const tagsList = [
+      createTag(),
+      createTag({
+        value: 'run-id1',
+      }),
+    ];
+    const runsExpanded = { 'run-id1': true, 'run-id2': true };
+    const expectedCategorizedUncheckedKeys = [
+      {
+        childrenIds: ['run-id2'],
+        expanderOpen: true,
+        hasExpander: true,
+        idx: 0,
+        isParent: true,
+        runId: 'run-id1',
+      },
+      { hasExpander: false, idx: 1, isParent: false },
+    ];
+
+    expect(
+      ExperimentViewUtil.getNestedRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
+      }),
+    ).toEqual(expectedCategorizedUncheckedKeys);
   });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
-import { shallow } from 'enzyme';
-import { RenameRunModalImpl } from './RenameRunModal';
+import { shallowWithInjectIntl } from '../../../common/utils/TestUtils';
+import { RenameRunModalWithIntl } from './RenameRunModal';
 import { GenericInputModal } from './GenericInputModal';
 import Utils from '../../../common/utils/Utils';
 
@@ -19,7 +19,7 @@ describe('RenameRunModal', () => {
       setTagApi: mockSetTagApi,
     };
 
-    wrapper = shallow(<RenameRunModalImpl {...minimalProps} />);
+    wrapper = shallowWithInjectIntl(<RenameRunModalWithIntl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -50,7 +50,7 @@ describe('RenameRunModal', () => {
         }),
     );
     const failProps = { ...minimalProps, setTagApi: mockFailSetTagApi };
-    const failWrapper = shallow(<RenameRunModalImpl {...failProps} />);
+    const failWrapper = shallowWithInjectIntl(<RenameRunModalWithIntl {...failProps} />);
     const failPromise = failWrapper.find(GenericInputModal).prop('handleSubmit')(values);
     failPromise.finally(() => {
       expect(mockFailSetTagApi).toHaveBeenCalledTimes(1);

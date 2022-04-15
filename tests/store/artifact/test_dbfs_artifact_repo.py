@@ -1,5 +1,5 @@
 import pytest
-import mock
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.dbfs_artifact_repo import (
@@ -80,5 +80,5 @@ def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
     "artifact_uri", [("notdbfs:/path"), ("dbfs://some:where@notdatabricks/path")]
 )
 def test_dbfs_artifact_repo_factory_errors(artifact_uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="DBFS URI must be of the form dbfs"):
         dbfs_artifact_repo_factory(artifact_uri)

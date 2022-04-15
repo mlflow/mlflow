@@ -23,7 +23,7 @@ _inf = np.finfo(np.float64).max
 
 
 @click.command(
-    help="Perform hyperparameter search with Hyperopt library." "Optimize dl_train target."
+    help="Perform hyperparameter search with Hyperopt library. Optimize dl_train target."
 )
 @click.option("--max-runs", type=click.INT, default=10, help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500, help="Number of epochs")
@@ -85,6 +85,8 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                     synchronous=False,  # Allow the run to fail if a model is not properly created
                 )
                 succeeded = p.wait()
+                mlflow.log_params({"lr": lr, "momentum": momentum})
+
             if succeeded:
                 training_run = tracking_client.get_run(p.run_id)
                 metrics = training_run.data.metrics

@@ -2,135 +2,248 @@ name: MLflow tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+# Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 env:
-  CONDA_DIR: /usr/share/miniconda
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: "3.7"
+    - uses: ./.github/actions/cache-pip
+    - name: Add problem matchers
+      run: |
+        echo "::add-matcher::.github/workflows/matchers/pylint.json"
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
-        pip install -r ./dev/lint-requirements.txt
-    - name: Run tests
+        pip install -r requirements/lint-requirements.txt
+    - name: Test custom pylint-plugins
+      run : |
+        pytest tests/pylint_plugins
+    - name: Run lint checks
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./lint.sh
+        ./dev/lint.sh
   r:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mlflow/R/mlflow
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: actions/setup-java@v3
+      with:
+        java-version: 11
+        distribution: 'adopt'
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
-    - name: Query dependencies
+    - name: Dump dependencies
       run: |
-        install.packages('remotes')
-        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
-        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-      shell: Rscript {0}
-
+        Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
+    - name: Get OS name
+      id: os-name
+      run: |
+        # `os_name` will be like "Ubuntu-20.04.1-LTS"
+        os_name=$(lsb_release -ds | sed 's/\s/-/g')
+        echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
-    - name: Install system dependencies
-      run: |
-        sudo apt-get install -y libcurl4-openssl-dev
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
     - name: Install dependencies
       run: |
-        install.packages("devtools")
-        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-      shell: Rscript {0}
+        Rscript -e 'source(".install-deps.R", echo=TRUE)'
+        # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
+        Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
+    - name: Build package
+      run: |
+        ./build-package.sh
+    - name: Create test environment
+      run: |
+        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
     - name: Run tests
+      env:
+        LINTR_COMMENT_BOT: false
+      run: |
+        cd tests
+        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
+
+  # python-skinny tests cover a subset of mlflow functionality
+  # that is meant to be supported with a smaller dependency footprint.
+  # The python skinny tests cover the subset of mlflow functionality
+  # while also verifying certain dependencies are omitted.
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: "3.7"
+    - name: Install dependencies
+      env:
+        INSTALL_SKINNY_PYTHON_DEPS: true
+        MLFLOW_SKINNY: true
       run: |
         source ./dev/install-common-deps.sh
-        cd mlflow/R/mlflow
-        R CMD build .
-        export LINTR_COMMENT_BOT=false
-        cd tests
-        Rscript ../.run-tests.R
-    - name: Calculate code coverage
-      if: ${{ success() }}
+    - name: Run tests
       run: |
-        export MLFLOW_HOME=$(pwd)
-        cd mlflow/R/mlflow/tests
-        Rscript -e 'covr::codecov()' || :
-      env:
-        COVR_RUNNING: true
-    - name: Show 00check.log on failure
-      if: ${{ failure() }}
-      run: |
-        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
-        cp "${LOG_FILE}" /tmp
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: 00check.log
-        path: /tmp/00check.log
+        ./dev/run-python-skinny-tests.sh
+
   python-small:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: "3.7"
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-small-python-tests.sh
 
   python-large:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Increase available disk space
+      run: |
+        # Increase available disk space by removing unnecessary tool chains:
+        # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+        rm -rf "$AGENT_TOOLSDIRECTORY"
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: "3.7"
+    - uses: actions/setup-java@v3
+      with:
+        java-version: 11
+        distribution: 'adopt'
+    - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
+      env:
+        # Fix for https://github.com/mlflow/mlflow/issues/4229
+        SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         ./dev/run-large-python-tests.sh
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.02"
+    - name: Run anaconda compatibility tests
+      run: |
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Build
+      run: |
+        ./tests/db/compose.sh pull -q postgresql mysql mssql
+        ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
+    - name: Run tests
+      run: |
+        for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
+        do
+          # Set `--no-TTY` to show container logs on GitHub Actions:
+          # https://github.com/actions/virtual-environments/issues/5022
+          ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
+        done
+    - name: Clean up
+      run: |
+        ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Java
-      uses: actions/setup-java@v1
+    - uses: actions/checkout@v3
       with:
-        java-version: 8
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: ./.github/actions/setup-python
+      with:
+        python-version: "3.7"
+    - name: Set up Java
+      uses: actions/setup-java@v3
+      with:
+        java-version: 11
+        distribution: 'adopt'
     - name: Install dependencies
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
+      env:
+        SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
         cd mlflow/java
         mvn clean package -q
 
@@ -140,37 +253,71 @@ jobs:
       run:
         working-directory: mlflow/server/js
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
     - name: Set up Node
       uses: actions/setup-node@v1
       with:
-        node-version: 10.x
+        node-version: "16"
     - name: Install dependencies
       run: |
-        npm i
+        yarn install
+        git diff --exit-code
     - name: Run lint
       run: |
-        npm run lint
+        yarn run lint
+    - name: Run extract-i18n lint
+      run: |
+        yarn run extract-i18n:base --lint
     - name: Run tests
       run: |
-        npm run test
+        yarn run test
 
   protos:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Test building Docker image
+      working-directory: dev
+      env:
+        DOCKER_BUILDKIT: 1
+      run: |
+        docker build -t gen-protos -f Dockerfile.protos .
+        docker run --rm gen-protos protoc --version
     - name: Install dependencies
       run: |
-        wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
-        ./test-generate-protos.sh
+        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Increase available disk space
+        run: |
+          # Increase available disk space by removing unnecessary tool chains:
+          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+          rm -rf "$AGENT_TOOLSDIRECTORY"
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.7"
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+      - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -178,45 +325,58 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
+          # Install libopenblas-dev for mxnet 1.8.0.post0
+          sudo apt-get update -y
+          sudo apt-get install libopenblas-dev -y
           ./dev/run-python-flavor-tests.sh;
 
-  import:
+  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
+  # run these tests in a separate job.
+  models:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
         with:
-          python-version: '3.6'
-      - name: Install mlflow
-        run: |
-          pip install -e .
-      - name: Verify mlflow can be imported without errors
-        run: |
-          python -c "import mlflow"
-
-  tensorflow:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.7"
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
+          pip install pyspark
       - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./dev/run-python-tf-tests.sh;
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/models --large
 
   sagemaker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.7"
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -224,23 +384,42 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
           ./dev/run-python-sagemaker-tests.sh;
 
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
         with:
-          python-version: 3.7
-      - name: Install dependecies
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - uses: ./.github/actions/setup-pyenv
+      - name: Install python dependencies
         run: |
-          pip install -r dev-requirements.txt
-          pip install -r dev/small-requirements.txt
-          pip install -e .
-      - name: Run tests
+          pip install -r requirements/small-requirements.txt
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
+          pip install -e .[extras]
+      - name: Run python tests
         run: |
-          pytest --verbose --ignore-flavors --ignore=tests/projects tests
+          pytest --ignore-flavors --ignore=tests/projects tests
+          pytest tests/pyfunc/test_virtualenv.py
+      - name: Set up Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: "16"
+      - name: Install JS dependencies
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          yarn install
+      - name: Run JS tests
+        working-directory: mlflow/server/js
+        shell: pwsh
+        run: |
+          yarn run test

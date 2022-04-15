@@ -3,18 +3,23 @@ Internal package providing a Python CRUD interface to MLflow models and versions
 This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
 exposed in the :py:mod:`mlflow.tracking` module.
 """
+from datetime import timedelta, datetime
+from time import sleep
 
 import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
-from mlflow.tracking._model_registry import utils
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 _logger = logging.getLogger(__name__)
 
+AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS = 3
 
-class ModelRegistryClient(object):
+
+class ModelRegistryClient:
     """
     Client of an MLflow Model Registry Server that creates and manages registered
     models and model versions.
@@ -25,20 +30,27 @@ class ModelRegistryClient(object):
         :param registry_uri: Address of local or remote model registry server.
         """
         self.registry_uri = registry_uri
-        self.store = utils._get_store(self.registry_uri)
+        # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
+        # the tracking URI is valid and the store can be properly resolved. We define `store` as a
+        # property method to ensure that the client is serializable, even if the store is not
+        self.store  # pylint: disable=pointless-statement
+
+    @property
+    def store(self):
+        return utils._get_store(self.registry_uri)
 
     # Registered Model Methods
 
     def create_registered_model(self, name, tags=None, description=None):
         """
-        Create a new registered model in backend store.
+         Create a new registered model in backend store.
 
-        :param name: Name of the new model. This is expected to be unique in the backend store.
-        :param tags: A dictionary of key-value pairs that are converted into
-                     :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
-       :param description: Description of the model.
-        :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
-                 created by backend.
+         :param name: Name of the new model. This is expected to be unique in the backend store.
+         :param tags: A dictionary of key-value pairs that are converted into
+                      :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
+        :param description: Description of the model.
+         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+                  created by backend.
         """
         # TODO: Do we want to validate the name is legit here - non-empty without "/" and ":" ?
         #       Those are constraints applicable to any backend, given the model URI format.
@@ -76,7 +88,7 @@ class ModelRegistryClient(object):
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to delete.
         """
         self.store.delete_registered_model(name)
 
@@ -119,7 +131,7 @@ class ModelRegistryClient(object):
 
     def get_registered_model(self, name):
         """
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model to get.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
         return self.store.get_registered_model(name)
@@ -129,7 +141,7 @@ class ModelRegistryClient(object):
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
 
-        :param name: Name of the registered model to update.
+        :param name: Name of the registered model from which to get the latest versions.
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for 'Staging' and 'Production' stages.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
@@ -160,7 +172,14 @@ class ModelRegistryClient(object):
     # Model Version Methods
 
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id=None,
+        tags=None,
+        run_link=None,
+        description=None,
+        await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ):
         """
         Create a new model version from given source.
@@ -172,12 +191,44 @@ class ModelRegistryClient(object):
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param description: Description of the version.
+        :param await_creation_for: Number of seconds to wait for the model version to finish being
+                                    created and is in ``READY`` status. By default, the function
+                                    waits for five minutes. Specify 0 or None to skip waiting.
+        Wait until the model version is finished being created and is in ``READY`` status.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_model_version(name, source, run_id, tags, run_link, description)
+        mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
+        if await_creation_for and await_creation_for > 0:
+            _logger.info(
+                "Waiting up to %d seconds for model version to finish creation. \
+                    Model name: %s, version %s",
+                await_creation_for,
+                name,
+                mv.version,
+            )
+            max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
+            pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
+            while mv.status == pending_status:
+                if datetime.utcnow() > max_datetime:
+                    raise MlflowException(
+                        "Exceeded max wait time for model name: {} version: {} to become READY. \
+                            Status: {} Wait Time: {}".format(
+                            mv.name, mv.version, mv.status, await_creation_for
+                        )
+                    )
+                mv = self.get_model_version(mv.name, mv.version)
+                sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
+            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
+                raise MlflowException(
+                    "Model version creation failed for model name: {} version: {} with status: {} \
+                    and message: {}".format(
+                        mv.name, mv.version, mv.status, mv.status_message
+                    )
+                )
+        return mv
 
     def update_model_version(self, name, version, description):
         """

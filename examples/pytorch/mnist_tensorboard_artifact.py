@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 
 # Command-line arguments
@@ -84,7 +83,7 @@ train_loader = torch.utils.data.DataLoader(
     ),
     batch_size=args.batch_size,
     shuffle=True,
-    **kwargs
+    **kwargs,
 )
 test_loader = torch.utils.data.DataLoader(
     datasets.MNIST(
@@ -96,13 +95,13 @@ test_loader = torch.utils.data.DataLoader(
     ),
     batch_size=args.test_batch_size,
     shuffle=True,
-    **kwargs
+    **kwargs,
 )
 
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
@@ -143,7 +142,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
@@ -172,7 +170,6 @@ def test(epoch):
         for data, target in test_loader:
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            data, target = Variable(data), Variable(target)
             output = model(data)
             test_loss += F.nll_loss(
                 output, target, reduction="sum"

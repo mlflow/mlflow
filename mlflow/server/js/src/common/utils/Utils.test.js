@@ -1,11 +1,11 @@
 import Utils from './Utils';
 import React from 'react';
-import { shallow } from 'enzyme';
 import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
   X_AXIS_WALL,
 } from '../../experiment-tracking/components/MetricsPlotControls';
+import { RunTag } from '../../experiment-tracking/sdk/MlflowMessages';
 
 test('formatMetric', () => {
   expect(Utils.formatMetric(0)).toEqual('0');
@@ -69,11 +69,181 @@ test('formatDuration', () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual('20.0d');
 });
 
+test('getDuration', () => {
+  expect(Utils.getDuration(1, null)).toEqual(null);
+  expect(Utils.getDuration(1, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, null)).toEqual(null);
+  expect(Utils.getDuration(1, 11)).toEqual('10ms');
+  expect(Utils.getDuration(1, 501)).toEqual('0.5s');
+  expect(Utils.getDuration(1, 901)).toEqual('0.9s');
+  expect(Utils.getDuration(1, 60001)).toEqual('1.0min');
+  expect(Utils.getDuration(1, 60 * 60 * 1000 + 1)).toEqual('1.0h');
+  expect(Utils.getDuration(1, 24 * 60 * 60 * 1000 + 1)).toEqual('1.0d');
+});
+
 test('baseName', () => {
   expect(Utils.baseName('foo')).toEqual('foo');
   expect(Utils.baseName('foo/bar/baz')).toEqual('baz');
   expect(Utils.baseName('/foo/bar/baz')).toEqual('baz');
   expect(Utils.baseName('file:///foo/bar/baz')).toEqual('baz');
+});
+
+test('renderNotebookSource', () => {
+  const notebookId = '12345678';
+  const revisionId = '987654';
+  const runUuid = '1133557799';
+  const sourceName = '/Users/test/iris_feature';
+  const nameOverride = 'some feature';
+  const queryParams = '?o=123456789';
+
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual(
+    'iris_feature',
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
+    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
+      iris_feature
+    </a>,
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toEqual(
+    <a
+      title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      null,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      null,
+      nameOverride,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {nameOverride}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      queryParams,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      'http://databricks',
+      null,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+});
+
+test('renderJobSource', () => {
+  const jobId = '123456';
+  const jobRunId = '98765';
+  const jobName = 'job xxx';
+  const nameOverride = 'random text';
+  const queryParams = '?o=123456789';
+
+  expect(Utils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
+  expect(Utils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
+      {jobName}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, null, null, null)).toEqual(
+    <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
+      {`job ${jobId}`}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+      {jobName}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, null, null)).toEqual(
+    <a
+      title={Utils.getDefaultJobRunName(jobId, jobRunId)}
+      href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {Utils.getDefaultJobRunName(jobId, jobRunId)}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+      {nameOverride}
+    </a>,
+  );
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
+    <a
+      title={jobName}
+      href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
+    </a>,
+  );
+  expect(
+    Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
+  ).toEqual(
+    <a
+      title={jobName}
+      href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
+    </a>,
+  );
 });
 
 test('formatSource & renderSource', () => {
@@ -144,49 +314,9 @@ test('formatSource & renderSource', () => {
       mlflow-apps:entry
     </a>,
   );
-
-  const databricksRunTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper = shallow(Utils.renderSource(databricksRunTags));
-  expect(wrapper.is('a')).toEqual(true);
-  expect(wrapper.props().href).toEqual('http://localhost/#notebook/13');
-
-  const databricksRunRevisionTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookRevisionID': { value: '42' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper2 = shallow(Utils.renderSource(databricksRunRevisionTags));
-  expect(wrapper2.is('a')).toEqual(true);
-  expect(wrapper2.props().href).toEqual('http://localhost/#notebook/13/revision/42');
-
-  const wrapper3 = shallow(Utils.renderSource(databricksRunRevisionTags, '?o=123'));
-  expect(wrapper3.is('a')).toEqual(true);
-  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
-  // and https://stackoverflow.com/a/34772568
-  expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
-
-  const databricksJobTags = {
-    'mlflow.source.name': { value: 'job/70/run/5' },
-    'mlflow.source.type': { value: 'JOB' },
-    'mlflow.databricks.jobID': { value: '70' },
-    'mlflow.databricks.jobRunID': { value: '5' },
-    'mlflow.databricks.jobType': { value: 'NOTEBOOK' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
-  const wrapper4 = shallow(Utils.renderSource(databricksJobTags));
-  expect(wrapper4.is('a')).toEqual(true);
-  expect(wrapper4.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
-test('addQueryParams', () => {
+test('setQueryParams', () => {
   expect(Utils.setQueryParams('http://localhost/foo', '?o=123')).toEqual(
     'http://localhost/foo?o=123',
   );
@@ -195,6 +325,31 @@ test('addQueryParams', () => {
   );
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
+  );
+});
+
+test('addQueryParams', () => {
+  expect(Utils.addQueryParams('', { o: null })).toEqual('');
+  expect(Utils.addQueryParams('?param=val', { o: null })).toEqual('?param=val');
+  expect(Utils.addQueryParams('', { o: 123 })).toEqual('?o=123');
+  expect(Utils.addQueryParams('', { o: 123, param: 'val' })).toEqual('?o=123&param=val');
+  expect(Utils.addQueryParams('?param=val', { o: 123 })).toEqual('?param=val&o=123');
+  expect(Utils.addQueryParams('?o=456', { o: 123 })).toEqual('?o=123');
+});
+
+test('getDefaultJobRunName', () => {
+  expect(Utils.getDefaultJobRunName(null, null)).toEqual('-');
+  expect(Utils.getDefaultJobRunName(123, null)).toEqual('job 123');
+  expect(Utils.getDefaultJobRunName(123, 456)).toEqual('run 456 of job 123');
+  expect(Utils.getDefaultJobRunName(123, 456, 7890)).toEqual('workspace 7890: run 456 of job 123');
+});
+
+test('getDefaultNotebookRevisionName', () => {
+  expect(Utils.getDefaultNotebookRevisionName(null, null)).toEqual('-');
+  expect(Utils.getDefaultNotebookRevisionName(123, null)).toEqual('notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456)).toEqual('revision 456 of notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456, 7890)).toEqual(
+    'workspace 7890: revision 456 of notebook 123',
   );
 });
 
@@ -298,22 +453,22 @@ test('getMetricPlotStateFromUrl', () => {
 });
 
 test('getSearchParamsFromUrl', () => {
-  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url0 = '?searchInput=';
   const url1 = '?p=&q=&r=';
   const url2 = '?';
-  const url3 =
-    '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  const url3 = '?searchInput=some-Input';
+  const url4 = '?boolVal1=true&boolVal2=false';
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
-    paramKeyFilterString: 'filt',
-    metricKeyFilterString: 'metrics',
     searchInput: '',
   });
   expect(Utils.getSearchParamsFromUrl(url1)).toEqual({ p: '', q: '', r: '' });
   expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
   expect(Utils.getSearchParamsFromUrl(url3)).toEqual({
-    paramKeyFilterString: 'some=param',
-    metricKeyFilterString: 'somemetric',
     searchInput: 'some-Input',
+  });
+  expect(Utils.getSearchParamsFromUrl(url4)).toEqual({
+    boolVal1: true,
+    boolVal2: false,
   });
 });
 
@@ -342,4 +497,323 @@ test('compareExperiments', () => {
   expect(Utils.compareExperiments(expA, expB)).toEqual(-1);
 
   expect([expB, exp1, expA, exp0].sort(Utils.compareExperiments)).toEqual([exp0, exp1, expA, expB]);
+});
+
+test('normalize', () => {
+  expect(Utils.normalize('/normalized/absolute/path')).toEqual('/normalized/absolute/path');
+  expect(Utils.normalize('normalized/relative/path')).toEqual('normalized/relative/path');
+  expect(Utils.normalize('http://mlflow.org/resource')).toEqual('http://mlflow.org/resource');
+  expect(Utils.normalize('s3:/bucket/resource')).toEqual('s3:/bucket/resource');
+  expect(Utils.normalize('C:\\Windows\\Filesystem\\Path')).toEqual('C:\\Windows\\Filesystem\\Path');
+  expect(Utils.normalize('///redundant//absolute/path')).toEqual('/redundant/absolute/path');
+  expect(Utils.normalize('redundant//relative///path///')).toEqual('redundant/relative/path');
+  expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
+  expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
+});
+test('getLoggedModelsFromTags correctly parses run tag for logged models', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+  const parsed = Utils.getLoggedModelsFromTags(tags);
+  expect(parsed).toHaveLength(1);
+  expect(parsed[0].artifactPath).toEqual('somePath');
+  expect(parsed[0].flavors).toHaveLength(1);
+  expect(parsed[0].flavors[0]).toEqual('keras');
+});
+
+test('getLoggedModelsFromTags should correctly dedup and sort logged models', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-29',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-30',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const filtered = Utils.getLoggedModelsFromTags(tags);
+  expect(filtered.length).toEqual(2);
+  expect(filtered).toEqual([
+    {
+      artifactPath: 'someOtherPath',
+      flavors: ['pyfunc'],
+      utcTimeCreated: 1604102400,
+    },
+    {
+      artifactPath: 'somePath',
+      flavors: ['sklearn'],
+      utcTimeCreated: 1604016000,
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should merge logged and registered model', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+  const modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      creation_timestamp: 123456,
+      run_id: 'run-uuid',
+    },
+  ];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models).toEqual([
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: 1604102400,
+      registeredModelName: 'someModel',
+      registeredModelVersion: '3',
+      registeredModelCreationTimestamp: 123456,
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should output 2 logged and 1 registered model', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-31',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      run_id: 'run-uuid',
+      creation_timestamp: 123456,
+    },
+  ];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models).toEqual([
+    {
+      artifactPath: 'somePath',
+      flavors: ['keras'],
+      utcTimeCreated: 1604102400,
+      registeredModelName: 'someModel',
+      registeredModelVersion: '3',
+      registeredModelCreationTimestamp: 123456,
+    },
+    {
+      artifactPath: 'someOtherPath',
+      utcTimeCreated: 1604102400,
+      flavors: ['sklearn'],
+    },
+  ]);
+});
+
+test('mergeLoggedAndRegisteredModels should output registered models in order', () => {
+  const tags = {
+    'mlflow.log-model.history': RunTag.fromJs({
+      key: 'mlflow.log-model.history',
+      value: JSON.stringify([
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'somePath',
+          utc_time_created: '2020-10-30',
+          flavors: { keras: {}, python_function: {} },
+        },
+        {
+          run_id: 'run-uuid',
+          artifact_path: 'someOtherPath',
+          utc_time_created: '2020-10-31',
+          flavors: { sklearn: {}, python_function: {} },
+        },
+      ]),
+    }),
+  };
+
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+
+  // Both registered - newer timestamp first
+  let modelVersions = [
+    {
+      name: 'someModel',
+      version: '3',
+      source: 'nananaBatman/artifacts/somePath',
+      run_id: 'run-uuid',
+      creation_timestamp: 12345,
+    },
+    {
+      name: 'someNewerModel',
+      version: '4',
+      source: 'nananaBatman/artifacts/someOtherPath',
+      run_id: 'run-uuid',
+      creation_timestamp: 67890,
+    },
+  ];
+
+  let models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models.length).toEqual(2);
+  expect(models[0]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+    registeredModelName: 'someNewerModel',
+    registeredModelVersion: '4',
+    registeredModelCreationTimestamp: 67890,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+    registeredModelName: 'someModel',
+    registeredModelVersion: '3',
+    registeredModelCreationTimestamp: 12345,
+  });
+
+  // Change order
+  modelVersions[1].name = 'someModel';
+  modelVersions[1].version = '2';
+  modelVersions[1].creation_timestamp = 1000;
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0].registeredModelVersion).toEqual('3');
+
+  // Only one registered
+  modelVersions = [modelVersions[0]];
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+    registeredModelName: 'someModel',
+    registeredModelVersion: '3',
+    registeredModelCreationTimestamp: 12345,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+  });
+
+  // No registered; newest logged model first
+  modelVersions = [];
+  models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
+  expect(models[0]).toEqual({
+    artifactPath: 'someOtherPath',
+    flavors: ['sklearn'],
+    utcTimeCreated: 1604102400,
+  });
+  expect(models[1]).toEqual({
+    artifactPath: 'somePath',
+    flavors: ['keras'],
+    utcTimeCreated: 1604016000,
+  });
+});
+
+test('concatAndGroupArraysById', () => {
+  let arr;
+  let concatArr;
+
+  // sanity test
+  arr = [];
+  concatArr = [];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, '')).toEqual([]);
+
+  // basic functionality
+  arr = [
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+  ];
+  concatArr = [
+    { name: 'harry', enemy: 'voldemort' },
+    { name: 'draco', enemy: 'harry' },
+  ];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly', enemy: 'voldemort' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne', enemy: 'harry' },
+  ]);
+
+  // no common ids - just concatenate
+  arr = [
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+  ];
+  concatArr = [
+    { name: 'ron', enemy: 'spiders' },
+    { name: 'hermione', enemy: 'unknown' },
+  ];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { name: 'luna', house: 'ravenclaw', wand: 'unknown' },
+    { name: 'draco', house: 'slytherin', wand: 'hawthorne' },
+    { name: 'ron', enemy: 'spiders' },
+    { name: 'hermione', enemy: 'unknown' },
+  ]);
+
+  // one common id, no additional fields
+  arr = [{ name: 'harry', house: 'gryffindor', wand: 'holly' }];
+  concatArr = [{ name: 'harry' }];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+  ]);
+
+  // different fields altogether
+  arr = [{ name: 'harry', house: 'gryffindor', wand: 'holly' }];
+  concatArr = [{ id: 123, year: 2020 }];
+  expect(Utils.concatAndGroupArraysById(arr, concatArr, 'name')).toEqual([
+    { name: 'harry', house: 'gryffindor', wand: 'holly' },
+    { id: 123, year: 2020 },
+  ]);
 });

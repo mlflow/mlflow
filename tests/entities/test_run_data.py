@@ -42,8 +42,8 @@ class TestRunData(unittest.TestCase):
                 step=random_int(),
             )
         ]
-        params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
-        tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
+        params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
+        tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]
         rd = RunData(metrics=metrics, params=params, tags=tags)
         return rd, metrics, params, tags
 

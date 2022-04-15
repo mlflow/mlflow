@@ -27,6 +27,28 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
 
+### Tracking information
+
+<!-- This section is optional -->
+
+For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
+
+```python
+print("MLflow version:", mlflow.__version__)
+print("Tracking URI:", mlflow.get_tracking_uri())
+print("Artifact URI:", mlflow.get_artifact_uri())
+```
+
+Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below:
+
+```
+```
+
+If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it:
+
+```
+```
+
 ### Code to reproduce issue
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 
@@ -43,12 +65,12 @@ Components
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
-- [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
-- [ ] `area/server-infra`: MLflow server, JavaScript dev server
+- [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
+- [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interface 
-- [ ] `area/uiux`: Front-end, user experience, JavaScript, plotting
+- [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support

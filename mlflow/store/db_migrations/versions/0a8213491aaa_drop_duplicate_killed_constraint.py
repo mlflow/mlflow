@@ -31,8 +31,11 @@ def upgrade():
     # operation is expected to fail under certain circumstances, we execute `drop_constraint()`
     # outside of the batch operation context.
     try:
-        op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
-    except Exception as e:  # pylint: disable=broad-except
+        # For other database backends, the status check constraint is dropped by
+        # cfd24bdc0731_update_run_status_constraint_with_killed.py
+        if op.get_bind().engine.name == "mysql":
+            op.drop_constraint(constraint_name="status", table_name="runs", type_="check")
+    except Exception as e:
         _logger.warning(
             "Failed to drop check constraint. Dropping check constraints may not be supported"
             " by your SQL database. Exception content: %s",

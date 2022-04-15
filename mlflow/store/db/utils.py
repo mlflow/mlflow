@@ -1,4 +1,5 @@
 import os
+import time
 
 from contextlib import contextmanager
 import logging
@@ -14,9 +15,9 @@ from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
 
-
 MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
+MAX_RETRY_COUNT = 15
 
 
 def _get_package_dir():
@@ -150,38 +151,26 @@ def _get_schema_version(engine):
         return mc.get_current_revision()
 
 
-def _is_initialized_before_mlflow_1(engine):
-    """
-    Returns true if the database at the specified URL was initialized before MLflow 1.0, False
-    otherwise.
-    A database is initialized before MLflow 1.0 if and only if its revision ID is set to None.
-    """
-    return _get_schema_version(engine) is None
-
-
-def _upgrade_db_initialized_before_mlflow_1(engine):
-    """
-    Upgrades the schema of an MLflow tracking database created prior to MLflow 1.0, removing
-    duplicate constraint names. This method performs a one-time update for pre-1.0 users that we
-    plan to make available in MLflow 1.0 but remove in successive versions (e.g. MLflow 1.1),
-    after which we will assume that effectively all databases have been initialized using the schema
-    in mlflow.store.dbmodels.initial_models (with a small number of special-case databases
-    initialized pre-1.0 and migrated to have the same schema as mlflow.store.dbmodels.initial_models
-    via this method).
-    TODO: remove this method in MLflow 1.1.
-    """
-    # alembic adds significant import time, so we import it lazily
-    from alembic import command
-
-    _logger.info("Updating database tables in preparation for MLflow 1.0 schema migrations ")
-    alembic_dir = os.path.join(_get_package_dir(), "temporary_db_migrations_for_pre_1_users")
-    config = _get_alembic_config(str(engine.url), alembic_dir)
-    command.upgrade(config, "heads")
-    # Reset the alembic version to "base" (the 'first' version) so that a) the versioning system
-    # is unaware that this migration occurred and b) subsequent migrations, like the migration to
-    # add metric steps, do not need to depend on this one. This allows us to eventually remove this
-    # method and the associated migration e.g. in MLflow 1.1.
-    command.stamp(config, "base")
+def create_sqlalchemy_engine_with_retry(db_uri):
+    attempts = 0
+    while True:
+        attempts += 1
+        engine = create_sqlalchemy_engine(db_uri)
+        try:
+            sqlalchemy.inspect(engine)
+            return engine
+        except Exception as e:
+            if attempts < MAX_RETRY_COUNT:
+                sleep_duration = 0.1 * ((2**attempts) - 1)
+                _logger.warning(
+                    "SQLAlchemy engine could not be created. The following exception is caught.\n"
+                    "%s\nOperation will be retried in %.1f seconds",
+                    e,
+                    sleep_duration,
+                )
+                time.sleep(sleep_duration)
+                continue
+            raise
 
 
 def create_sqlalchemy_engine(db_uri):

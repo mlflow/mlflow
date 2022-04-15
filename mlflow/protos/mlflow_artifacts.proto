@@ -1,0 +1,86 @@
+// This proto file defines the MLflow Artifacts Service that provides the following REST APIs
+// for proxied artifact operations:
+// - /mlflow-artifacts/artifacts/<artifact_path> GET: Download an artifact
+// - /mlflow-artifacts/artifacts/<artifact_path> PUT: Upload an artifact
+// - /mlflow-artifacts/artifact?path=<value> GET: List artifacts
+
+syntax = "proto2";
+
+package mlflow.artifacts;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service MlflowArtifactsService {
+
+  rpc downloadArtifact (DownloadArtifact) returns (DownloadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Download Artifact",
+    };
+  }
+
+  rpc uploadArtifact (UploadArtifact) returns (UploadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PUT",
+        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Upload Artifact",
+    };
+  }
+
+  rpc listArtifacts (ListArtifacts) returns (ListArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow-artifacts/artifacts",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Artifacts",
+    };
+  }
+}
+
+message DownloadArtifact {
+  message Response {}
+}
+
+message UploadArtifact {
+  message Response {}
+}
+
+message ListArtifacts {
+  // Filter artifacts matching this path (a relative path from the root artifact directory).
+  optional string path = 1;
+
+  message Response {
+    // File location and metadata for artifacts.
+    repeated FileInfo files = 1;
+  }
+}
+
+message FileInfo {
+  // Path relative to the root artifact directory run.
+  optional string path = 1;
+
+  // Whether the path is a directory.
+  optional bool is_dir = 2;
+
+  // Size in bytes. Unset for directories.
+  optional int64 file_size = 3;
+}

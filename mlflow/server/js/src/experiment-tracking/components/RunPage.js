@@ -10,6 +10,8 @@ import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { Spinner } from '../../common/components/Spinner';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class RunPageImpl extends Component {
   static propTypes = {
@@ -30,7 +32,7 @@ export class RunPageImpl extends Component {
 
   setTagRequestId = getUUID();
 
-  componentWillMount() {
+  componentDidMount() {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
     this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
@@ -45,7 +47,9 @@ export class RunPageImpl extends Component {
   };
 
   renderRunView = (isLoading, shouldRenderError, requests) => {
-    if (shouldRenderError) {
+    if (isLoading) {
+      return <Spinner />;
+    } else if (shouldRenderError) {
       const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
       if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
         return <RunNotFoundView runId={this.props.runUuid} />;
@@ -56,7 +60,7 @@ export class RunPageImpl extends Component {
       <RunView
         runUuid={this.props.runUuid}
         getMetricPagePath={(key) =>
-          Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+          Routes.getMetricPageRoute([this.props.runUuid], key, [this.props.experimentId])
         }
         experimentId={this.props.experimentId}
         modelVersions={this.props.modelVersions}
@@ -68,9 +72,9 @@ export class RunPageImpl extends Component {
   render() {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }
@@ -78,9 +82,12 @@ export class RunPageImpl extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { match } = ownProps;
   const { runUuid, experimentId } = match.params;
+  const { modelVersionsByRunUuid } = state.entities;
+  const modelVersions = modelVersionsByRunUuid ? modelVersionsByRunUuid[runUuid] : null;
   return {
     runUuid,
     experimentId,
+    modelVersions,
     // so that we re-render the component when the route changes
     key: runUuid + experimentId,
   };

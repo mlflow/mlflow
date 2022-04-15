@@ -1,14 +1,23 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.10.1
-Authors@R: c(
-  person("Matei", "Zaharia", email = "matei@databricks.com", role = c("aut", "cre")),
-  person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("aut")),
-  person("Kevin", "Kuo", role = c("aut"), email = "kevin.kuo@rstudio.com",
-         comment = c(ORCID = "0000-0001-7803-7901")),
-  person(family = "RStudio", role = c("cph"))
-  )
+Version: 1.25.2
+Authors@R: 
+    c(person(given = "Matei",
+             family = "Zaharia",
+             role = c("aut", "cre"),
+             email = "matei@databricks.com"),
+      person(given = "Javier",
+             family = "Luraschi",
+             role = "aut",
+             email = "jluraschi@gmail.com"),
+      person(given = "Kevin",
+             family = "Kuo",
+             role = "aut",
+             email = "kevin.kuo@rstudio.com",
+             comment = c(ORCID = "0000-0001-7803-7901")),
+      person(family = "RStudio",
+             role = "cph"))
 Maintainer: Matei Zaharia <matei@databricks.com>
 Description: R interface to 'MLflow', open source platform for
     the complete machine learning life cycle, see <https://mlflow.org/>.
@@ -37,15 +46,48 @@ Imports:
     swagger,
     tibble (>= 2.0.0),
     withr,
-    xml2,
     yaml,
     zeallot
-Suggests: 
-  covr,
-  carrier,
-  keras,
-  lintr,
-  testthat,
-  stringi (< 1.4.4),
-  xgboost
-RoxygenNote: 7.1.1
+Suggests:
+    carrier,
+    covr,
+    h2o,
+    keras,
+    lintr,
+    sparklyr,
+    stringi (< 1.4.4),
+    testthat (>= 2.0.0),
+    xgboost
+Encoding: UTF-8
+RoxygenNote: 7.1.2
+Collate:
+    'cli.R'
+    'databricks-utils.R'
+    'globals.R'
+    'imports.R'
+    'install.R'
+    'logging.R'
+    'mlflow-package.R'
+    'model-crate.R'
+    'model-python.R'
+    'model.R'
+    'model-utils.R'
+    'model-h2o.R'
+    'model-keras.R'
+    'model-registry.R'
+    'model-serve.R'
+    'model-swagger.R'
+    'model-xgboost.R'
+    'project-param.R'
+    'project-run.R'
+    'project-source.R'
+    'python.R'
+    'tracking-client.R'
+    'tracking-experiments.R'
+    'tracking-observer.R'
+    'tracking-globals.R'
+    'tracking-rest.R'
+    'tracking-runs.R'
+    'tracking-server.R'
+    'tracking-ui.R'
+    'tracking-utils.R'

@@ -1,8 +1,13 @@
-import { primaryBlue, blueGreen200, gray600, green700, orange700 } from './color';
+import { primaryBlue, gray600, green700, orange700 } from './color';
 
 export const accessibilityOverrides = {
   a: {
-    color: blueGreen200,
+    // using webapp colors
+    color: '#2374bb',
+
+    '&:hover, &:focus': {
+      color: '#005580',
+    },
   },
   '.staging-tag': {
     color: orange700,
@@ -13,10 +18,6 @@ export const accessibilityOverrides = {
     color: green700,
     borderColor: green700,
     backgroundColor: 'white',
-  },
-  '.btn.btn-primary': {
-    borderColor: primaryBlue,
-    backgroundColor: primaryBlue,
   },
   '.ant-btn-primary': {
     borderColor: primaryBlue,

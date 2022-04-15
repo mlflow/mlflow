@@ -1,6 +1,10 @@
 import click
+import sys
+import json
+from inspect import signature
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
+from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
 def _user_args_to_dict(user_list):
@@ -9,14 +13,14 @@ def _user_args_to_dict(user_list):
     for s in user_list:
         try:
             name, value = s.split("=")
-        except ValueError:
+        except ValueError as exc:
             # not enough values to unpack
             raise click.BadOptionUsage(
                 "config",
                 "Config options must be a pair and should be"
                 "provided as ``-C key=value`` or "
                 "``--config key=value``",
-            )
+            ) from exc
         if name in user_dict:
             raise click.ClickException("Repeated parameter: '{}'".format(name))
         user_dict[name] = value
@@ -25,12 +29,12 @@ def _user_args_to_dict(user_list):
 
 installed_targets = [target for target in interface.plugin_store.registry]
 if len(installed_targets) > 0:
-    supported_targets_msg = "Support is currently installed for deployment to: " "{targets}".format(
+    supported_targets_msg = "Support is currently installed for deployment to: {targets}".format(
         targets=", ".join(installed_targets)
     )
 else:
     supported_targets_msg = (
-        "NOTE: you currently do not have support for installed for any " "deployment targets."
+        "NOTE: you currently do not have support installed for any deployment targets."
     )
 
 target_details = click.option(
@@ -61,6 +65,16 @@ parse_custom_arguments = click.option(
     "deployment, of the form -C name=value. See "
     "documentation/help for your deployment target for a "
     "list of supported config options.",
+)
+
+parse_input = click.option(
+    "--input-path", "-I", required=True, help="Path to input json file for prediction"
+)
+
+parse_output = click.option(
+    "--output-path",
+    "-O",
+    help="File to output results to as a JSON file. If not provided, prints output to stdout.",
 )
 
 
@@ -96,7 +110,6 @@ def commands():
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
     """
-    pass
 
 
 @commands.command("create")
@@ -107,7 +120,7 @@ def commands():
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def create_deployment(flavor, model_uri, target, name, config):
     """
@@ -139,7 +152,7 @@ def create_deployment(flavor, model_uri, target, name, config):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def update_deployment(flavor, model_uri, target, name, config):
     """
@@ -156,14 +169,22 @@ def update_deployment(flavor, model_uri, target, name, config):
 
 
 @commands.command("delete")
+@parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name):
+def delete_deployment(target, name, config):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
     client = interface.get_deploy_client(target)
-    client.delete_deployment(name)
+
+    sig = signature(client.delete_deployment)
+    if "config" in sig.parameters:
+        config_dict = _user_args_to_dict(config)
+        client.delete_deployment(name, config=config_dict)
+    else:
+        client.delete_deployment(name)
+
     click.echo("Deployment {} is deleted".format(name))
 
 
@@ -212,7 +233,7 @@ def target_help(target):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def run_local(flavor, model_uri, target, name, config):
     """
@@ -220,3 +241,57 @@ def run_local(flavor, model_uri, target, name, config):
     """
     config_dict = _user_args_to_dict(config)
     interface.run_local(target, name, model_uri, flavor, config_dict)
+
+
+def predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    json.dump(predictions, output, cls=NumpyEncoder)
+
+
+@commands.command("predict")
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def predict(target, name, input_path, output_path):
+    """
+    Predict the results for the deployed model for the given input(s)
+    """
+    import pandas as pd
+
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.predict(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)
+
+
+@commands.command("explain")
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def explain(target, name, input_path, output_path):
+    """
+    Generate explanations of model predictions on the specified input for
+    the deployed model for the given input(s). Explanation output formats vary
+    by deployment target, and can include details like feature importance for
+    understanding/debugging predictions. Run `mlflow deployments help` or
+    consult the documentation for your plugin for details on explanation format.
+    For information about the input data formats accepted by this function,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools
+    """
+    import pandas as pd
+
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.explain(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)

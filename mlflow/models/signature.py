@@ -4,7 +4,7 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, TYPE_CHECKING
 
 import pandas as pd
 import numpy as np
@@ -12,17 +12,19 @@ import numpy as np
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-try:
-    import pyspark.sql.dataframe
+# At runtime, we don't need  `pyspark.sql.dataframe`
+if TYPE_CHECKING:
+    try:
+        import pyspark.sql.dataframe
 
-    MlflowInferableDataset = Union[
-        pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-    ]
-except ImportError:
-    MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+        MlflowInferableDataset = Union[
+            pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
+        ]
+    except ImportError:
+        MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 
-class ModelSignature(object):
+class ModelSignature:
     """
     ModelSignature specifies schema of model's inputs and outputs.
 
@@ -94,7 +96,7 @@ class ModelSignature(object):
 
 
 def infer_signature(
-    model_input: Any, model_output: MlflowInferableDataset = None
+    model_input: Any, model_output: "MlflowInferableDataset" = None
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
@@ -111,6 +113,10 @@ def infer_signature(
       - pyspark.sql.DataFrame
 
     The element types should be mappable to one of :py:class:`mlflow.types.DataType`.
+
+    For pyspark.sql.DataFrame inputs, columns of type DateType and TimestampType are both inferred
+    as type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is coerced to
+    TimestampType at inference.
 
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
