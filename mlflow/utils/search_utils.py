@@ -189,7 +189,7 @@ class SearchUtils:
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. " "Found {}".format(token.value),
+                    "Expected numeric value type for metric. Found {}".format(token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
@@ -435,7 +435,7 @@ class SearchUtils:
         parsed = cls.parse_search_filter(filter_string)
 
         def run_matches(run):
-            return all([cls._does_run_match_clause(run, s) for s in parsed])
+            return all(cls._does_run_match_clause(run, s) for s in parsed)
 
         return [run for run in runs if run_matches(run)]
 
@@ -462,7 +462,7 @@ class SearchUtils:
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
             statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
-            and all([token.is_whitespace for token in statement.tokens[1:-1]])
+            and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP + " " + statement.tokens[-1].value
@@ -798,7 +798,7 @@ class SearchUtils:
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                "Invalid clause(s) in filter string: %s. %s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         token_list = cls._process_statement_tokens(statement.tokens, filter_string)

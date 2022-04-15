@@ -8,7 +8,6 @@ import atexit
 import time
 import logging
 import inspect
-import warnings
 from copy import deepcopy
 from packaging.version import Version
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
@@ -31,6 +30,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -1203,7 +1203,7 @@ def search_runs(
         print("--")
 
         # Search for all the runs in the experiment with the given experiment name
-        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        df = mlflow.search_runs(experiment_names=[experiment_name], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
 
 
@@ -1605,34 +1605,6 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
-
-    def _get_tensorflow_autologging_params():
-        """
-        Generates autologging params for tensorflow module.
-        Specifically, turns `log_model_signatures` False since
-        turning it to True can result in a different output type
-        compared to the input type used for predict using
-        PyFunc implementation.
-        """
-
-        warnings.warn(
-            "When 'log_model_signatures' is set to True, "
-            "it can result in output types that differ from the input type"
-            " for predict using PyFunc implementation. "
-            "For example, if pandas DF is used for prediction input, "
-            "the output could be ndarray or dict of (str -> ndarray) based "
-            "on what the signature of the model was inferred. In order to intentionally use "
-            "'log_model_signatures', the user must explicitly call"
-            " 'mlflow.tensorflow.autolog(log_model_signatures=True)'"
-        )
-
-        needed_params = get_autologging_params(LIBRARY_TO_AUTOLOG_FN.get("tensorflow"))
-        log_model_signature_key = "log_model_signatures"
-        if log_model_signature_key in needed_params:
-            needed_params[log_model_signature_key] = False
-        return needed_params
-
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1642,32 +1614,29 @@ def autolog(
 
     def setup_autologging(module):
         try:
-            module_name = module.__name__
-            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module_name]
+            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
 
             # Only call integration's autolog function with `mlflow.autolog` configs
             # if the integration's autolog function has not already been called by the user.
             # Logic is as follows:
             # - if a previous_config exists, that means either `mlflow.autolog` or
             #   `mlflow.integration.autolog` was called.
-            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
-            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
-            #   `autologging_params`.
+            # - if the config contains `AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED`, the
+            #   configuration was set by `mlflow.autolog`, and so we can safely call `autolog_fn`
+            #   with `autologging_params`.
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
             prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
-            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+            if prev_config and not prev_config.get(
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            ):
                 return
 
-            autologging_params = (
-                _get_tensorflow_autologging_params()
-                if module_name == "tensorflow"
-                else get_autologging_params(autolog_fn)
-            )
+            autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
-                CONF_KEY_IS_GLOBALLY_CONFIGURED
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(
                 autolog_fn.integration_name

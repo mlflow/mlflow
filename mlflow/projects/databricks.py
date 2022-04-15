@@ -47,7 +47,7 @@ def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
     if backend_config is None:
         raise ExecutionException(
-            "Backend spec must be provided when launching MLflow project " "runs on Databricks."
+            "Backend spec must be provided when launching MLflow project runs on Databricks."
         )
     elif "existing_cluster_id" in backend_config:
         raise MlflowException(

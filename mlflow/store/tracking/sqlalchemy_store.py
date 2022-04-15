@@ -133,7 +133,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlLatestMetric.__tablename__,
         ]
         inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any([table not in inspected_tables for table in expected_tables]):
+        if any(table not in inspected_tables for table in expected_tables):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
@@ -250,7 +250,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 

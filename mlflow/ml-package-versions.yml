@@ -28,7 +28,7 @@ pytorch:
 
   models:
     minimum: "1.4.0"
-    maximum: "1.10.2"
+    maximum: "1.11.0"
     requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.5.10"
+    maximum: "1.6.0"
     requirements:
       "< 1.2.0": ["torch<1.11.0", "torchvision", "scikit-learn"]
       ">= 1.2.0": ["torchvision", "scikit-learn"]
@@ -162,7 +162,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.4"
+    maximum: "1.0.5"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -196,14 +196,14 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.5.3"
+    maximum: "2.5.6"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.5.3"
+    maximum: "2.5.6"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -245,7 +245,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.2.2"
+    maximum: "3.2.4"
     requirements:
       "<= 3.0.8": ["scikit-learn", "click<8.1.0", "flask<2.1.0"]
       "> 3.0.8": ["scikit-learn", "click<8.1.0"]
@@ -333,7 +333,7 @@ mleap:
 
   models:
     minimum: "0.15.0"
-    maximum: "0.19.0"
+    maximum: "0.20.0"
     requirements:
       "<= 0.17.0": ["pyspark==2.4.5"]
       "> 0.17.0": ["pyspark==3.0.2"]

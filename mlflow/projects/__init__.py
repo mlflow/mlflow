@@ -5,6 +5,7 @@ import json
 import yaml
 import os
 import logging
+import warnings
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
@@ -19,13 +20,14 @@ from mlflow.projects.utils import (
     get_or_create_run,
     load_project,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    PROJECT_USE_CONDA,
+    PROJECT_ENV_MANAGER,
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
 )
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
+from mlflow.utils.environment import _EnvManager
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -72,8 +74,8 @@ def _run(
     docker_args,
     backend_name,
     backend_config,
-    use_conda,
     storage_dir,
+    env_manager,
     synchronous,
     run_name,
 ):
@@ -82,7 +84,7 @@ def _run(
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
     tracking_store_uri = tracking.get_tracking_uri()
-    backend_config[PROJECT_USE_CONDA] = use_conda
+    backend_config[PROJECT_ENV_MANAGER] = env_manager
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
     backend_config[PROJECT_STORAGE_DIR] = storage_dir
@@ -191,6 +193,7 @@ def run(
     synchronous=True,
     run_id=None,
     run_name=None,
+    env_manager=None,
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -229,7 +232,8 @@ def run(
                            be passed as config to the backend. The exact content which should be
                            provided is different for each execution backend and is documented
                            at https://www.mlflow.org/docs/latest/projects.html.
-    :param use_conda: If True (the default), create a new Conda environment for the run and
+    :param use_conda: This argument is deprecated. Use `env_manager='local'` instead.
+                      If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
                       dependencies.
@@ -248,6 +252,14 @@ def run(
                    creating a new run.
     :param run_name: The name to give the MLflow Run associated with the project execution.
                      If ``None``, the MLflow Run name is left unset.
+    :param env_manager: Specify an environment manager to create a new environment for the run and
+                        install project dependencies within that environment. The following values
+                        are suppported:
+
+                        - local: use the local environment
+                        - conda: use conda
+
+                        If unspecified, default to conda.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -290,6 +302,21 @@ def run(
                 )
                 raise
 
+    if not use_conda:
+        warnings.warn(
+            (
+                "`use_conda` is deprecated and will be removed in a future MLflow release. "
+                "Use `env_manager='local'` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+
+    if env_manager:
+        env_manager = _EnvManager.from_string(env_manager)
+    else:
+        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
+
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
     elif backend == "local" and run_id is not None:
@@ -308,7 +335,7 @@ def run(
         docker_args=docker_args,
         backend_name=backend,
         backend_config=backend_config_dict,
-        use_conda=use_conda,
+        env_manager=env_manager,
         storage_dir=storage_dir,
         synchronous=synchronous,
         run_name=run_name,
@@ -369,7 +396,7 @@ def _parse_kubernetes_config(backend_config):
     kube_config = backend_config.copy()
     if "kube-job-template-path" not in backend_config.keys():
         raise ExecutionException(
-            "'kube-job-template-path' attribute must be specified in " "backend_config."
+            "'kube-job-template-path' attribute must be specified in backend_config."
         )
     kube_job_template = backend_config["kube-job-template-path"]
     if os.path.exists(kube_job_template):

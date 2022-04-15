@@ -494,7 +494,7 @@ class FileStore(AbstractStore):
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "Could not create run under non-active experiment with ID " "%s." % experiment_id,
+                "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
         run_uuid = uuid.uuid4().hex
@@ -715,10 +715,8 @@ class FileStore(AbstractStore):
         run_dirs = list_all(
             experiment_dir,
             filter_func=lambda x: all(
-                [
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                ]
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
             )
             and os.path.isdir(x),
             full_path=True,

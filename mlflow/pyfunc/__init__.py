@@ -256,9 +256,13 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
+from mlflow.utils.process import cache_return_value_per_process
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -399,7 +403,7 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         def all_ints(xs):
-            return all([pandas.isnull(x) or int(x) == x for x in xs])
+            return all(pandas.isnull(x) or int(x) == x for x in xs)
 
         hint = ""
         if (
@@ -861,23 +865,32 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         )
 
 
-def _get_or_create_model_cache_dir():
-    nfs_root_dir = get_nfs_cache_root_dir()
-    if nfs_root_dir is not None:
-        # In databricks, the '/local_disk0/.ephemeral_nfs' is mounted as NFS disk
-        # the data stored in the disk is shared with all remote nodes.
-        root_dir = os.path.join(nfs_root_dir, "models")
-        os.makedirs(root_dir, exist_ok=True)
-        tmp_model_dir = tempfile.mkdtemp(dir=root_dir)
-        # TODO: register deleting tmp_model_dir handler when exit
+def _create_model_downloading_tmp_dir(should_use_nfs):
+    if should_use_nfs:
+        root_tmp_dir = get_or_create_nfs_tmp_dir()
     else:
-        import atexit
-        import shutil
+        root_tmp_dir = get_or_create_tmp_dir()
 
-        tmp_model_dir = tempfile.mkdtemp()
-        atexit.register(shutil.rmtree, tmp_model_dir, ignore_errors=True)
+    root_model_cache_dir = os.path.join(root_tmp_dir, "models")
+    os.makedirs(root_model_cache_dir, exist_ok=True)
 
+    tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
+    # mkdtemp creates a directory with permission 0o700
+    # change it to be 0o777 to ensure it can be seen in spark UDF
+    os.chmod(tmp_model_dir, 0o777)
     return tmp_model_dir
+
+
+@cache_return_value_per_process
+def _get_or_create_env_root_dir(should_use_nfs):
+    if should_use_nfs:
+        root_tmp_dir = get_or_create_nfs_tmp_dir()
+    else:
+        root_tmp_dir = get_or_create_tmp_dir()
+
+    env_root_dir = os.path.join(root_tmp_dir, "envs")
+    os.makedirs(env_root_dir, exist_ok=True)
+    return env_root_dir
 
 
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
@@ -992,12 +1005,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
     is_spark_in_local_mode = spark.conf.get("spark.master").startswith("local")
-    # TODO:
-    #  change `should_use_nfs` to be get_nfs_cache_root_dir() is not None
-    #  when NFS optimization added.
-    should_use_nfs = False
 
+    nfs_root_dir = get_nfs_cache_root_dir()
+    should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
+    conda_env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1008,7 +1020,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
 
-    if not any([isinstance(elem_type, x) for x in supported_types]):
+    if not any(isinstance(elem_type, x) for x in supported_types):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
             "of the following types: {}".format(str(elem_type), str(supported_types)),
@@ -1016,7 +1028,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         )
 
     local_model_path = _download_artifact_from_uri(
-        artifact_uri=model_uri, output_path=_get_or_create_model_cache_dir()
+        artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
     )
 
     if env_manager is _EnvManager.LOCAL:
@@ -1047,10 +1059,21 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
     if not should_use_spark_to_broadcast_file:
         # Prepare restored environment in driver side if possible.
+        # Note: In databricks runtime, because databricks notebook cell output cannot capture
+        # child process output, so that set capture_output to be True so that when `conda prepare
+        # env` command failed, the exception message will include command stdout/stderr output.
+        # Otherwise user have to check cluster driver log to find command stdout/stderr output.
+        # In non-databricks runtime, set capture_output to be False, because the benefit of
+        # "capture_output=False" is the output will be printed immediately, otherwise you have
+        # to wait conda command fail and suddenly get all output printed (included in error
+        # message).
         if env_manager is _EnvManager.CONDA:
             _get_flavor_backend(
-                local_model_path, env_manager=_EnvManager.CONDA, install_mlflow=False
-            ).prepare_env(model_uri=local_model_path, capture_output=False)
+                local_model_path,
+                env_manager=_EnvManager.CONDA,
+                install_mlflow=False,
+                env_root_dir=conda_env_root_dir,
+            ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
 
     # Broadcast local model directory to remote worker if needed.
     if should_use_spark_to_broadcast_file:
@@ -1140,50 +1163,42 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         scoring_server_proc = None
 
         # TODO: Support virtual env.
-        #
-        # TODO: For conda/virtualenv restored env cases,
-        #  For each individual python process (driver side), create individual and temporary
-        #  conda env dir / virtualenv env dir and when process exit,
-        #  delete the temporary env dir.
-        #  The reason is
-        #   1. env dir might be a large size directory and cleaning it when process exit
-        #      help saving disk space.
-        #   2. We have conda package cache dir and pip cache dir which are shared across all
-        #      python processes which help reducing downloading time.
-        #   3. Avoid race conditions related issues.
-        #
-        # TODO:
-        #   For NFS available case, set conda env dir / virtualenv env dir in sub-directory under
-        #   NFS directory, and in spark driver side prepare restored env once, and then all
-        #   spark UDF tasks running on spark workers can skip re-creating the restored env.
         if env_manager is _EnvManager.CONDA:
-            server_port = find_free_port()
-
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
+                # Create individual conda_env_root_dir for each spark UDF task process.
+                conda_env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
+            else:
+                local_model_path_on_executor = local_model_path
+                conda_env_root_dir_on_executor = conda_env_root_dir
+
+            pyfunc_backend = _get_flavor_backend(
+                local_model_path_on_executor,
+                workers=1,
+                install_mlflow=False,
+                env_manager=_EnvManager.CONDA,
+                env_root_dir=conda_env_root_dir_on_executor,
+            )
+
+            if should_use_spark_to_broadcast_file:
                 # Call "prepare_env" in advance in order to reduce scoring server launch time.
                 # So that we can use a shorter timeout when call `client.wait_server_ready`,
                 # otherwise we have to set a long timeout for `client.wait_server_ready` time,
                 # this prevents spark UDF task failing fast if other exception raised when scoring
                 # server launching.
-                _get_flavor_backend(
-                    local_model_path_on_executor,
-                    env_manager=_EnvManager.CONDA,
-                    install_mlflow=False,
-                ).prepare_env(model_uri=local_model_path_on_executor, capture_output=True)
-            else:
-                local_model_path_on_executor = local_model_path
-            # launch scoring server
+                # Set "capture_output" so that if "conda env create" command failed, the command
+                # stdout/stderr output will be attached to the exception message and included in
+                # driver side exception.
+                pyfunc_backend.prepare_env(
+                    model_uri=local_model_path_on_executor, capture_output=True
+                )
 
+            # launch scoring server
             # TODO: adjust timeout for server requests handler.
-            scoring_server_proc = _get_flavor_backend(
-                local_model_path_on_executor,
-                env_manager=_EnvManager.CONDA,
-                workers=1,
-                install_mlflow=False,
-            ).serve(
+            server_port = find_free_port()
+            scoring_server_proc = pyfunc_backend.serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
                 host="127.0.0.1",
@@ -1406,8 +1421,8 @@ def save_model(
         "artifacts": artifacts,
         "python_model": python_model,
     }
-    first_argument_set_specified = any([item is not None for item in first_argument_set.values()])
-    second_argument_set_specified = any([item is not None for item in second_argument_set.values()])
+    first_argument_set_specified = any(item is not None for item in first_argument_set.values())
+    second_argument_set_specified = any(item is not None for item in second_argument_set.values())
     if first_argument_set_specified and second_argument_set_specified:
         raise MlflowException(
             message=(
@@ -1658,6 +1673,8 @@ def _save_model_with_loader_module_and_data_path(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 

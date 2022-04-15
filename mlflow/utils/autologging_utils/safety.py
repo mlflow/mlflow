@@ -848,7 +848,7 @@ def _validate_args(
             length_difference = len(autologging_call_input) - len(user_call_input)
             assert (
                 length_difference >= 0
-            ), "{} expected inputs are missing from the call" " to the original function.".format(
+            ), "{} expected inputs are missing from the call to the original function.".format(
                 length_difference
             )
             # If the autologging call input is longer than the user call input, we `zip_longest`

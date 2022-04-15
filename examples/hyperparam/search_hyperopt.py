@@ -23,7 +23,7 @@ _inf = np.finfo(np.float64).max
 
 
 @click.command(
-    help="Perform hyperparameter search with Hyperopt library." "Optimize dl_train target."
+    help="Perform hyperparameter search with Hyperopt library. Optimize dl_train target."
 )
 @click.option("--max-runs", type=click.INT, default=10, help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500, help="Number of epochs")
