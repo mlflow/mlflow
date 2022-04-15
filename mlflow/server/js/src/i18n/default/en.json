@@ -731,6 +731,10 @@
     "defaultMessage": "Transition to",
     "description": "Text for activity description under confirmation modal for model\n             version stage transition"
   },
+  "Zc48NC": {
+    "defaultMessage": "(unknown)",
+    "description": "Filler text when run's time information is unavailable"
+  },
   "ZvBSjw": {
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the params for the experiment run "
