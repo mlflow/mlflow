@@ -26,6 +26,7 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
+
 ### Tracking information
 
 <!-- This section is optional -->
