@@ -1632,7 +1632,6 @@ conda
 
     - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 virtualenv
-
     .. note::
         Virtualenv support is still experimental and may be changed in a future MLflow release.
 
