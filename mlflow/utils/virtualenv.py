@@ -3,7 +3,6 @@ import logging
 import shutil
 import uuid
 import re
-import tempfile
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
@@ -17,9 +16,8 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.utils.conda import _get_conda_dependencies
-
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
 
@@ -34,11 +32,17 @@ def _get_mlflow_virtualenv_root():
     return os.getenv(_MLFLOW_ENV_ROOT_ENV_VAR, str(Path.home().joinpath(".mlflow", "envs")))
 
 
+_DATABRICKS_PYENV_BIN_PATH = "/databricks/.pyenv/bin/pyenv"
+
+
 def _is_pyenv_available():
     """
     Returns True if pyenv is available, otherwise False.
     """
-    return shutil.which("pyenv") is not None
+    if is_in_databricks_runtime():
+        return os.path.exists(_DATABRICKS_PYENV_BIN_PATH)
+    else:
+        return shutil.which("pyenv") is not None
 
 
 def _validate_pyenv_is_available():
@@ -111,8 +115,9 @@ def _install_python(version, pyenv_root=None):
     # https://github.com/pyenv-win/pyenv-win/pull/314
     pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
     extra_env = {"PYENV_ROOT": pyenv_root} if pyenv_root else None
+    pyenv_bin_path = _DATABRICKS_PYENV_BIN_PATH if is_in_databricks_runtime() else "pyenv"
     _exec_cmd(
-        ["pyenv", "install", *pyenv_install_options, version],
+        [pyenv_bin_path, "install", *pyenv_install_options, version],
         capture_output=False,
         # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
         shell=not _IS_UNIX,
@@ -121,7 +126,7 @@ def _install_python(version, pyenv_root=None):
 
     if _IS_UNIX:
         if pyenv_root is None:
-            pyenv_root = _exec_cmd(["pyenv", "root"], capture_output=True).stdout.strip()
+            pyenv_root = _exec_cmd([pyenv_bin_path, "root"], capture_output=True).stdout.strip()
         path_to_bin = ("bin", "python")
     else:
         if pyenv_root is None:
