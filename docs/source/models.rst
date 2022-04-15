@@ -99,7 +99,7 @@ databricks_runtime
 
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using one of ``conda``, ``virtualenv``, and ``pip``.
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``.
 
 .. note::
     Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
@@ -129,10 +129,10 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 python_env.yaml
-    This file contains the following information that's required to restore a model environment using virtualenv.
+    This file contains the following information that's required to restore a model environment using virtualenv:
 
     - Python version
-    - Pip requirements for ``pip``, ``setuptools``, and ``wheel``
+    - Version specifiers for ``pip``, ``setuptools``, and ``wheel``
     - Pip requirements of the model (reference to ``requirements.txt``)
 
 requirements.txt
@@ -1632,15 +1632,15 @@ conda
 
     - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 virtualenv
-    .. note::
-        Virtualenv support is still experimental and may be changed in a future MLflow release.
-
     Create environments using virtualenv and pyenv (for python version management). Virtualenv and
-    pyenv (for Linux and macOX) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
+    pyenv (for Linux and macOS) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
 
     - `virtualenv installation instructions <https://virtualenv.pypa.io/en/latest/installation.html>`_
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
+
+    .. note::
+        Virtualenv support is still experimental and may be changed in a future MLflow release.
 
 The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
 
