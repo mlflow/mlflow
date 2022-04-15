@@ -210,7 +210,7 @@ class PyFuncBackend(FlavorBackend):
                 local_path, self._env_id, env_root_dir=self._env_root_dir
             )
             child_proc = _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow, command_env,
+                activate_cmd, command, self._install_mlflow,
                 extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
             )
         else:
