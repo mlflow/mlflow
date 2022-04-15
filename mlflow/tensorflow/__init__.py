@@ -824,7 +824,7 @@ def autolog(
                 )
             return input_features
 
-        if log_models:
+        if log_input_examples:
             nonlocal input_example_slice
             nonlocal tf_model
             input_example_slice = _extract_data_from_input_fn()
