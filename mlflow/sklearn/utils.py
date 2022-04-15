@@ -348,8 +348,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
-                        y=y_true,
                         sample_weight=sample_weight,
+                        **{y_true_arg_name: y_true},
                     ),
                     title="ROC curve",
                 ),
@@ -361,8 +361,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
-                        y=y_true,
                         sample_weight=sample_weight,
+                        **{y_true_arg_name: y_true},
                     ),
                     title="Precision recall curve",
                 ),
