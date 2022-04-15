@@ -177,11 +177,11 @@ The written ``python_env.yaml`` file:
 
     python: 3.8.8
     build_dependencies:
-    - pip==21.1.3
-    - setuptools==57.4.0
-    - wheel==0.37.0
+      - pip==21.1.3
+      - setuptools==57.4.0
+      - wheel==0.37.0
     dependencies:
-    - -r requirements.txt
+      - -r requirements.txt
 
 The written ``requirements.txt`` file:
 
@@ -1628,21 +1628,22 @@ MLflow currently supports the following environment management tools to restore 
 local
     Use the local environment. No extra tools are required.
 conda
-    Create environments using conda. conda is required.
+    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
     - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 virtualenv
-    .. note::
-        virtualenv support is still experimental and may be changed in a future MLflow release.
 
-    Create environments using virtualenv and pyenv (for python version management). virtualenv and
-    pyenv (for Linux and macOX) or pyenv-win (for Windows) are required.
+    .. note::
+        Virtualenv support is still experimental and may be changed in a future MLflow release.
+
+    Create environments using virtualenv and pyenv (for python version management). Virtualenv and
+    pyenv (for Linux and macOX) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
 
     - `virtualenv installation instructions <https://virtualenv.pypa.io/en/latest/installation.html>`_
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
 
-The ``mlflow models`` commands provide an optional arugment ``--env-manager`` to specify which environment management tool to use.
+The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
 
 .. code-block:: bash
 
