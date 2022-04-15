@@ -313,7 +313,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             }
         ):
             return (
-                sklearn.metrics.ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
                 if is_plot_function_deprecated
                 else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
             )
