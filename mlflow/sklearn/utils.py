@@ -4,7 +4,6 @@ import inspect
 import logging
 from numbers import Number
 import numpy as np
-from sklearn.metrics import ConfusionMatrixDisplay
 import time
 import warnings
 
@@ -312,7 +311,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             }
         ):
             if Version(sklearn.__version__) >= Version("1.0"):
-                return ConfusionMatrixDisplay.from_predictions(*args, **kwargs)
+                from sklearn.metrics import ConfusionMatrixDisplay
+                return ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
             else:
                 return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
 
