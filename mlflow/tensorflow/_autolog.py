@@ -158,7 +158,7 @@ def extract_sample_features_from_batched_tf_dataset(
     if isinstance(first_batch, tuple):
         features = first_batch[0]
         if isinstance(features, (dict, tensorflow.Tensor)):
-            return extract_sample_dict_or_tensor(first_batch[0])
+            return extract_sample_dict_or_tensor(features)
         elif isinstance(features, np.ndarray):
             return extract_sample_tensor_as_numpy_input_example_slice(features)
         raise TypeError(f"Unsupported type for features of type: {type(features)}")

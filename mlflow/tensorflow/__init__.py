@@ -867,7 +867,9 @@ def autolog(
                         tf_signature_def_key="predict",
                     )
 
-                    if log_models:
+                    input_example = None
+                    signature = None
+                    if log_input_examples:
 
                         def predict_input_fn():
                             """
@@ -893,6 +895,7 @@ def autolog(
                             _logger,
                         )
 
+                    if log_models:
                         save_model(
                             path=local_path,
                             mlflow_model=mlflow_model,
