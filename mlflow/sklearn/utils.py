@@ -312,6 +312,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
         ):
             if Version(sklearn.__version__) >= Version("1.0"):
                 from sklearn.metrics import ConfusionMatrixDisplay
+
                 return ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
             else:
                 return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
@@ -339,7 +340,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             [
                 _SklearnArtifact(
                     name=prefix + "roc_curve",
-                    function=sklearn.metrics.plot_roc_curve,
+                    function=sklearn.metric.RocCurveDisplay.from_estimator
+                    if Version(sklearn.__version__) >= Version("1.0")
+                    else sklearn.metrics.plot_roc_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
