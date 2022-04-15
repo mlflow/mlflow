@@ -219,6 +219,7 @@ class PyFuncBackend(FlavorBackend):
                 command,
                 self._install_mlflow,
                 command_env=command_env,
+                capture_output=False,
                 synchronous=False,
                 env_root_dir=self._env_root_dir,
                 preexec_fn=setup_sigterm_on_parent_death,

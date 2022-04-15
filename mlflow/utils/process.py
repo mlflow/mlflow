@@ -47,7 +47,7 @@ def _exec_cmd(
                             message on failure; if False, these streams won't be captured.
     :param: synchronous: If True, wait process complete and return a CompletedProcess instance,
                          If False, does not wait process complete and return a Popen instance,
-                         and ignore the `throw_on_error`, `check`, `capture_output` argument.
+                         and ignore the `throw_on_error`, `check`, argument.
     :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run` or
                    `subproces.Popen`.
     :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
@@ -81,6 +81,10 @@ def _exec_cmd(
             raise ShellCommandException.from_completed_process(prc)
         return prc
     else:
+        if capture_output:
+            kwargs['stdout'] = subprocess.PIPE
+            kwargs['stderr'] = subprocess.PIPE
+
         return subprocess.Popen(
             cmd,
             env=env,
