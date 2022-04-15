@@ -61,18 +61,20 @@ class PyFuncBackend(FlavorBackend):
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
-        if self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
-            return 0
 
         command = 'python -c ""'
         if self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(
-                local_path, self._env_id, env_root_dir=self._env_root_dir
+                local_path, self._env_id, env_root_dir=self._env_root_dir,
+                capture_output=capture_output
             )
             return _execute_in_virtualenv(
                 activate_cmd, command, self._install_mlflow,
-                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
+                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir),
+                capture_output=capture_output
             )
+        elif self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
+            return 0
 
         conda_env_path = os.path.join(local_path, self._config[ENV])
         conda_env_name = get_or_create_conda_env(

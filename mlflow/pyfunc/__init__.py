@@ -969,15 +969,17 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param env_manager: The environment manager to use in order to create the
-                        software environment for model inference. Default value is ``local``,
-                        The following values are supported:
+    :param env_manager: The environment manager to use in order to create the software environment
+                        for model inference. Note that environment is only restored in the context
+                        of the PySpark UDF; the software environment outside of the UDF is
+                        unaffected. Default value is ``local``, and the following values are
+                        supported:
 
                          - ``conda``: (Recommended) Use Conda to restore the software environment
                            that was used to train the model. Note that environment is only restored
                            in the context of the PySpark UDF; the software environment outside of
                            the UDF is unaffected.
-                        - ``virtualenv``: Use virtualenv to restore the software environment
+                         - ``virtualenv``: Use virtualenv to restore the software environment.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
