@@ -271,7 +271,7 @@ export class CompareRunView extends Component {
     const unknown = (
       <FormattedMessage
         defaultMessage='(unknown)'
-        description='Filler text when run time information is unavailable'
+        description="Filler text when run's time information is unavailable"
       />
     );
     const getTimeAttributes = (runInfo) => {
