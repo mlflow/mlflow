@@ -31,7 +31,7 @@ Describe the problem clearly here. Include descriptions of the expected behavior
 
 <!-- This section is optional -->
 
-For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook that where you encountered the bug and run it:
+For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
 
 ```python
 print("MLflow version:", mlflow.__version__)
