@@ -318,7 +318,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
             )
 
-    target_label_arg_name = "y" if is_plot_function_deprecated else "y_true"
+    y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
@@ -329,7 +329,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 sample_weight=sample_weight,
                 normalize="true",
                 cmap="Blues",
-                **{target_label_arg_name: y_true},
+                **{y_true_arg_name: y_true},
             ),
             title="Normalized confusion matrix",
         ),
@@ -349,7 +349,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                         estimator=fitted_estimator,
                         X=X,
                         sample_weight=sample_weight,
-                        **{target_label_arg_name: y_true},
+                        **{y_true_arg_name: y_true},
                     ),
                     title="ROC curve",
                 ),
@@ -362,7 +362,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                         estimator=fitted_estimator,
                         X=X,
                         sample_weight=sample_weight,
-                        **{target_label_arg_name: y_true},
+                        **{y_true_arg_name: y_true},
                     ),
                     title="Precision recall curve",
                 ),
