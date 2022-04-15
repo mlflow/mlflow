@@ -30,8 +30,8 @@ jobs:
             shell: pwsh
     runs-on: ${{ matrix.os }}
     defaults:
-      shell: ${{ matrix.shell }}
       run:
+        shell: ${{ matrix.shell }}
         working-directory: mlflow/server/js
     steps:
       - uses: actions/checkout@v3
