@@ -6,6 +6,7 @@ import inspect
 import os
 import pytest
 from collections import namedtuple
+from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
 import mlflow
@@ -27,6 +28,7 @@ from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
+    ValidationExemptArgument,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -1141,16 +1143,18 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
         "biz": {"baz": 5},
     }
 
-    _validate_args("", "", args, kwargs, args, kwargs)
-    _validate_args("", "", args, None, args, None)
-    _validate_args("", "", None, kwargs, None, kwargs)
+    _validate_args("autologging_integration_name", "function_name", args, kwargs, args, kwargs)
+    _validate_args("autologging_integration_name", "function_name", args, None, args, None)
+    _validate_args("autologging_integration_name", "function_name", None, kwargs, None, kwargs)
 
     args_copy = copy.deepcopy(args)
     kwargs_copy = copy.deepcopy(kwargs)
 
-    _validate_args("", "", args, kwargs, args_copy, kwargs_copy)
-    _validate_args("", "", args, None, args_copy, None)
-    _validate_args("", "", None, kwargs, None, kwargs_copy)
+    _validate_args(
+        "autologging_integration_name", "function_name", args, kwargs, args_copy, kwargs_copy
+    )
+    _validate_args("autologging_integration_name", "function_name", args, None, args_copy, None)
+    _validate_args("autologging_integration_name", "function_name", None, kwargs, None, kwargs_copy)
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1205,7 +1209,12 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
     with pytest.raises(Exception, match="not exception-safe"):
         _validate_args(
-            "", "", user_call_args, user_call_kwargs, unsafe_autologging_call_args, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            unsafe_autologging_call_args,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="Invalid new input"):
@@ -1256,7 +1265,12 @@ def test_validate_args_succeeds_when_extra_args_are_picklable_exception_safe_fun
     autologging_call_kwargs["new"] = Safe()
 
     _validate_args(
-        "", "", user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs
+        "autologging_integration_name",
+        "function_name",
+        user_call_args,
+        user_call_kwargs,
+        autologging_call_args,
+        autologging_call_kwargs,
     )
 
 
@@ -1402,33 +1416,117 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_validate_args_exempts_tensorflow_keras_fit_x_generator():
-    def get_gen_a():
-        for i in range(3):
-            yield i
-
-    def get_gen_b():
-        for i in range(3):
-            yield i
-
-    # padding the first positional argument as None, to emulate a spot for the 'self' object
-    _validate_args(
-        "tensorflow",
-        "fit",
+@mock.patch(
+    "mlflow.utils.autologging_utils.safety._VALIDATION_EXEMPT_ARGUMENTS",
+    [
+        ValidationExemptArgument("foo", "fit", lambda x: isinstance(x, int), 1, "x"),
+        ValidationExemptArgument("ml", "flow", lambda z: isinstance(z, list), 0, "cool"),
+    ],
+)
+@pytest.mark.parametrize(
+    "expectation,al_name,func_name,user_args,user_kwargs,al_args,al_kwargs",
+    [
         (
-            None,
-            get_gen_a(),
+            does_not_raise(),
+            "foo",
+            "fit",
+            (
+                None,
+                3,
+            ),
+            {},
+            (
+                None,
+                4,
+            ),
+            {},
         ),
-        {},
+        (does_not_raise(), "foo", "fit", tuple(), {"x": 3}, tuple(), {"x": 4}),
         (
-            None,
-            get_gen_b(),
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit",
+            (None, None, 3),
+            {},
+            (
+                None,
+                None,
+                4,
+            ),
+            {},
         ),
-        {},
-    )
-
-    # same as above, except passing 'x' as a kwarg
-    _validate_args("tensorflow", "fit", tuple(), {"x": get_gen_a()}, tuple(), {"x": get_gen_b()})
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit",
+            tuple(),
+            {"y": 3},
+            tuple(),
+            {"y": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo2",
+            "fit",
+            tuple(),
+            {"x": 3},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit2",
+            tuple(),
+            {"x": 3},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "foo",
+            "fit",
+            tuple(),
+            {"x": [1, 2]},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "foo",
+            "bar",
+            (1,),
+            {},
+            (None,),
+            {},
+        ),
+        (
+            pytest.raises(AssertionError, match="Invalid new input"),
+            "foo",
+            "bar",
+            (None,),
+            {},
+            (2,),
+            {},
+        ),
+        (does_not_raise(), "ml", "flow", ([1, 2, 3],), {}, ([2],), {}),
+        (does_not_raise(), "ml", "flow", tuple(), {"cool": [1, 2, 3]}, tuple(), {"cool": [2]}),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "ml",
+            "flow",
+            tuple(),
+            {"cool": 3},
+            tuple(),
+            {"cool": [2]},
+        ),
+    ],
+)
+def test_validate_args_respects_validation_exemptions(
+    expectation, al_name, func_name, user_args, user_kwargs, al_args, al_kwargs
+):
+    with expectation:
+        _validate_args(al_name, func_name, user_args, user_kwargs, al_args, al_kwargs)
 
 
 def test_validate_autologging_run_validates_autologging_tag_correctly():

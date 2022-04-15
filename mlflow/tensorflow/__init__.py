@@ -33,6 +33,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
+from mlflow.utils import is_iterator
 from mlflow.utils.annotations import keyword_only
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -64,7 +65,6 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     batch_metrics_logger,
     get_autologging_config,
-    is_generator,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.entities import Metric
@@ -917,7 +917,7 @@ def autolog(
             elif isinstance(training_data, tensorflow.keras.utils.Sequence):
                 first_batch_inputs, _ = training_data[0]
                 batch_size = len(first_batch_inputs)
-            elif is_generator(training_data):
+            elif is_iterator(training_data):
                 peek = next(training_data)
                 batch_size = len(peek[0])
 

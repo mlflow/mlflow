@@ -185,3 +185,11 @@ def find_free_port():
         s.bind(("", 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
+
+
+def is_iterator(obj):
+    """
+    :param obj: any object.
+    :return: boolean representing whether or not 'obj' is an iterator.
+    """
+    return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")
