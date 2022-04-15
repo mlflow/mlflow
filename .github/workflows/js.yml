@@ -1,0 +1,53 @@
+name: JS
+
+on:
+  push:
+    paths:
+      - mlflow/server/js/**
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+    paths:
+      - mlflow/server/js/**
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: windows-latest
+            shell: pwsh
+    runs-on: ${{ matrix.os }}
+    defaults:
+      shell: ${{ matrix.shell }}
+      run:
+        working-directory: mlflow/server/js
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '16'
+      - name: Install dependencies
+        run: |
+          yarn install
+          git diff --exit-code
+      - name: Run lint
+        run: |
+          yarn run lint
+      - name: Run extract-i18n lint
+        run: |
+          yarn run extract-i18n:base --lint
+      - name: Run tests
+        run: |
+          yarn run test
