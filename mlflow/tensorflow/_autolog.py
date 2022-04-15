@@ -140,12 +140,13 @@ def extract_sample_features_from_batched_tf_dataset(
     :return: a numpy array of length `INPUT_EXAMPLE_SAMPLE_ROWS`
 
     Examples
-    --------::
+    --------
     >>> input_dataset = tensorflow.data.Dataset.from_tensor_slices(
-    ...    ({'SepalLength': np.array(list(range(0, 20))),
-    ...      'SepalWidth': np.array(list(range(0, 20))),
-    ...      'PetalLength': np.array(list(range(0, 20))),
-    ...      'PetalWidth': np.array(list(range(0, 20)))}, np.array(list(range(0, 20))))).batch(10)
+    ...                 ({'SepalLength': np.array(list(range(0, 20))),
+    ...                 'SepalWidth': np.array(list(range(0, 20))),
+    ...                 'PetalLength': np.array(list(range(0, 20))),
+    ...                 'PetalWidth': np.array(list(range(0, 20)))},
+    ...                 np.array(list(range(0, 20))))).batch(10)
     >>> extract_sample_features_from_batched_tf_dataset(input_dataset)
     {'SepalLength': array([0, 1, 2, 3, 4]),
     'SepalWidth': array([0, 1, 2, 3, 4]),
