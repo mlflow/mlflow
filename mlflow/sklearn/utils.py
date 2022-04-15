@@ -333,6 +333,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
         ),
     ]
 
+    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
+
     # The plot_roc_curve and plot_precision_recall_curve can only be
     # supported for binary classifier
     if len(set(y_true)) == 2:
@@ -340,8 +342,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             [
                 _SklearnArtifact(
                     name=prefix + "roc_curve",
-                    function=sklearn.metric.RocCurveDisplay.from_estimator
-                    if Version(sklearn.__version__) >= Version("1.0")
+                    function=sklearn.metrics.RocCurveDisplay.from_estimator
+                    if is_plot_function_deprecated
                     else sklearn.metrics.plot_roc_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
@@ -354,7 +356,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 _SklearnArtifact(
                     name=prefix + "precision_recall_curve",
                     function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
-                    if Version(sklearn.__version__) >= Version("1.0")
+                    if is_plot_function_deprecated
                     else sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
