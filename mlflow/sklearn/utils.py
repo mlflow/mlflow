@@ -295,6 +295,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
+
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
@@ -310,7 +312,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 "axes.labelsize": 10.0,
             }
         ):
-            if Version(sklearn.__version__) >= Version("1.0"):
+            if is_plot_function_deprecated:
                 from sklearn.metrics import ConfusionMatrixDisplay
 
                 return ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
@@ -332,8 +334,6 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             title="Normalized confusion matrix",
         ),
     ]
-
-    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
 
     # The plot_roc_curve and plot_precision_recall_curve can only be
     # supported for binary classifier
