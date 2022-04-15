@@ -312,12 +312,11 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 "axes.labelsize": 10.0,
             }
         ):
-            if is_plot_function_deprecated:
-                from sklearn.metrics import ConfusionMatrixDisplay
-
-                return ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
-            else:
-                return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            return (
+                sklearn.metrics.ConfusionMatrixDisplay.from_estiamtor(*args, **kwargs)
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            )
 
     classifier_artifacts = [
         _SklearnArtifact(
