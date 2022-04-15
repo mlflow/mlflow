@@ -207,6 +207,10 @@
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
   },
+  "7kUi8J": {
+    "defaultMessage": "Duration:",
+    "description": "Row title for the duration of runs on the experiment compare runs page"
+  },
   "7nAMnb": {
     "defaultMessage": "Please input a name for the new model.",
     "description": "Error message for having no input for creating models in the model registry"
@@ -386,6 +390,10 @@
   "FwBInP": {
     "defaultMessage": "Loading...",
     "description": "Loading state text for the artifact model view"
+  },
+  "G0gYkS": {
+    "defaultMessage": "End Time:",
+    "description": "Row title for the end time of runs on the experiment compare runs page"
   },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",

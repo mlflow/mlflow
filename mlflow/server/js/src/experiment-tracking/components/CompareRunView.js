@@ -279,8 +279,22 @@ export class CompareRunView extends Component {
       };
     };
     const runTimeAttributes = this.props.runInfos.map(getTimeAttributes);
-    const renderRow = (data) => {
-      return (
+    const renderCell = ([key, value]) => (
+      <td className='data-value' key={key} style={colWidthStyle}>
+        <Tooltip
+          title={value}
+          color='gray'
+          placement='topLeft'
+          overlayStyle={{ maxWidth: '400px' }}
+          mouseEnterDelay={1.0}
+        >
+          {value}
+        </Tooltip>
+      </td>
+    );
+
+    return (
+      <>
         <tr>
           <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
             <FormattedMessage
@@ -289,27 +303,28 @@ export class CompareRunView extends Component {
               description='Row title for the start time of runs on the experiment compare runs page'
             />
           </th>
-          {data.map(([runUuid, timeAttr]) => (
-            <td className='data-value' key={runUuid} style={colWidthStyle}>
-              <Tooltip
-                title={timeAttr}
-                color='gray'
-                placement='topLeft'
-                overlayStyle={{ maxWidth: '400px' }}
-                mouseEnterDelay={1.0}
-              >
-                {timeAttr}
-              </Tooltip>
-            </td>
-          ))}
+          {runTimeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]).map(renderCell)}
         </tr>
-      );
-    };
-    return (
-      <>
-        {renderRow(runTimeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]))}
-        {renderRow(runTimeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]))}
-        {renderRow(runTimeAttributes.map(({ runUuid, duration }) => [runUuid, duration]))}
+        <tr>
+          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+            <FormattedMessage
+              defaultMessage='End Time:'
+              // eslint-disable-next-line max-len
+              description='Row title for the end time of runs on the experiment compare runs page'
+            />
+          </th>
+          {runTimeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]).map(renderCell)}
+        </tr>
+        <tr>
+          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+            <FormattedMessage
+              defaultMessage='Duration:'
+              // eslint-disable-next-line max-len
+              description='Row title for the duration of runs on the experiment compare runs page'
+            />
+          </th>
+          {runTimeAttributes.map(({ runUuid, duration }) => [runUuid, duration]).map(renderCell)}
+        </tr>
       </>
     );
   }
