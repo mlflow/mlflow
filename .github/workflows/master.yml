@@ -247,34 +247,6 @@ jobs:
         cd mlflow/java
         mvn clean package -q
 
-  js:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mlflow/server/js
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - name: Set up Node
-      uses: actions/setup-node@v1
-      with:
-        node-version: "16"
-    - name: Install dependencies
-      run: |
-        yarn install
-        git diff --exit-code
-    - name: Run lint
-      run: |
-        yarn run lint
-    - name: Run extract-i18n lint
-      run: |
-        yarn run extract-i18n:base --lint
-    - name: Run tests
-      run: |
-        yarn run test
-
   protos:
     runs-on: ubuntu-latest
     steps:
@@ -409,17 +381,3 @@ jobs:
         run: |
           pytest --ignore-flavors --ignore=tests/projects tests
           pytest tests/pyfunc/test_virtualenv.py
-      - name: Set up Node
-        uses: actions/setup-node@v1
-        with:
-          node-version: "16"
-      - name: Install JS dependencies
-        working-directory: mlflow/server/js
-        shell: pwsh
-        run: |
-          yarn install
-      - name: Run JS tests
-        working-directory: mlflow/server/js
-        shell: pwsh
-        run: |
-          yarn run test
