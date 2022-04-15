@@ -353,7 +353,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 ),
                 _SklearnArtifact(
                     name=prefix + "precision_recall_curve",
-                    function=sklearn.metrics.plot_precision_recall_curve,
+                    function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
+                    if Version(sklearn.__version__) >= Version("1.0")
+                    else sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
