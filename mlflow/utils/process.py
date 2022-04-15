@@ -33,6 +33,7 @@ def _exec_cmd(
     throw_on_error=True,
     extra_env=None,
     capture_output=True,
+    synchronous=True,
     **kwargs,
 ):
     """
@@ -44,8 +45,13 @@ def _exec_cmd(
                       If this argument is specified, `kwargs` cannot contain `env`.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
-    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run`.
-    :return: A `subprocess.CompletedProcess` instance.
+    :param: synchronous: If True, wait process complete and return a CompletedProcess instance,
+                         If False, does not wait process complete and return a Popen instance,
+                         and ignore the `throw_on_error`, `check`, `capture_output` argument.
+    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run` or
+                   `subproces.Popen`.
+    :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
+              otherwise return a Popen instance.
     """
     illegal_kwargs = set(kwargs.keys()).intersection(("check", "text"))
     if illegal_kwargs:
@@ -56,21 +62,31 @@ def _exec_cmd(
         raise ValueError("`extra_env` and `env` cannot be used at the same time")
 
     env = env if extra_env is None else {**os.environ, **extra_env}
-    prc = subprocess.run(
-        # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
-        # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
-        # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
-        map(str, cmd),
-        env=env,
-        check=False,
-        capture_output=capture_output,
-        text=True,
-        **kwargs,
-    )
 
-    if throw_on_error and prc.returncode != 0:
-        raise ShellCommandException.from_completed_process(prc)
-    return prc
+    # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
+    # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
+    # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
+    cmd = list(map(str, cmd))
+
+    if synchronous:
+        prc = subprocess.run(
+            cmd,
+            env=env,
+            check=False,
+            capture_output=capture_output,
+            text=True,
+            **kwargs,
+        )
+        if throw_on_error and prc.returncode != 0:
+            raise ShellCommandException.from_completed_process(prc)
+        return prc
+    else:
+        return subprocess.Popen(
+            cmd,
+            env=env,
+            text=True,
+            **kwargs,
+        )
 
 
 def _join_commands(*commands):

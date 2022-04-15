@@ -211,7 +211,11 @@ class PyFuncBackend(FlavorBackend):
             )
             child_proc = _execute_in_virtualenv(
                 activate_cmd, command, self._install_mlflow,
-                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
+                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir),
+                synchronous=False,
+                preexec_fn=setup_sigterm_on_parent_death,
+                stdout=stdout,
+                stderr=stderr,
             )
         else:
             _logger.info("=== Running command '%s'", command)

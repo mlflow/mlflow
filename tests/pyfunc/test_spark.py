@@ -400,10 +400,12 @@ def test_model_cache(spark, model_path):
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
 @pytest.mark.large
-def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path, env_manager):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
+    env_manager = _EnvManager.from_string(env_manager)
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
@@ -413,7 +415,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         from mlflow.models.cli import _get_flavor_backend
 
         _get_flavor_backend(
-            model_path, env_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
+            model_path, env_manager=env_manager, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=server_port,
@@ -432,7 +434,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
     _get_flavor_backend(
-        model_path, env_manager=_EnvManager.CONDA, install_mlflow=False
+        model_path, env_manager=env_manager, install_mlflow=False
     ).prepare_env(model_uri=model_path)
 
     job_thread = threading.Thread(target=run_job)

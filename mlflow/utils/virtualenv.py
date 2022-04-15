@@ -277,7 +277,10 @@ def _get_or_create_virtualenv(local_model_path, env_id=None, env_root_dir=None):
         raise
 
 
-def _execute_in_virtualenv(activate_cmd, command, install_mlflow, extra_env=None):
+def _execute_in_virtualenv(
+        activate_cmd, command, install_mlflow, extra_env=None, synchronous=True,
+        **kwargs
+):
     """
     Runs a command in a specified virtualenv environment.
 
@@ -286,10 +289,28 @@ def _execute_in_virtualenv(activate_cmd, command, install_mlflow, extra_env=None
     :param install_mlflow: Flag to determine whether to install mlflow in the virtualenv
                            environment.
     :param extra_env: Extra environment variables passed to a process running the command.
+    :param synchronous: Set the `synchronous` argument when calling `_exec_cmd`
+    :param kwargs: Set the `kwargs` argument when calling `_exec_cmd`
     """
     pre_command = [activate_cmd]
     if install_mlflow:
         pre_command.append(_get_pip_install_mlflow())
+
+    if _IS_UNIX:
+        # Add "exec" before the starting scoring server command, so that the scoring server
+        # process replaces the bash process, otherwise the scoring server process is created
+        # as a child process of the bash process.
+        # Note we in `mlflow.pyfunc.spark_udf`, use prctl PR_SET_PDEATHSIG to ensure scoring
+        # server process being killed when UDF process exit. The PR_SET_PDEATHSIG can only
+        # send signal to the bash process, if the scoring server process is created as a
+        # child process of the bash process, then it cannot receive the signal sent by prctl.
+        # TODO: For Windows, there's no equivalent things of Unix shell's exec. Windows also
+        #  does not support prctl. We need to find an approach to address it.
+        command = "exec " + command
+
     cmd = _join_commands(*pre_command, command)
-    _logger.info("Running %s", cmd)
-    return _exec_cmd(cmd, capture_output=False, extra_env=extra_env)
+    _logger.info("Running command: %s", " ".join(cmd))
+    return _exec_cmd(
+        cmd, capture_output=False, extra_env=extra_env, synchronous=synchronous,
+        **kwargs
+    )
