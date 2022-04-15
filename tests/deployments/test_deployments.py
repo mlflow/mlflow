@@ -5,6 +5,7 @@ from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException
 
 f_model_uri = "fake_model_uri"
+f_endpoint_name = "fake_endpoint_name"
 f_deployment_id = "fake_deployment_name"
 f_flavor = "fake_flavor"
 f_target = "faketarget"
@@ -42,6 +43,35 @@ def test_get_success():
     client = deployments.get_deploy_client(f_target)
     ret = client.get_deployment(f_deployment_id)
     assert ret["key1"] == "val1"
+
+
+def test_endpoint_create_success():
+    client = deployments.get_deploy_client(f_target)
+    endpoint = client.create_endpoint(f_endpoint_name)
+    assert isinstance(endpoint, dict)
+    assert endpoint["name"] == f_endpoint_name
+
+
+def test_endpoint_delete_success():
+    client = deployments.get_deploy_client(f_target)
+    assert client.delete_endpoint(f_endpoint_name) is None
+
+
+def test_endpoint_update_success():
+    client = deployments.get_deploy_client(f_target)
+    assert client.update_endpoint(f_endpoint_name) is None
+
+
+def test_endpoint_list_success():
+    client = deployments.get_deploy_client(f_target)
+    endpoints = client.list_endpoints()
+    assert endpoints[0]["name"] == f_endpoint_name
+
+
+def test_endpoint_get_success():
+    client = deployments.get_deploy_client(f_target)
+    endpoint = client.get_endpoint(f_endpoint_name)
+    assert endpoint["name"] == "f_endpoint_name"
 
 
 def test_wrong_target_name():

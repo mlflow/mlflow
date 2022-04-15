@@ -180,6 +180,9 @@ class BaseDeploymentClient(abc.ABC):
         :param name: ID of deployment to fetch
         :param endpoint: (optional) Endpoint containing the deployment to get. May not be
                          supported by all targets
+        :return: A dict corresponding to the retrieved deployment. The dict is guaranteed to
+                 contain a 'name' key corresponding to the deployment name. The other fields of
+                 the returned dictionary and their types may vary across targets.
         """
         pass
 
@@ -288,5 +291,8 @@ class BaseDeploymentClient(abc.ABC):
         The other fields of the returned dictionary and their types may vary across targets.
 
         :param endpoint: Name of endpoint to fetch
+        :return: A dict corresponding to the retrieved endpoint. The dict is guaranteed to
+                 contain a 'name' key corresponding to the endpoint name. The other fields of
+                 the returned dictionary and their types may vary across targets.
         """
         pass
