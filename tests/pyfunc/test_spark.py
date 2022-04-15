@@ -401,7 +401,9 @@ def test_model_cache(spark, model_path):
 )
 @pytest.mark.large
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
-def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path, env_manager):
+def test_spark_udf_embedded_model_server_killed_when_job_canceled(
+    spark, sklearn_model, model_path, env_manager
+):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
@@ -433,9 +435,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         # and the udf task starts a mlflow model server process.
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
-    _get_flavor_backend(
-        model_path, env_manager=env_manager, install_mlflow=False
-    ).prepare_env(model_uri=model_path)
+    _get_flavor_backend(model_path, env_manager=env_manager, install_mlflow=False).prepare_env(
+        model_uri=model_path
+    )
 
     job_thread = threading.Thread(target=run_job)
     job_thread.start()

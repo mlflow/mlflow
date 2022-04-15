@@ -976,10 +976,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                         supported:
 
                          - ``conda``: (Recommended) Use Conda to restore the software environment
-                           that was used to train the model. Note that environment is only restored
-                           in the context of the PySpark UDF; the software environment outside of
-                           the UDF is unaffected.
-                         - ``virtualenv``: Use virtualenv to restore the software environment.
+                           that was used to train the model.
+                         - ``virtualenv``: Use virtualenv to restore the software environment that
+                           was used to train the model.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.

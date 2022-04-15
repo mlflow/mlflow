@@ -121,7 +121,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
         capture_output=capture_output,
         # Windows fails to find pyenv and throws `FileNotFoundError` without `shell=True`
         shell=not _IS_UNIX,
-        extra_env=extra_env
+        extra_env=extra_env,
     )
 
     if _IS_UNIX:
@@ -182,8 +182,7 @@ def _get_python_env(local_model_path):
 
 
 def _create_virtualenv(
-        local_model_path, python_bin_path, env_dir, python_env, extra_env=None,
-        capture_output=False
+    local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=False
 ):
     # Created a command to activate the environment
     paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
@@ -223,7 +222,9 @@ def _get_virtualenv_extra_env_vars(env_root_dir=None):
     return extra_env
 
 
-def _get_or_create_virtualenv(local_model_path, env_id=None, env_root_dir=None, capture_output=False):
+def _get_or_create_virtualenv(
+    local_model_path, env_id=None, env_root_dir=None, capture_output=False
+):
     """
     Restores an MLflow model's environment with pyenv and virtualenv and returns a command
     to activate it.
@@ -269,8 +270,12 @@ def _get_or_create_virtualenv(local_model_path, env_id=None, env_root_dir=None, 
     env_dir = virtual_envs_root_path / env_name
     try:
         return _create_virtualenv(
-            local_model_path, python_bin_path, env_dir, python_env, extra_env=extra_env,
-            capture_output=capture_output
+            local_model_path,
+            python_bin_path,
+            env_dir,
+            python_env,
+            extra_env=extra_env,
+            capture_output=capture_output,
         )
     except:
         _logger.warning("Encountered unexpected error while creating %s", env_dir)
@@ -283,8 +288,14 @@ def _get_or_create_virtualenv(local_model_path, env_id=None, env_root_dir=None, 
 
 
 def _execute_in_virtualenv(
-        activate_cmd, command, install_mlflow, extra_env=None, synchronous=True,
-        capture_output=False, **kwargs
+    activate_cmd,
+    command,
+    install_mlflow,
+    command_env=None,
+    synchronous=True,
+    capture_output=False,
+    env_root_dir=None,
+    **kwargs,
 ):
     """
     Runs a command in a specified virtualenv environment.
@@ -293,11 +304,18 @@ def _execute_in_virtualenv(
     :param command: Command to run in the virtualenv environment.
     :param install_mlflow: Flag to determine whether to install mlflow in the virtualenv
                            environment.
-    :param extra_env: Extra environment variables passed to a process running the command.
-    :param synchronous: Set the `synchronous` argument when calling `_exec_cmd`
-    :param synchronous: Set the `capture_output` argument when calling `_exec_cmd`
+    :param command_env: Environment variables passed to a process running the command.
+    :param synchronous: Set the `synchronous` argument when calling `_exec_cmd`.
+    :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`.
+    :param env_root_dir: See doc of PyFuncBackend constructor argument `env_root_dir`.
     :param kwargs: Set the `kwargs` argument when calling `_exec_cmd`
     """
+    if command_env is None:
+        command_env = os.environ.copy()
+
+    if env_root_dir is not None:
+        command_env = {**command_env, **_get_virtualenv_extra_env_vars(env_root_dir)}
+
     pre_command = [activate_cmd]
     if install_mlflow:
         pre_command.append(_get_pip_install_mlflow())
@@ -317,6 +335,5 @@ def _execute_in_virtualenv(
     cmd = _join_commands(*pre_command, command)
     _logger.info("Running command: %s", " ".join(cmd))
     return _exec_cmd(
-        cmd, capture_output=capture_output, extra_env=extra_env, synchronous=synchronous,
-        **kwargs
+        cmd, capture_output=capture_output, env=command_env, synchronous=synchronous, **kwargs
     )

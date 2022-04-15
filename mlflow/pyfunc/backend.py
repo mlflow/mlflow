@@ -20,7 +20,6 @@ from mlflow.utils.virtualenv import (
     _get_or_create_virtualenv,
     _execute_in_virtualenv,
     _get_pip_install_mlflow,
-    _get_virtualenv_extra_env_vars,
 )
 from mlflow.version import VERSION
 
@@ -65,13 +64,17 @@ class PyFuncBackend(FlavorBackend):
         command = 'python -c ""'
         if self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(
-                local_path, self._env_id, env_root_dir=self._env_root_dir,
-                capture_output=capture_output
+                local_path,
+                self._env_id,
+                env_root_dir=self._env_root_dir,
+                capture_output=capture_output,
             )
             return _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow,
-                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir),
-                capture_output=capture_output
+                activate_cmd,
+                command,
+                self._install_mlflow,
+                env_root_dir=self._env_root_dir,
+                capture_output=capture_output,
             )
         elif self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
             return 0
@@ -115,20 +118,20 @@ class PyFuncBackend(FlavorBackend):
         if self._env_manager is _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             conda_env_name = get_or_create_conda_env(
-                conda_env_path, env_id=self._env_id, capture_output=False,
-                env_root_dir=self._env_root_dir
+                conda_env_path,
+                env_id=self._env_id,
+                capture_output=False,
+                env_root_dir=self._env_root_dir,
             )
             return _execute_in_conda_env(
-                conda_env_name, command, self._install_mlflow,
-                env_root_dir=self._env_root_dir
+                conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
             )
         elif self._env_manager is _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(
                 local_path, self._env_id, env_root_dir=self._env_root_dir
             )
             return _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow,
-                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir)
+                activate_cmd, command, self._install_mlflow, env_root_dir=self._env_root_dir
             )
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
@@ -212,9 +215,12 @@ class PyFuncBackend(FlavorBackend):
                 local_path, self._env_id, env_root_dir=self._env_root_dir
             )
             child_proc = _execute_in_virtualenv(
-                activate_cmd, command, self._install_mlflow,
-                extra_env=_get_virtualenv_extra_env_vars(self._env_root_dir),
+                activate_cmd,
+                command,
+                self._install_mlflow,
+                command_env=command_env,
                 synchronous=False,
+                env_root_dir=self._env_root_dir,
                 preexec_fn=setup_sigterm_on_parent_death,
                 stdout=stdout,
                 stderr=stderr,
@@ -311,8 +317,8 @@ def _execute_in_conda_env(
     """
     :param conda_env_path conda: conda environment file path
     :param command: command to run on the restored conda environment.
-    :install_mlflow: whether to install mlflow
-    :command_env: environment for child process.
+    :param install_mlflow: whether to install mlflow
+    :param command_env: environment for child process.
     :param synchronous: If True, wait until server process exit and return 0, if process exit
                         with non-zero return code, raise exception.
                         If False, return the server process `Popen` instance immediately.
@@ -324,7 +330,7 @@ def _execute_in_conda_env(
         command_env = os.environ.copy()
 
     if env_root_dir is not None:
-        command_env.update(_get_conda_extra_env_vars(env_root_dir))
+        command_env = {**command_env, **_get_conda_extra_env_vars(env_root_dir)}
 
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
