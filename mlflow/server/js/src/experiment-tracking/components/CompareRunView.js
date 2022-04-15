@@ -267,6 +267,53 @@ export class CompareRunView extends Component {
     );
   }
 
+  renderTimeRows(colWidthStyle) {
+    const getTimeAttributes = (runInfo) => {
+      const startTime = runInfo.getStartTime();
+      const endTime = runInfo.getEndTime();
+      return {
+        runUuid: runInfo.run_uuid,
+        startTime: startTime ? Utils.formatTimestamp(startTime) : '(unknown)',
+        endTime: startTime ? Utils.formatTimestamp(endTime) : '(unknown)',
+        duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : '(unknown)',
+      };
+    };
+    const runTimeAttributes = this.props.runInfos.map(getTimeAttributes);
+    const renderRow = (data) => {
+      return (
+        <tr>
+          <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+            <FormattedMessage
+              defaultMessage='Start Time:'
+              // eslint-disable-next-line max-len
+              description='Row title for the start time of runs on the experiment compare runs page'
+            />
+          </th>
+          {data.map(([runUuid, timeAttr]) => (
+            <td className='data-value' key={runUuid} style={colWidthStyle}>
+              <Tooltip
+                title={timeAttr}
+                color='gray'
+                placement='topLeft'
+                overlayStyle={{ maxWidth: '400px' }}
+                mouseEnterDelay={1.0}
+              >
+                {timeAttr}
+              </Tooltip>
+            </td>
+          ))}
+        </tr>
+      );
+    };
+    return (
+      <>
+        {renderRow(runTimeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]))}
+        {renderRow(runTimeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]))}
+        {renderRow(runTimeAttributes.map(({ runUuid, duration }) => [runUuid, duration]))}
+      </>
+    );
+  }
+
   render() {
     const { experimentIds } = this.props;
     const { runInfos, runNames } = this.props;
@@ -391,33 +438,7 @@ export class CompareRunView extends Component {
                   );
                 })}
               </tr>
-              <tr>
-                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-                  <FormattedMessage
-                    defaultMessage='Start Time:'
-                    // eslint-disable-next-line max-len
-                    description='Row title for the start time of runs on the experiment compare runs page'
-                  />
-                </th>
-                {this.props.runInfos.map((run) => {
-                  const startTime = run.getStartTime()
-                    ? Utils.formatTimestamp(run.getStartTime())
-                    : '(unknown)';
-                  return (
-                    <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
-                      <Tooltip
-                        title={startTime}
-                        color='gray'
-                        placement='topLeft'
-                        overlayStyle={{ maxWidth: '400px' }}
-                        mouseEnterDelay={1.0}
-                      >
-                        {startTime}
-                      </Tooltip>
-                    </td>
-                  );
-                })}
-              </tr>
+              {this.renderTimeRows(colWidthStyle)}
               {this.shouldShowExperimentNameRow() && (
                 <tr>
                   <th scope='row' className='data-value'>
