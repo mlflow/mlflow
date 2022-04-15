@@ -268,14 +268,14 @@ export class CompareRunView extends Component {
   }
 
   renderTimeRows(colWidthStyle) {
+    const unknown = (
+      <FormattedMessage
+        defaultMessage='(unknown)'
+        description='Filler text when a table cell value is unavailable'
+      />
+    );
     const getTimeAttributes = (runInfo) => {
       const startTime = runInfo.getStartTime();
-      const unknown = (
-        <FormattedMessage
-          defaultMessage='(unknown)'
-          description='Filler text when a table cell value is unavailable'
-        />
-      );
       const endTime = runInfo.getEndTime();
       return {
         runUuid: runInfo.run_uuid,
