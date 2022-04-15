@@ -29,7 +29,8 @@ from mlflow.pyfunc.backend import _execute_in_conda_env
 import mlflow.models.cli as models_cli
 
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from mlflow.utils.environment import _mlflow_conda_env, _EnvManager
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.env_manager import _EnvManager
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import (
