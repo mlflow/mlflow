@@ -51,8 +51,10 @@ If you know the command that was used to launch your tracking server (e.g. `mlfl
 
 ### Code to reproduce issue
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
+
 ### Other info / logs
 Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
+
 
 ### What component(s), interfaces, languages, and integrations does this bug affect?
 Components 
