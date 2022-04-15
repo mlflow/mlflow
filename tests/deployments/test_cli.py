@@ -46,7 +46,7 @@ def test_update_no_flavor():
 
 def test_list():
     res = runner.invoke(cli.list_deployment, ["--target", f_target])
-    assert "['{}']".format(f_name) in res.stdout
+    assert "[{'name': '{f_name}'}]".format(f_name=f_name) in res.stdout
 
 
 def test_create_deployment_with_custom_args():
