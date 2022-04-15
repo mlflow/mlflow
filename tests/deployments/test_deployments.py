@@ -36,7 +36,7 @@ def test_update_success():
 def test_list_success():
     client = deployments.get_deploy_client(f_target)
     ret = client.list_deployments()
-    assert ret[0] == f_deployment_id
+    assert ret[0]["name"] == f_deployment_id
 
 
 def test_get_success():
@@ -71,7 +71,7 @@ def test_endpoint_list_success():
 def test_endpoint_get_success():
     client = deployments.get_deploy_client(f_target)
     endpoint = client.get_endpoint(f_endpoint_name)
-    assert endpoint["name"] == "f_endpoint_name"
+    assert endpoint["name"] == f_endpoint_name
 
 
 def test_wrong_target_name():
