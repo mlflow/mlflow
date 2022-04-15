@@ -57,7 +57,6 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     picklable_exception_safe_function,
     PatchFunction,
@@ -802,7 +801,7 @@ def autolog(
             """
             Extracts sample data from dict (str -> ndarray) or Tensor type.
 
-            :return: a slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)
+            :return: a slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
                      of the input of type `np.ndarray`
             """
             from mlflow.tensorflow._autolog import (
@@ -989,27 +988,30 @@ def autolog(
             from the input type 'x' for keras ``fit`` or ``fit_generator``
 
             :return: a slice of type ndarray or
-                     dict (str -> ndarray) limited to ``INPUT_EXAMPLE_SAMPLE_ROWS``
+                     dict (str -> ndarray) limited to
+                     ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``
             """
+
+            from mlflow.tensorflow._autolog import (
+                extract_sample_features_from_batched_tf_dataset,
+                extract_sample_tensor_as_numpy_input_example_slice,
+                extract_sample_dict_or_tensor,
+            )
+
             input_training_data = args[0]
             if isinstance(input_training_data, tensorflow.keras.utils.Sequence):
                 input_training_data = input_training_data[:][0]
 
-            if isinstance(input_training_data, np.ndarray):
-                input_data_slice = input_training_data[:INPUT_EXAMPLE_SAMPLE_ROWS]
-            elif isinstance(input_training_data, tensorflow.data.Dataset):
-                from mlflow.tensorflow._autolog import (
-                    extract_sample_features_from_batched_tf_dataset,
-                )
-
-                input_data_slice = extract_sample_features_from_batched_tf_dataset(
+            if isinstance(input_training_data, (np.ndarray, tensorflow.Tensor)):
+                input_data_slice = extract_sample_tensor_as_numpy_input_example_slice(
                     input_training_data
                 )
             elif isinstance(input_training_data, dict):
-                input_data_slice = {
-                    k: np.take(v, range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
-                    for k, v in input_training_data.items()
-                }
+                input_data_slice = extract_sample_dict_or_tensor(input_training_data)
+            elif isinstance(input_training_data, tensorflow.data.Dataset):
+                input_data_slice = extract_sample_features_from_batched_tf_dataset(
+                    input_training_data
+                )
             else:
                 raise MlflowException(
                     "Cannot log input example or model signature for input with type"
