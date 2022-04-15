@@ -84,7 +84,7 @@ def extract_sample_tensor_as_numpy_input_example_slice(
 
     input_feature_slice = None
     if isinstance(next_input, tensorflow.Tensor):
-        input_feature_slice = np.take(next_input.numpy(), range(0, INPUT_EXAMPLE_SAMPLE_ROWS))
+        input_feature_slice = next_input.numpy()[0:INPUT_EXAMPLE_SAMPLE_ROWS]
     elif isinstance(next_input, np.ndarray):
         input_feature_slice = next_input[0:INPUT_EXAMPLE_SAMPLE_ROWS]
     else:
@@ -153,7 +153,7 @@ def extract_sample_features_from_batched_tf_dataset(
     'PetalWidth': array([0, 1, 2, 3, 4])}
 
     """
-    limited_df_iter = list(dataset.take(INPUT_EXAMPLE_SAMPLE_ROWS).as_numpy_iterator())
+    limited_df_iter = list(dataset.take(INPUT_EXAMPLE_SAMPLE_ROWS))
     first_batch = limited_df_iter[0]
     if isinstance(first_batch, tuple):
         features = first_batch[0]
