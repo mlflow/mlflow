@@ -35,6 +35,7 @@ import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { PageContainer } from '../../common/components/PageContainer';
+import { CircleIcon } from '../utils';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -495,6 +496,7 @@ const styles = {
   nameSearchBox: css({
     width: '446px',
   }),
+  // TODO: Convert this into Dubois Alert
   alert: css({
     marginBottom: 16,
     padding: 16,

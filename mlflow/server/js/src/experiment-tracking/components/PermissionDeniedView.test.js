@@ -22,8 +22,7 @@ describe('PermissionDeniedView', () => {
   });
 
   test('should render default message in h2 when no error message is passed', () => {
-    wrapper = shallow(<PermissionDeniedView {...minimalProps} />);
-    wrapper.setProps({ errorMessage: '' });
-    expect(wrapper.childAt(2).text()).toBe(defaultMessage);
+    wrapper = shallow(<PermissionDeniedView />);
+    expect(wrapper.find('[data-testid="error-message"]').text()).toBe(defaultMessage);
   });
 });
