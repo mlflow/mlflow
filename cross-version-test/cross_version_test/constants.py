@@ -1,0 +1,11 @@
+MATRIX_JSON = "matrix.json"
+ROOT_DIR = ".cross-version-test"
+MLFLOW_REQUIREMENTS_FILE = "mlflow-requirements.txt"
+SMALL_REQUIREMENTS_FILE = "small-requirements.txt"
+INSTALL_SCRIPT = "install.sh"
+RUN_SCRIPT = "run.sh"
+ENTRYPOINT_SCRIPT = "entrypoint.sh"
+
+DOCKER_COMPOSE_FILE = "docker-compose.yml"
+DOCKER_BASE_IMAGE = "cross-version-test"
+DOCKERFILE = "Dockerfile"
