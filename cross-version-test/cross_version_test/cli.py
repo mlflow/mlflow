@@ -32,7 +32,7 @@ def sort_jobs_by_name(jobs: t.Set[Job]) -> t.List[Job]:
     return sorted(jobs, key=lambda x: x.name)
 
 
-def is_github_actions() -> bool:
+def on_github_actions() -> bool:
     return "GITHUB_ACTIONS" in os.environ
 
 
@@ -171,7 +171,7 @@ def build(versions_yaml: str, pattern: t.Optional[str], no_cache: bool) -> None:
     if pattern:
         matched_jobs = [j for j in matched_jobs if re.compile(pattern).search(j.name)]
 
-    if is_github_actions():
+    if on_github_actions():
         ROOT_DIR.mkdir(parents=True, exist_ok=True)
         json_file = ROOT_DIR.joinpath(const.MATRIX_JSON)
         save_as_github_actions_matrix(matched_jobs, json_file)
@@ -246,7 +246,7 @@ def diff(
         jobs_changed = {j for j in jobs_changed if j.version != DEV_VERSION}
 
     sorted_jobs = sort_jobs_by_name(jobs_changed)
-    if is_github_actions():
+    if on_github_actions():
         ROOT_DIR.mkdir(parents=True, exist_ok=True)
         json_file = ROOT_DIR.joinpath(const.MATRIX_JSON)
         save_as_github_actions_matrix(sorted_jobs, json_file)

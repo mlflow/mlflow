@@ -3,6 +3,7 @@ import typing as t
 
 import click
 from click.testing import CliRunner
+import pytest
 
 from cross_version_test import cli
 
@@ -17,7 +18,8 @@ def _run_command(
     return res.exit_code
 
 
-def test_cli_commands(tmp_path: Path) -> None:
+def test_commands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GITHUB_ACTIONS")
     versions_yaml = tmp_path.joinpath("versions.yaml")
     versions_yaml.write_text(
         """
