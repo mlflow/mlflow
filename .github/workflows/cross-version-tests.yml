@@ -79,8 +79,8 @@ jobs:
             ref_versions_yaml="https://raw.githubusercontent.com/$repo/master/mlflow/ml-package-versions.yml"
             changed_files="$(python dev/list_changed_files.py --repository $repo --pr-num $pr_number)"
             enable_dev_tests="${{ steps.enable-dev-tests.outputs.result }}"
-            exclude_dev_version_flag=$([ "$enable_dev_tests" == "true" ] && echo "" || echo "--exclude-dev-versions")
-            cross-version-test diff --ref-versions-yaml "$ref_versions_yaml" --changed-files "$changed_files" "$exclude_dev_version_flag"
+            exclude_dev_versions=$([ "$enable_dev_tests" == "true" ] && echo "--include-dev-versions" || echo "--exclude-dev-versions")
+            cross-version-test diff --ref-versions-yaml "$ref_versions_yaml" --changed-files "$changed_files" "$exclude_dev_versions"
           elif [ "$event_name" = "workflow_dispatch" ]; then
             cross-version-test build --pattern "${{ github.event.inputs.pattern }}"
           else

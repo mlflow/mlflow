@@ -199,9 +199,9 @@ def build(versions_yaml: str, pattern: t.Optional[str], no_cache: bool) -> None:
     help="A string that represents a list of changed files",
 )
 @click.option(
-    "--exclude-dev-versions",
+    "--exclude-dev-versions/--include-dev-versions",
     is_flag=True,
-    default=False,
+    default=True,
     help="If True, exclude dev versions from the test matrix.",
 )
 @NO_CACHE
