@@ -16,12 +16,10 @@ on:
            uses the default branch.
         required: false
         default: ""
-      flavors:
-        description: "[Optional] Comma-separated string specifying which flavors to test (e.g. 'sklearn, xgboost'). If unspecified, all flavors are tested."
-        required: false
-        default: ""
-      versions:
-        description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
+      pattern:
+        description: >
+          [Optional] If specified, run jobs whose name match the specified pattern. For example,
+           "sklearn_.+_autologging" runs all sklearn autologging jobs.
         required: false
         default: ""
   schedule:
@@ -82,11 +80,11 @@ jobs:
             changed_files="$(python dev/list_changed_files.py --repository $repo --pr-num $pr_number)"
             enable_dev_tests="${{ steps.enable-dev-tests.outputs.result }}"
             exclude_dev_version_flag=$([ "$enable_dev_tests" == "true" ] && echo "" || echo "--exclude-dev-versions")
-            cross-version-test prepare --ref-versions-yaml "$ref_versions_yaml" --changed-files "$changed_files" "$exclude_dev_version_flag"
+            cross-version-test diff --ref-versions-yaml "$ref_versions_yaml" --changed-files "$changed_files" "$exclude_dev_version_flag"
           elif [ "$event_name" = "workflow_dispatch" ]; then
-            cross-version-test prepare --flavors "${{ github.event.inputs.flavors }}" --versions "${{ github.event.inputs.versions }}"
+            cross-version-test build --pattern "${{ github.event.inputs.pattern }}"
           else
-            cross-version-test prepare
+            cross-version-test build
           fi
 
           matrix=$(cat .cross-version-test/matrix.json)
