@@ -236,11 +236,11 @@ def diff(
         # compatible with all the supported sklearn versions.
         if changed_files:
             changed_flavors = get_changed_flavors(split(changed_files, sep="\n"))
-            jobs_changed_file = {j for j in all_jobs if j.flavor in changed_flavors}
+            jobs_changed_flavor = {j for j in all_jobs if j.flavor in changed_flavors}
         else:
-            jobs_changed_file = set()
+            jobs_changed_flavor = set()
 
-        jobs_changed = jobs_changed_config.union(jobs_changed_file)
+        jobs_changed = jobs_changed_config.union(jobs_changed_flavor)
 
     if exclude_dev_versions:
         jobs_changed = {j for j in jobs_changed if j.version != DEV_VERSION}
