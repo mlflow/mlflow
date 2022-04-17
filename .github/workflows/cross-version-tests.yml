@@ -187,4 +187,4 @@ jobs:
           mypy --disallow-untyped-defs cross-version-test
       - name: Run tests
         run: |
-          pytest cross-version-test/tests -s
+          pytest --cov=./cross-version-test cross-version-test/tests -s
