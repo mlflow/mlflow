@@ -1477,3 +1477,25 @@ def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
     )
     mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
     assert "signature" not in mlmodel_contents, mlmodel_contents.keys()
+
+
+@pytest.mark.large
+def test_extract_tf_keras_input_example_unsupported_type_returns_None():
+    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+    extracted_data = extract_tf_keras_input_example([1, 2, 4, 5])
+    assert extracted_data is None, (
+        "Keras input data extraction function should have "
+        "returned None as input type is not supported."
+    )
+
+
+@pytest.mark.large
+def test_extract_input_example_from_tf_input_fn_unsupported_type_returns_None():
+    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+    extracted_data = extract_tf_keras_input_example(lambda: [1, 2, 4, 5])
+    assert extracted_data is None, (
+        "Tensorflow's input_fn training data extraction should have"
+        " returned None as input type is not supported."
+    )

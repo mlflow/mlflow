@@ -817,9 +817,9 @@ def autolog(
 
         if log_input_examples:
             nonlocal input_example_slice
-            from mlflow.tensorflow._autolog import extract_data_from_tf_input_fn
+            from mlflow.tensorflow._autolog import extract_input_example_from_tf_input_fn
 
-            input_example_slice = extract_data_from_tf_input_fn(kwargs.get("input_fn"))
+            input_example_slice = extract_input_example_from_tf_input_fn(kwargs.get("input_fn"))
 
         # Flush the metrics queue after training completes
         _flush_queue()
@@ -998,10 +998,27 @@ def autolog(
             history.model.stop_training = original_stop_training
             return infer_signature(input_data_slice, model_output)
 
-        from mlflow.tensorflow._autolog import get_tf_keras_input_data_slice
+        from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+        def _get_tf_keras_input_example_slice():
+            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+            input_training_data = args[0]
+            keras_input_example_slice = extract_tf_keras_input_example(input_training_data)
+            if keras_input_example_slice is None:
+                raise MlflowException(
+                    "Cannot log input example or model signature for input with type"
+                    f" {type(input_training_data)}. TensorFlow Keras autologging can"
+                    " only log input examples and model signatures for the following"
+                    " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
+                    " tensorflow.keras.utils.Sequence, and"
+                    " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)",
+                    INVALID_PARAMETER_VALUE,
+                )
+            return keras_input_example_slice
 
         input_example, signature = resolve_input_example_and_signature(
-            lambda: get_tf_keras_input_data_slice(args[0]),
+            _get_tf_keras_input_example_slice,
             _infer_model_signature,
             log_input_examples,
             _should_log_model_signatures(),

@@ -6,8 +6,6 @@ import tensorflow
 from tensorflow.keras.callbacks import Callback, TensorBoard
 
 import mlflow
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.autologging_utils import ExceptionSafeClass
 from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
@@ -68,7 +66,8 @@ def _extract_input_example_from_tensor_or_ndarray(
     numpy array or tensor type.
 
     :param input_features: an input of type `np.ndarray` or `tensorflow.Tensor`
-    :return: a slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of type `np.ndarray`
+    :return: A slice (of limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of type `np.ndarray`.
+             Returns `None` if the type of `input_features` is unsupported.
 
     Examples
     --------
@@ -89,10 +88,6 @@ def _extract_input_example_from_tensor_or_ndarray(
         input_feature_slice = input_features.numpy()[0:INPUT_EXAMPLE_SAMPLE_ROWS]
     elif isinstance(input_features, np.ndarray):
         input_feature_slice = input_features[0:INPUT_EXAMPLE_SAMPLE_ROWS]
-    else:
-        warnings.warn(
-            f"Tensorflow estimator doesn't support '{type(input_features)}' type for features"
-        )
     return input_feature_slice
 
 
@@ -104,7 +99,8 @@ def _extract_sample_numpy_dict(
     as numpy array of dict(str -> ndarray) type.
 
     :param input_numpy_features_dict: A tensor or numpy array
-    :return:a slice (limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of same type as next_input
+    :return:a slice (limit `INPUT_EXAMPLE_SAMPLE_ROWS`)  of the input of same type as next_input.
+            Returns `None` if the type of `input_numpy_features_dict` is unsupported.
 
     Examples
     --------
@@ -134,6 +130,7 @@ def _extract_input_example_from_batched_tf_dataset(
 
     :param dataset: a tensorflow batched/unbatched dataset representing tuple of (features, labels)
     :return: a numpy array of length `INPUT_EXAMPLE_SAMPLE_ROWS`
+             Returns `None` if the type of `dataset` slices are unsupported.
 
     Examples
     --------
@@ -152,24 +149,25 @@ def _extract_input_example_from_batched_tf_dataset(
     """
     limited_df_iter = list(dataset.take(INPUT_EXAMPLE_SAMPLE_ROWS))
     first_batch = limited_df_iter[0]
+    input_example_slice = None
     if isinstance(first_batch, tuple):
         features = first_batch[0]
         if isinstance(features, dict):
-            return _extract_sample_numpy_dict(features)
+            input_example_slice = _extract_sample_numpy_dict(features)
         elif isinstance(features, (np.ndarray, tensorflow.Tensor)):
-            return _extract_input_example_from_tensor_or_ndarray(features)
-        raise TypeError(f"Unsupported type for features of type: {type(features)}")
-    raise TypeError(f"Unsupported type for dataset batch slice of type: {type(first_batch)}")
+            input_example_slice = _extract_input_example_from_tensor_or_ndarray(features)
+    return input_example_slice
 
 
-def extract_data_from_tf_input_fn(input_fn):
+def extract_input_example_from_tf_input_fn(input_fn):
     """
     Extracts sample data from dict (str -> ndarray),
     ``tensorflow.Tensor`` or ``tensorflow.data.Dataset`` type.
 
     :param input_fn: Tensorflow's input function used for train method
     :return: a slice (of limit ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``)
-             of the input of type `np.ndarray`
+             of the input of type `np.ndarray`.
+             Returns `None` if the return type of ``input_fn`` is unsupported.
     """
 
     input_training_data = input_fn()
@@ -185,7 +183,7 @@ def extract_data_from_tf_input_fn(input_fn):
     return input_features
 
 
-def get_tf_keras_input_data_slice(input_training_data):
+def extract_tf_keras_input_example(input_training_data):
     """
     Generates a sample ndarray or dict (str -> ndarray)
     from the input type 'x' for keras ``fit`` or ``fit_generator``
@@ -194,9 +192,11 @@ def get_tf_keras_input_data_slice(input_training_data):
                                 ``fit_generator`` methods
     :return: a slice of type ndarray or
              dict (str -> ndarray) limited to
-             ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``
+             ``mlflow.utils.autologging_utils.INPUT_EXAMPLE_SAMPLE_ROWS``.
+             Throws ``MlflowException`` exception, if input_training_data is unsupported.
+             Returns `None` if the type of input_training_data is unsupported.
     """
-
+    input_data_slice = None
     if isinstance(input_training_data, tensorflow.keras.utils.Sequence):
         input_training_data = input_training_data[:][0]
 
@@ -206,15 +206,4 @@ def get_tf_keras_input_data_slice(input_training_data):
         input_data_slice = _extract_sample_numpy_dict(input_training_data)
     elif isinstance(input_training_data, tensorflow.data.Dataset):
         input_data_slice = _extract_input_example_from_batched_tf_dataset(input_training_data)
-    else:
-        raise MlflowException(
-            "Cannot log input example or model signature for input with type"
-            f" {type(input_training_data)}. TensorFlow Keras autologging can"
-            " only log input examples and model signatures for the following"
-            " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
-            " tensorflow.keras.utils.Sequence, and"
-            " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)",
-            INVALID_PARAMETER_VALUE,
-        )
-
     return input_data_slice
