@@ -133,6 +133,7 @@ def _run(
             parameters=parameters,
             experiment_id=experiment_id,
             cluster_spec=backend_config,
+            env_manager=env_manager,
         )
 
     elif backend_name == "kubernetes":
