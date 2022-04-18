@@ -62,7 +62,7 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         command = 'python -c ""'
-        if self._env_manager is _EnvManager.VIRTUALENV:
+        if self._env_manager == _EnvManager.VIRTUALENV:
             activate_cmd = _get_or_create_virtualenv(
                 local_path,
                 self._env_id,
