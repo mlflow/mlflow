@@ -82,8 +82,8 @@ def _exec_cmd(
         return prc
     else:
         if capture_output:
-            kwargs['stdout'] = subprocess.PIPE
-            kwargs['stderr'] = subprocess.PIPE
+            kwargs["stdout"] = subprocess.PIPE
+            kwargs["stderr"] = subprocess.PIPE
 
         return subprocess.Popen(
             cmd,
