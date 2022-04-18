@@ -295,6 +295,9 @@ def _assert_array(x):
 
 def _assert_required(x):
     assert x is not None
+    # When parsing JSON payloads via proto, absent string fields
+    # are expressed as empty strings
+    assert x != ''
 
 
 def _assert_less_than_or_equal(x, max_value):
@@ -344,11 +347,17 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
         try:
             f(value)
         except AssertionError:
-            raise MlflowException(
-                message="Invalid value {} for parameter '{}' supplied. Hint: Value was of type {}".format(
-                    value, param, type(param).__name__
+            if f == _assert_required:
+                message = f"Missing value for required parameter '{param}'."
+            else:
+                message=(
+                    f"Invalid value {value} for parameter '{param}' supplied."
+                    f" Hint: Value was of type '{type(value).__name__}'."
                 )
-                + "\nSee the API docs for more information on specifying parameters.",
+            raise MlflowException(
+                message=(
+                    message + " See the API docs for more information about request parameters."
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -405,9 +414,14 @@ def _get_request_message(request_message, flask_request=request, schema={}):
     except ParseError:
         proto_parsing_succeeded = False
 
-    for k, v in request_json.items():
-        if k in schema.keys():
-            _validate_param_against_schema(schema[k], k, v, proto_parsing_succeeded)
+    for schema_key, schema_validation_fns in schema.items():
+        if schema_key in request_json or _assert_required in schema_validation_fns:
+            _validate_param_against_schema(
+                schema=schema_validation_fns,
+                param=schema_key,
+                value=request_json.get(schema_key),
+                proto_parsing_succeeded=proto_parsing_succeeded,
+            )
 
     return request_message
 
@@ -526,7 +540,11 @@ def _not_implemented():
 def _create_experiment():
 
     request_message = _get_request_message(
-        CreateExperiment(), schema={"name": [_assert_required, _assert_string]}
+        CreateExperiment(), schema={
+            "name": [_assert_required, _assert_string],
+            "artifact_location": [_assert_string],
+            "tags": [_assert_array],
+        }
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
