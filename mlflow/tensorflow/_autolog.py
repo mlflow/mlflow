@@ -182,15 +182,6 @@ def extract_data_from_tf_input_fn(input_fn):
             input_features = _extract_input_example_from_tensor_or_ndarray(features)
     elif isinstance(input_training_data, tensorflow.data.Dataset):
         input_features = _extract_input_example_from_batched_tf_dataset(input_training_data)
-    else:
-        raise MlflowException(
-            "Cannot log input example or model signature for input with type"
-            f" {type(input_training_data)}. TensorFlow autologging can"
-            " only log input examples and model signatures for the following"
-            " input types: tuple, tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)"
-            " or tensorflow.Tensor",
-            INVALID_PARAMETER_VALUE,
-        )
     return input_features
 
 

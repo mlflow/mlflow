@@ -878,8 +878,22 @@ def autolog(
 
                         predicted_values = list(self.predict(predict_input_fn))
 
+                        def _get_input_example_slice():
+                            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+                            if input_example_slice is None:
+                                raise MlflowException(
+                                    "Cannot log input example or model signature. "
+                                    "TensorFlow autologging can only log input "
+                                    "examples and model signatures for the following"
+                                    " input types: `tuple`, `tensorflow.data.Dataset` "
+                                    "(TensorFlow >= 2.1.0 required) or `tensorflow.Tensor`",
+                                    INVALID_PARAMETER_VALUE,
+                                )
+                            return input_example_slice
+
                         input_example, signature = resolve_input_example_and_signature(
-                            lambda: input_example_slice,
+                            _get_input_example_slice,
                             lambda in_ex: infer_signature(input_example_slice, predicted_values[0]),
                             log_input_examples,
                             _should_log_model_signatures(),
