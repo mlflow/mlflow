@@ -1860,8 +1860,10 @@ Spark cluster and used to score the model.
 .. code-block:: py
 
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
 If a model contains a signature, the UDF can be called without specifying column name arguments.
@@ -1872,7 +1874,10 @@ dataframe's column names must match the model signature's column names.
 
 .. code-block:: py
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model-with-signature>)
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
@@ -1908,8 +1913,14 @@ argument. The following values are supported:
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf("path/to/model", result_type=ArrayType(FloatType()))
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType())
+    )
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
 
@@ -1924,9 +1935,13 @@ set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
+    spark = SparkSession.builder.getOrCreate()
     pyfunc_udf = mlflow.pyfunc.spark_udf(
-        "path/to/model", result_type=ArrayType(FloatType()),
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType()),
         env_manager="conda"  # Use conda to restore the environment used in training
     )
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
