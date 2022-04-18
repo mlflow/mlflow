@@ -235,8 +235,10 @@ class BaseDeploymentClient(abc.ABC):
                        endpoint.
         :return: Dict corresponding to created endpoint, which must contain the 'name' key.
         """
-        raise MlflowException("Method is unimplemented in base client. Implementation should be "
-                              "provided by specific target plugins.")
+        raise MlflowException(
+            "Method is unimplemented in base client. Implementation should be "
+            "provided by specific target plugins."
+        )
 
     def update_endpoint(self, endpoint, config=None):
         """
@@ -251,8 +253,10 @@ class BaseDeploymentClient(abc.ABC):
                        endpoint
         :return: None
         """
-        raise MlflowException("Method is unimplemented in base client. Implementation should be "
-                              "provided by specific target plugins.")
+        raise MlflowException(
+            "Method is unimplemented in base client. Implementation should be "
+            "provided by specific target plugins."
+        )
 
     def delete_endpoint(self, endpoint):
         """
@@ -262,8 +266,10 @@ class BaseDeploymentClient(abc.ABC):
         :param endpoint: Name of endpoint to delete
         :return: None
         """
-        raise MlflowException("Method is unimplemented in base client. Implementation should be "
-                              "provided by specific target plugins.")
+        raise MlflowException(
+            "Method is unimplemented in base client. Implementation should be "
+            "provided by specific target plugins."
+        )
 
     def list_endpoints(self):
         """
@@ -278,8 +284,10 @@ class BaseDeploymentClient(abc.ABC):
                  contain a 'name' key containing the endpoint name. The other fields of
                  the returned dictionary and their types may vary across targets.
         """
-        raise MlflowException("Method is unimplemented in base client. Implementation should be "
-                              "provided by specific target plugins.")
+        raise MlflowException(
+            "Method is unimplemented in base client. Implementation should be "
+            "provided by specific target plugins."
+        )
 
     def get_endpoint(self, endpoint):
         """
@@ -294,5 +302,7 @@ class BaseDeploymentClient(abc.ABC):
                  contain a 'name' key corresponding to the endpoint name. The other fields of
                  the returned dictionary and their types may vary across targets.
         """
-        raise MlflowException("Method is unimplemented in base client. Implementation should be "
-                              "provided by specific target plugins.")
+        raise MlflowException(
+            "Method is unimplemented in base client. Implementation should be "
+            "provided by specific target plugins."
+        )
