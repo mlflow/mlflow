@@ -4,13 +4,16 @@ set +exv
 
 showHelp() {
 cat << EOF
-Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v]
+Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q]
 Development environment setup script for Python.
 This script will:
 
   - Install pyenv if not installed
   - Retrieve the appropriate Python version (minimum required) for compatibility support
-  - Create a virtual environment using the minimum required Python version
+  - Check if the virtual environment already exists
+    - If it does, prompt for replacement
+      - If replacing, delete old virtual environment.
+  - Create a virtual environment using the minimum required Python version based on previous step logic
   - Activate the environment
   - Install required dependencies for the dev envrionment
 
@@ -28,15 +31,18 @@ This script will:
 
 -v, -verbose      --verbose     Whether to fill stdout with every command or not
 
+-q, -quiet        --quiet       Whether to have pip install in quiet mode (Default: false)
+
 EOF
 }
 
 export verbose=0
-while getopts "n:d:vh" opt
+while getopts "d:vqh" opt
 do
   case "$opt" in
     d) directory="$OPTARG" ;;
     v) verbose=1 ;;
+    q) quiet=1 ;;
     h) showHelp; exit ;;
     *) showHelp; exit ;;
   esac
@@ -78,8 +84,8 @@ esac
 # Install the Python version if it cannot be found
 pyenv install -s $PY_INSTALL_VERSION
 pyenv local $PY_INSTALL_VERSION
-pyenv exec pip install --upgrade pip
-pyenv exec pip install virtualenv
+pyenv exec pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" --upgrade pip
+pyenv exec pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" virtualenv
 
 VENV_DIR="$directory/bin/activate"
 
@@ -105,14 +111,21 @@ source "$VENV_DIR"
 echo "$(tput setaf 2)Current Python version: $(tput bold)$(python --version)$(tput sgr0)"
 echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/bin/activate$(tput sgr0)"
 
+echo "Installing pip dependencies for development environment."
+# Install required dependencies for Prophet
+tmp_dir=$(mktemp -d)
+pip download "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" --no-deps --dest "$tmp_dir" --no-cache-dir prophet
+tar -zxvf "$tmp_dir"/*.tar.gz -C "$tmp_dir"
+pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" -r "$(find "$tmp_dir" -name requirements.txt)"
+rm -rf "$tmp_dir"
+
 # Install dev requirements and test plugin
-pip install -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
-
+pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
 # Install current checked out version of MLflow (local)
-pip install -e .[extras]
-
+pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" -e .[extras]
 # Install test plugin
-pip install -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+echo "Finished installing pip dependencies."
 
 command -v docker >/dev/null 2>&1 || echo "$(tput bold; tput setaf 1)A docker installation cannot be found. Please install docker to run all tests.$(tput sgr0)"
 
@@ -140,6 +153,6 @@ fi
 git config core.hooksPath "$MLFLOW_HOME/hooks"
 
 # Install pytest
-pip install pytest
+pip install "$( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' )" pytest
 
-echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)'source $VENV_DIR'$(tput sgr0)"
+echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"

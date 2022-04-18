@@ -114,8 +114,64 @@ The majority of the MLflow codebase is developed in Python. This includes the CL
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
 
-Common prerequisites and dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Environment Setup and Python configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Having a standardized development environment is advisable when working on MLflow. Creating an environment that contains
+the required Python packages (and versions), linting tools, and environment configurations will help to
+prevent unnecessary CI failures when filing a PR. A correctly configured local environment will also allow you to
+run tests locally in an environment that mimics that of the CI execution environment.
+
+There are two means of setting up a base Python development environment for MLflow: automated (through the
+`dev-env-setup.sh <https://github.com/mlflow/mlflow/tree/master/dev/dev-env-setup.sh>`_ script) or manual. Even in a
+manual-based approach (i.e., testing functionality of a specific version of a model flavor's package version), the
+automated script can save a great deal of time and reduce errors in creating the environment.
+
+Automated Python development environment configuration
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+The automated development environment setup script
+(`dev-env-setup.sh <https://github.com/mlflow/mlflow/tree/master/dev/dev-env-setup.sh>`_) can be used to setup a development
+environment that is configured with all of the dependencies required and the environment configuration needed to develop and locally
+test the Python code portions of MLflow. This CLI tool's readme can be accessed via the root of the mlflow repository as follows:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -h
+
+An example usage of this script that will build a development environment using ``virtualenv`` and the minimum supported
+Python version (to ensure compatibility) is:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -d ~/.venvs/mlflow-dev -q
+
+The ``-q`` parameter is to "quiet" the pip install processes preventing stdout printing during installation.
+
+It is advised to follow all of the prompts to ensure that the configuration of the environment, as well as git, are completed
+so that your PR process is as effortless as possible.
+
+.. note::
+    Frequently, a specific version of a library is required in order to validate a feature's compatibility with older
+    versions. Modifying your primary development environment to test one-off compatibility can be very error-prone and
+    result in an environment that is significantly different from that of the CI test environment. To support this
+    use case, the automated script can be used to create an environment that can be easily modified to support testing
+    a particular version of a model flavor in an isolated environment. Simply run the ``dev-env-setup.sh`` script,
+    activate the new environment, and install the required version for testing.
+
+Example of installing an older version of ``scikit-learn`` to perform isolated testing:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -d ~/.venvs/sklearn-test -q
+    source ~/.venvs/sklearn-test/bin/activate
+    pip freeze | grep "scikit-learn"
+    >> 
+    pip install scikit-learn==1.0.1
+
+Manual Python development environment configuration
++++++++++++++++++++++++++++++++++++++++++++++++++++
+The manual process is recommended if you are going to use Conda or if you are fond of terminal setup processes.
+To start with the manual process, ensure that you have either conda or virtualenv installed.
+
 First, ensure that your name and email are
 `configured in git <https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup>`_ so that
 you can `sign your work`_ when committing code changes and opening pull requests:
