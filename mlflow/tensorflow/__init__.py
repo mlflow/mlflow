@@ -200,10 +200,10 @@ def log_model(
             "models logged without signatures. Specifically, when a "
             "signature is present, passing a Pandas DataFrame as "
             "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`:"
-            " (for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces"
-            " a Pandas DataFrame output in response to a Pandas DataFrame input."
+            "(for single-output models) or a dictionary of `str -> ndarray`: "
+            "(for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces "
+            "a Pandas DataFrame output in response to a Pandas DataFrame input."
         )
     return Model.log(
         artifact_path=artifact_path,
@@ -777,7 +777,7 @@ def autolog(
 
     input_example_slice = None
 
-    def _log_model_signatures():
+    def _should_log_model_signatures():
         return (
             log_model_signatures
             and
@@ -882,7 +882,7 @@ def autolog(
                             lambda: input_example_slice,
                             lambda in_ex: infer_signature(input_example_slice, predicted_values[0]),
                             log_input_examples,
-                            _log_model_signatures(),
+                            _should_log_model_signatures(),
                             _logger,
                         )
 
@@ -984,13 +984,13 @@ def autolog(
             history.model.stop_training = original_stop_training
             return infer_signature(input_data_slice, model_output)
 
-        from mlflow.tensorflow._autolog import get_input_data_slice
+        from mlflow.tensorflow._autolog import get_tf_keras_input_data_slice
 
         input_example, signature = resolve_input_example_and_signature(
-            lambda: get_input_data_slice(args[0]),
+            lambda: get_tf_keras_input_data_slice(args[0]),
             _infer_model_signature,
             log_input_examples,
-            _log_model_signatures(),
+            _should_log_model_signatures(),
             _logger,
         )
 

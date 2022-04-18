@@ -403,15 +403,15 @@ def log_model(
     """
     if signature is not None:
         warnings.warn(
-            " The pyfunc inference behavior of keras model logged "
-            "with signatures differs from the behavior of keras "
-            "model logged without signatures. Specifically, when a "
+            " The pyfunc inference behavior of Keras models logged "
+            "with signatures differs from the behavior of Keras "
+            "models logged without signatures. Specifically, when a "
             "signature is present, passing a Pandas DataFrame as "
             "input to the pyfunc `predict()` API produces an `ndarray` "
-            "(for single-output models) or a dictionary of `str -> ndarray`:"
-            " (for multi-output models). In contrast, when a signature "
-            "is *not* present, `predict()` produces"
-            " a Pandas DataFrame output in response to a Pandas DataFrame input."
+            "(for single-output models) or a dictionary of `str -> ndarray`: "
+            "(for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces "
+            "a Pandas DataFrame output in response to a Pandas DataFrame input."
         )
     return Model.log(
         artifact_path=artifact_path,

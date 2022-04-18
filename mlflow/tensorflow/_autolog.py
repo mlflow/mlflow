@@ -194,7 +194,7 @@ def extract_data_from_tf_input_fn(input_fn):
     return input_features
 
 
-def get_input_data_slice(input_training_data):
+def get_tf_keras_input_data_slice(input_training_data):
     """
     Generates a sample ndarray or dict (str -> ndarray)
     from the input type 'x' for keras ``fit`` or ``fit_generator``
