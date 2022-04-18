@@ -5,7 +5,7 @@ from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
 
-def _is_assert_raises(node: astroid.Call):
+def _is_unittest_assert_raises(node: astroid.Call):
     return isinstance(node.func, astroid.Attribute) and node.func.as_string() == "self.assertRaises"
 
 
@@ -50,5 +50,5 @@ class UnittestAssertRaises(BaseChecker):
     priority = -1
 
     def visit_call(self, node: astroid.Call):
-        if not _should_ignore(node.root().file) and _is_assert_raises(node):
+        if not _should_ignore(node.root().file) and _is_unittest_assert_raises(node):
             self.add_message(self.name, node=node)
