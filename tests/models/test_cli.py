@@ -29,7 +29,8 @@ from mlflow.pyfunc.backend import _execute_in_conda_env
 import mlflow.models.cli as models_cli
 
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from mlflow.utils.environment import _mlflow_conda_env, _EnvManager
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import (
@@ -533,10 +534,10 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
+    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--env-manager=abc"],
+            ["--model-uri", "model", "--env-manager", "abc"],
             catch_exceptions=False,
         )
 

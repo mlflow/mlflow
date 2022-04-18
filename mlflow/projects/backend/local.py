@@ -39,7 +39,7 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 
@@ -93,7 +93,7 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif env_manager is _EnvManager.CONDA:
+        elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
             conda_env_name = get_or_create_conda_env(project.env_config_path)
@@ -171,7 +171,7 @@ def _build_mlflow_run_cmd(
             mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
-    mlflow_run_arr.extend(["--env-manager", str(env_manager)])
+    mlflow_run_arr.extend(["--env-manager", env_manager])
     for key, value in parameters.items():
         mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     return mlflow_run_arr

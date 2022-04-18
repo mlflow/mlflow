@@ -27,7 +27,7 @@ from mlflow.pyfunc.scoring_server import get_cmd
 from mlflow.types import Schema, ColSpec, DataType
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 

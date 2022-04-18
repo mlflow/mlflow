@@ -13,6 +13,7 @@ import mlflow
 import uuid
 import json
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import mlflow.db
@@ -733,6 +734,63 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(math.isnan(run.data.metrics["NaN"]))
             self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
             self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+
+    def test_log_metric_concurrent_logging_succeeds(self):
+        """
+        Verifies that concurrent logging succeeds without deadlock, which has been an issue
+        in previous MLflow releases
+        """
+        experiment_id = self._experiment_factory("concurrency_exp")
+        run_config = self._get_run_configs(experiment_id=experiment_id)
+        run1 = self._run_factory(run_config)
+        run2 = self._run_factory(run_config)
+
+        def log_metrics(run):
+            for metric_val in range(100):
+                self.store.log_metric(
+                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                )
+            for batch_idx in range(5):
+                self.store.log_batch(
+                    run.info.run_id,
+                    metrics=[
+                        Metric(
+                            f"metric_batch_{batch_idx}",
+                            (batch_idx * 100) + val_offset,
+                            int(1000 * time.time()),
+                            0,
+                        )
+                        for val_offset in range(100)
+                    ],
+                    params=[],
+                    tags=[],
+                )
+            for metric_val in range(100):
+                self.store.log_metric(
+                    run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+                )
+            return "success"
+
+        log_metrics_futures = []
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Log metrics to two runs across four threads
+            log_metrics_futures = [
+                executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
+            ]
+
+        for future in log_metrics_futures:
+            assert future.result() == "success"
+
+        for run in [run1, run2, run1, run2]:
+            # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
+            # may be written multiple times concurrently; we assert that at least 100 metric entries
+            # are present because at least 100 unique entries must have been written
+            assert len(self.store.get_metric_history(run.info.run_id, "metric_key")) >= 100
+            for batch_idx in range(5):
+                assert (
+                    len(self.store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}"))
+                    >= 100
+                )
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
@@ -1663,7 +1721,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
             )
-        self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
+        self.assertIn(
+            "Changing param values is not allowed. Params were already logged=", e.exception.message
+        )
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
 
@@ -1697,9 +1757,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(
-            package + ".log_param"
-        ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
+        with mock.patch(package + "._log_metrics") as metric_mock, mock.patch(
+            package + "._log_params"
+        ) as param_mock, mock.patch(package + "._set_tags") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
@@ -1756,6 +1816,35 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
+    def test_log_batch_metrics(self):
+        run = self._run_factory()
+
+        tkey = "blahmetric"
+        tval = 100.0
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
+        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
+
+        # duplicate metric and metric2 values should be eliminated
+        metrics = [metric, metric2, nan_metric, pos_inf_metric, neg_inf_metric, metric, metric2]
+        self.store._log_metrics(run.info.run_id, metrics)
+
+        run = self.store.get_run(run.info.run_id)
+        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+
+        # SQL store _get_run method returns full history of recorded metrics.
+        # Should return duplicates as well
+        # MLflow RunData contains only the last reported values for metrics.
+        with self.store.ManagedSessionMaker() as session:
+            sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
+            self.assertEqual(5, len(sql_run_metrics))
+            self.assertEqual(4, len(run.data.metrics))
+            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
+            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
+            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
@@ -1775,6 +1864,36 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self._verify_logged(
             self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
         )
+
+    def test_log_batch_same_metrics_repeated_multiple_reqs(self):
+        run = self._run_factory()
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
+
+    def test_log_batch_null_metrics(self):
+        run = self._run_factory()
+
+        tkey = "blahmetric"
+        tval = None
+        metric_1 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+
+        tkey = "blahmetric2"
+        tval = None
+        metric_2 = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+
+        metrics = [metric_1, metric_2]
+
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
