@@ -27,7 +27,7 @@ from mlflow.projects.utils import (
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -313,7 +313,7 @@ def run(
         )
 
     if env_manager:
-        env_manager = _EnvManager.from_string(env_manager)
+        _EnvManager.validate(env_manager)
     else:
         env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
 
