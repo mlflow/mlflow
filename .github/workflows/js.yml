@@ -51,3 +51,11 @@ jobs:
       - name: Run tests
         run: |
           yarn run test
+      - name: Run build
+        if: runner.os == 'Linux'
+        env:
+          # Prevent warnings (emitted from react-pdf) from being treated as errors
+          # https://github.com/wojtekmaj/react-pdf/issues/280
+          CI: false
+        run: |
+          yarn run build

@@ -40,9 +40,6 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-node@v1
-        with:
-          node-version: "16"
       - uses: actions/setup-python@v3
         with:
           python-version: "3.7"
@@ -52,16 +49,20 @@ jobs:
         run: |
           echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
 
-      - name: Build UI
-        if: ${{ matrix.type == 'full' }}
-        working-directory: mlflow/server/js
-        env:
-          # Prevent warnings (emitted from react-pdf) from being treated as errors
-          # https://github.com/wojtekmaj/react-pdf/issues/280
-          CI: false
+      - name: Create dummy index.html
         run: |
-          yarn install
-          yarn run build
+          echo '
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>MLflow</title>
+            </head>
+          <body>
+            MLflow
+          </body>
+          </html>
+          ' > mlflow/server/js/build/index.html
 
       - name: Install dependencies
         run: |
