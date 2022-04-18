@@ -50,7 +50,7 @@ for more details on necessary prerequisites for running the examples on your own
 
 1. Deploy your model
     1. Deploy your model
-        1. `$ mlflow models serve --no-conda -m models:/rapids_mlflow_cli/[VERSION] -p 55755`
+        1. `$ mlflow models serve --env-manager=local -m models:/rapids_mlflow_cli/[VERSION] -p 55755`
 
 1. Query the deployed model with test data `src/sample_server_query.sh` example script.
     1. `bash src/sample_server_query.sh`
