@@ -7,6 +7,7 @@ import textwrap
 import time
 import logging
 import posixpath
+import re
 
 from shlex import quote as shlex_quote
 
@@ -41,6 +42,22 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
 _logger = logging.getLogger(__name__)
+
+_MLFLOW_GIT_URI_REGEX = re.compile(r"^git\+http://github.com/[\w-]+/mlflow")
+
+
+def _is_mlflow_git_uri(s):
+    return bool(_MLFLOW_GIT_URI_REGEX.match(s))
+
+
+def _contains_mlflow_git_uri(libraries):
+    for lib in libraries:
+        package = lib.get("pypi", {}).get("package")
+        if not package:
+            continue
+        if _is_mlflow_git_uri(package):
+            return True
+    return False
 
 
 def before_run_validations(tracking_uri, backend_config):
@@ -220,8 +237,12 @@ class DatabricksJobRunner:
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
             # Libraries are optional, so we don't require that this be specified
-            if "libraries" in cluster_spec:
-                libraries.extend(cluster_spec["libraries"])
+            original_libraries = cluster_spec.get("libraries", [])
+            libraries = (
+                original_libraries
+                if _contains_mlflow_git_uri(original_libraries)
+                else original_libraries + libraries
+            )
             cluster_spec = cluster_spec["new_cluster"]
 
         # Make jobs API request to launch run.
