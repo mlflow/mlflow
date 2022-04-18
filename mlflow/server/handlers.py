@@ -262,8 +262,10 @@ def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None
     except UnsupportedModelRegistryStoreURIException:
         pass
 
+
 def _assert_string(x):
     assert isinstance(x, str)
+
 
 def _assert_intlike(x):
     try:
@@ -273,8 +275,10 @@ def _assert_intlike(x):
 
     assert isinstance(x, int)
 
+
 def _assert_bool(x):
     assert isinstance(x, bool)
+
 
 def _assert_floatlike(x):
     try:
@@ -284,17 +288,22 @@ def _assert_floatlike(x):
 
     assert isinstance(x, float)
 
+
 def _assert_array(x):
     assert isinstance(x, list)
+
 
 def _assert_required(x):
     assert x is not None
 
-def _assert_less_than_or_equal(x, max):
-    assert x <= max
+
+def _assert_less_than_or_equal(x, max_value):
+    assert x <= max_value
+
 
 def _assert_item_type_string(x):
     assert all(map(lambda item: isinstance(item, str), x))
+
 
 _TYPE_VALIDATORS = {
     _assert_intlike,
@@ -302,11 +311,12 @@ _TYPE_VALIDATORS = {
     _assert_bool,
     _assert_floatlike,
     _assert_array,
-    _assert_item_type_string
+    _assert_item_type_string,
 }
 
-def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded = False):
-    '''
+
+def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded=False):
+    """
     Attempts to validate a single parameter against a specified schema.
     Examples of the elements of the schema are type assertions and checks for required parameters.
     Returns None on validation success. Otherwise, raises an MLFlowException if an assertion fails.
@@ -325,7 +335,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
             Returns:
                     None on success. This method is intended to be called for side effects.
-    '''
+    """
 
     for f in schema:
         if f in _TYPE_VALIDATORS and proto_parsing_succeeded:
@@ -333,10 +343,13 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 
         try:
             f(value)
-        except AssertionError as e:
+        except AssertionError:
             raise MlflowException(
-                message="Invalid value {} for parameter '{}' supplied. Hint: Value was of type {}".format(value, param, type(param).__name__) + "\nSee the API docs for more information on specifying parameters.",
-                error_code=INVALID_PARAMETER_VALUE
+                message="Invalid value {} for parameter '{}' supplied. Hint: Value was of type {}".format(
+                    value, param, type(param).__name__
+                )
+                + "\nSee the API docs for more information on specifying parameters.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     return None
@@ -345,7 +358,8 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
-def _get_request_message(request_message, flask_request=request, schema = {}):
+
+def _get_request_message(request_message, flask_request=request, schema={}):
     from querystring_parser import parser
 
     if flask_request.method == "GET" and len(flask_request.query_string) > 0:
@@ -388,14 +402,15 @@ def _get_request_message(request_message, flask_request=request, schema = {}):
     proto_parsing_succeeded = True
     try:
         parse_dict(request_json, request_message)
-    except ParseError as e:
+    except ParseError:
         proto_parsing_succeeded = False
 
     for k, v in request_json.items():
-        if (k in schema.keys()):
+        if k in schema.keys():
             _validate_param_against_schema(schema[k], k, v, proto_parsing_succeeded)
 
     return request_message
+
 
 def _send_artifact(artifact_repository, path):
     filename = os.path.abspath(artifact_repository.download_artifacts(path))
@@ -437,6 +452,7 @@ _TEXT_EXTENSIONS = [
     MLMODEL_FILE_NAME,
     MLPROJECT_FILE_NAME,
 ]
+
 
 def _disable_unless_serve_artifacts(func):
     @wraps(func)
@@ -510,13 +526,7 @@ def _not_implemented():
 def _create_experiment():
 
     request_message = _get_request_message(
-        CreateExperiment(),
-        schema = {
-            "name": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        CreateExperiment(), schema={"name": [_assert_required, _assert_string]}
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
@@ -529,17 +539,12 @@ def _create_experiment():
     response.set_data(message_to_json(response_message))
     return response
 
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_experiment():
     request_message = _get_request_message(
-        GetExperiment(),
-        schema = {
-            "experiment_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        GetExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     response_message = GetExperiment.Response()
     experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
@@ -553,13 +558,7 @@ def _get_experiment():
 @_disable_if_artifacts_only
 def _get_experiment_by_name():
     request_message = _get_request_message(
-        GetExperimentByName(),
-        schema = {
-            "experiment_name": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        GetExperimentByName(), schema={"experiment_name": [_assert_required, _assert_string]}
     )
     response_message = GetExperimentByName.Response()
     store_exp = _get_tracking_store().get_experiment_by_name(request_message.experiment_name)
@@ -579,13 +578,7 @@ def _get_experiment_by_name():
 @_disable_if_artifacts_only
 def _delete_experiment():
     request_message = _get_request_message(
-        DeleteExperiment(),
-        schema = {
-            "experiment_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        DeleteExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     _get_tracking_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
@@ -598,13 +591,7 @@ def _delete_experiment():
 @_disable_if_artifacts_only
 def _restore_experiment():
     request_message = _get_request_message(
-        RestoreExperiment(),
-        schema = {
-            "experiment_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        RestoreExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     _get_tracking_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
@@ -618,16 +605,10 @@ def _restore_experiment():
 def _update_experiment():
     request_message = _get_request_message(
         UpdateExperiment(),
-        schema = {
-            "experiment_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "new_name": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "new_name": [_assert_string, _assert_required],
+        },
     )
     if request_message.new_name:
         _get_tracking_store().rename_experiment(
@@ -643,15 +624,7 @@ def _update_experiment():
 @_disable_if_artifacts_only
 def _create_run():
     request_message = _get_request_message(
-        CreateRun(),
-        schema = {
-            "experiment_id": [
-                _assert_string
-            ],
-            "start_time": [
-                _assert_intlike
-            ]
-        }
+        CreateRun(), schema={"experiment_id": [_assert_string], "start_time": [_assert_intlike]}
     )
 
     tags = [RunTag(tag.key, tag.value) for tag in request_message.tags]
@@ -674,18 +647,11 @@ def _create_run():
 def _update_run():
     request_message = _get_request_message(
         UpdateRun(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "end_time": [
-                _assert_intlike
-            ],
-            "status": [
-                _assert_string
-            ]
-        }
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "end_time": [_assert_intlike],
+            "status": [_assert_string],
+        },
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
@@ -701,13 +667,7 @@ def _update_run():
 @_disable_if_artifacts_only
 def _delete_run():
     request_message = _get_request_message(
-        DeleteRun(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        DeleteRun(), schema={"run_id": [_assert_required, _assert_string]}
     )
     _get_tracking_store().delete_run(request_message.run_id)
     response_message = DeleteRun.Response()
@@ -720,13 +680,7 @@ def _delete_run():
 @_disable_if_artifacts_only
 def _restore_run():
     request_message = _get_request_message(
-        RestoreRun(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        RestoreRun(), schema={"run_id": [_assert_required, _assert_string]}
     )
     _get_tracking_store().restore_run(request_message.run_id)
     response_message = RestoreRun.Response()
@@ -740,27 +694,13 @@ def _restore_run():
 def _log_metric():
     request_message = _get_request_message(
         LogMetric(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "key": [
-                _assert_required,
-                _assert_string
-            ],
-            "value": [
-                _assert_required,
-                _assert_floatlike
-            ],
-            "timestamp": [
-                _assert_intlike,
-                _assert_required
-            ],
-            "step": [
-                _assert_intlike
-            ]
-        }
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_floatlike],
+            "timestamp": [_assert_intlike, _assert_required],
+            "step": [_assert_intlike],
+        },
     )
     metric = Metric(
         request_message.key, request_message.value, request_message.timestamp, request_message.step
@@ -778,20 +718,11 @@ def _log_metric():
 def _log_param():
     request_message = _get_request_message(
         LogParam(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "key": [
-                _assert_required,
-                _assert_string
-            ],
-            "value": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_string],
+        },
     )
     param = Param(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
@@ -807,20 +738,11 @@ def _log_param():
 def _set_experiment_tag():
     request_message = _get_request_message(
         SetExperimentTag(),
-        schema = {
-            "experiment_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "key": [
-                _assert_required,
-                _assert_string
-            ],
-            "value": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_string],
+        },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
     _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
@@ -835,20 +757,11 @@ def _set_experiment_tag():
 def _set_tag():
     request_message = _get_request_message(
         SetTag(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "key": [
-                _assert_required,
-                _assert_string
-            ],
-            "value": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_string],
+        },
     )
     tag = RunTag(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
@@ -864,16 +777,10 @@ def _set_tag():
 def _delete_tag():
     request_message = _get_request_message(
         DeleteTag(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ],
-            "key": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
     )
     _get_tracking_store().delete_tag(request_message.run_id, request_message.key)
     response_message = DeleteTag.Response()
@@ -886,13 +793,7 @@ def _delete_tag():
 @_disable_if_artifacts_only
 def _get_run():
     request_message = _get_request_message(
-        GetRun(),
-        schema = {
-            "run_id": [
-                _assert_required,
-                _assert_string
-            ]
-        }
+        GetRun(), schema={"run_id": [_assert_required, _assert_string]}
     )
     response_message = GetRun.Response()
     run_id = request_message.run_id or request_message.run_uuid
@@ -908,22 +809,12 @@ def _search_runs():
 
     request_message = _get_request_message(
         SearchRuns(),
-        schema = {
-            "experiment_ids": [
-                _assert_array
-            ],
-            "filter": [
-                _assert_string
-            ],
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(x, 50000)
-            ],
-            "order_by": [
-                _assert_array,
-                _assert_item_type_string
-            ]
-        }
+        schema={
+            "experiment_ids": [_assert_array],
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 50000)],
+            "order_by": [_assert_array, _assert_item_type_string],
+        },
     )
     response_message = SearchRuns.Response()
     run_view_type = ViewType.ACTIVE_ONLY
@@ -950,18 +841,11 @@ def _search_runs():
 def _list_artifacts():
     request_message = _get_request_message(
         ListArtifacts(),
-        schema = {
-            "run_id": [
-                _assert_string,
-                _assert_required
-            ],
-            "path": [
-                _assert_string
-            ],
-            "page_token": [
-                _assert_string
-            ]
-        }
+        schema={
+            "run_id": [_assert_string, _assert_required],
+            "path": [_assert_string],
+            "page_token": [_assert_string],
+        },
     )
     response_message = ListArtifacts.Response()
     if request_message.HasField("path"):
@@ -1026,16 +910,10 @@ def _list_artifacts_for_proxied_run_artifact_root(proxied_artifact_root, relativ
 def _get_metric_history():
     request_message = _get_request_message(
         GetMetricHistory(),
-        schema = {
-            "run_id": [
-                _assert_string,
-                _assert_required
-            ],
-            "metric_key": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "run_id": [_assert_string, _assert_required],
+            "metric_key": [_assert_string, _assert_required],
+        },
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
@@ -1050,15 +928,7 @@ def _get_metric_history():
 @_disable_if_artifacts_only
 def _list_experiments():
     request_message = _get_request_message(
-        ListExperiments(),
-        schema = {
-            "max_results": [
-                _assert_intlike
-            ],
-            "page_token": [
-                _assert_string
-            ]
-        }
+        ListExperiments(), schema={"max_results": [_assert_intlike], "page_token": [_assert_string]}
     )
     # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
     # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
@@ -1082,7 +952,6 @@ def _get_artifact_repo(run):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_batch():
-
     def _assert_metrics_fields_present(metrics):
         for m in metrics:
             _assert_required(m["key"])
@@ -1098,24 +967,12 @@ def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
         LogBatch(),
-        schema = {
-            "run_id": [
-                _assert_string,
-                _assert_required
-            ],
-            "metrics": [
-                _assert_array,
-                _assert_metrics_fields_present
-            ],
-            "params": [
-                _assert_array,
-                _assert_params_tags_fields_present
-            ],
-            "tags": [
-                _assert_array,
-                _assert_params_tags_fields_present
-            ]
-        }
+        schema={
+            "run_id": [_assert_string, _assert_required],
+            "metrics": [_assert_array, _assert_metrics_fields_present],
+            "params": [_assert_array, _assert_params_tags_fields_present],
+            "tags": [_assert_array, _assert_params_tags_fields_present],
+        },
     )
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
@@ -1134,16 +991,10 @@ def _log_batch():
 def _log_model():
     request_message = _get_request_message(
         LogModel(),
-        schema = {
-            "run_id": [
-                _assert_string,
-                _assert_required
-            ],
-            "model_json": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "run_id": [_assert_string, _assert_required],
+            "model_json": [_assert_string, _assert_required],
+        },
     )
     try:
         model = json.loads(request_message.model_json)
@@ -1186,18 +1037,11 @@ def _wrap_response(response_message):
 def _create_registered_model():
     request_message = _get_request_message(
         CreateRegisteredModel(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "tags": [
-                _assert_array
-            ],
-            "description": [
-                _assert_string
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "tags": [_assert_array],
+            "description": [_assert_string],
+        },
     )
     registered_model = _get_model_registry_store().create_registered_model(
         name=request_message.name,
@@ -1212,13 +1056,7 @@ def _create_registered_model():
 @_disable_if_artifacts_only
 def _get_registered_model():
     request_message = _get_request_message(
-        GetRegisteredModel(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        GetRegisteredModel(), schema={"name": [_assert_string, _assert_required]}
     )
     registered_model = _get_model_registry_store().get_registered_model(name=request_message.name)
     response_message = GetRegisteredModel.Response(registered_model=registered_model.to_proto())
@@ -1230,15 +1068,7 @@ def _get_registered_model():
 def _update_registered_model():
     request_message = _get_request_message(
         UpdateRegisteredModel(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "description": [
-                _assert_string
-            ]
-        }
+        schema={"name": [_assert_string, _assert_required], "description": [_assert_string]},
     )
     name = request_message.name
     new_description = request_message.description
@@ -1254,16 +1084,10 @@ def _update_registered_model():
 def _rename_registered_model():
     request_message = _get_request_message(
         RenameRegisteredModel(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "new_name": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "new_name": [_assert_string, _assert_required],
+        },
     )
     name = request_message.name
     new_name = request_message.new_name
@@ -1278,13 +1102,7 @@ def _rename_registered_model():
 @_disable_if_artifacts_only
 def _delete_registered_model():
     request_message = _get_request_message(
-        DeleteRegisteredModel(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        DeleteRegisteredModel(), schema={"name": [_assert_string, _assert_required]}
     )
     _get_model_registry_store().delete_registered_model(name=request_message.name)
     return _wrap_response(DeleteRegisteredModel.Response())
@@ -1296,15 +1114,10 @@ def _list_registered_models():
 
     request_message = _get_request_message(
         ListRegisteredModels(),
-        schema = {
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(x, 1000)
-            ],
-            "page_token": [
-                _assert_string
-            ]
-        }
+        schema={
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
+            "page_token": [_assert_string],
+        },
     )
     registered_models = _get_model_registry_store().list_registered_models(
         request_message.max_results, request_message.page_token
@@ -1322,22 +1135,12 @@ def _search_registered_models():
 
     request_message = _get_request_message(
         SearchRegisteredModels(),
-        schema = {
-            "filter": [
-                _assert_string
-            ],
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(x, 1000)
-            ],
-            "order_by": [
-                _assert_array,
-                _assert_item_type_string
-            ],
-            "page_token": [
-                _assert_string
-            ]
-        }
+        schema={
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
     )
     store = _get_model_registry_store()
     registered_models = store.search_registered_models(
@@ -1358,16 +1161,10 @@ def _search_registered_models():
 def _get_latest_versions():
     request_message = _get_request_message(
         GetLatestVersions(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "stages": [
-                _assert_array,
-                _assert_item_type_string
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "stages": [_assert_array, _assert_item_type_string],
+        },
     )
     latest_versions = _get_model_registry_store().get_latest_versions(
         name=request_message.name, stages=request_message.stages
@@ -1382,20 +1179,11 @@ def _get_latest_versions():
 def _set_registered_model_tag():
     request_message = _get_request_message(
         SetRegisteredModelTag(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "key": [
-                _assert_string,
-                _assert_required
-            ],
-            "value": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string, _assert_required],
+        },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_registered_model_tag(name=request_message.name, tag=tag)
@@ -1407,16 +1195,10 @@ def _set_registered_model_tag():
 def _delete_registered_model_tag():
     request_message = _get_request_message(
         DeleteRegisteredModelTag(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "key": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "key": [_assert_string, _assert_required],
+        },
     )
     _get_model_registry_store().delete_registered_model_tag(
         name=request_message.name, key=request_message.key
@@ -1429,28 +1211,14 @@ def _delete_registered_model_tag():
 def _create_model_version():
     request_message = _get_request_message(
         CreateModelVersion(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "source": [
-                _assert_string,
-                _assert_required
-            ],
-            "run_id": [
-                _assert_string
-            ],
-            "tags": [
-                _assert_array
-            ],
-            "run_link": [
-                _assert_string
-            ],
-            "description": [
-                _assert_string
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "source": [_assert_string, _assert_required],
+            "run_id": [_assert_string],
+            "tags": [_assert_array],
+            "run_link": [_assert_string],
+            "description": [_assert_string],
+        },
     )
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
@@ -1482,16 +1250,10 @@ def get_model_version_artifact_handler():
 def _get_model_version():
     request_message = _get_request_message(
         GetModelVersion(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+        },
     )
     model_version = _get_model_registry_store().get_model_version(
         name=request_message.name, version=request_message.version
@@ -1506,19 +1268,11 @@ def _get_model_version():
 def _update_model_version():
     request_message = _get_request_message(
         UpdateModelVersion(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ],
-            "description": [
-                _assert_string
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+            "description": [_assert_string],
+        },
     )
     new_description = None
     if request_message.HasField("description"):
@@ -1534,23 +1288,12 @@ def _update_model_version():
 def _transition_stage():
     request_message = _get_request_message(
         TransitionModelVersionStage(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ],
-            "stage": [
-                _assert_string,
-                _assert_required
-            ],
-            "archive_existing_versions": [
-                _assert_bool
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+            "stage": [_assert_string, _assert_required],
+            "archive_existing_versions": [_assert_bool],
+        },
     )
     model_version = _get_model_registry_store().transition_model_version_stage(
         name=request_message.name,
@@ -1568,16 +1311,10 @@ def _transition_stage():
 def _delete_model_version():
     request_message = _get_request_message(
         DeleteModelVersion(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+        },
     )
     _get_model_registry_store().delete_model_version(
         name=request_message.name, version=request_message.version
@@ -1611,24 +1348,12 @@ def _search_model_versions():
 def _set_model_version_tag():
     request_message = _get_request_message(
         SetModelVersionTag(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ],
-            "key": [
-                _assert_string,
-                _assert_required
-            ],
-            "value": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+            "key": [_assert_string, _assert_required],
+            "value": [_assert_string, _assert_required],
+        },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     _get_model_registry_store().set_model_version_tag(
@@ -1642,20 +1367,11 @@ def _set_model_version_tag():
 def _delete_model_version_tag():
     request_message = _get_request_message(
         DeleteModelVersionTag(),
-        schema = {
-            "name": [
-                _assert_string,
-                _assert_required
-            ],
-            "version": [
-                _assert_string,
-                _assert_required
-            ],
-            "key": [
-                _assert_string,
-                _assert_required
-            ]
-        }
+        schema={
+            "name": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+            "key": [_assert_string, _assert_required],
+        },
     )
     _get_model_registry_store().delete_model_version_tag(
         name=request_message.name, version=request_message.version, key=request_message.key
