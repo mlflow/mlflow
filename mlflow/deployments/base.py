@@ -220,7 +220,6 @@ class BaseDeploymentClient(abc.ABC):
             "Computing model explanations is not yet supported for this deployment target"
         )
 
-    @abc.abstractmethod
     def create_endpoint(self, name, config=None):
         """
         Create an endpoint with the specified target. By default, this method should block until
@@ -236,9 +235,9 @@ class BaseDeploymentClient(abc.ABC):
                        endpoint.
         :return: Dict corresponding to created endpoint, which must contain the 'name' key.
         """
-        pass
+        raise MlflowException("Method is unimplemented in base client. Implementation should be "
+                              "provided by specific target plugins.")
 
-    @abc.abstractmethod
     def update_endpoint(self, endpoint, config=None):
         """
         Update the endpoint with the specified name. You can update any target-specific attributes
@@ -252,9 +251,9 @@ class BaseDeploymentClient(abc.ABC):
                        endpoint
         :return: None
         """
-        pass
+        raise MlflowException("Method is unimplemented in base client. Implementation should be "
+                              "provided by specific target plugins.")
 
-    @abc.abstractmethod
     def delete_endpoint(self, endpoint):
         """
         Delete the endpoint from the specified target. Deletion should be idempotent (i.e. deletion
@@ -263,9 +262,9 @@ class BaseDeploymentClient(abc.ABC):
         :param endpoint: Name of endpoint to delete
         :return: None
         """
-        pass
+        raise MlflowException("Method is unimplemented in base client. Implementation should be "
+                              "provided by specific target plugins.")
 
-    @abc.abstractmethod
     def list_endpoints(self):
         """
         List endpoints in the specified target. This method is expected to return an
@@ -279,9 +278,9 @@ class BaseDeploymentClient(abc.ABC):
                  contain a 'name' key containing the endpoint name. The other fields of
                  the returned dictionary and their types may vary across targets.
         """
-        pass
+        raise MlflowException("Method is unimplemented in base client. Implementation should be "
+                              "provided by specific target plugins.")
 
-    @abc.abstractmethod
     def get_endpoint(self, endpoint):
         """
         Returns a dictionary describing the specified endpoint, throwing a
@@ -295,4 +294,5 @@ class BaseDeploymentClient(abc.ABC):
                  contain a 'name' key corresponding to the endpoint name. The other fields of
                  the returned dictionary and their types may vary across targets.
         """
-        pass
+        raise MlflowException("Method is unimplemented in base client. Implementation should be "
+                              "provided by specific target plugins.")

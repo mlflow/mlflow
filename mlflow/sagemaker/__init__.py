@@ -2005,6 +2005,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+        :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2205,6 +2206,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+        :param endpoint: (optional) Endpoint containing the deployment to update. Currently
+                         unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2331,6 +2334,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          is responsible for monitoring the status of the deletion process via native
                          SageMaker APIs or the AWS console. If `synchronous` is False, this
                          parameter is ignored. Defaults to ``300``.
+        :param endpoint: (optional) Endpoint containing the deployment to delete. Currently
+                         unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2388,6 +2393,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         with the AWS region and the role ARN in the ``target_uri`` such as
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
 
+        :param endpoint: (optional) List deployments in the specified endpoint. Currently
+                         unsupported
+
         :return: A list of dictionaries corresponding to deployments.
 
         .. code-block:: python
@@ -2429,6 +2437,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         while retrieving the deployment.
 
         :param name: Name of deployment to retrieve
+        :param endpoint: (optional) Endpoint containing the deployment to get. Currently
+                         unsupported
         :return: A dictionary that describes the specified deployment
 
         .. code-block:: python
@@ -2478,6 +2488,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         :param deployment_name: Name of the deployment to predict against.
         :param df: A PyFunc input, such as a Pandas DataFrame, NumPy array, list, or dictionary.
                    For a complete list of supported input types, see :ref:`pyfunc-inference-api`.
+        :param endpoint: Endpoint to predict against. Currently unsupported
         :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
                  For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
 
