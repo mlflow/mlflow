@@ -1144,8 +1144,8 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
     }
 
     _validate_args("autologging_integration_name", "function_name", args, kwargs, args, kwargs)
-    _validate_args("autologging_integration_name", "function_name", args, None, args, None)
-    _validate_args("autologging_integration_name", "function_name", None, kwargs, None, kwargs)
+    _validate_args("autologging_integration_name", "function_name", args, {}, args, {})
+    _validate_args("autologging_integration_name", "function_name", (), kwargs, (), kwargs)
 
     args_copy = copy.deepcopy(args)
     kwargs_copy = copy.deepcopy(kwargs)
@@ -1153,8 +1153,8 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
     _validate_args(
         "autologging_integration_name", "function_name", args, kwargs, args_copy, kwargs_copy
     )
-    _validate_args("autologging_integration_name", "function_name", args, None, args_copy, None)
-    _validate_args("autologging_integration_name", "function_name", None, kwargs, None, kwargs_copy)
+    _validate_args("autologging_integration_name", "function_name", args, {}, args_copy, {})
+    _validate_args("autologging_integration_name", "function_name", (), kwargs, (), kwargs_copy)
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1172,8 +1172,8 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_type_autologging_call_args,
@@ -1182,8 +1182,8 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1219,8 +1219,8 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1232,8 +1232,8 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1289,8 +1289,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_autologging_call_args_1,
@@ -1299,8 +1299,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1313,8 +1313,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_autologging_call_args_2,
@@ -1323,8 +1323,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1338,8 +1338,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_autologging_call_args_3,
@@ -1348,8 +1348,8 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1371,8 +1371,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_autologging_call_args_1,
@@ -1381,8 +1381,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,
@@ -1396,8 +1396,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             invalid_autologging_call_args_2,
@@ -1406,8 +1406,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
-            "",
-            "",
+            "autologging_integration_name",
+            "function_name",
             user_call_args,
             user_call_kwargs,
             user_call_args,

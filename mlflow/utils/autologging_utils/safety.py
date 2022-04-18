@@ -786,14 +786,12 @@ class ValidationExemptArgument(typing.NamedTuple):
     """
     A NamedTuple representing the properties of an argument that is exempt from validation
 
-    autologging_integration: the name of the autologging integration
-    function_name: the name of the function that is being validated
-    type_function: a Callable that accepts an object and returns True if the given object matches
+    autologging_integration: The name of the autologging integration.
+    function_name: The name of the function that is being validated.
+    type_function: A Callable that accepts an object and returns True if the given object matches
                    the argument type. Returns False otherwise.
-    positional_argument_index: the index of the argument, if it is passed as a positional argument.
-                               Otherwise, it is None.
-    keyword_argument_name: the name of the argument, if it is passed as a keyword argument.
-                           Otherwise, it is None.
+    positional_argument_index: The index of the argument in the function signature.
+    keyword_argument_name: The name of the argument in the function signature.
     """
 
     autologging_integration: str
@@ -802,7 +800,7 @@ class ValidationExemptArgument(typing.NamedTuple):
     positional_argument_index: int = None
     keyword_argument_name: str = None
 
-    def is_exempt(
+    def match(
         self,
         autologging_integration,
         function_name,
@@ -810,6 +808,17 @@ class ValidationExemptArgument(typing.NamedTuple):
         positional_argument_index=None,
         keyword_argument_name=None,
     ):
+        """
+        :param autologging_integration: The name of an autologging integration.
+        :param function_name: The name of the function that is being matched.
+        :param argument: The actual argument.
+        :param positional_argument_index: The index of the argument, if it is passed as a positional
+                                          argument. Otherwise it is None.
+        :param keyword_argument_name: The name of the argument, if it is passed as a keyword
+                                      argument. Otherwise it is None.
+        :return: Returns True if the given function properties matches the exempt argument's
+                 properties. Returns False otherwise.
+        """
         return (
             self.autologging_integration == autologging_integration
             and self.function_name == function_name
@@ -846,17 +855,17 @@ def _is_arg_exempt_from_validation(
     This function is responsible for determining whether or not an argument is exempt from autolog
     safety validations. This includes both type checking and immutable checking.
 
-    :param autologging_integration: the name of the autologging integration.
-    :param function_name: the name of the function that is being validated.
-    :param argument: the actual argument.
-    :param positional_argument_index: the index of the argument, if it is passed as a positional
+    :param autologging_integration: The name of the autologging integration.
+    :param function_name: The name of the function that is being validated.
+    :param argument: The actual argument.
+    :param positional_argument_index: The index of the argument, if it is passed as a positional
                                       argument. Otherwise it is None.
-    :param keyword_argument_name: the name of the argument, if it is passed as a keyword argument.
+    :param keyword_argument_name: The name of the argument, if it is passed as a keyword argument.
                                   Otherwise it is None.
     :return: True or False
     """
     return any(
-        exemption.is_exempt(
+        exemption.match(
             autologging_integration,
             function_name,
             argument,
@@ -919,14 +928,9 @@ def _validate_args(
                 "such exception safe functions / classes.".format(inp)
             )
 
-    def _assert_same_type(autologging_call_input, user_call_input):
-        assert type(autologging_call_input) == type(
-            user_call_input
-        ), "Type of input to original function '{}' does not match expected type '{}'".format(
-            type(autologging_call_input), type(user_call_input)
-        )
-
-    def _assert_same_input_length(autologging_call_input, user_call_input):
+    def _assert_autologging_input_length_greater_than_or_equal_to(
+        autologging_call_input, user_call_input
+    ):
         length_difference = len(autologging_call_input) - len(user_call_input)
         assert (
             length_difference >= 0
@@ -934,20 +938,12 @@ def _validate_args(
             length_difference
         )
 
-    def _assert_same_key_set(autologging_call_input, user_call_input):
+    def _assert_autologging_call_input_is_superset(autologging_call_input, user_call_input):
         assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
             "Keyword or dictionary arguments to original function omit"
             " one or more expected keys: '{}'".format(
                 set(user_call_input.keys()) - set(autologging_call_input.keys())
             )
-        )
-
-    def _assert_equivalence(autologging_call_input, user_call_input):
-        assert (
-            autologging_call_input is user_call_input or autologging_call_input == user_call_input
-        ), (
-            "Input to original function does not match expected input."
-            " Original: '{}'. Expected: '{}'".format(autologging_call_input, user_call_input)
         )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -972,64 +968,62 @@ def _validate_args(
             _validate_new_input(autologging_call_input)
             return
 
-        _assert_same_type(autologging_call_input, user_call_input)
+        assert type(autologging_call_input) == type(
+            user_call_input
+        ), "Type of input to original function '{}' does not match expected type '{}'".format(
+            type(autologging_call_input), type(user_call_input)
+        )
 
         if type(autologging_call_input) in [list, tuple]:
-            _assert_same_input_length(autologging_call_input, user_call_input)
+            _assert_autologging_input_length_greater_than_or_equal_to(
+                autologging_call_input, user_call_input
+            )
             # If the autologging call input is longer than the user call input, we `zip_longest`
             # will pad the user call input with `None` values to ensure that the subsequent calls
             # to `_validate` identify new inputs added by the autologging call
             for a, u in itertools.zip_longest(autologging_call_input, user_call_input):
                 _validate(a, u)
         elif type(autologging_call_input) == dict:
-            _assert_same_key_set(autologging_call_input, user_call_input)
+            _assert_autologging_call_input_is_superset(autologging_call_input, user_call_input)
             for key in autologging_call_input.keys():
                 _validate(autologging_call_input[key], user_call_input.get(key, None))
         else:
-            _assert_equivalence(autologging_call_input, user_call_input)
+            assert (
+                autologging_call_input is user_call_input
+                or autologging_call_input == user_call_input
+            ), (
+                "Input to original function does not match expected input."
+                " Original: '{}'. Expected: '{}'".format(autologging_call_input, user_call_input)
+            )
 
     # Similar validation logic found in _validate, unraveling the list of arguments to exclude
     # checks for any validation exempt positional arguments.
-    if user_call_args is None and autologging_call_args is not None:
-        _validate_new_input(autologging_call_args)
-    else:
-        _assert_same_type(autologging_call_args, user_call_args)
-        if autologging_call_args is None:
-            _assert_equivalence(autologging_call_args, user_call_args)
-        else:
-            _assert_same_input_length(autologging_call_args, user_call_args)
-            for index, autologging_call_arg, user_call_arg in itertools.zip_longest(
-                range(len(user_call_args)), autologging_call_args, user_call_args
-            ):
-                if not _is_arg_exempt_from_validation(
-                    autologging_integration,
-                    function_name,
-                    user_call_arg,
-                    positional_argument_index=index,
-                ):
-                    _validate(autologging_call_arg, user_call_arg)
+    _assert_autologging_input_length_greater_than_or_equal_to(autologging_call_args, user_call_args)
+    for index, autologging_call_arg, user_call_arg in itertools.zip_longest(
+        range(len(user_call_args)), autologging_call_args, user_call_args
+    ):
+        if not _is_arg_exempt_from_validation(
+            autologging_integration,
+            function_name,
+            user_call_arg,
+            positional_argument_index=index,
+        ):
+            _validate(autologging_call_arg, user_call_arg)
 
     # Similar validation logic found in _validate, unraveling the dictionary of arguments to exclude
     # checks for any validation exempt keyword arguments.
-    if user_call_kwargs is None and autologging_call_kwargs is not None:
-        _validate_new_input(autologging_call_kwargs)
-    else:
-        _assert_same_type(autologging_call_kwargs, user_call_kwargs)
-        if autologging_call_kwargs is None:
-            _assert_equivalence(autologging_call_args, user_call_args)
-        else:
-            _assert_same_key_set(autologging_call_kwargs, user_call_kwargs)
-            for key in autologging_call_kwargs.keys():
-                if not _is_arg_exempt_from_validation(
-                    autologging_integration,
-                    function_name,
-                    user_call_kwargs.get(key, None),
-                    keyword_argument_name=key,
-                ):
-                    _validate(
-                        autologging_call_kwargs[key],
-                        user_call_kwargs.get(key, None),
-                    )
+    _assert_autologging_call_input_is_superset(autologging_call_kwargs, user_call_kwargs)
+    for key in autologging_call_kwargs.keys():
+        if not _is_arg_exempt_from_validation(
+            autologging_integration,
+            function_name,
+            user_call_kwargs.get(key, None),
+            keyword_argument_name=key,
+        ):
+            _validate(
+                autologging_call_kwargs[key],
+                user_call_kwargs.get(key, None),
+            )
 
 
 __all__ = [
