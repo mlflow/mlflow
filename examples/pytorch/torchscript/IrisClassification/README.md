@@ -23,10 +23,10 @@ mlflow run . -P epochs=X
 
 where `X` is your desired value for `epochs`.
 
-If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--env-manager=local`.
 
 ```
-mlflow run . --no-conda
+mlflow run . --env-manager=local
 ```
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

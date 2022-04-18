@@ -44,3 +44,12 @@ class Metric(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.key, proto.value, proto.timestamp, proto.step)
+
+    def __eq__(self, __o):
+        if isinstance(__o, self.__class__):
+            return self.__dict__ == __o.__dict__
+
+        return False
+
+    def __hash__(self):
+        return hash((self._key, self._value, self._timestamp, self._step))
