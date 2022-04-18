@@ -49,7 +49,7 @@ jobs:
         run: |
           echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
 
-      - name: Create dummy index.html
+      - name: Create dummy MLflow UI
         run: |
           mkdir -p mlflow/server/js/build
           echo '
