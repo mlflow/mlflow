@@ -51,6 +51,7 @@ jobs:
 
       - name: Create dummy index.html
         run: |
+          mkdir -p mlflow/server/js/build
           echo '
           <!DOCTYPE html>
           <html lang="en">
