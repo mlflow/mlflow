@@ -407,7 +407,6 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
-    env_manager = _EnvManager.from_string(env_manager)
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
