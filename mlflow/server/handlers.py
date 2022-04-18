@@ -297,7 +297,7 @@ def _assert_required(x):
     assert x is not None
     # When parsing JSON payloads via proto, absent string fields
     # are expressed as empty strings
-    assert x != ''
+    assert x != ""
 
 
 def _assert_less_than_or_equal(x, max_value):
@@ -350,7 +350,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
             if f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
-                message=(
+                message = (
                     f"Invalid value {value} for parameter '{param}' supplied."
                     f" Hint: Value was of type '{type(value).__name__}'."
                 )
@@ -540,11 +540,12 @@ def _not_implemented():
 def _create_experiment():
 
     request_message = _get_request_message(
-        CreateExperiment(), schema={
+        CreateExperiment(),
+        schema={
             "name": [_assert_required, _assert_string],
             "artifact_location": [_assert_string],
             "tags": [_assert_array],
-        }
+        },
     )
 
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]

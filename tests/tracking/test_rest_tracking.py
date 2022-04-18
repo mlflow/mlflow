@@ -35,7 +35,9 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
-    _await_server_down_or_die, _init_server, _send_rest_tracking_post_request
+    _await_server_down_or_die,
+    _init_server,
+    _send_rest_tracking_post_request,
 )
 
 # pylint: disable=unused-argument
