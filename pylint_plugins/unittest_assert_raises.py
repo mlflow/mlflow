@@ -5,12 +5,8 @@ from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
 
-def _is_assert_raises_without_msg(node: astroid.Call):
-    return (
-        isinstance(node.func, astroid.Attribute)
-        and node.func.as_string() == "self.assertRaises"
-        and "msg" not in [k.arg for k in node.keywords]
-    )
+def _is_assert_raises(node: astroid.Call):
+    return isinstance(node.func, astroid.Attribute) and node.func.as_string() == "self.assertRaises"
 
 
 IGNORE_FILES = list(
@@ -40,19 +36,19 @@ def _should_ignore(path: str):
     return path in IGNORE_FILES
 
 
-class AssertRaisesWithoutMsg(BaseChecker):
+class UnittestAssertRaises(BaseChecker):
     __implements__ = IAstroidChecker
 
-    name = "assert-raises"
+    name = "unittest-assert-raises"
     msgs = {
         "W0003": (
-            "assertRaises must be called with `msg` argument",
+            "`assertRaises` must be replaced with `assertRaisesRegex`",
             name,
-            "Use `msg` argument",
+            "Use `assertRaisesRegex` instead",
         ),
     }
     priority = -1
 
     def visit_call(self, node: astroid.Call):
-        if not _should_ignore(node.root().file) and _is_assert_raises_without_msg(node):
+        if not _should_ignore(node.root().file) and _is_assert_raises(node):
             self.add_message(self.name, node=node)
