@@ -83,7 +83,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
             raise
         except Exception as e:
             session.rollback()
-            raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+            raise MlflowException(message=str(e), error_code=INTERNAL_ERROR)
         finally:
             session.close()
 
