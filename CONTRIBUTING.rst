@@ -164,8 +164,10 @@ Example of installing an older version of ``scikit-learn`` to perform isolated t
     dev/dev-env-setup.sh -d ~/.venvs/sklearn-test -q
     source ~/.venvs/sklearn-test/bin/activate
     pip freeze | grep "scikit-learn"
-    >> 
+    >> scikit-learn==1.0.2
     pip install scikit-learn==1.0.1
+    pip freeze | grep "scikit-learn"
+    >> scikit-learn==1.0.1
 
 Manual Python development environment configuration
 +++++++++++++++++++++++++++++++++++++++++++++++++++
