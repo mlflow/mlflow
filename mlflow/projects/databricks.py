@@ -43,7 +43,7 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 _logger = logging.getLogger(__name__)
 
-_MLFLOW_GIT_URI_REGEX = re.compile(r"^git\+http://github.com/[\w-]+/mlflow")
+_MLFLOW_GIT_URI_REGEX = re.compile(r"^git\+https://github.com/[\w-]+/mlflow")
 
 
 def _is_mlflow_git_uri(s):
@@ -53,9 +53,7 @@ def _is_mlflow_git_uri(s):
 def _contains_mlflow_git_uri(libraries):
     for lib in libraries:
         package = lib.get("pypi", {}).get("package")
-        if not package:
-            continue
-        if _is_mlflow_git_uri(package):
+        if package and _is_mlflow_git_uri(package):
             return True
     return False
 
