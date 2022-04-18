@@ -27,10 +27,10 @@ mlflow run . -P max_epochs=X
 
 where `X` is your desired value for `max_epochs`.
 
-If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--env-manager=local`.
 
 ```
-mlflow run . --no-conda
+mlflow run . --env-manager=local
 ```
 ### Viewing results in the MLflow UI
 

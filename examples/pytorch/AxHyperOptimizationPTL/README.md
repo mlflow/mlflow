@@ -20,10 +20,10 @@ mlflow run . -P max_epochs=X -P total_trials=Y
 
 where `X` is your desired value for `max_epochs` and `Y` is your desired value for `total_trials`.
 
-If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--env-manager=local`.
 
 ```
-mlflow run . --no-conda
+mlflow run . --env-manager=local
 ```
 
 ### Viewing results in the MLflow UI
