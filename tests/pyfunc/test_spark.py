@@ -20,7 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
 
 import tests
 from mlflow.types import Schema, ColSpec

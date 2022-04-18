@@ -4,7 +4,6 @@ import logging
 import sys
 import re
 import hashlib
-from enum import Enum
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -156,22 +155,6 @@ class _PythonEnv:
     @classmethod
     def from_conda_yaml(cls, path):
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
-
-
-class _EnvManager(Enum):
-    LOCAL = "local"
-    CONDA = "conda"
-    VIRTUALENV = "virtualenv"
-
-    @classmethod
-    def from_string(cls, value):
-        allowed_values = [e.value for e in cls]
-        if value not in allowed_values:
-            raise ValueError(f"Expected one of {allowed_values} but got '{value}'")
-        return cls[value.upper()]
-
-    def __str__(self):
-        return self.name.lower()
 
 
 def _mlflow_conda_env(
