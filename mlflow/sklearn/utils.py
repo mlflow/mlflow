@@ -295,6 +295,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
+
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
@@ -310,8 +312,13 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 "axes.labelsize": 10.0,
             }
         ):
-            return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            return (
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            )
 
+    y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
@@ -319,10 +326,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             arguments=dict(
                 estimator=fitted_estimator,
                 X=X,
-                y_true=y_true,
                 sample_weight=sample_weight,
                 normalize="true",
                 cmap="Blues",
+                **{y_true_arg_name: y_true},
             ),
             title="Normalized confusion matrix",
         ),
@@ -335,7 +342,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             [
                 _SklearnArtifact(
                     name=prefix + "roc_curve",
-                    function=sklearn.metrics.plot_roc_curve,
+                    function=sklearn.metrics.RocCurveDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_roc_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
@@ -346,7 +355,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 ),
                 _SklearnArtifact(
                     name=prefix + "precision_recall_curve",
-                    function=sklearn.metrics.plot_precision_recall_curve,
+                    function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,

@@ -27,6 +27,28 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
 
+### Tracking information
+
+<!-- This section is optional -->
+
+For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
+
+```python
+print("MLflow version:", mlflow.__version__)
+print("Tracking URI:", mlflow.get_tracking_uri())
+print("Artifact URI:", mlflow.get_artifact_uri())
+```
+
+Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below:
+
+```
+```
+
+If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it:
+
+```
+```
+
 ### Code to reproduce issue
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 

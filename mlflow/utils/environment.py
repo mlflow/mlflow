@@ -1,10 +1,18 @@
 import yaml
 import os
 import logging
-from enum import Enum
+import sys
+import re
+import hashlib
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements, _infer_requirements
+from mlflow.utils.requirements_utils import (
+    _parse_requirements,
+    _infer_requirements,
+)
+from mlflow.version import VERSION
 from packaging.requirements import Requirement, InvalidRequirement
 
 _logger = logging.getLogger(__name__)
@@ -18,21 +26,135 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+_PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
 
-class _EnvManager(Enum):
-    LOCAL = "local"
-    CONDA = "conda"
+# Note this regular expression does not cover all possible patterns
+_CONDA_DEPENDENCY_REGEX = re.compile(r"^(python|pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$")
 
-    @classmethod
-    def from_string(cls, value):
-        allowed_values = [e.value for e in cls]
-        if value not in allowed_values:
-            raise ValueError(f"Expected one of {allowed_values} but got '{value}'")
-        return cls[value.upper()]
+
+class _PythonEnv:
+    """
+    Represents environment information for an MLflow Model.
+    """
+
+    BUILD_PACKAGES = ("pip", "setuptools", "wheel")
+
+    def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        if python is not None and not isinstance(python, str):
+            raise TypeError(f"`python` must be a string but got {type(python)}")
+        if build_dependencies is not None and not isinstance(build_dependencies, list):
+            raise TypeError(
+                f"`build_dependencies` must be a list but got {type(build_dependencies)}"
+            )
+        if dependencies is not None and not isinstance(dependencies, list):
+            raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
+
+        self.python = python
+        self.build_dependencies = build_dependencies
+        self.dependencies = dependencies
 
     def __str__(self):
-        return self.name.lower()
+        return str(self.to_dict())
+
+    @classmethod
+    def current(cls):
+        return cls(
+            python=cls._get_current_python(),
+            build_dependencies=cls.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+
+    @staticmethod
+    def _get_current_python():
+        return ".".join(map(str, sys.version_info[:3]))
+
+    @staticmethod
+    def _get_package_version(package_name):
+        try:
+            return __import__(package_name).__version__
+        except (ImportError, AttributeError):
+            return None
+
+    @staticmethod
+    def get_current_build_dependencies():
+        build_dependencies = []
+        for package in _PythonEnv.BUILD_PACKAGES:
+            version = _PythonEnv._get_package_version(package)
+            dep = (package + "==" + version) if version else package
+            build_dependencies.append(dep)
+        return build_dependencies
+
+    def to_dict(self):
+        return self.__dict__.copy()
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct)
+
+    def to_yaml(self, path):
+        with open(path, "w") as f:
+            # Exclude None and empty lists
+            data = {k: v for k, v in self.to_dict().items() if v}
+            yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+
+    @classmethod
+    def from_yaml(cls, path):
+        with open(path) as f:
+            return cls.from_dict(yaml.safe_load(f))
+
+    @staticmethod
+    def get_dependencies_from_conda_yaml(path):
+        with open(path) as f:
+            conda_env = yaml.safe_load(f)
+
+        python = None
+        build_dependencies = None
+        dependencies = None
+        for dep in conda_env.get("dependencies", []):
+            if isinstance(dep, str):
+                match = _CONDA_DEPENDENCY_REGEX.match(dep)
+                if not match:
+                    continue
+                package, operator, version = match.groups()
+
+                # Python
+                if not python and package == "python":
+                    if operator in ("<", ">", "!="):
+                        raise MlflowException(
+                            f"Invalid version comperator for python: '{operator}'. "
+                            "Must be one of ['<=', '>=', '=', '=='].",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    python = version
+                    continue
+
+                # Build packages
+                if build_dependencies is None:
+                    build_dependencies = []
+                # "=" is an invalid operator for pip
+                operator = "==" if operator == "=" else operator
+                build_dependencies.append(package + operator + version)
+            elif _is_pip_deps(dep):
+                dependencies = dep["pip"]
+            else:
+                raise MlflowException(
+                    f"Invalid conda dependency: {dep}. Must be str or dict in the form of "
+                    '{"pip": [...]}',
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        if python is None:
+            raise MlflowException(
+                f"Could not extract python version from {path}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
+
+    @classmethod
+    def from_conda_yaml(cls, path):
+        return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
 def _mlflow_conda_env(
@@ -355,3 +477,27 @@ def _process_conda_env(conda_env):
 
     conda_env = _overwrite_pip_deps(conda_env, pip_reqs)
     return conda_env, pip_reqs, constraints
+
+
+def _get_mlflow_env_name(s):
+    """
+    Creates an environment name for an MLflow model by hashing the given string.
+
+    :param s: String to hash (e.g. the content of `conda.yaml`).
+    :returns: String in the form of "mlflow-{hash}"
+              (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    """
+    return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+def _get_pip_install_mlflow():
+    """
+    Returns a command to pip-install mlflow. If the MLFLOW_HOME environment variable exists,
+    returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
+    "pip install mlflow=={mlflow.__version__} 1>&2".
+    """
+    mlflow_home = os.getenv("MLFLOW_HOME")
+    if mlflow_home:  # dev version
+        return "pip install -e {} 1>&2".format(mlflow_home)
+    else:
+        return "pip install mlflow=={} 1>&2".format(VERSION)

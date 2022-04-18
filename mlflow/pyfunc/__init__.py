@@ -249,14 +249,16 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.environment import (
-    _EnvManager,
     _validate_env_arguments,
     _process_pip_requirements,
     _process_conda_env,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
+from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import get_or_create_tmp_dir, get_or_create_nfs_tmp_dir
@@ -873,6 +875,9 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
     os.makedirs(root_model_cache_dir, exist_ok=True)
 
     tmp_model_dir = tempfile.mkdtemp(dir=root_model_cache_dir)
+    # mkdtemp creates a directory with permission 0o700
+    # change it to be 0o777 to ensure it can be seen in spark UDF
+    os.chmod(tmp_model_dir, 0o777)
     return tmp_model_dir
 
 
@@ -995,7 +1000,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
-    env_manager = _EnvManager.from_string(env_manager)
+    _EnvManager.validate(env_manager)
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
@@ -1026,7 +1031,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
     )
 
-    if env_manager is _EnvManager.LOCAL:
+    if env_manager == _EnvManager.LOCAL:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -1062,7 +1067,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # "capture_output=False" is the output will be printed immediately, otherwise you have
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
-        if env_manager is _EnvManager.CONDA:
+        if env_manager == _EnvManager.CONDA:
             _get_flavor_backend(
                 local_model_path,
                 env_manager=_EnvManager.CONDA,
@@ -1158,7 +1163,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         scoring_server_proc = None
 
         # TODO: Support virtual env.
-        if env_manager is _EnvManager.CONDA:
+        if env_manager == _EnvManager.CONDA:
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
@@ -1239,7 +1244,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager is _EnvManager.LOCAL:
+        elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:
@@ -1668,6 +1673,8 @@ def _save_model_with_loader_module_and_data_path(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
     return mlflow_model
 
 

@@ -1,10 +1,10 @@
 import logging
 import os
-
 import subprocess
 import posixpath
 import sys
 import warnings
+
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
@@ -15,11 +15,18 @@ from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.conda import _get_conda_extra_env_vars
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils.virtualenv import (
+    _get_or_create_virtualenv,
+    _execute_in_virtualenv,
+    _get_pip_install_mlflow,
+)
 from mlflow.version import VERSION
 
 
 _logger = logging.getLogger(__name__)
+
+_IS_UNIX = os.name != "nt"
 
 
 class PyFuncBackend(FlavorBackend):
@@ -53,10 +60,15 @@ class PyFuncBackend(FlavorBackend):
 
     def prepare_env(self, model_uri, capture_output=False):
         local_path = _download_artifact_from_uri(model_uri)
-        if self._env_manager is _EnvManager.LOCAL or ENV not in self._config:
+        if self._env_manager == _EnvManager.LOCAL or ENV not in self._config:
             return 0
-        conda_env_path = os.path.join(local_path, self._config[ENV])
 
+        command = 'python -c ""'
+        if self._env_manager == _EnvManager.VIRTUALENV:
+            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
+            return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
+
+        conda_env_path = os.path.join(local_path, self._config[ENV])
         conda_env_name = get_or_create_conda_env(
             conda_env_path,
             env_id=self._env_id,
@@ -78,28 +90,29 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
+        command = (
+            'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
+            "model_uri={model_uri}, "
+            "input_path={input_path}, "
+            "output_path={output_path}, "
+            "content_type={content_type}, "
+            'json_format={json_format})"'
+        ).format(
+            model_uri=repr(local_uri),
+            input_path=repr(input_path),
+            output_path=repr(output_path),
+            content_type=repr(content_type),
+            json_format=repr(json_format),
+        )
+        if self._env_manager == _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
-
             conda_env_name = get_or_create_conda_env(
                 conda_env_path, env_id=self._env_id, capture_output=False
             )
-
-            command = (
-                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                "model_uri={model_uri}, "
-                "input_path={input_path}, "
-                "output_path={output_path}, "
-                "content_type={content_type}, "
-                'json_format={json_format})"'
-            ).format(
-                model_uri=repr(local_uri),
-                input_path=repr(input_path),
-                output_path=repr(output_path),
-                content_type=repr(content_type),
-                json_format=repr(json_format),
-            )
             return _execute_in_conda_env(conda_env_name, command, self._install_mlflow)
+        elif self._env_manager == _EnvManager.VIRTUALENV:
+            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
+            return _execute_in_virtualenv(activate_cmd, command, self._install_mlflow)
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
@@ -156,7 +169,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
-        if self._env_manager is _EnvManager.CONDA and ENV in self._config:
+        if self._env_manager == _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
             conda_env_name = get_or_create_conda_env(
@@ -176,6 +189,11 @@ class PyFuncBackend(FlavorBackend):
                 stdout=stdout,
                 stderr=stderr,
                 env_root_dir=self._env_root_dir,
+            )
+        elif self._env_manager == _EnvManager.VIRTUALENV:
+            activate_cmd = _get_or_create_virtualenv(local_path, self._env_id)
+            child_proc = _execute_in_virtualenv(
+                activate_cmd, command, self._install_mlflow, command_env
             )
         else:
             _logger.info("=== Running command '%s'", command)
@@ -204,7 +222,7 @@ class PyFuncBackend(FlavorBackend):
             return child_proc
 
     def can_score_model(self):
-        if self._env_manager is _EnvManager.LOCAL:
+        if self._env_manager == _EnvManager.LOCAL:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")
@@ -286,13 +304,9 @@ def _execute_in_conda_env(
 
     activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
-        if "MLFLOW_HOME" in os.environ:  # dev version
-            install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
-        else:
-            install_mlflow = "pip install mlflow=={} 1>&2".format(VERSION)
-
-        activate_conda_env += [install_mlflow]
-    if os.name != "nt":
+        pip_install_mlflow = _get_pip_install_mlflow()
+        activate_conda_env += [pip_install_mlflow]
+    if _IS_UNIX:
         separator = " && "
         # Add "exec" before the starting scoring server command, so that the scoring server
         # process replaces the bash process, otherwise the scoring server process is created
@@ -310,7 +324,7 @@ def _execute_in_conda_env(
     command = separator.join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
 
-    if os.name != "nt":
+    if _IS_UNIX:
         child = subprocess.Popen(
             ["bash", "-c", command],
             close_fds=True,
