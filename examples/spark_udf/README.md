@@ -1,4 +1,4 @@
-### MLflow evaluation Examples
+### MLflow Spark UDF Examples
 
 The examples in this directory illustrate how you can use the `mlflow.pyfunc.spark_udf` API for batch inference,
 including environment reproducibility capabilities with argument `env_manager="conda"`,
