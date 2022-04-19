@@ -559,7 +559,7 @@ def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
 
 def test_start_run_with_parent():
     parent_run = mock.Mock()
-    mock_experiment_id = mock.Mock(return_value="123456789")
+    mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
     active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
@@ -587,9 +587,9 @@ def test_start_run_with_parent():
         user_patch,
         source_name_patch,
     ):
-        active_run = start_run(experiment_id=mock_experiment_id.return_value, nested=True)
+        active_run = start_run(experiment_id=mock_experiment_id, nested=True)
         MlflowClient.create_run.assert_called_once_with(
-            experiment_id=mock_experiment_id.return_value, tags=expected_tags
+            experiment_id=mock_experiment_id, tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 

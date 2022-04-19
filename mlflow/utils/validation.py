@@ -347,8 +347,8 @@ def _validate_experiment_name(experiment_name):
 
 def _validate_start_run_experiment_id(experiment_id):
     """
-    Check that a user-provided experiment_id is a valid string or int and raise and exception if
-    it isn't.
+    Check that a user-provided experiment_id is either a string, int, or None and raise an
+    exception if it isn't.
     """
     if experiment_id and not isinstance(experiment_id, (str, int)):
         raise MlflowException(
