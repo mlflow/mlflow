@@ -37,7 +37,7 @@ def _exec_cmd(
     **kwargs,
 ):
     """
-    A convenience wrapper of `subprocess.run` for running a command from a Python script.
+    A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
 
     :param cmd: The command to run, as a list of strings.
     :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
@@ -48,12 +48,11 @@ def _exec_cmd(
     :param: synchronous: If True, wait process complete and return a CompletedProcess instance,
                          If False, does not wait process complete and return a Popen instance,
                          and ignore the `throw_on_error` argument.
-    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run` or
-                   `subproces.Popen`.
+    :param kwargs: Keyword arguments (except `text`) passed to `subproces.Popen`.
     :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
               otherwise return a Popen instance.
     """
-    illegal_kwargs = set(kwargs.keys()).intersection(("check", "text"))
+    illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
 
