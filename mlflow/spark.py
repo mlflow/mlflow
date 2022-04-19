@@ -777,9 +777,9 @@ class _PyFuncModelWrapper:
                 ml_model_estimator.featuresCol
             )
             features_col_type = [
-                g
-                for g in spark_df.schema.fields
-                if g.name == features_col_name and g.dataType == t.ArrayType(t.DoubleType())
+                _field
+                for _field in spark_df.schema.fields
+                if _field.name == features_col_name and _field.dataType == t.ArrayType(t.DoubleType())
             ]
             if len(features_col_type) == 1:
                 spark_df = spark_df.withColumn(
