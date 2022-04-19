@@ -82,7 +82,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
         except MlflowException:
             session.rollback()
             raise
-        except sqlite3.IntegrityError as e:
+        except sqlalchemy.exc.IntegrityError as e:
             session.rollback()
             raise MlflowException(message=str(e), error_code=RESOURCE_ALREADY_EXISTS)
         except Exception as e:
