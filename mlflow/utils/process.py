@@ -45,9 +45,9 @@ def _exec_cmd(
                       If this argument is specified, `kwargs` cannot contain `env`.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
-    :param: synchronous: If True, wait process complete and return a CompletedProcess instance,
-                         If False, does not wait process complete and return a Popen instance,
-                         and ignore the `throw_on_error` argument.
+    :param: synchronous: If True, wait for the command to complete and return a CompletedProcess
+                         instance, If False, does not wait for the command to complete and return
+                         a Popen instance, and ignore the `throw_on_error` argument.
     :param kwargs: Keyword arguments (except `text`) passed to `subproces.Popen`.
     :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
               otherwise return a Popen instance.
