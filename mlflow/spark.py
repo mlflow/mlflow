@@ -768,10 +768,15 @@ class _PyFuncModelWrapper:
         # A valid scenario is if the auto-logged input example is directly used
         # for prediction, which would otherwise fail without this transformation.
         ml_model_estimator = self.spark_model.stages[-1]
-        if len(self.spark_model.stages) == 1:
-            from pyspark.ml.functions import array_to_vector
-            from pyspark.sql import functions as f
+        if len(self.spark_model.stages) == 1 and hasattr(ml_model_estimator, "featuresCol"):
+            from pyspark.sql.functions import udf
+            from pyspark.ml.linalg import Vectors, VectorUDT
             from pyspark.sql import types as t
+
+            def _array_to_vector(input_array):
+                return Vectors.dense(input_array)
+
+            array_to_vector_udf = udf(f=_array_to_vector, returnType=VectorUDT())
 
             features_col_name = ml_model_estimator.extractParamMap().get(
                 ml_model_estimator.featuresCol
@@ -784,7 +789,7 @@ class _PyFuncModelWrapper:
             ]
             if len(features_col_type) == 1:
                 spark_df = spark_df.withColumn(
-                    features_col_name, array_to_vector(f.col(features_col_name))
+                    features_col_name, array_to_vector_udf(features_col_name)
                 )
         if isinstance(self.spark_model, PipelineModel) and ml_model_estimator.hasParam("outputCol"):
             # make sure predict work by default for Transformers
