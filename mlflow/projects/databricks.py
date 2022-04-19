@@ -218,7 +218,7 @@ class DatabricksJobRunner:
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
-            libraries = [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+            mlflow_lib = {"pypi": {"package": "mlflow==%s" % VERSION}}
         else:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
@@ -230,18 +230,22 @@ class DatabricksJobRunner:
                     "This might lead to unforeseen issues. "
                 )
             )
-            libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+            mlflow_lib = {"pypi": {"package": "'mlflow<=%s'" % VERSION}}
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
             # Libraries are optional, so we don't require that this be specified
-            original_libraries = cluster_spec.get("libraries", [])
+            cluster_spec_libraries = cluster_spec.get("libraries", [])
             libraries = (
-                original_libraries
-                if _contains_mlflow_git_uri(original_libraries)
-                else original_libraries + libraries
+                # If the cluster spec already includes an MLflow Git URI, then we don't append
+                # `mlflow_lib` to avoid having two different pip requirements for mlflow.
+                cluster_spec_libraries
+                if _contains_mlflow_git_uri(cluster_spec_libraries)
+                else cluster_spec_libraries + [mlflow_lib]
             )
             cluster_spec = cluster_spec["new_cluster"]
+        else:
+            libraries = [mlflow_lib]
 
         # Make jobs API request to launch run.
         req_body_json = {
