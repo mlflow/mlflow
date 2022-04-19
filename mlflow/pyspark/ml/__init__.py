@@ -5,6 +5,8 @@ import time
 from pkg_resources import resource_filename
 import weakref
 
+from sqlalchemy import true
+
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
@@ -98,10 +100,17 @@ def _get_warning_msg_for_skip_log_model(model):
 
 def _should_log_model(spark_model):
     from pyspark.ml.base import Model
+    import re
 
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
-    if class_name in _log_model_allowlist:
+    should_log = class_name in _log_model_allowlist
+    if not should_log:
+        for class_names in _log_model_allowlist:
+            if re.search(class_names, class_name):
+                should_log = true
+                break
+    if should_log:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
         elif class_name == "pyspark.ml.pipeline.PipelineModel":
