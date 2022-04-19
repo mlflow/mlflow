@@ -8,6 +8,7 @@ from collections import namedtuple
 from packaging.version import Version
 from unittest import mock
 import yaml
+import pathlib
 
 import mlflow
 from mlflow.entities import RunStatus
@@ -48,7 +49,6 @@ from mlflow.pyspark.ml import (
 from pyspark.sql import SparkSession
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-import os
 
 pytestmark = pytest.mark.large
 
@@ -900,12 +900,12 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
 
 
 def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    artifacts_dir = pathlib.Path(run.info.artifact_uri.replace("file://", ""))
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
     ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
-    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+    ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
+    assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
     with open(ml_model_path, "r") as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
         assert data is not None
@@ -924,12 +924,10 @@ def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_path = os.path.join(run.info.artifact_uri, "model")
-        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-        input_example = _read_example(model_conf, model_path)
-        # for k, v in random_train_dict_mapping.items():
-        #     np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
-        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+        model_conf = Model.load(model_path.joinpath("MLmodel"))
+        input_example = _read_example(model_conf, model_path.as_posix())
+        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
         pyfunc_model.predict(input_example)
 
 
@@ -957,12 +955,10 @@ def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        model_path = os.path.join(run.info.artifact_uri, "model")
-        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
-        input_example = _read_example(model_conf, model_path)
-        # for k, v in random_train_dict_mapping.items():
-        #     np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
-        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+        model_conf = Model.load(model_path.joinpath("MLmodel"))
+        input_example = _read_example(model_conf, model_path.as_posix())
+        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
         pyfunc_model.predict(input_example)
 
 
@@ -987,5 +983,66 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},
                 {"name": "prediction", "type": "double"},
+            ],
+        )
+
+
+@pytest.fixture()
+def multinomial_df_with_string_labels(spark_session):
+    return spark_session.createDataFrame(
+        [(0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c")]
+    ).toDF("id", "category")
+
+
+@pytest.fixture()
+def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_string_labels):
+    from pyspark.ml.feature import IndexToString, StringIndexer
+
+    string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
+        multinomial_df_with_string_labels
+    )
+    return Pipeline(
+        stages=[
+            string_indexer,
+            VectorAssembler(inputCols=["id"], outputCol="features"),
+            LogisticRegression(),
+            IndexToString(
+                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+            ),
+        ]
+    )
+
+
+def test_input_example_with_index_to_string_stage(
+    multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
+):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
+        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+        model_conf = Model.load(model_path.joinpath("MLmodel"))
+        input_example = _read_example(model_conf, model_path.as_posix())
+        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
+        pyfunc_model.predict(input_example)
+
+
+def test_signature_with_index_to_string_stage(
+    multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
+):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [{"name": "id", "type": "long"}, {"name": "category", "type": "string"}],
+            [
+                {"name": "id", "type": "long"},
+                {"name": "category", "type": "string"},
+                {"name": "label", "type": "double"},
+                {"name": "features", "type": "string"},
+                {"name": "rawPrediction", "type": "string"},
+                {"name": "probability", "type": "string"},
+                {"name": "prediction", "type": "double"},
+                {"name": "originalLabel", "type": "string"},
             ],
         )

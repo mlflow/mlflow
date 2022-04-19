@@ -791,9 +791,19 @@ class _PyFuncModelWrapper:
                 spark_df = spark_df.withColumn(
                     features_col_name, array_to_vector_udf(features_col_name)
                 )
+
         if isinstance(self.spark_model, PipelineModel) and ml_model_estimator.hasParam("outputCol"):
-            # make sure predict work by default for Transformers
-            ml_model_estimator.setOutputCol("prediction")
+            from pyspark.sql import SparkSession
+
+            prediction_column = "prediction"
+            spark = SparkSession.builder.getOrCreate()
+            # do a transform with an empty input DataFrame
+            # to get the schema of the transformed DataFrame
+            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
+            # Ensure prediction column doesn't already exist
+            if prediction_column not in transformed_df.columns:
+                # make sure predict work by default for Transformers
+                ml_model_estimator.setOutputCol(prediction_column)
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()
