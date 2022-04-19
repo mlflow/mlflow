@@ -98,7 +98,7 @@ class LocalBackend(AbstractBackend):
             command_separator = " && "
             conda_env_name = get_or_create_conda_env(project.env_config_path)
             command_args += get_conda_command(conda_env_name)
-        elif env_manager is _EnvManager.VIRTUALENV:
+        elif env_manager == _EnvManager.VIRTUALENV:
             tracking.MlflowClient().set_tag(
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
