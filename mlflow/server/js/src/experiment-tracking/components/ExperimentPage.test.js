@@ -7,7 +7,6 @@ import { ExperimentPage, isNewRun, lifecycleFilterToRunViewType } from './Experi
 import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages';
 import Utils from '../../common/utils/Utils';
 import ExperimentView from './ExperimentView';
-import { PermissionDeniedView } from './PermissionDeniedView';
 import { ViewType } from '../sdk/MlflowEnums';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
@@ -87,6 +86,7 @@ const getExperimentPageMock = (additionalProps) => {
       setCompareExperiments={setCompareExperiments}
       history={history}
       location={location}
+      intl={{ formatMessage: () => {} }}
       {...additionalProps}
     />,
   );
@@ -272,14 +272,13 @@ test('should render permission denied view when getExperiment yields permission 
     active: false,
     error: responseErrorWrapper,
   };
-  const experimentViewInstance = shallow(
+  const wrapper = shallow(
     experimentPageInstance.renderExperimentView(false, true, [
       searchRunsErrorRequest,
       getExperimentErrorRequest,
     ]),
-  ).instance();
-  expect(experimentViewInstance).toBeInstanceOf(PermissionDeniedView);
-  expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
+  );
+  expect(wrapper.find('[data-testid="error-message"]').text()).toEqual(errorMessage);
 });
 
 test('should render experiment view when search error occurs', () => {

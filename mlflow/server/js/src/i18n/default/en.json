@@ -515,6 +515,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "NJ1bYP": {
+    "defaultMessage": "{fieldName} are identical",
+    "description": "Default text in data table where items are identical in the model comparison page"
+  },
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
     "description": "Breadcrumb title for compare runs page with single experiment"
@@ -1002,10 +1006,6 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
-  },
-  "nuLuf2": {
-    "defaultMessage": "{fieldName} are identical",
-    "description": "Default text in data table where items are identical in the model\n                    comparison page"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",
