@@ -5,6 +5,7 @@ import os
 import pickle
 from unittest.mock import patch
 import json
+import functools
 
 import numpy as np
 import pandas as pd
@@ -258,6 +259,111 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+def __example_tf_dataset(batch_size):
+    a = tf.data.Dataset.range(1)
+    b = tf.data.Dataset.range(1)
+    ds = tf.data.Dataset.zip((a, b))
+    return ds.batch(batch_size)
+
+
+class __ExampleSequence(tf.keras.utils.Sequence):
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return 10
+
+    def __getitem__(self, idx):
+        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+
+
+def __generator(data, target, batch_size):
+    data_batches = np.split(data, data.shape[0] // batch_size)
+    target_batches = np.split(target, target.shape[0] // batch_size)
+    for data_batch, target_batch in zip(data_batches, target_batches):
+        yield data_batch, target_batch
+
+
+class __GeneratorClass:
+    def __init__(self, data, target, batch_size):
+        self.data = data
+        self.target = target
+        self.batch_size = batch_size
+        self.ptr = 0
+
+    def __next__(self):
+        if self.ptr >= len(self.data):
+            raise StopIteration
+        idx = self.ptr % len(self.data)
+        self.ptr += 1
+        return self.data[idx : idx + self.batch_size], self.target[idx : idx + self.batch_size]
+
+    def __iter__(self):
+        return self
+
+
+@pytest.mark.large
+@pytest.mark.parametrize(
+    "generate_data",
+    [
+        __example_tf_dataset,
+        __ExampleSequence,
+        functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
+        functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+    ],
+)
+@pytest.mark.parametrize("batch_size", [5, 10])
+def test_tf_keras_autolog_implicit_batch_size_works(generate_data, batch_size):
+    mlflow.autolog()
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Dense(1, input_shape=(1,)))
+    model.compile(loss="mse")
+
+    # 'x' passed as arg
+    model.fit(generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+    # 'x' passed as kwarg
+    model.fit(x=generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.4"),
+    reason="Does not support passing of generator classes as `x` in `fit`",
+)
+@pytest.mark.parametrize("generator", [__generator, __GeneratorClass])
+@pytest.mark.parametrize("batch_size", [2, 3, 6])
+def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side_effects(
+    generator,
+    batch_size,
+):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense
+
+    data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
+    target = np.array([[1], [3], [2], [11], [13], [12]])
+
+    model = Sequential()
+    model.add(
+        Dense(
+            5, input_dim=3, activation="relu", kernel_initializer="zeros", bias_initializer="zeros"
+        )
+    )
+    model.add(Dense(1, kernel_initializer="zeros", bias_initializer="zeros"))
+    model.compile(loss="mae", optimizer="adam", metrics=["mse"])
+
+    mlflow.autolog()
+    actual_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
+
+    mlflow.autolog(disable=True)
+    expected_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
+
+    np.testing.assert_allclose(actual_mse, expected_mse, atol=1)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
 @pytest.mark.large

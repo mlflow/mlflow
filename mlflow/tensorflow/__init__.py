@@ -33,6 +33,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
+from mlflow.utils import is_iterator
 from mlflow.utils.annotations import keyword_only
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -908,6 +909,30 @@ def autolog(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+
+            batch_size = None
+            training_data = kwargs["x"] if "x" in kwargs else args[0]
+            if isinstance(training_data, tensorflow.data.Dataset):
+                batch_size = training_data._batch_size.numpy()
+            elif isinstance(training_data, tensorflow.keras.utils.Sequence):
+                first_batch_inputs, _ = training_data[0]
+                batch_size = len(first_batch_inputs)
+            elif is_iterator(training_data):
+                peek = next(training_data)
+                batch_size = len(peek[0])
+
+                def __restore_generator(prev_generator):
+                    yield peek
+                    yield from prev_generator
+
+                restored_generator = __restore_generator(training_data)
+                if "x" in kwargs:
+                    kwargs["x"] = restored_generator
+                else:
+                    args = (restored_generator,) + args[1:]
+            if batch_size is not None:
+                mlflow.log_param("batch_size", batch_size)
+                unlogged_params.append("batch_size")
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
