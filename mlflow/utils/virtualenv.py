@@ -99,6 +99,9 @@ def _install_python(version):
     :param version: Python version to install.
     :return: Path to the installed python binary.
     """
+    print(
+        "_install_python", os.environ, os.path.exists("/databricks/.pyenv")
+    )  # I'll remove this soon
     version = (
         version
         if _SEMANTIC_VERSION_REGEX.match(version)
