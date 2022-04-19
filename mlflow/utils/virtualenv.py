@@ -103,9 +103,8 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     binary.
 
     :param version: Python version to install.
-    :param pyenv_root: PYENV_ROOT path string. If None, use default PYENV_ROOT. The path is used
-                       to hold the python binaries downloaded by pyenv. We can still use "pyenv"
-                       command installed in other directory.
+    :param pyenv_root: The value of the "PYENV_ROOT" environment variable used when running
+                       `pyenv install` which installs python in `{PYENV_ROOT}/versions/{version}`.
     :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`
     :return: Path to the installed python binary.
     """
