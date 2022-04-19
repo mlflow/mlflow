@@ -103,6 +103,8 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     binary.
 
     :param version: Python version to install.
+    :param pyenv_root: PYENV_ROOT path string. If None, use default PYENV_ROOT.
+    :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`
     :return: Path to the installed python binary.
     """
     version = (
@@ -253,8 +255,9 @@ def _get_or_create_virtualenv(
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
     if env_root_dir is not None:
         virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
-        pyenv_root_dir = os.path.join(env_root_dir, _PYENV_ROOT_DIR)
-        pyenv_root_dir.mkdir(parents=True, exist_ok=True)
+        pyenv_root_path = Path(env_root_dir) / _PYENV_ROOT_DIR
+        pyenv_root_path.mkdir(parents=True, exist_ok=True)
+        pyenv_root_dir = str(pyenv_root_path)
     else:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         pyenv_root_dir = None
@@ -325,18 +328,6 @@ def _execute_in_virtualenv(
     pre_command = [activate_cmd]
     if install_mlflow:
         pre_command.append(_get_pip_install_mlflow())
-
-    if _IS_UNIX:
-        # Add "exec" before the starting scoring server command, so that the scoring server
-        # process replaces the bash process, otherwise the scoring server process is created
-        # as a child process of the bash process.
-        # Note we in `mlflow.pyfunc.spark_udf`, use prctl PR_SET_PDEATHSIG to ensure scoring
-        # server process being killed when UDF process exit. The PR_SET_PDEATHSIG can only
-        # send signal to the bash process, if the scoring server process is created as a
-        # child process of the bash process, then it cannot receive the signal sent by prctl.
-        # TODO: For Windows, there's no equivalent things of Unix shell's exec. Windows also
-        #  does not support prctl. We need to find an approach to address it.
-        command = "exec " + command
 
     cmd = _join_commands(*pre_command, command)
     _logger.info("Running command: %s", " ".join(cmd))

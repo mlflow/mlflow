@@ -969,7 +969,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param env_manager: The environment manager to use in order to create the software environment
+    :param env_manager: The environment manager to use in order to create the python environment
                         for model inference. Note that environment is only restored in the context
                         of the PySpark UDF; the software environment outside of the UDF is
                         unaffected. Default value is ``local``, and the following values are

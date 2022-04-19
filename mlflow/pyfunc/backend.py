@@ -189,6 +189,18 @@ class PyFuncBackend(FlavorBackend):
         else:
             setup_sigterm_on_parent_death = None
 
+        if _IS_UNIX:
+            # Add "exec" before the starting scoring server command, so that the scoring server
+            # process replaces the bash process, otherwise the scoring server process is created
+            # as a child process of the bash process.
+            # Note we in `mlflow.pyfunc.spark_udf`, use prctl PR_SET_PDEATHSIG to ensure scoring
+            # server process being killed when UDF process exit. The PR_SET_PDEATHSIG can only
+            # send signal to the bash process, if the scoring server process is created as a
+            # child process of the bash process, then it cannot receive the signal sent by prctl.
+            # TODO: For Windows, there's no equivalent things of Unix shell's exec. Windows also
+            #  does not support prctl. We need to find an approach to address it.
+            command = "exec " + command
+
         if self._env_manager == _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
 
@@ -230,7 +242,7 @@ class PyFuncBackend(FlavorBackend):
             _logger.info("=== Running command '%s'", command)
 
             if os.name != "nt":
-                command = ["bash", "-c", "exec " + command]
+                command = ["bash", "-c", command]
 
             child_proc = subprocess.Popen(
                 command,
@@ -339,16 +351,6 @@ def _execute_in_conda_env(
         activate_conda_env += [pip_install_mlflow]
     if _IS_UNIX:
         separator = " && "
-        # Add "exec" before the starting scoring server command, so that the scoring server
-        # process replaces the bash process, otherwise the scoring server process is created
-        # as a child process of the bash process.
-        # Note we in `mlflow.pyfunc.spark_udf`, use prctl PR_SET_PDEATHSIG to ensure scoring
-        # server process being killed when UDF process exit. The PR_SET_PDEATHSIG can only
-        # send signal to the bash process, if the scoring server process is created as a
-        # child process of the bash process, then it cannot receive the signal sent by prctl.
-        # TODO: For Windows, there's no equivalent things of Unix shell's exec. Windows also
-        #  does not support prctl. We need to find an approach to address it.
-        command = "exec " + command
     else:
         separator = " & "
 
