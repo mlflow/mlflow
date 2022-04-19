@@ -48,7 +48,7 @@ def _exec_cmd(
     :param: synchronous: If True, wait for the command to complete and return a CompletedProcess
                          instance, If False, does not wait for the command to complete and return
                          a Popen instance, and ignore the `throw_on_error` argument.
-    :param kwargs: Keyword arguments (except `text`) passed to `subproces.Popen`.
+    :param kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
     :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
               otherwise return a Popen instance.
     """
