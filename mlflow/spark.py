@@ -779,7 +779,8 @@ class _PyFuncModelWrapper:
             features_col_type = [
                 _field
                 for _field in spark_df.schema.fields
-                if _field.name == features_col_name and _field.dataType == t.ArrayType(t.DoubleType())
+                if _field.name == features_col_name
+                and _field.dataType == t.ArrayType(t.DoubleType())
             ]
             if len(features_col_type) == 1:
                 spark_df = spark_df.withColumn(
