@@ -7,6 +7,7 @@ import pytest
 from collections import namedtuple
 from packaging.version import Version
 from unittest import mock
+import yaml
 
 import mlflow
 from mlflow.entities import RunStatus
@@ -45,7 +46,9 @@ from mlflow.pyspark.ml import (
     _get_tuning_param_maps,
 )
 from pyspark.sql import SparkSession
-
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
+import os
 
 pytestmark = pytest.mark.large
 
@@ -276,7 +279,29 @@ def test_fit_with_a_list_of_params(dataset_binomial):
             mock_set_tags.assert_not_called()
 
 
-def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
+@pytest.fixture()
+def tokenizer():
+    return Tokenizer(inputCol="text", outputCol="words")
+
+
+@pytest.fixture()
+def hashing_tf(tokenizer):
+    return HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+
+
+@pytest.fixture()
+def lr():
+    return LogisticRegression(maxIter=2)
+
+
+@pytest.fixture()
+def lr_pipeline(tokenizer, hashing_tf, lr):
+    return Pipeline(stages=[tokenizer, hashing_tf, lr])
+
+
+def test_should_log_model(
+    dataset_binomial, dataset_multinomial, dataset_text, lr_pipeline, tokenizer, hashing_tf, lr
+):
     mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
@@ -289,15 +314,11 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
         ova1_model = ova1.fit(dataset_multinomial)
     assert _should_log_model(ova1_model)
 
-    tokenizer = Tokenizer(inputCol="text", outputCol="words")
-    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
-    lr = LogisticRegression(maxIter=2)
-    pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
     with mlflow.start_run():
-        pipeline_model = pipeline.fit(dataset_text)
+        pipeline_model = lr_pipeline.fit(dataset_text)
     assert _should_log_model(pipeline_model)
 
-    nested_pipeline = Pipeline(stages=[tokenizer, Pipeline(stages=[hashingTF, lr])])
+    nested_pipeline = Pipeline(stages=[tokenizer, Pipeline(stages=[hashing_tf, lr])])
     with mlflow.start_run():
         nested_pipeline_model = nested_pipeline.fit(dataset_text)
     assert _should_log_model(nested_pipeline_model)
@@ -324,7 +345,7 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
 
 
 def test_log_stage_type_params(spark_session):
-    from pyspark.ml.base import Estimator, Transformer, Model
+    from pyspark.ml.base import Estimator, Transformer, Model as SparkModel
     from pyspark.ml.evaluation import Evaluator
     from pyspark.ml.param import Param, Params
     from pyspark.ml.feature import Binarizer, OneHotEncoder
@@ -338,7 +359,7 @@ def test_log_stage_type_params(spark_session):
         def setTransformer(self, transformer: Transformer):
             return self._set(transformer=transformer)
 
-        def setModel(self, model: Model):
+        def setModel(self, model: SparkModel):
             return self._set(model=model)
 
         def setEvaluator(self, evaluator: Evaluator):
@@ -347,7 +368,7 @@ def test_log_stage_type_params(spark_session):
         def _fit(self, dataset):
             return TestingModel()
 
-    class TestingModel(Model):
+    class TestingModel(SparkModel):
         def _transform(self, dataset):
             return dataset
 
@@ -876,3 +897,95 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
+    ml_model_filename = "MLmodel"
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+        assert data is not None
+        assert "signature" in data
+        signature = data["signature"]
+        assert signature is not None
+        assert "inputs" in signature
+        assert "outputs" in signature
+        assert json.loads(signature["inputs"]) == input_sig_spec
+        assert json.loads(signature["outputs"]) == output_sig_spec
+
+
+@pytest.mark.large
+def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+
+    with mlflow.start_run() as run:
+        lr.fit(dataset_multinomial)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        # for k, v in random_train_dict_mapping.items():
+        #     np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+
+    with mlflow.start_run() as run:
+        lr.fit(dataset_multinomial)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [{"name": "label", "type": "double"}, {"name": "features", "type": "string"}],
+            [
+                {"name": "label", "type": "double"},
+                {"name": "features", "type": "string"},
+                {"name": "rawPrediction", "type": "string"},
+                {"name": "probability", "type": "string"},
+                {"name": "prediction", "type": "double"},
+            ],
+        )
+
+
+@pytest.mark.large
+def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        lr_pipeline.fit(dataset_text)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        # for k, v in random_train_dict_mapping.items():
+        #     np.testing.assert_array_almost_equal(input_example[k], np.take(v, range(0, 5)))
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        lr_pipeline.fit(dataset_text)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [
+                {"name": "id", "type": "long"},
+                {"name": "text", "type": "string"},
+                {"name": "label", "type": "double"},
+            ],
+            [
+                {"name": "id", "type": "long"},
+                {"name": "text", "type": "string"},
+                {"name": "label", "type": "double"},
+                {"name": "words", "type": "string"},
+                {"name": "features", "type": "string"},
+                {"name": "rawPrediction", "type": "string"},
+                {"name": "probability", "type": "string"},
+                {"name": "prediction", "type": "double"},
+            ],
+        )

@@ -760,11 +760,34 @@ class _PyFuncModelWrapper:
         from pyspark.ml import PipelineModel
 
         spark_df = self.spark.createDataFrame(pandas_df)
-        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
-            "outputCol"
-        ):
+        # If a spark ML pipeline contains a single Estimator stage, it requires
+        # the input dataframe to contain features column of vector type.
+        # But the autologging for pyspark ML casts vector column to array<double> type
+        # for parity with the pd Dataframe. The following fix is required, which transforms
+        # that features column back to vector type so that the pipeline stages can correctly work.
+        # A valid scenario is if the auto-logged input example is directly used
+        # for prediction, which would otherwise fail without this transformation.
+        ml_model_estimator = self.spark_model.stages[-1]
+        if len(self.spark_model.stages) == 1:
+            from pyspark.ml.functions import array_to_vector
+            from pyspark.sql import functions as f
+            from pyspark.sql import types as t
+
+            features_col_name = ml_model_estimator.extractParamMap().get(
+                ml_model_estimator.featuresCol
+            )
+            features_col_type = [
+                g
+                for g in spark_df.schema.fields
+                if g.name == features_col_name and g.dataType == t.ArrayType(t.DoubleType())
+            ]
+            if len(features_col_type) == 1:
+                spark_df = spark_df.withColumn(
+                    features_col_name, array_to_vector(f.col(features_col_name))
+                )
+        if isinstance(self.spark_model, PipelineModel) and ml_model_estimator.hasParam("outputCol"):
             # make sure predict work by default for Transformers
-            self.spark_model.stages[-1].setOutputCol("prediction")
+            ml_model_estimator.setOutputCol("prediction")
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()

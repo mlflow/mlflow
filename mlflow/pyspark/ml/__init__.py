@@ -18,6 +18,7 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     autologging_integration,
     safe_patch,
+    resolve_input_example_and_signature,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
@@ -26,6 +27,9 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
+)
+from mlflow.utils.autologging_utils import (
+    INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 
 _logger = logging.getLogger(__name__)
@@ -706,6 +710,8 @@ def autolog(
     silent=False,
     log_post_training_metrics=True,
     registered_model_name=None,
+    log_input_examples=False,
+    log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -823,7 +829,20 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
-
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with pyspark ml model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with tf/keras model artifacts during training. If ``False``,
+                                 signatures are not logged. ``False`` by default because
+                                 logging Spark ML models with signatures changes their pyfunc
+                                 inference behavior when Spark DataFrames are passed to
+                                 ``predict()``: when a signature is present, an ``np.ndarray``
+                                 (for single-output models) or a mapping from
+                                 ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
+                                 when a signature is not present, a Spark DataFrame is returned.
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
@@ -876,7 +895,7 @@ def autolog(
 
         mlflow.set_tags(_get_estimator_info_tags(estimator))
 
-    def _log_posttraining_metadata(estimator, spark_model, params):
+    def _log_posttraining_metadata(estimator, spark_model, params, input_df):
 
         if _is_parameter_search_estimator(estimator):
             try:
@@ -925,8 +944,56 @@ def autolog(
         if log_models:
             if _should_log_model(spark_model):
                 # TODO: support model signature
+                from mlflow.models.signature import infer_signature
+
+                def _cast_spark_df_with_vector_to_array(input_spark_df):
+                    """
+                    Finds columns of vector type in a spark dataframe and
+                    casts them to array<double> type.
+
+                    :param input_spark_df:
+                    :return: a spark dataframe with vector columns transformed to array<double> type
+                    """
+                    from functools import reduce
+                    from pyspark.ml.functions import vector_to_array
+                    from pyspark.ml.linalg import VectorUDT
+
+                    vector_type_columns = [
+                        _field.name
+                        for _field in input_spark_df.schema
+                        if isinstance(_field.dataType, VectorUDT)
+                    ]
+                    return reduce(
+                        lambda df, vector_col: df.withColumn(
+                            vector_col, vector_to_array(vector_col)
+                        ),
+                        vector_type_columns,
+                        input_spark_df,
+                    )
+
+                limited_input_df = input_df.limit(INPUT_EXAMPLE_SAMPLE_ROWS)
+
+                def _get_input_example():
+                    return _cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
+
+                def _infer_model_signature(input_data_slice):
+                    model_output = spark_model.transform(input_data_slice)
+                    return infer_signature(input_data_slice.toPandas(), model_output.toPandas())
+
+                input_example, signature = resolve_input_example_and_signature(
+                    _get_input_example,
+                    lambda _: _infer_model_signature(limited_input_df),
+                    log_input_examples,
+                    log_model_signatures,
+                    _logger,
+                )
+
                 mlflow.spark.log_model(
-                    spark_model, artifact_path="model", registered_model_name=registered_model_name
+                    spark_model,
+                    artifact_path="model",
+                    registered_model_name=registered_model_name,
+                    input_example=input_example,
+                    signature=signature,
                 )
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(
@@ -954,7 +1021,8 @@ def autolog(
             estimator = self.copy(params) if params is not None else self
             _log_pretraining_metadata(estimator, params)
             spark_model = original(self, *args, **kwargs)
-            _log_posttraining_metadata(estimator, spark_model, params)
+            _log_posttraining_metadata(estimator, spark_model, params, args[0])
+
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
