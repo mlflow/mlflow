@@ -19,9 +19,9 @@ This script will:
 
   Example usage:
 
-  From root of MLflow repository on local with a destination virtualenv path of <root>/.venvs/mlflow-dev:
+  From root of MLflow repository on local with a destination virtualenv path of <MLFLOW_HOME>/.venvs/mlflow-dev:
 
-  dev/dev-env-setup.sh -d ~/.venvs/mlflow-dev
+  dev/dev-env-setup.sh -d $(pwd)/.venvs/mlflow-dev
 
   Note: it is recommended to preface virtualenv locations with a directory name prefaced by '.' (i.e., ".venvs").
 
@@ -52,6 +52,14 @@ if [[ $verbose = 1 ]]; then
   set -exv
 fi
 
+# Acquire the OS for this environment
+case "$(uname -s)" in
+  Darwin*)                       machine=mac;;
+  Linux*)                        machine=linux;;
+  CYGWIN*|MINGW32*|MSYS*|MINGW*) machine=win;;
+  *)                             machine=unknown;;
+esac
+
 # Check if pyenv is installed and offer to install it if not present
 pyenv_exist=$(command -v pyenv)
 
@@ -59,10 +67,26 @@ if [ -z "$pyenv_exist" ]; then
   read -p "pyenv is required to be installed to manage python versions. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo "Updating brew and installing pyenv..."
-    echo "Note: this will probably take a considerable amount of time."
-    brew update
-    brew install pyenv
+
+    if [[ "$machine" == mac ]]; then
+      echo "Updating brew and installing pyenv..."
+      echo "Note: this will probably take a considerable amount of time."
+      brew update
+      brew install pyenv
+    elif [[ "$machine" == linux ]]; then
+      #TODO: Linux
+      true
+    elif [[ "$machine" == win ]]; then
+      if [ -z "$(command -v pip)" ]; then
+        echo "A pip installation cannot be found. Install pip first."
+        exit 1
+      fi
+      # install via system pip as per pyenv-win docs
+      pip install pyenv-win --target $HOME\\.pyenv
+    else
+      echo "Unknown operating system environment: $machine exiting."
+      exit 1
+    fi
   else
     exit 1
   fi
@@ -72,6 +96,8 @@ MLFLOW_HOME=$(pwd)
 
 # Get the minimum supported version from MLflow to ensure any feature development adheres to legacy Python versions
 min_py_version=$(grep "python_requires=" "$MLFLOW_HOME/setup.py" | grep -E -o "([0-9]{1,}\.)+[0-9]{1,}")
+
+echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)'$min_py_version'$(tput sgr0)"
 
 # Resolve a minor version to the latest micro version
 case $min_py_version in
