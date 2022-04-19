@@ -411,7 +411,6 @@ export class ExperimentView extends Component {
     ) : null;
   }
 
-
   getUrl() {
     return window.location.href;
   }
