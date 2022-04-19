@@ -495,6 +495,7 @@ const styles = {
   nameSearchBox: css({
     width: '446px',
   }),
+  // TODO: Convert this into Dubois Alert
   alert: css({
     marginBottom: 16,
     padding: 16,
