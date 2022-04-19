@@ -835,8 +835,9 @@ def autolog(
     :param log_model_signatures: If ``True``,
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
-                                 with spark ml pipeline/estimator artifacts during training. If ``False``,
-                                 signatures are not logged.
+                                 with spark ml pipeline/estimator artifacts during training.
+                                 If ``False`` signatures are not logged.
+
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
