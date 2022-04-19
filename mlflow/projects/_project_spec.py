@@ -86,7 +86,7 @@ def load_project(directory):
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
             raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
+                "Project specified python_env file %s, but no such "
                 "file was found." % python_env_path
             )
         return Project(
