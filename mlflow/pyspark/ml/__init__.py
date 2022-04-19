@@ -5,8 +5,6 @@ import time
 from pkg_resources import resource_filename
 import weakref
 
-from sqlalchemy import true
-
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
@@ -108,7 +106,7 @@ def _should_log_model(spark_model):
     if not should_log:
         for class_names in _log_model_allowlist:
             if re.search(class_names, class_name):
-                should_log = true
+                should_log = True
                 break
     if should_log:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
