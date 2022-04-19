@@ -16,7 +16,7 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.conda import _get_conda_dependencies
+from mlflow.utils.conda import _get_conda_dependencies, _PIP_CACHE_DIR
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
@@ -218,8 +218,13 @@ def _get_virtualenv_extra_env_vars(env_root_dir=None):
         "PIP_NO_INPUT": "1",
     }
     if env_root_dir is not None:
-        extra_env["PIP_CACHE_DIR"] = os.path.join(env_root_dir, "pip_cache_pkgs")
+        # Note: Both conda pip and virtualenv can use the pip cache directory.
+        extra_env["PIP_CACHE_DIR"] = os.path.join(env_root_dir, _PIP_CACHE_DIR)
     return extra_env
+
+
+_VIRTUALENV_ENVS_DIR = "virtualenv_envs"
+_PYENV_ROOT_DIR = "pyenv_root"
 
 
 def _get_or_create_virtualenv(
@@ -247,8 +252,9 @@ def _get_or_create_virtualenv(
 
     extra_env = _get_virtualenv_extra_env_vars(env_root_dir)
     if env_root_dir is not None:
-        virtual_envs_root_path = Path(env_root_dir) / "virtualenv_envs"
-        pyenv_root_dir = os.path.join(env_root_dir, "pyenv")
+        virtual_envs_root_path = Path(env_root_dir) / _VIRTUALENV_ENVS_DIR
+        pyenv_root_dir = os.path.join(env_root_dir, _PYENV_ROOT_DIR)
+        pyenv_root_dir.mkdir(parents=True, exist_ok=True)
     else:
         virtual_envs_root_path = Path(_get_mlflow_virtualenv_root())
         pyenv_root_dir = None
