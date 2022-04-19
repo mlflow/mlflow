@@ -345,7 +345,7 @@ def _validate_experiment_name(experiment_name):
         )
 
 
-def _validate_start_run_experiment_id(experiment_id):
+def _validate_experiment_id_type(experiment_id):
     """
     Check that a user-provided experiment_id is either a string, int, or None and raise an
     exception if it isn't.
