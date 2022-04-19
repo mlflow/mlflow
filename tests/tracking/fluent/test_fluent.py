@@ -487,7 +487,9 @@ def test_start_run_defaults_databricks_notebook(
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
-@pytest.mark.parametrize("experiment_id", [("a", "b"), {"a", "b"}, ["a", "b"], {"a": 1}])
+@pytest.mark.parametrize(
+    "experiment_id", [("a", "b"), {"a", "b"}, ["a", "b"], {"a": 1}, [], (), {}]
+)
 def test_start_run_raises_invalid_experiment_id(experiment_id):
     with pytest.raises(MlflowException, match="Invalid experiment id: "):
         start_run(experiment_id=experiment_id)

@@ -350,10 +350,10 @@ def _validate_experiment_id_type(experiment_id):
     Check that a user-provided experiment_id is either a string, int, or None and raise an
     exception if it isn't.
     """
-    if experiment_id and not isinstance(experiment_id, (str, int)):
+    if experiment_id is not None and not isinstance(experiment_id, (str, int)):
         raise MlflowException(
             f"Invalid experiment id: {experiment_id} of type {type(experiment_id)}. "
-            "Must be either str or int.",
+            "Must be one of str, int, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
