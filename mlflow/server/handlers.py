@@ -326,18 +326,16 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
     This method is intended to be called for side effects.
 
             Parameters:
-                    schema (list): A list of functions to validate the parameter against
-                    param (str): The name of the parameter being validated
-                    value: The value being validated. The type of `value` can vary.
-                    proto_parsing_succeeded (bool): A boolean value indicating whether proto parsing has already succeeded.
-                        If the proto was successfully parsed, we assume all of the types of the parameters in the request
-                        body were correctly specified, and thus we skip validating types. If proto parsing failed,
-                        then we validate types in addition to the rest of the schema.
-                        See link for details: https://github.com/mlflow/mlflow/pull/5458#issuecomment-1080880870
-
-
-            Returns:
-                    None on success. This method is intended to be called for side effects.
+    :param schema: A list of functions to validate the parameter against.
+    :param param: The string name of the parameter being validated.
+    :param value: The corresponding value of the `param` being validated.
+    :param proto_parsing_succeeded: A boolean value indicating whether proto parsing succeeded.
+                                    If the proto was successfully parsed, we assume all of the types
+                                    of the parameters in the request body were correctly specified,
+                                    and thus we skip validating types. If proto parsing failed,
+                                    then we validate types in addition to the rest of the schema.
+                                    For details, see https://github.com/mlflow/mlflow/pull/
+                                    5458#issuecomment-1080880870.
     """
 
     for f in schema:
@@ -368,7 +366,7 @@ def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
 
-def _get_request_message(request_message, flask_request=request, schema={}):
+def _get_request_message(request_message, flask_request=request, schema=None):
     from querystring_parser import parser
 
     if flask_request.method == "GET" and len(flask_request.query_string) > 0:
@@ -414,6 +412,7 @@ def _get_request_message(request_message, flask_request=request, schema={}):
     except ParseError:
         proto_parsing_succeeded = False
 
+    schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
         if schema_key in request_json or _assert_required in schema_validation_fns:
             _validate_param_against_schema(
