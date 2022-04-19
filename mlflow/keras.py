@@ -403,7 +403,7 @@ def log_model(
     """
     if signature is not None:
         warnings.warn(
-            " The pyfunc inference behavior of Keras models logged "
+            "The pyfunc inference behavior of Keras models logged "
             "with signatures differs from the behavior of Keras "
             "models logged without signatures. Specifically, when a "
             "signature is present, passing a Pandas DataFrame as "
