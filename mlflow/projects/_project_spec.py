@@ -80,13 +80,13 @@ def load_project(directory):
                     "environment variables)."
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
-            return Project(
-                env_type=env_type.DOCKER,
-                env_config_path=None,
-                entry_points=entry_points,
-                docker_env=docker_env,
-                name=project_name,
-            )
+        return Project(
+            env_type=env_type.DOCKER,
+            env_config_path=None,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
     python_env = yaml_obj.get(env_type.PYTHON)
     if python_env:
@@ -134,7 +134,7 @@ def load_project(directory):
         env_type=env_type.CONDA,
         env_config_path=None,
         entry_points=entry_points,
-        docker_env=docker_env,
+        docker_env=None,
         name=project_name,
     )
 
