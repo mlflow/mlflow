@@ -108,9 +108,6 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     :param capture_output: Set the `capture_output` argument when calling `_exec_cmd`
     :return: Path to the installed python binary.
     """
-    print(
-        "_install_python", os.environ, os.path.exists("/databricks/.pyenv")
-    )  # I'll remove this soon
     version = (
         version
         if _SEMANTIC_VERSION_REGEX.match(version)
