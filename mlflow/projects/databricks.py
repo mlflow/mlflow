@@ -210,7 +210,7 @@ class DatabricksJobRunner:
             _logger.warning(
                 (
                     "Your client is running a non-release version of MLFlow. "
-                    "This version is not avaialable on the databricks runtime. "
+                    "This version is not available on the databricks runtime. "
                     "MLFlow will fallback the MLFlow version provided by the runtime. "
                     "This might lead to unforeseen issues. "
                 )
