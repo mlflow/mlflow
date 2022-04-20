@@ -56,6 +56,7 @@ target_details = click.option(
     ),
 )
 deployment_name = click.option("--name", "name", required=True, help="Name of the deployment")
+optional_deployment_name = click.option("--name", "name", help="Name of the deployment")
 parse_custom_arguments = click.option(
     "--config",
     "-C",
@@ -76,6 +77,9 @@ parse_output = click.option(
     "-O",
     help="File to output results to as a JSON file. If not provided, prints output to stdout.",
 )
+
+required_endpoint_param = click.option("--endpoint", required=True, help="Name of the endpoint")
+optional_endpoint_param = click.option("--endpoint", help="Name of the endpoint")
 
 
 @click.group(
@@ -113,6 +117,7 @@ def commands():
 
 
 @commands.command("create")
+@optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
 @target_details
@@ -122,7 +127,7 @@ def commands():
     "-f",
     help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
-def create_deployment(flavor, model_uri, target, name, config):
+def create_deployment(flavor, model_uri, target, name, config, endpoint):
     """
     Deploy the model at ``model_uri`` to the specified target.
 
@@ -130,11 +135,18 @@ def create_deployment(flavor, model_uri, target, name, config):
     """
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
-    deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
+
+    sig = signature(client.create_deployment)
+    if 'endpoint' in sig.parameters:
+        deployment = client.create_deployment(name, model_uri, flavor, config=config_dict,
+                                              endpoint=endpoint)
+    else:
+        deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
     click.echo("\n{} deployment {} is created".format(deployment["flavor"], deployment["name"]))
 
 
 @commands.command("update")
+@optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
 @target_details
@@ -154,7 +166,7 @@ def create_deployment(flavor, model_uri, target, name, config):
     "-f",
     help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
-def update_deployment(flavor, model_uri, target, name, config):
+def update_deployment(flavor, model_uri, target, name, config, endpoint):
     """
     Update the deployment with ID `deployment_id` in the specified target.
     You can update the URI of the model and/or the flavor of the deployed model (in which case the
@@ -164,15 +176,22 @@ def update_deployment(flavor, model_uri, target, name, config):
     """
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
-    ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
+
+    sig = signature(client.update_deployment)
+    if 'endpoint' in sig.parameters:
+        ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict,
+                                       endpoint=endpoint)
+    else:
+        ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
     click.echo("Deployment {} is updated (with flavor {})".format(name, ret["flavor"]))
 
 
 @commands.command("delete")
+@optional_endpoint_param
 @parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name, config):
+def delete_deployment(target, name, config, endpoint):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
@@ -181,35 +200,53 @@ def delete_deployment(target, name, config):
     sig = signature(client.delete_deployment)
     if "config" in sig.parameters:
         config_dict = _user_args_to_dict(config)
-        client.delete_deployment(name, config=config_dict)
+        if 'endpoint' in sig.parameters:
+            client.delete_deployment(name, config=config_dict, endpoint=endpoint)
+        else:
+            client.delete_deployment(name, config=config_dict)
     else:
-        client.delete_deployment(name)
+        if 'endpoint' in sig.parameters:
+            client.delete_deployment(name, endpoint=endpoint)
+        else:
+            client.delete_endpoint(name)
 
     click.echo("Deployment {} is deleted".format(name))
 
 
 @commands.command("list")
+@optional_endpoint_param
 @target_details
-def list_deployment(target):
+def list_deployment(target, endpoint):
     """
     List the names of all model deployments in the specified target. These names can be used with
     the `delete`, `update`, and `get` commands.
     """
     client = interface.get_deploy_client(target)
-    ids = client.list_deployments()
+
+    sig = signature(client.list_deployments)
+    if "endpoint" in sig.parameters:
+        ids = client.list_deployments(endpoint=endpoint)
+    else:
+        ids = client.list_deployments()
     click.echo("List of all deployments:\n{}".format(ids))
 
 
 @commands.command("get")
+@optional_endpoint_param
 @deployment_name
 @target_details
-def get_deployment(target, name):
+def get_deployment(target, name, endpoint):
     """
     Print a detailed description of the deployment with name given at ``--name`` in the specified
     target.
     """
     client = interface.get_deploy_client(target)
-    desc = client.get_deployment(name)
+
+    sig = signature(client.get_deployment)
+    if "endpoint" in sig.parameters:
+        desc = client.get_deployment(name, endpoint=endpoint)
+    else:
+        desc = client.get_deployment(name)
     for key, val in desc.items():
         click.echo("{}: {}".format(key, val))
     click.echo("\n")
@@ -249,11 +286,12 @@ def predictions_to_json(raw_predictions, output):
 
 
 @commands.command("predict")
-@deployment_name
+@optional_endpoint_param
+@optional_deployment_name
 @target_details
 @parse_input
 @parse_output
-def predict(target, name, input_path, output_path):
+def predict(target, name, input_path, output_path, endpoint):
     """
     Predict the results for the deployed model for the given input(s)
     """
@@ -261,7 +299,12 @@ def predict(target, name, input_path, output_path):
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
-    result = client.predict(name, df)
+
+    sig = signature(client.predict)
+    if "endpoint" in sig.parameters:
+        result = client.predict(name, df, endpoint=endpoint)
+    else:
+        result = client.predict(name, df)
     if output_path:
         with open(output_path, "w") as fp:
             predictions_to_json(result, fp)
@@ -270,11 +313,12 @@ def predict(target, name, input_path, output_path):
 
 
 @commands.command("explain")
-@deployment_name
+@optional_endpoint_param
+@optional_deployment_name
 @target_details
 @parse_input
 @parse_output
-def explain(target, name, input_path, output_path):
+def explain(target, name, input_path, output_path, endpoint):
     """
     Generate explanations of model predictions on the specified input for
     the deployed model for the given input(s). Explanation output formats vary
@@ -289,9 +333,96 @@ def explain(target, name, input_path, output_path):
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
-    result = client.explain(name, df)
+
+    sig = signature(client.explain)
+    if "endpoint" in sig.parameters:
+        result = client.explain(name, df, endpoint=endpoint)
+    else:
+        result = client.explain(name, df)
     if output_path:
         with open(output_path, "w") as fp:
             predictions_to_json(result, fp)
     else:
         predictions_to_json(result, sys.stdout)
+
+
+@click.option(
+    "--config",
+    "-C",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="Extra target-specific config for the endpoint, "
+         "of the form -C name=value. See "
+         "documentation/help for your deployment target for a "
+         "list of supported config options.",
+)
+@required_endpoint_param
+@target_details
+def create_endpoint(target, name, config):
+    """
+    Create an endpoint with the specified name at the specified target.
+
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`
+    """
+    config_dict = _user_args_to_dict(config)
+    client = interface.get_deploy_client(target)
+    endpoint = client.create_endpoint(name, config=config_dict)
+    click.echo("\nEndpoint {} is created".format(endpoint["name"]))
+
+
+@click.option(
+    "--config",
+    "-C",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="Extra target-specific config for the endpoint, "
+         "of the form -C name=value. See "
+         "documentation/help for your deployment target for a "
+         "list of supported config options.",
+)
+@required_endpoint_param
+@target_details
+def update_endpoint(target, endpoint, config):
+    """
+    Update the specified endpoint at the specified target.
+
+    Additional plugin-specific arguments may also be passed to this command, via `-C key=value`
+    """
+    config_dict = _user_args_to_dict(config)
+    client = interface.get_deploy_client(target)
+    updated_endpoint = client.update_endpoint(endpoint, config=config_dict)
+    click.echo("\nEndpoint {} is updated".format(updated_endpoint["name"]))
+
+
+@required_endpoint_param
+@target_details
+def delete_endpoint(target, endpoint):
+    """
+    Delete the specified endpoint at the specified target
+    """
+    client = interface.get_deploy_client(target)
+    client.delete_endpoint(endpoint)
+    click.echo("\nEndpoint {} is deleted".format(endpoint))
+
+
+@target_details
+def list_endpoints(target):
+    """
+    List all endpoints at the specified target
+    """
+    client = interface.get_deploy_client(target)
+    ids = client.list_endpoints()
+    click.echo("List of all endpoints:\n{}".format(ids))
+
+
+@required_endpoint_param
+@target_details
+def get_endpoint(target, endpoint):
+    """
+    Get details for the specified endpoint at the specified target
+    """
+    client = interface.get_deploy_client(target)
+    desc = client.get_endpoint(endpoint)
+    for key, val in desc.items():
+        click.echo("{}: {}".format(key, val))
+    click.echo("\n")
