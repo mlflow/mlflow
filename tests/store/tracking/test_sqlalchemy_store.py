@@ -33,7 +33,6 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
-    INTERNAL_ERROR,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
