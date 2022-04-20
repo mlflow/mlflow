@@ -143,7 +143,7 @@ def _get_conda_extra_env_vars(env_root_dir=None):
         "CONDA_ENVS_PATH": conda_envs_path,
         "CONDA_PKGS_DIRS": conda_pkgs_path,
         "PIP_CACHE_DIR": pip_cache_dir,
-        # PIP_NO_INPUT=1 make pip run in non-interactive mode,
+        # PIP_NO_INPUT=1 makes pip run in non-interactive mode,
         # otherwise pip might prompt "yes or no" and ask stdin input
         "PIP_NO_INPUT": "1",
     }
