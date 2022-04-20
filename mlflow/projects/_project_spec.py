@@ -41,6 +41,13 @@ def load_project(directory):
 
     project_name = yaml_obj.get("name")
 
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get(env_type.DOCKER)
     if docker_env:
@@ -73,13 +80,13 @@ def load_project(directory):
                     "environment variables)."
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
-
-    # Parse entry points
-    entry_points = {}
-    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-        parameters = entry_point_yaml.get("parameters", {})
-        command = entry_point_yaml.get("command")
-        entry_points[name] = EntryPoint(name, parameters, command)
+            return Project(
+                env_type=env_type.DOCKER,
+                env_config_path=None,
+                entry_points=entry_points,
+                docker_env=docker_env,
+                name=project_name,
+            )
 
     python_env = yaml_obj.get(env_type.PYTHON)
     if python_env:
@@ -124,7 +131,7 @@ def load_project(directory):
         )
 
     return Project(
-        env_type=env_type.DOCKER,
+        env_type=env_type.CONDA,
         env_config_path=None,
         entry_points=entry_points,
         docker_env=docker_env,
