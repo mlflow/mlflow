@@ -42,7 +42,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
-from mlflow.projects import env_type
+from mlflow.projects import env_type as EnvType
 
 
 _logger = logging.getLogger(__name__)
@@ -94,17 +94,14 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif env_manager == _EnvManager.CONDA:
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
-            command_separator = " && "
-            conda_env_name = get_or_create_conda_env(project.env_config_path)
-            command_args += get_conda_command(conda_env_name)
-        elif env_manager == _EnvManager.VIRTUALENV:
+        elif project.env_type == EnvType.PYTHON or (
+            project.env_type == EnvType.CONDA and env_manager == _EnvManager.VIRTUALENV
+        ):
             tracking.MlflowClient().set_tag(
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
             command_separator = " && "
-            if project.env_type == env_type.CONDA:
+            if project.env_type == EnvType.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
             else:
                 python_env = _PythonEnv.from_yaml(project.env_config_path)
@@ -115,6 +112,11 @@ class LocalBackend(AbstractBackend):
             env_dir = Path(env_root).joinpath(env_name)
             activate_cmd = _create_virtualenv(work_dir_path, python_bin_path, env_dir, python_env)
             command_args += [activate_cmd]
+        elif project.env_type == EnvType.CONDA:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
+            command_separator = " && "
+            conda_env_name = get_or_create_conda_env(project.env_config_path)
+            command_args += get_conda_command(conda_env_name)
 
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
