@@ -6,8 +6,33 @@ import mlflow
 import mlflow.version
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils import env_manager as _EnvManager
 
 _logger = logging.getLogger(__name__)
+
+SETUP_MINICONDA = """
+# Setup miniconda
+RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
+ENV PATH="/miniconda/bin:$PATH"
+"""
+
+SETUP_PYENV = """
+# Setup pyenv
+RUN apt -y update
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
+RUN apt-get install -y \
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+RUN git clone --depth 1 https://github.com/pyenv/pyenv.git "/root/.pyenv"
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+RUN apt install -y python3.7
+RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
+RUN ln -s -f $(which python3.7) /usr/bin/python
+RUN python --version
+RUN python3.7 /tmp/get-pip.py
+"""
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
@@ -15,7 +40,8 @@ _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
 FROM ubuntu:18.04
 
-RUN apt-get -y update && apt-get install -y --no-install-recommends \
+RUN apt-get -y update
+RUN apt-get install -y --no-install-recommends \
          wget \
          curl \
          nginx \
@@ -28,10 +54,9 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          maven \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and setup miniconda
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
-ENV PATH="/miniconda/bin:$PATH"
+{setup_miniconda}
+{setup_pyenv}
+
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 # Set up the program in the image
@@ -83,13 +108,16 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         ).format(version=mlflow.version.VERSION)
 
 
-def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_hook=None):
+def _build_image(
+    image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
+):
     """
     Build an MLflow Docker image that can be used to serve a
     The image is built locally and it requires Docker to run.
 
     :param image_name: Docker image name.
     :param entry_point: String containing ENTRYPOINT directive for docker image
+    :param env_manager: Environment manager to create a model environment for serving.
     :param mlflow_home: (Optional) Path to a local copy of the MLflow GitHub repository.
                         If specified, the image will install MLflow from this directory.
                         If None, it will install MLflow from pip.
@@ -98,6 +126,11 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
            run during the image build step.
     """
     mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
+
+    is_conda = env_manager == _EnvManager.CONDA
+    setup_miniconda = SETUP_MINICONDA if is_conda else ""
+    setup_pyenv = "" if is_conda else SETUP_PYENV
+
     with TempDir() as tmp:
         cwd = tmp.path()
         install_mlflow = _get_mlflow_install_step(cwd, mlflow_home)
@@ -105,6 +138,8 @@ def _build_image(image_name, entrypoint, mlflow_home=None, custom_setup_steps_ho
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(
                 _DOCKERFILE_TEMPLATE.format(
+                    setup_miniconda=setup_miniconda,
+                    setup_pyenv=setup_pyenv,
                     install_mlflow=install_mlflow,
                     custom_setup_steps=custom_setup_steps,
                     entrypoint=entrypoint,

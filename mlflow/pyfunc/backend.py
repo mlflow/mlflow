@@ -311,6 +311,7 @@ class PyFuncBackend(FlavorBackend):
         _build_image(
             image_name=image_name,
             mlflow_home=mlflow_home,
+            env_manager=self._env_manager,
             custom_setup_steps_hook=copy_model_into_container,
             entrypoint=pyfunc_entrypoint,
         )
