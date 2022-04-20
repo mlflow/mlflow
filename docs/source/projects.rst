@@ -204,6 +204,19 @@ Conda environment
   ``<MLFLOW_PROJECT_DIRECTORY>/files/config/conda_environment.yaml``, where
   ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
 
+Python environment
+  Include a top-level ``python_env`` entry in the ``MLproject`` file.
+  The value of this entry must be a *relative* path to a `python_env` YAML file
+  within the MLflow project's directory. In the following example:
+
+  .. code-block:: yaml
+
+    python_env: files/config/python_env.yaml
+
+  ``conda_env`` refers to an environment file located at
+  ``<MLFLOW_PROJECT_DIRECTORY>/files/config/python_env.yaml``, where
+  ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
+
 Docker container environment
   Include a top-level ``docker_env`` entry in the ``MLproject`` file. The value of this entry must be the name
   of a Docker image that is accessible on the system executing the project; this image name
@@ -348,7 +361,7 @@ Environment
     By default, MLflow Projects are run in the environment specified by the project directory
     or the ``MLproject`` file (see :ref:`Specifying Project Environments <project-environments>`).
     You can ignore a project's specified environment and run the project in the current
-    system environment by supplying the ``--no-conda`` flag.
+    system environment by supplying the ``--env-manager=local`` flag.
 
 For example, the tutorial creates and publishes an MLflow Project that trains a linear model. The
 project is also published on GitHub at https://github.com/mlflow/mlflow-example. To run
