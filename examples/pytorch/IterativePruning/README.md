@@ -1,12 +1,12 @@
 ## Iterative Pruning
 Pruning is the process of compressing a neural network that involves removing weights from a trained model.
-Pruning techniques include removing the neurons within a specific layer, or setting the weights of connectons that are already near zero to zero. This script applies the latter technique. 
+Pruning techniques include removing the neurons within a specific layer, or setting the weights of connectons that are already near zero to zero. This script applies the latter technique.
 Pruning a model reduces its size, at the cost of worsened model accuracy.
 
 For more information check - [Pytorch Pruning Tutorial](https://pytorch.org/tutorials/intermediate/pruning_tutorial.html)
 
 In this example, we train a model to classify MNIST handwritten digit recognition dataset, and then apply iterative pruning to compress the model. The initial model ("base model") along with its parameters, metrics and summary are stored in mlflow.
-Subsequently, the base model is pruned iteratively by using the custom 
+Subsequently, the base model is pruned iteratively by using the custom
 inputs provided from the cli. Ax is a platform for optimizing any kind of experiment, including machine learning experiments,
 A/B tests, and simulations. [Ax](https://ax.dev/docs/why-ax.html) can optimize discrete configurations using multi-armed bandit optimization,
 and continuous (e.g., integer or floating point)-valued configurations using Bayesian optimization.
@@ -21,7 +21,7 @@ of trails to be run. The summary of the pruned model is captured in a separate f
 Run the command
 
  `python iterative_prune_mnist.py --max_epochs 10 --total_trials 3`
-  
+
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
