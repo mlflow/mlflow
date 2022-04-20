@@ -51,7 +51,7 @@ class _Example:
           encoded strings.
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
-        - csc/csr matric: similar to 2 dims numpy array, csc/csr matric are converted to
+        - csc/csr matrix: similar to 2 dims numpy array, csc/csr matrix are converted to
           corresponding python types or their closest equivalent.
     """
 
