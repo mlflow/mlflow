@@ -354,7 +354,7 @@ def _serve(model_uri, port, host):
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: int = None, timeout: int = 60, nworkers: int = None
+    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
