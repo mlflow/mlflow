@@ -10,7 +10,7 @@ import sqlalchemy
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR
 from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
             raise
         except sqlalchemy.exc.IntegrityError as e:
             session.rollback()
-            raise MlflowException(message=e, error_code=RESOURCE_ALREADY_EXISTS)
+            raise MlflowException(message=e, error_code=BAD_REQUEST)
         except Exception as e:
             session.rollback()
             raise MlflowException(message=e, error_code=INTERNAL_ERROR)
