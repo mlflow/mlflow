@@ -1,30 +1,28 @@
-import React, { Component } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
-import Colors from '../styles/Colors';
+import { css } from 'emotion';
 import permissionDeniedLock from '../../common/static/permission-denied-lock.svg';
+import { useDesignSystemTheme } from '@databricks/design-system';
 
-export class PermissionDeniedView extends Component {
-  static propTypes = {
-    errorMessage: PropTypes.string.isRequired,
-  };
+const defaultMessage = 'The current user does not have permission to view this page.';
 
-  render() {
-    const defaultMessage = 'The current user does not have permission to view this page.';
-    return (
-      <div>
-        <img
-          className='center'
-          style={{ height: 300, marginTop: 80 }}
-          src={permissionDeniedLock}
-          alt='permission denied'
-        />
-        <h1 className='center' style={{ paddingTop: 10 }}>
-          Permission Denied
-        </h1>
-        <h2 className='center' style={{ color: Colors.secondaryText }}>
-          {this.props.errorMessage || defaultMessage}
-        </h2>
-      </div>
-    );
-  }
+export function PermissionDeniedView({ errorMessage }) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div className='center'>
+      <img
+        style={{ height: 300, marginTop: 80 }}
+        src={permissionDeniedLock}
+        alt='permission denied'
+      />
+      <h1 style={{ paddingTop: 10 }}>Permission Denied</h1>
+      <h2 data-testid='error-message' className={css({ color: theme.colors.textSecondary })}>
+        {errorMessage || defaultMessage}
+      </h2>
+    </div>
+  );
 }
+
+PermissionDeniedView.propTypes = {
+  errorMessage: PropTypes.string,
+};

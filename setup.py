@@ -125,7 +125,7 @@ setup(
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             # Required to log artifacts and models to GCS artifact locations
-            "google-cloud-storage",
+            "google-cloud-storage>=1.30.0",
             "azureml-core>=1.2.0",
             # Required to log artifacts to SFTP artifact locations
             "pysftp",

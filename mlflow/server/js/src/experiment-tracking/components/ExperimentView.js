@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import React, { Component } from 'react';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
@@ -7,7 +8,7 @@ import { injectIntl, FormattedMessage } from 'react-intl';
 import { Link, withRouter } from 'react-router-dom';
 import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
 import { Alert, Badge, Descriptions, Menu, Popover, Select, Tooltip, Switch } from 'antd';
-import { Typography } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -58,6 +59,26 @@ import {
   COLUMN_SORT_BY_DESC,
   SORT_DELIMITER_SYMBOL,
 } from '../constants';
+
+function RefreshBadge({ children, count }) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <Badge
+      count={count}
+      offset={[-5, 5]}
+      // Note: Must use style over classNames, otherwise you get weird antd behavior
+      style={{ backgroundColor: theme.colors.lime, zIndex: 1 }}
+      overflowCount={MAX_DETECT_NEW_RUNS_RESULTS - 1}
+    >
+      {children}
+    </Badge>
+  );
+}
+
+RefreshBadge.propTypes = {
+  children: PropTypes.node.isRequired,
+  count: PropTypes.number.isRequired,
+};
 
 export const DEFAULT_EXPANDED_VALUE = false;
 const { Option } = Select;
@@ -390,17 +411,15 @@ export class ExperimentView extends Component {
     ) : null;
   }
 
-  shouldShowEditPermissionModal() {
-    const { compareExperiments, experiments } = this.props;
-    return !compareExperiments && experiments[0].allowed_actions.includes('MODIFIY_PERMISSION');
+  getUrl() {
+    return window.location.href;
   }
-  // END-EDGE
 
   renderGetLinkModal() {
     const { showGetLinkModal } = this.state;
     return (
       <GetLinkModal
-        link={window.top.location.href}
+        link={this.getUrl()}
         visible={showGetLinkModal}
         onCancel={() => this.setState({ showGetLinkModal: false })}
       />
@@ -699,12 +718,7 @@ export class ExperimentView extends Component {
             <FlexBar
               left={
                 <Spacer size='small' direction='horizontal'>
-                  <Badge
-                    count={numberOfNewRuns}
-                    offset={[-5, 5]}
-                    style={{ backgroundColor: '#33804D' }}
-                    overflowCount={MAX_DETECT_NEW_RUNS_RESULTS - 1}
-                  >
+                  <RefreshBadge count={numberOfNewRuns}>
                     <Button className='refresh-button' onClick={this.initiateSearch}>
                       <img alt='' title='Refresh runs' src={syncSvg} height={24} width={24} />
                       <FormattedMessage
@@ -712,7 +726,7 @@ export class ExperimentView extends Component {
                         description='refresh button text to refresh the experiment runs'
                       />
                     </Button>
-                  </Badge>
+                  </RefreshBadge>
                   <Button
                     className='compare-button'
                     disabled={Object.keys(this.state.runsSelected).length < 2}

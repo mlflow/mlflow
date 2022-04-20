@@ -549,6 +549,18 @@ shape and type against the shape and type specified in the model's schema and th
 For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
 propogate any errors raised by the model if the model does not accept the provided input type.
 
+
+The python environment that a PyFunc model is loaded into for prediction or inference may differ from the environment
+in which it was trained. In the case of an environment mismatch, a warning message will be printed when calling
+:py:func:`mlflow.pyfunc.load_model`. This warning statement will identify the packages that have a version mismatch
+between those used during training and the current environment.  In order to get the full dependencies of the
+environment in which the model was trained, you can call :py:func:`mlflow.pyfunc.get_model_dependencies`.
+Furthermore, if you want to run model inference in the same environment used in model training, you can call
+:py:func:`mlflow.pyfunc.spark_udf` with the `env_manager` argument set as "conda". This will generate the environment
+from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
+during training.
+
+
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1899,8 +1911,10 @@ Spark cluster and used to score the model.
 .. code-block:: py
 
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
 If a model contains a signature, the UDF can be called without specifying column name arguments.
@@ -1911,7 +1925,10 @@ dataframe's column names must match the model signature's column names.
 
 .. code-block:: py
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model-with-signature>)
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
@@ -1947,10 +1964,39 @@ argument. The following values are supported:
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf("path/to/model", result_type=ArrayType(FloatType()))
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType())
+    )
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
+
+If you want to use conda to restore the python environment that was used to train the model,
+set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
+
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql.types import ArrayType, FloatType
+    from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType()),
+        env_manager="conda"  # Use conda to restore the environment used in training
+    )
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
 
 
 .. _deployment_plugin:

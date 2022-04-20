@@ -969,14 +969,16 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         - ``ArrayType(StringType)``: All columns converted to ``string``.
 
-    :param env_manager: The environment manager to use in order to create the
-                        software environment for model inference. Default value is ``local``,
-                        The following values are supported:
+    :param env_manager: The environment manager to use in order to create the python environment
+                        for model inference. Note that environment is only restored in the context
+                        of the PySpark UDF; the software environment outside of the UDF is
+                        unaffected. Default value is ``local``, and the following values are
+                        supported:
 
                          - ``conda``: (Recommended) Use Conda to restore the software environment
-                           that was used to train the model. Note that environment is only restored
-                           in the context of the PySpark UDF; the software environment outside of
-                           the UDF is unaffected.
+                           that was used to train the model.
+                         - ``virtualenv``: Use virtualenv to restore the python environment that
+                           was used to train the model.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
@@ -1009,7 +1011,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
     should_use_spark_to_broadcast_file = not (is_spark_in_local_mode or should_use_nfs)
-    conda_env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
+    env_root_dir = _get_or_create_env_root_dir(should_use_nfs)
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -1067,12 +1069,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # "capture_output=False" is the output will be printed immediately, otherwise you have
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
-        if env_manager == _EnvManager.CONDA:
+        if env_manager != _EnvManager.LOCAL:
             _get_flavor_backend(
                 local_model_path,
-                env_manager=_EnvManager.CONDA,
+                env_manager=env_manager,
                 install_mlflow=False,
-                env_root_dir=conda_env_root_dir,
+                env_root_dir=env_root_dir,
             ).prepare_env(model_uri=local_model_path, capture_output=is_in_databricks_runtime())
 
     # Broadcast local model directory to remote worker if needed.
@@ -1162,24 +1164,23 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         scoring_server_proc = None
 
-        # TODO: Support virtual env.
-        if env_manager == _EnvManager.CONDA:
+        if env_manager != _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
                 )
                 # Create individual conda_env_root_dir for each spark UDF task process.
-                conda_env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
+                env_root_dir_on_executor = _get_or_create_env_root_dir(should_use_nfs)
             else:
                 local_model_path_on_executor = local_model_path
-                conda_env_root_dir_on_executor = conda_env_root_dir
+                env_root_dir_on_executor = env_root_dir
 
             pyfunc_backend = _get_flavor_backend(
                 local_model_path_on_executor,
                 workers=1,
                 install_mlflow=False,
-                env_manager=_EnvManager.CONDA,
-                env_root_dir=conda_env_root_dir_on_executor,
+                env_manager=env_manager,
+                env_root_dir=env_root_dir_on_executor,
             )
 
             if should_use_spark_to_broadcast_file:
