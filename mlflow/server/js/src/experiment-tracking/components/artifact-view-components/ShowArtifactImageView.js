@@ -4,6 +4,7 @@ import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import Utils from '../../../common/utils/Utils';
 import { LazyPlot } from '../LazyPlot';
+import { Image as ImageTag } from 'antd';
 
 class ShowArtifactImageView extends Component {
   constructor(props) {
@@ -31,15 +32,15 @@ class ShowArtifactImageView extends Component {
     this.fetchImage();
   };
 
-  componentDidUpdate = (prevProps) => {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      if (this.isGif()) {
-        return;
-      }
+  // componentDidUpdate = (prevProps) => {
+  //   if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+  //     if (this.isGif()) {
+  //       return;
+  //     }
 
-      this.fetchImage();
-    }
-  };
+  //     this.fetchImage();
+  //   }
+  // };
 
   getSrc = () => {
     const { path, runUuid } = this.props;
@@ -71,13 +72,13 @@ class ShowArtifactImageView extends Component {
     const { loading } = this.state;
     return (
       <React.Fragment>
-        <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div>
+        {/* <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div> */}
         <img
           src={this.getSrc()}
           alt={Utils.baseName(this.props.path)}
           onLoadStart={() => this.setState({ loading: true })}
           onLoad={() => this.setState({ loading: false })}
-          style={{ height: '100%', display: loading ? 'none' : 'block' }}
+          style={{ height: 'auto', width: 'auto', display: loading ? 'none' : 'block' }}
         />
       </React.Fragment>
     );
@@ -89,6 +90,7 @@ class ShowArtifactImageView extends Component {
     if (loading) {
       return <div className='artifact-image-view-loading'>Loading...</div>;
     }
+    console.log(width, height);
     return (
       <LazyPlot
         layout={{
@@ -111,10 +113,11 @@ class ShowArtifactImageView extends Component {
           margin: { l: 0, r: 0, t: 0, b: 0 },
         }}
         style={{ width: '100%', height: '100%' }}
+        // style={{ width: '100%' }}
         config={{
           displaylogo: false,
           scrollZoom: true,
-          doubleClick: 'reset',
+          // doubleClick: 'reset',
           modeBarButtonsToRemove: [
             'hoverCompareCartesian',
             'hoverClosestCartesian',
@@ -124,17 +127,17 @@ class ShowArtifactImageView extends Component {
             'toggleSpikelines',
           ],
         }}
-        useResizeHandler
+        // useResizeHandler
       />
     );
   };
 
   render() {
+    const src = this.getSrc();
+    console.log(src);
     return (
       <div className='image-outer-container'>
-        <div className='image-container'>
-          {this.isGif() ? this.renderGif() : this.renderStaticImage()}
-        </div>
+        <ImageTag width={500} src={this.getSrc()} />
       </div>
     );
   }
