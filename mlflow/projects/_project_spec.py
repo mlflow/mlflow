@@ -9,7 +9,7 @@ from mlflow.exceptions import ExecutionException
 from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
-from mlflow.projects import env_type as EnvType
+from mlflow.projects import env_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
@@ -33,7 +33,7 @@ def load_project(directory):
             yaml_obj = yaml.safe_load(mlproject_file)
 
     # Validate the project config does't contain multiple environment fields
-    env_fields = set(yaml_obj.keys()).intersection(EnvType.ALL)
+    env_fields = set(yaml_obj.keys()).intersection(env_type.ALL)
     if len(env_fields) > 1:
         raise ExecutionException(
             f"Project cannot contain multiple environment fields: {env_fields}"
@@ -42,7 +42,7 @@ def load_project(directory):
     project_name = yaml_obj.get("name")
 
     # Validate config if docker_env parameter is present
-    docker_env = yaml_obj.get(EnvType.DOCKER)
+    docker_env = yaml_obj.get(env_type.DOCKER)
     if docker_env:
         if not docker_env.get("image"):
             raise ExecutionException(
@@ -81,7 +81,7 @@ def load_project(directory):
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
 
-    python_env = yaml_obj.get(EnvType.PYTHON)
+    python_env = yaml_obj.get(env_type.PYTHON)
     if python_env:
         python_env_path = os.path.join(directory, python_env)
         if not os.path.exists(python_env_path):
@@ -90,14 +90,14 @@ def load_project(directory):
                 "file was found." % python_env_path
             )
         return Project(
-            env_type=EnvType.PYTHON,
+            env_type=env_type.PYTHON,
             env_config_path=python_env_path,
             entry_points=entry_points,
             docker_env=None,
             name=project_name,
         )
 
-    conda_path = yaml_obj.get(EnvType.CONDA)
+    conda_path = yaml_obj.get(env_type.CONDA)
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
@@ -106,7 +106,7 @@ def load_project(directory):
                 "file was found." % conda_env_path
             )
         return Project(
-            env_type=EnvType.CONDA,
+            env_type=env_type.CONDA,
             env_config_path=conda_env_path,
             entry_points=entry_points,
             docker_env=None,
@@ -116,7 +116,7 @@ def load_project(directory):
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(
-            env_type=EnvType.CONDA,
+            env_type=env_type.CONDA,
             env_config_path=default_conda_path,
             entry_points=entry_points,
             docker_env=None,
@@ -124,7 +124,7 @@ def load_project(directory):
         )
 
     return Project(
-        env_type=EnvType.DOCKER,
+        env_type=env_type.DOCKER,
         env_config_path=None,
         entry_points=entry_points,
         docker_env=docker_env,

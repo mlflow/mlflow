@@ -42,10 +42,18 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
-from mlflow.projects import env_type as EnvType
+from mlflow.projects import env_type
 
 
 _logger = logging.getLogger(__name__)
+
+
+def _env_type_to_env_manager(env_typ):
+    if env_typ == env_type.CONDA:
+        return _EnvManager.CONDA
+    elif env_typ == env_type.PYTHON:
+        return _EnvManager.VIRTUALENV
+    return None
 
 
 class LocalBackend(AbstractBackend):
@@ -67,6 +75,11 @@ class LocalBackend(AbstractBackend):
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
+
+        # Select an appropriate env manager for the project env type
+        if env_manager is None:
+            env_manager = _env_type_to_env_manager(project.env_type)
+
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
@@ -94,14 +107,12 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif project.env_type == EnvType.PYTHON or (
-            project.env_type == EnvType.CONDA and env_manager == _EnvManager.VIRTUALENV
-        ):
+        elif env_manager == _EnvManager.VIRTUALENV:
             tracking.MlflowClient().set_tag(
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
             command_separator = " && "
-            if project.env_type == EnvType.CONDA:
+            if project.env_type == env_type.CONDA:
                 python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
             else:
                 python_env = _PythonEnv.from_yaml(project.env_config_path)
@@ -112,7 +123,7 @@ class LocalBackend(AbstractBackend):
             env_dir = Path(env_root).joinpath(env_name)
             activate_cmd = _create_virtualenv(work_dir_path, python_bin_path, env_dir, python_env)
             command_args += [activate_cmd]
-        elif project.env_type == EnvType.CONDA:
+        elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
             conda_env_name = get_or_create_conda_env(project.env_config_path)
