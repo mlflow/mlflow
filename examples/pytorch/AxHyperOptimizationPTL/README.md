@@ -1,4 +1,4 @@
-## Ax Hyperparameter Optimization Example 
+## Ax Hyperparameter Optimization Example
 In this example, we train a Pytorch Lightning model to classify Iris flower classification dataset.
 A parent run will be created during the training process,which would dump the baseline model and relevant parameters,metrics and model along with its summary,subsequently followed by a set of nested child runs, which will dump the trial results.
 The best parameters would be dumped into the parent run once the experiments are completed.

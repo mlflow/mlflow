@@ -44,7 +44,7 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
     ├── conda.yaml
     ├── python_env.yaml
     └── requirements.txt
-    
+
 
 And its ``MLmodel`` file describes two flavors:
 
@@ -228,7 +228,7 @@ Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 All flavors support column-based signatures.
 
-Each column-based input and output is represented by a type corresponding to one of 
+Each column-based input and output is represented by a type corresponding to one of
 :py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
 displays an MLmodel file excerpt containing the model signature for a classification model trained on
 the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
@@ -241,7 +241,7 @@ The output is an unnamed integer specifying the predicted class.
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}]'
       outputs: '[{"type": "integer"}]'
-      
+
 Tensor-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
@@ -254,7 +254,7 @@ classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/m
 The input has one named tensor where input sample is an image represented by a 28 × 28 × 1 array
 of float32 numbers. The output is an unnamed tensor that has 10 units specifying the
 likelihood corresponding to each of the 10 classes. Note that the first dimension of the input
-and the output is the batch size and is thus set to -1 to allow for variable batch sizes. 
+and the output is the batch size and is thus set to -1 to allow for variable batch sizes.
 
 .. code-block:: yaml
 
@@ -289,7 +289,7 @@ example, int -> long or int -> double conversions are ok, long -> double is not.
 be made compatible, MLflow will raise an error.
 
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
-the input type does not match the type specified by the schema). 
+the input type does not match the type specified by the schema).
 
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
@@ -380,7 +380,7 @@ on the ``MNIST dataset``:
     testX = test_X.reshape((test_X.shape[0], 28, 28, 1))
     trainY = to_categorical(train_Y)
     testY = to_categorical(test_Y)
-    
+
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', input_shape=(28, 28, 1)))
     model.add(MaxPooling2D((2, 2)))
@@ -531,11 +531,11 @@ Once loaded, you can score the model by calling the :py:func:`predict <mlflow.py
 method, which has the following signature::
 
   predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
-  
+
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
 whether a model flavor supports tensor inputs, please check the flavor's documentation.
-  
+
 For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
 If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
 python `List` or a `numpy.ndarray` is provided as input for schemas with unnamed columns, MLflow will cast the
@@ -1175,16 +1175,16 @@ and behavior:
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to
 :py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
 functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
-and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation
 of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
 accept an additional string argument representing the path to the temporary directory that can be used to store such
 artifacts.
 
 The following `short example from the MLflow GitHub Repository
-<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
 uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 Note that custom metric functions can return both metrics and artifacts. They can either return a single
@@ -1534,15 +1534,15 @@ Serving with MLServer (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
-<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
+<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
 MLServer is integrated with two leading open source model deployment tools,
 `Seldon Core
 <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_
 and `KServe (formerly known as KFServing)
 <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
-be used to test and deploy models using these frameworks. 
+be used to test and deploy models using these frameworks.
 This is especially powerful when building docker images since the docker image
-built with MLServer can be deployed directly with both of these frameworks. 
+built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
@@ -1668,7 +1668,7 @@ The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argumen
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
+The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving.
 
 The resulting deployment accepts the following data formats as input:
 
@@ -1696,7 +1696,7 @@ Deployments can be generated using both the Python API or MLflow CLI. In both ca
 
     {
       "computeType": "aci",
-      "containerResourceRequirements": 
+      "containerResourceRequirements":
       {
         "cpu": 1,
         "memoryInGB": 1
@@ -1749,13 +1749,13 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     model_version = 1
 
     # define the model path and the name is the service name
-    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below 
+    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below
     client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
                             config=config,
                             name="mymodel-aci-deployment")
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. 
+    # webservice's scoring URI.
     print("Scoring URI is: %s", webservice.scoring_uri)
 
     # The following example posts a sample input from the wine dataset
@@ -1793,7 +1793,7 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
 .. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
-    
+
     echo "{ computeType: aci }" > deployment_config.json
     mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
