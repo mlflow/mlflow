@@ -237,8 +237,9 @@ class DatabricksJobRunner:
             # Libraries are optional, so we don't require that this be specified
             cluster_spec_libraries = cluster_spec.get("libraries", [])
             libraries = (
-                # If the cluster spec already includes an MLflow Git URI, then we don't append
-                # `mlflow_lib` to avoid having two different pip requirements for mlflow.
+                # This is for development purposes only. If the cluster spec already includes
+                # an MLflow Git URI, then we don't append `mlflow_lib` to avoid having
+                # two different pip requirements for mlflow.
                 cluster_spec_libraries
                 if _contains_mlflow_git_uri(cluster_spec_libraries)
                 else cluster_spec_libraries + [mlflow_lib]
