@@ -1,13 +1,16 @@
 import os
+import logging
 
 from typing import Tuple, Dict
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
 
+_logger = logging.getLogger(__name__)
+
 
 def get_cmd(
-    model_uri: str, port: int = None, host: str = None, nworkers: int = None
+    model_uri: str, port: int = None, host: str = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
 
@@ -18,6 +21,9 @@ def get_cmd(
 
     if host:
         cmd_env["MLSERVER_HOST"] = host
+
+    if timeout:
+        _logger.warning("Timeout is not yet supported in MLServer.")
 
     cmd_env["MLSERVER_MODEL_NAME"] = MLServerDefaultModelName
 
