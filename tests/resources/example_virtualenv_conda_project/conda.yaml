@@ -1,0 +1,9 @@
+name: virtualenv-conda
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7.10
+  - pip
+  - pip:
+      - mlflow
+      - scikit-learn==1.0.2

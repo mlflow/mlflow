@@ -4,6 +4,7 @@ import shutil
 import uuid
 import re
 from pathlib import Path
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
@@ -94,7 +95,7 @@ def _find_latest_installable_python_version(version_prefix):
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
         raise MlflowException((f"Could not find python version that matches {version_prefix}"))
-    return sorted(matched)[-1]
+    return sorted(matched, key=Version)[-1]
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):

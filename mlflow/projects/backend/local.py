@@ -42,6 +42,7 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.projects import env_type
 
 
 _logger = logging.getLogger(__name__)
@@ -103,7 +104,10 @@ class LocalBackend(AbstractBackend):
                 active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
             )
             command_separator = " && "
-            python_env = _PythonEnv.from_yaml(project.env_config_path)
+            if project.env_type == env_type.CONDA:
+                python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
+            else:
+                python_env = _PythonEnv.from_yaml(project.env_config_path)
             python_bin_path = _install_python(python_env.python)
             env_root = _get_mlflow_virtualenv_root()
             work_dir_path = Path(work_dir)
