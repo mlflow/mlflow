@@ -48,7 +48,7 @@ We can scale our deployed model up to use several replicas, improving throughput
 
 `mlflow deployments update -t ray-serve --name iris:v1 --config num_replicas=2`
 
-Here we only used 2 replicas, but you can use as many as you like, depending on how many CPU cores are available in your Ray cluster.  
+Here we only used 2 replicas, but you can use as many as you like, depending on how many CPU cores are available in your Ray cluster.
 
 The deployed model instance can be deleted as follows:
 

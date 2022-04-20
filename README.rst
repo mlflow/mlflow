@@ -54,7 +54,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |twitter| image:: https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
-    
+
 
 
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
