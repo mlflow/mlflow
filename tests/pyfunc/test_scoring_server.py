@@ -630,7 +630,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
 
     port = find_free_port()
-
+    timeout = 60
     server_proc = None
     try:
         server_proc = _get_flavor_backend(
@@ -639,6 +639,7 @@ def test_scoring_server_client(sklearn_model, model_path):
             model_uri=model_path,
             port=port,
             host="127.0.0.1",
+            timeout=timeout,
             enable_mlserver=False,
             synchronous=False,
         )
