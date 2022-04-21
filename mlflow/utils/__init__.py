@@ -195,9 +195,10 @@ def is_iterator(obj):
     return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")
 
 
-def has_ipython():
+def is_in_ipython_notebook():
     try:
         from IPython import get_ipython
+
         return get_ipython() is not None
     except Exception:
         return False

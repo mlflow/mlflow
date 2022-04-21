@@ -138,7 +138,7 @@ scikit-learn==1.0.2"""
         )
 
         mock_log_info.reset_mock()
-        with mock.patch("mlflow.pyfunc.has_ipython", return_value=True):
+        with mock.patch("mlflow.pyfunc.is_in_ipython_notebook", return_value=True):
             get_model_dependencies(model_path, format="pip")
             mock_log_info.assert_called_once_with(
                 "To install these model dependencies, run the "
