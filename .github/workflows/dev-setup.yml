@@ -1,0 +1,90 @@
+name: Dev environment setup
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Setup environment
+      env:
+        MLFLOW_DEV_ENV_PYENV_INSTALL: 1
+      run: |
+        git config --global user.name "test"
+        git config --global user.email "test@mlflow.org"
+    - name: Install development environment
+      run: |
+        ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
+    - name: Run Environment tests
+      run: |
+        ./dev/test-dev-env-setup.sh
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - name: Setup environment
+      env:
+        MLFLOW_DEV_ENV_PYENV_INSTALL: 1
+      run: |
+        git config --global user.name "test"
+        git config --global user.email "test@mlflow.org"
+    - name: Install development environment
+      run: |
+        ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
+    - name: Run Environment tests
+      run: |
+        ./dev/test-dev-env-setup.sh
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - name: Setup environment
+        env:
+          MLFLOW_DEV_ENV_PYENV_INSTALL: 1
+        run: |
+          git config --global user.name "test"
+          git config --global user.email "test@mlflow.org"
+      - name: Install development environment
+        run: |
+          ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
+      - name: Run Environment tests
+        run: |
+          ./dev/test-dev-env-setup.sh
+
+
+
