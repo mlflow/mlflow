@@ -137,9 +137,10 @@ def create_deployment(flavor, model_uri, target, name, config, endpoint):
     client = interface.get_deploy_client(target)
 
     sig = signature(client.create_deployment)
-    if 'endpoint' in sig.parameters:
-        deployment = client.create_deployment(name, model_uri, flavor, config=config_dict,
-                                              endpoint=endpoint)
+    if "endpoint" in sig.parameters:
+        deployment = client.create_deployment(
+            name, model_uri, flavor, config=config_dict, endpoint=endpoint
+        )
     else:
         deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
     click.echo("\n{} deployment {} is created".format(deployment["flavor"], deployment["name"]))
@@ -178,9 +179,10 @@ def update_deployment(flavor, model_uri, target, name, config, endpoint):
     client = interface.get_deploy_client(target)
 
     sig = signature(client.update_deployment)
-    if 'endpoint' in sig.parameters:
-        ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict,
-                                       endpoint=endpoint)
+    if "endpoint" in sig.parameters:
+        ret = client.update_deployment(
+            name, model_uri=model_uri, flavor=flavor, config=config_dict, endpoint=endpoint
+        )
     else:
         ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
     click.echo("Deployment {} is updated (with flavor {})".format(name, ret["flavor"]))
@@ -200,12 +202,12 @@ def delete_deployment(target, name, config, endpoint):
     sig = signature(client.delete_deployment)
     if "config" in sig.parameters:
         config_dict = _user_args_to_dict(config)
-        if 'endpoint' in sig.parameters:
+        if "endpoint" in sig.parameters:
             client.delete_deployment(name, config=config_dict, endpoint=endpoint)
         else:
             client.delete_deployment(name, config=config_dict)
     else:
-        if 'endpoint' in sig.parameters:
+        if "endpoint" in sig.parameters:
             client.delete_deployment(name, endpoint=endpoint)
         else:
             client.delete_endpoint(name)
@@ -352,9 +354,9 @@ def explain(target, name, input_path, output_path, endpoint):
     metavar="NAME=VALUE",
     multiple=True,
     help="Extra target-specific config for the endpoint, "
-         "of the form -C name=value. See "
-         "documentation/help for your deployment target for a "
-         "list of supported config options.",
+    "of the form -C name=value. See "
+    "documentation/help for your deployment target for a "
+    "list of supported config options.",
 )
 @required_endpoint_param
 @target_details
@@ -376,9 +378,9 @@ def create_endpoint(target, name, config):
     metavar="NAME=VALUE",
     multiple=True,
     help="Extra target-specific config for the endpoint, "
-         "of the form -C name=value. See "
-         "documentation/help for your deployment target for a "
-         "list of supported config options.",
+    "of the form -C name=value. See "
+    "documentation/help for your deployment target for a "
+    "list of supported config options.",
 )
 @required_endpoint_param
 @target_details
