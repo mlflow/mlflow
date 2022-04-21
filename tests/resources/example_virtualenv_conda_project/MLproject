@@ -2,3 +2,5 @@ conda_env: conda.yaml
 entry_points:
   main:
     command: 'python entrypoint.py'
+  test:
+    command: 'python entrypoint.py --test'

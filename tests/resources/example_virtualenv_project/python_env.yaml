@@ -1,4 +1,4 @@
-python: "3.8"
+python: "3.8.13"
 build_dependencies:
   - pip
 dependencies:
