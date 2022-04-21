@@ -1,0 +1,7 @@
+name: tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    command: "python register.py"

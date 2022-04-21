@@ -1,0 +1,9 @@
+name: tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      args: {type: string, default: "{}"}
+    command: "python train.py {args}"
