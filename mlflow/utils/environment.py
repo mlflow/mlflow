@@ -110,11 +110,13 @@ class _PythonEnv:
 
         python = None
         build_dependencies = None
+        unmatched_dependencies = []
         dependencies = None
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
                 match = _CONDA_DEPENDENCY_REGEX.match(dep)
                 if not match:
+                    unmatched_dependencies.append(dep)
                     continue
                 package, operator, version = match.groups()
 
@@ -148,6 +150,11 @@ class _PythonEnv:
             raise MlflowException(
                 f"Could not extract python version from {path}",
                 error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if unmatched_dependencies:
+            _logger.warning(
+                "The following conda dependencies will be ignored: %s", unmatched_dependencies
             )
 
         return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
