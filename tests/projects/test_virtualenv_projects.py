@@ -1,7 +1,10 @@
-import mlflow
 from unittest import mock
-from mlflow.utils.virtualenv import _create_virtualenv
 
+import pytest
+
+import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.utils.virtualenv import _create_virtualenv
 
 from tests.projects.utils import TEST_VIRTUALENV_PROJECT_DIR, TEST_VIRTUALENV_CONDA_PROJECT_DIR
 
@@ -39,3 +42,8 @@ def test_virtualenv_conda_project_execution(create_virtualenv_spy):
     submitted_run = mlflow.projects.run(TEST_VIRTUALENV_CONDA_PROJECT_DIR, env_manager="virtualenv")
     submitted_run.wait()
     create_virtualenv_spy.assert_called_once()
+
+
+def test_virtualenv_project_execution_conda():
+    with pytest.raises(MlflowException, match="python_env project cannot be executed using conda"):
+        mlflow.projects.run(TEST_VIRTUALENV_PROJECT_DIR, env_manager="conda")
