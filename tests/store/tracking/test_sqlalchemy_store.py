@@ -2170,7 +2170,7 @@ def test_get_attribute_name():
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
-    # searchable attibutes are also orderable
+    # searchable attributes are also orderable
     assert len(entities.RunInfo.get_orderable_attributes()) == 4
 
 
