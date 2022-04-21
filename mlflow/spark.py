@@ -776,7 +776,8 @@ def find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
                 _field
                 for _field in spark_df.schema.fields
                 if _field.name == features_col_name
-                and _field.dataType == t.ArrayType(t.DoubleType())
+                and _field.dataType
+                in [t.ArrayType(t.DoubleType(), True), t.ArrayType(t.DoubleType(), False)]
             ]
             if len(features_col_type) == 1:
                 return spark_df.withColumn(

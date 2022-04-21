@@ -1095,22 +1095,50 @@ def test_signature_with_non_feature_input_columns(
 
 
 @pytest.mark.large
-def test_cast_spark_df_with_vector_to_array(dataset_multinomial):
-    from pyspark.ml.functions import vector_to_array
-    from pyspark.sql import types as t
+def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
+    from pyspark.sql.types import ArrayType, DoubleType
 
-    input_df = dataset_multinomial.withColumn("features", vector_to_array("features"))
-    output_df = cast_spark_df_with_vector_to_array(input_df)
+    output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
     assert [_field for _field in output_df.schema.fields if _field.name == "features"][
         0
-    ].dataType == t.ArrayType(
-        t.DoubleType(), False
+    ].dataType == ArrayType(
+        DoubleType(), False
     ), "'features' column isn't of expected type array<double>"
 
 
 @pytest.mark.large
 def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
-    assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == set(
-        {"id"}
-    ), "Wrong feature columns returned"
+    assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == {
+        "id"
+    }, "Wrong feature columns returned"
+
+
+@pytest.mark.large
+def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
+    from mlflow.spark import find_and_set_features_col_as_vector_if_needed
+    from pyspark.ml.linalg import VectorUDT
+    from pyspark.sql.utils import IllegalArgumentException
+
+    pipeline_model = lr.fit(dataset_binomial)
+    df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)
+    df_with_vector_features = find_and_set_features_col_as_vector_if_needed(
+        df_with_array_features, pipeline_model
+    )
+    assert isinstance(
+        [_field for _field in df_with_vector_features.schema.fields if _field.name == "features"][
+            0
+        ].dataType,
+        VectorUDT,
+    ), "'features' column wasn't cast to vector type"
+    pipeline_model.transform(df_with_vector_features)
+    with pytest.raises(
+        IllegalArgumentException,
+        match="requirement failed: Column features must be of "
+        "type class org.apache.spark.ml.linalg."
+        "VectorUDT:struct<type:tinyint,size:int,"
+        "indices:array<int>,values:array<double>> "
+        "but was actually class "
+        "org.apache.spark.sql.types.ArrayType:array<double>.",
+    ):
+        pipeline_model.transform(df_with_array_features)
