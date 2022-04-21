@@ -1133,12 +1133,6 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
     ), "'features' column wasn't cast to vector type"
     pipeline_model.transform(df_with_vector_features)
     with pytest.raises(
-        IllegalArgumentException,
-        match="requirement failed: Column features must be of "
-        "type class org.apache.spark.ml.linalg."
-        "VectorUDT:struct<type:tinyint,size:int,"
-        "indices:array<int>,values:array<double>> "
-        "but was actually class "
-        "org.apache.spark.sql.types.ArrayType:array<double>.",
+        IllegalArgumentException, match="requirement failed: Column features must be of type"
     ):
         pipeline_model.transform(df_with_array_features)

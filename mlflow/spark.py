@@ -812,14 +812,23 @@ class _PyFuncModelWrapper:
         spark_df = find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
+        prediction_column = "prediction"
         if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
             "outputCol"
         ):
-            # make sure predict work by default for Transformers
-            self.spark_model.stages[-1].setOutputCol("prediction")
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.builder.getOrCreate()
+            # do a transform with an empty input DataFrame
+            # to get the schema of the transformed DataFrame
+            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
+            # Ensure prediction column doesn't already exist
+            if prediction_column not in transformed_df.columns:
+                # make sure predict work by default for Transformers
+                self.spark_model.stages[-1].setOutputCol(prediction_column)
         return [
             x.prediction
-            for x in self.spark_model.transform(spark_df).select("prediction").collect()
+            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
         ]
 
 
