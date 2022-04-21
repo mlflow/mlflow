@@ -50,7 +50,10 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(error_code)
         except (ValueError, TypeError):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
-        message = str(message)
+        if isinstance(message, BaseException):
+            message = f"{message.__module__}.{message.__class__}: {str(message)}"
+        else:
+            message = str(message)
         self.message = message
         self.json_kwargs = kwargs
         super().__init__(message)
