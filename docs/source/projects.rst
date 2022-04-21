@@ -98,7 +98,7 @@ Conda environment
   .. warning::
 
       When a Conda environment project is executed as a Python environment project,
-      conda dependencies will be ignored and only pip dependencies will be used.
+      conda dependencies will be ignored and only pip dependencies will be installed.
 
 .. _project-python-environments:
 
