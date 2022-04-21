@@ -53,7 +53,8 @@ def _env_type_to_env_manager(env_typ):
         return _EnvManager.CONDA
     elif env_typ == env_type.PYTHON:
         return _EnvManager.VIRTUALENV
-    return None
+    elif env_typ == env_type.DOCKER:
+        return _EnvManager.LOCAL
 
 
 class LocalBackend(AbstractBackend):
