@@ -13,6 +13,9 @@ Models avaiable in the BigML platform.
 - `bigml_logistic\register.py` will register a BigML model previously
   stored in the `bigml_logistic\logistic_regression.json` file, that can be
   deployed using MLFlow to produce classification predictions.
+- `bigml_ensemble\register.py` will register a BigML model previously
+  stored in the `bigml_ensemble\ensemble.json` file and its inner models,
+  that can be deployed using MLFlow to produce classification predictions.
 - `bigml_linear\register.py` will register a linear regression model
   previously stored in the `bigml_linear\linear_regression.json` file,
   that can be deployed using MLFlow to produce regression predictions.
@@ -39,6 +42,7 @@ Run them as regular Python scripts.
 python bigml_train\train.py {conf}
 python bigml_logistic\register.py
 python bigml_linear\register.py
+python bigml_ensemble\register.py
 ```
 
 The `{conf}` optional argument for the

@@ -11,7 +11,8 @@ import os
 import warnings
 import yaml
 import json
-import msgpack
+import cloudpickle
+import pickle
 
 import mlflow
 from mlflow import pyfunc
@@ -109,6 +110,7 @@ def save_model(
     import bigml
 
     from bigml.supervised import SupervisedModel
+    from bigml.api import BigML
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -121,34 +123,47 @@ def save_model(
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
     model_data_path = path
 
+    def model_filename(model_id):
+        return os.path.join(path, model_id.replace("/", "_"))
+
+    def dump_model(model):
+        filename = model_filename(model.resource_id)
+        with open(filename, 'wb') as f:
+            cloudpickle.dump(model, f)
+        return filename
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
-
+    if isinstance(bigml_model, list) and \
+            bigml_model[0].get("resource").startswith("ensemble"):
+        bigml_components = bigml_model[1:]
+        bigml_model = bigml_model[0]
+        for model in bigml_components:
+            with open(model.get("resource").replace("/", "_"), "w") as f:
+                json.dump(model, f)
     # Save bigml-model
     if isinstance(bigml_model, dict) and bigml_model.get("resource"):
-        local_model = SupervisedModel(bigml_model)
-        model_data_path = os.path.join(model_data_path,
-                                       bigml_model["resource"].replace("/", "_"))
-        with open(model_data_path, "wb") as f:
-            local_model.dump(output=f)
+        local_model = SupervisedModel(bigml_model, api=BigML(storage=path))
+        model_path = os.path.basename(dump_model(local_model))
     else:
         warnings.warn(
             "Only local models can be stored."
         )
-    model_file = os.path.basename(model_data_path)
 
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.bigml",
-        model_path=model_file,
+        model_path=model_path,
         env=_CONDA_ENV_FILE_NAME,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, bigml_version=bigml.__version__, model_path=model_file
+        FLAVOR_NAME,
+        bigml_version=bigml.__version__,
+        model_path=model_path
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -260,21 +275,8 @@ def _load_model(path, init=False):
     model_path = os.path.join(path, params.get(
         "flavors").get("bigml").get("model_path"))
 
-    def get_model_dict():
-        with open(model_path, 'rb') as f:
-            model_dict = msgpack.loads(f.read())
-        return model_dict
-
-    def get_msg(model_id):
-        with open(model_path, 'rb') as f:
-            return f.read()
-
-    model_id = get_model_dict().get("resource_id")
-    if model_id is None:
-        raise ValueError("The stored file does not contain a BigML model.")
-    local_model = SupervisedModel(model_id, cache_get=get_msg)
-
-    return local_model
+    with open(model_path, 'rb') as f:
+        return pickle.load(f)
 
 
 class _BigMLModelWrapper:
