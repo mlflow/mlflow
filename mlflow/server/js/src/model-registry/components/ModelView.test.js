@@ -6,7 +6,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { getCompareModelVersionsPageRoute } from '../routes';
-import { Tooltip } from 'antd';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -46,6 +45,10 @@ describe('ModelView', () => {
   };
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     historyMock = jest.fn();
     minimalProps = {
       model: mockRegisteredModelDetailed(
@@ -161,40 +164,14 @@ describe('ModelView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    wrapper
-      .find("[data-test-id='breadCrumbMenuDropdown']")
-      .at(0)
-      .simulate('click');
+    wrapper.find('button[data-test-id="overflow-menu-trigger"]').simulate('click');
     // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
     // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
     // attribute within the rendered HTML.
-    const deleteMenuItem = wrapper.find('.delete').hostNodes();
+    const deleteMenuItem = wrapper.find('[data-test-id="delete"]').hostNodes();
     expect(deleteMenuItem.prop('aria-disabled')).toBe(true);
     deleteMenuItem.simulate('click');
     expect(wrapper.find(ModelViewImpl).instance().state.isDeleteModalVisible).toBe(false);
-  });
-
-  test('should place tooltip on the right', () => {
-    const props = {
-      ...minimalProps,
-      model: {
-        ...minimalProps.model,
-      },
-    };
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
-    wrapper
-      .find("[data-test-id='breadCrumbMenuDropdown']")
-      .at(0)
-      .simulate('click');
-    const deleteMenuItem = wrapper.find('.delete').hostNodes();
-    const tooltip = deleteMenuItem.find(Tooltip);
-    expect(tooltip.prop('placement')).toBe('right');
   });
 
   test('compare button is disabled when no/1 run selected, active when 2+ runs selected', () => {

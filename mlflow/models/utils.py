@@ -9,11 +9,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from scipy.sparse import csr_matrix, csc_matrix
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
-class _Example(object):
+class _Example:
     """
     Represents an input example for MLflow model.
 
@@ -50,29 +51,51 @@ class _Example(object):
           encoded strings.
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
+        - csc/csr matrix: similar to 2 dims numpy array, csc/csr matrix are converted to
+          corresponding python types or their closest equivalent.
     """
 
     def __init__(self, input_example: ModelInputExample):
         def _is_scalar(x):
             return np.isscalar(x) or x is None
 
-        def _is_tensor(x):
+        def _is_ndarray(x):
             return isinstance(x, np.ndarray) or (
-                isinstance(x, dict) and all([isinstance(ary, np.ndarray) for ary in x.values()])
+                isinstance(x, dict) and all(isinstance(ary, np.ndarray) for ary in x.values())
             )
 
-        def _handle_tensor_input(input_tensor: Union[np.ndarray, dict]):
-            if isinstance(input_tensor, dict):
+        def _is_sparse_matrix(x):
+            return isinstance(x, (csc_matrix, csr_matrix))
+
+        def _handle_ndarray_nans(x: np.ndarray):
+            if np.issubdtype(x.dtype, np.number):
+                return np.where(np.isnan(x), None, x)
+            else:
+                return x
+
+        def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+            if isinstance(input_array, dict):
                 result = {}
-                for name in input_tensor.keys():
-                    result[name] = input_tensor[name].tolist()
+                for name in input_array.keys():
+                    result[name] = _handle_ndarray_nans(input_array[name]).tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": input_tensor.tolist()}
+                return {"inputs": _handle_ndarray_nans(input_array).tolist()}
+
+        def _handle_sparse_matrix(x: Union[csr_matrix, csc_matrix]):
+            return {
+                "data": _handle_ndarray_nans(x.data).tolist(),
+                "indices": x.indices.tolist(),
+                "indptr": x.indptr.tolist(),
+                "shape": list(x.shape),
+            }
+
+        def _handle_dataframe_nans(df: pd.DataFrame):
+            return df.where(df.notnull(), None)
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
-                if all([_is_scalar(x) for x in input_ex.values()]):
+                if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
                 else:
                     raise TypeError(
@@ -84,7 +107,7 @@ class _Example(object):
                         raise TensorsNotSupportedException(
                             "Row '{0}' has shape {1}".format(i, x.shape)
                         )
-                if all([_is_scalar(x) for x in input_ex]):
+                if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
@@ -105,7 +128,7 @@ class _Example(object):
                     "(pandas.DataFrame, numpy.ndarray, dict, list), "
                     "got {}".format(type(input_example))
                 )
-            result = input_ex.to_dict(orient="split")
+            result = _handle_dataframe_nans(input_ex).to_dict(orient="split")
             # Do not include row index
             del result["index"]
             if all(input_ex.columns == range(len(input_ex.columns))):
@@ -114,12 +137,22 @@ class _Example(object):
             return result
 
         example_filename = "input_example.json"
-        if _is_tensor(input_example):
-            self.data = _handle_tensor_input(input_example)
+        if _is_ndarray(input_example):
+            self.data = _handle_ndarray_input(input_example)
             self.info = {
                 "artifact_path": example_filename,
                 "type": "ndarray",
                 "format": "tf-serving",
+            }
+        elif _is_sparse_matrix(input_example):
+            self.data = _handle_sparse_matrix(input_example)
+            if isinstance(input_example, csc_matrix):
+                example_type = "sparse_matrix_csc"
+            else:
+                example_type = "sparse_matrix_csr"
+            self.info = {
+                "artifact_path": example_filename,
+                "type": example_type,
             }
         else:
             self.data = _handle_dataframe_input(input_example)
@@ -130,7 +163,7 @@ class _Example(object):
             }
 
     def save(self, parent_dir_path: str):
-        """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
+        """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`."""
         with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
             json.dump(self.data, f, cls=NumpyEncoder)
 
@@ -159,8 +192,8 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
 def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises IO Exception if there is model metadata but the example
-    file is missing.
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
 
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.
@@ -169,7 +202,7 @@ def _read_example(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type not in ["dataframe", "ndarray"]:
+    if example_type not in ["dataframe", "ndarray", "sparse_matrix_csc", "sparse_matrix_csr"]:
         raise MlflowException(
             "This version of mlflow can not load example of type {}".format(example_type)
         )
@@ -177,6 +210,8 @@ def _read_example(mlflow_model: Model, path: str):
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
         return _read_tensor_input_from_json(path, schema=input_schema)
+    elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
+        return _read_sparse_matrix_from_json(path, example_type)
     else:
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
 
@@ -185,3 +220,36 @@ def _read_tensor_input_from_json(path, schema=None):
     with open(path, "r") as handle:
         inp_dict = json.load(handle)
         return parse_tf_serving_input(inp_dict, schema)
+
+
+def _read_sparse_matrix_from_json(path, example_type):
+    with open(path, "r") as handle:
+        matrix_data = json.load(handle)
+        data = matrix_data["data"]
+        indices = matrix_data["indices"]
+        indptr = matrix_data["indptr"]
+        shape = tuple(matrix_data["shape"])
+
+        if example_type == "sparse_matrix_csc":
+            return csc_matrix((data, indices, indptr), shape=shape)
+        else:
+            return csr_matrix((data, indices, indptr), shape=shape)
+
+
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    if line_kwargs is None:
+        line_kwargs = {}
+
+    for label, data_x, data_y in data_series:
+        ax.plot(data_x, data_y, label=label, **line_kwargs)
+
+    if legend_loc:
+        ax.legend(loc=legend_loc)
+
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+
+    return fig, ax

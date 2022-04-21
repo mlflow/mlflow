@@ -1,6 +1,5 @@
 import Utils from './Utils';
 import React from 'react';
-import { shallow } from 'enzyme';
 import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
@@ -70,6 +69,21 @@ test('formatDuration', () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual('20.0d');
 });
 
+test('getDuration', () => {
+  expect(Utils.getDuration(1, null)).toEqual(null);
+  expect(Utils.getDuration(1, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, 1)).toEqual(null);
+  expect(Utils.getDuration(undefined, undefined)).toEqual(null);
+  expect(Utils.getDuration(null, null)).toEqual(null);
+  expect(Utils.getDuration(1, 11)).toEqual('10ms');
+  expect(Utils.getDuration(1, 501)).toEqual('0.5s');
+  expect(Utils.getDuration(1, 901)).toEqual('0.9s');
+  expect(Utils.getDuration(1, 60001)).toEqual('1.0min');
+  expect(Utils.getDuration(1, 60 * 60 * 1000 + 1)).toEqual('1.0h');
+  expect(Utils.getDuration(1, 24 * 60 * 60 * 1000 + 1)).toEqual('1.0d');
+});
+
 test('baseName', () => {
   expect(Utils.baseName('foo')).toEqual('foo');
   expect(Utils.baseName('foo/bar/baz')).toEqual('baz');
@@ -82,14 +96,18 @@ test('renderNotebookSource', () => {
   const revisionId = '987654';
   const runUuid = '1133557799';
   const sourceName = '/Users/test/iris_feature';
+  const nameOverride = 'some feature';
+  const queryParams = '?o=123456789';
 
-  expect(Utils.renderNotebookSource(null, null, null, null, sourceName)).toEqual('iris_feature');
-  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual(
+    'iris_feature',
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
     <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
@@ -98,10 +116,70 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName)).toEqual(
+  expect(
+    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toEqual(
+    <a
+      title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      null,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      null,
+      nameOverride,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      {nameOverride}
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      queryParams,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      'http://databricks',
+      null,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
       target='_top'
     >
       iris_feature
@@ -113,30 +191,57 @@ test('renderJobSource', () => {
   const jobId = '123456';
   const jobRunId = '98765';
   const jobName = 'job xxx';
+  const nameOverride = 'random text';
+  const queryParams = '?o=123456789';
 
-  expect(Utils.renderJobSource(null, null, null, jobName)).toEqual(jobName);
-  expect(Utils.renderJobSource(null, jobId, null, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
+  expect(Utils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, null, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, null, null, null)).toEqual(
     <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
       {`job ${jobId}`}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, null, null)).toEqual(
     <a
-      title={`run ${jobRunId} of job ${jobId}`}
+      title={Utils.getDefaultJobRunName(jobId, jobRunId)}
       href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
       target='_top'
     >
-      {`run ${jobRunId} of job ${jobId}`}
+      {Utils.getDefaultJobRunName(jobId, jobRunId)}
+    </a>,
+  );
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
+    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
+      {nameOverride}
+    </a>,
+  );
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
+    <a
+      title={jobName}
+      href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
+    </a>,
+  );
+  expect(
+    Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
+  ).toEqual(
+    <a
+      title={jobName}
+      href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
     </a>,
   );
 });
@@ -173,17 +278,16 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element
-  // with the correct source url.
+  // formatSource should return a string, renderSource should return an HTML element.
   const github_url = {
-    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps-git.git' },
+    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps-git:entry');
+  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps-git' target='_top'>
-      mlflow-apps-git:entry
+    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
+      mlflow-apps:entry
     </a>,
   );
 
@@ -212,14 +316,14 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_url = {
-    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps-git.git' },
+    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps-git:entry');
+  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps-git' target='_top'>
-      mlflow-apps-git:entry
+    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
+      mlflow-apps:entry
     </a>,
   );
 
@@ -299,9 +403,10 @@ test('formatSource & renderSource', () => {
   const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
   expect(wrapper5.is('a')).toEqual(true);
   expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
+
 });
 
-test('addQueryParams', () => {
+test('setQueryParams', () => {
   expect(Utils.setQueryParams('http://localhost/foo', '?o=123')).toEqual(
     'http://localhost/foo?o=123',
   );
@@ -310,6 +415,31 @@ test('addQueryParams', () => {
   );
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
+  );
+});
+
+test('addQueryParams', () => {
+  expect(Utils.addQueryParams('', { o: null })).toEqual('');
+  expect(Utils.addQueryParams('?param=val', { o: null })).toEqual('?param=val');
+  expect(Utils.addQueryParams('', { o: 123 })).toEqual('?o=123');
+  expect(Utils.addQueryParams('', { o: 123, param: 'val' })).toEqual('?o=123&param=val');
+  expect(Utils.addQueryParams('?param=val', { o: 123 })).toEqual('?param=val&o=123');
+  expect(Utils.addQueryParams('?o=456', { o: 123 })).toEqual('?o=123');
+});
+
+test('getDefaultJobRunName', () => {
+  expect(Utils.getDefaultJobRunName(null, null)).toEqual('-');
+  expect(Utils.getDefaultJobRunName(123, null)).toEqual('job 123');
+  expect(Utils.getDefaultJobRunName(123, 456)).toEqual('run 456 of job 123');
+  expect(Utils.getDefaultJobRunName(123, 456, 7890)).toEqual('workspace 7890: run 456 of job 123');
+});
+
+test('getDefaultNotebookRevisionName', () => {
+  expect(Utils.getDefaultNotebookRevisionName(null, null)).toEqual('-');
+  expect(Utils.getDefaultNotebookRevisionName(123, null)).toEqual('notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456)).toEqual('revision 456 of notebook 123');
+  expect(Utils.getDefaultNotebookRevisionName(123, 456, 7890)).toEqual(
+    'workspace 7890: revision 456 of notebook 123',
   );
 });
 
@@ -442,22 +572,22 @@ test('getMetricPlotStateFromUrl', () => {
 });
 
 test('getSearchParamsFromUrl', () => {
-  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url0 = '?searchInput=';
   const url1 = '?p=&q=&r=';
   const url2 = '?';
-  const url3 =
-    '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  const url3 = '?searchInput=some-Input';
+  const url4 = '?boolVal1=true&boolVal2=false';
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
-    paramKeyFilterString: 'filt',
-    metricKeyFilterString: 'metrics',
     searchInput: '',
   });
   expect(Utils.getSearchParamsFromUrl(url1)).toEqual({ p: '', q: '', r: '' });
   expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
   expect(Utils.getSearchParamsFromUrl(url3)).toEqual({
-    paramKeyFilterString: 'some=param',
-    metricKeyFilterString: 'somemetric',
     searchInput: 'some-Input',
+  });
+  expect(Utils.getSearchParamsFromUrl(url4)).toEqual({
+    boolVal1: true,
+    boolVal2: false,
   });
 });
 
@@ -499,7 +629,6 @@ test('normalize', () => {
   expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
   expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
 });
-
 test('getLoggedModelsFromTags correctly parses run tag for logged models', () => {
   const tags = {
     'mlflow.log-model.history': RunTag.fromJs({

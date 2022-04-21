@@ -25,6 +25,8 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
@@ -57,7 +59,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-class PythonModel(object):
+class PythonModel:
     """
     Represents a generic Python model that evaluates inputs and produces API-compatible outputs.
     By subclassing :class:`~PythonModel`, users can create customized MLflow models with the
@@ -71,7 +73,7 @@ class PythonModel(object):
         """
         Loads artifacts from the specified :class:`~PythonModelContext` that can be used by
         :func:`~PythonModel.predict` when evaluating inputs. When loading an MLflow model with
-        :func:`~load_pyfunc`, this method is called as soon as the :class:`~PythonModel` is
+        :func:`~load_model`, this method is called as soon as the :class:`~PythonModel` is
         constructed.
 
         The same :class:`~PythonModelContext` will also be available during calls to
@@ -94,7 +96,7 @@ class PythonModel(object):
         """
 
 
-class PythonModelContext(object):
+class PythonModelContext:
     """
     A collection of artifacts that a :class:`~PythonModel` can use when performing inference.
     :class:`~PythonModelContext` objects are created *implicitly* by the
@@ -175,9 +177,15 @@ def _save_model_with_class_artifacts_params(
         with TempDir() as tmp_artifacts_dir:
             tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
-            for artifact_name, artifact_uri in artifacts.items():
+            for artifact_index, (artifact_name, artifact_uri) in enumerate(artifacts.items()):
+                artifact_download_output_path = (
+                    tmp_artifacts_dir.path(str(artifact_index))
+                    if len(artifacts) > 1
+                    else tmp_artifacts_dir.path()
+                )
+                os.makedirs(artifact_download_output_path, exist_ok=True)
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    artifact_uri=artifact_uri, output_path=artifact_download_output_path
                 )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
@@ -192,24 +200,6 @@ def _save_model_with_class_artifacts_params(
             shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
-
-    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
-    # Save `constraints.txt` if necessary
-    if pip_constraints:
-        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
-
-    # Save `requirements.txt`
-    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
-
     saved_code_subpath = None
     if code_paths is not None:
         saved_code_subpath = "code"
@@ -221,9 +211,42 @@ def _save_model_with_class_artifacts_params(
         loader_module=__name__,
         code=saved_code_subpath,
         env=_CONDA_ENV_FILE_NAME,
-        **custom_model_config_kwargs
+        **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                mlflow.pyfunc.FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_pyfunc(model_path):
@@ -268,7 +291,7 @@ def _load_pyfunc(model_path):
     return _PythonModelPyfuncWrapper(python_model=python_model, context=context)
 
 
-class _PythonModelPyfuncWrapper(object):
+class _PythonModelPyfuncWrapper:
     """
     Wrapper class that creates a predict function such that
     predict(model_input: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)

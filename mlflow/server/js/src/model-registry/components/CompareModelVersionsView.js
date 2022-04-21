@@ -17,8 +17,60 @@ import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from 
 import { css } from 'emotion';
 import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
+import { FormattedMessage } from 'react-intl';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { useDesignSystemTheme } from '@databricks/design-system';
 
 const { TabPane } = Tabs;
+
+function CenteredText(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      className={css({
+        textAlign: 'center',
+        color: theme.colors.textSecondary,
+      })}
+      {...props}
+    />
+  );
+}
+
+function CompareTable(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <table
+      className={`compare-table table ${css({
+        'th.main-table-header': {
+          backgroundColor: theme.colors.white,
+          padding: 0,
+        },
+        'td.highlight-data': {
+          backgroundColor: theme.colors.backgroundValidationWarning,
+        },
+      })}`}
+      {...props}
+    />
+  );
+}
+
+function CollapseButton(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <button
+      className={css({
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        border: 'none',
+        backgroundColor: theme.colors.white,
+        paddingLeft: 0,
+        cursor: 'pointer',
+      })}
+      {...props}
+    />
+  );
+}
 
 export class CompareModelVersionsViewImpl extends Component {
   static propTypes = {
@@ -73,12 +125,30 @@ export class CompareModelVersionsViewImpl extends Component {
     const {
       inputsListByIndex,
       inputsListByName,
+      modelName,
       outputsListByIndex,
       outputsListByName,
       runInfos,
       runUuids,
       runDisplayNames,
     } = this.props;
+    const title = (
+      <FormattedMessage
+        defaultMessage='Comparing {numVersions} Versions'
+        description='Text for main title for the model comparison page'
+        values={{ numVersions: this.props.runInfos.length }}
+      />
+    );
+    const breadcrumbs = [
+      <Link to={modelListPageRoute}>
+        <FormattedMessage
+          defaultMessage='Registered Models'
+          description='Text for registered model link in the title for model comparison page'
+        />
+      </Link>,
+      <Link to={getModelPageRoute(modelName)}>{modelName}</Link>,
+      title,
+    ];
 
     return (
       <div
@@ -86,17 +156,27 @@ export class CompareModelVersionsViewImpl extends Component {
         ${compareModelVersionsViewClassName}
         ${classNames.wrapper(runInfos.length)}`}
       >
-        {this.renderBreadcrumb()}
+        <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
-          <table className='compare-table table'>
+          <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
-            {this.renderSectionHeader('paramsActive', 'paramsToggle', 'Parameters')}
+            {this.renderSectionHeader(
+              'paramsActive',
+              'paramsToggle',
+              <FormattedMessage
+                defaultMessage='Parameters'
+                description='Table title text for parameters table in the model comparison page'
+              />,
+            )}
             {this.renderParams()}
             {this.renderSectionHeader(
               'schemaActive',
               'schemaToggle',
-              'Schema',
+              <FormattedMessage
+                defaultMessage='Schema'
+                description='Table title text for schema table in the model comparison page'
+              />,
               false,
               <Switch
                 size='small'
@@ -104,51 +184,95 @@ export class CompareModelVersionsViewImpl extends Component {
                 style={{ marginLeft: 'auto' }}
                 onChange={() => this.onToggleClick('compareByColumnNameToggle')}
               />,
-              <div className='padding-left-text padding-right-text black-text'>
-                <span>Ignore column ordering</span>
+              <div className='padding-left-text padding-right-text'>
+                <span>
+                  <FormattedMessage
+                    defaultMessage='Ignore column ordering'
+                    description='Toggle text that determines whether to ignore column order in the
+                      model comparison page'
+                  />
+                </span>
               </div>,
             )}
-            {this.renderSchemaSectionHeader('inputActive', 'Inputs')}
-            {this.renderSchema('inputActive', 'inputs', inputsListByIndex, inputsListByName)}
-            {this.renderSchemaSectionHeader('outputActive', 'Outputs')}
-            {this.renderSchema('outputActive', 'outputs', outputsListByIndex, outputsListByName)}
-            {this.renderSectionHeader('metricActive', 'metricToggle', 'Metrics')}
+            {this.renderSchemaSectionHeader(
+              'inputActive',
+              <FormattedMessage
+                defaultMessage='Inputs'
+                description='Table subtitle for schema inputs in the model comparison page'
+              />,
+            )}
+            {this.renderSchema(
+              'inputActive',
+              <FormattedMessage
+                defaultMessage='Inputs'
+                description='Table section name for schema inputs in the model comparison page'
+              />,
+              inputsListByIndex,
+              inputsListByName,
+            )}
+            {this.renderSchemaSectionHeader(
+              'outputActive',
+              <FormattedMessage
+                defaultMessage='Outputs'
+                description='Table subtitle for schema outputs in the model comparison page'
+              />,
+            )}
+            {this.renderSchema(
+              'outputActive',
+              <FormattedMessage
+                defaultMessage='Outputs'
+                description='Table section name for schema outputs in the model comparison page'
+              />,
+              outputsListByIndex,
+              outputsListByName,
+            )}
+            {this.renderSectionHeader(
+              'metricActive',
+              'metricToggle',
+              <FormattedMessage
+                defaultMessage='Metrics'
+                description='Table title text for metrics table in the model comparison page'
+              />,
+            )}
             {this.renderMetrics()}
-          </table>
+          </CompareTable>
         </div>
         <Tabs>
-          <TabPane tab='Scatter Plot' key='1'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Scatter Plot'
+                description='Tab text for scatter plot on the model comparison page'
+              />
+            }
+            key='1'
+          >
             <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
-          <TabPane tab='Contour Plot' key='2'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Contour Plot'
+                description='Tab text for contour plot on the model comparison page'
+              />
+            }
+            key='2'
+          >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
-          <TabPane tab='Parallel Coordinates Plot' key='3'>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Parallel Coordinates Plot'
+                description='Tab text for parallel coordinates plot on the model comparison page'
+              />
+            }
+            key='3'
+          >
             <ParallelCoordinatesPlotPanel runUuids={runUuids} />
           </TabPane>
         </Tabs>
       </div>
-    );
-  }
-
-  renderBreadcrumb() {
-    const { modelName } = this.props;
-    const breadcrumbItemClass = 'truncate-text single-line breadcrumb-title';
-    const chevronIcon = <i className='fas fa-chevron-right breadcrumb-chevron' />;
-    return (
-      <h1 className='breadcrumb-header'>
-        <Link to={modelListPageRoute} className={breadcrumbItemClass}>
-          Registered Models
-        </Link>
-        {chevronIcon}
-        <Link to={getModelPageRoute(modelName)} className={breadcrumbItemClass}>
-          {modelName}
-        </Link>
-        {chevronIcon}
-        <span className={breadcrumbItemClass}>
-          {'Comparing ' + this.props.runInfos.length + ' Versions'}
-        </span>
-      </h1>
     );
   }
 
@@ -158,7 +282,10 @@ export class CompareModelVersionsViewImpl extends Component {
       <thead>
         <tr className='table-row'>
           <th scope='row' className='row-header block-content'>
-            Run ID:
+            <FormattedMessage
+              defaultMessage='Run ID:'
+              description='Text for run ID header in the main table in the model comparison page'
+            />
           </th>
           {runInfos.map((r, idx) => (
             <th scope='column' className='data-value block-content' key={r.getRunUuid()}>
@@ -183,7 +310,11 @@ export class CompareModelVersionsViewImpl extends Component {
       <tbody className='scrollable-table'>
         <tr className='table-row'>
           <th scope='row' className='data-value block-content'>
-            Model Version:
+            <FormattedMessage
+              defaultMessage='Model Version:'
+              description='Text for model version row header in the main table in the model
+                comparison page'
+            />
           </th>
           {Object.keys(versionsToRuns).map((modelVersion) => {
             const run = versionsToRuns[modelVersion];
@@ -196,7 +327,11 @@ export class CompareModelVersionsViewImpl extends Component {
         </tr>
         <tr className='table-row'>
           <th scope='row' className='data-value block-content'>
-            Run Name:
+            <FormattedMessage
+              defaultMessage='Run Name:'
+              description='Text for run name row header in the main table in the model comparison
+                page'
+            />
           </th>
           {runNames.map((runName, i) => {
             return (
@@ -208,7 +343,11 @@ export class CompareModelVersionsViewImpl extends Component {
         </tr>
         <tr className='table-row'>
           <th scope='row' className='data-value block-content'>
-            Start Time:
+            <FormattedMessage
+              defaultMessage='Start Time:'
+              description='Text for start time row header in the main table in the model comparison
+                page'
+            />
           </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
@@ -249,11 +388,11 @@ export class CompareModelVersionsViewImpl extends Component {
             className='block-content main-table-header'
             colSpan={runInfos.length + 1}
           >
-            <div className='flex-container'>
-              <button className='collapse-button' onClick={() => this.onToggleClick(activeSection)}>
+            <div className='switch-button-container'>
+              <CollapseButton onClick={() => this.onToggleClick(activeSection)}>
                 {isActive ? downIcon : rightIcon}
-                <h2 className='padding-left-text'>{sectionName}</h2>
-              </button>
+                <span className='header'>{sectionName}</span>
+              </CollapseButton>
               {additionalSwitch}
               {additionalSwitchText}
               <Switch
@@ -263,8 +402,14 @@ export class CompareModelVersionsViewImpl extends Component {
                 style={leftToggle ? { marginLeft: 'auto' } : {}}
                 onChange={() => this.onToggleClick(toggleSection)}
               />
-              <div className='padding-left-text black-text'>
-                <span>Show diff only</span>
+              <div className='padding-left-text'>
+                <span>
+                  <FormattedMessage
+                    defaultMessage='Show diff only'
+                    description='Toggle text that determines whether to show diff only in the model
+                      comparison page'
+                  />
+                </span>
               </div>
             </div>
           </th>
@@ -278,7 +423,10 @@ export class CompareModelVersionsViewImpl extends Component {
       <tbody className='scrollable-table'>
         {this.renderDataRows(
           this.props.paramLists,
-          'Parameters',
+          <FormattedMessage
+            defaultMessage='Parameters'
+            description='Field name text for parameters table in the model comparison page'
+          />,
           this.state.paramsActive,
           this.state.paramsToggle,
         )}
@@ -305,9 +453,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 onClick={() => this.onToggleClick(activeSection)}
               >
                 {isActive ? minusIcon : plusIcon}
-                <strong className='black-text' style={{ paddingLeft: 4 }}>
-                  {sectionName}
-                </strong>
+                <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
               </button>
             </th>
           </tr>
@@ -322,14 +468,25 @@ export class CompareModelVersionsViewImpl extends Component {
     const showSchemaSection = schemaActive && isActive;
     const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
     const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
-    const listByIndexHeaderMap = (key, data) => `${sectionName} [${key}]`;
+    const listByIndexHeaderMap = (key, data) => (
+      <>
+        {sectionName} [{key}]
+      </>
+    );
     const listByNameHeaderMap = (key, data) => key;
     const schemaFormatter = (value) => value;
+    const schemaFieldName = (
+      <FormattedMessage
+        defaultMessage='Schema {sectionName}'
+        description='Field name text for schema table in the model comparison page'
+        values={{ sectionName: sectionName }}
+      />
+    );
     return (
       <tbody className='scrollable-table schema-scrollable-table'>
         {this.renderDataRows(
           listByIndex,
-          `Schema ${sectionName}`,
+          schemaFieldName,
           showSchemaSection && showListByIndex,
           schemaToggle,
           listByIndexHeaderMap,
@@ -337,7 +494,7 @@ export class CompareModelVersionsViewImpl extends Component {
         )}
         {this.renderDataRows(
           listByName,
-          `Schema ${sectionName}`,
+          schemaFieldName,
           showSchemaSection && showListByName,
           schemaToggle,
           listByNameHeaderMap,
@@ -359,8 +516,9 @@ export class CompareModelVersionsViewImpl extends Component {
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
-            runInfos[0].experiment_id,
+            [runInfos[0].experiment_id],
           )}
+          target='_blank'
           title='Plot chart'
         >
           {key}
@@ -372,7 +530,10 @@ export class CompareModelVersionsViewImpl extends Component {
       <tbody className='scrollable-table'>
         {this.renderDataRows(
           metricLists,
-          'Metrics',
+          <FormattedMessage
+            defaultMessage='Metrics'
+            description='Field name text for metrics table in the model comparison page'
+          />,
           metricActive,
           metricToggle,
           metricsHeaderMap,
@@ -402,7 +563,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope='row' className='rowHeader block-content'>
-            <h2 className='center-text'>{fieldName} are empty</h2>
+            <CenteredText>
+              <FormattedMessage
+                defaultMessage='{fieldName} are empty'
+                description='Default text in data table where items are empty in the model
+                  comparison page'
+                values={{ fieldName: fieldName }}
+              />
+            </CenteredText>
           </th>
         </tr>
       );
@@ -420,16 +588,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr
           key={k}
-          className={`table-row
-          ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
+          className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}
         >
           <th scope='row' className='rowHeader block-content'>
             {headerMap(k, data[k])}
           </th>
           {data[k].map((value, i) => (
             <td
-              className={`data-value block-content
-              ${isDifferent ? 'hightlight-data' : ''}`}
+              className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
               key={this.props.runInfos[i].getRunUuid()}
             >
               <span className='truncate-text single-line cell-content'>
@@ -444,9 +610,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope='row' className='rowHeader block-content'>
-            <div className='center-text'>
-              <span>{fieldName} are identical</span>
-            </div>
+            <CenteredText>
+              <FormattedMessage
+                defaultMessage='{fieldName} are identical'
+                // eslint-disable-next-line max-len
+                description='Default text in data table where items are identical in the model comparison page'
+                values={{ fieldName: fieldName }}
+              />
+            </CenteredText>
           </th>
         </tr>
       );
@@ -550,8 +721,6 @@ const classNames = {
       '.compare-table': {
         // 1 extra unit for header column
         minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-        borderTop: '2px solid rgb(221, 221, 221)',
-        borderBottom: '2px solid rgb(221, 221, 221)',
       },
     }),
 };
@@ -566,10 +735,6 @@ const compareModelVersionsViewClassName = css({
     textOverflow: 'ellipsis',
     tableLayout: 'fixed',
     boxSizing: 'content-box',
-  },
-  'th.main-table-header': {
-    backgroundColor: 'white',
-    padding: '16px 0 0',
   },
   'th.schema-table-header': {
     height: 28,
@@ -593,11 +758,10 @@ const compareModelVersionsViewClassName = css({
   'tbody.schema-scrollable-table': {
     maxHeight: 200,
   },
-  'td.hightlight-data': {
-    backgroundColor: 'rgba(249, 237, 190, 0.5)',
-  },
-  'div.flex-container': {
+  '.switch-button-container': {
     display: 'flex',
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   'button.schema-collapse-button': {
     textAlign: 'left',
@@ -606,9 +770,10 @@ const compareModelVersionsViewClassName = css({
     height: '100%',
     border: 'none',
   },
-  'button.collapse-button': {
+  '.collapse-button': {
     textAlign: 'left',
     display: 'flex',
+    alignItems: 'center',
     border: 'none',
     backgroundColor: 'white',
     paddingLeft: 0,
@@ -623,16 +788,12 @@ const compareModelVersionsViewClassName = css({
   '.padding-right-text': {
     paddingRight: 16,
   },
-  '.black-text': {
-    color: '#333333',
-  },
   '.toggle-switch': {
     marginTop: 2,
   },
-  '.center-text': {
-    textAlign: 'center',
-    color: '#6B6B6B',
-    marginBottom: 0,
+  '.header': {
+    paddingLeft: 8,
+    fontSize: 16,
   },
 });
 

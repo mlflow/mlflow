@@ -8,7 +8,7 @@ import { FormattedMessage } from 'react-intl';
 export class CreateModelButton extends React.Component {
   static propTypes = {
     buttonType: PropTypes.string,
-    buttonText: PropTypes.string,
+    buttonText: PropTypes.node,
   };
 
   state = {
@@ -34,7 +34,7 @@ export class CreateModelButton extends React.Component {
     );
     const buttonSize = buttonType === 'primary' ? `${classNames.buttonSize}` : ``;
     return (
-      <div className={`create-model-btn-wrapper ${classNames.wrapper} ${modelClassNames}`}>
+      <div>
         <Button
           className={`create-model-btn ${buttonSize}`}
           type={buttonType}
@@ -49,19 +49,8 @@ export class CreateModelButton extends React.Component {
 }
 
 const classNames = {
-  wrapper: css({
-    display: 'inline',
-  }),
   buttonSize: css({
     height: '40px',
-    width: '120px',
+    width: 'fit-content',
   }),
 };
-
-const modelClassNames = css({
-  '.ant-btn-link': {
-    paddingLeft: 0,
-    paddingRight: 0,
-    color: '#2374BB',
-  },
-});

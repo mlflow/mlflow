@@ -3,7 +3,7 @@ Scoring server for python model format.
 The passed int model is expected to have function:
    predict(pandas.Dataframe) -> pandas.DataFrame
 
-Input, expected intext/csv or application/json format,
+Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
 Defines two endpoints:
@@ -11,10 +11,12 @@ Defines two endpoints:
     /invocations used for scoring
 """
 from collections import OrderedDict
+from typing import Tuple, Dict
 import flask
 import json
 import logging
 import numpy as np
+import os
 import pandas as pd
 import sys
 import traceback
@@ -27,6 +29,7 @@ import traceback
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     _dataframe_from_json,
@@ -38,7 +41,7 @@ try:
     from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -57,10 +60,15 @@ CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
+
+CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
+CONTENT_TYPE_FORMAT_SPLIT_ORIENTED = "pandas-split"
+
+FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIENTED]
+
+PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 
 _logger = logging.getLogger(__name__)
 
@@ -79,7 +87,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 "Failed to parse input from JSON. Ensure that input is a valid JSON"
                 " formatted string."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
     if isinstance(decoded_input, list):
@@ -90,7 +98,8 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
-                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                    error_message=(ex.message),
+                    error_code=BAD_REQUEST,
                 )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
@@ -100,7 +109,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 "Failed to parse input from JSON. Ensure that input is a valid JSON"
                 " list or dictionary."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -123,18 +132,23 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
                 " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
                 " method.".format(orient=orient)
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
-def parse_csv_input(csv_input):
+def parse_csv_input(csv_input, schema: Schema = None):
     """
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
     """
 
     try:
-        return pd.read_csv(csv_input)
+        if schema is None:
+            return pd.read_csv(csv_input)
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            return pd.read_csv(csv_input, dtype=dtypes)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -142,7 +156,7 @@ def parse_csv_input(csv_input):
                 " a valid CSV-formatted Pandas DataFrame produced using the"
                 " `pandas.DataFrame.to_csv()` method."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
@@ -167,12 +181,15 @@ def parse_split_oriented_json_input_to_numpy(json_input):
                 " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
                 " method."
             ),
-            error_code=MALFORMED_REQUEST,
+            error_code=BAD_REQUEST,
         )
 
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    wrapper_attr_name = os.environ.get(PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY, None)
+    if wrapper_attr_name:
+        predictions = {wrapper_attr_name: predictions}
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
@@ -223,34 +240,64 @@ def init(model: PyFuncModel):
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
         generate predictions and convert them back to json.
         """
+
+        # Content-Type can include other attributes like CHARSET
+        # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
+        # TODO: Suport ";" in quoted parameter values
+        type_parts = flask.request.content_type.split(";")
+        type_parts = list(map(str.strip, type_parts))
+        mime_type = type_parts[0]
+        parameter_value_pairs = type_parts[1:]
+        parameter_values = {}
+        for parameter_value_pair in parameter_value_pairs:
+            (key, _, value) = parameter_value_pair.partition("=")
+            parameter_values[key] = value
+
+        charset = parameter_values.get("charset", "utf-8").lower()
+        if charset != "utf-8":
+            return flask.Response(
+                response="The scoring server only supports UTF-8",
+                status=415,
+                mimetype="text/plain",
+            )
+
+        content_format = parameter_values.get("format")
+
         # Convert from CSV to pandas
-        if flask.request.content_type == CONTENT_TYPE_CSV:
+        if mime_type == CONTENT_TYPE_CSV and not content_format:
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == CONTENT_TYPE_JSON:
+            data = parse_csv_input(csv_input=csv_input, schema=input_schema)
+        elif mime_type == CONTENT_TYPE_JSON and not content_format:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+        elif (
+            mime_type == CONTENT_TYPE_JSON and content_format == CONTENT_TYPE_FORMAT_SPLIT_ORIENTED
+        ):
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="split",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+        elif (
+            mime_type == CONTENT_TYPE_JSON
+            and content_format == CONTENT_TYPE_FORMAT_RECORDS_ORIENTED
+        ):
             data = parse_json_input(
                 json_input=StringIO(flask.request.data.decode("utf-8")),
                 orient="records",
                 schema=input_schema,
             )
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
+        elif mime_type == CONTENT_TYPE_JSON_SPLIT_NUMPY and not content_format:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
         else:
             return flask.Response(
                 response=(
-                    "This predictor only supports the following content types,"
-                    " {supported_content_types}. Got '{received_content_type}'.".format(
+                    "This predictor only supports the following content types and formats:"
+                    " Types: {supported_content_types}; Formats: {formats}."
+                    " Got '{received_content_type}'.".format(
                         supported_content_types=CONTENT_TYPES,
+                        formats=FORMATS,
                         received_content_type=flask.request.content_type,
                     )
                 ),
@@ -304,3 +351,42 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
+
+
+def get_cmd(
+    model_uri: str, port: int = None, host: int = None, nworkers: int = None
+) -> Tuple[str, Dict[str, str]]:
+    local_uri = path_to_local_file_uri(model_uri)
+    # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
+    # platform compatibility.
+    if os.name != "nt":
+        args = ["--timeout=60"]
+        if port and host:
+            args.append(f"-b {host}:{port}")
+        elif host:
+            args.append(f"-b {host}")
+
+        if nworkers:
+            args.append(f"-w {nworkers}")
+
+        command = (
+            f"gunicorn {' '.join(args)} ${{GUNICORN_CMD_ARGS}}"
+            " -- mlflow.pyfunc.scoring_server.wsgi:app"
+        )
+    else:
+        args = []
+        if host:
+            args.append(f"--host={host}")
+
+        if port:
+            args.append(f"--port={port}")
+
+        command = (
+            f"waitress-serve {' '.join(args)} "
+            "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
+        )
+
+    command_env = os.environ.copy()
+    command_env[_SERVER_MODEL_PATH] = local_uri
+
+    return command, command_env

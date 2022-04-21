@@ -86,7 +86,7 @@ staging to production or archiving), and annotations.
 Referencing Artifacts
 ---------------------
 
-When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you are invoking the Tracking, Models, or Projects API. 
+When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you are invoking the Tracking, Models, or Projects API.
 For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the following ways:
 
 - ``/Users/me/path/to/local/model``
@@ -98,6 +98,7 @@ For the Tracking API, you specify the artifact location using a (run ID, relativ
   - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
   - ``models:/<model_name>/<model_version>``
   - ``models:/<model_name>/<stage>``
+  - ``mlflow-artifacts:/path/to/model`` when running the tracking server in ``--serve-artifacts`` proxy mode.
 
 For example:
 
@@ -106,7 +107,7 @@ For example:
 .. code-block:: py
 
   mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
-  
+
 .. rubric:: Models API
 
 .. code-block:: py

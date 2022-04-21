@@ -1,60 +1,21 @@
-# Cross version tests
+# GitHub Actions workflows
 
-## Files & Roles
+## Testing
 
-### `ml-package-versions.yml`
+| File                      | Role                                                                 |
+| :------------------------ | :------------------------------------------------------------------- |
+| `cross-version-tests.yml` | Run cross version tests. See `cross-version-testing.md` for details. |
+| `examples.yml`            | Run tests for example scripts & projects                             |
+| `master.yml `             | Run unit and integration tests                                       |
 
-Define package versions to test for each flavor.
+## Automation
 
-### `dev/set_matrix.py`
-
-Read `ml-package-versions.yml` and set a test matrix.
-
-### `cross-versions-tests.yml`
-
-Run the following two jobs.
-
-- `set-matrix`: Run `set_matrix.py` to set a test matrix.
-- `test`: Sweep the test matrix set by `set-matrix`.
-
-## When is `cross-versions-tests.yml` triggered?
-
-1. When a pull request is created (run tests affected by the PR)
-2. Everyday at 7:00 UTC (run all tests)
-
-## How to run `dev/set_matrix.py`
-
-```sh
-# ===== Include all items =====
-
-python dev/set_matrix.py
-
-# ===== Include only `ml-package-versions.yml` updates =====
-
-REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
-python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
-
-# ===== Include only flavor file updates =====
-
-CHANGED_FILES="
-mlflow/keras.py
-tests/xgboost/test_xgboost_autolog.py
-"
-python dev/set_matrix.py --changed-files $CHANGED_FILES
-
-# ===== Include both `ml-package-versions.yml` & flavor file updates =====
-
-python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files $CHANGED_FILES
-```
-
-## How to run doctests in `dev/set_matrix.py`
-
-```sh
-pytest dev/set_matrix.py --doctest-modules
-```
-
-## How to run tests for dev versions on a pull request:
-
-1. Click `Labels` in the right sidebar.
-2. Select the `enable-dev-tests` label.
-3. Push a commit or re-run the `Cross version tests` workflow.
+| File                        | Role                                                           |
+| :-------------------------- | :------------------------------------------------------------- |
+| `autoformat.yml`            | Apply autoformatting when a PR is commented with `autoformat`  |
+| `autoformat.js`             | Define utility functions used in the `autoformat.yml` workflow |
+| `labeling.yml`              | Automatically apply labels on issues and PRs                   |
+| `notify-dco-failure.yml`    | Notify a DCO check failure                                     |
+| `notify-dco-failure.js`     | The main script of the `notify-dco-failure.yml` workflow       |
+| `release-note-category.yml` | Validate a release-note category label is applied on a PR      |
+| `release-note-category.js`  | The main script of the `release-note-category.yml` workflow    |

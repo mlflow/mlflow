@@ -27,6 +27,28 @@ The MLflow Community encourages bug fix contributions. Would you or another memb
 ### Describe the problem
 Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
 
+### Tracking information
+
+<!-- This section is optional -->
+
+For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
+
+```python
+print("MLflow version:", mlflow.__version__)
+print("Tracking URI:", mlflow.get_tracking_uri())
+print("Artifact URI:", mlflow.get_artifact_uri())
+```
+
+Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below:
+
+```
+```
+
+If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it:
+
+```
+```
+
 ### Code to reproduce issue
 Provide a reproducible test case that is the bare minimum necessary to generate the problem.
 
@@ -35,7 +57,7 @@ Include any logs or source code that would be helpful to diagnose the problem. I
 
 
 ### What component(s), interfaces, languages, and integrations does this bug affect?
-Components 
+Components
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
@@ -47,13 +69,13 @@ Components
 - [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
-Interface 
+Interface
 - [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
 
-Language 
+Language
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
 - [ ] `language/new`: Proposals for new client languages

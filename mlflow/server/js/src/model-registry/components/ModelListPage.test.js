@@ -8,7 +8,6 @@ import { ModelVersionStatus, REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD, Stages } 
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelListPage, ModelListPageImpl } from './ModelListPage';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 describe('ModelListPage', () => {
   let wrapper;
@@ -19,7 +18,6 @@ describe('ModelListPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     const location = {};
 
     pushSpy = jest.fn();
@@ -34,6 +32,7 @@ describe('ModelListPage', () => {
       models: [],
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       listEndpointsApi: jest.fn(() => Promise.resolve({})),
+      listEndpointsV2Api: jest.fn(() => Promise.resolve({})),
       history,
       location,
     };

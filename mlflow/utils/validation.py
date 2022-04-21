@@ -22,6 +22,8 @@ _BAD_CHARACTERS_MESSAGE = (
     " spaces ( ), and slashes (/)."
 )
 
+_MISSING_KEY_NAME_MESSAGE = "A key name must be provided."
+
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
@@ -36,6 +38,34 @@ MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
+
+PARAM_VALIDATION_MSG = """
+
+The cause of this error is typically due to repeated calls
+to an individual run_id event logging.
+
+Incorrect Example:
+---------------------------------------
+with mlflow.start_run():
+    mlflow.log_param("depth", 3)
+    mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will throw an MlflowException for overwriting a
+logged parameter.
+
+Correct Example:
+---------------------------------------
+with mlflow.start_run():
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 3)
+    with mlflow.start_run(nested=True):
+        mlflow.log_param("depth", 5)
+---------------------------------------
+
+Which will create a new nested run for each individual
+model and prevent parameter key collisions within the
+tracking store."""
 
 
 def bad_path_message(name):
@@ -52,7 +82,12 @@ def path_not_unique(name):
 
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Metric name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
@@ -173,9 +208,32 @@ def _validate_list_experiments_max_results(max_results):
         )
 
 
+def _validate_param_keys_unique(params):
+    """Ensures that duplicate param keys are not present in the `log_batch()` params argument"""
+    unique_keys = []
+    dupe_keys = []
+    for param in params:
+        if param.key not in unique_keys:
+            unique_keys.append(param.key)
+        else:
+            dupe_keys.append(param.key)
+
+    if dupe_keys:
+        raise MlflowException(
+            f"Duplicate parameter keys have been submitted: {dupe_keys}. Please ensure "
+            "the request contains only one param value per param key.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Parameter name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
             INVALID_PARAMETER_VALUE,
@@ -190,7 +248,12 @@ def _validate_param_name(name):
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
-    if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+    if name is None:
+        raise MlflowException(
+            f"Tag name cannot be None. {_MISSING_KEY_NAME_MESSAGE}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
             "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
         )
@@ -278,6 +341,19 @@ def _validate_experiment_name(experiment_name):
     if not is_string_type(experiment_name):
         raise MlflowException(
             "Invalid experiment name: %s. Expects a string." % experiment_name,
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_experiment_id_type(experiment_id):
+    """
+    Check that a user-provided experiment_id is either a string, int, or None and raise an
+    exception if it isn't.
+    """
+    if experiment_id is not None and not isinstance(experiment_id, (str, int)):
+        raise MlflowException(
+            f"Invalid experiment id: {experiment_id} of type {type(experiment_id)}. "
+            "Must be one of str, int, or None.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

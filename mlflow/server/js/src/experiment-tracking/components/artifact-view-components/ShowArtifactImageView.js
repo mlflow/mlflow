@@ -2,8 +2,8 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
-import Plot from 'react-plotly.js';
 import Utils from '../../../common/utils/Utils';
+import { LazyPlot } from '../LazyPlot';
 
 class ShowArtifactImageView extends Component {
   constructor(props) {
@@ -90,7 +90,7 @@ class ShowArtifactImageView extends Component {
       return <div className='artifact-image-view-loading'>Loading...</div>;
     }
     return (
-      <Plot
+      <LazyPlot
         layout={{
           width: width * (500 / height),
           height: 500,

@@ -8,9 +8,15 @@ export const ErrorCodes = {
   PERMISSION_DENIED: 'PERMISSION_DENIED',
 };
 
-export const HomePageDocsUrl = 'https://www.mlflow.org/docs/latest/index.html';
+export const Version = '1.25.2.dev0';
 
-export const ModelRegistryDocUrl = 'https://mlflow.org/docs/latest/model-registry.html';
+const DOCS_VERSION = 'latest';
+
+const DOCS_ROOT = `https://www.mlflow.org/docs/${DOCS_VERSION}`;
+
+export const HomePageDocsUrl = `${DOCS_ROOT}/index.html`;
+
+export const ModelRegistryDocUrl = `${DOCS_ROOT}/model-registry.html`;
 
 export const ModelRegistryOnboardingString = (
   <FormattedMessage
@@ -20,19 +26,25 @@ export const ModelRegistryOnboardingString = (
 );
 
 export const RegisteringModelDocUrl =
-  'https://mlflow.org/docs/latest/' +
-  'model-registry.html#adding-an-mlflow-model-to-the-model-registry';
+  DOCS_ROOT + '/model-registry.html#adding-an-mlflow-model-to-the-model-registry';
 
-export const ExperimentTrackingDocUrl = 'https://www.mlflow.org/docs/latest/tracking.html';
+export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
-export const LoggingRunsDocUrl =
-  'https://www.mlflow.org/docs/latest/tracking.html#logging-data-to-runs';
+export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-syntax.html`;
+
+export const ExperimentTrackingDocUrl = `${DOCS_ROOT}/tracking.html`;
+
+export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
+export const CustomPyfuncModelsDocUrl =
+  DOCS_ROOT + '/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';
+
+export const LoggingRunsDocUrl = `${DOCS_ROOT}/tracking.html#logging-data-to-runs`;
 
 export const onboarding = 'onboarding';
 
 export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues';
 
-export const ModelSignatureUrl = 'https://mlflow.org/docs/latest/models.html#model-signature';
+export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 
 export const LogModelWithSignatureUrl =
-  'https://www.mlflow.org/docs/latest/models.html#how-to-log-models-with-signatures';
+  DOCS_ROOT + '/models.html#how-to-log-models-with-signatures';

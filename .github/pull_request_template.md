@@ -6,6 +6,18 @@
 
 (Details)
 
+## Does this PR change the documentation?
+
+- [ ] No. You can skip the rest of this section.
+- [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
+
+1. Check the status of the `ci/circleci: build_doc` check. If it's successful, proceed to the
+   next step, otherwise fix it.
+2. Click `Details` on the right to open the job page of CircleCI.
+3. Click the `Artifacts` tab.
+4. Click `docs/build/html/index.html`.
+5. Find the changed pages / sections and make sure they render correctly.
+
 ## Release Notes
 
 ### Is this a user-facing change?
@@ -16,7 +28,7 @@
 (Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
 
 ### What component(s), interfaces, languages, and integrations does this PR affect?
-Components 
+Components
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
@@ -28,13 +40,13 @@ Components
 - [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
-Interface 
+Interface
 - [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
 
-Language 
+Language
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
 - [ ] `language/new`: Proposals for new client languages

@@ -3,19 +3,25 @@ import shap
 import numpy as np
 import pandas as pd
 import sklearn
+from sklearn.datasets import load_diabetes
 import pytest
+from unittest import mock
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.utils import PYTHON_VERSION
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.helper_functions import pyfunc_serve_and_score_model, _assert_pip_requirements
+from tests.helper_functions import (
+    pyfunc_serve_and_score_model,
+    _assert_pip_requirements,
+    _compare_logged_code_paths,
+)
 
 
 @pytest.fixture(scope="module")
 def shap_model():
-    X, y = shap.datasets.boston()
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
     model.fit(X, y)
     return shap.Explainer(model.predict, X, algorithm="permutation")
@@ -121,22 +127,25 @@ def test_sklearn_log_explainer_pyfunc():
 
 
 def test_log_explanation_doesnt_create_autologged_run():
-    mlflow.sklearn.autolog(disable=False, exclusive=False)
-    dataset = sklearn.datasets.load_boston()
-    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
-    y = dataset.target[:50]
-    model = sklearn.linear_model.LinearRegression()
-    model.fit(X, y)
+    try:
+        mlflow.sklearn.autolog(disable=False, exclusive=False)
+        X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
+        X = X.iloc[:50, :4]
+        y = y.iloc[:50]
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
 
-    with mlflow.start_run() as run:
-        mlflow.shap.log_explanation(model.predict, X)
+        with mlflow.start_run() as run:
+            mlflow.shap.log_explanation(model.predict, X)
 
-    run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
-    assert not metrics
-    assert not params
-    assert all("mlflow." in key for key in tags)
-    assert "mlflow.autologging" not in tags
+        run_data = MlflowClient().get_run(run.info.run_id).data
+        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        assert not metrics
+        assert not params
+        assert all("mlflow." in key for key in tags)
+        assert "mlflow.autologging" not in tags
+    finally:
+        mlflow.sklearn.autolog(disable=True)
 
 
 def test_load_pyfunc(tmpdir):
@@ -205,7 +214,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
     with mlflow.start_run():
         mlflow.shap.log_explainer(shap_model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs]
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", *sklearn_default_reqs], strict=True
         )
 
     # List of requirements
@@ -214,7 +223,9 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
             shap_model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b", *sklearn_default_reqs]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "a", "b", *sklearn_default_reqs],
+            strict=True,
         )
 
     # Constraints file
@@ -226,6 +237,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
             mlflow.get_artifact_uri("model"),
             ["mlflow", "b", "-c constraints.txt", *sklearn_default_reqs],
             ["a"],
+            strict=True,
         )
 
 
@@ -287,7 +299,8 @@ def test_pyfunc_serve_and_score():
         # `link` defaults to `shap.links.identity` which is decorated by `numba.jit` and causes
         # the following error when loading the explainer for serving:
         # ```
-        # Exception: The passed link function needs to be callable and have a callable .inverse property!  # noqa
+        # Exception: The passed link function needs to be callable and have a callable
+        # .inverse property!
         # ```
         # As a workaround, use an identify function that's NOT decorated by `numba.jit`.
         link=create_identity_function(),
@@ -302,5 +315,17 @@ def test_pyfunc_serve_and_score():
         data=pd.DataFrame(X[:3]),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
-    scores = pd.read_json(resp.content, orient="records").values
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values
     np.testing.assert_allclose(scores, model(X[:3]).values, rtol=100, atol=100)
+
+
+def test_log_model_with_code_paths(shap_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.shap._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.shap.log_explainer(shap_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.shap.FLAVOR_NAME)
+        mlflow.shap.load_explainer(model_uri)
+        add_mock.assert_called()

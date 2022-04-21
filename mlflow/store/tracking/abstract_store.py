@@ -3,7 +3,6 @@ from abc import abstractmethod, ABCMeta
 from mlflow.entities import ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.annotations import experimental
 
 
 class AbstractStore:
@@ -38,13 +37,14 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_experiment(self, name, artifact_location):
+    def create_experiment(self, name, artifact_location, tags):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
+        :param tags: Experiment tags to set upon experiment creation
 
         :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
@@ -306,7 +306,6 @@ class AbstractStore:
         """
         pass
 
-    @experimental
     @abstractmethod
     def record_logged_model(self, run_id, mlflow_model):
         """
@@ -318,8 +317,7 @@ class AbstractStore:
         :param run_id: String id for the run
         :param mlflow_model: Model object to be recorded.
 
-        NB: This API is experimental and may change in the future. The default implementation is a
-        no-op.
+        The default implementation is a no-op.
 
         :return: None.
         """

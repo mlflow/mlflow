@@ -9,7 +9,7 @@ Installing MLflow
 You install MLflow by running:
 
 .. code-section::
-  
+
     .. code-block:: python
 
         pip install mlflow
@@ -18,6 +18,10 @@ You install MLflow by running:
 
         install.packages("mlflow")
         mlflow::install_mlflow()
+
+    .. code-block:: python
+
+        pip install mlflow-skinny
 
 .. note::
 
@@ -28,6 +32,9 @@ You install MLflow by running:
 To use certain MLflow modules and functionality (ML model persistence/inference, artifact storage options, etc),
 you may need to install extra libraries. For example, the ``mlflow.tensorflow`` module requires TensorFlow to be installed.
 See https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details
+
+MLflow skinny will also need installation of extra dependencies for certain MLflow modules and functionality. For example,
+``mlflow.set_tracking_uri("sqlite:///my.db")`` requires ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
@@ -73,7 +80,7 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
             with open("outputs/test.txt", "w") as f:
                 f.write("hello world!")
             log_artifacts("outputs")
-            
+
     .. code-block:: R
 
         library(mlflow)
@@ -97,11 +104,11 @@ By default, wherever you run your program, the tracking API writes data into fil
 ``./mlruns`` directory. You can then run MLflow's Tracking UI:
 
 .. code-section::
-  
+
     .. code-block:: python
 
         mlflow ui
-        
+
     .. code-block:: R
 
         mlflow_ui()
@@ -131,7 +138,7 @@ either a local directory or a GitHub URI:
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
-projects log their Tracking API data in the local ``mlruns`` directory so you can see these 
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these
 runs using ``mlflow ui``.
 
 .. note::

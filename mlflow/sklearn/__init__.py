@@ -11,6 +11,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     since `predict()` is required for pyfunc model inference.
 """
 import inspect
+import functools
 import os
 import logging
 import numpy as np
@@ -19,6 +20,7 @@ import yaml
 import warnings
 import weakref
 from collections import defaultdict, OrderedDict
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -28,10 +30,8 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -41,12 +41,20 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
+from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -55,6 +63,8 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     MlflowAutologgingQueueingClient,
     disable_autologging,
+    update_wrapper_extended,
+    get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -67,6 +77,45 @@ SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FO
 
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
+
+
+def _gen_estimators_to_patch():
+    from mlflow.sklearn.utils import (
+        _all_estimators,
+        _get_meta_estimators_for_autologging,
+    )
+
+    _, estimators_to_patch = zip(*_all_estimators())
+    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
+    # for patching if they are not already included in the output of `all_estimators()`
+    estimators_to_patch = set(estimators_to_patch).union(
+        set(_get_meta_estimators_for_autologging())
+    )
+    # Exclude certain preprocessing & feature manipulation estimators from patching. These
+    # estimators represent data manipulation routines (e.g., normalization, label encoding)
+    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
+    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
+    # (via `sklearn.pipeline.Pipeline`)
+    excluded_module_names = [
+        "sklearn.preprocessing",
+        "sklearn.impute",
+        "sklearn.feature_extraction",
+        "sklearn.feature_selection",
+    ]
+
+    excluded_class_names = [
+        "sklearn.compose._column_transformer.ColumnTransformer",
+    ]
+
+    return [
+        estimator
+        for estimator in estimators_to_patch
+        if not any(
+            estimator.__module__.startswith(excluded_module_name)
+            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
+            for excluded_module_name in excluded_module_names
+        )
+    ]
 
 
 def get_default_pip_requirements(include_cloudpickle=False):
@@ -95,6 +144,7 @@ def save_model(
     sk_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     signature: ModelSignature = None,
@@ -112,23 +162,10 @@ def save_model(
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'scikit-learn=0.19.2'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
@@ -137,7 +174,7 @@ def save_model(
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -150,7 +187,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -198,11 +235,9 @@ def save_model(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -211,22 +246,52 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "model.pkl"
+    model_data_path = os.path.join(path, model_data_subpath)
     _save_model(
         sk_model=sk_model,
-        output_path=os.path.join(path, model_data_subpath),
+        output_path=model_data_path,
         serialization_format=serialization_format,
     )
 
-    include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(include_cloudpickle=include_cloudpickle),
+    # `PyFuncModel` only works for sklearn models that define `predict()`.
+    if hasattr(sk_model, "predict"):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.sklearn",
+            model_path=model_data_subpath,
+            env=_CONDA_ENV_FILE_NAME,
+            code=code_path_subdir,
+        )
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        pickled_model=model_data_subpath,
+        sklearn_version=sklearn.__version__,
+        serialization_format=serialization_format,
+        code=code_path_subdir,
+    )
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+            default_reqs = get_default_pip_requirements(include_cloudpickle)
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                model_data_path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
             pip_requirements,
             extra_pip_requirements,
         )
-        if conda_env is None
-        else _process_conda_env(conda_env)
-    )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -238,21 +303,7 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    # `PyFuncModel` only works for sklearn models that define `predict()`.
-    if hasattr(sk_model, "predict"):
-        pyfunc.add_to_model(
-            mlflow_model,
-            loader_module="mlflow.sklearn",
-            model_path=model_data_subpath,
-            env=_CONDA_ENV_FILE_NAME,
-        )
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        pickled_model=model_data_subpath,
-        sklearn_version=sklearn.__version__,
-        serialization_format=serialization_format,
-    )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -260,6 +311,7 @@ def log_model(
     sk_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
@@ -278,34 +330,21 @@ def log_model(
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.7.0',
-                                'scikit-learn=0.19.2'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the formats listed in
                                  ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -318,7 +357,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -328,6 +367,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -354,6 +395,7 @@ def log_model(
         flavor=mlflow.sklearn,
         sk_model=sk_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         serialization_format=serialization_format,
         registered_model_name=registered_model_name,
         signature=signature,
@@ -397,7 +439,7 @@ def _load_model_from_local_file(path, serialization_format):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
@@ -437,6 +479,36 @@ def _load_pyfunc(path):
     return _load_model_from_local_file(path=path, serialization_format=serialization_format)
 
 
+class _SklearnCustomModelPicklingError(pickle.PicklingError):
+    """
+    Exception for describing error raised during pickling custom sklearn estimator
+    """
+
+    def __init__(self, sk_model, original_exception):
+        """
+        :param sk_model: The custom sklearn model to be pickled
+        :param original_exception: The original exception raised
+        """
+        super(_SklearnCustomModelPicklingError, self).__init__(
+            f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
+            f"when saving model: {str(original_exception)}"
+        )
+        self.original_exception = original_exception
+
+
+def _dump_model(pickle_lib, sk_model, out):
+    try:
+        # Using python's default protocol to optimize compatibility.
+        # Otherwise cloudpickle uses latest protocol leading to incompatibilities.
+        # See https://github.com/mlflow/mlflow/issues/5419
+        pickle_lib.dump(sk_model, out, protocol=pickle.DEFAULT_PROTOCOL)
+    except (pickle.PicklingError, TypeError, AttributeError) as e:
+        if sk_model.__class__ not in _gen_estimators_to_patch():
+            raise _SklearnCustomModelPicklingError(sk_model, e)
+        else:
+            raise
+
+
 def _save_model(sk_model, output_path, serialization_format):
     """
     :param sk_model: The scikit-learn model to serialize.
@@ -447,11 +519,11 @@ def _save_model(sk_model, output_path, serialization_format):
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            pickle.dump(sk_model, out)
+            _dump_model(pickle, sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
 
-            cloudpickle.dump(sk_model, out)
+            _dump_model(cloudpickle, sk_model, out)
         else:
             raise MlflowException(
                 message="Unrecognized serialization format: {serialization_format}".format(
@@ -461,7 +533,7 @@ def _save_model(sk_model, output_path, serialization_format):
             )
 
 
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load a scikit-learn model from a local file or a run.
 
@@ -477,6 +549,9 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: A scikit-learn model.
 
@@ -490,8 +565,9 @@ def load_model(model_uri):
         pandas_df = ...
         predictions = sk_model.predict(pandas_df)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(
@@ -532,7 +608,6 @@ class _AutologgingMetricsManager:
           if they have the same eval_dataset_var_name, but object ids are different,
           then they will be assigned different name (via appending index to the
           eval_dataset_var_name) when autologging.
-        * storing the dataset row samples, we need log them into metric_info artifact file.
     (4) _metric_api_call_info, it is a double level map:
        `_metric_api_call_info[run_id][metric_name]` wil get a list of tuples, each tuple is:
          (logged_metric_key, metric_call_command_string)
@@ -593,7 +668,7 @@ class _AutologgingMetricsManager:
         as an MLflow metric.
         """
         return isinstance(metric_value, (int, float, np.number)) and not isinstance(
-            metric_value, (bool, np.bool)
+            metric_value, bool
         )
 
     def register_model(self, model, run_id):
@@ -620,9 +695,8 @@ class _AutologgingMetricsManager:
         Register prediction input dataset into eval_dataset_info_map, it will do:
          1. inspect eval dataset var name.
          2. check whether eval_dataset_info_map already registered this eval dataset.
-            will check by object id and comparing row samples.
-            Note: only check object id is not sufficient, id may be reused.
-         3. register eval dataset (with id and row samples information)
+            will check by object id.
+         3. register eval dataset with id.
          4. return eval dataset name with index.
 
         Note: this method include inspecting argument variable name.
@@ -661,9 +735,7 @@ class _AutologgingMetricsManager:
         self._pred_result_id_to_dataset_name_and_run_id[prediction_result_id] = value
 
         def clean_id(id_):
-            _get_autologging_metrics_manager()._pred_result_id_to_dataset_name_and_run_id.pop(
-                id_, None
-            )
+            _AUTOLOGGING_METRICS_MANAGER._pred_result_id_to_dataset_name_and_run_id.pop(id_, None)
 
         # When the `predict_result` object being GCed, its ID may be reused, so register a finalizer
         # to clear the ID from the dict for preventing wrong ID mapping.
@@ -729,7 +801,7 @@ class _AutologgingMetricsManager:
           metric_name is generated by metric function name, if multiple calls on the same
           metric API happen, the following calls will be assigned with an increasing "call index".
         (2) Register the metric key with the "call command" information into
-          `_autologging_metrics_manager`. See doc of `gen_metric_call_command` method for
+          `_AUTOLOGGING_METRICS_MANAGER`. See doc of `gen_metric_call_command` method for
           details of "call command".
         """
 
@@ -790,15 +862,9 @@ class _AutologgingMetricsManager:
             self._metric_info_artifact_need_update[run_id] = False
 
 
-_autologging_metrics_manager = _AutologgingMetricsManager()
-
-
-def _get_autologging_metrics_manager():
-    """
-    Get the global `_AutologgingMetricsManager` instance which holds information used in
-    post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
-    """
-    return _autologging_metrics_manager
+# The global `_AutologgingMetricsManager` instance which holds information used in
+# post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
+_AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
 _metric_api_excluding_list = ["check_scoring", "get_scorer", "make_scorer"]
@@ -825,7 +891,28 @@ def _get_metric_name_list():
     return metric_list
 
 
-@experimental
+def _patch_estimator_method_if_available(flavor_name, class_def, func_name, patched_fn, manage_run):
+    if not hasattr(class_def, func_name):
+        return
+
+    original = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=False
+    )
+    # Retrieve raw attribute while bypassing the descriptor protocol
+    raw_original_obj = gorilla.get_original_attribute(
+        class_def, func_name, bypass_descriptor_protocol=True
+    )
+    if raw_original_obj == original and (callable(original) or isinstance(original, property)):
+        # normal method or property decorated method
+        safe_patch(flavor_name, class_def, func_name, patched_fn, manage_run=manage_run)
+    elif hasattr(raw_original_obj, "delegate_names") or hasattr(raw_original_obj, "check"):
+        # sklearn delegated method
+        safe_patch(flavor_name, raw_original_obj, "fn", patched_fn, manage_run=manage_run)
+    else:
+        # unsupported method type. skip patching
+        pass
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -836,6 +923,9 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     max_tuning_runs=5,
+    log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -909,6 +999,8 @@ def autolog(
           .. _r2 score:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
+      .. _post training metrics:
+
       **Post training metrics**
         When users call metric APIs after model training, MLflow tries to capture the metric API
         results and log them as MLflow metrics to the Run associated with the model. The following
@@ -937,8 +1029,9 @@ def autolog(
 
         **Limitations**
            - MLflow can only map the original prediction result object returned by a model
-             prediction API (including predict / predict_proba / transform, but excluding
-             fit_predict / fit_transform.) to an MLflow run. MLflow cannot find run information
+             prediction API (including predict / predict_proba / predict_log_proba / transform,
+             but excluding fit_predict / fit_transform.) to an MLflow run.
+             MLflow cannot find run information
              for other objects derived from a given prediction result (e.g. by copying or selecting
              a subset of the prediction result). scikit-learn metric APIs invoked on derived objects
              do not log metrics to MLflow.
@@ -947,10 +1040,6 @@ def autolog(
              metrics to MLflow runs.
            - If user define a scorer which is not based on metric APIs in `sklearn.metrics`, then
              then post training metric autologging for the scorer is invalid.
-           - Do not support `LocalOutlierFactor` estimator.
-           - For several meta-estimators, if there target methods are decorated by
-             "@if_delegate_has_method", then post training metric autologging patching for that
-             method is invalid.
 
         **Tags**
           - An estimator class name (e.g. "LinearRegression").
@@ -1085,6 +1174,51 @@ def autolog(
                             `rank_test_score_<scorer_name>` will be used to select the best k
                             results. To change metric used for selecting best k results, change
                             ordering of dict passed as `scoring` parameter for estimator.
+    :param log_post_training_metrics: If ``True``, post training metrics are logged. Defaults to
+                                      ``True``. See the `post training metrics`_ section for more
+                                      details.
+    :param serialization_format: The format in which to serialize the model. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
+    """
+    _autolog(
+        flavor_name=FLAVOR_NAME,
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+        log_models=log_models,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        silent=silent,
+        max_tuning_runs=max_tuning_runs,
+        log_post_training_metrics=log_post_training_metrics,
+        serialization_format=serialization_format,
+    )
+
+
+def _autolog(
+    flavor_name=FLAVOR_NAME,
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    max_tuning_runs=5,
+    log_post_training_metrics=True,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+):  # pylint: disable=unused-argument
+    """
+    Internal autologging function for scikit-learn models.
+    :param flavor_name: A string value. Enable a ``mlflow.sklearn`` autologging routine
+                        for a flavor. By default it enables autologging for original
+                        scikit-learn models, as ``mlflow.sklearn.autolog()`` does. If
+                        the argument is `xgboost`, autologging for XGBoost scikit-learn
+                        models is enabled.
     """
     import pandas as pd
     import sklearn
@@ -1096,10 +1230,11 @@ def autolog(
         _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
-        _get_args_for_metrics,
+        _get_X_y_and_sample_weight,
+        _gen_xgboost_sklearn_estimators_to_patch,
+        _gen_lightgbm_sklearn_estimators_to_patch,
         _log_estimator_content,
         _all_estimators,
-        _get_arg_names,
         _get_estimator_info_tags,
         _get_meta_estimators_for_autologging,
         _is_parameter_search_estimator,
@@ -1124,6 +1259,40 @@ def autolog(
             + "(current version: {})".format(sklearn.__version__),
             stacklevel=2,
         )
+
+    def fit_mlflow_xgboost_and_lightgbm(original, self, *args, **kwargs):
+        """
+        Autologging function for XGBoost and LightGBM scikit-learn models
+        """
+        # parameter, metric, and non-model artifact logging are done in
+        # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
+        fit_output = original(self, *args, **kwargs)
+        # log models after training
+        X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
+        if log_models:
+            input_example, signature = resolve_input_example_and_signature(
+                lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
+                lambda input_example: infer_signature(input_example, self.predict(input_example)),
+                log_input_examples,
+                log_model_signatures,
+                _logger,
+            )
+            log_model_func = (
+                mlflow.xgboost.log_model
+                if flavor_name == mlflow.xgboost.FLAVOR_NAME
+                else mlflow.lightgbm.log_model
+            )
+            registered_model_name = get_autologging_config(
+                flavor_name, "registered_model_name", None
+            )
+            log_model_func(
+                self,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+                registered_model_name=registered_model_name,
+            )
+        return fit_output
 
     def fit_mlflow(original, self, *args, **kwargs):
         """
@@ -1169,7 +1338,8 @@ def autolog(
             params=estimator.get_params(deep=should_log_params_deeply),
         )
         autologging_client.set_tags(
-            run_id=run_id, tags=_get_estimator_info_tags(estimator),
+            run_id=run_id,
+            tags=_get_estimator_info_tags(estimator),
         )
 
     def _log_posttraining_metadata(autologging_client, estimator, *args, **kwargs):
@@ -1196,7 +1366,7 @@ def autolog(
 
             return infer_signature(input_example, estimator.predict(input_example))
 
-        (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
@@ -1221,6 +1391,12 @@ def autolog(
             input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
             return input_example
 
+        def _log_model_with_except_handling(*args, **kwargs):
+            try:
+                return log_model(*args, **kwargs)
+            except _SklearnCustomModelPicklingError as e:
+                _logger.warning(str(e))
+
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
@@ -1230,18 +1406,26 @@ def autolog(
                 log_model_signatures,
                 _logger,
             )
-
-            log_model(
-                estimator, artifact_path="model", signature=signature, input_example=input_example,
+            registered_model_name = get_autologging_config(
+                FLAVOR_NAME, "registered_model_name", None
+            )
+            _log_model_with_except_handling(
+                estimator,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+                serialization_format=serialization_format,
+                registered_model_name=registered_model_name,
             )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
-                log_model(
+                _log_model_with_except_handling(
                     estimator.best_estimator_,
                     artifact_path="best_estimator",
                     signature=signature,
                     input_example=input_example,
+                    serialization_format=serialization_format,
                 )
 
             if hasattr(estimator, "best_score_"):
@@ -1256,7 +1440,8 @@ def autolog(
                     for param_name, param_value in estimator.best_params_.items()
                 }
                 autologging_client.log_params(
-                    run_id=mlflow.active_run().info.run_id, params=best_params,
+                    run_id=mlflow.active_run().info.run_id,
+                    params=best_params,
                 )
 
             if hasattr(estimator, "cv_results_"):
@@ -1264,7 +1449,7 @@ def autolog(
                     # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
                     # information is consistent with the parent run
                     child_tags = context_registry.resolve_tags()
-                    child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+                    child_tags.update({MLFLOW_AUTOLOGGING: flavor_name})
                     _create_child_runs_for_parameter_search(
                         autologging_client=autologging_client,
                         cv_estimator=estimator,
@@ -1293,7 +1478,7 @@ def autolog(
                     )
                     _logger.warning(msg)
 
-    def patched_fit(original, self, *args, **kwargs):
+    def patched_fit(fit_impl, original, self, *args, **kwargs):
         """
         Autologging patch function to be applied to a sklearn model class that defines a `fit`
         method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
@@ -1304,16 +1489,21 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        status = _get_autologging_metrics_manager()
-        should_log_post_training_metrics = status.should_log_post_training_metrics()
+        should_log_post_training_metrics = (
+            log_post_training_metrics
+            and _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics()
+        )
+
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 # In `fit_mlflow` call, it will also call metric API for computing training metrics
                 # so we need temporarily disable the post_training_metrics patching.
-                with status.disable_log_post_training_metrics():
-                    result = fit_mlflow(original, self, *args, **kwargs)
+                with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+                    result = fit_impl(original, self, *args, **kwargs)
                 if should_log_post_training_metrics:
-                    status.register_model(self, mlflow.active_run().info.run_id)
+                    _AUTOLOGGING_METRICS_MANAGER.register_model(
+                        self, mlflow.active_run().info.run_id
+                    )
                 return result
             else:
                 return original(self, *args, **kwargs)
@@ -1325,46 +1515,55 @@ def autolog(
         ```
         prediction_result = model_1.predict(eval_X)
         ```
-        then we need register the following relatinoship into the
-        `_autologging_metrics_manager`:
+        then we need register the following relatinoship into the `_AUTOLOGGING_METRICS_MANAGER`:
         id(prediction_result) --> (eval_dataset_name, run_id)
 
         Note: we cannot set additional attributes "eval_dataset_name" and "run_id" into
         the prediction_result object, because certain dataset type like numpy does not support
         additional attribute assignment.
         """
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
-            predict_result = original(self, *args, **kwargs)
+        run_id = _AUTOLOGGING_METRICS_MANAGER.get_run_id_for_model(self)
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics() and run_id:
+            # Avoid nested patch when nested inference calls happens.
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+                predict_result = original(self, *args, **kwargs)
             eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-            eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-            status.register_prediction_result(
-                status.get_run_id_for_model(self), eval_dataset_name, predict_result
+            eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
+                self, eval_dataset
+            )
+            _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
+                run_id, eval_dataset_name, predict_result
             )
             return predict_result
         else:
             return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics():
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics():
             # one metric api may call another metric api,
             # to avoid this, call disable_log_post_training_metrics to avoid nested patch
-            with status.disable_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 metric = original(*args, **kwargs)
 
-            if status.is_metric_value_loggable(metric):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(metric):
                 metric_name = original.__name__
-                call_command = status.gen_metric_call_command(None, original, *args, **kwargs)
+                call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
+                    None, original, *args, **kwargs
+                )
 
-                run_id, dataset_name = status.get_run_id_and_dataset_name_for_metric_api_call(
+                (
+                    run_id,
+                    dataset_name,
+                ) = _AUTOLOGGING_METRICS_MANAGER.get_run_id_and_dataset_name_for_metric_api_call(
                     args, kwargs
                 )
                 if run_id and dataset_name:
-                    metric_key = status.register_metric_api_call(
+                    metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
                         run_id, metric_name, dataset_name, call_command
                     )
-                    status.log_post_training_metric(run_id, metric_key, metric)
+                    _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
+                        run_id, metric_key, metric
+                    )
 
             return metric
         else:
@@ -1375,128 +1574,136 @@ def autolog(
     #  e.g.
     #  https://github.com/scikit-learn/scikit-learn/blob/82df48934eba1df9a1ed3be98aaace8eada59e6e/sklearn/covariance/_empirical_covariance.py#L220
     def patched_model_score(original, self, *args, **kwargs):
-        status = _get_autologging_metrics_manager()
-        if status.should_log_post_training_metrics() and status.get_run_id_for_model(self):
+        run_id = _AUTOLOGGING_METRICS_MANAGER.get_run_id_for_model(self)
+        if _AUTOLOGGING_METRICS_MANAGER.should_log_post_training_metrics() and run_id:
             # `model.score` may call metric APIs internally, in order to prevent nested metric call
             # being logged, temporarily disable post_training_metrics patching.
-            with status.disable_log_post_training_metrics():
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
                 score_value = original(self, *args, **kwargs)
 
-            if status.is_metric_value_loggable(score_value):
+            if _AUTOLOGGING_METRICS_MANAGER.is_metric_value_loggable(score_value):
                 metric_name = f"{self.__class__.__name__}_score"
-                call_command = status.gen_metric_call_command(self, original, *args, **kwargs)
-
-                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
-                eval_dataset_name = status.register_prediction_input_dataset(self, eval_dataset)
-                run_id = status.get_run_id_for_model(self)
-                metric_key = status.register_metric_api_call(
-                    run_id, metric_name, eval_dataset_name, call_command
+                call_command = _AUTOLOGGING_METRICS_MANAGER.gen_metric_call_command(
+                    self, original, *args, **kwargs
                 )
 
-                status.log_post_training_metric(
-                    status.get_run_id_for_model(self), metric_key, score_value
+                eval_dataset = get_instance_method_first_arg_value(original, args, kwargs)
+                eval_dataset_name = _AUTOLOGGING_METRICS_MANAGER.register_prediction_input_dataset(
+                    self, eval_dataset
+                )
+                metric_key = _AUTOLOGGING_METRICS_MANAGER.register_metric_api_call(
+                    run_id, metric_name, eval_dataset_name, call_command
+                )
+                _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
+                    run_id, metric_key, score_value
                 )
 
             return score_value
         else:
             return original(self, *args, **kwargs)
 
-    _, estimators_to_patch = zip(*_all_estimators())
-    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
-    # for patching if they are not already included in the output of `all_estimators()`
-    estimators_to_patch = set(estimators_to_patch).union(
-        set(_get_meta_estimators_for_autologging())
-    )
-    # Exclude certain preprocessing & feature manipulation estimators from patching. These
-    # estimators represent data manipulation routines (e.g., normalization, label encoding)
-    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
-    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
-    # (via `sklearn.pipeline.Pipeline`)
-    excluded_module_names = [
-        "sklearn.preprocessing",
-        "sklearn.impute",
-        "sklearn.feature_extraction",
-        "sklearn.feature_selection",
-    ]
+    def _apply_sklearn_descriptor_unbound_method_call_fix():
+        import sklearn
 
-    excluded_class_names = [
-        "sklearn.compose._column_transformer.ColumnTransformer",
-    ]
+        if Version(sklearn.__version__) <= Version("0.24.2"):
+            import sklearn.utils.metaestimators
 
-    estimators_to_patch = [
-        estimator
-        for estimator in estimators_to_patch
-        if not any(
-            estimator.__module__.startswith(excluded_module_name)
-            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
-            for excluded_module_name in excluded_module_names
-        )
-    ]
+            # pylint: disable=redefined-builtin,unused-argument
+            def patched_IffHasAttrDescriptor__get__(self, obj, type=None):
+                """
+                For sklearn version <= 0.24.2, `_IffHasAttrDescriptor.__get__` method does not
+                support unbound method call.
+                See https://github.com/scikit-learn/scikit-learn/issues/20614
+                This patched function is for hot patch.
+                """
 
-    def should_patch_estimator_method(class_def, func_name):
-        """
-        Check whether we should patch the estimator method, will check:
-         * the estimator has the "func_name" attribute
-         * the attribute is callable, this is for filtering out cases like
-           `LocalOutlierFactor.predict` which is a property
-         * the callable attribute is not decorated by "@if_delegate_has_method",
-           the mlflow safe patching will break "@if_delegate_has_method" decorated methods
-           behavior.
+                # raise an AttributeError if the attribute is not present on the object
+                if obj is not None:
+                    # delegate only on instances, not the classes.
+                    # this is to allow access to the docstrings.
+                    for delegate_name in self.delegate_names:
+                        try:
+                            delegate = sklearn.utils.metaestimators.attrgetter(delegate_name)(obj)
+                        except AttributeError:
+                            continue
+                        else:
+                            getattr(delegate, self.attribute_name)
+                            break
+                    else:
+                        sklearn.utils.metaestimators.attrgetter(self.delegate_names[-1])(obj)
 
-        TODO: make mlflow safe patching support @if_delegate_has_method decorator.
-        """
-        try:
-            if hasattr(class_def, func_name):
-                method = getattr(class_def, func_name)
-                return callable(method) and "@if_delegate_has_method" not in inspect.getsource(
-                    method
-                )
-            return False
-        except Exception:  # pylint: disable=broad-except
-            return False
+                    def out(*args, **kwargs):
+                        return self.fn(obj, *args, **kwargs)
 
-    for class_def in estimators_to_patch:
-        for func_name in ["fit", "fit_transform", "fit_predict"]:
-            if should_patch_estimator_method(class_def, func_name):
-                original = getattr(class_def, func_name)
+                else:
+                    # This makes it possible to use the decorated method as an unbound method,
+                    # for instance when monkeypatching.
+                    def out(*args, **kwargs):
+                        return self.fn(*args, **kwargs)
 
-                # A couple of estimators use property methods to return fitting functions,
-                # rather than defining the fitting functions on the estimator class directly.
-                #
-                # Example: https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/neighbors/_lof.py#L183  # noqa
-                #
-                # We currently exclude these property fitting methods from patching because
-                # it's challenging to patch them correctly.
-                #
-                # Excluded fitting methods:
-                # - sklearn.cluster._agglomerative.FeatureAgglomeration.fit_predict
-                # - sklearn.neighbors._lof.LocalOutlierFactor.fit_predict
-                #
-                # You can list property fitting methods by inserting "print(class_def, func_name)"
-                # in the if clause below.
-                if isinstance(original, property):
-                    continue
+                # update the docstring of the returned function
+                functools.update_wrapper(out, self.fn)
+                return out
 
-                safe_patch(
-                    FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
-                )
-
-        for func_name in ["predict", "predict_proba", "transform"]:
-            if should_patch_estimator_method(class_def, func_name):
-                safe_patch(
-                    FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
-                )
-
-        if should_patch_estimator_method(class_def, "score"):
-            safe_patch(
-                FLAVOR_NAME, class_def, "score", patched_model_score, manage_run=False,
+            update_wrapper_extended(
+                patched_IffHasAttrDescriptor__get__,
+                sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__,
             )
 
-    for metric_name in _get_metric_name_list():
-        safe_patch(FLAVOR_NAME, sklearn.metrics, metric_name, patched_metric_api, manage_run=False)
+            sklearn.utils.metaestimators._IffHasAttrDescriptor.__get__ = (
+                patched_IffHasAttrDescriptor__get__
+            )
 
-    for scorer in sklearn.metrics.SCORERS.values():
-        safe_patch(FLAVOR_NAME, scorer, "_score_func", patched_metric_api, manage_run=False)
+    _apply_sklearn_descriptor_unbound_method_call_fix()
+
+    if flavor_name == mlflow.xgboost.FLAVOR_NAME:
+        estimators_to_patch = _gen_xgboost_sklearn_estimators_to_patch()
+        patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+    elif flavor_name == mlflow.lightgbm.FLAVOR_NAME:
+        estimators_to_patch = _gen_lightgbm_sklearn_estimators_to_patch()
+        patched_fit_impl = fit_mlflow_xgboost_and_lightgbm
+    else:
+        estimators_to_patch = _gen_estimators_to_patch()
+        patched_fit_impl = fit_mlflow
+
+    for class_def in estimators_to_patch:
+        # Patch fitting methods
+        for func_name in ["fit", "fit_transform", "fit_predict"]:
+            _patch_estimator_method_if_available(
+                flavor_name,
+                class_def,
+                func_name,
+                functools.partial(patched_fit, patched_fit_impl),
+                manage_run=True,
+            )
+
+        # Patch inference methods
+        for func_name in ["predict", "predict_proba", "transform", "predict_log_proba"]:
+            _patch_estimator_method_if_available(
+                flavor_name,
+                class_def,
+                func_name,
+                patched_predict,
+                manage_run=False,
+            )
+
+        # Patch scoring methods
+        _patch_estimator_method_if_available(
+            flavor_name,
+            class_def,
+            "score",
+            patched_model_score,
+            manage_run=False,
+        )
+
+    if log_post_training_metrics:
+        for metric_name in _get_metric_name_list():
+            safe_patch(
+                flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
+            )
+
+        for scorer in sklearn.metrics.SCORERS.values():
+            safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
@@ -1504,7 +1711,7 @@ def autolog(
 
     for disable_autolog_func_name in _apis_autologging_disabled:
         safe_patch(
-            FLAVOR_NAME,
+            flavor_name,
             sklearn.model_selection,
             disable_autolog_func_name,
             patched_fn_with_autolog_disabled,
@@ -1559,8 +1766,8 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
       - prefix is empty
       - model is not an sklearn estimator or does not support the 'predict' method
     """
-    status = _get_autologging_metrics_manager()
-    with status.disable_log_post_training_metrics():
+    metrics_manager = _AUTOLOGGING_METRICS_MANAGER
+    with metrics_manager.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
             model, X, y_true, prefix=prefix, sample_weight=sample_weight
         )

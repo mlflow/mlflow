@@ -10,6 +10,7 @@ import warnings
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
@@ -33,6 +34,38 @@ _SklearnArtifact = collections.namedtuple(
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
+def _gen_xgboost_sklearn_estimators_to_patch():
+    import xgboost as xgb
+
+    all_classes = inspect.getmembers(xgb.sklearn, inspect.isclass)
+    base_class = xgb.sklearn.XGBModel
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        if issubclass(class_object, base_class) and class_object != base_class:
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
+def _gen_lightgbm_sklearn_estimators_to_patch():
+    import mlflow.lightgbm
+    import lightgbm as lgb
+
+    all_classes = inspect.getmembers(lgb.sklearn, inspect.isclass)
+    base_class = lgb.sklearn._LGBMModelBase
+    sklearn_estimators = []
+    for _, class_object in all_classes:
+        package_name = class_object.__module__.split(".")[0]
+        if (
+            package_name == mlflow.lightgbm.FLAVOR_NAME
+            and issubclass(class_object, base_class)
+            and class_object != base_class
+        ):
+            sklearn_estimators.append(class_object)
+
+    return sklearn_estimators
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -44,15 +77,9 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_arg_names(f):
-    # `inspect.getargspec` doesn't return a wrapped function's argspec
-    # See: https://hynek.me/articles/decorators#mangled-signatures
-    return list(inspect.signature(f).parameters.keys())
-
-
-def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
+def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
     """
-    Get arguments to pass to metric computations in the following steps.
+    Get a tuple of (X, y, sample_weight) in the following steps.
 
     1. Extract X and y from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func,
@@ -94,10 +121,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
         return None
 
     fit_arg_names = _get_arg_names(fit_func)
-
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
-    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
+    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
     sample_weight = (
@@ -231,6 +257,13 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     return _get_metrics_value_dict(classifier_metrics)
 
 
+def _get_class_labels_from_estimator(estimator):
+    """
+    Extracts class labels from `estimator` if `estimator.classes` is available.
+    """
+    return estimator.classes_ if hasattr(estimator, "classes_") else None
+
+
 def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
@@ -262,17 +295,41 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
+
+    def plot_confusion_matrix(*args, **kwargs):
+        import matplotlib
+
+        class_labels = _get_class_labels_from_estimator(fitted_estimator)
+        if class_labels is None:
+            class_labels = set(y_true)
+
+        with matplotlib.rc_context(
+            {
+                "figure.dpi": 288,
+                "figure.figsize": [6.0, 4.0],
+                "font.size": min(10.0, 50.0 / len(class_labels)),
+                "axes.labelsize": 10.0,
+            }
+        ):
+            return (
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            )
+
+    y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
-            function=sklearn.metrics.plot_confusion_matrix,
+            function=plot_confusion_matrix,
             arguments=dict(
                 estimator=fitted_estimator,
                 X=X,
-                y_true=y_true,
                 sample_weight=sample_weight,
                 normalize="true",
                 cmap="Blues",
+                **{y_true_arg_name: y_true},
             ),
             title="Normalized confusion matrix",
         ),
@@ -285,17 +342,27 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             [
                 _SklearnArtifact(
                     name=prefix + "roc_curve",
-                    function=sklearn.metrics.plot_roc_curve,
+                    function=sklearn.metrics.RocCurveDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="ROC curve",
                 ),
                 _SklearnArtifact(
                     name=prefix + "precision_recall_curve",
-                    function=sklearn.metrics.plot_precision_recall_curve,
+                    function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
-                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                        estimator=fitted_estimator,
+                        X=X,
+                        y=y_true,
+                        sample_weight=sample_weight,
                     ),
                     title="Precision recall curve",
                 ),
@@ -381,7 +448,7 @@ def _log_warning_for_metrics(func_name, func_call, err):
         func_call.__qualname__
         + " failed. The metric "
         + func_name
-        + "will not be recorded."
+        + " will not be recorded."
         + " Metric error: "
         + str(err)
     )
@@ -541,10 +608,8 @@ def _is_parameter_search_estimator(estimator):
     ]
 
     return any(
-        [
-            isinstance(estimator, param_search_estimator)
-            for param_search_estimator in parameter_search_estimators
-        ]
+        isinstance(estimator, param_search_estimator)
+        for param_search_estimator in parameter_search_estimators
     )
 
 
@@ -597,7 +662,7 @@ def _create_child_runs_for_parameter_search(
     parameter search estimator - `cv_estimator`, which provides relevant performance
     metrics for each point in the parameter search space. One child run is created
     for each point in the parameter search space. For additional information, see
-    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
+    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_.
 
     :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                efficiently logging run data to MLflow Tracking.
@@ -643,7 +708,8 @@ def _create_child_runs_for_parameter_search(
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
                 "Top {} child runs will be created based on ordering in {} column.".format(
-                    max_tuning_runs, rank_column_name,
+                    max_tuning_runs,
+                    rank_column_name,
                 )
                 + " You can choose not to limit the number of child runs created by"
                 + " setting `max_tuning_runs=None`."
@@ -678,11 +744,12 @@ def _create_child_runs_for_parameter_search(
         metrics_to_log = {
             key: value
             for key, value in result_row.iteritems()
-            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
         autologging_client.log_metrics(
-            run_id=pending_child_run_id, metrics=metrics_to_log,
+            run_id=pending_child_run_id,
+            metrics=metrics_to_log,
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)

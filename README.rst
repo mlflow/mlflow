@@ -16,41 +16,46 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |labeling| |examples| |cross-version-tests| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack|
+|docs| |labeling| |examples| |cross-version-tests| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
 
-.. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
+.. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge
     :target: https://mlflow.org/docs/latest/index.html
     :alt: Latest Docs
-.. |labeling| image:: https://github.com/mlflow/mlflow/workflows/Labeling/badge.svg
+.. |labeling| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Labeling?label=Labeling&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ALabeling
     :alt: Labeling Action Status
-.. |examples| image:: https://github.com/mlflow/mlflow/workflows/Examples/badge.svg?event=schedule
+.. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
     :alt: Examples Action Status
-.. |cross-version-tests| image:: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
+.. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
     :alt: Examples Action Status
-.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
+.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white
     :target: https://pypi.org/project/mlflow/
     :alt: Latest Python Release
-.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg
+.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg?style=for-the-badge&logo=anaconda
     :target: https://anaconda.org/conda-forge/mlflow
     :alt: Latest Conda Release
-.. |cran| image:: https://img.shields.io/cran/v/mlflow.svg
+.. |cran| image:: https://img.shields.io/cran/v/mlflow.svg?style=for-the-badge&logo=r
     :target: https://cran.r-project.org/package=mlflow
     :alt: Latest CRAN Release
-.. |maven| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg
+.. |maven| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg?style=for-the-badge&logo=apache-maven
     :target: https://mvnrepository.com/artifact/org.mlflow
     :alt: Maven Central
-.. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg
+.. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg?style=for-the-badge&logo=apache
     :target: https://github.com/mlflow/mlflow/blob/master/LICENSE.txt
     :alt: Apache 2 License
-.. |downloads| image:: https://pepy.tech/badge/mlflow
+.. |downloads| image:: https://img.shields.io/pypi/dw/mlflow?style=for-the-badge&logo=pypi&logoColor=white
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
-.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40
+.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40&style=for-the-badge
     :target: `Slack`_
     :alt: Slack
+.. |twitter| image:: https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white
+    :target: https://twitter.com/MLflow
+    :alt: Account Twitter
+
+
 
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
 
@@ -62,9 +67,19 @@ MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
 Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
 
+Install a lower dependency subset of MLflow from PyPI via ``pip install mlflow-skinny``
+Extra dependencies can be added per desired scenario.
+For example, ``pip install mlflow-skinny pandas numpy`` allows for mlflow.pyfunc.log_model support.
+
 Documentation
 -------------
 Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
+
+Roadmap
+-------
+The current MLflow Roadmap is available at https://github.com/mlflow/mlflow/milestone/3. We are
+seeking contributions to all of our roadmap items with the ``help wanted`` label. Please see the
+`Contributing`_ section for more information.
 
 Community
 ---------
@@ -128,5 +143,6 @@ MLflow artifacts and then load them again for serving. There is an example train
 
 Contributing
 ------------
-We happily welcome contributions to MLflow. Please see our `contribution guide <CONTRIBUTING.rst>`_
-for details.
+We happily welcome contributions to MLflow. We are also seeking contributions to items on the
+`MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
+`contribution guide <CONTRIBUTING.rst>`_ to learn more about contributing to MLflow.

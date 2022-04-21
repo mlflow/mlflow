@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to 
+recommend waiting for feebdack from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -41,7 +41,7 @@ actively review pull requests and are also happy to provide implementation guida
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.md>`_.
 
 Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
@@ -55,7 +55,7 @@ Write designs for significant changes
 
 For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
 an MLflow committer before investing heavily in implementation. During issue triage, we try to proactively
-identify issues require design by labeling them with ``needs design``. This is particularly important if your 
+identify issues require design by labeling them with ``needs design``. This is particularly important if your
 proposed implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
@@ -125,8 +125,9 @@ you can `sign your work`_ when committing code changes and opening pull requests
     git config --global user.name "Your Name"
     git config --global user.email yourname@example.com
 
-For convenience, we provide a pre-commit git hook that validates that commits are signed-off.
-Enable it by running:
+For convenience, we provide a pre-commit git hook that validates that commits are signed-off and
+runs `black --check` and `pylint` to ensure the code will pass the lint check for python.
+You can enable it by running:
 
 .. code-block:: bash
 
@@ -138,7 +139,7 @@ by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env python=3.6
+    conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
     pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
 
@@ -146,8 +147,7 @@ If you plan on doing development and testing, you will also need to install the 
 
 .. code-block:: bash
 
-    pip install -r dev-requirements.txt
-    pip install -r test-requirements.txt
+    pip install -r requirements/dev-requirements.txt
     pip install -e .[extras]  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
@@ -343,7 +343,7 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 
 .. code-block:: bash
 
-    ./lint.sh
+    ./dev/lint.sh
     ./dev/run-small-python-tests.sh
     # Optionally, run large tests as well. Github actions will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
@@ -354,7 +354,7 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"
 category by default. Tests that take 10 or more seconds to run should be marked as large tests
 via the ``@pytest.mark.large`` annotation. Dependencies for small and large tests can be added to
-``dev/small-requirements.txt`` and ``dev/large-requirements.txt``, respectively.
+``requirements/small-requirements.txt`` and ``requirements/large-requirements.txt``, respectively.
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
@@ -390,7 +390,7 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``dev/large-requirements.txt``: add your framework and version to the list of requirements
+4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
@@ -431,7 +431,7 @@ Alternatively, you can build protobuf files using Docker:
       -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
       gen-protos ./generate-protos.sh
 
-Verify that .proto files and autogenerated code are in sync by running ``./test-generate-protos.sh.``
+Verify that .proto files and autogenerated code are in sync by running ``./dev/test-generate-protos.sh.``
 
 
 Database Schema Changes
@@ -449,6 +449,8 @@ checkout of MLflow:
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
     $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
+    # Update schema files
+    $ ./tests/db/update_schemas.sh
 
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
@@ -553,7 +555,7 @@ for an example.
 Sign your work
 ~~~~~~~~~~~~~~
 
-In order to commit your work, you need to sign that you wrote the patch or otherwise have the right 
+In order to commit your work, you need to sign that you wrote the patch or otherwise have the right
 to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
 
   Developer Certificate of Origin
@@ -599,7 +601,7 @@ Then add a line to every git commit message::
 
   Signed-off-by: Jane Smith <jane.smith@email.com>
 
-Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
+Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
 
 Code of Conduct

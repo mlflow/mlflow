@@ -141,7 +141,7 @@ def select_latest_micro_versions(versions):
     return res
 
 
-def filter_versions(versions, min_ver, max_ver, excludes=None):
+def filter_versions(versions, min_ver, max_ver, excludes=None, allow_unreleased_max_version=False):
     """
     Filter versions that satisfy the following conditions:
 
@@ -170,7 +170,7 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
 
     # Prevent specifying non-existent versions
     assert min_ver in versions
-    assert max_ver in versions
+    assert max_ver in versions or allow_unreleased_max_version
     assert all(v in versions for v in excludes)
 
     versions = {Version(v): t for v, t in versions.items() if v not in excludes}
@@ -259,7 +259,8 @@ def get_operator_and_version(ver_spec):
     if m is None:
         raise ValueError(
             "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
-                ver_spec, regexp,
+                ver_spec,
+                regexp,
             )
         )
 
@@ -300,7 +301,7 @@ def process_requirements(requirements, version=None):
         return requirements
 
     if isinstance(requirements, dict):
-        # The version "dev" should always compare as greater than any exisiting versions.
+        # The version "dev" should always compare as greater than any existing versions.
         dev_numeric = "9999.9999.9999"
 
         if version == DEV_VERSION:
@@ -310,14 +311,14 @@ def process_requirements(requirements, version=None):
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 comp_op(
-                    Version(version), Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                    Version(version),
+                    Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
                 )
                 for comp_op, req_ver in op_and_ver_pairs
             )
             if match_all:
                 return packages
-        else:
-            return []
+        return []
 
     raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
@@ -439,7 +440,13 @@ def expand_config(config):
             # Released versions
             min_ver = cfg["minimum"]
             max_ver = cfg["maximum"]
-            versions = filter_versions(all_versions, min_ver, max_ver, cfg.get("unsupported"),)
+            versions = filter_versions(
+                all_versions,
+                min_ver,
+                max_ver,
+                cfg.get("unsupported"),
+                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
+            )
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
@@ -555,7 +562,7 @@ def main(args):
 
     if "GITHUB_ACTIONS" in os.environ:
         # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter # noqa
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 

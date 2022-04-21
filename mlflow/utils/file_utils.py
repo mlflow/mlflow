@@ -7,11 +7,14 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import stat
 
 import urllib.parse
 import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
+
+import atexit
 
 import yaml
 
@@ -22,7 +25,8 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request
+from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.process import cache_return_value_per_process
 
 ENCODING = "utf-8"
 
@@ -96,7 +100,7 @@ def find(root, name, full_path=False):
     return list_all(root, lambda x: x == path_name, full_path)
 
 
-def mkdir(root, name=None):  # noqa
+def mkdir(root, name=None):
     """
     Make directory with name "root/name", or just "root" if name is None.
 
@@ -180,7 +184,7 @@ def read_yaml(root, file_name):
         raise e
 
 
-class TempDir(object):
+class TempDir:
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
         self._path = None
@@ -286,7 +290,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         tar_info.mtime = 0
         return tar_info if custom_filter is None else custom_filter(tar_info)
 
-    unzipped_filename = tempfile.mktemp()
+    unzipped_file_handle, unzipped_filename = tempfile.mkstemp()
     try:
         with tarfile.open(unzipped_filename, "w") as tar:
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
@@ -297,7 +301,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
         ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
             gzipped_tar.write(tar.read())
     finally:
-        os.remove(unzipped_filename)
+        os.close(unzipped_file_handle)
 
 
 def _copy_project(src_path, dst_path=""):
@@ -354,6 +358,29 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     else:
         shutil.copytree(src=src, dst=dst_path)
     return dst_subpath
+
+
+def _get_local_project_dir_size(project_path):
+    """
+    Internal function for reporting the size of a local project directory before copying to
+    destination for cli logging reporting to stdout.
+    :param project_path: local path of the project directory
+    :return: directory file sizes in KB, rounded to single decimal point for legibility
+    """
+
+    total_size = 0
+    for root, _, files in os.walk(project_path):
+        for f in files:
+            path = os.path.join(root, f)
+            total_size += os.path.getsize(path)
+    return round(total_size / 1024.0, 1)
+
+
+def _get_local_file_size(file):
+    """
+    Get the size of a local file in KB
+    """
+    return round(os.path.getsize(file) / 1024.0, 1)
 
 
 def get_parent_dir(path):
@@ -430,9 +457,85 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
             providers.
     """
     with cloud_storage_http_request("get", http_uri, stream=True) as response:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if not chunk:
                     break
                 output_file.write(chunk)
+
+
+def _handle_readonly_on_windows(func, path, exc_info):
+    """
+    This function should not be called directly but should be passed to `onerror` of
+    `shutil.rmtree` in order to reattempt the removal of a read-only file after making
+    it writable on Windows.
+
+    References:
+    - https://bugs.python.org/issue19643
+    - https://bugs.python.org/issue43657
+    """
+    exc_type, exc_value = exc_info[:2]
+    should_reattempt = (
+        os.name == "nt"
+        and func in (os.unlink, os.rmdir)
+        and issubclass(exc_type, PermissionError)
+        and exc_value.winerror == 5
+    )
+    if not should_reattempt:
+        raise exc_value
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+@cache_return_value_per_process
+def get_or_create_tmp_dir():
+    """
+    Get or create a temporary directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: For python process attached to databricks notebook, atexit does not work.
+        # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
+        # detaches.
+        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id(), "mlflow")
+        os.makedirs(tmp_dir, exist_ok=True)
+    else:
+        tmp_dir = tempfile.mkdtemp()
+        # mkdtemp creates a directory with permission 0o700
+        # change it to be 0o777 to ensure it can be seen in spark UDF
+        os.chmod(tmp_dir, 0o777)
+        atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
+
+    return tmp_dir
+
+
+@cache_return_value_per_process
+def get_or_create_nfs_tmp_dir():
+    """
+    Get or create a temporary NFS directory which will be removed once python process exit.
+    """
+    from mlflow.utils.databricks_utils import is_in_databricks_runtime, get_repl_id
+    from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+
+    nfs_root_dir = get_nfs_cache_root_dir()
+
+    if is_in_databricks_runtime() and get_repl_id() is not None:
+        # Note: In databricks, atexit hook does not work.
+        # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
+        # notebook detaches.
+        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id(), "mlflow")
+        os.makedirs(tmp_nfs_dir, exist_ok=True)
+    else:
+        tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
+        # mkdtemp creates a directory with permission 0o700
+        # change it to be 0o777 to ensure it can be seen in spark UDF
+        os.chmod(tmp_nfs_dir, 0o777)
+        atexit.register(shutil.rmtree, tmp_nfs_dir, ignore_errors=True)
+
+    return tmp_nfs_dir

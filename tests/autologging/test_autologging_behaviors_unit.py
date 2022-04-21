@@ -181,13 +181,13 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
             for _ in range(100):
                 executions.append(executor.submit(parallel_fn))
 
-    assert all([e.result() is True for e in executions])
+    assert all(e.result() is True for e in executions)
 
     # Verify that all warnings and log events from MLflow autologging code were silenced
     # and that all warnings from the original / underlying routine were emitted as normal
     assert not stream.getvalue()
     assert len(warnings_record) == 100
-    assert all(["Test warning from OG function" in str(w.message) for w in warnings_record])
+    assert all("Test warning from OG function" in str(w.message) for w in warnings_record)
 
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
@@ -224,7 +224,7 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
         time.sleep(np.random.random())
         patch_destination.fn()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="enablement error"):
         test_autolog(silent=True)
 
     with pytest.warns(None):

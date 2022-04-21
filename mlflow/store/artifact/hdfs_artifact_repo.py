@@ -71,12 +71,12 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
         """
-            Lists files and directories under artifacts directory for the current run_id.
-            (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
+        Lists files and directories under artifacts directory for the current run_id.
+        (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
-            :param path: Relative source path. Possible subdirectory existing under
-                         hdfs:/some/path/run_id/artifacts
-            :return: List of FileInfos under given path
+        :param path: Relative source path. Possible subdirectory existing under
+                     hdfs:/some/path/run_id/artifacts
+        :return: List of FileInfos under given path
         """
         hdfs_base_path = _resolve_base_path(self.path, path)
 
@@ -107,25 +107,28 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
-            Download an artifact file or directory to a local directory/file if applicable, and
-            return a local path for it.
-            The caller is responsible for managing the lifecycle of the downloaded artifacts.
+        Download an artifact file or directory to a local directory/file if applicable, and
+        return a local path for it.
+        The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-            (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
+        (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
-            :param artifact_path: Relative source path to the desired artifacts file or directory.
-            :param dst_path: Absolute path of the local filesystem destination directory to which
-                             to download the specified artifacts. This directory must already
-                             exist. If unspecified, the artifacts will be downloaded to a new,
-                             uniquely-named
-                             directory on the local filesystem.
+        :param artifact_path: Relative source path to the desired artifacts file or directory.
+        :param dst_path: Absolute path of the local filesystem destination directory to which
+                         to download the specified artifacts. This directory must already
+                         exist. If unspecified, the artifacts will be downloaded to a new,
+                         uniquely-named
+                         directory on the local filesystem.
 
-            :return: Absolute path of the local filesystem location containing the downloaded
-            artifacts - file/directory.
+        :return: Absolute path of the local filesystem location containing the downloaded
+        artifacts - file/directory.
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
-        local_dir = _tmp_dir(dst_path)
+        if dst_path and os.path.exists(dst_path):
+            local_dir = os.path.abspath(dst_path)
+        else:
+            local_dir = _tmp_dir(dst_path)
 
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
 

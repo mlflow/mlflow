@@ -10,15 +10,12 @@ from unittest.mock import Mock
 import pandas as pd
 import pandas.testing
 import sklearn.datasets as datasets
-import sklearn.linear_model as glm
-from keras.models import Sequential
-from keras.layers import Dense
+from sklearn.linear_model import LogisticRegression
 from click.testing import CliRunner
 
 import mlflow
 import mlflow.azureml
 import mlflow.azureml.cli
-import mlflow.keras
 import mlflow.sklearn
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -77,31 +74,23 @@ def sklearn_data():
 @pytest.fixture(scope="module")
 def sklearn_model(sklearn_data):
     x, y = sklearn_data
-    linear_lr = glm.LogisticRegression()
+    linear_lr = LogisticRegression()
     linear_lr.fit(x, y)
     return linear_lr
 
 
-@pytest.fixture(scope="module")
-def keras_data():
-    iris = datasets.load_iris()
-    data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
-    )
-    y = data["target"]
-    x = data.drop("target", axis=1)
-    return x, y
+class LogisticRegressionPandas(LogisticRegression):
+    def predict(self, *args, **kwargs):  # pylint: disable=arguments-differ
+        # Wrap the output with `pandas.DataFrame`
+        return pd.DataFrame(super().predict(*args, **kwargs))
 
 
 @pytest.fixture(scope="module")
-def keras_model(keras_data):
-    x, y = keras_data
-    model = Sequential()
-    model.add(Dense(3, input_dim=4))
-    model.add(Dense(1))
-    model.compile(loss="mean_squared_error", optimizer="SGD")
-    model.fit(x, y)
-    return model
+def sklearn_pd_model(sklearn_data):
+    x, y = sklearn_data
+    linear_lr = LogisticRegressionPandas()
+    linear_lr.fit(x, y)
+    return linear_lr
 
 
 @pytest.fixture
@@ -428,7 +417,9 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     del model_config.flavors[pyfunc.FLAVOR_NAME]
     model_config.save(model_config_path)
 
-    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(
+        MlflowException, match="does not contain the `python_function` flavor"
+    ) as exc:
         workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
@@ -445,7 +436,7 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION] = "2.7.6"
     model_config.save(model_config_path)
 
-    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(MlflowException, match="Python 3 and above") as exc:
         workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
@@ -543,7 +534,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, np.ndarray)
 
@@ -585,11 +576,11 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
 
 @pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
-    keras_model, keras_data, model_path
+    sklearn_pd_model, sklearn_data, model_path
 ):
-    mlflow.keras.save_model(keras_model=keras_model, path=model_path)
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
-    pyfunc_outputs = pyfunc_model.predict(keras_data[0])
+    mlflow.sklearn.save_model(sk_model=sklearn_pd_model, path=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, pd.DataFrame)
 
     model_mock = Mock()
@@ -624,7 +615,7 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_raw = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
+        output_raw = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
         output_df = pd.DataFrame(output_raw)
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False

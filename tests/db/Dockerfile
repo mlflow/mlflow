@@ -1,11 +1,7 @@
-FROM python:3.6
+FROM python:3.7
 
-WORKDIR /tmp/mlflow
+ARG DEPENDENCIES
 
-COPY dist ./dist
-
-RUN pip install dist/*.whl
-RUN pip install psycopg2 pymysql mysqlclient
+RUN pip install psycopg2 pymysql mysqlclient pytest pytest-cov
+RUN echo "${DEPENDENCIES}" > /tmp/requriements.txt && pip install -r /tmp/requriements.txt
 RUN pip list
-
-COPY log.py .

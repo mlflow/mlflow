@@ -1,11 +1,21 @@
 import yaml
-import tempfile
 import os
+import logging
+import sys
+import re
+import hashlib
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
-from mlflow.utils.requirements_utils import _parse_requirements
+from mlflow.utils.requirements_utils import (
+    _parse_requirements,
+    _infer_requirements,
+)
+from mlflow.version import VERSION
 from packaging.requirements import Requirement, InvalidRequirement
 
+_logger = logging.getLogger(__name__)
 
 _conda_header = """\
 name: mlflow-env
@@ -16,6 +26,135 @@ channels:
 _CONDA_ENV_FILE_NAME = "conda.yaml"
 _REQUIREMENTS_FILE_NAME = "requirements.txt"
 _CONSTRAINTS_FILE_NAME = "constraints.txt"
+_PYTHON_ENV_FILE_NAME = "python_env.yaml"
+
+
+# Note this regular expression does not cover all possible patterns
+_CONDA_DEPENDENCY_REGEX = re.compile(r"^(python|pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$")
+
+
+class _PythonEnv:
+    """
+    Represents environment information for an MLflow Model.
+    """
+
+    BUILD_PACKAGES = ("pip", "setuptools", "wheel")
+
+    def __init__(self, python=None, build_dependencies=None, dependencies=None):
+        if python is not None and not isinstance(python, str):
+            raise TypeError(f"`python` must be a string but got {type(python)}")
+        if build_dependencies is not None and not isinstance(build_dependencies, list):
+            raise TypeError(
+                f"`build_dependencies` must be a list but got {type(build_dependencies)}"
+            )
+        if dependencies is not None and not isinstance(dependencies, list):
+            raise TypeError(f"`dependencies` must be a list but got {type(dependencies)}")
+
+        self.python = python
+        self.build_dependencies = build_dependencies
+        self.dependencies = dependencies
+
+    def __str__(self):
+        return str(self.to_dict())
+
+    @classmethod
+    def current(cls):
+        return cls(
+            python=cls._get_current_python(),
+            build_dependencies=cls.get_current_build_dependencies(),
+            dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
+        )
+
+    @staticmethod
+    def _get_current_python():
+        return ".".join(map(str, sys.version_info[:3]))
+
+    @staticmethod
+    def _get_package_version(package_name):
+        try:
+            return __import__(package_name).__version__
+        except (ImportError, AttributeError):
+            return None
+
+    @staticmethod
+    def get_current_build_dependencies():
+        build_dependencies = []
+        for package in _PythonEnv.BUILD_PACKAGES:
+            version = _PythonEnv._get_package_version(package)
+            dep = (package + "==" + version) if version else package
+            build_dependencies.append(dep)
+        return build_dependencies
+
+    def to_dict(self):
+        return self.__dict__.copy()
+
+    @classmethod
+    def from_dict(cls, dct):
+        return cls(**dct)
+
+    def to_yaml(self, path):
+        with open(path, "w") as f:
+            # Exclude None and empty lists
+            data = {k: v for k, v in self.to_dict().items() if v}
+            yaml.safe_dump(data, f, sort_keys=False, default_flow_style=False)
+
+    @classmethod
+    def from_yaml(cls, path):
+        with open(path) as f:
+            return cls.from_dict(yaml.safe_load(f))
+
+    @staticmethod
+    def get_dependencies_from_conda_yaml(path):
+        with open(path) as f:
+            conda_env = yaml.safe_load(f)
+
+        python = None
+        build_dependencies = None
+        dependencies = None
+        for dep in conda_env.get("dependencies", []):
+            if isinstance(dep, str):
+                match = _CONDA_DEPENDENCY_REGEX.match(dep)
+                if not match:
+                    continue
+                package, operator, version = match.groups()
+
+                # Python
+                if not python and package == "python":
+                    if operator in ("<", ">", "!="):
+                        raise MlflowException(
+                            f"Invalid version comperator for python: '{operator}'. "
+                            "Must be one of ['<=', '>=', '=', '=='].",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    python = version
+                    continue
+
+                # Build packages
+                if build_dependencies is None:
+                    build_dependencies = []
+                # "=" is an invalid operator for pip
+                operator = "==" if operator == "=" else operator
+                build_dependencies.append(package + operator + version)
+            elif _is_pip_deps(dep):
+                dependencies = dep["pip"]
+            else:
+                raise MlflowException(
+                    f"Invalid conda dependency: {dep}. Must be str or dict in the form of "
+                    '{"pip": [...]}',
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        if python is None:
+            raise MlflowException(
+                f"Could not extract python version from {path}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)
+
+    @classmethod
+    def from_conda_yaml(cls, path):
+        return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
 def _mlflow_conda_env(
@@ -44,14 +183,25 @@ def _mlflow_conda_env(
     pip_deps = (["mlflow"] if install_mlflow else []) + (
         additional_pip_deps if additional_pip_deps else []
     )
-    conda_deps = (additional_conda_deps if additional_conda_deps else []) + (
-        ["pip"] if pip_deps else []
-    )
+    conda_deps = additional_conda_deps if additional_conda_deps else []
+    if pip_deps:
+        pip_version = _get_pip_version()
+        if pip_version is not None:
+            # When a new version of pip is released on PyPI, it takes a while until that version is
+            # uploaded to conda-forge. This time lag causes `conda create` to fail with
+            # a `ResolvePackageNotFound` error. As a workaround for this issue, use `<=` instead
+            # of `==` so conda installs `pip_version - 1` when `pip_version` is unavailable.
+            conda_deps.append(f"pip<={pip_version}")
+        else:
+            _logger.warning(
+                "Failed to resolve installed pip version. ``pip`` will be added to conda.yaml"
+                " environment spec without a version specifier."
+            )
+            conda_deps.append("pip")
 
     env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
-    if conda_deps is not None:
-        env["dependencies"] += conda_deps
+    env["dependencies"] += conda_deps
     env["dependencies"].append({"pip": pip_deps})
     if additional_conda_channels is not None:
         env["channels"] += additional_conda_channels
@@ -64,9 +214,21 @@ def _mlflow_conda_env(
         return env
 
 
-def _mlflow_additional_pip_env(
-    pip_deps, path=None,
-):
+def _get_pip_version():
+    """
+    :return: The version of ``pip`` that is installed in the current environment,
+             or ``None`` if ``pip`` is not currently installed / does not have a
+             ``__version__`` attribute.
+    """
+    try:
+        import pip
+
+        return getattr(pip, "__version__")
+    except ImportError:
+        return None
+
+
+def _mlflow_additional_pip_env(pip_deps, path=None):
     requirements = "\n".join(pip_deps)
     if path is not None:
         with open(path, "w") as out:
@@ -153,6 +315,9 @@ def _parse_pip_requirements(pip_requirements):
             return False
 
     if _is_string(pip_requirements):
+        with open(pip_requirements) as f:
+            return _parse_pip_requirements(f.read().splitlines())
+    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
         requirements = []
         constraints = []
         for req_or_con in _parse_requirements(pip_requirements, is_constraint=False):
@@ -162,24 +327,6 @@ def _parse_pip_requirements(pip_requirements):
                 requirements.append(req_or_con.req_str)
 
         return requirements, constraints
-    elif _is_iterable(pip_requirements) and all(map(_is_string, pip_requirements)):
-        try:
-            # Create a temporary requirements file in the current working directory
-            tmp_req_file = tempfile.NamedTemporaryFile(
-                mode="w",
-                prefix="mlflow.",
-                suffix=".tmp.requirements.txt",
-                dir=os.getcwd(),
-                # Setting `delete` to True causes a permission-denied error on Windows
-                # while trying to read the generated temporary file.
-                delete=False,
-            )
-            tmp_req_file.write("\n".join(pip_requirements))
-            tmp_req_file.close()
-            return _parse_pip_requirements(tmp_req_file.name)
-        finally:
-            # Clean up the temporary requirements file
-            os.remove(tmp_req_file.name)
     else:
         raise TypeError(
             "`pip_requirements` must be either a string path to a pip requirements file on the "
@@ -187,6 +334,33 @@ def _parse_pip_requirements(pip_requirements):
                 type(pip_requirements)
             )
         )
+
+
+_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE = (
+    "Encountered an unexpected error while inferring pip requirements (model URI: %s, flavor: %s),"
+    " fall back to return %s. Set logging level to DEBUG to see the full traceback."
+)
+
+
+def infer_pip_requirements(model_uri, flavor, fallback=None):
+    """
+    Infers the pip requirements of the specified model by creating a subprocess and loading
+    the model in it to determine which packages are imported.
+
+    :param model_uri: The URI of the model.
+    :param flavor: The flavor name of the model.
+    :param fallback: If provided, an unexpected error during the inference procedure is swallowed
+                     and the value of ``fallback`` is returned. Otherwise, the error is raised.
+    :return: A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
+    """
+    try:
+        return _infer_requirements(model_uri, flavor)
+    except Exception:
+        if fallback is not None:
+            _logger.warning(_INFER_PIP_REQUIREMENTS_FALLBACK_MESSAGE, model_uri, flavor, fallback)
+            _logger.debug("", exc_info=True)
+            return fallback
+        raise
 
 
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
@@ -207,6 +381,15 @@ def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
         )
 
 
+# PIP requirement parser inspired from https://github.com/pypa/pip/blob/b392833a0f1cff1bbee1ac6dbe0270cccdd0c11f/src/pip/_internal/req/req_file.py#L400
+def _get_pip_requirement_specifier(requirement_string):
+    tokens = requirement_string.split(" ")
+    for idx, token in enumerate(tokens):
+        if token.startswith("-"):
+            return " ".join(tokens[:idx])
+    return requirement_string
+
+
 def _is_mlflow_requirement(requirement_string):
     """
     Returns True if `requirement_string` represents a requirement for mlflow (e.g. 'mlflow==1.2.3').
@@ -217,6 +400,17 @@ def _is_mlflow_requirement(requirement_string):
         return Requirement(requirement_string).name.lower() == "mlflow"
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
+
+        # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` contains
+        # per-requirement options (ex: package hashes)
+        # GitHub issue: https://github.com/pypa/packaging/issues/488
+        # Per-requirement-option spec: https://pip.pypa.io/en/stable/reference/requirements-file-format/#per-requirement-options
+        requirement_specifier = _get_pip_requirement_specifier(requirement_string)
+        try:
+            # Try again with the per-requirement options removed
+            return Requirement(requirement_specifier).name.lower() == "mlflow"
+        except InvalidRequirement:
+            return False
 
         # TODO: Return True if `requirement_string` represents a project directory for MLflow
         # (e.g. '/path/to/mlflow') or git repository URL (e.g. 'https://github.com/mlflow/mlflow').
@@ -283,3 +477,27 @@ def _process_conda_env(conda_env):
 
     conda_env = _overwrite_pip_deps(conda_env, pip_reqs)
     return conda_env, pip_reqs, constraints
+
+
+def _get_mlflow_env_name(s):
+    """
+    Creates an environment name for an MLflow model by hashing the given string.
+
+    :param s: String to hash (e.g. the content of `conda.yaml`).
+    :returns: String in the form of "mlflow-{hash}"
+              (e.g. "mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709")
+    """
+    return "mlflow-" + hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+def _get_pip_install_mlflow():
+    """
+    Returns a command to pip-install mlflow. If the MLFLOW_HOME environment variable exists,
+    returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
+    "pip install mlflow=={mlflow.__version__} 1>&2".
+    """
+    mlflow_home = os.getenv("MLFLOW_HOME")
+    if mlflow_home:  # dev version
+        return "pip install -e {} 1>&2".format(mlflow_home)
+    else:
+        return "pip install mlflow=={} 1>&2".format(VERSION)

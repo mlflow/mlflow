@@ -6,9 +6,15 @@ import os
 import shutil
 import pytest
 import tarfile
+import stat
 
 from mlflow.utils import file_utils
-from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
+from mlflow.utils.file_utils import (
+    get_parent_dir,
+    _copy_file_or_tree,
+    TempDir,
+    _handle_readonly_on_windows,
+)
 from tests.projects.utils import TEST_PROJECT_DIR
 
 from tests.helper_functions import random_int, random_file, safe_edit_yaml
@@ -21,10 +27,10 @@ def test_yaml_read_and_write(tmpdir):
     data = {
         "a": random_int(),
         "B": random_int(),
-        "text_value": u"中文",
+        "text_value": "中文",
         "long_value": long_value,
         "int_value": 32,
-        "text_value_2": u"hi",
+        "text_value_2": "hi",
     }
     file_utils.write_yaml(temp_dir, yaml_file, data)
     read_data = file_utils.read_yaml(temp_dir, yaml_file)
@@ -35,17 +41,17 @@ def test_yaml_read_and_write(tmpdir):
     assert "!!python" not in contents
     # Check that UTF-8 strings are written properly to the file (rather than as ASCII
     # representations of their byte sequences).
-    assert u"中文" in contents
+    assert "中文" in contents
 
     def edit_func(old_dict):
-        old_dict["more_text"] = u"西班牙语"
+        old_dict["more_text"] = "西班牙语"
         return old_dict
 
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
     with safe_edit_yaml(temp_dir, yaml_file, edit_func):
         editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
         assert "more_text" in editted_dict
-        assert editted_dict["more_text"] == u"西班牙语"
+        assert editted_dict["more_text"] == "西班牙语"
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
@@ -86,7 +92,7 @@ def test_mkdir(tmpdir):
     file_utils.mkdir(temp_dir, new_dir_name)
     assert os.listdir(temp_dir) == [new_dir_name]
 
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="bad directory"):
         file_utils.mkdir("/   bad directory @ name ", "ouch")
 
     # does not raise if directory exists already
@@ -95,7 +101,7 @@ def test_mkdir(tmpdir):
     # raises if it exists already but is a file
     dummy_file_path = str(tmpdir.join("dummy_file"))
     open(dummy_file_path, "a").close()
-    with pytest.raises(OSError):
+    with pytest.raises(OSError, match="exists"):
         file_utils.mkdir(dummy_file_path)
 
 
@@ -168,3 +174,23 @@ def test_dir_copy():
             f.write("testing")
         _copy_file_or_tree(dir_path, copy_path, "")
         assert filecmp.dircmp(dir_path, copy_path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires Windows")
+def test_handle_readonly_on_windows(tmpdir):
+    tmp_path = tmpdir.join("file").strpath
+    with open(tmp_path, "w"):
+        pass
+
+    # Make the file read-only
+    os.chmod(tmp_path, stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH)
+    # Ensure the file can't be removed
+    with pytest.raises(PermissionError, match="Access is denied") as exc:
+        os.unlink(tmp_path)
+
+    _handle_readonly_on_windows(
+        os.unlink,
+        tmp_path,
+        (exc.type, exc.value, exc.traceback),
+    )
+    assert not os.path.exists(tmp_path)

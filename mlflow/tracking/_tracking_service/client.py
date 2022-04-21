@@ -10,14 +10,13 @@ import os
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import (
-    _validate_param_name,
-    _validate_tag_name,
     _validate_run_id,
     _validate_experiment_artifact_location,
-    _validate_experiment_name,
-    _validate_metric,
+    PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
@@ -25,7 +24,7 @@ from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 from collections import OrderedDict
 
 
-class TrackingServiceClient(object):
+class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
@@ -37,7 +36,15 @@ class TrackingServiceClient(object):
         :param tracking_uri: Address of local or remote tracking server.
         """
         self.tracking_uri = tracking_uri
-        self.store = utils._get_store(self.tracking_uri)
+        # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
+        # the tracking URI is valid and the store can be properly resolved. We define `store` as a
+        # property method to ensure that the client is serializable, even if the store is not
+        # self.store  # pylint: disable=pointless-statement
+        self.store
+
+    @property
+    def store(self):
+        return utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
         """
@@ -154,17 +161,23 @@ class TrackingServiceClient(object):
         """
         return self.store.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
+        :param tags: A dictionary of key-value pairs that are converted into
+                                  :py:class:`mlflow.entities.ExperimentTag` objects.
         :return: Integer ID of the created experiment.
         """
-        _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
+
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+            tags=[ExperimentTag(key, value) for (key, value) in tags.items()] if tags else [],
+        )
 
     def delete_experiment(self, experiment_id):
         """
@@ -195,16 +208,20 @@ class TrackingServiceClient(object):
         Log a metric against the run ID.
 
         :param run_id: The run id to which the metric should be logged.
-        :param key: Metric name.
+        :param key: Metric name (string). This string may only contain alphanumerics,
+                    underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
         :param value: Metric value (float). Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
-        _validate_metric(key, value, timestamp, step)
         metric = Metric(key, value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
@@ -212,9 +229,15 @@ class TrackingServiceClient(object):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param_name(key)
         param = Param(key, str(value))
-        self.store.log_param(run_id, param)
+        try:
+            self.store.log_param(run_id, param)
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
+                raise MlflowException(msg, INVALID_PARAMETER_VALUE)
+            else:
+                raise e
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
@@ -224,7 +247,6 @@ class TrackingServiceClient(object):
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
         """
-        _validate_tag_name(key)
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
@@ -233,10 +255,14 @@ class TrackingServiceClient(object):
         Set a tag on the run with the specified ID. Value is converted to a string.
 
         :param run_id: String ID of the run.
-        :param key: Name of the tag.
-        :param value: Tag value (converted to a string)
+        :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                    (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                    All backend stores will support keys up to length 250, but some may
+                    support larger keys.
+        :param value: Tag value (string, but will be string-ified if not).
+                      All backend stores will support values up to length 5000, but some
+                      may support larger values.
         """
-        _validate_tag_name(key)
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
@@ -263,12 +289,6 @@ class TrackingServiceClient(object):
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
-        for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        for param in params:
-            _validate_param_name(param.key)
-        for tag in tags:
-            _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
     def _record_logged_model(self, run_id, mlflow_model):

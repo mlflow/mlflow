@@ -13,6 +13,7 @@ describe('ErrorView', () => {
     const div = wrapper
       .childAt(0)
       .childAt(0)
+      .childAt(0)
       .childAt(0);
 
     const errorImage = div.childAt(0);
@@ -40,6 +41,7 @@ describe('ErrorView', () => {
       </BrowserRouter>,
     );
     const div = wrapper
+      .childAt(0)
       .childAt(0)
       .childAt(0)
       .childAt(0);
@@ -73,6 +75,7 @@ describe('ErrorView', () => {
       </BrowserRouter>,
     );
     const div = wrapper
+      .childAt(0)
       .childAt(0)
       .childAt(0)
       .childAt(0);

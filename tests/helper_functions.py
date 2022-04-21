@@ -1,9 +1,12 @@
 import os
 import random
+import functools
 from unittest import mock
+from contextlib import ExitStack, contextmanager
 
+
+import logging
 import requests
-import string
 import time
 import signal
 import socket
@@ -12,18 +15,21 @@ import uuid
 import sys
 import yaml
 
-import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
-from mlflow.utils.environment import _get_pip_deps, _CONSTRAINTS_FILE_NAME
-from mlflow.utils.requirements_utils import _strip_local_version_identifier, _get_installed_version
+from mlflow.utils.environment import (
+    _get_pip_deps,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+)
 
 LOCALHOST = "127.0.0.1"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -39,8 +45,14 @@ def random_int(lo=1, hi=1e10):
     return random.randint(lo, hi)
 
 
-def random_str(size=10, chars=string.ascii_uppercase + string.digits):
-    return "".join(random.choice(chars) for _ in range(size))
+def random_str(size=10):
+    msg = (
+        "UUID4 generated strings have a high potential for collision at small sizes."
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "test failures."
+    )
+    assert size >= 10, msg
+    return uuid.uuid4().hex[:size]
 
 
 def random_file(ext):
@@ -51,7 +63,7 @@ def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
     content_type,
-    flavor=mlflow.pyfunc.FLAVOR_NAME,
+    flavor="python_function",
     activity_polling_timeout_seconds=500,
 ):
     """
@@ -83,7 +95,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd,)
+    p = subprocess.Popen(cmd)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -141,9 +153,9 @@ def pyfunc_serve_and_score_model(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
-                       flag to the scoring server to ensure that conda environment activation
-                       is skipped.
+                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+                       ``--env-manager local`` flag to the scoring server to ensure that conda
+                       environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -181,7 +193,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # Assign the scoring process to a process group. All child processes of the
             # scoring process will be assigned to this group as well. This allows child
@@ -193,7 +205,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # On Windows, `os.setsid` and `preexec_fn` are unavailable
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
@@ -213,14 +225,14 @@ class RestEndpoint:
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                print("connection attempt", i, "server is up! ping status", ping_status)
+                _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                print("connection attempt", i, "failed, server is not up yet")
+                _logger.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        print("server up, ping status", ping_status)
+        _logger.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
@@ -231,11 +243,14 @@ class RestEndpoint:
                 pgrp = os.getpgid(self._proc.pid)
                 os.killpg(pgrp, signal.SIGTERM)
             else:
-                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3
                 self._proc.send_signal(signal.CTRL_BREAK_EVENT)
                 self._proc.kill()
 
     def invoke(self, data, content_type):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        import pandas as pd
+
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
@@ -291,7 +306,7 @@ def mock_s3_bucket():
         yield bucket_name
 
 
-class safe_edit_yaml(object):
+class safe_edit_yaml:
     def __init__(self, root, file_name, edit_func):
         self._root = root
         self._file_name = file_name
@@ -330,6 +345,23 @@ def _read_lines(path):
         return f.read().splitlines()
 
 
+def _compare_logged_code_paths(code_path, model_path, flavor_name):
+    import mlflow.pyfunc
+    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    )
+    flavor_conf = _get_flavor_configuration(model_path, flavor_name=flavor_name)
+    assert pyfunc_conf[mlflow.pyfunc.CODE] == flavor_conf[FLAVOR_CONFIG_CODE]
+    saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
+    assert os.path.exists(saved_code_path)
+
+    with open(os.path.join(saved_code_path, os.path.basename(code_path)), "r") as f1:
+        with open(code_path, "r") as f2:
+            assert f1.read() == f2.read()
+
+
 def _compare_conda_env_requirements(env_path, req_path):
     assert os.path.exists(req_path)
     custom_env_parsed = _read_yaml(env_path)
@@ -337,18 +369,27 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
-def _assert_pip_requirements(model_uri, requirements, constraints=None):
-    local_path = _download_artifact_from_uri(model_uri)
-    txt_reqs = _read_lines(os.path.join(local_path, "requirements.txt"))
-    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, "conda.yaml")))
-    assert txt_reqs == requirements
-    assert conda_reqs == requirements
+def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
+    """
+    Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
+    to `requirements` (and `constraints`).
 
-    if constraints:
+    If `strict` is True, evaluate `set(requirements) == set(loaded_requirements)`.
+    Otherwise, evaluate `set(requirements) <= set(loaded_requirements)`.
+    """
+    local_path = _download_artifact_from_uri(model_uri)
+    txt_reqs = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    conda_reqs = _get_pip_deps(_read_yaml(os.path.join(local_path, _CONDA_ENV_FILE_NAME)))
+    compare_func = set.__eq__ if strict else set.__le__
+    requirements = set(requirements)
+    assert compare_func(requirements, set(txt_reqs))
+    assert compare_func(requirements, set(conda_reqs))
+
+    if constraints is not None:
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in txt_reqs
         assert f"-c {_CONSTRAINTS_FILE_NAME}" in conda_reqs
         cons = _read_lines(os.path.join(local_path, _CONSTRAINTS_FILE_NAME))
-        assert cons == constraints
+        assert compare_func(set(constraints), set(cons))
 
 
 def _is_available_on_pypi(package, version=None, module=None):
@@ -361,17 +402,80 @@ def _is_available_on_pypi(package, version=None, module=None):
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     """
+    from mlflow.utils.requirements_utils import _get_installed_version
+
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
         return False
 
-    module = module or package
-    version = version or _get_installed_version(module)
-    version = _strip_local_version_identifier(version)
-
+    version = version or _get_installed_version(module or package)
     dist_files = resp.json()["releases"].get(version)
     return (
         dist_files is not None  # specified version exists
         and (len(dist_files) > 0)  # at least one distribution file exists
         and not dist_files[0].get("yanked", False)  # specified version is not yanked
     )
+
+
+def _is_importable(module_name):
+    try:
+        __import__(module_name)
+        return True
+    except ImportError:
+        return False
+
+
+def allow_infer_pip_requirements_fallback_if(condition):
+    def decorator(f):
+        return pytest.mark.allow_infer_pip_requirements_fallback(f) if condition else f
+
+    return decorator
+
+
+def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
+    """
+    Mock a chain of methods.
+
+    Examples
+    --------
+    >>> from unittest import mock
+    >>> m = mock.MagicMock()
+    >>> mock_method_chain(m, ["a", "b"], return_value=0)
+    >>> m.a().b()
+    0
+    >>> mock_method_chain(m, ["c.d", "e"], return_value=1)
+    >>> m.c.d().e()
+    1
+    >>> mock_method_chain(m, ["f"], side_effect=Exception("side_effect"))
+    >>> m.f()
+    Traceback (most recent call last):
+      ...
+    Exception: side_effect
+    """
+    length = len(methods)
+    for idx, method in enumerate(methods):
+        mock_obj = functools.reduce(getattr, method.split("."), mock_obj)
+        if idx != length - 1:
+            mock_obj = mock_obj.return_value
+        else:
+            mock_obj.return_value = return_value
+            mock_obj.side_effect = side_effect
+
+
+@contextmanager
+def multi_context(*cms):
+    with ExitStack() as stack:
+        yield list(map(stack.enter_context, cms))
+
+
+class StartsWithMatcher:
+    def __init__(self, prefix):
+        self.prefix = prefix
+
+    def __eq__(self, other):
+        return isinstance(other, str) and other.startswith(self.prefix)
+
+
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in other

@@ -32,5 +32,8 @@ pytest tests/projects/test_projects.py
 pytest tests/deployments/test_cli.py
 pytest tests/deployments/test_deployments.py
 pytest tests/projects/test_projects_cli.py
+pytest tests/utils/test_requirements_utils.py::test_infer_requirements_excludes_mlflow
+pytest tests/utils/test_search_utils.py
+pytest tests/store/tracking/test_file_store.py
 
 test $err = 0

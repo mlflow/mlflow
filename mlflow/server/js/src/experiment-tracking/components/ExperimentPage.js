@@ -5,12 +5,18 @@ import _ from 'lodash';
 import { withRouter } from 'react-router-dom';
 
 import './ExperimentPage.css';
-import { getExperimentApi, searchRunsApi, loadMoreRunsApi, searchRunsPayload } from '../actions';
+import {
+  getExperimentApi,
+  searchRunsApi,
+  loadMoreRunsApi,
+  searchRunsPayload,
+  setCompareExperiments,
+} from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
+import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { ExperimentPagePersistedState } from '../sdk/MlflowLocalStorageMessages';
 import Utils from '../../common/utils/Utils';
 import { ErrorCodes } from '../../common/constants';
@@ -20,22 +26,15 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import { MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER } from '../../model-registry/constants';
 import { getExperiment } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
-
-export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
-export const MODEL_VERSION_FILTER = {
-  WITH_MODEL_VERSIONS: 'With Model Versions',
-  WTIHOUT_MODEL_VERSIONS: 'Without Model Versions',
-  ALL_RUNS: 'All Runs',
-};
-
-export const PAGINATION_DEFAULT_STATE = {
-  nextPageToken: null,
-  numRunsFromLatestSearch: null, // number of runs returned from the most recent search request
-  loadingMore: false,
-};
-
-export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
-export const DETECT_NEW_RUNS_INTERVAL = 15000;
+import { injectIntl } from 'react-intl';
+import {
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  COLUMN_TYPES,
+  LIFECYCLE_FILTER,
+  MAX_DETECT_NEW_RUNS_RESULTS,
+  PAGINATION_DEFAULT_STATE,
+  POLL_INTERVAL,
+} from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
   if (run && run.info) {
@@ -49,8 +48,8 @@ export const isNewRun = (lastRunsRefreshTime, run) => {
 
 export class ExperimentPage extends Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
-    experiment: PropTypes.instanceOf(Experiment),
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+    experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)),
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
@@ -58,9 +57,13 @@ export class ExperimentPage extends Component {
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
     searchForNewRuns: PropTypes.func,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
+    compareExperiments: PropTypes.bool,
+    setCompareExperiments: PropTypes.func,
   };
 
   static defaultProps = {
+    compareExperiments: false,
     /*
       The runs table reads directly from the redux store, so we are intentionally not using a redux
       action to search for new runs. We do not want to change the runs displayed on the runs table
@@ -69,74 +72,167 @@ export class ExperimentPage extends Component {
     searchForNewRuns: searchRunsPayload,
   };
 
+  getExperimentsParam(experimentIds) {
+    return (
+      'experiments=[' +
+      experimentIds
+        .slice()
+        .sort()
+        .map((experimentId) => `%22${experimentId}%22`)
+        .join(',') +
+      ']'
+    );
+  }
+
+  /* Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ExperimentView component (e.g. component state such as table sort settings), for the
+   * specified experiment.
+   */
+  static getLocalStore(experimentIds) {
+    return LocalStorageUtils.getStoreForComponent(
+      'ExperimentPage',
+      JSON.stringify(experimentIds.slice().sort()),
+    );
+  }
+
   constructor(props) {
     super(props);
+    const store = ExperimentPage.getLocalStore(this.props.experimentIds);
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       lastRunsRefreshTime: Date.now(),
       numberOfNewRuns: 0,
       // Last experiment, if any, displayed by this instance of ExperimentPage
-      lastExperimentId: undefined,
-      // Lifecycle filter of runs to display
-      lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      // Filter of model versions to display
-      modelVersionFilter: MODEL_VERSION_FILTER.ALL_RUNS,
+      lastExperimentIds: undefined,
       ...PAGINATION_DEFAULT_STATE,
-      persistedState: {
-        paramKeyFilterString: urlState.params === undefined ? '' : urlState.params,
-        metricKeyFilterString: urlState.metrics === undefined ? '' : urlState.metrics,
-        searchInput: urlState.search === undefined ? '' : urlState.search,
-        orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === 'true',
+      getExperimentRequestIds: this.generateGetExperimentRequestIds(),
+      searchRunsRequestId: getUUID(),
+      urlState: props.location.search,
+      persistedState: new ExperimentPagePersistedState({
+        ...store.loadComponentState(),
+        ...urlState,
+      }).toJSON(),
+      pollingState: {
+        newRuns: true,
       },
     };
   }
 
-  componentDidMount() {
-    this.loadData();
-    this.detectNewRunsTimer = setInterval(() => this.detectNewRuns(), DETECT_NEW_RUNS_INTERVAL);
+  updateCompareExperimentsState() {
+    const { experimentIds, compareExperiments } = this.props;
+    const comparedExperimentIds = compareExperiments ? experimentIds : [];
+    const hasComparedExperimentsBefore = compareExperiments;
+    this.props.setCompareExperiments({ comparedExperimentIds, hasComparedExperimentsBefore });
   }
 
-  componentDidUpdate(prevProps) {
-    this.maybeReloadData(prevProps);
+  componentDidMount() {
+    this.updateCompareExperimentsState();
+    this.loadData();
+    this.pollTimer = setInterval(() => this.pollInfo(), POLL_INTERVAL);
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (!_.isEqual(this.props.experimentIds, prevProps.experimentIds)) {
+      this.updateCompareExperimentsState();
+    }
+    this.maybeReloadData(prevProps, prevState);
+  }
+
+  /** Snapshots desired attributes of the component's current state in local storage. */
+  snapshotComponentState() {
+    const store = ExperimentPage.getLocalStore(this.props.experimentIds);
+    store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
   }
 
   static getDerivedStateFromProps(props, state) {
-    if (props.experimentId !== state.lastExperimentId) {
-      return {
-        persistedState:
-          state.lastExperimentId === undefined
-            ? state.persistedState
-            : new ExperimentPagePersistedState().toJSON(),
-        lastExperimentId: props.experimentId,
-        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      };
+    const experimentChanged = !_.isEqual(props.experimentIds, state.lastExperimentIds);
+    const urlStateChanged =
+      props.location.search !== state.urlState && props.history.action === 'POP';
+
+    // Early return if experiment & urlState are unchanged
+    if (!experimentChanged && !urlStateChanged) {
+      return null;
     }
-    return null;
+
+    const store = ExperimentPage.getLocalStore(props.experimentIds);
+    const returnValue = {
+      searchRunsRequestId: getUUID(),
+      lastRunsRefreshTime: Date.now(),
+      lastExperimentIds: props.experimentIds,
+      ...PAGINATION_DEFAULT_STATE,
+    };
+
+    if (experimentChanged) {
+      returnValue.getExperimentRequestId = getUUID();
+      returnValue.persistedState =
+        state.lastExperimentIds === undefined
+          ? state.persistedState
+          : new ExperimentPagePersistedState({
+              ...store.loadComponentState(),
+              ...Utils.getSearchParamsFromUrl(props.location.search),
+            }).toJSON();
+    }
+
+    if (urlStateChanged) {
+      returnValue.persistedState = new ExperimentPagePersistedState({
+        ...Utils.getSearchParamsFromUrl(props.location.search),
+      }).toJSON();
+      returnValue.urlState = props.location.search;
+    }
+
+    return returnValue;
   }
 
   componentWillUnmount() {
-    clearInterval(this.detectNewRunsTimer);
-    this.detectNewRunsTimer = null;
+    clearInterval(this.pollTimer);
+    this.pollTimer = null;
+    this.snapshotComponentState();
   }
 
-  getExperimentRequestId = getUUID();
-  searchRunsRequestId = getUUID();
   searchModelVersionsRequestId = getUUID();
   loadMoreRunsRequestId = getUUID();
 
-  loadData() {
-    this.props.getExperimentApi(this.props.experimentId, this.getExperimentRequestId).catch((e) => {
-      console.error(e);
-    });
-
-    this.handleGettingRuns(this.props.searchRunsApi, this.searchRunsRequestId);
+  generateGetExperimentRequestIds() {
+    // On OSS, we need to call `getExperimentApi` for each experiment ID
+    return this.props.experimentIds.map((_experimentId) => getUUID());
   }
 
-  maybeReloadData(prevProps) {
-    if (this.props.experimentId !== prevProps.experimentId) {
+  loadData() {
+    const { experimentIds } = this.props;
+    experimentIds.map((experimentId, index) =>
+      this.props
+        .getExperimentApi(experimentId, this.state.getExperimentRequestIds[index])
+        .catch((e) => {
+          console.error(e);
+        }),
+    );
+
+    this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
+  }
+
+  maybeReloadData(prevProps, prevState) {
+    if (!_.isEqual(this.props.experimentIds, prevProps.experimentIds)) {
       this.loadData();
+    } else if (this.filtersDidUpdate(prevState) || this.lastRunsRefreshTimeDidUpdate(prevState)) {
+      // Reload data if filter state change requires it
+      this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
     }
+  }
+
+  lastRunsRefreshTimeDidUpdate(prevState) {
+    return this.state.lastRunsRefreshTime !== prevState.lastRunsRefreshTime;
+  }
+
+  filtersDidUpdate(prevState) {
+    const { persistedState } = this.state;
+    return (
+      persistedState.searchInput !== prevState.persistedState.searchInput ||
+      persistedState.orderByKey !== prevState.persistedState.orderByKey ||
+      persistedState.orderByAsc !== prevState.persistedState.orderByAsc ||
+      persistedState.startTime !== prevState.persistedState.startTime ||
+      persistedState.lifecycleFilter !== prevState.persistedState.lifecycleFilter ||
+      persistedState.modelVersionFilter !== prevState.persistedState.modelVersionFilter
+    );
   }
 
   updateNumRunsFromLatestSearch = (response = {}) => {
@@ -174,16 +270,46 @@ export class ExperimentPage extends Component {
     return response;
   };
 
+  static StartTimeColumnOffset = {
+    ALL: null,
+    LAST_HOUR: 1 * 60 * 60 * 1000,
+    LAST_24_HOURS: 24 * 60 * 60 * 1000,
+    LAST_7_DAYS: 7 * 24 * 60 * 60 * 1000,
+    LAST_30_DAYS: 30 * 24 * 60 * 60 * 1000,
+    LAST_YEAR: 12 * 30 * 24 * 60 * 60 * 1000,
+  };
+
+  getStartTimeExpr() {
+    const startTimeColumnOffset = ExperimentPage.StartTimeColumnOffset;
+    const { startTime } = this.state.persistedState;
+    const offset = startTimeColumnOffset[startTime];
+    if (!startTime || !offset || startTime === 'ALL') {
+      return null;
+    }
+    const startTimeOffset = new Date() - offset;
+
+    return `attributes.start_time >= ${startTimeOffset}`;
+  }
+
   handleGettingRuns = (getRunsAction, requestId) => {
-    const { persistedState, lifecycleFilter, nextPageToken } = this.state;
-    const { searchInput } = persistedState;
+    const { persistedState, nextPageToken } = this.state;
+    const { searchInput, lifecycleFilter } = persistedState;
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     const orderBy = this.getOrderByExpr();
+    const startTime = this.getStartTimeExpr();
+    let filter = searchInput;
+    if (startTime) {
+      if (filter.length > 0) {
+        filter = `${filter} and ${startTime}`;
+      } else {
+        filter = startTime;
+      }
+    }
     const shouldFetchParents = this.shouldNestChildrenAndFetchParents();
     return getRunsAction({
-      filter: searchInput,
+      filter,
       runViewType: viewType,
-      experimentIds: [this.props.experimentId],
+      experimentIds: this.props.experimentIds,
       orderBy,
       pageToken: nextPageToken,
       shouldFetchParents,
@@ -206,84 +332,182 @@ export class ExperimentPage extends Component {
   /*
     If this function returns true, the ExperimentView should nest children underneath their parents
     and fetch all root level parents of visible runs. If this function returns false, the views will
-    not nest children or fetch any additional parents.
+    not nest children or fetch any additional parents. Will always return true if the orderByKey is
+    'attributes.start_time'
   */
   shouldNestChildrenAndFetchParents() {
     const { orderByKey, searchInput } = this.state.persistedState;
-    return !orderByKey && !searchInput;
+    return (!orderByKey && !searchInput) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE;
   }
 
-  onSearch = (
-    paramKeyFilterString,
-    metricKeyFilterString,
-    searchInput,
-    lifecycleFilterInput,
-    orderByKey,
-    orderByAsc,
-    modelVersionFilterInput,
-  ) => {
-    this.updateUrlWithSearchFilter({
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
-      orderByKey,
-      orderByAsc,
-    });
+  onSearch = (searchValue) => {
+    const { persistedState } = this.state;
+    this.setState(
+      (prevState) => ({
+        lastRunsRefreshTime: Date.now(),
+        numberOfNewRuns: 0,
+        persistedState: new ExperimentPagePersistedState({
+          ...persistedState,
+          ...searchValue,
+        }).toJSON(),
+        nextPageToken: null,
+        pollingState: {
+          ...prevState.pollingState,
+          newRuns: true,
+        },
+      }),
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
 
+  onClear = () => {
+    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
+    // attributes to their default values.
     this.setState(
       {
         lastRunsRefreshTime: Date.now(),
         numberOfNewRuns: 0,
         persistedState: new ExperimentPagePersistedState({
-          paramKeyFilterString,
-          metricKeyFilterString,
-          searchInput,
-          orderByKey,
-          orderByAsc,
+          showMultiColumns: this.state.persistedState.showMultiColumns,
         }).toJSON(),
-        lifecycleFilter: lifecycleFilterInput,
-        modelVersionFilter: modelVersionFilterInput,
         nextPageToken: null,
       },
       () => {
-        this.handleGettingRuns(this.props.searchRunsApi, this.searchRunsRequestId);
-        if (!this.detectNewRunsTimer) {
-          this.detectNewRunsTimer = setInterval(
-            () => this.detectNewRuns(),
-            DETECT_NEW_RUNS_INTERVAL,
-          );
-        }
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
       },
     );
   };
 
-  async detectNewRuns() {
-    if (Utils.isBrowserTabVisible()) {
-      const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
-      const latestRuns = await this.props.searchForNewRuns({
-        experimentIds: [this.props.experimentId],
-        maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
-      });
-      let numberOfNewRuns = 0;
-      if (latestRuns && latestRuns.runs) {
-        numberOfNewRuns = latestRuns.runs.filter((run) => isNewRun(lastRunsRefreshTime, run))
-          .length;
+  setShowMultiColumns = (value) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          showMultiColumns: value,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
 
+  handleColumnSelectionCheck = (categorizedUncheckedKeys) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          categorizedUncheckedKeys,
+        }).toJSON(),
+      },
+      () => {
+        this.updateUrlWithViewState();
+        this.snapshotComponentState();
+      },
+    );
+  };
+
+  handleDiffSwitchChange = (switchPersistedState) => {
+    this.setState(
+      {
+        persistedState: new ExperimentPagePersistedState({
+          ...this.state.persistedState,
+          diffSwitchSelected: !this.state.persistedState.diffSwitchSelected,
+          ...switchPersistedState,
+        }).toJSON(),
+      },
+      () => {
+        this.handleColumnSelectionCheck(switchPersistedState.categorizedUncheckedKeys);
+      },
+    );
+  };
+
+  updateUrlWithViewState = () => {
+    const getCategorizedUncheckedKeysForUrl = (keys) => {
+      // Empty arrays are set to an array with a single null value
+      // so that the object can be stringified to the urlState
+      return {
+        [COLUMN_TYPES.ATTRIBUTES]: _.isEmpty(keys[COLUMN_TYPES.ATTRIBUTES])
+          ? [null]
+          : keys[COLUMN_TYPES.ATTRIBUTES],
+        [COLUMN_TYPES.PARAMS]: _.isEmpty(keys[COLUMN_TYPES.PARAMS])
+          ? [null]
+          : keys[COLUMN_TYPES.PARAMS],
+        [COLUMN_TYPES.METRICS]: _.isEmpty(keys[COLUMN_TYPES.METRICS])
+          ? [null]
+          : keys[COLUMN_TYPES.METRICS],
+        [COLUMN_TYPES.TAGS]: _.isEmpty(keys[COLUMN_TYPES.TAGS]) ? [null] : keys[COLUMN_TYPES.TAGS],
+      };
+    };
+
+    const { persistedState } = this.state;
+    const { experimentIds, history } = this.props;
+    persistedState.categorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.categorizedUncheckedKeys,
+    );
+    persistedState.preSwitchCategorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.preSwitchCategorizedUncheckedKeys,
+    );
+    persistedState.postSwitchCategorizedUncheckedKeys = getCategorizedUncheckedKeysForUrl(
+      persistedState.postSwitchCategorizedUncheckedKeys,
+    );
+
+    const params = Utils.getSearchUrlFromState(persistedState);
+    const newUrl = this.props.compareExperiments
+      ? `/compare-experiments/s?${this.getExperimentsParam(experimentIds)}&${params}`
+      : `/experiments/${experimentIds[0]}/s?${params}`;
+    if (newUrl !== history.location.pathname + history.location.search) {
+      history.push(newUrl);
+    }
+  };
+
+  /*
+  The component will call pollInfo for any info it needs to poll, and pollingState is responsible
+  for keeping track of which things to poll.
+  */
+  async pollInfo() {
+    if (Utils.isBrowserTabVisible()) {
+      const promiseArray = [];
+      if (this.state.pollingState.newRuns) {
+        promiseArray.push(this.pollNewRuns());
+      }
+      await Promise.all(promiseArray);
+    }
+  }
+
+  async pollNewRuns() {
+    const lastRunsRefreshTime = this.state.lastRunsRefreshTime || 0;
+    const latestRuns = await this.props.searchForNewRuns({
+      experimentIds: this.props.experimentIds,
+      maxResults: MAX_DETECT_NEW_RUNS_RESULTS,
+    });
+    let numberOfNewRuns = 0;
+    if (latestRuns && latestRuns.runs) {
+      numberOfNewRuns = latestRuns.runs.filter((run) => isNewRun(lastRunsRefreshTime, run)).length;
+    }
+
+    this.setState((previousState) => {
+      if (previousState.numberOfNewRuns !== numberOfNewRuns) {
         if (numberOfNewRuns >= MAX_DETECT_NEW_RUNS_RESULTS) {
-          clearInterval(this.detectNewRunsTimer);
-          this.detectNewRunsTimer = null;
+          return {
+            pollingState: {
+              ...previousState.pollingState,
+              newRuns: false,
+            },
+            numberOfNewRuns: numberOfNewRuns,
+          };
         }
+        return { numberOfNewRuns };
       }
 
-      this.setState((previousState) => {
-        if (previousState.numberOfNewRuns !== numberOfNewRuns) {
-          return { numberOfNewRuns };
-        }
-
-        // Don't re-render the component if the state is exactly the same
-        return null;
-      });
-    }
+      // Don't re-render the component if the state is exactly the same
+      return null;
+    });
   }
 
   getOrderByExpr() {
@@ -299,81 +523,82 @@ export class ExperimentPage extends Component {
     return orderBy;
   }
 
-  updateUrlWithSearchFilter({
-    paramKeyFilterString,
-    metricKeyFilterString,
-    searchInput,
-    orderByKey,
-    orderByAsc,
-  }) {
-    const state = {};
-    if (paramKeyFilterString) {
-      state['params'] = paramKeyFilterString;
-    }
-    if (metricKeyFilterString) {
-      state['metrics'] = metricKeyFilterString;
-    }
-    if (searchInput) {
-      state['search'] = searchInput;
-    }
-    if (orderByKey) {
-      state['orderByKey'] = orderByKey;
-    }
-    // orderByAsc defaults to true, so only encode it if it is false.
-    if (orderByAsc === false) {
-      state['orderByAsc'] = orderByAsc;
-    }
-    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
-      state,
-    )}`;
-    if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
-      this.props.history.push(newUrl);
-    }
-  }
-
   renderExperimentView = (isLoading, shouldRenderError, requests) => {
     let searchRunsError;
-    const getExperimentRequest = Utils.getRequestWithId(requests, this.getExperimentRequestId);
+    const getExperimentRequests = requests.filter((req) =>
+      this.state.getExperimentRequestIds.includes(req.id),
+    );
 
     if (shouldRenderError) {
-      const searchRunsRequest = Utils.getRequestWithId(requests, this.searchRunsRequestId);
-      if (
-        getExperimentRequest.error &&
-        getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED
-      ) {
-        return <PermissionDeniedView errorMessage={getExperimentRequest.error.getMessageField()} />;
-      } else if (searchRunsRequest.error) {
+      const searchRunsRequest = Utils.getRequestWithId(requests, this.state.searchRunsRequestId);
+      const permissionDeniedRequests = getExperimentRequests.filter(
+        (req) => req.error && req.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED,
+      );
+      if (permissionDeniedRequests.length > 0) {
+        const errorMessage = permissionDeniedRequests
+          .map((req) => req.error.getMessageField())
+          .join('\n');
+        return <PermissionDeniedView errorMessage={errorMessage} />;
+      } else if (searchRunsRequest && searchRunsRequest.error) {
         searchRunsError = searchRunsRequest.error.getMessageField();
       } else {
         return undefined;
       }
     }
-    if (!getExperimentRequest || getExperimentRequest.active) {
+    if (getExperimentRequests.length === 0 || getExperimentRequests.some((req) => req.active)) {
       return <Spinner />;
     }
 
     const {
-      paramKeyFilterString,
-      metricKeyFilterString,
       searchInput,
       orderByKey,
       orderByAsc,
+      startTime,
+      lifecycleFilter,
+      modelVersionFilter,
+      showMultiColumns,
+      categorizedUncheckedKeys,
+      diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys,
     } = this.state.persistedState;
 
+    // In a batch get call to fetch all requested experiments. If the BE doesn't return back
+    // all the requested experiments, the UI should throw an error
+    if (
+      this.props.experiments.filter((experiment) => experiment !== undefined && experiment !== null)
+        .length !== this.props.experimentIds.length
+    ) {
+      const experimentFetchError = this.props.intl.formatMessage({
+        defaultMessage: 'Unable to view experiments',
+        description: "Error message when all the requested experiments couldn't be fetched",
+      });
+      throw new Error(experimentFetchError);
+    }
+
     const experimentViewProps = {
-      paramKeyFilter: new KeyFilter(paramKeyFilterString),
-      metricKeyFilter: new KeyFilter(metricKeyFilterString),
-      experimentId: this.props.experimentId,
-      experiment: this.props.experiment,
-      searchRunsRequestId: this.searchRunsRequestId,
-      modelVersionFilter: this.state.modelVersionFilter,
-      lifecycleFilter: this.state.lifecycleFilter,
+      compareExperiments: this.props.compareExperiments,
+      experiments: this.props.experiments,
+      searchRunsRequestId: this.state.searchRunsRequestId,
       onSearch: this.onSearch,
+      onClear: this.onClear,
+      setShowMultiColumns: this.setShowMultiColumns,
+      handleColumnSelectionCheck: this.handleColumnSelectionCheck,
+      handleDiffSwitchChange: this.handleDiffSwitchChange,
+      updateUrlWithViewState: this.updateUrlWithViewState,
       searchRunsError: searchRunsError,
-      searchInput: searchInput,
       isLoading: isLoading && !searchRunsError,
+      searchInput: searchInput,
       orderByKey: orderByKey,
       orderByAsc: orderByAsc,
+      startTime: startTime,
+      modelVersionFilter: modelVersionFilter,
+      lifecycleFilter: lifecycleFilter,
+      showMultiColumns: showMultiColumns,
+      categorizedUncheckedKeys: categorizedUncheckedKeys,
+      diffSwitchSelected: diffSwitchSelected,
+      preSwitchCategorizedUncheckedKeys: preSwitchCategorizedUncheckedKeys,
+      postSwitchCategorizedUncheckedKeys: postSwitchCategorizedUncheckedKeys,
       nextPageToken: this.state.nextPageToken,
       numRunsFromLatestSearch: this.state.numRunsFromLatestSearch,
       handleLoadMoreRuns: this.handleLoadMoreRuns,
@@ -396,13 +621,13 @@ export class ExperimentPage extends Component {
   }
 
   getRequestIds() {
-    return [this.getExperimentRequestId, this.searchRunsRequestId];
+    return [...this.state.getExperimentRequestIds, this.state.searchRunsRequestId];
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const experiment = getExperiment(ownProps.experimentId, state);
-  return { experiment };
+  const experiments = ownProps.experimentIds.map((id) => getExperiment(id, state));
+  return { experiments };
 };
 
 const mapDispatchToProps = {
@@ -410,6 +635,7 @@ const mapDispatchToProps = {
   searchRunsApi,
   loadMoreRunsApi,
   searchModelVersionsApi,
+  setCompareExperiments,
 };
 
 export const lifecycleFilterToRunViewType = (lifecycleFilter) => {
@@ -420,4 +646,4 @@ export const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentPage));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(injectIntl(ExperimentPage)));

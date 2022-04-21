@@ -6,12 +6,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+import re
+from packaging.version import Version
 
 import sklearn
 import sklearn.base
+import sklearn.cluster
 import sklearn.datasets
+import sklearn.pipeline
 import sklearn.model_selection
 from scipy.stats import uniform
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -26,6 +31,7 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _log_child_runs_info,
 )
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -239,7 +245,10 @@ def test_classifier_binary():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -299,7 +308,10 @@ def test_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_true,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -682,16 +694,18 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         )
         cv_model.fit(*get_iris())
 
-        # Ensure `cv_model.predict` fails with `NotFittedError`
-        msg = (
-            "This GridSearchCV instance was initialized with refit=False. "
-            "predict is available only after refitting on the best parameters"
+        # Ensure `cv_model.predict` fails with `NotFittedError` or `AttributeError`
+        err = (
+            NotFittedError if Version(sklearn.__version__) <= Version("0.24.2") else AttributeError
         )
-        with pytest.raises(NotFittedError, match=msg):
+        match = r"This GridSearchCV instance.+refit=False.+predict"
+        with pytest.raises(err, match=match):
             cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
-        call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
+        call_count = len(
+            [args for args in mock_warning.call_args_list if re.search(match, args[0][0])]
+        )
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
         # Otherwise, only once for metrics.
@@ -712,7 +726,9 @@ def test_parameter_search_estimators_produce_expected_outputs(
     cv_class, search_space, backend, max_tuning_runs
 ):
     mlflow.sklearn.autolog(
-        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
+        log_input_examples=True,
+        log_model_signatures=True,
+        max_tuning_runs=max_tuning_runs,
     )
 
     svc = sklearn.svm.SVC()
@@ -843,13 +859,16 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     assert len(child_run.data.metrics) >= metrics_size
 
 
-@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
+@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array, csr_matrix, csc_matrix])
 def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     X, y = get_iris()
     X = data_type(X)
-    y = data_type(y)
+    if data_type in [csr_matrix, csc_matrix]:
+        y = np.array(y)
+    else:
+        y = data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run:
@@ -1084,8 +1103,6 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
 
 def test_eval_and_log_metrics_for_regressor():
-    import sklearn.linear_model
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1152,7 +1169,10 @@ def test_eval_and_log_metrics_for_binary_classifier():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1209,7 +1229,10 @@ def test_eval_and_log_metrics_matches_training_metrics():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob_roc,
+            average="weighted",
+            multi_class="ovo",
         )
     assert eval_metrics == expected_metrics
 
@@ -1271,7 +1294,10 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["eval_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_eval, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+            y_eval,
+            y_score=y_pred_prob,
+            average="weighted",
+            multi_class="ovo",
         )
 
     assert eval_metrics == expected_metrics
@@ -1291,8 +1317,6 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
-
-    import sklearn.cluster
 
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
@@ -1318,8 +1342,6 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
-    import sklearn.pipeline
-
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1601,7 +1623,7 @@ def test_run_metric_api_doc_example(metric_name):
     doctest.run_docstring_examples(metric_api.__doc__, {}, verbose=True)
 
 
-def test_post_training_post_training_metric_autologging_for_predict_prob():
+def test_post_training_metric_autologging_for_predict_prob():
     import sklearn.linear_model
 
     mlflow.sklearn.autolog()
@@ -1619,9 +1641,7 @@ def test_post_training_post_training_metric_autologging_for_predict_prob():
     assert metrics["roc_auc_score_X"] == roc_auc_metric
 
 
-def test_post_training_post_training_metric_autologging_patch_transform():
-    import sklearn.cluster
-
+def test_post_training_metric_autologging_patch_transform():
     mlflow.sklearn.autolog()
     X, y = get_iris()
     kmeans_model = sklearn.cluster.KMeans().fit(X, y)
@@ -1632,21 +1652,7 @@ def test_post_training_post_training_metric_autologging_patch_transform():
         mock_register_prediction_input_dataset.assert_called_once()
 
 
-def test_is_metrics_value_loggable():
-    is_metrics_value_loggable = mlflow.sklearn._autologging_metrics_manager.is_metric_value_loggable
-    assert is_metrics_value_loggable(3)
-    assert is_metrics_value_loggable(3.5)
-    assert is_metrics_value_loggable(np.int(3))
-    assert is_metrics_value_loggable(np.float32(3.5))
-    assert not is_metrics_value_loggable(True)
-    assert not is_metrics_value_loggable(np.bool(True))
-    assert not is_metrics_value_loggable([1, 2])
-    assert not is_metrics_value_loggable(np.array([1, 2]))
-
-
 def test_nested_metric_call_is_disabled():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
@@ -1676,8 +1682,6 @@ def test_nested_metric_call_is_disabled():
 
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call():
-    import sklearn.linear_model
-
     mlflow.sklearn.autolog()
     from sklearn.metrics import mean_squared_error
 
@@ -1715,7 +1719,7 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
 @pytest.mark.parametrize(
     "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
 )
-def test_meta_estimator_disable_post_training_autologging(scoring):
+def test_meta_estimator_disable_nested_post_training_autologging(scoring):
     import sklearn.svm
     import sklearn.metrics
 
@@ -1746,9 +1750,32 @@ def test_meta_estimator_disable_post_training_autologging(scoring):
             assert mock_register_prediction_input_dataset.call_count <= 1
 
 
-def test_gen_metric_call_commands():
-    import sklearn.linear_model
+@pytest.mark.parametrize(
+    "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
+)
+def test_meta_estimator_post_training_autologging(scoring):
+    X, y = get_iris()
+    eval1_X, eval1_y = X[0::3], y[0::3]
 
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run:
+        lor = sklearn.linear_model.LogisticRegression(solver="saga", random_state=0)
+        cv_model = sklearn.model_selection.GridSearchCV(
+            lor, {"max_iter": [5, 10, 15]}, n_jobs=1, scoring=scoring
+        )
+        cv_model.fit(X, y)
+        pred1_y = cv_model.predict(eval1_X)
+        accuracy_score = sklearn.metrics.accuracy_score(eval1_y, pred1_y, normalize=False)
+        cv_score = cv_model.score(eval1_X, eval1_y)
+
+        _, metrics, _, _ = get_run_data(run.info.run_id)
+
+        assert metrics["accuracy_score_eval1_X"] == accuracy_score
+        assert metrics["GridSearchCV_score_eval1_X"] == cv_score
+
+
+def test_gen_metric_call_commands():
     # pylint: disable=unused-argument
     def metric_fn1(a1, b1, *, c2=3, d1=None, d2=True, d3="abc", **kwargs):
         pass
@@ -1757,7 +1784,7 @@ def test_gen_metric_call_commands():
         None,
         metric_fn1,
         *[np.array([1.0]), pd.DataFrame(data={"c1": [1]})],
-        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"}
+        **{"c2": 4, "d1": None, "d2": False, "d3": "def", "randarg1": "a" * 100, "randarg2": "0.1"},
     )
 
     assert (
@@ -1781,15 +1808,133 @@ def test_gen_metric_call_commands():
     assert cmd3 == "LinearRegression.score(X=data1, y=data2)"
 
 
-def test_autolog_skip_patch_non_callable_attribute():
-    """
-    LocalOutlierFactor.predict is a property (delegate to an internal `_predict` method)
-    So we cannot patch it. This test is for covering this edge case.
-    """
-    from sklearn.neighbors import LocalOutlierFactor
+def test_patch_for_delegated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
 
-    assert isinstance(LocalOutlierFactor.predict, property)
-    old_predict = LocalOutlierFactor.predict
+    original_predict = sklearn.pipeline.Pipeline.predict
     mlflow.sklearn.autolog()
-    new_predict = LocalOutlierFactor.predict
-    assert new_predict is old_predict
+
+    assert get_func_attrs(sklearn.pipeline.Pipeline.predict) == get_func_attrs(original_predict)
+
+    estimators = [
+        ("svc", sklearn.svm.SVC()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+    eval1_X = X[0::3]
+
+    with mock.patch(
+        "mlflow.sklearn._AutologgingMetricsManager.register_prediction_input_dataset"
+    ) as mock_register_prediction_input_dataset:
+        pred1_y = model.predict(eval1_X)
+        # assert `register_prediction_input_dataset` was called and called only once.
+        # the `pipeline.predict` call nested `svc.predict`, but sklearn patching function
+        # will disable nested call autologging, so the autolog routine is only enabled
+        # at `pipeline.predict` level.
+        assert mock_register_prediction_input_dataset.call_count <= 1
+
+    mlflow.sklearn.autolog(disable=True)
+    pred1_y_original = model.predict(eval1_X)
+
+    assert np.allclose(pred1_y, pred1_y_original)
+
+
+@pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
+def test_patch_for_available_if_decorated_method():
+    from tests.autologging.test_autologging_utils import get_func_attrs
+
+    original_transform = sklearn.pipeline.Pipeline.transform
+    mlflow.sklearn.autolog()
+
+    assert get_func_attrs(sklearn.pipeline.Pipeline.transform) == get_func_attrs(original_transform)
+
+    estimators = [
+        ("kmeans", sklearn.cluster.KMeans()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+    eval1_X = X[0::3]
+    transform1_y = model.transform(eval1_X)
+
+    mlflow.sklearn.autolog(disable=True)
+
+    transform1_y_original = model.transform(eval1_X)
+
+    assert np.allclose(transform1_y, transform1_y_original)
+
+
+def test_is_metrics_value_loggable():
+    is_metric_value_loggable = mlflow.sklearn._AutologgingMetricsManager.is_metric_value_loggable
+    assert is_metric_value_loggable(3)
+    assert is_metric_value_loggable(3.5)
+    assert is_metric_value_loggable(np.float32(3.5))
+    assert not is_metric_value_loggable(True)
+    assert not is_metric_value_loggable([1, 2])
+    assert not is_metric_value_loggable(np.array([1, 2]))
+
+
+def test_log_post_training_metrics_configuration():
+    from sklearn.linear_model import LogisticRegression
+
+    X, y = get_iris()
+    model = LogisticRegression()
+    metric_name = sklearn.metrics.r2_score.__name__
+
+    # Ensure post-traning metrics autologging can be toggled on / off
+    for log_post_training_metrics in [True, False, True]:
+        mlflow.sklearn.autolog(log_post_training_metrics=log_post_training_metrics)
+
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+            y_pred = model.predict(X)
+            sklearn.metrics.r2_score(y, y_pred)
+
+        metrics = get_run_data(run.info.run_id)[1]
+        assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
+
+
+class NonPickleableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8, *, init="k-means++"):
+        super(NonPickleableKmeans, self).__init__(n_clusters, init=init)
+        self.generator = (i for i in range(3))
+
+
+def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
+    import pickle
+
+    mlflow.sklearn.autolog()
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        non_pickable_kmeans = NonPickleableKmeans()
+        with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
+            pickle.dumps(non_pickable_kmeans)
+
+        non_pickable_kmeans.fit(*get_iris())
+        assert any(
+            call_args[0][0].startswith("Pickling custom sklearn model NonPickleableKmeans failed")
+            for call_args in mock_warning.call_args_list
+        )
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
+
+
+@pytest.mark.large
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+
+    mlflow.sklearn.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        sklearn.cluster.KMeans().fit(*get_iris())
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

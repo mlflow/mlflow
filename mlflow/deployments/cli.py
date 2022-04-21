@@ -1,6 +1,7 @@
 import click
 import sys
 import json
+from inspect import signature
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
 from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
@@ -28,7 +29,7 @@ def _user_args_to_dict(user_list):
 
 installed_targets = [target for target in interface.plugin_store.registry]
 if len(installed_targets) > 0:
-    supported_targets_msg = "Support is currently installed for deployment to: " "{targets}".format(
+    supported_targets_msg = "Support is currently installed for deployment to: {targets}".format(
         targets=", ".join(installed_targets)
     )
 else:
@@ -119,7 +120,7 @@ def commands():
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def create_deployment(flavor, model_uri, target, name, config):
     """
@@ -151,7 +152,7 @@ def create_deployment(flavor, model_uri, target, name, config):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def update_deployment(flavor, model_uri, target, name, config):
     """
@@ -168,14 +169,22 @@ def update_deployment(flavor, model_uri, target, name, config):
 
 
 @commands.command("delete")
+@parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name):
+def delete_deployment(target, name, config):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
     client = interface.get_deploy_client(target)
-    client.delete_deployment(name)
+
+    sig = signature(client.delete_deployment)
+    if "config" in sig.parameters:
+        config_dict = _user_args_to_dict(config)
+        client.delete_deployment(name, config=config_dict)
+    else:
+        client.delete_deployment(name)
+
     click.echo("Deployment {} is deleted".format(name))
 
 
@@ -224,7 +233,7 @@ def target_help(target):
 @click.option(
     "--flavor",
     "-f",
-    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+    help="Which flavor to be deployed. This will be auto inferred if it's not given",
 )
 def run_local(flavor, model_uri, target, name, config):
     """

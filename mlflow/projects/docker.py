@@ -15,6 +15,7 @@ from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
+from mlflow.utils.file_utils import _handle_readonly_on_windows
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def validate_docker_installation():
     """
     try:
         docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
+        process._exec_cmd([docker_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException(
             "Could not find Docker executable. "
@@ -41,7 +42,7 @@ def validate_docker_installation():
 def validate_docker_env(project):
     if not project.name:
         raise ExecutionException(
-            "Project name in MLProject must be specified when using docker " "for image tagging."
+            "Project name in MLProject must be specified when using docker for image tagging."
         )
     if not project.docker_env.get("image"):
         raise ExecutionException(
@@ -56,7 +57,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
-        "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
+        "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
     ).format(
         imagename=base_image,
         build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
@@ -114,7 +115,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
             output_filename=result_path, source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME
         )
     finally:
-        shutil.rmtree(directory)
+        shutil.rmtree(directory, onerror=_handle_readonly_on_windows)
     return result_path
 
 

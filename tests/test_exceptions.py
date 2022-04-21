@@ -11,7 +11,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 
 
-class TestMlflowException(object):
+class TestMlflowException:
     def test_error_code_constructor(self):
         assert (
             MlflowException("test", error_code=INVALID_PARAMETER_VALUE).error_code
@@ -41,6 +41,10 @@ class TestMlflowException(object):
             MlflowException("test", error_code=RESOURCE_ALREADY_EXISTS).get_http_status_code()
             == 400
         )
+
+    def test_invalid_parameter_value(self):
+        mlflow_exception = MlflowException.invalid_parameter_value("test")
+        assert mlflow_exception.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_rest_exception():

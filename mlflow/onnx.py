@@ -10,6 +10,7 @@ ONNX (native) format
 import os
 import yaml
 import numpy as np
+from pathlib import Path
 
 import pandas as pd
 
@@ -20,7 +21,6 @@ import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
@@ -31,14 +31,22 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "onnx"
+ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
 
 def get_default_pip_requirements():
@@ -76,38 +84,26 @@ def save_model(
     onnx_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None,
 ):
     """
     Save an ONNX model to a path on the local file system.
 
     :param onnx_model: ONNX model to be saved.
     :param path: Local path where the model is to be saved.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this describes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -120,7 +116,7 @@ def save_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -128,17 +124,24 @@ def save_model(
                           by converting it to a list. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ``['CUDAExecutionProvider', 'CPUExecutionProvider']``
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
     """
     import onnx
+
+    if onnx_execution_providers is None:
+        onnx_execution_providers = ONNX_EXECUTION_PROVIDERS
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
-        )
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -151,13 +154,42 @@ def save_model(
     # Save onnx-model
     onnx.save_model(onnx_model, model_data_path)
 
-    conda_env, pip_requirements, pip_constraints = (
-        _process_pip_requirements(
-            get_default_pip_requirements(), pip_requirements, extra_pip_requirements,
-        )
-        if conda_env is None
-        else _process_conda_env(conda_env)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.onnx",
+        data=model_data_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        onnx_version=onnx.__version__,
+        data=model_data_subpath,
+        providers=onnx_execution_providers,
+        code=code_dir_subpath,
+    )
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
 
     with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -169,11 +201,7 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
-    pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=_CONDA_ENV_FILE_NAME
-    )
-    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _load_model(model_file):
@@ -186,10 +214,48 @@ def _load_model(model_file):
 
 
 class _OnnxModelWrapper:
-    def __init__(self, path):
+    def __init__(self, path, providers=None):
         import onnxruntime
 
-        self.rt = onnxruntime.InferenceSession(path)
+        # Get the model meta data from the MLModel yaml file which may contain the providers
+        # specification.
+        local_path = str(Path(path).parent)
+        model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+        # Check if the MLModel config has the providers meta data
+        if "providers" in model_meta.flavors.get(FLAVOR_NAME).keys():
+            providers = model_meta.flavors.get(FLAVOR_NAME)["providers"]
+        # If not, then default to the predefined list.
+        else:
+            providers = ONNX_EXECUTION_PROVIDERS
+
+        # NOTE: Some distributions of onnxruntime require the specification of the providers
+        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differnetiate
+        #  which architecture specific version has been installed, as all are imported with
+        # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
+        #  the providers list to be provided on calling an InferenceSession. Therefore the try
+        #  catch structure below attempts to create an inference session with just the model path
+        #  as pre v1.9.0. If that fails, it will use the providers list call.
+        # At the moment this is just CUDA and CPU, and probably should be expanded.
+        # A method of user customisation has been provided by adding a variable in the save_model()
+        # function, which allows the ability to pass the list of execution providers via a
+        # optional argument e.g.
+        #
+        # mlflow.onnx.save_model(..., providers=['CUDAExecutionProvider'...])
+        #
+        # For details of the execution providers construct of onnxruntime, see:
+        # https://onnxruntime.ai/docs/execution-providers/
+        #
+        # For a information on how execution providers are used with onnxruntime InferenceSession,
+        # see the API page below:
+        # https://onnxruntime.ai/docs/api/python/api_summary.html#id8
+        #
+
+        try:
+            self.rt = onnxruntime.InferenceSession(path)
+        except ValueError:
+            self.rt = onnxruntime.InferenceSession(path, providers=providers)
+
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
@@ -284,13 +350,13 @@ class _OnnxModelWrapper:
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     """
     return _OnnxModelWrapper(path)
 
 
 @experimental
-def load_model(model_uri):
+def load_model(model_uri, dst_path=None):
     """
     Load an ONNX model from a local file or a run.
 
@@ -306,12 +372,16 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/
                       tracking.html#artifact-stores>`_.
+    :param dst_path: The local filesystem path to which to download the model artifact.
+                     This directory must already exist. If unspecified, a local output
+                     path will be created.
 
     :return: An ONNX model instance.
 
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 
@@ -322,40 +392,29 @@ def log_model(
     onnx_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    onnx_execution_providers=None,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
     :param onnx_model: ONNX model to be saved.
     :param artifact_path: Run-relative artifact path.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'onnx=1.4.1',
-                                'onnxruntime=0.3.0'
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -368,7 +427,7 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example can be a Pandas DataFrame where the given
                           example will be serialized to json using the Pandas split-oriented
@@ -379,16 +438,26 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param onnx_execution_providers: List of strings defining onnxruntime execution providers.
+                                     Defaults to example:
+                                     ['CUDAExecutionProvider', 'CPUExecutionProvider']
+                                     This uses GPU preferentially over CPU.
+                                     See onnxruntime API for further descriptions:
+                                     https://onnxruntime.ai/docs/execution-providers/
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.onnx,
         onnx_model=onnx_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        onnx_execution_providers=onnx_execution_providers,
     )

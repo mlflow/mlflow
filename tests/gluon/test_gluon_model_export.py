@@ -1,7 +1,7 @@
 from packaging.version import Version
 import os
-import warnings
 import yaml
+from unittest import mock
 
 import mxnet as mx
 import numpy as np
@@ -9,9 +9,7 @@ import pandas as pd
 import pytest
 from mxnet import context as ctx
 from mxnet.gluon import Trainer
-from mxnet.gluon.contrib.estimator import estimator
 from mxnet.gluon.data import DataLoader
-from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
@@ -25,24 +23,24 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+from tests.gluon.utils import get_estimator
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
 if Version(mx.__version__) >= Version("2.0.0"):
-    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.np
 else:
-    from mxnet.metric import Accuracy  # pylint: disable=import-error
-
     array_module = mx.nd
 
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("mxnet") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("mxnet") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture
@@ -81,14 +79,10 @@ def gluon_model(model_data):
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
 
-    # `metrics` was renamed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if Version(mx.__version__) < Version("1.6.0") else "train_metrics"
-    est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
-    )
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        est.fit(train_data_loader, epochs=3)
+    est = get_estimator(model, trainer)
+
+    est.fit(train_data_loader, epochs=3)
+
     return model
 
 
@@ -142,10 +136,11 @@ def test_model_log_load(gluon_model, model_data, model_path):
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
+        model_info = mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
     # Loading Gluon model
     model_loaded = mlflow.gluon.load_model(model_uri, ctx.cpu())
@@ -193,21 +188,23 @@ def test_save_model_with_pip_requirements(gluon_model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     mlflow.gluon.save_model(gluon_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"])
+    _assert_pip_requirements(tmpdir1.strpath, ["mlflow", "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmpdir.join("2")
     mlflow.gluon.save_model(
         gluon_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"])
+    _assert_pip_requirements(tmpdir2.strpath, ["mlflow", "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmpdir.join("3")
     mlflow.gluon.save_model(
         gluon_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
     )
-    _assert_pip_requirements(tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"])
+    _assert_pip_requirements(
+        tmpdir3.strpath, ["mlflow", "b", "-c constraints.txt"], ["a"], strict=True
+    )
 
 
 @pytest.mark.large
@@ -315,7 +312,19 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    response_values = pd.read_json(scoring_response.content, orient="records").values.astype(
-        np.float32
-    )
+    response_values = pd.read_json(
+        scoring_response.content.decode("utf-8"), orient="records"
+    ).values.astype(np.float32)
     assert all(np.argmax(response_values, axis=1) == expected.asnumpy())
+
+
+def test_log_model_with_code_paths(gluon_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.gluon._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.gluon.log_model(gluon_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.gluon.FLAVOR_NAME)
+        mlflow.gluon.load_model(model_uri, ctx.cpu())
+        add_mock.assert_called()

@@ -7,6 +7,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
+from sklearn.pipeline import Pipeline
 import lightgbm as lgb
 
 import mlflow.lightgbm
@@ -29,14 +30,17 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("lightgbm") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("lightgbm") else ["--env-manager", "local"]
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def lgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
@@ -46,6 +50,18 @@ def lgb_model():
 
     dtrain = lgb.Dataset(X, y)
     model = lgb.train({"objective": "multiclass", "num_class": 3}, dtrain)
+    return ModelWithData(model=model, inference_dataframe=X)
+
+
+@pytest.fixture(scope="module")
+def lgb_sklearn_model():
+    iris = datasets.load_iris()
+    X = pd.DataFrame(
+        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
+    )
+    y = iris.target
+    model = lgb.LGBMClassifier(n_estimators=10)
+    model.fit(X, y)
     return ModelWithData(model=model, inference_dataframe=X)
 
 
@@ -67,7 +83,7 @@ def test_model_save_load(lgb_model, model_path):
 
     mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
     reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(lgb_model.inference_dataframe),
@@ -77,6 +93,24 @@ def test_model_save_load(lgb_model, model_path):
     np.testing.assert_array_almost_equal(
         reloaded_model.predict(lgb_model.inference_dataframe),
         reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
+
+
+@pytest.mark.large
+def test_sklearn_model_save_load(lgb_sklearn_model, model_path):
+    model = lgb_sklearn_model.model
+    mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
+    reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_sklearn_model.inference_dataframe),
     )
 
 
@@ -119,12 +153,10 @@ def test_model_load_from_remote_uri_succeeds(lgb_model, model_path, mock_s3_buck
 
 @pytest.mark.large
 def test_model_log(lgb_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     model = lgb_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -132,12 +164,13 @@ def test_model_log(lgb_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
-                mlflow.lightgbm.log_model(
+                model_info = mlflow.lightgbm.log_model(
                     lgb_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
                 reloaded_model = mlflow.lightgbm.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
                     model.predict(lgb_model.inference_dataframe),
@@ -153,7 +186,6 @@ def test_model_log(lgb_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(lgb_model):
@@ -223,14 +255,16 @@ def test_log_model_with_pip_requirements(lgb_model, tmpdir):
     req_file.write("a")
     with mlflow.start_run():
         mlflow.lightgbm.log_model(lgb_model.model, "model", pip_requirements=req_file.strpath)
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"])
+        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
             lgb_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
         )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"])
+        _assert_pip_requirements(
+            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
+        )
 
     # Constraints file
     with mlflow.start_run():
@@ -238,7 +272,10 @@ def test_log_model_with_pip_requirements(lgb_model, tmpdir):
             lgb_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
         )
         _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "b", "-c constraints.txt"], ["a"]
+            mlflow.get_artifact_uri("model"),
+            ["mlflow", "b", "-c constraints.txt"],
+            ["a"],
+            strict=True,
         )
 
 
@@ -335,14 +372,8 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lg
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     lgb_model, model_path
 ):
-    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path, conda_env=None)
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    mlflow.lightgbm.save_model(lgb_model=lgb_model.model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.lightgbm.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -351,20 +382,10 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(
-            lgb_model=lgb_model.model, artifact_path=artifact_path, conda_env=None
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    with open(conda_env_path, "r") as f:
-        conda_env = yaml.safe_load(f)
-
-    assert conda_env == mlflow.lightgbm.get_default_conda_env()
+    _assert_pip_requirements(model_uri, mlflow.lightgbm.get_default_pip_requirements())
 
 
 @pytest.mark.large
@@ -381,5 +402,88 @@ def test_pyfunc_serve_and_score(lgb_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
+
+
+def get_sklearn_models():
+    model = lgb.LGBMClassifier(n_estimators=10)
+    pipe = Pipeline([("model", model)])
+    return [model, pipe]
+
+
+@pytest.mark.parametrize("model", get_sklearn_models())
+def test_pyfunc_serve_and_score_sklearn(model):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path="model")
+        model_uri = mlflow.get_artifact_uri("model")
+
+    resp = pyfunc_serve_and_score_model(
+        model_uri,
+        X.head(3),
+        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    )
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    np.testing.assert_array_equal(scores, model.predict(X.head(3)))
+
+
+@pytest.mark.large
+def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(lgb_model, model_path):
+    """
+    This test verifies that LightGBM models saved in older versions of MLflow are loaded
+    successfully by ``mlflow.pyfunc.load_model``. These older models specify a pyfunc ``data``
+    field referring directly to a LightGBM model file. Newer models also have the
+    ``model_class`` in LightGBM flavor.
+    """
+    model = lgb_model.model
+    mlflow.lightgbm.save_model(lgb_model=model, path=model_path)
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get(pyfunc.FLAVOR_NAME)
+    lgb_conf = model_conf.flavors.get(mlflow.lightgbm.FLAVOR_NAME)
+    assert lgb_conf is not None
+    assert "model_class" in lgb_conf
+    assert "data" in lgb_conf
+    assert pyfunc_conf is not None
+    assert "model_class" not in pyfunc_conf
+    assert pyfunc.DATA in pyfunc_conf
+
+    # test old MLmodel conf
+    model_conf.flavors["lightgbm"] = {"lgb_version": lgb.__version__, "data": "model.lgb"}
+    model_conf.save(model_conf_path)
+    model_conf = Model.load(model_conf_path)
+    lgb_conf = model_conf.flavors.get(mlflow.lightgbm.FLAVOR_NAME)
+    assert "data" in lgb_conf
+    assert lgb_conf["data"] == "model.lgb"
+
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    assert isinstance(reloaded_pyfunc._model_impl.lgb_model, lgb.Booster)
+    reloaded_lgb = mlflow.lightgbm.load_model(model_uri=model_path)
+    assert isinstance(reloaded_lgb, lgb.Booster)
+
+    np.testing.assert_array_almost_equal(
+        lgb_model.model.predict(lgb_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_lgb.predict(lgb_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_model.inference_dataframe),
+    )
+
+
+def test_log_model_with_code_paths(lgb_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.lightgbm._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.lightgbm.log_model(lgb_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.lightgbm.FLAVOR_NAME)
+        mlflow.lightgbm.load_model(model_uri)
+        add_mock.assert_called()

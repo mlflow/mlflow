@@ -30,8 +30,19 @@ def commands():
 @cli_args.HOST
 @cli_args.WORKERS
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
+@cli_args.ENABLE_MLSERVER
+def serve(
+    model_uri,
+    port,
+    host,
+    workers,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager=None,
+    install_mlflow=False,
+    enable_mlserver=False,
+):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
     The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.
@@ -52,8 +63,8 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
         }'
     """
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host)
+        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
+    ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
 
 
 @commands.command("predict")
@@ -86,9 +97,17 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     ".html",
 )
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def predict(
-    model_uri, input_path, output_path, content_type, json_format, no_conda, install_mlflow
+    model_uri,
+    input_path,
+    output_path,
+    content_type,
+    json_format,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
+    install_mlflow,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -97,7 +116,9 @@ def predict(
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda, install_mlflow=install_mlflow).predict(
+    return _get_flavor_backend(
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
+    ).predict(
         model_uri=model_uri,
         input_path=input_path,
         output_path=output_path,
@@ -109,17 +130,21 @@ def predict(
 @commands.command("prepare-env")
 @cli_args.MODEL_URI
 @cli_args.NO_CONDA
+@cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
-def prepare_env(model_uri, no_conda, install_mlflow):
+def prepare_env(
+    model_uri,
+    no_conda,  # pylint: disable=unused-argument
+    env_manager,
+    install_mlflow,
+):
     """
-    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
+    Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
-
-    This method is experimental and may be removed in a future release without warning.
     """
     return _get_flavor_backend(
-        model_uri, no_conda=no_conda, install_mlflow=install_mlflow
+        model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
 
 
@@ -127,9 +152,10 @@ def prepare_env(model_uri, no_conda, install_mlflow):
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.INSTALL_MLFLOW
-def build_docker(model_uri, name, install_mlflow):
+@cli_args.ENABLE_MLSERVER
+def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     """
-    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
 
     For example, the following command builds a docker image named 'my-image-name' that serves the
@@ -156,14 +182,14 @@ def build_docker(model_uri, name, install_mlflow):
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
-
-    This command is experimental (may be changed or removed in a future release without warning)
-    and does not guarantee that the arguments nor format of the Docker container will remain the
-    same.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     _get_flavor_backend(model_uri, docker_build=True).build_image(
-        model_uri, name, mlflow_home=mlflow_home, install_mlflow=install_mlflow
+        model_uri,
+        name,
+        mlflow_home=mlflow_home,
+        install_mlflow=install_mlflow,
+        enable_mlserver=enable_mlserver,
     )
 
 

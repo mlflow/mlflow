@@ -1,6 +1,6 @@
 import os
-import sys
 from functools import partial
+import logging
 
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -28,6 +28,7 @@ _TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
 # see https://requests.readthedocs.io/en/master/api/
 _TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
+_logger = logging.getLogger(__name__)
 _tracking_uri = None
 
 
@@ -134,7 +135,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(lambda: get_databricks_host_creds(store_uri))
+    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()
@@ -170,10 +171,10 @@ def _get_git_url_if_present(uri):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print(
-            "Notice: failed to import Git (the git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s" % e,
-            file=sys.stderr,
+        _logger.warning(
+            "Failed to import Git (the git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s",
+            e,
         )
         return uri
     try:

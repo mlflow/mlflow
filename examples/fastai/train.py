@@ -1,11 +1,12 @@
-#
-# This short example is based on the fastai GitHub Repository of vision examples
-# https://github.com/fastai/fastai/blob/master/examples/vision.ipynb
-# Modified here to show mlflow.fastai.autolog() capabilities
-#
 import argparse
-import fastai.vision as vis
-import mlflow.fastai
+
+from fastai.learner import Learner
+from fastai.tabular.all import TabularDataLoaders
+import numpy as np
+from sklearn.datasets import load_iris
+from torch import nn
+
+import mlflow
 
 
 def parse_args():
@@ -25,27 +26,49 @@ def parse_args():
     return parser.parse_args()
 
 
+def get_data_loaders():
+    X, y = load_iris(return_X_y=True, as_frame=True)
+    y = y.astype(np.float32)
+    return TabularDataLoaders.from_df(
+        X.assign(target=y), cont_names=list(X.columns), y_names=y.name
+    )
+
+
+class Model(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear1 = nn.Linear(4, 3)
+        self.linear2 = nn.Linear(3, 1)
+
+    def forward(self, _, x_cont):
+        x = self.linear1(x_cont)
+        return self.linear2(x)
+
+
+def splitter(model):
+    params = list(model.parameters())
+    return [
+        # weights and biases of the first linear layer
+        params[:2],
+        # weights and biases of the second linear layer
+        params[2:],
+    ]
+
+
 def main():
     # Parse command-line arguments
     args = parse_args()
 
-    # Download and untar the MNIST data set
-    path = vis.untar_data(vis.URLs.MNIST_TINY)
-
-    # Prepare, transform, and normalize the data
-    data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
-    data.normalize(vis.imagenet_stats)
-
-    # Train and fit the Learner model
-    learn = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
-
     # Enable auto logging
     mlflow.fastai.autolog()
+
+    # Create Learner model
+    learn = Learner(get_data_loaders(), Model(), loss_func=nn.MSELoss(), splitter=splitter)
 
     # Start MLflow session
     with mlflow.start_run():
         # Train and fit with default or supplied command line arguments
-        learn.fit(args.epochs, args.lr)
+        learn.fit_one_cycle(args.epochs, args.lr)
 
 
 if __name__ == "__main__":

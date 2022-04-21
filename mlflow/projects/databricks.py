@@ -47,7 +47,7 @@ def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
     if backend_config is None:
         raise ExecutionException(
-            "Backend spec must be provided when launching MLflow project " "runs on Databricks."
+            "Backend spec must be provided when launching MLflow project runs on Databricks."
         )
     elif "existing_cluster_id" in backend_config:
         raise MlflowException(
@@ -69,7 +69,7 @@ def before_run_validations(tracking_uri, backend_config):
         )
 
 
-class DatabricksJobRunner(object):
+class DatabricksJobRunner:
     """
     Helper class for running an MLflow project as a Databricks Job.
     :param databricks_profile: Optional Databricks CLI profile to use to fetch hostname &
@@ -153,6 +153,11 @@ class DatabricksJobRunner(object):
             return None if os.path.basename(x.name) == "mlruns" else x
 
         try:
+            directory_size = file_utils._get_local_project_dir_size(project_dir)
+            _logger.info(
+                f"=== Creating tarball from {project_dir} in temp directory {temp_tarfile_dir} ==="
+            )
+            _logger.info(f"=== Total file size to compress: {directory_size} KB ===")
             file_utils.make_tarfile(
                 temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME, custom_filter=custom_filter
             )
@@ -165,8 +170,12 @@ class DatabricksJobRunner(object):
                 "projects-code",
                 "%s.tar.gz" % tarfile_hash,
             )
+            tar_size = file_utils._get_local_file_size(temp_tar_filename)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
+                _logger.info(
+                    f"=== Uploading project tarball (size: {tar_size} KB) to {dbfs_fuse_uri} ==="
+                )
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
@@ -201,7 +210,7 @@ class DatabricksJobRunner(object):
             _logger.warning(
                 (
                     "Your client is running a non-release version of MLFlow. "
-                    "This version is not avaialable on the databricks runtime. "
+                    "This version is not available on the databricks runtime. "
                     "MLFlow will fallback the MLFlow version provided by the runtime. "
                     "This might lead to unforeseen issues. "
                 )
@@ -222,6 +231,7 @@ class DatabricksJobRunner(object):
             "shell_command_task": {"command": command, "env_vars": env_vars},
             "libraries": libraries,
         }
+        _logger.info("=== Submitting a run to execute the MLflow project... ===")
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
         return databricks_run_id

@@ -3,6 +3,7 @@ import os
 
 
 import pytest
+import logging
 
 from mlflow.utils.file_utils import TempDir, _copy_project
 
@@ -16,11 +17,14 @@ TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_pr
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
+GIT_PROJECT_BRANCH = "test-branch"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+
+_logger = logging.getLogger(__name__)
 
 
 def load_project():
-    """ Loads an example project for use in tests, returning an in-memory `Project` object. """
+    """Loads an example project for use in tests, returning an in-memory `Project` object."""
     return _project_spec.load_project(TEST_PROJECT_DIR)
 
 
@@ -36,7 +40,7 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="package")
 def docker_example_base_image():
     import docker
     from docker.errors import BuildError, APIError
@@ -71,8 +75,7 @@ def docker_example_base_image():
             )
         except BuildError as build_error:
             for chunk in build_error.build_log:
-                print(chunk)
+                _logger.info(chunk)
             raise build_error
         except APIError as api_error:
-            print(api_error.explanation)
             raise api_error

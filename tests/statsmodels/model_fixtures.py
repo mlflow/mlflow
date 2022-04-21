@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pytest
 import statsmodels.api as sm
 from collections import namedtuple
 from statsmodels.tsa.arima_process import arma_generate_sample
@@ -17,13 +16,12 @@ ModelWithResults = namedtuple("ModelWithResults", ["model", "alg", "inference_da
 """
 
 
-@pytest.fixture(scope="session")
 def ols_model(**kwargs):
     # Ordinary Least Squares (OLS)
     np.random.seed(9876789)
     nsamples = 100
     x = np.linspace(0, 10, 100)
-    X = np.column_stack((x, x ** 2))
+    X = np.column_stack((x, x**2))
     beta = np.array([1, 0.1, 10])
     e = np.random.normal(size=nsamples)
     X = sm.add_constant(X)
@@ -35,7 +33,6 @@ def ols_model(**kwargs):
     return ModelWithResults(model=model, alg=ols, inference_dataframe=X)
 
 
-@pytest.fixture(scope="session")
 def failing_logit_model():
     X = pd.DataFrame(
         {
@@ -60,7 +57,6 @@ def get_dataset(name):
     return data
 
 
-@pytest.fixture(scope="session")
 def gls_model():
     # Generalized Least Squares (GLS)
     data = get_dataset("longley")
@@ -69,14 +65,13 @@ def gls_model():
     res_fit = sm.OLS(ols_resid[1:], ols_resid[:-1]).fit()
     rho = res_fit.params
     order = toeplitz(np.arange(16))
-    sigma = rho ** order
+    sigma = rho**order
     gls = sm.GLS(data.endog, data.exog, sigma=sigma)
     model = gls.fit()
 
     return ModelWithResults(model=model, alg=gls, inference_dataframe=data.exog)
 
 
-@pytest.fixture(scope="session")
 def glsar_model():
     # Generalized Least Squares with AR covariance structure
     X = range(1, 8)
@@ -88,7 +83,6 @@ def glsar_model():
     return ModelWithResults(model=model, alg=glsar, inference_dataframe=X)
 
 
-@pytest.fixture(scope="session")
 def wls_model():
     # Weighted Least Squares
     Y = [1, 3, 4, 5, 2, 3, 4]
@@ -100,7 +94,6 @@ def wls_model():
     return ModelWithResults(model=model, alg=wls, inference_dataframe=X)
 
 
-@pytest.fixture(scope="session")
 def recursivels_model():
     # Recursive Least Squares
     dta = sm.datasets.copper.load_pandas().data
@@ -118,7 +111,6 @@ def recursivels_model():
     return ModelWithResults(model=model, alg=rls, inference_dataframe=inference_dataframe)
 
 
-@pytest.fixture(scope="session")
 def rolling_ols_model():
     # Rolling Ordinary Least Squares (Rolling OLS)
     from statsmodels.regression.rolling import RollingOLS
@@ -131,7 +123,6 @@ def rolling_ols_model():
     return ModelWithResults(model=model, alg=rolling_ols, inference_dataframe=exog)
 
 
-@pytest.fixture(scope="session")
 def rolling_wls_model():
     # Rolling Weighted Least Squares (Rolling WLS)
     from statsmodels.regression.rolling import RollingWLS
@@ -144,7 +135,6 @@ def rolling_wls_model():
     return ModelWithResults(model=model, alg=rolling_wls, inference_dataframe=exog)
 
 
-@pytest.fixture(scope="session")
 def gee_model():
     # Example taken from
     # https://www.statsmodels.org/devel/examples/notebooks/generated/gee_nested_simulation.html
@@ -162,9 +152,9 @@ def gee_model():
     xmat = np.random.normal(size=(n, p))
 
     # Construct labels showing which group each observation belongs to at each level.
-    groups_ix = np.kron(np.arange(n // group_size), np.ones(group_size)).astype(np.int)
-    level1_ix = np.kron(np.arange(n // level1_size), np.ones(level1_size)).astype(np.int)
-    level2_ix = np.kron(np.arange(n // level2_size), np.ones(level2_size)).astype(np.int)
+    groups_ix = np.kron(np.arange(n // group_size), np.ones(group_size)).astype(int)
+    level1_ix = np.kron(np.arange(n // level1_size), np.ones(level1_size)).astype(int)
+    level2_ix = np.kron(np.arange(n // level2_size), np.ones(level2_size)).astype(int)
 
     # Simulate the random effects.
     groups_re = np.sqrt(groups_var) * np.random.normal(size=n // group_size)
@@ -193,7 +183,6 @@ def gee_model():
     return ModelWithResults(model=model, alg=gee, inference_dataframe=df)
 
 
-@pytest.fixture(scope="session")
 def glm_model():
     # Generalized Linear Model (GLM)
     data = get_dataset("scotland")
@@ -204,7 +193,6 @@ def glm_model():
     return ModelWithResults(model=model, alg=glm, inference_dataframe=data.exog)
 
 
-@pytest.fixture(scope="session")
 def glmgam_model():
     # Generalized Additive Model (GAM)
     from statsmodels.gam.tests.test_penalized import df_autos
@@ -220,7 +208,6 @@ def glmgam_model():
     return ModelWithResults(model=model, alg=gam_bs, inference_dataframe=df_autos)
 
 
-@pytest.fixture(scope="session")
 def arma_model():
     # Autoregressive Moving Average (ARMA)
     np.random.seed(12345)

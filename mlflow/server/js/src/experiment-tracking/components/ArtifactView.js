@@ -23,7 +23,7 @@ import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { Tooltip } from 'antd';
-import { Typography } from '../../shared/building_blocks/antd/Typography';
+import { Typography } from '@databricks/design-system';
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
@@ -104,11 +104,15 @@ export class ArtifactViewImpl extends Component {
                 description='Label to display the size of the artifact of the experiment'
               />
             </label>{' '}
-            {this.getActiveNodeSize()}
+            {bytes(this.getActiveNodeSize())}
           </div>
         ) : null}
       </div>
     );
+  }
+
+  onDownloadClick(runUuid, artifactPath) {
+    window.location.href = getSrc(artifactPath, runUuid);
   }
 
   renderDownloadLink() {
@@ -116,8 +120,9 @@ export class ArtifactViewImpl extends Component {
     const { activeNodeId } = this.state;
     return (
       <div className='artifact-info-link'>
+        {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
         <a
-          href={getSrc(activeNodeId, runUuid)}
+          onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
           title={this.props.intl.formatMessage({
             defaultMessage: 'Download artifact',
             description: 'Link to download the artifact of the experiment',
@@ -227,9 +232,9 @@ export class ArtifactViewImpl extends Component {
     if (this.state.activeNodeId) {
       const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
       const size = node.fileInfo.file_size || '0';
-      return bytes(parseInt(size, 10));
+      return parseInt(size, 10);
     }
-    return bytes(0);
+    return 0;
   }
 
   activeNodeIsDirectory() {
@@ -252,7 +257,14 @@ export class ArtifactViewImpl extends Component {
     return false;
   }
 
-  componentWillMount() {
+  componentDidUpdate(prevProps, prevState) {
+    const { activeNodeId } = this.state;
+    if (prevState.activeNodeId !== activeNodeId) {
+      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
+    }
+  }
+
+  componentDidMount() {
     if (this.props.initialSelectedArtifactPath) {
       const artifactPathParts = this.props.initialSelectedArtifactPath.split('/');
       if (artifactPathParts) {
@@ -275,22 +287,12 @@ export class ArtifactViewImpl extends Component {
         toggledArtifactState['toggledNodeIds'][pathSoFar] = true;
         pathSoFar += '/';
       });
-      this.setState(toggledArtifactState);
+      this.setArtifactState(toggledArtifactState);
     }
   }
 
-  componentDidUpdate(prevProps, prevState) {
-    const { activeNodeId } = this.state;
-    if (prevState.activeNodeId !== activeNodeId) {
-      this.props.handleActiveNodeChange(this.activeNodeIsDirectory());
-    }
-  }
-
-  componentDidMount() {
-    const element = document.getElementsByClassName('artifact-left')[0];
-    if (element && this.props.initialSelectedArtifactPath) {
-      element.scrollIntoView(true);
-    }
+  setArtifactState(artifactState) {
+    this.setState(artifactState);
   }
 
   render() {
@@ -313,6 +315,7 @@ export class ArtifactViewImpl extends Component {
             <ShowArtifactPage
               runUuid={this.props.runUuid}
               path={this.state.activeNodeId}
+              size={this.getActiveNodeSize()}
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
               modelVersions={this.props.modelVersions}
@@ -350,6 +353,8 @@ function ModelVersionInfoSection(props) {
   const { name, version, status, status_message } = modelVersion;
 
   const modelVersionLink = (
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/jsx-no-target-blank
     <a
       href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
       className='model-version-link'
@@ -498,9 +503,13 @@ const TREEBEARD_STYLE = {
 // eslint-disable-next-line react/prop-types
 decorators.Header = ({ style, node }) => {
   let iconType;
+  // Reported during ESLint upgrade
+  // eslint-disable-next-line react/prop-types
   if (node.children) {
     iconType = 'folder';
   } else {
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/prop-types
     const extension = getExtension(node.name);
     if (IMAGE_EXTENSIONS.has(extension)) {
       iconType = 'file-image';
@@ -513,14 +522,22 @@ decorators.Header = ({ style, node }) => {
   const iconClass = `fa fa-${iconType}`;
 
   // Add margin-left to the non-directory nodes to align the arrow, icons, and texts.
+  // Reported during ESLint upgrade
+  // eslint-disable-next-line react/prop-types
   const iconStyle = node.children
     ? { marginRight: '5px' }
     : { marginRight: '5px', marginLeft: '19px' };
 
   return (
+    // Reported during ESLint upgrade
+    // eslint-disable-next-line react/prop-types
     <div style={style.base} data-test-id='artifact-tree-node' artifact-name={node.name}>
+      {/* Reported during ESLint upgrade */}
+      {/* eslint-disable-next-line react/prop-types */}
       <div style={style.title}>
         <i className={iconClass} style={iconStyle} />
+        {/* Reported during ESLint upgrade */}
+        {/* eslint-disable-next-line react/prop-types */}
         {node.name}
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
 import { ModelView } from './ModelView';
 import { getModelVersions } from '../reducers';
 import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
+import { PageContainer } from '../../common/components/PageContainer';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Spinner } from '../../common/components/Spinner';
 import { ErrorView } from '../../common/components/ErrorView';
@@ -114,7 +115,7 @@ export class ModelPageImpl extends React.Component {
   render() {
     const { model, modelVersions, history, modelName } = this.props;
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
           {(loading, hasError, requests) => {
             if (hasError) {
@@ -156,7 +157,7 @@ export class ModelPageImpl extends React.Component {
             return null;
           }}
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }

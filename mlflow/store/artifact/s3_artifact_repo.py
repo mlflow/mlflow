@@ -1,3 +1,5 @@
+from datetime import datetime
+from functools import lru_cache
 import os
 from mimetypes import guess_type
 
@@ -9,6 +11,51 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+
+_MAX_CACHE_SECONDS = 300
+
+
+def _get_utcnow_timestamp():
+    return datetime.utcnow().timestamp()
+
+
+@lru_cache(maxsize=64)
+def _cached_get_s3_client(
+    signature_version,
+    s3_endpoint_url,
+    verify,
+    timestamp,
+):  # pylint: disable=unused-argument
+    """Returns a boto3 client, caching to avoid extra boto3 verify calls.
+
+    This method is outside of the S3ArtifactRepository as it is
+    agnostic and could be used by other instances.
+
+    `maxsize` set to avoid excessive memory consumption in the case
+    a user has dynamic endpoints (intentionally or as a bug).
+
+    Some of the boto3 endpoint urls, in very edge cases, might expire
+    after twelve hours as that is the current expiration time. To ensure
+    we throw an error on verification instead of using an expired endpoint
+    we utilise the `timestamp` parameter to invalidate cache.
+    """
+    import boto3
+    from botocore.client import Config
+
+    # Making it possible to access public S3 buckets
+    # Workaround for https://github.com/boto/botocore/issues/2442
+    if signature_version.lower() == "unsigned":
+        from botocore import UNSIGNED
+
+        signature_version = UNSIGNED
+
+    return boto3.client(
+        "s3",
+        config=Config(signature_version=signature_version),
+        endpoint_url=s3_endpoint_url,
+        verify=verify,
+    )
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -36,9 +83,6 @@ class S3ArtifactRepository(ArtifactRepository):
             return None
 
     def _get_s3_client(self):
-        import boto3
-        from botocore.client import Config
-
         s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
         ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
 
@@ -54,18 +98,11 @@ class S3ArtifactRepository(ArtifactRepository):
         # NOTE: If you need to specify this env variable, please file an issue at
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
-        # Making it possible to access public S3 buckets
-        # Workaround for https://github.com/boto/botocore/issues/2442
-        if signature_version.lower() == "unsigned":
-            from botocore import UNSIGNED
 
-            signature_version = UNSIGNED
-        return boto3.client(
-            "s3",
-            config=Config(signature_version=signature_version),
-            endpoint_url=s3_endpoint_url,
-            verify=verify,
-        )
+        # Invalidate cache every `_MAX_CACHE_SECONDS`
+        timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
+
+        return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = dict()

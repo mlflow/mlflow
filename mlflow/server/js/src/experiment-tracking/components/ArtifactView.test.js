@@ -1,5 +1,6 @@
 import React from 'react';
-import { mountWithIntl, shallowWithIntl, mockAjax } from '../../common/utils/TestUtils';
+import { Typography } from '@databricks/design-system';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
 import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageView';
@@ -14,7 +15,6 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
-import { Typography } from '../../shared/building_blocks/antd/Typography';
 
 const { Text } = Typography;
 
@@ -44,7 +44,10 @@ describe('ArtifactView', () => {
     );
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -237,49 +240,6 @@ describe('ArtifactView', () => {
           '1': {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: 'test_root/dir2',
-          },
-        },
-      },
-    };
-    const store = mockStore({
-      entities: entities,
-    });
-    wrapper = getWrapper(store, props);
-    const dir2Element = wrapper.find('NodeHeader').at(2);
-    dir2Element.simulate('click');
-    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
-    expect(wrapper.find('.model-version-info')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link')).toHaveLength(1);
-    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
-  });
-
-  /**
-   * A model version's source may be semantically equivalent to a run artifact path
-   * but syntactically distinct; this occurs when there are redundant or trailing
-   * slashes present in the version source or run artifact path. This test verifies that,
-   * in these cases, model version information is still displayed correctly for a run artifact.
-   */
-  test('should render model version link for semantically equivalent artifact paths', () => {
-    expect(Utils.isModelRegistryEnabled()).toEqual(true);
-
-    // Construct a model version source that is semantically equivalent to a run artifact path
-    // but syntactically different because it contains extra slashes. We expect that the UI
-    // should still render the version source for this artifact
-    const modelVersionSource = 'test_root////dir2///';
-
-    const modelVersionsBySource = {
-      modelVersionSource: [
-        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-      ],
-    };
-    const props = { ...minimalProps, modelVersionsBySource };
-    const entities = {
-      ...minimalEntities,
-      modelVersionsByModel: {
-        'Model A': {
-          '1': {
-            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
-            source: modelVersionSource,
           },
         },
       },

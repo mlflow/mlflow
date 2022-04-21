@@ -1,10 +1,14 @@
 import json
 import logging
+import random
+import time
 import uuid
+import threading
 
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -45,6 +49,8 @@ from mlflow.utils.validation import (
     _validate_experiment_tag,
     _validate_tag,
     _validate_list_experiments_max_results,
+    _validate_param_keys_unique,
+    _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -84,6 +90,8 @@ class SqlAlchemyStore(AbstractStore):
 
     ARTIFACTS_FOLDER_NAME = "artifacts"
     DEFAULT_EXPERIMENT_ID = "0"
+    _db_uri_sql_alchemy_engine_map = {}
+    _db_uri_sql_alchemy_engine_map_lock = threading.Lock()
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -101,7 +109,19 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+        # Quick check to see if the respective SQLAlchemy database engine has already been created.
+        if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
+            with SqlAlchemyStore._db_uri_sql_alchemy_engine_map_lock:
+                # Repeat check to prevent race conditions where one thread checks for an existing
+                # engine while another is creating the respective one, resulting in multiple
+                # engines being created. It isn't combined with the above check to prevent
+                # inefficiency from multiple threads waiting for the lock to check for engine
+                # existence if it has already been created.
+                if db_uri not in SqlAlchemyStore._db_uri_sql_alchemy_engine_map:
+                    SqlAlchemyStore._db_uri_sql_alchemy_engine_map[
+                        db_uri
+                    ] = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
+        self.engine = SqlAlchemyStore._db_uri_sql_alchemy_engine_map[db_uri]
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
@@ -115,7 +135,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlLatestMetric.__tablename__,
         ]
         inspected_tables = set(sqlalchemy.inspect(self.engine).get_table_names())
-        if any([table not in inspected_tables for table in expected_tables]):
+        if any(table not in inspected_tables for table in expected_tables):
             mlflow.store.db.utils._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
@@ -130,6 +150,9 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.list_experiments(view_type=ViewType.ALL)) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    def _get_dialect(self):
+        return self.engine.dialect.name
 
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
@@ -209,9 +232,8 @@ class SqlAlchemyStore(AbstractStore):
     def _get_artifact_location(self, experiment_id):
         return append_to_uri_path(self.artifact_root_uri, str(experiment_id))
 
-    def create_experiment(self, name, artifact_location=None):
-        if name is None or name == "":
-            raise MlflowException("Invalid experiment name", INVALID_PARAMETER_VALUE)
+    def create_experiment(self, name, artifact_location=None, tags=None):
+        _validate_experiment_name(name)
 
         with self.ManagedSessionMaker() as session:
             try:
@@ -220,6 +242,9 @@ class SqlAlchemyStore(AbstractStore):
                     lifecycle_stage=LifecycleStage.ACTIVE,
                     artifact_location=artifact_location,
                 )
+                experiment.tags = (
+                    [SqlExperimentTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
+                )
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
@@ -227,7 +252,7 @@ class SqlAlchemyStore(AbstractStore):
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Experiment(name={}) already exists. Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -275,6 +300,7 @@ class SqlAlchemyStore(AbstractStore):
                 queried_experiments = (
                     session.query(SqlExperiment)
                     .options(*query_options)
+                    .order_by(SqlExperiment.experiment_id)
                     .filter(*conditions)
                     .offset(offset)
                     .limit(max_results_for_query)
@@ -292,7 +318,10 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(experiments, None)
 
     def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
     ):
         """
         :param view_type: Qualify requested type of experiments.
@@ -418,10 +447,7 @@ class SqlAlchemyStore(AbstractStore):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
 
-            tags_dict = {}
-            for tag in tags:
-                tags_dict[tag.key] = tag.value
-            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
+            run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags] if tags else []
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -457,13 +483,13 @@ class SqlAlchemyStore(AbstractStore):
                  run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
         """
         return [
-            # Use a subquery load rather than a joined load in order to minimize the memory overhead
-            # of the eager loading procedure. For more information about relationship loading
-            # techniques, see https://docs.sqlalchemy.org/en/13/orm/
+            # Use a select in load rather than a joined load in order to minimize the memory
+            # overhead of the eager loading procedure. For more information about relationship
+            # loading techniques, see https://docs.sqlalchemy.org/en/13/orm/
             # loading_relationships.html#relationship-loading-techniques
-            sqlalchemy.orm.subqueryload(SqlRun.latest_metrics),
-            sqlalchemy.orm.subqueryload(SqlRun.params),
-            sqlalchemy.orm.subqueryload(SqlRun.tags),
+            sqlalchemy.orm.selectinload(SqlRun.latest_metrics),
+            sqlalchemy.orm.selectinload(SqlRun.params),
+            sqlalchemy.orm.selectinload(SqlRun.tags),
         ]
 
     def _check_run_is_active(self, run):
@@ -555,7 +581,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run_id[0] for run_id in run_ids]
 
-    def log_metric(self, run_id, metric):
+    def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         is_nan = math.isnan(metric.value)
         if is_nan:
@@ -565,28 +591,82 @@ class SqlAlchemyStore(AbstractStore):
             value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
         else:
             value = metric.value
+        return metric, value, is_nan
+
+    def log_metric(self, run_id, metric):
+        # simply call _log_metrics and let it handle the rest
+        self._log_metrics(run_id, [metric])
+
+    def _log_metrics(self, run_id, metrics):
+        if not metrics:
+            return
+
+        # Duplicate metric values are eliminated here to maintain
+        # the same behavior in log_metric
+        metric_instances = []
+        seen = set()
+        for metric in metrics:
+            metric, value, is_nan = self._get_metric_value_details(metric)
+            if metric not in seen:
+                metric_instances.append(
+                    SqlMetric(
+                        run_uuid=run_id,
+                        key=metric.key,
+                        value=value,
+                        timestamp=metric.timestamp,
+                        step=metric.step,
+                        is_nan=is_nan,
+                    )
+                )
+            seen.add(metric)
+
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            logged_metric, just_created = self._get_or_create(
-                model=SqlMetric,
-                run_uuid=run_id,
-                key=metric.key,
-                value=value,
-                timestamp=metric.timestamp,
-                step=metric.step,
-                session=session,
-                is_nan=is_nan,
-            )
-            # Conditionally update the ``latest_metrics`` table if the logged metric  was not
-            # already present in the ``metrics`` table. If the logged metric was already present,
-            # we assume that the ``latest_metrics`` table already accounts for its presence
-            if just_created:
-                self._update_latest_metric_if_necessary(logged_metric, session)
 
-    @staticmethod
-    def _update_latest_metric_if_necessary(logged_metric, session):
+            def _insert_metrics(metric_instances):
+                self._save_to_db(session=session, objs=metric_instances)
+                self._update_latest_metrics_if_necessary(metric_instances, session)
+                session.commit()
+
+            try:
+                _insert_metrics(metric_instances)
+            except sqlalchemy.exc.IntegrityError:
+                # Primary key can be violated if it is tried to log a metric with same value,
+                # timestamp, step, and key within the same run.
+                # Roll back the current session to make it usable for further transactions. In
+                # the event of an error during "commit", a rollback is required in order to
+                # continue using the session. In this case, we re-use the session to query
+                # SqlMetric
+                session.rollback()
+                # Divide metric keys into batches of 100 to avoid loading too much metric
+                # history data into memory at once
+                metric_keys = [m.key for m in metric_instances]
+                metric_key_batches = [
+                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
+                ]
+                for metric_key_batch in metric_key_batches:
+                    # obtain the metric history corresponding to the given metrics
+                    metric_history = (
+                        session.query(SqlMetric)
+                        .filter(
+                            SqlMetric.run_uuid == run_id,
+                            SqlMetric.key.in_(metric_key_batch),
+                        )
+                        .all()
+                    )
+                    # convert to a set of Metric instance to take advantage of its hashable
+                    # and then obtain the metrics that were not logged earlier within this
+                    # run_id
+                    metric_history = {m.to_mlflow_entity() for m in metric_history}
+                    non_existing_metrics = [
+                        m for m in metric_instances if m.to_mlflow_entity() not in metric_history
+                    ]
+                    # if there exist metrics that were tried to be logged & rolled back even
+                    # though they were not violating the PK, log them
+                    _insert_metrics(non_existing_metrics)
+
+    def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
             """
             :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
@@ -598,21 +678,83 @@ class SqlAlchemyStore(AbstractStore):
                 metric_b.value,
             )
 
-        # Fetch the latest metric value corresponding to the specified run_id and metric key and
-        # lock its associated row for the remainder of the transaction in order to ensure
+        def _overwrite_metric(new_metric, old_metric):
+            """
+            writes content of new_metric over old_metric. The content are
+            `value`, `step`, `timestamp`, and `is_nan`.
+
+            :return: old_metric with its content updated.
+            """
+            old_metric.value = new_metric.value
+            old_metric.step = new_metric.step
+            old_metric.timestamp = new_metric.timestamp
+            old_metric.is_nan = new_metric.is_nan
+            return old_metric
+
+        if not logged_metrics:
+            return
+
+        # Fetch the latest metric value corresponding to the specified run_id and metric keys and
+        # lock their associated rows for the remainder of the transaction in order to ensure
         # isolation
-        latest_metric = (
-            session.query(SqlLatestMetric)
-            .filter(
-                SqlLatestMetric.run_uuid == logged_metric.run_uuid,
-                SqlLatestMetric.key == logged_metric.key,
+        latest_metrics = {}
+        metric_keys = [m.key for m in logged_metrics]
+        # Divide metric keys into batches of 500 to avoid binding too many parameters to the SQL
+        # query, which may produce limit exceeded errors or poor performance on certain database
+        # platforms
+        metric_key_batches = [metric_keys[i : i + 500] for i in range(0, len(metric_keys), 500)]
+        for metric_key_batch in metric_key_batches:
+            # First, determine which metric keys are present in the database
+            latest_metrics_key_records_from_db = (
+                session.query(SqlLatestMetric.key)
+                .filter(
+                    SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
+                    SqlLatestMetric.key.in_(metric_key_batch),
+                )
+                .all()
             )
-            .with_for_update()
-            .one_or_none()
-        )
-        if latest_metric is None or _compare_metrics(logged_metric, latest_metric):
-            session.merge(
-                SqlLatestMetric(
+            # Then, take a write lock on the rows corresponding to metric keys that are present,
+            # ensuring that they aren't modified by another transaction until they can be
+            # compared to the metric values logged by this transaction while avoiding gap locking
+            # and next-key locking which may otherwise occur when issuing a `SELECT FOR UPDATE`
+            # against nonexistent rows
+            if len(latest_metrics_key_records_from_db) > 0:
+                latest_metric_keys_from_db = [
+                    record[0] for record in latest_metrics_key_records_from_db
+                ]
+                latest_metrics_batch = (
+                    session.query(SqlLatestMetric)
+                    .filter(
+                        SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
+                        SqlLatestMetric.key.in_(latest_metric_keys_from_db),
+                    )
+                    # Order by the metric run ID and key to ensure a consistent locking order
+                    # across transactions, reducing deadlock likelihood
+                    .order_by(SqlLatestMetric.run_uuid, SqlLatestMetric.key)
+                    .with_for_update()
+                    .all()
+                )
+                latest_metrics.update({m.key: m for m in latest_metrics_batch})
+
+        # iterate over all logged metrics and compare them with corresponding
+        # SqlLatestMetric entries
+        # if there's no SqlLatestMetric entry for the current metric key,
+        # create a new SqlLatestMetric instance and put it in
+        # new_latest_metric_dict so that they can be saved later.
+        new_latest_metric_dict = {}
+        for logged_metric in logged_metrics:
+            latest_metric = latest_metrics.get(logged_metric.key)
+            # a metric key can be passed more then once within logged metrics
+            # with different step/timestamp/value. However SqlLatestMetric
+            # entries are inserted after this loop is completed.
+            # so, retrieve the instances they were just created and use them
+            # for comparison.
+            new_latest_metric = new_latest_metric_dict.get(logged_metric.key)
+
+            # just create a new SqlLatestMetric instance since both
+            # latest_metric row or recently created instance does not exist
+            if not latest_metric and not new_latest_metric:
+                new_latest_metric = SqlLatestMetric(
                     run_uuid=logged_metric.run_uuid,
                     key=logged_metric.key,
                     value=logged_metric.value,
@@ -620,7 +762,24 @@ class SqlAlchemyStore(AbstractStore):
                     step=logged_metric.step,
                     is_nan=logged_metric.is_nan,
                 )
-            )
+                new_latest_metric_dict[logged_metric.key] = new_latest_metric
+
+            # there's no row but a new instance is recently created.
+            # so, update the recent instance in new_latest_metric_dict if
+            # metric comparison is successful.
+            elif not latest_metric and new_latest_metric:
+                if _compare_metrics(logged_metric, new_latest_metric):
+                    new_latest_metric = _overwrite_metric(logged_metric, new_latest_metric)
+                    new_latest_metric_dict[logged_metric.key] = new_latest_metric
+
+            # compare with the row
+            elif _compare_metrics(logged_metric, latest_metric):
+                # editing the attributes of latest_metric, which is a
+                # SqlLatestMetric instance will result in UPDATE in DB side.
+                latest_metric = _overwrite_metric(logged_metric, latest_metric)
+
+        if new_latest_metric_dict:
+            self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -673,6 +832,57 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
+    def _log_params(self, run_id, params):
+        if not params:
+            return
+
+        param_instances = [
+            SqlParam(run_uuid=run_id, key=param.key, value=param.value) for param in params
+        ]
+
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            # commit the session to make sure that we catch any IntegrityError
+            # and try to handle them.
+            try:
+                self._save_to_db(session=session, objs=param_instances)
+                session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # Roll back the current session to make it usable for further transactions. In the
+                # event of an error during "commit", a rollback is required in order to continue
+                # using the session. In this case, we re-use the session because the SqlRun, `run`,
+                # is lazily evaluated during the invocation of `run.params`.
+                session.rollback()
+
+                # in case of an integrity error, compare the parameters of the
+                # run. If the parameters match the ones whom being saved,
+                # ignore the exception since idempotency is reached.
+                # Also, multiple params for the same key can still be passed within
+                # the same batch. So, handle them by selecting the first param
+                # for the given key
+                run_params = {param.key: param.value for param in run.params}
+                non_matching_params = []
+                for param in param_instances:
+                    existing_value = run_params.get(param.key)
+                    if param.value != existing_value:
+                        non_matching_params.append(
+                            {
+                                "key": param.key,
+                                "old_value": existing_value,
+                                "new_value": param.value,
+                            }
+                        )
+
+                if non_matching_params:
+                    raise MlflowException(
+                        "Changing param values is not allowed. Params were already logged='{}'"
+                        " for run ID='{}'.".format(non_matching_params, run_id),
+                        INVALID_PARAMETER_VALUE,
+                    )
+                # if there's no mismatch, do not raise an Exception since
+                # we are sure that idempotency is reached.
+
     def set_experiment_tag(self, experiment_id, tag):
         """
         Set a tag for the specified experiment
@@ -702,6 +912,74 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+
+    def _set_tags(self, run_id, tags):
+        """
+        Set multiple tags on a run
+
+        :param run_id: String ID of the run
+        :param tags: List of RunTag instances to log
+        """
+        if not tags:
+            return
+
+        for tag in tags:
+            _validate_tag(tag.key, tag.value)
+
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+
+            def _try_insert_tags(attempt_number, max_retries):
+                try:
+                    current_tags = (
+                        session.query(SqlTag)
+                        .filter(SqlTag.run_uuid == run_id, SqlTag.key.in_([t.key for t in tags]))
+                        .all()
+                    )
+                    current_tags = {t.key: t for t in current_tags}
+
+                    new_tag_dict = {}
+                    for tag in tags:
+                        current_tag = current_tags.get(tag.key)
+                        new_tag = new_tag_dict.get(tag.key)
+
+                        # update the SqlTag if it is already present in DB
+                        if current_tag:
+                            current_tag.value = tag.value
+                            continue
+
+                        # if a SqlTag instance is already present in `new_tag_dict`,
+                        # this means that multiple tags with the same key were passed to `set_tags`.
+                        # In this case, we resolve potential conflicts by updating the value of the
+                        # existing instance to the value of `tag`
+                        if new_tag:
+                            new_tag.value = tag.value
+                        # otherwise, put it into the dict
+                        else:
+                            new_tag = SqlTag(run_uuid=run_id, key=tag.key, value=tag.value)
+
+                        new_tag_dict[tag.key] = new_tag
+
+                    # finally, save new entries to DB.
+                    self._save_to_db(session=session, objs=list(new_tag_dict.values()))
+                    session.commit()
+                except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
+                    # two concurrent operations may try to attempt to insert tags.
+                    # apply retry here.
+                    if attempt_number > max_retries:
+                        raise MlflowException(
+                            "Failed to set tags with given within {} retries. Keys: {}".format(
+                                max_retries, [t.key for t in tags]
+                            )
+                        )
+                    sleep_duration = (2**attempt_number) - 1
+                    sleep_duration += random.uniform(0, 1)
+                    time.sleep(sleep_duration)
+                    _try_insert_tags(attempt_number + 1, max_retries=max_retries)
+
+            _try_insert_tags(attempt_number=0, max_retries=3)
 
     def delete_tag(self, run_id, key):
         """
@@ -754,31 +1032,31 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
+            cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
-            query = session.query(SqlRun)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
-                query = query.join(j)
+            stmt = select(SqlRun, *cases_orderby)
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
+                stmt = stmt.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
             for j in sorting_joins:
-                query = query.outerjoin(j)
+                stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            queried_runs = (
-                query.distinct()
+            stmt = (
+                stmt.distinct()
                 .options(*self._get_eager_run_query_options())
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *_get_attributes_filtering_clauses(parsed_filters, self._get_dialect()),
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
-                .all()
             )
+            queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
             next_page_token = compute_next_token(len(runs))
@@ -789,20 +1067,19 @@ class SqlAlchemyStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
+        _validate_param_keys_unique(params)
+
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-        try:
-            for param in params:
-                self.log_param(run_id, param)
-            for metric in metrics:
-                self.log_metric(run_id, metric)
-            for tag in tags:
-                self.set_tag(run_id, tag)
-        except MlflowException as e:
-            raise e
-        except Exception as e:
-            raise MlflowException(e, INTERNAL_ERROR)
+            try:
+                self._log_params(run_id, params)
+                self._log_metrics(run_id, metrics)
+                self._set_tags(run_id, tags)
+            except MlflowException as e:
+                raise e
+            except Exception as e:
+                raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -826,19 +1103,21 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
 
-def _get_attributes_filtering_clauses(parsed):
+def _get_attributes_filtering_clauses(parsed, dialect):
     clauses = []
     for sql_statement in parsed:
         key_type = sql_statement.get("type")
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
+        if SearchUtils.is_string_attribute(
+            key_type, key_name, comparator
+        ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
             # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
             # by the call to parse_search_filter
             attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
             if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
+                op = SearchUtils.get_sql_filter_ops(attribute, comparator, dialect)
                 clauses.append(op(value))
             elif comparator in SearchUtils.filter_ops:
                 op = SearchUtils.filter_ops.get(comparator)
@@ -846,7 +1125,7 @@ def _get_attributes_filtering_clauses(parsed):
     return clauses
 
 
-def _to_sqlalchemy_filtering_statement(sql_statement, session):
+def _to_sqlalchemy_filtering_statement(sql_statement, session, dialect):
     key_type = sql_statement.get("type")
     key_name = sql_statement.get("key")
     value = sql_statement.get("value")
@@ -859,7 +1138,9 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         entity = SqlParam
     elif SearchUtils.is_tag(key_type, comparator):
         entity = SqlTag
-    elif SearchUtils.is_attribute(key_type, comparator):
+    elif SearchUtils.is_string_attribute(
+        key_type, key_name, comparator
+    ) or SearchUtils.is_numeric_attribute(key_type, key_name, comparator):
         return None
     else:
         raise MlflowException(
@@ -867,7 +1148,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         )
 
     if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
+        op = SearchUtils.get_sql_filter_ops(entity.value, comparator, dialect)
         return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
     elif comparator in SearchUtils.filter_ops:
         op = SearchUtils.filter_ops.get(comparator)
@@ -878,12 +1159,12 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         return None
 
 
-def _get_sqlalchemy_filter_clauses(parsed, session):
+def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """creates SqlAlchemy subqueries
     that will be inner-joined to SQLRun to act as multi-clause filters."""
     filters = []
     for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session)
+        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session, dialect)
         if filter_query is not None:
             filters.append(filter_query)
     return filters
@@ -898,13 +1179,16 @@ def _get_orderby_clauses(order_by_list, session):
     ordering_joins = []
     clause_id = 0
     observed_order_by_clauses = set()
+    select_clauses = []
     # contrary to filters, it is not easily feasible to separately handle sorting
     # on attributes and on joined tables as we must keep all clauses in the same order
     if order_by_list:
         for order_by_clause in order_by_list:
             clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
-            if SearchUtils.is_attribute(key_type, "="):
+            if SearchUtils.is_string_attribute(
+                key_type, key, "="
+            ) or SearchUtils.is_numeric_attribute(key_type, key, "="):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, "="):  # any valid comparator
@@ -932,24 +1216,26 @@ def _get_orderby_clauses(order_by_list, session):
             # same main query, the CASE WHEN columns need to have unique names to
             # avoid ambiguity
             if SearchUtils.is_metric(key_type, "="):
-                clauses.append(
-                    sql.case(
-                        [
-                            # Ideally the use of "IS" is preferred here but owing to sqlalchemy
-                            # translation in MSSQL we are forced to use "=" instead.
-                            # These 2 options are functionally identical / unchanged because
-                            # the column (is_nan) is not nullable. However it could become an issue
-                            # if this precondition changes in the future.
-                            (subquery.c.is_nan == sqlalchemy.true(), 1),
-                            (order_value.is_(None), 1),
-                        ],
-                        else_=0,
-                    ).label("clause_%s" % clause_id)
-                )
+                case = sql.case(
+                    [
+                        # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                        # translation in MSSQL we are forced to use "=" instead.
+                        # These 2 options are functionally identical / unchanged because
+                        # the column (is_nan) is not nullable. However it could become an issue
+                        # if this precondition changes in the future.
+                        (subquery.c.is_nan == sqlalchemy.true(), 1),
+                        (order_value.is_(None), 2),
+                    ],
+                    else_=0,
+                ).label("clause_%s" % clause_id)
+
             else:  # other entities do not have an 'is_nan' field
-                clauses.append(
-                    sql.case([(order_value.is_(None), 1)], else_=0).label("clause_%s" % clause_id)
+                case = sql.case([(order_value.is_(None), 1)], else_=0).label(
+                    "clause_%s" % clause_id
                 )
+            clauses.append(case.name)
+            select_clauses.append(case)
+            select_clauses.append(order_value)
 
             if (key_type, key) in observed_order_by_clauses:
                 raise MlflowException(
@@ -965,4 +1251,4 @@ def _get_orderby_clauses(order_by_list, session):
     if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
         clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
-    return clauses, ordering_joins
+    return select_clauses, clauses, ordering_joins

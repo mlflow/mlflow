@@ -40,3 +40,7 @@
 .ant-collapse-borderless {
   background-color: white;
 }
+
+.ant-collapse-header {
+  width: fit-content;
+}

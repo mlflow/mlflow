@@ -138,14 +138,16 @@ export const getModelVersionSchemas = (state, modelName, version) => {
     if (artifact.signature) {
       if (artifact.signature.inputs) {
         try {
-          schemaMap['inputs'] = JSON.parse(artifact.signature.inputs);
+          schemaMap['inputs'] = JSON.parse(artifact.signature.inputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
           console.error(error);
         }
       }
       if (artifact.signature.outputs) {
         try {
-          schemaMap['outputs'] = JSON.parse(artifact.signature.outputs);
+          schemaMap['outputs'] = JSON.parse(
+            artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''),
+          );
         } catch (error) {
           console.error(error);
         }
@@ -298,10 +300,12 @@ export const getModelVersionTags = (modelName, version, state) => {
   }
 };
 
-export default {
+const reducers = {
   modelByName,
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
   mlModelArtifactByModelVersion,
 };
+
+export default reducers;

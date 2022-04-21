@@ -17,14 +17,16 @@ from shlex import quote
 
 _logger = logging.getLogger(__name__)
 
+_DOCKER_API_TIMEOUT = 300
+
 
 def push_image_to_registry(image_tag):
-    client = docker.from_env()
+    client = docker.from_env(timeout=_DOCKER_API_TIMEOUT)
     _logger.info("=== Pushing docker image %s ===", image_tag)
     for line in client.images.push(repository=image_tag, stream=True, decode=True):
         if "error" in line and line["error"]:
             raise ExecutionException(
-                "Error while pushing to docker registry: " "{error}".format(error=line["error"])
+                "Error while pushing to docker registry: {error}".format(error=line["error"])
             )
     return client.images.get_registry_data(image_tag).id
 

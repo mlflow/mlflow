@@ -6,9 +6,9 @@ from unittest.mock import PropertyMock
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
-TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
-TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
+TEST_FILE_1_CONTENT = "Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = "World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 
 @pytest.fixture()
@@ -58,11 +58,10 @@ def test_dir(files_dir):
     return files_dir
 
 
-class TestDbfsFuseArtifactRepository(object):
+class TestDbfsFuseArtifactRepository:
     @pytest.mark.parametrize("artifact_path", [None, "output", ""])
     def test_log_artifact(self, dbfs_fuse_artifact_repo, test_file, artifact_path, artifact_dir):
         dbfs_fuse_artifact_repo.log_artifact(test_file.strpath, artifact_path)
-        print(os.listdir(artifact_dir))
         expected_file_path = os.path.join(
             artifact_dir,
             artifact_path if artifact_path else "",

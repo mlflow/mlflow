@@ -28,7 +28,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PARENT_RUN_ID,
 )
-
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -37,10 +37,11 @@ _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
 MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
 
-PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_ENV_MANAGER = "ENV_MANAGER"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
+GIT_FETCH_DEPTH = 1
 
 
 _logger = logging.getLogger(__name__)
@@ -49,14 +50,19 @@ _logger = logging.getLogger(__name__)
 def _parse_subdirectory(uri):
     # Parses a uri and returns the uri and subdirectory as separate values.
     # Uses '#' as a delimiter.
+    unquoted_uri = _strip_quotes(uri)
     subdirectory = ""
-    parsed_uri = uri
-    if "#" in uri:
-        subdirectory = uri[uri.find("#") + 1 :]
-        parsed_uri = uri[: uri.find("#")]
+    parsed_uri = unquoted_uri
+    if "#" in unquoted_uri:
+        subdirectory = unquoted_uri[unquoted_uri.find("#") + 1 :]
+        parsed_uri = unquoted_uri[: unquoted_uri.find("#")]
     if subdirectory and "." in subdirectory:
         raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
+
+
+def _strip_quotes(uri):
+    return uri.strip("'\"")
 
 
 def _get_storage_dir(storage_dir):
@@ -182,9 +188,9 @@ def _fetch_git_repo(uri, version, dst_dir):
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch()
     if version is not None:
         try:
+            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
@@ -193,6 +199,7 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
+        origin.fetch(depth=GIT_FETCH_DEPTH)
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
     repo.submodule_update(init=True, recursive=True)
@@ -208,7 +215,7 @@ def _fetch_zip_repo(uri):
     # https://github.com/mlflow/mlflow/issues/763.
     response = requests.get(uri)
     try:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
     except requests.HTTPError as error:
         raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
     return BytesIO(response.content)

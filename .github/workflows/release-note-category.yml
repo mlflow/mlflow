@@ -11,15 +11,19 @@ on:
       - labeled
       - unlabeled
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
-    shell: bash
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Validate
         uses: actions/github-script@v3
         with:

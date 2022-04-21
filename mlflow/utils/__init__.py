@@ -78,15 +78,23 @@ def _chunk_dict(d, chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}
 
 
+def _truncate_and_ellipsize(value, max_length):
+    """
+    Truncates the string representation of the specified value to the specified
+    maximum length, if necessary. The end of the string is ellipsized if truncation occurs
+    """
+    value = str(value)
+    if len(value) > max_length:
+        return value[: (max_length - 3)] + "..."
+    else:
+        return value
+
+
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
     """
     Truncates keys and/or values in a dictionary to the specified maximum length.
     Truncated items will be converted to strings and ellipsized.
     """
-
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
-
     key_is_none = max_key_length is None
     val_is_none = max_value_length is None
 
@@ -164,3 +172,24 @@ def _inspect_original_var_name(var, fallback_name):
 
     except Exception:
         return fallback_name
+
+
+def find_free_port():
+    """
+    Find free socket port on local machine.
+    """
+    import socket
+    from contextlib import closing
+
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(("", 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
+
+
+def is_iterator(obj):
+    """
+    :param obj: any object.
+    :return: boolean representing whether or not 'obj' is an iterator.
+    """
+    return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")

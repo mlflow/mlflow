@@ -19,6 +19,10 @@ describe('RunView', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       runUuid: 'uuid-1234-5678-9012',
       experimentId: '12345',
@@ -68,6 +72,7 @@ describe('RunView', () => {
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
       apis: {},
+      compareExperiments: {},
     };
     minimalStore = mockStore(minimalStoreRaw);
   });
@@ -183,10 +188,10 @@ describe('RunView', () => {
       </Provider>,
     ).find(RunView);
 
-    expect(wrapper.html()).toContain('icon: form');
+    expect(wrapper.html()).toContain('edit-description-button');
     const runViewInstance = wrapper.find(RunViewImpl).instance();
     runViewInstance.setState({ showNoteEditor: true });
-    expect(wrapper.html()).not.toContain('icon: form');
+    expect(wrapper.html()).not.toContain('edit-description-button');
   });
 
   test('should set showRunRenameModal when Rename menu item is clicked', () => {
@@ -200,11 +205,11 @@ describe('RunView', () => {
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
     wrapper
-      .find("[data-test-id='breadCrumbMenuDropdown']")
+      .find("[data-test-id='overflow-menu-trigger']")
       .at(0)
       .simulate('click');
     wrapper
-      .find('[data-test-id="rename"]')
+      .find('[data-test-id="overflow-rename-button"]')
       .hostNodes()
       .simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);

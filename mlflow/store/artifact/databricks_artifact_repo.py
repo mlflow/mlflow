@@ -4,9 +4,7 @@ import os
 import posixpath
 import requests
 import uuid
-import tempfile
 from collections import namedtuple
-from concurrent.futures import ThreadPoolExecutor
 
 from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
@@ -15,7 +13,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
-    RESOURCE_DOES_NOT_EXIST,
 )
 
 from mlflow.protos.databricks_artifacts_pb2 import (
@@ -39,6 +36,7 @@ from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
+    augmented_raise_for_status,
 )
 from mlflow.utils.uri import (
     extract_and_normalize_path,
@@ -108,11 +106,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
-        # Limit the number of threads used for artifact uploads, using at most 8 threads or
-        # 2 * the number of CPU cores available on the system (whichever is smaller)
-        num_cpus = os.cpu_count() or 4
-        num_artifact_workers = min(num_cpus * 2, 8)
-        self.thread_pool = ThreadPoolExecutor(max_workers=num_artifact_workers)
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -245,15 +238,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:
                 with rest_utils.cloud_storage_http_request(
-                    "put", signed_write_uri, "", headers=headers
+                    "put", signed_write_uri, data="", headers=headers
                 ) as response:
-                    response.raise_for_status()
+                    augmented_raise_for_status(response)
             else:
                 with open(local_file, "rb") as file:
                     with rest_utils.cloud_storage_http_request(
-                        "put", signed_write_uri, file, headers=headers
+                        "put", signed_write_uri, data=file, headers=headers
                     ) as response:
-                        response.raise_for_status()
+                        augmented_raise_for_status(response)
         except Exception as err:
             raise MlflowException(err)
 
@@ -325,7 +318,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-            src_file_path=local_file, dst_artifact_dir=artifact_path,
+            src_file_path=local_file,
+            dst_artifact_dir=artifact_path,
         )
         write_credential_info = self._get_write_credential_infos(
             run_id=self.run_id, paths=[run_relative_artifact_path]
@@ -362,7 +356,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
                 dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-                    src_file_path=file_path, dst_artifact_dir=artifact_subdir,
+                    src_file_path=file_path,
+                    dst_artifact_dir=artifact_subdir,
                 )
                 staged_uploads.append(
                     StagedArtifactUpload(
@@ -401,7 +396,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message=(
                     "The following failures occurred while uploading one or more artifacts"
                     " to {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri, failures=failed_uploads,
+                        artifact_root=self.artifact_uri,
+                        failures=failed_uploads,
                     )
                 )
             )
@@ -440,187 +436,18 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        """
-        _download_file is unused in this repository's implementation and is only defined out
-        of necessity because it is an abstract method in the `ArtifactRepository` base class
-        """
-
-    def download_artifacts(self, artifact_path, dst_path=None):
-        """
-        Parallelized implementation of `download_artifacts` for Databricks.
-        """
-
-        # Represents an in-progress file artifact download to a local filesystem location
-        InflightDownload = namedtuple(
-            "InflightDownload",
-            [
-                # The artifact path, given relative to the repository's artifact root location
-                "src_artifact_path",
-                # The local filesystem destination path to which artifacts are being downloaded
-                "dst_local_path",
-                # A future representing the artifact download operation
-                "download_future",
-            ],
+        run_relative_remote_file_path = posixpath.join(
+            self.run_relative_artifact_repo_root_path, remote_file_path
         )
-
-        def async_download_file_artifacts_from_paths(src_artifact_paths, dst_local_dir_path):
-            """
-            Initiate an asynchronous download of the file artifacts specified by
-            `src_artifact_paths` to the local filesystem directory specified by
-            `dst_local_dir_path`.
-
-            :param src_artifact_paths: A list of relative, POSIX-style paths referring to file
-                                       artifacts stored within the repository's artifact root
-                                       location. Each path should be specified relative to the
-                                       artifact repository's artifact root location.
-            :param dst_local_dir_path: Absolute path of the local filesystem destination directory
-                                       to which to download the specified artifacts. A given
-                                       downloaded artifact may be written to a subdirectory of
-                                       `dst_local_dir_path` if its source path contains
-                                       subdirectories.
-            :return: A list of `InflightDownload` objects, each of which represents an inflight
-                     asynchronous artifact download. The entry at index `i` corresponds to the
-                     artifact path at index `i` of `src_artifact_paths`.
-            """
-            run_relative_src_artifact_paths = [
-                posixpath.join(self.run_relative_artifact_repo_root_path, src_artifact_path)
-                for src_artifact_path in src_artifact_paths
-            ]
-            read_credential_infos = self._get_read_credential_infos(
-                run_id=self.run_id, paths=run_relative_src_artifact_paths
-            )
-
-            inflight_downloads = []
-            for src_artifact_path, read_credential_info in zip(
-                src_artifact_paths, read_credential_infos
-            ):
-                dst_local_path = self._create_download_destination(
-                    src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
-                )
-                download_future = self.thread_pool.submit(
-                    self._download_from_cloud,
-                    cloud_credential_info=read_credential_info,
-                    dst_local_file_path=dst_local_path,
-                )
-                inflight_downloads.append(
-                    InflightDownload(
-                        src_artifact_path=src_artifact_path,
-                        dst_local_path=dst_local_path,
-                        download_future=download_future,
-                    )
-                )
-
-            return inflight_downloads
-
-        def async_download_artifact_dir(src_artifact_dir_path, dst_local_dir_path):
-            """
-            Initiate an asynchronous download of the artifact directory specified by
-            `src_artifact_dir_path` to the local filesystem directory specified by
-            `dst_local_dir_path`.
-
-            This implementation is adapted from
-            https://github.com/mlflow/mlflow/blob/a776b54fa8e1beeca6a984864c6375e9ed38f8c0/mlflow/
-            store/artifact/artifact_repo.py#L93.
-
-            :param src_artifact_dir_path: A relative, POSIX-style path referring to a directory of
-                                          of artifacts stored within the repository's artifact root
-                                          location. `src_artifact_dir_path` should be specified
-                                          relative to the repository's artifact root location.
-            :param dst_local_dir_path: Absolute path of the local filesystem destination directory
-                                       to which to download the specified artifact directory. The
-                                       downloaded artifacts may be written to a subdirectory of
-                                       `dst_local_dir_path` if `src_artifact_dir_path` contains
-                                       subdirectories.
-            :return: A tuple whose first element is the destination directory of the downloaded
-                     artifacts on the local filesystem and whose second element is a list of
-                     `InflightDownload` objects, each of which represents an inflight asynchronous
-                     download operation for a file in the specified artifact directory.
-            """
-            local_dir = os.path.join(dst_local_dir_path, src_artifact_dir_path)
-            inflight_downloads = []
-            dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
-                file_info
-                for file_info in self.list_artifacts(src_artifact_dir_path)
-                if file_info.path != "." and file_info.path != src_artifact_dir_path
-            ]
-            if not dir_content:  # empty dir
-                if not os.path.exists(local_dir):
-                    os.makedirs(local_dir, exist_ok=True)
-            else:
-                inflight_downloads += async_download_file_artifacts_from_paths(
-                    src_artifact_paths=[
-                        artifact_info.path
-                        for artifact_info in dir_content
-                        if not artifact_info.is_dir
-                    ],
-                    dst_local_dir_path=dst_local_dir_path,
-                )
-
-                for dir_artifact_info in [
-                    artifact_info for artifact_info in dir_content if artifact_info.is_dir
-                ]:
-                    inflight_downloads += async_download_artifact_dir(
-                        src_artifact_dir_path=dir_artifact_info.path,
-                        dst_local_dir_path=dst_local_dir_path,
-                    )[1]
-
-            return local_dir, inflight_downloads
-
-        if dst_path is None:
-            dst_path = tempfile.mkdtemp()
-        dst_path = os.path.abspath(dst_path)
-
-        if not os.path.exists(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts does not"
-                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)
-                ),
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        elif not os.path.isdir(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts must be a directory!"
-                    " Destination path: {dst_path}".format(dst_path=dst_path)
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        if self._is_directory(artifact_path):
-            dst_local_path, inflight_downloads = async_download_artifact_dir(
-                src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path
-            )
-        else:
-            inflight_downloads = async_download_file_artifacts_from_paths(
-                src_artifact_paths=[artifact_path], dst_local_dir_path=dst_path
-            )
-            assert (
-                len(inflight_downloads) == 1
-            ), "Expected one inflight download for a file artifact, got {} downloads".format(
-                len(inflight_downloads)
-            )
-            dst_local_path = inflight_downloads[0].dst_local_path
-
-        # Join futures to ensure that all artifacts have been downloaded prior to returning
-        failed_downloads = {}
-        for inflight_download in inflight_downloads:
-            try:
-                inflight_download.download_future.result()
-            except Exception as e:
-                failed_downloads[inflight_download.src_artifact_path] = repr(e)
-
-        if len(failed_downloads) > 0:
-            raise MlflowException(
-                message=(
-                    "The following failures occurred while downloading one or more"
-                    " artifacts from {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri, failures=failed_downloads,
-                    )
-                )
-            )
-
-        return dst_local_path
+        read_credentials = self._get_read_credential_infos(
+            run_id=self.run_id, paths=[run_relative_remote_file_path]
+        )
+        # Read credentials for only one file were requested. So we expected only one value in
+        # the response.
+        assert len(read_credentials) == 1
+        self._download_from_cloud(
+            cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
+        )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")

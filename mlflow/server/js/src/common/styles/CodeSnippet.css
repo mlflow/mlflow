@@ -5,15 +5,3 @@
 .code-comment { color: rgb(140, 140, 140); }
 .code-string { color: rgb(106,165,89); }
 .code-number { color: rgb(104,151,187); }
-
-.serving-call-model-container .ant-typography-copy {
-    position: absolute;
-    right: 16px;
-    top: 16px;
-}
-
-.artifact-logged-model-view-code-content .ant-typography-copy {
-    position: absolute;
-    right: 10px;
-    top: 30px;
-}

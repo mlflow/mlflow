@@ -37,6 +37,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
     mlflow.pyspark.ml: "pyspark",
+    mlflow.tensorflow: "tensorflow",
 }
 
 
@@ -56,18 +57,14 @@ def disable_autologging_at_test_end():
 
 
 @pytest.fixture()
-def setup_keras_model():
-    from keras.models import Sequential
-    from keras.layers import Dense
+def setup_sklearn_model():
+    from sklearn.datasets import load_iris
+    from sklearn.linear_model import LogisticRegression
 
-    x = [1, 2, 3]
-    y = [0, 1, 0]
-    model = Sequential()
-    model.add(Dense(12, input_dim=1, activation="relu"))
-    model.add(Dense(8, activation="relu"))
-    model.add(Dense(1, activation="sigmoid"))
-    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-    return x, y, model
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression()
+
+    return X, y, model
 
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
@@ -88,28 +85,57 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
 def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
-    for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
-        with mock.patch(
-            "mlflow.utils.gorilla.apply", wraps=gorilla.apply
-        ) as gorilla_mock, mock.patch(
-            integration.__name__ + ".safe_patch", wraps=safe_patch
-        ) as safe_patch_mock:
+    with mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock, mock.patch(
+        integration.__name__ + ".safe_patch", wraps=safe_patch
+    ) as safe_patch_mock:
+        # In `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`,
+        # we enable autologging for XGBoost and LightGBM sklearn models
+        # using `mlflow.sklearn._autolog()`. So besides `safe_patch` calls in
+        # `autolog()`, we need to count additional `safe_patch` calls
+        # in sklearn autologging routine as well.
+        if integration.__name__ in ["mlflow.xgboost", "mlflow.lightgbm"]:
+            with mock.patch(
+                "mlflow.sklearn.safe_patch", wraps=safe_patch
+            ) as sklearn_safe_patch_mock:
+                integration.autolog(disable=False)
+                safe_patch_call_count = (
+                    safe_patch_mock.call_count + sklearn_safe_patch_mock.call_count
+                )
+
+                # Assert autolog integrations use the fluent API for run management. This is to
+                # ensure certain fluent API methods like mlflow.last_active_run behaves as expected.
+                assert any(
+                    kwargs["manage_run"]
+                    for _, kwargs in sklearn_safe_patch_mock.call_args_list
+                    if "manage_run" in kwargs
+                )
+        else:
             integration.autolog(disable=False)
-            assert safe_patch_mock.call_count > 0
-            # `safe_patch` leverages `gorilla.apply` in its implementation. Accordingly, we expect
-            # that the total number of `gorilla.apply` calls to be equivalent to the number of
-            # `safe_patch` calls. This verifies that autologging integrations are leveraging
-            # `safe_patch`, rather than calling `gorilla.apply` directly (which does not provide
-            # exception safety properties)
-            assert safe_patch_mock.call_count == gorilla_mock.call_count
+            safe_patch_call_count = safe_patch_mock.call_count
+
+        if integration.__name__ != "mlflow.spark":
+            # Assert autolog integrations use the fluent API for run management. This is to
+            # ensure certain fluent API methods like mlflow.last_active_run behaves as expected.
+            assert any(
+                kwargs["manage_run"]
+                for _, kwargs in safe_patch_mock.call_args_list
+                if "manage_run" in kwargs
+            )
+        assert safe_patch_call_count > 0
+        # `safe_patch` leverages `gorilla.apply` in its implementation. Accordingly, we expect
+        # that the total number of `gorilla.apply` calls to be equivalent to the number of
+        # `safe_patch` calls. This verifies that autologging integrations are leveraging
+        # `safe_patch`, rather than calling `gorilla.apply` directly (which does not provide
+        # exception safety properties)
+        assert safe_patch_call_count == gorilla_mock.call_count
 
 
-def test_autolog_respects_exclusive_flag(setup_keras_model):
-    x, y, model = setup_keras_model
+def test_autolog_respects_exclusive_flag(setup_sklearn_model):
+    x, y, model = setup_sklearn_model
 
-    mlflow.keras.autolog(exclusive=True)
+    mlflow.sklearn.autolog(exclusive=True)
     run = mlflow.start_run()
-    model.fit(x, y, epochs=150, batch_size=10)
+    model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
@@ -117,9 +143,9 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
     assert not params
     assert all("mlflow." in key for key in tags)
 
-    mlflow.keras.autolog(exclusive=False)
+    mlflow.sklearn.autolog(exclusive=False)
     run = mlflow.start_run()
-    model.fit(x, y, epochs=150, batch_size=10)
+    model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params = run_data.metrics, run_data.params
@@ -127,12 +153,12 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
     assert params
 
 
-def test_autolog_respects_disable_flag(setup_keras_model):
-    x, y, model = setup_keras_model
+def test_autolog_respects_disable_flag(setup_sklearn_model):
+    x, y, model = setup_sklearn_model
 
-    mlflow.keras.autolog(disable=True, exclusive=False)
+    mlflow.sklearn.autolog(disable=True, exclusive=False)
     run = mlflow.start_run()
-    model.fit(x, y, epochs=2, batch_size=10)
+    model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
@@ -140,9 +166,9 @@ def test_autolog_respects_disable_flag(setup_keras_model):
     assert not params
     assert all("mlflow." in key for key in tags)
 
-    mlflow.keras.autolog(disable=False, exclusive=False)
+    mlflow.sklearn.autolog(disable=False, exclusive=False)
     run = mlflow.start_run()
-    model.fit(x, y, epochs=2, batch_size=10)
+    model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params = run_data.metrics, run_data.params
@@ -199,7 +225,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
         assert all("mlflow." in key for key in tags)
 
     def import_sklearn():
-        import sklearn  # pylint: disable=unused-variable
+        import sklearn  # pylint: disable=unused-import
 
     def disable_autolog():
         mlflow.sklearn.autolog(disable=True)
@@ -255,7 +281,7 @@ def test_autolog_respects_silent_mode(tmpdir):
             e = executor.submit(train_model)
             executions.append(e)
 
-    assert all([e.result() is True for e in executions])
+    assert all(e.result() is True for e in executions)
     assert not stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
@@ -273,7 +299,7 @@ def test_autolog_respects_silent_mode(tmpdir):
             e = executor.submit(train_model)
             executions.append(e)
 
-    assert all([e.result() is True for e in executions])
+    assert all(e.result() is True for e in executions)
     assert stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
@@ -285,3 +311,24 @@ def test_autolog_respects_silent_mode(tmpdir):
     # `clean_up_leaked_runs` fixture in `tests/conftest.py` to fail.
     while mlflow.active_run():
         mlflow.end_run()
+
+
+def test_autolog_globally_configured_flag_set_correctly():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.clear()
+    import sklearn  # pylint: disable=unused-import,unused-variable
+    import pyspark  # pylint: disable=unused-import,unused-variable
+    import pyspark.ml  # pylint: disable=unused-import,unused-variable
+
+    integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
+    mlflow.autolog()
+    for integration_name in integrations_to_test:
+        assert AUTOLOGGING_INTEGRATIONS[integration_name]["globally_configured"]
+
+    mlflow.sklearn.autolog()
+    mlflow.spark.autolog()
+    mlflow.pyspark.ml.autolog()
+
+    for integration_name in integrations_to_test:
+        assert "globally_configured" not in AUTOLOGGING_INTEGRATIONS[integration_name]

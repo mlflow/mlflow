@@ -11,6 +11,7 @@ import {
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API,
   DELETE_TAG_API,
+  SET_COMPARE_EXPERIMENTS,
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -414,6 +415,31 @@ export const apis = (state = {}, action) => {
   }
 };
 
+// This state is used in the following components to show a breadcrumb link for navigating back to
+// the compare-experiments page.
+// - RunView
+// - CompareRunView
+// - MetricView
+const defaultCompareExperimentsState = {
+  // Experiment IDs compared on `/compare-experiments`.
+  comparedExperimentIds: [],
+  // Indicates whether the user has navigated to `/compare-experiments` before
+  // Should be set to false when the user navigates to `/experiments/<experiment_id>`
+  hasComparedExperimentsBefore: false,
+};
+export const compareExperiments = (state = defaultCompareExperimentsState, action) => {
+  if (action.type === SET_COMPARE_EXPERIMENTS) {
+    const { comparedExperimentIds, hasComparedExperimentsBefore } = action.payload;
+    return {
+      ...state,
+      comparedExperimentIds,
+      hasComparedExperimentsBefore,
+    };
+  } else {
+    return state;
+  }
+};
+
 export const isErrorModalOpen = (state) => {
   return state.views.errorModal.isOpen;
 };
@@ -446,7 +472,7 @@ const errorModal = (state = errorModalDefault, action) => {
   }
 };
 
-const views = combineReducers({
+export const views = combineReducers({
   errorModal,
 });
 
@@ -454,6 +480,7 @@ export const rootReducer = combineReducers({
   entities,
   views,
   apis,
+  compareExperiments,
 });
 
 export const getEntities = (state) => {

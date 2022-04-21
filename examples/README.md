@@ -6,14 +6,14 @@
 ## Tutorials
 Various examples that depict MLflow tracking, project, and serving use cases.
 
-* `h2o` depicts how MLflow can be use to track various random forest architectures to train models 
+* `h2o` depicts how MLflow can be use to track various random forest architectures to train models
 for predicting wine quality.
 * `hyperparam`  shows how to do hyperparameter tuning with MLflow and some popular optimization libraries.
-* `keras` modifies 
+* `keras` modifies
 [a Keras classification example](https://github.com/keras-team/keras/blob/ed07472bc5fc985982db355135d37059a1f887a9/examples/reuters_mlp.py)
 and uses MLflow's `mlflow.keras.autolog()` API to automatically log metrics and parameters
 to MLflow during training.
-* `multistep_workflow` is an end-to-end of a data ETL and ML training pipeline built as an MLflow 
+* `multistep_workflow` is an end-to-end of a data ETL and ML training pipeline built as an MLflow
 project. The example shows how parts of the workflow can leverage from previously run steps.
 * `pytorch` uses CNN on MNIST dataset for character recognition. The example logs TensorBoard events
 and stores (logs) them as MLflow artifacts.
@@ -22,13 +22,14 @@ and stores (logs) them as MLflow artifacts.
 * `sklearn_elasticnet_diabetes` uses the sklearn diabetes dataset to predict diabetes progression
    using ElasticNet.
 * `sklearn_elasticnet_wine_quality` is an example for MLflow projects. This uses the Wine
-   Quality dataset and Elastic Net to predict quality. The example uses `MLproject` to set up a 
+   Quality dataset and Elastic Net to predict quality. The example uses `MLproject` to set up a
    Conda environment, define parameter types and defaults, entry point for training, etc.
 * `sklearn_logisic_regression` is a simple MLflow example with hooks to log training data to MLflow
 tracking server.
+* `supply_chain_security` shows how to strengthen the security of ML projects against supply-chain attacks by enforcing hash checks on Python packages.
 * `tensorflow` contains end-to-end one run examples from train to predict for both TensorFlow 1.X and 2.0. It includes usage of MLflow's
 `mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 * `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies
-* `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/examples/train_mnist.py) and highlights MLflow's `mlflow.fastai.autolog()` 
-   API to track parameters, metrics, and artifacts while training a simple MNIST model. 
+* `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py) and highlights MLflow's `mlflow.fastai.autolog()`
+   API to track parameters, metrics, and artifacts while training a simple MNIST model.

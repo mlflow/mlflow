@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc import _enforce_tensor_spec
@@ -19,9 +20,8 @@ def test_col_spec():
     b1 = ColSpec(DataType.string, "b")
     assert b1 != a1
     assert a1 == a2
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Unsupported type 'unsupported'"):
         ColSpec("unsupported")
-    assert "Unsupported type 'unsupported'" in ex.value.message
     a4 = ColSpec(**a1.to_dict())
     assert a4 == a1
     assert ColSpec(**json.loads(json.dumps(a1.to_dict()))) == a1
@@ -41,15 +41,15 @@ def test_tensor_spec():
     assert a1 != a4
     b1 = TensorSpec(np.dtype("float64"), (-1, 3, 3), "b")
     assert b1 != a1
-    with pytest.raises(TypeError) as ex1:
+    with pytest.raises(TypeError, match="Expected `type` to be instance"):
         TensorSpec("Unsupported", (-1, 3, 3), "a")
-    assert "Expected `type` to be instance" in str(ex1.value)
-    with pytest.raises(TypeError) as ex2:
+    with pytest.raises(TypeError, match="Expected `shape` to be instance"):
         TensorSpec(np.dtype("float64"), np.array([-1, 2, 3]), "b")
-    assert "Expected `shape` to be instance" in str(ex2.value)
-    with pytest.raises(MlflowException) as ex3:
+    with pytest.raises(
+        MlflowException,
+        match="MLflow does not support size information in flexible numpy data types",
+    ):
         TensorSpec(np.dtype("<U10"), (-1,), "b")
-    assert "MLflow does not support size information in flexible numpy data types" in str(ex3.value)
 
     a5 = TensorSpec.from_json_dict(**a1.to_dict())
     assert a5 == a1
@@ -111,39 +111,36 @@ def test_schema_creation():
     Schema([TensorSpec(np.dtype("float64"), (-1,))])
 
     # combination of tensor and col spec is not allowed
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="Please choose one of"):
         Schema([TensorSpec(np.dtype("float64"), (-1,)), ColSpec("double")])
-    assert "Please choose one of" in ex.value.message
 
     # combination of named and unnamed inputs is not allowed
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="Creating Schema with a combination of named and unnamed inputs"
+    ):
         Schema(
             [TensorSpec(np.dtype("float64"), (-1,), "blah"), TensorSpec(np.dtype("float64"), (-1,))]
         )
-    assert "Creating Schema with a combination of named and unnamed inputs" in ex.value.message
 
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="Creating Schema with a combination of named and unnamed inputs"
+    ):
         Schema([ColSpec("double", "blah"), ColSpec("double")])
-    assert "Creating Schema with a combination of named and unnamed inputs" in ex.value.message
 
     # multiple unnamed tensor specs is not allowed
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="Creating Schema with multiple unnamed TensorSpecs is not supported"
+    ):
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
-    assert "Creating Schema with multiple unnamed TensorSpecs is not supported" in ex.value.message
 
 
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()
-    with pytest.raises(MlflowException) as ex:
-        schema.column_types()
-    assert "TensorSpec only supports numpy types" in ex.value.message
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="TensorSpec only supports numpy types"):
         schema.pandas_types()
-    assert "TensorSpec only supports numpy types" in ex.value.message
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(MlflowException, match="TensorSpec cannot be converted to spark dataframe"):
         schema.as_spark_schema()
-    assert "TensorSpec cannot be converted to spark dataframe" in ex.value.message
 
 
 def test_schema_inference_on_dataframe(pandas_df_with_all_types):
@@ -167,15 +164,15 @@ def test_schema_inference_on_dataframe(pandas_df_with_all_types):
 
 def test_schema_inference_on_pandas_series():
     # test objects
-    schema = _infer_schema(pd.Series(np.array(["a"], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array(["a"], dtype=object)))
     assert schema == Schema([ColSpec(DataType.string)])
-    schema = _infer_schema(pd.Series(np.array([bytes([1])], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([bytes([1])], dtype=object)))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(pd.Series(np.array([bytearray([1]), None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([bytearray([1]), None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(pd.Series(np.array([True, None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([True, None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.string)])
-    schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=np.object)))
+    schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes
@@ -183,11 +180,11 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec(DataType.binary)])
 
     # test string
-    schema = _infer_schema(pd.Series(np.array(["a"], dtype=np.str)))
+    schema = _infer_schema(pd.Series(np.array(["a"], dtype=str)))
     assert schema == Schema([ColSpec(DataType.string)])
 
     # test boolean
-    schema = _infer_schema(pd.Series(np.array([True], dtype=np.bool)))
+    schema = _infer_schema(pd.Series(np.array([True], dtype=bool)))
     assert schema == Schema([ColSpec(DataType.boolean)])
 
     # test ints
@@ -201,7 +198,7 @@ def test_schema_inference_on_pandas_series():
         assert schema == Schema([ColSpec("long")])
 
     # unsigned long is unsupported
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported numpy data type"):
         _infer_schema(pd.Series(np.array([1, 2, 3], dtype=np.uint64)))
 
     # test floats
@@ -226,12 +223,12 @@ def test_schema_inference_on_pandas_series():
 
     # unsupported
     if hasattr(np, "float128"):
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Unsupported numpy data type"):
             _infer_schema(pd.Series(np.array([1, 2, 3], dtype=np.float128)))
 
 
 def test_get_tensor_shape(dict_of_ndarrays):
-    assert all([-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values()])
+    assert all(-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values())
 
     data = dict_of_ndarrays["4D"]
     # Specify variable dimension
@@ -242,13 +239,32 @@ def test_get_tensor_shape(dict_of_ndarrays):
     assert all([_get_tensor_shape(data, None) != -1])
 
     # Out of bounds
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="The specified variable_dimension 10 is out of bounds"
+    ):
         _get_tensor_shape(data, 10)
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="The specified variable_dimension -10 is out of bounds"
+    ):
         _get_tensor_shape(data, -10)
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="Data in the dictionary must be of type numpy.ndarray"):
         _infer_schema({"x": 1})
+
+
+@pytest.fixture
+def dict_of_sparse_matrix():
+    return {
+        "csc": csc_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+        "csr": csr_matrix(np.arange(0, 12, 0.5).reshape(3, 8)),
+    }
+
+
+def test_get_sparse_matrix_data_type_and_shape(dict_of_sparse_matrix):
+    for sparse_matrix in dict_of_sparse_matrix.values():
+        schema = _infer_schema(sparse_matrix)
+        assert schema.numpy_types() == ["float64"]
+        assert _get_tensor_shape(sparse_matrix) == (-1, 8)
 
 
 def test_schema_inference_on_dictionary(dict_of_ndarrays):
@@ -261,9 +277,10 @@ def test_schema_inference_on_dictionary(dict_of_ndarrays):
         ]
     )
     # test exception is raised if non-numpy data in dictionary
-    with pytest.raises(TypeError):
+    match = "Data in the dictionary must be of type numpy.ndarray"
+    with pytest.raises(TypeError, match=match):
         _infer_schema({"x": 1})
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=match):
         _infer_schema({"x": [1]})
 
 
@@ -409,7 +426,7 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
 
     struct_fields = []
-    for t in schema.column_types():
+    for t in schema.input_types():
         # pyspark _parse_datatype_string() expects "timestamp" instead of "datetime"
         if t == DataType.datetime:
             struct_fields.append(StructField("datetime", _parse_datatype_string("timestamp"), True))
@@ -449,7 +466,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     )
     schema = _infer_schema(pandas_df_with_all_types)
     expected_spark_schema = StructType(
-        [StructField(t.name, t.to_spark(), True) for t in schema.column_types()]
+        [StructField(t.name, t.to_spark(), True) for t in schema.input_types()]
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()
@@ -461,7 +478,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     # test unnamed columns
     schema = Schema([ColSpec(col.type) for col in schema.inputs])
     expected_spark_schema = StructType(
-        [StructField(str(i), t.to_spark(), True) for i, t in enumerate(schema.column_types())]
+        [StructField(str(i), t.to_spark(), True) for i, t in enumerate(schema.input_types())]
     )
     actual_spark_schema = schema.as_spark_schema()
     assert expected_spark_schema.jsonValue() == actual_spark_schema.jsonValue()

@@ -2,7 +2,7 @@ name: multistep
 channels:
   - conda-forge
 dependencies:
-  - python=3.6
+  - python=3.7
   - pip
   - pip:
     - tensorflow==1.15.2
