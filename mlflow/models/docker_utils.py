@@ -17,7 +17,7 @@ RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 """
 
-SETUP_PYENV = """
+SETUP_VIRTUALENV = """
 # Setup pyenv
 RUN apt -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
@@ -28,10 +28,10 @@ RUN git clone --depth 1 https://github.com/pyenv/pyenv.git "/root/.pyenv"
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
 RUN apt install -y python3.7
-RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN ln -s -f $(which python3.7) /usr/bin/python
-RUN python --version
-RUN python3.7 /tmp/get-pip.py
+RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
+RUN python /tmp/get-pip.py
+RUN pip install virtualenv
 """
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
@@ -85,26 +85,28 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return (
             "COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            "mvn --batch-mode package -DskipTests && "
-            "mkdir -p /opt/java/jars && "
-            "mv /opt/mlflow/mlflow/java/scoring/target/"
-            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            # Temporarily commented out for faster development
+            # "RUN cd /opt/mlflow/mlflow/java/scoring && "
+            # "mvn --batch-mode package -DskipTests && "
+            # "mkdir -p /opt/java/jars && "
+            # "mv /opt/mlflow/mlflow/java/scoring/target/"
+            # "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
         ).format(mlflow_dir=mlflow_dir)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
-            "RUN mvn "
-            " --batch-mode dependency:copy"
-            " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            " -DoutputDirectory=/opt/java\n"
-            "RUN mvn "
-            " --batch-mode dependency:copy"
-            " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars\n"
-            "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
-            "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
+            # Temporarily commented out for faster development
+            # "RUN mvn "
+            # " --batch-mode dependency:copy"
+            # " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+            # " -DoutputDirectory=/opt/java\n"
+            # "RUN mvn "
+            # " --batch-mode dependency:copy"
+            # " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+            # " -DoutputDirectory=/opt/java/jars\n"
+            # "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
+            # "RUN cd /opt/java && mvn "
+            # "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
         ).format(version=mlflow.version.VERSION)
 
 
@@ -129,7 +131,7 @@ def _build_image(
 
     is_conda = env_manager == _EnvManager.CONDA
     setup_miniconda = SETUP_MINICONDA if is_conda else ""
-    setup_pyenv = "" if is_conda else SETUP_PYENV
+    setup_virtualenv = "" if is_conda else SETUP_VIRTUALENV
 
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -139,7 +141,7 @@ def _build_image(
             f.write(
                 _DOCKERFILE_TEMPLATE.format(
                     setup_miniconda=setup_miniconda,
-                    setup_pyenv=setup_pyenv,
+                    setup_pyenv=setup_virtualenv,
                     install_mlflow=install_mlflow,
                     custom_setup_steps=custom_setup_steps,
                     entrypoint=entrypoint,

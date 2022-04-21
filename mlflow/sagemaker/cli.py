@@ -567,8 +567,9 @@ def run_local(model_uri, port, image, flavor):
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
+@cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, mlflow_home):
+def build_and_push_container(build, push, container, env_manager, mlflow_home):
     """
     Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
@@ -598,6 +599,7 @@ def build_and_push_container(build, push, container, mlflow_home):
             mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
             entrypoint=sagemaker_image_entrypoint,
             custom_setup_steps_hook=setup_container,
+            env_manager=env_manager,
         )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
