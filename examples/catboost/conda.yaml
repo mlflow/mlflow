@@ -1,0 +1,8 @@
+name: catboost-tutorial
+channels:
+  - conda-forge
+dependencies:
+  - mlflow>=1.0
+  - pip
+  - pip:
+      - catboost
