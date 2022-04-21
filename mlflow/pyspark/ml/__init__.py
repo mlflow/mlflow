@@ -938,46 +938,33 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
-                # TODO: support model signature
-                from mlflow.models.signature import infer_signature
+                from mlflow.models import infer_signature
+                from mlflow.pyspark.ml._autolog import (
+                    cast_spark_df_with_vector_to_array,
+                    get_feature_cols,
+                )
+                from mlflow.spark import find_and_set_features_col_as_vector_if_needed
+                from pyspark.sql import SparkSession
 
-                def _cast_spark_df_with_vector_to_array(input_spark_df):
-                    """
-                    Finds columns of vector type in a spark dataframe and
-                    casts them to array<double> type.
+                spark = SparkSession.builder.getOrCreate()
 
-                    :param input_spark_df:
-                    :return: a spark dataframe with vector columns transformed to array<double> type
-                    """
-                    from functools import reduce
-                    from pyspark.ml.functions import vector_to_array
-                    from pyspark.ml.linalg import VectorUDT
-
-                    vector_type_columns = [
-                        _field.name
-                        for _field in input_spark_df.schema
-                        if isinstance(_field.dataType, VectorUDT)
-                    ]
-                    return reduce(
-                        lambda df, vector_col: df.withColumn(
-                            vector_col, vector_to_array(vector_col)
-                        ),
-                        vector_type_columns,
-                        input_spark_df,
+                def _get_input_example_as_pd_df():
+                    feature_cols = list(get_feature_cols(input_df.schema, spark_model))
+                    limited_input_df = input_df.select(feature_cols).limit(
+                        INPUT_EXAMPLE_SAMPLE_ROWS
                     )
+                    return cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
 
-                limited_input_df = input_df.limit(INPUT_EXAMPLE_SAMPLE_ROWS)
-
-                def _get_input_example():
-                    return _cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
-
-                def _infer_model_signature(input_data_slice):
-                    model_output = spark_model.transform(input_data_slice)
-                    return infer_signature(input_data_slice.toPandas(), model_output.toPandas())
+                def _infer_model_signature(input_example_slice):
+                    input_slice_df = find_and_set_features_col_as_vector_if_needed(
+                        spark.createDataFrame(input_example_slice), spark_model
+                    )
+                    model_output = spark_model.transform(input_slice_df)
+                    return infer_signature(input_example_slice, model_output.toPandas())
 
                 input_example, signature = resolve_input_example_and_signature(
-                    _get_input_example,
-                    lambda _: _infer_model_signature(limited_input_df),
+                    _get_input_example_as_pd_df,
+                    _infer_model_signature,
                     log_input_examples,
                     log_model_signatures,
                     _logger,
@@ -1013,10 +1000,14 @@ def autolog(
         else:
             # we need generate estimator param map so we call `self.copy(params)` to construct
             # an estimator with the extra params.
+            from pyspark.storagelevel import StorageLevel
+
             estimator = self.copy(params) if params is not None else self
             _log_pretraining_metadata(estimator, params)
+            input_training_df = args[0].persist(StorageLevel.MEMORY_AND_DISK)
             spark_model = original(self, *args, **kwargs)
-            _log_posttraining_metadata(estimator, spark_model, params, args[0])
+            _log_posttraining_metadata(estimator, spark_model, params, input_training_df)
+            input_training_df.unpersist()
 
             return spark_model
 

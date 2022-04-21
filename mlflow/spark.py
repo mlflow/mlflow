@@ -741,6 +741,43 @@ def _load_pyfunc(path):
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
+def find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
+    """
+    Finds the `featuresCol` column in spark_model and then ensure that column is of `vector` type
+    :param spark_df: Input dataframe that contains `featuresCol`
+    :param spark_model: A pipeline model or a single transformer that contains `featuresCol` param
+    :return: A spark dataframe that contains features column of `vector` type.
+    """
+    from pyspark.sql.functions import udf
+    from pyspark.ml.linalg import Vectors, VectorUDT
+    from pyspark.sql import types as t
+
+    def _find_stage_with_features_col(stage):
+        if stage.hasParam("featuresCol"):
+
+            def _array_to_vector(input_array):
+                return Vectors.dense(input_array)
+
+            array_to_vector_udf = udf(f=_array_to_vector, returnType=VectorUDT())
+            features_col_name = stage.extractParamMap().get(stage.featuresCol)
+            features_col_type = [
+                _field
+                for _field in spark_df.schema.fields
+                if _field.name == features_col_name
+                and _field.dataType == t.ArrayType(t.DoubleType())
+            ]
+            if len(features_col_type) == 1:
+                return spark_df.withColumn(
+                    features_col_name, array_to_vector_udf(features_col_name)
+                )
+        return spark_df
+
+    if hasattr(spark_model, "stages"):
+        for stage in reversed(spark_model.stages):
+            return _find_stage_with_features_col(stage)
+    return _find_stage_with_features_col(spark_model)
+
+
 class _PyFuncModelWrapper:
     """
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
@@ -759,7 +796,9 @@ class _PyFuncModelWrapper:
         """
         from pyspark.ml import PipelineModel
 
-        spark_df = self.spark.createDataFrame(pandas_df)
+        spark_df = find_and_set_features_col_as_vector_if_needed(
+            self.spark.createDataFrame(pandas_df), self.spark_model
+        )
         # If a spark ML pipeline contains a single Estimator stage, it requires
         # the input dataframe to contain features column of vector type.
         # But the autologging for pyspark ML casts vector column to array<double> type
@@ -767,32 +806,11 @@ class _PyFuncModelWrapper:
         # that features column back to vector type so that the pipeline stages can correctly work.
         # A valid scenario is if the auto-logged input example is directly used
         # for prediction, which would otherwise fail without this transformation.
-        ml_model_estimator = self.spark_model.stages[-1]
-        if len(self.spark_model.stages) == 1 and hasattr(ml_model_estimator, "featuresCol"):
-            from pyspark.sql.functions import udf
-            from pyspark.ml.linalg import Vectors, VectorUDT
-            from pyspark.sql import types as t
+        pipeline_last_stage = self.spark_model.stages[-1]
 
-            def _array_to_vector(input_array):
-                return Vectors.dense(input_array)
-
-            array_to_vector_udf = udf(f=_array_to_vector, returnType=VectorUDT())
-
-            features_col_name = ml_model_estimator.extractParamMap().get(
-                ml_model_estimator.featuresCol
-            )
-            features_col_type = [
-                _field
-                for _field in spark_df.schema.fields
-                if _field.name == features_col_name
-                and _field.dataType == t.ArrayType(t.DoubleType())
-            ]
-            if len(features_col_type) == 1:
-                spark_df = spark_df.withColumn(
-                    features_col_name, array_to_vector_udf(features_col_name)
-                )
-
-        if isinstance(self.spark_model, PipelineModel) and ml_model_estimator.hasParam("outputCol"):
+        if isinstance(self.spark_model, PipelineModel) and pipeline_last_stage.hasParam(
+            "outputCol"
+        ):
             from pyspark.sql import SparkSession
 
             prediction_column = "prediction"
@@ -803,7 +821,7 @@ class _PyFuncModelWrapper:
             # Ensure prediction column doesn't already exist
             if prediction_column not in transformed_df.columns:
                 # make sure predict work by default for Transformers
-                ml_model_estimator.setOutputCol(prediction_column)
+                pipeline_last_stage.setOutputCol(prediction_column)
         return [
             x.prediction
             for x in self.spark_model.transform(spark_df).select("prediction").collect()

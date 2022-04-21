@@ -35,7 +35,7 @@ from pyspark.ml.classification import (
     MultilayerPerceptronClassifier,
     OneVsRest,
 )
-from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler
+from pyspark.ml.feature import HashingTF, Tokenizer, VectorAssembler, StringIndexer, IndexToString
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder, TrainValidationSplit
 from mlflow.pyspark.ml import (
     _should_log_model,
@@ -939,9 +939,8 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
         lr.fit(dataset_multinomial)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            [{"name": "label", "type": "double"}, {"name": "features", "type": "string"}],
+            [{"name": "features", "type": "string"}],
             [
-                {"name": "label", "type": "double"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},
@@ -970,14 +969,10 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
         _assert_autolog_infers_model_signature_correctly(
             run,
             [
-                {"name": "id", "type": "long"},
                 {"name": "text", "type": "string"},
-                {"name": "label", "type": "double"},
             ],
             [
-                {"name": "id", "type": "long"},
                 {"name": "text", "type": "string"},
-                {"name": "label", "type": "double"},
                 {"name": "words", "type": "string"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
@@ -996,8 +991,6 @@ def multinomial_df_with_string_labels(spark_session):
 
 @pytest.fixture()
 def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_string_labels):
-    from pyspark.ml.feature import IndexToString, StringIndexer
-
     string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
         multinomial_df_with_string_labels
     )
@@ -1013,6 +1006,7 @@ def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_strin
     )
 
 
+@pytest.mark.large
 def test_input_example_with_index_to_string_stage(
     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
 ):
@@ -1026,6 +1020,7 @@ def test_input_example_with_index_to_string_stage(
         pyfunc_model.predict(input_example)
 
 
+@pytest.mark.large
 def test_signature_with_index_to_string_stage(
     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
 ):
@@ -1034,11 +1029,61 @@ def test_signature_with_index_to_string_stage(
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            [{"name": "id", "type": "long"}, {"name": "category", "type": "string"}],
+            [{"name": "id", "type": "long"}],
             [
                 {"name": "id", "type": "long"},
-                {"name": "category", "type": "string"},
-                {"name": "label", "type": "double"},
+                {"name": "features", "type": "string"},
+                {"name": "rawPrediction", "type": "string"},
+                {"name": "probability", "type": "string"},
+                {"name": "prediction", "type": "double"},
+                {"name": "originalLabel", "type": "string"},
+            ],
+        )
+
+
+@pytest.fixture()
+def input_df_with_non_features(spark_session):
+    return spark_session.createDataFrame(
+        [
+            (0, "a", "a", "b"),
+            (1, "b", "a", "b"),
+            (2, "c", "a", "b"),
+            (3, "a", "a", "b"),
+            (4, "a", "a", "b"),
+            (5, "c", "a", "b"),
+        ]
+    ).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
+
+
+@pytest.fixture()
+def pipeline_for_feature_cols(input_df_with_non_features):
+    string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
+        input_df_with_non_features
+    )
+    return Pipeline(
+        stages=[
+            string_indexer,
+            VectorAssembler(inputCols=["id"], outputCol="features"),
+            LogisticRegression(),
+            IndexToString(
+                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+            ),
+        ]
+    )
+
+
+@pytest.mark.large
+def test_signature_with_non_feature_input_columns(
+    input_df_with_non_features, pipeline_for_feature_cols
+):
+    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+    with mlflow.start_run() as run:
+        pipeline_for_feature_cols.fit(input_df_with_non_features)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [{"name": "id", "type": "long"}],
+            [
+                {"name": "id", "type": "long"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},
