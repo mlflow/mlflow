@@ -935,8 +935,8 @@ def _get_metric_history():
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entites = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
-    response_message.metrics.extend([m.to_proto() for m in metric_entites])
+    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+    response_message.metrics.extend([m.to_proto() for m in metric_entities])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
