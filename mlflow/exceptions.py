@@ -51,7 +51,7 @@ class MlflowException(Exception):
         except (ValueError, TypeError):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         if isinstance(message, BaseException):
-            message = f"{message.__module__}.{message.__class__}: {str(message)}"
+            message = f"{message.__class__.__module__}.{message.__class__}: {str(message)}"
         else:
             message = str(message)
         self.message = message
