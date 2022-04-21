@@ -60,8 +60,9 @@ def get_feature_cols(
 ) -> Set[str]:
     """
     Finds feature columns from an input dataset. If a dataset
-    contains non-feature columns, those columns are not returned
-    set, which can be feature or non-feature columns
+    contains non-feature columns, those columns are not returned, but
+    if `input_fields` is set to include non-feature columns those
+    will be included in the return set of column names.
 
     :param df_schema: An input spark schema to look for the feature columns
     :param transformer: A pipeline/transformer to get the required feature columns

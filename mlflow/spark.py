@@ -743,7 +743,19 @@ def _load_pyfunc(path):
 
 def find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
     """
-    Finds the `featuresCol` column in spark_model and then ensure that column is of `vector` type
+    Finds the `featuresCol` column in spark_model and
+    then tries to cast that column to `vector` type.
+    This method is noop if the `featuresCol` is already of type `vector`
+    or if it can't be cast to `vector` type
+    Note:
+    If a spark ML pipeline contains a single Estimator stage, it requires
+    the input dataframe to contain features column of vector type.
+    But the autologging for pyspark ML casts vector column to array<double> type
+    for parity with the pd Dataframe. The following fix is required, which transforms
+    that features column back to vector type so that the pipeline stages can correctly work.
+    A valid scenario is if the auto-logged input example is directly used
+    for prediction, which would otherwise fail without this transformation.
+
     :param spark_df: Input dataframe that contains `featuresCol`
     :param spark_model: A pipeline model or a single transformer that contains `featuresCol` param
     :return: A spark dataframe that contains features column of `vector` type.
@@ -799,13 +811,7 @@ class _PyFuncModelWrapper:
         spark_df = find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
-        # If a spark ML pipeline contains a single Estimator stage, it requires
-        # the input dataframe to contain features column of vector type.
-        # But the autologging for pyspark ML casts vector column to array<double> type
-        # for parity with the pd Dataframe. The following fix is required, which transforms
-        # that features column back to vector type so that the pipeline stages can correctly work.
-        # A valid scenario is if the auto-logged input example is directly used
-        # for prediction, which would otherwise fail without this transformation.
+
         pipeline_last_stage = self.spark_model.stages[-1]
 
         if isinstance(self.spark_model, PipelineModel) and pipeline_last_stage.hasParam(

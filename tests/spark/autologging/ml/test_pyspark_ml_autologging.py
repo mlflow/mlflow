@@ -49,6 +49,7 @@ from mlflow.pyspark.ml import (
 from pyspark.sql import SparkSession
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
 
 pytestmark = pytest.mark.large
 
@@ -1091,3 +1092,25 @@ def test_signature_with_non_feature_input_columns(
                 {"name": "originalLabel", "type": "string"},
             ],
         )
+
+
+@pytest.mark.large
+def test_cast_spark_df_with_vector_to_array(dataset_multinomial):
+    from pyspark.ml.functions import vector_to_array
+    from pyspark.sql import types as t
+
+    input_df = dataset_multinomial.withColumn("features", vector_to_array("features"))
+    output_df = cast_spark_df_with_vector_to_array(input_df)
+    assert [_field for _field in output_df.schema.fields if _field.name == "features"][
+        0
+    ].dataType == t.ArrayType(
+        t.DoubleType(), False
+    ), "'features' column isn't of expected type array<double>"
+
+
+@pytest.mark.large
+def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
+    pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
+    assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == set(
+        {"id"}
+    ), "Wrong feature columns returned"
