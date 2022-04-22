@@ -46,6 +46,8 @@ from mlflow.utils.model_utils import (
 
 FLAVOR_NAME = "bigml"
 
+MIN_VERSION = "7.3.0"
+
 
 def get_default_pip_requirements():
     """
@@ -110,7 +112,11 @@ def save_model(
     import bigml
 
     from bigml.supervised import SupervisedModel
-    from bigml.api import BigML
+    from packaging import version
+    if version.parse(bigml.__version__) < version.parse(MIN_VERSION):
+        warnings.warn(
+            "A higher version of BigML's bindings is needed. Please upgrade."
+        )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -138,20 +144,15 @@ def save_model(
         mlflow_model.signature = signature
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
-    if isinstance(bigml_model, list) and \
-            bigml_model[0].get("resource").startswith("ensemble"):
-        bigml_components = bigml_model[1:]
-        bigml_model = bigml_model[0]
-        for model in bigml_components:
-            with open(model.get("resource").replace("/", "_"), "w") as f:
-                json.dump(model, f)
     # Save bigml-model
-    if isinstance(bigml_model, dict) and bigml_model.get("resource"):
-        local_model = SupervisedModel(bigml_model, api=BigML(storage=path))
+    if (isinstance(bigml_model, dict) and bigml_model.get("resource")) or \
+            isinstance(bigml_model, list) and \
+            bigml_model[0].get("resource").startswith("ensemble"):
+        local_model = SupervisedModel(bigml_model)
         model_path = os.path.basename(dump_model(local_model))
     else:
         warnings.warn(
-            "Only local models can be stored."
+            "Only BigML model objects can be stored."
         )
 
     pyfunc.add_to_model(

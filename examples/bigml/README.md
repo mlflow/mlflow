@@ -9,7 +9,8 @@ Models avaiable in the BigML platform.
   in the `https://static.bigml.com/csv/diabetes.csv` URL.
   The `accuracy, precision and recall` will be logged and printed and the model
   will be registered for further deploy. Please, check the prerequisites
-  section to
+  section to ensure that the environment is correctly set up before running
+  the script.
 - `bigml_logistic\register.py` will register a BigML model previously
   stored in the `bigml_logistic\logistic_regression.json` file, that can be
   deployed using MLFlow to produce classification predictions.

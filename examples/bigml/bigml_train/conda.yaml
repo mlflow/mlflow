@@ -5,5 +5,5 @@ dependencies:
   - python=3.7
   - pip
   - pip:
-      - bigml
+      - bigml>=7.3.0
       - mlflow>=1.0
