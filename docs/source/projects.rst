@@ -104,8 +104,9 @@ Conda environment
 
 Virtualenv environment
   Virtualenv environments support Python packages available on PyPI. When an MLflow Project
-  specifies a Virtualenv environment, MLflow creates it using ``virtualenv`` and ``pyenv``, and
-  activates it before the project code is run.
+  specifies a Virtualenv environment, MLflow will download the specified version of Python by using
+  ``pyenv`` and create an isolated environment that contains the project dependencies using ``virtualenv``,
+  activating it as the execution environment prior to running the project code.
 
   You can specify a Virtualenv environment for your MLflow project by including a ``python_env`` entry in your
   ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
@@ -400,7 +401,9 @@ Environment
     By default, MLflow Projects are run in the environment specified by the project directory
     or the ``MLproject`` file (see :ref:`Specifying Project Environments <project-environments>`).
     You can ignore a project's specified environment and run the project in the current
-    system environment by supplying the ``--env-manager=local`` flag.
+    system environment by supplying the ``--env-manager=local`` flag, but this can lead to
+    unexpected results if there are dependency mismatches between the project environment and
+    the current system environment.
 
 For example, the tutorial creates and publishes an MLflow Project that trains a linear model. The
 project is also published on GitHub at https://github.com/mlflow/mlflow-example. To run
