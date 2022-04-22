@@ -83,7 +83,8 @@ class LocalBackend(AbstractBackend):
         else:
             if project.env_type == env_type.PYTHON and env_manager == _EnvManager.CONDA:
                 raise MlflowException.invalid_parameter_value(
-                    "python_env project cannot be executed using conda"
+                    "python_env project cannot be executed using conda. Set `--env-manager` to "
+                    "'virtualenv' or 'local' to execute this project."
                 )
 
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
