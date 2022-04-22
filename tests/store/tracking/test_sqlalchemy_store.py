@@ -544,7 +544,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(
             BAD_REQUEST
-        ), f"Wrong exception {exception_context.exception.original_exception_class} raised."
+        ), f"Wrong exception {exception_context.exception.original_exception_class}: " \
+           f"{exception_context.exception.message} raised."
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
@@ -891,7 +892,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(
             BAD_REQUEST
-        ), f"Wrong exception {exception_context.exception.original_exception_class} raised."
+        ), f"Wrong exception {exception_context.exception.original_exception_class} " \
+           f"{exception_context.exception.message}raised."
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
