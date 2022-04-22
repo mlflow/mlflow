@@ -136,8 +136,10 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    with mock.patch(
-        "mlflow.utils.environment._logger",
-        match="The following conda dependencies will be ignored: {}".format(["foo", "bar"]),
-    ):
+    with mock.patch("mlflow.utils.environment._logger.warning") as mock_warning:
         _PythonEnv.from_conda_yaml(yaml_path)
+        mock_warning.assert_called_with(
+            "The following conda dependencies will not be installed "
+            "in the resulting environment: %s",
+            ["foo", "bar"],
+        )
