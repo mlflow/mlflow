@@ -1197,12 +1197,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 )
 
             # launch scoring server
-            # TODO: adjust timeout for server requests handler.
             server_port = find_free_port()
             scoring_server_proc = pyfunc_backend.serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
                 host="127.0.0.1",
+                timeout=60,
                 enable_mlserver=False,
                 synchronous=False,
                 stdout=subprocess.PIPE,
