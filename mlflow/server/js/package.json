@@ -6,9 +6,9 @@
     "node": "^16.13.1"
   },
   "dependencies": {
-    "@ag-grid-community/client-side-row-model": "^27.2.0",
-    "@ag-grid-community/core": "^27.2.0",
-    "@ag-grid-community/react": "^27.2.0",
+    "@ag-grid-community/client-side-row-model": "^27.2.1",
+    "@ag-grid-community/core": "^27.2.1",
+    "@ag-grid-community/react": "^27.2.1",
     "@ant-design/icons": "^4.0.0",
     "@babel/eslint-parser": "^7.16.3",
     "@craco/craco": "7.0.0-alpha.0",
