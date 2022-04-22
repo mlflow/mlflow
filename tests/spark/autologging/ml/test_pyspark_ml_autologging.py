@@ -744,8 +744,8 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog(disable=True)
     recall_original = mce.evaluate(pred_result)
     assert np.isclose(logloss, recall_original)
-    accruacy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
-    assert np.isclose(accuracy, accruacy_original)
+    accuracy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
+    assert np.isclose(accuracy, accuracy_original)
     areaUnderROC_original = bce.evaluate(pred_result)
     assert np.isclose(areaUnderROC, areaUnderROC_original)
 
