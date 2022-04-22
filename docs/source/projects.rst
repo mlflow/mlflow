@@ -89,7 +89,7 @@ Conda environment
   ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
 
   The ``mlflow run`` command supports running a Conda environment project as a Virtualenv environment project.
-  To do this, run ``mlflow run`` with ``--env-manager local``:
+  To do this, run ``mlflow run`` with ``--env-manager virtualenv``:
 
   .. code-block:: bash
 
