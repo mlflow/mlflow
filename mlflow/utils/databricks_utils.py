@@ -416,3 +416,59 @@ def get_databricks_host_creds(server_uri=None):
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
+
+
+@_use_repl_context_if_available("gitRepoUrl")
+def get_git_repo_url():
+    try:
+        return _get_command_context().gitRepoUrl().get()
+    except Exception:
+        return _get_extra_context("gitUrl")
+
+
+@_use_repl_context_if_available("gitRepoProvider")
+def get_git_repo_provider():
+    try:
+        return _get_command_context().gitRepoProvider().get()
+    except Exception:
+        return _get_extra_context("gitProvider")
+
+
+@_use_repl_context_if_available("gitRepoCommit")
+def get_git_repo_commit():
+    try:
+        return _get_command_context().gitRepoCommit().get()
+    except Exception:
+        return _get_extra_context("gitCommit")
+
+
+@_use_repl_context_if_available("gitRelativePath")
+def get_git_repo_relative_path():
+    try:
+        return _get_command_context().gitRelativePath().get()
+    except Exception:
+        return _get_extra_context("gitRelativePath")
+
+
+@_use_repl_context_if_available("gitRepoRef")
+def get_git_repo_reference():
+    try:
+        return _get_command_context().gitRepoRef().get()
+    except Exception:
+        return _get_extra_context("gitReference")
+
+
+@_use_repl_context_if_available("gitRepoRefType")
+def get_git_repo_reference_type():
+    try:
+        return _get_command_context().gitRepoRefType().get()
+    except Exception:
+        return _get_extra_context("gitReferenceType")
+
+
+@_use_repl_context_if_available("gitRepoStatus")
+def get_git_repo_status():
+    try:
+        return _get_command_context().gitRepoStatus().get()
+    except Exception:
+        return _get_extra_context("gitStatus")

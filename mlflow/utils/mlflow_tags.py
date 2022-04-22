@@ -45,6 +45,14 @@ MLFLOW_DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID"
 # implies the job type which could be normal, ephemeral, etc.
 MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
 MLFLOW_DATABRICKS_JOB_TYPE_INFO = "mlflow.databricks.jobTypeInfo"
+# For MLflow Repo Lineage tracking
+MLFLOW_DATABRICKS_GIT_URL = "mlflow.databricks.git.url"
+MLFLOW_DATABRICKS_GIT_COMMIT = "mlflow.databricks.git.commit"
+MLFLOW_DATABRICKS_GIT_PROVIDER = "mlflow.databricks.git.provider"
+MLFLOW_DATABRICKS_GIT_RELATIVE_PATH = "mlflow.databricks.git.relativePath"
+MLFLOW_DATABRICKS_GIT_REFERENCE = "mlflow.databricks.git.reference"
+MLFLOW_DATABRICKS_GIT_REFERENCE_TYPE = "mlflow.databricks.git.referenceType"
+MLFLOW_DATABRICKS_GIT_STATUS = "mlflow.databricks.git.status"
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 
