@@ -1,8 +1,8 @@
 name: Dev environment setup
 
 on:
-  push:
-    branches: [master]
+  schedule:
+    - cron: "42 7 * * 0"
   workflow_dispatch:
     inputs:
       repository:
@@ -28,46 +28,18 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - name: Setup environment
-      env:
-        MLFLOW_DEV_ENV_PYENV_INSTALL: 1
-      run: |
-        git config --global user.name "test"
-        git config --global user.email "test@mlflow.org"
-    - name: Install development environment
-      run: |
-        ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
-    - name: Run Environment tests
-      run: |
-        ./dev/test-dev-env-setup.sh
-  macos:
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - name: Setup environment
-      env:
-        MLFLOW_DEV_ENV_PYENV_INSTALL: 1
-      run: |
-        git config --global user.name "test"
-        git config --global user.email "test@mlflow.org"
-    - name: Install development environment
-      run: |
-        ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
-    - name: Run Environment tests
-      run: |
-        ./dev/test-dev-env-setup.sh
-  windows:
-    runs-on: windows-latest
+  env_setup:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: windows-latest
+            shell: bash
+          - os: macos-latest
+            shell: bash
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -76,15 +48,13 @@ jobs:
       - name: Setup environment
         env:
           MLFLOW_DEV_ENV_PYENV_INSTALL: 1
+          MLFLOW_DEV_ENV_CI_RUN: 1
         run: |
           git config --global user.name "test"
           git config --global user.email "test@mlflow.org"
       - name: Install development environment
         run: |
-          ./dev/dev-env-setup.sh -q -d ./.venvs/mlflow-dev
+          ./dev/dev-env-setup.sh -f -d ./.venvs/mlflow-dev
       - name: Run Environment tests
         run: |
           ./dev/test-dev-env-setup.sh
-
-
-

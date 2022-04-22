@@ -68,6 +68,10 @@ case "$(uname -s)" in
   *)                             machine=unknown;;
 esac
 
+function quietpip(){
+  echo $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' )
+}
+
 # Check if pyenv is installed and offer to install it if not present
 pyenv_exist=$(command -v pyenv)
 
@@ -98,21 +102,25 @@ if [ -z "$pyenv_exist" ]; then
       git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
       PYENV_ROOT="$HOME/.pyenv"
       PYENV_BIN="$PYENV_ROOT/bin"
-      echo "$PYENV_BIN" >> "$GITHUB_PATH"
-      echo "PYENV_ROOT=$PYENV_ROOT" >> "$GITHUB_ENV"
+      if [ "$MLFLOW_DEV_ENV_CI_RUN" == 1 ]; then
+        echo "$PYENV_BIN" >> "$GITHUB_PATH"
+        echo "PYENV_ROOT=$PYENV_ROOT" >> "$GITHUB_ENV"
+      fi
     elif [[ "$machine" == win ]]; then
       if [ -z "$(command -v pip)" ]; then
         echo "A pip installation cannot be found. Install pip first."
         exit 1
       fi
       # install via system pip as per pyenv-win docs
-      pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) pyenv-win --target "$HOME\\.pyenv"
-      {
-        echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\";
-        echo "PYENV_ROOT=$USERPROFILE\.pyenv\pyenv-win\\";
-        echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\";
-      } >> "$GITHUB_ENV"
-      echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> "$GITHUB_PATH"
+      pip install $(quietpip) pyenv-win --target "$HOME\\.pyenv"
+      if [ "$MLFLOW_DEV_ENV_CI_RUN" == 1 ]; then
+        {
+          echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\";
+          echo "PYENV_ROOT=$USERPROFILE\.pyenv\pyenv-win\\";
+          echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\";
+        } >> "$GITHUB_ENV"
+        echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> "$GITHUB_PATH"
+      fi
     else
       echo "Unknown operating system environment: $machine exiting."
       exit 1
@@ -132,11 +140,25 @@ if [ -z "$pyenv_exist" ]; then
 fi
 
 MLFLOW_HOME=$(pwd)
+rd="$MLFLOW_HOME/requirements"
 
 # Get the minimum supported version from MLflow to ensure any feature development adheres to legacy Python versions
 min_py_version=$(grep "python_requires=" "$MLFLOW_HOME/setup.py" | grep -E -o "([0-9]{1,}\.)+[0-9]{1,}")
 
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
+
+echo "The top-level dependencies that will be installed are: "
+
+if [[ $full_install == 1 ]]; then
+  files=("$rd/dev-requirements.txt")
+  echo "Files:"
+  echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
+  echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
+  echo "All dependencies of the top-level requirements listed in the following files located in $rd: "
+else
+  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
+fi
+echo "$(tail -n +1 $files | grep "^[^#= ]")"
 
 # Resolve a minor version to the latest micro version
 case $min_py_version in
@@ -149,8 +171,8 @@ esac
 # Install the Python version if it cannot be found
 pyenv install -s $PY_INSTALL_VERSION
 pyenv local $PY_INSTALL_VERSION
-pyenv exec pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) --upgrade pip
-pyenv exec pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) virtualenv
+pyenv exec pip install $(quietpip) --upgrade pip
+pyenv exec pip install $(quietpip) virtualenv
 
 VENV_DIR="$directory/bin/activate"
 
@@ -162,9 +184,8 @@ if [[ -d "$directory"  ]]; then
   fi
   if [[ $REPLY =~ ^[Yy]$ || $MLFLOW_DEV_ENV_REPLACE_ENV == 1 ]]; then
     deactivate
-    rm -rf "$directory"
-    echo "Virtual environment removed from '$directory'. Installing new instance."
-    pyenv exec virtualenv "$directory"
+    echo "Replacing Virtual environment in '$directory'. Installing new instance."
+    pyenv exec virtualenv --clear "$directory"
   fi
 else
   # Create a virtual environment with the specified Python version
@@ -183,24 +204,27 @@ echo "Installing pip dependencies for development environment."
 if [[ $full_install == 1 ]]; then
   # Install required dependencies for Prophet
   tmp_dir=$(mktemp -d)
-  pip download $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
+  pip download $(quietpip) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
   tar -zxvf "$tmp_dir"/*.tar.gz -C "$tmp_dir"
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$(find "$tmp_dir" -name requirements.txt)"
+  pip install $(quietpip) -r "$(find "$tmp_dir" -name requirements.txt)"
   rm -rf "$tmp_dir"
   # Install dev requirements and test plugin
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
+  pip install $(quietpip) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
   # Install current checked out version of MLflow (local)
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -e .[extras]
+  pip install $(quietpip) -e .[extras]
   # Install test plugin
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+  pip install $(quietpip) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."
 else
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/skinny-requirements.txt"
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/small-requirements.txt"
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/lint-requirements.txt"
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/large-requirements.txt"
-  pip install $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' ) -r "$MLFLOW_HOME/requirements/doc-requirements.txt"
+  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
+  for r in "${files[@]}";
+  do
+    pip install $(quietpip) -r "$r"
+  done
 fi
+
+echo "$(tput setaf 2; tput smul)Python packages that have been installed:$(tput rmul)"
+echo "$(pip freeze)$(tput sgr0)"
 
 command -v docker >/dev/null 2>&1 || echo "$(tput bold; tput setaf 1)A docker installation cannot be found. Please ensure that docker is installed to run all tests locally.$(tput sgr0)"
 
@@ -226,8 +250,5 @@ fi
 
 # setup pre-commit hooks
 git config core.hooksPath "$MLFLOW_HOME/hooks"
-
-# Install pytest
-pip install $( (( $quiet == 1 && $verbose == 0 )) && printf %s '-q' ) pytest
 
 echo "$(tput setaf 2)Your MLflow development environment can be activated by running: $(tput bold)source $VENV_DIR$(tput sgr0)"
