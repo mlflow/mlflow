@@ -98,14 +98,14 @@ def _get_warning_msg_for_skip_log_model(model):
 
 def _should_log_model(spark_model):
     from pyspark.ml.base import Model
-    import re
 
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
     should_log = class_name in _log_model_allowlist
     if not should_log:
-        for class_names in _log_model_allowlist:
-            if re.search(class_names, class_name):
+        for name in _log_model_allowlist:
+            # only support one trailing *
+            if name.endswith("*") and class_name.startswith(name[:-1]):
                 should_log = True
                 break
     if should_log:
