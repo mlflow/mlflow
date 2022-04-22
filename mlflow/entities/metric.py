@@ -10,6 +10,11 @@ class Metric(_MLflowObject):
     def __init__(self, key, value, timestamp, step):
         self._key = key
         self._value = value
+
+        if not isinstance(timestamp, int):
+            raise ValueError(
+                "The metric timestamp must be an integer representing the milliseconds since the Unix epoch"
+            )
         self._timestamp = timestamp
         self._step = step
 
