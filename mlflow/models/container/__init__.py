@@ -47,14 +47,14 @@ SERVING_ENVIRONMENT = "SERVING_ENVIRONMENT"
 _logger = logging.getLogger(__name__)
 
 
-def _init(cmd):
+def _init(cmd, env_manager):
     """
     Initialize the container and execute command.
 
     :param cmd: Command param passed by Sagemaker. Can be  "serve" or "train" (unimplemented).
     """
     if cmd == "serve":
-        _serve()
+        _serve(env_manager)
     elif cmd == "train":
         _train()
     else:
@@ -118,6 +118,8 @@ def _install_pyfunc_deps(
                 env_activate_cmd = "source /miniconda/bin/activate custom_env"
             elif env_manager == em.VIRTUALENV:
                 env_activate_cmd = _get_or_create_virtualenv(model_path)
+                path = env_activate_cmd.split(" ")[-1]
+                os.symlink(path, "/opt/activate")
             has_env = True
     activate_cmd = [env_activate_cmd] if has_env else []
     # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
@@ -151,15 +153,17 @@ def _serve_pyfunc(model, env_manager):
     bash_cmds = []
     if pyfunc.ENV in conf:
         if not disable_env_creation:
-            activate_cmd = _install_pyfunc_deps(
+            _install_pyfunc_deps(
                 MODEL_PATH,
                 install_mlflow=True,
                 enable_mlserver=enable_mlserver,
                 env_manager=env_manager,
             )
-        else:
-            activate_cmd = []
-        bash_cmds += activate_cmd
+        bash_cmds += (
+            ["source /miniconda/bin/activate custom_env"]
+            if env_manager == em.CONDA
+            else ["source /opt/activate"]
+        )
 
     procs = []
 

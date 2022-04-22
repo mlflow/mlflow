@@ -6,7 +6,7 @@ import mlflow
 import mlflow.version
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils import env_manager as em
 
 _logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 """
 
-SETUP_VIRTUALENV = """
+SETUP_PYENV_AND_VIRTUALENV = """
 # Setup pyenv
 RUN apt -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
@@ -55,7 +55,7 @@ RUN apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 {setup_miniconda}
-{setup_pyenv}
+{setup_pyenv_and_virtualenv}
 
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
@@ -129,9 +129,9 @@ def _build_image(
     """
     mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
 
-    is_conda = env_manager == _EnvManager.CONDA
+    is_conda = env_manager == em.CONDA
     setup_miniconda = SETUP_MINICONDA if is_conda else ""
-    setup_virtualenv = "" if is_conda else SETUP_VIRTUALENV
+    setup_pyenv_and_virtualenv = "" if is_conda else SETUP_PYENV_AND_VIRTUALENV
 
     with TempDir() as tmp:
         cwd = tmp.path()
@@ -141,7 +141,7 @@ def _build_image(
             f.write(
                 _DOCKERFILE_TEMPLATE.format(
                     setup_miniconda=setup_miniconda,
-                    setup_pyenv=setup_virtualenv,
+                    setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
                     install_mlflow=install_mlflow,
                     custom_setup_steps=custom_setup_steps,
                     entrypoint=entrypoint,
