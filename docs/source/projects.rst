@@ -97,7 +97,7 @@ Conda environment
 
   .. warning::
 
-      When a conda environment project is executed as a Virtualenv environment project,
+      When a Conda environment project is executed as a Virtualenv environment project,
       conda dependencies will be ignored and only pip dependencies will be installed.
 
 .. _project-virtualenv-environments:
@@ -108,7 +108,7 @@ Virtualenv environment
   ``pyenv`` and create an isolated environment that contains the project dependencies using ``virtualenv``,
   activating it as the execution environment prior to running the project code.
 
-  You can specify a Virtualenv environment for your MLflow project by including a ``python_env`` entry in your
+  You can specify a Virtualenv environment for your MLflow Project by including a ``python_env`` entry in your
   ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
 
 .. _project-docker-container-environments:
@@ -231,7 +231,8 @@ Conda environment
 Virtualenv environment
   Include a top-level ``python_env`` entry in the ``MLproject`` file.
   The value of this entry must be a *relative* path to a `python_env` YAML file
-  within the MLflow project's directory. In the following example:
+  within the MLflow project's directory. The following is an example ``MLProject``
+  file with a ``python_env`` definition:
 
   .. code-block:: yaml
 
