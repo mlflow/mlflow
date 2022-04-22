@@ -62,7 +62,7 @@ dependencies:
     yaml_path.write_text(content)
     python_env = _PythonEnv.from_conda_yaml(yaml_path)
     assert python_env.python == "3.7.5"
-    assert python_env.build_dependencies is None
+    assert python_env.build_dependencies == ["pip"]
     assert python_env.dependencies == ["a", "b"]
 
 
