@@ -1,15 +1,7 @@
 .image-outer-container {
-  /* display: flex; */
   height: 100%;
+  width: 100%;
   min-height: 1000px;
-  width: 100%;
-  padding-left: 16px;
-  padding-top: 16px;
+  padding: 16px;
   vertical-align:top;
-}
-.image-container {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 100%;
-  width: 100%;
 }
