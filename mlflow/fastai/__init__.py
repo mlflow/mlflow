@@ -438,7 +438,7 @@ def autolog(
 
         # This is a modified example from
         # https://github.com/mlflow/mlflow/tree/master/examples/fastai
-        # demonstrating autolog capabilites.
+        # demonstrating autolog capabilities.
 
         import fastai.vision as vis
         import mlflow.fastai
