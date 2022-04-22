@@ -240,7 +240,7 @@ Virtualenv environment
   ``<MLFLOW_PROJECT_DIRECTORY>/files/config/python_env.yaml``, where
   ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
 
-  The following is an example of an ``python_env.yaml`` file:
+  The following is an example of a ``python_env.yaml`` file:
 
   .. code-block:: yaml
 
