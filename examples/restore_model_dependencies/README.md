@@ -1,10 +1,8 @@
 ### MLflow restore model dependencies examples
 
 The example "restore_model_dependencies_example.ipynb" in this directory illustrates
-how you can use the `mlflow.pyfunc.get_model_dependencies` API to get the dependencies from a model URI,
-and then install required dependencies to restore the python environment containing the
-precise versions of dependencies used during model training.
-
+how you can use the `mlflow.pyfunc.get_model_dependencies` API to get the dependencies from a model URI
+and install them, restoring the exact python environment that was used to build the model.
 
 #### Prerequisites
 
