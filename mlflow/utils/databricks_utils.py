@@ -345,12 +345,25 @@ def get_workspace_url():
 def is_mlflowdbfs_available():
     try:
         spark_session = _get_active_spark_session()
-        return (
-            spark_session is not None
-            and spark_session.conf.get("spark.databricks.io.mlflowdbfs.endpoint") is not None
-        )  # todo: add spark conf
     except Exception:
         return False
+
+    if spark_session is None:
+        return False
+
+    from py4j.protocol import Py4JJavaError
+
+    try:
+        spark_session.read.load("mlflowdbfs:///123")
+    except Py4JJavaError as e:
+        if (
+            str(e.java_exception)
+            == "org.apache.hadoop.fs.UnsupportedFileSystemException:"
+            + 'No FileSystem for scheme "mlflowdbfs"'
+        ):
+            return False
+
+        return True
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):
