@@ -409,6 +409,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
+    timeout = 60
 
     @pandas_udf("int")
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
@@ -420,6 +421,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
             model_uri=model_path,
             port=server_port,
             host="127.0.0.1",
+            timeout=timeout,
             enable_mlserver=False,
             synchronous=False,
         )
