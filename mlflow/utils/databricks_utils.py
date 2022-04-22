@@ -103,12 +103,7 @@ def is_databricks_default_tracking_uri(tracking_uri):
 
 @_use_repl_context_if_available("isInNotebook")
 def is_in_databricks_notebook():
-    if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
-        return True
-    try:
-        return acl_path_of_acl_root().startswith("/workspace")
-    except Exception:
-        return False
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 
 @_use_repl_context_if_available("isInJob")
