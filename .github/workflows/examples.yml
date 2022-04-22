@@ -65,8 +65,6 @@ jobs:
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
 
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}

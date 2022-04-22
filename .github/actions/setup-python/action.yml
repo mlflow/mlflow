@@ -2,8 +2,8 @@ name: "setup-python"
 description: "Ensures to install a python version that's available on Anaconda"
 inputs:
   python-version:
-    description: "The python version to install (e.g. 3.7)"
-    required: true
+    description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
+    required: false
 outputs:
   installed-python-version:
     description: "The installed python version"
@@ -20,8 +20,15 @@ runs:
       # where we trigger more than 100 GitHub Actions runs.
       run: |
         python_version="${{ inputs.python-version }}"
+        if [ -z "$python_version" ]; then
+          python_version=$(python setup.py -q min_python_version)
+        fi
         if [[ "$python_version" == "3.7" ]]; then
-          python_version="3.7.12"
+          if [ ${{ runner.os }} == "Windows" ]; then
+            python_version="3.7.9"
+          else
+            python_version="3.7.12"
+          fi
         elif [[ "$python_version" == "3.8" ]]; then
           python_version="3.8.12"
         else
