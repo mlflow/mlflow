@@ -735,6 +735,9 @@ def _load_pyfunc(path):
             # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
             # a SparkSession on the workers
             .config("spark.executor.allowSparkContext", "true")
+            # Bind "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
+            # related issues.
+            .config("spark.driver.bindAddress", "127.0.0.1")
             .master("local[1]")
             .getOrCreate()
         )
