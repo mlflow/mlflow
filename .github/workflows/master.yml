@@ -49,8 +49,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - uses: ./.github/actions/cache-pip
     - name: Add problem matchers
       run: |
@@ -131,8 +129,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - name: Install dependencies
       env:
         INSTALL_SKINNY_PYTHON_DEPS: true
@@ -151,8 +147,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - name: Install dependencies
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
@@ -175,8 +169,6 @@ jobs:
         # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -230,8 +222,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
@@ -282,8 +272,6 @@ jobs:
           # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
           rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
         with:
@@ -315,8 +303,6 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - uses: actions/setup-java@v3
         with:
           java-version: 11
@@ -343,8 +329,6 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - uses: actions/setup-java@v3
         with:
           java-version: 11
@@ -369,8 +353,6 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
       - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
         run: |
