@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
+// `Image as ImageTag` is a workaround for https://github.com/ant-design/ant-design/issues/18573
 import { Image as ImageTag, Skeleton } from 'antd';
 
 export const ShowArtifactImageView = ({ runUuid, path }) => {
