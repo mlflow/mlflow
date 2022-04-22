@@ -26,6 +26,7 @@ from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import (
@@ -45,6 +46,8 @@ from mlflow.utils.environment import (
     _process_conda_env,
     _CONSTRAINTS_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 
@@ -186,6 +189,8 @@ def save_model(
         write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
 
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 @experimental
@@ -334,7 +339,8 @@ class _PmdarimaModelWrapper:
         if len(dataframe) > 1:
             raise MlflowException(
                 f"The provided prediction pd.DataFrame contains {len(dataframe)} rows. "
-                "Only 1 row should be supplied."
+                "Only 1 row should be supplied.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         attrs = dataframe.to_dict(orient="index").get(0)
@@ -344,13 +350,15 @@ class _PmdarimaModelWrapper:
             raise MlflowException(
                 f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not"
                 "contain the required column `n_periods` for specifying future prediction periods "
-                "to generate."
+                "to generate.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if not isinstance(n_periods, int):
             raise MlflowException(
                 f"The provided `n_periods` value {n_periods} must be an integer."
-                f"provided type: {type(n_periods)}"
+                f"provided type: {type(n_periods)}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         # NB Any model that is trained with exogenous regressor elements will need to provide
@@ -370,7 +378,8 @@ class _PmdarimaModelWrapper:
         if not isinstance(n_periods, int):
             raise MlflowException(
                 "The prediction DataFrame must contain a column `n_periods` with "
-                "an integer value for number of future periods to predict."
+                "an integer value for number of future periods to predict.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if Version(self._pmdarima_version) >= Version("1.8.0"):

@@ -38,7 +38,7 @@ from tests.helper_functions import (
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -160,11 +160,9 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
 
 @pytest.mark.large
 def test_model_log(sklearn_logreg_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -197,7 +195,6 @@ def test_model_log(sklearn_logreg_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(sklearn_logreg_model):
@@ -532,7 +529,7 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
         if type(dependency) == dict and "pip" in dependency
     ]
     assert len(pip_deps) == 1
-    assert any(["cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"]])
+    assert any("cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"])
 
 
 @pytest.mark.large
@@ -563,10 +560,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         with open(saved_conda_env_path, "r") as f:
             saved_conda_env_parsed = yaml.safe_load(f)
         assert all(
-            [
-                "cloudpickle" not in dependency
-                for dependency in saved_conda_env_parsed["dependencies"]
-            ]
+            "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
         )
 
 

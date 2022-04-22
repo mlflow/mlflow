@@ -487,6 +487,14 @@ def test_start_run_defaults_databricks_notebook(
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.parametrize(
+    "experiment_id", [("a", "b"), {"a", "b"}, ["a", "b"], {"a": 1}, [], (), {}]
+)
+def test_start_run_raises_invalid_experiment_id(experiment_id):
+    with pytest.raises(MlflowException, match="Invalid experiment id: "):
+        start_run(experiment_id=experiment_id)
+
+
 @pytest.mark.usefixtures(empty_active_run_stack.__name__)
 def test_start_run_creates_new_run_with_user_specified_tags():
     mock_experiment_id = mock.Mock()
@@ -553,7 +561,7 @@ def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
 
 def test_start_run_with_parent():
     parent_run = mock.Mock()
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = "123456"
     mock_source_name = mock.Mock()
 
     active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
@@ -1024,3 +1032,21 @@ def test_delete_tag():
     with pytest.raises(MlflowException, match="No tag with name"):
         mlflow.delete_tag("b")
     mlflow.end_run()
+
+
+def test_last_active_run_returns_currently_active_run():
+    run_id = mlflow.start_run().info.run_id
+    last_active_run_id = mlflow.last_active_run().info.run_id
+    mlflow.end_run()
+    assert run_id == last_active_run_id
+
+
+def test_last_active_run_returns_most_recently_ended_active_run():
+    run_id = mlflow.start_run().info.run_id
+    mlflow.log_metric("a", 1.0)
+    mlflow.log_param("b", 2)
+    mlflow.end_run()
+    last_active_run = mlflow.last_active_run()
+    assert last_active_run.info.run_id == run_id
+    assert last_active_run.data.metrics == {"a": 1.0}
+    assert last_active_run.data.params == {"b": "2"}

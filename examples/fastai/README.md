@@ -12,26 +12,26 @@ track your experiments.
 
 You can run the `fastai` example with default or supplied arguments in three ways:
 
-1. Run from the current git directory with Python. 
+1. Run from the current git directory with Python.
 
-**Note**:  This example assumes that you have all the dependencies for `fastai` library installed in your development environment. 
+**Note**:  This example assumes that you have all the dependencies for `fastai` library installed in your development environment.
 
  `python train.py`
- 
+
  `python train.py --lr=0.02 --epochs=3`
 
 2. Run from the current git directory as an MLflow Project
 
  `mlflow run . -e main`
- 
+
  `mlflow run . -e main -P lr=0.02 -P epochs=3`
- 
+
 3. Run from outside git repository as an MLflow Project
 
  `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai`
- 
+
  `mlflow run https://github.com/mlflow/mlflow/\#examples/fastai -P lr=0.02 -P epochs=3`
- 
+
 #### How to inspect your runs
 All these runs will create a `mlruns` directory at the same directory level where you execute
 these commands. To inspect the parameters, metrics, and artifacts automatically

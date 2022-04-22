@@ -136,14 +136,19 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
         )
 
 
-def parse_csv_input(csv_input):
+def parse_csv_input(csv_input, schema: Schema = None):
     """
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
     """
 
     try:
-        return pd.read_csv(csv_input)
+        if schema is None:
+            return pd.read_csv(csv_input)
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            return pd.read_csv(csv_input, dtype=dtypes)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -262,7 +267,7 @@ def init(model: PyFuncModel):
         if mime_type == CONTENT_TYPE_CSV and not content_format:
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input)
+            data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         elif mime_type == CONTENT_TYPE_JSON and not content_format:
             json_str = flask.request.data.decode("utf-8")
             data = infer_and_parse_json_input(json_str, input_schema)

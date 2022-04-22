@@ -3,9 +3,9 @@
 import collections
 import os
 import pickle
-import sys
 from unittest.mock import patch
 import json
+import functools
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,11 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import BatchMetricsLogger, autologging_is_disabled
+from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_INTEGRATIONS,
+    BatchMetricsLogger,
+    autologging_is_disabled,
+)
 
 np.random.seed(1337)
 
@@ -123,18 +127,6 @@ def keras_data_gen_sequence(random_train_data, random_one_hot_labels):
     return DataGenerator()
 
 
-@pytest.fixture
-def clear_tf_keras_imports():
-    """
-    Simulates a state where `tensorflow` and `keras` are not imported by removing these
-    libraries from the `sys.modules` dictionary. This is useful for testing the interaction
-    between TensorFlow / Keras and the fluent `mlflow.autolog()` API because it will cause import
-    hooks to be re-triggered upon re-import after `mlflow.autolog()` is enabled.
-    """
-    sys.modules.pop("tensorflow", None)
-    sys.modules.pop("keras", None)
-
-
 @pytest.fixture(autouse=True)
 def clear_fluent_autologging_import_hooks():
     """
@@ -144,6 +136,15 @@ def clear_fluent_autologging_import_hooks():
     """
     mlflow.utils.import_hooks._post_import_hooks.pop("tensorflow", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("keras", None)
+
+
+@pytest.fixture(autouse=True)
+def clear_autologging_config():
+    """
+    Clears TensorFlow autologging config, simulating a fresh state where autologging has not
+    been previously enabled with any particular configuration
+    """
+    AUTOLOGGING_INTEGRATIONS.pop(mlflow.tensorflow.FLAVOR_NAME, None)
 
 
 def create_tf_keras_model():
@@ -258,6 +259,111 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+def __example_tf_dataset(batch_size):
+    a = tf.data.Dataset.range(1)
+    b = tf.data.Dataset.range(1)
+    ds = tf.data.Dataset.zip((a, b))
+    return ds.batch(batch_size)
+
+
+class __ExampleSequence(tf.keras.utils.Sequence):
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return 10
+
+    def __getitem__(self, idx):
+        return np.array([idx] * self.batch_size), np.array([-idx] * self.batch_size)
+
+
+def __generator(data, target, batch_size):
+    data_batches = np.split(data, data.shape[0] // batch_size)
+    target_batches = np.split(target, target.shape[0] // batch_size)
+    for data_batch, target_batch in zip(data_batches, target_batches):
+        yield data_batch, target_batch
+
+
+class __GeneratorClass:
+    def __init__(self, data, target, batch_size):
+        self.data = data
+        self.target = target
+        self.batch_size = batch_size
+        self.ptr = 0
+
+    def __next__(self):
+        if self.ptr >= len(self.data):
+            raise StopIteration
+        idx = self.ptr % len(self.data)
+        self.ptr += 1
+        return self.data[idx : idx + self.batch_size], self.target[idx : idx + self.batch_size]
+
+    def __iter__(self):
+        return self
+
+
+@pytest.mark.large
+@pytest.mark.parametrize(
+    "generate_data",
+    [
+        __example_tf_dataset,
+        __ExampleSequence,
+        functools.partial(__generator, np.array([[1]] * 10), np.array([[1]] * 10)),
+        functools.partial(__GeneratorClass, np.array([[1]] * 10), np.array([[1]] * 10)),
+    ],
+)
+@pytest.mark.parametrize("batch_size", [5, 10])
+def test_tf_keras_autolog_implicit_batch_size_works(generate_data, batch_size):
+    mlflow.autolog()
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Dense(1, input_shape=(1,)))
+    model.compile(loss="mse")
+
+    # 'x' passed as arg
+    model.fit(generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+    # 'x' passed as kwarg
+    model.fit(x=generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) < Version("2.1.4"),
+    reason="Does not support passing of generator classes as `x` in `fit`",
+)
+@pytest.mark.parametrize("generator", [__generator, __GeneratorClass])
+@pytest.mark.parametrize("batch_size", [2, 3, 6])
+def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side_effects(
+    generator,
+    batch_size,
+):
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense
+
+    data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
+    target = np.array([[1], [3], [2], [11], [13], [12]])
+
+    model = Sequential()
+    model.add(
+        Dense(
+            5, input_dim=3, activation="relu", kernel_initializer="zeros", bias_initializer="zeros"
+        )
+    )
+    model.add(Dense(1, kernel_initializer="zeros", bias_initializer="zeros"))
+    model.compile(loss="mae", optimizer="adam", metrics=["mse"])
+
+    mlflow.autolog()
+    actual_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
+
+    mlflow.autolog(disable=True)
+    expected_mse = model.fit(generator(data, target, batch_size), verbose=0).history["mse"][-1]
+
+    np.testing.assert_allclose(actual_mse, expected_mse, atol=1)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
 @pytest.mark.large
@@ -647,13 +753,13 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
 
         return dataset.batch(batch_size)
 
-    my_feature_columns = []
-    for key in train.keys():
-        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+    my_feature_columns = [tf.feature_column.numeric_column(key=key) for key in train.keys()]
 
-    feature_spec = {}
-    for feature in CSV_COLUMN_NAMES:
-        feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
+    feature_spec = {
+        feature: tf.Variable([], dtype=tf.float64, name=feature)
+        for feature in CSV_COLUMN_NAMES
+        if feature != "Species"
+    }
 
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
@@ -688,6 +794,262 @@ def create_tf_estimator_model(directory, export, training_steps=100, use_v1_esti
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
     if export:
         classifier.export_saved_model(directory, receiver_fn)
+
+
+@pytest.fixture
+def iris_dataset_spec():
+    return [
+        {
+            "name": "SepalLength",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "SepalWidth",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "PetalLength",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+        {
+            "name": "PetalWidth",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float64", "shape": [-1]},
+        },
+    ]
+
+
+@pytest.fixture
+def tf_iris_estimator_prediction_schema():
+    return [
+        {
+            "name": "logits",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+        },
+        {
+            "name": "probabilities",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+        },
+        {
+            "name": "class_ids",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "int64", "shape": [-1]},
+        },
+        {
+            "name": "classes",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+        },
+        {
+            "name": "all_class_ids",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+        },
+        {
+            "name": "all_classes",
+            "type": "tensor",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+        },
+    ]
+
+
+def train_tf_titanic_estimator(directory, input_data_type):
+    def train_input_fn():
+        titanic_file = tf.keras.utils.get_file(
+            "titanic_train.csv", "https://storage.googleapis.com/tf-datasets/titanic/train.csv"
+        )
+        input_data = {
+            k: tf.convert_to_tensor(list(v.values()))
+            for k, v in pd.read_csv(
+                titanic_file,
+                header=0,
+            )
+            .to_dict()
+            .items()
+        }
+        labels = input_data.pop("survived")
+        if input_data_type == "tuple_dict":
+            return input_data, labels
+        elif input_data_type == "dataset":
+            titanic = tf.data.experimental.make_csv_dataset(
+                titanic_file, batch_size=32, label_name="survived"
+            )
+            titanic_batches = titanic.cache().repeat().shuffle(500).prefetch(tf.data.AUTOTUNE)
+            return titanic_batches
+
+    age = tf.feature_column.numeric_column("age")
+    cls = tf.feature_column.categorical_column_with_vocabulary_list(
+        "class", ["First", "Second", "Third"]
+    )
+    embark = tf.feature_column.categorical_column_with_hash_bucket("embark_town", 32)
+
+    estimator = tf.estimator.LinearClassifier(
+        model_dir=directory, feature_columns=[embark, cls, age], n_classes=2
+    )
+
+    estimator = estimator.train(input_fn=train_input_fn, steps=100)
+
+    feature_spec = {
+        "sex": tf.Variable([], dtype=tf.string, name="sex"),
+        "age": tf.Variable([], dtype=tf.float32, name="age"),
+        "n_siblings_spouses": tf.Variable([], dtype=tf.int32, name="n_siblings_spouses"),
+        "parch": tf.Variable([], dtype=tf.int32, name="parch"),
+        "fare": tf.Variable([], dtype=tf.float32, name="fare"),
+        "class": tf.Variable([], dtype=tf.string, name="class"),
+        "deck": tf.Variable([], dtype=tf.string, name="deck"),
+        "embark_town": tf.Variable([], dtype=tf.string, name="embark_town"),
+        "alone": tf.Variable([], dtype=tf.string, name="alone"),
+    }
+
+    receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+    estimator.export_saved_model(directory, receiver_fn)
+
+    return estimator
+
+
+@pytest.fixture
+def titanic_dataset_spec():
+    return [
+        {"name": "sex", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {"name": "age", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "n_siblings_spouses",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "parch", "tensor-spec": {"dtype": "int32", "shape": [-1]}, "type": "tensor"},
+        {"name": "fare", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {"name": "class", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {"name": "deck", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "embark_town",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "alone", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+    ]
+
+
+@pytest.fixture
+def tf_titanic_estimator_prediction_schema():
+    return [
+        {"name": "logits", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {"name": "logistic", "tensor-spec": {"dtype": "float32", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "probabilities",
+            "tensor-spec": {"dtype": "float32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {"name": "class_ids", "tensor-spec": {"dtype": "int64", "shape": [-1]}, "type": "tensor"},
+        {"name": "classes", "tensor-spec": {"dtype": "object", "shape": [-1]}, "type": "tensor"},
+        {
+            "name": "all_class_ids",
+            "tensor-spec": {"dtype": "int32", "shape": [-1]},
+            "type": "tensor",
+        },
+        {
+            "name": "all_classes",
+            "tensor-spec": {"dtype": "object", "shape": [-1]},
+            "type": "tensor",
+        },
+    ]
+
+
+@pytest.mark.large
+def test_tf_signature_with_dataset(tmpdir, iris_dataset_spec, tf_iris_estimator_prediction_schema):
+    directory = tmpdir.mkdir("tf_signature_with_dataset")
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(str(directory), True)
+        _assert_autolog_infers_model_signature_correctly(
+            run, iris_dataset_spec, tf_iris_estimator_prediction_schema
+        )
+
+
+@pytest.mark.large
+def test_tf_input_example_with_dataset(tmpdir):
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    directory = tmpdir.mkdir("tf_input_example_with_dataset")
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(directory=str(directory), export=True, use_v1_estimator=False)
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+def _assert_tf_signature(
+    tmpdir, data_type, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+):
+    directory = tmpdir.mkdir("tf_signature")
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    with mlflow.start_run() as run:
+        train_tf_titanic_estimator(directory=str(directory), input_data_type=data_type)
+        _assert_autolog_infers_model_signature_correctly(
+            run, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+        )
+
+
+@pytest.mark.large
+def test_tf_input_example_with_tuple_dict(tmpdir):
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    directory = tmpdir.mkdir("tf_input_example_with_tuple_dict")
+    with mlflow.start_run() as run:
+        train_tf_titanic_estimator(directory=str(directory), input_data_type="tuple_dict")
+        model_path = os.path.join(run.info.artifact_uri, "model")
+        model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+        input_example = _read_example(model_conf, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+        pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) >= Version("2.1.0"),
+    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
+)
+def test_fit_generator_signature_autologging(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit_generator(keras_data_gen_sequence)
+        _assert_autolog_infers_model_signature_correctly(
+            run,
+            [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
+            [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
+        )
+
+
+@pytest.mark.large
+@pytest.mark.skipif(
+    Version(tf.__version__) >= Version("2.1.0"),
+    reason="`fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`",
+)
+def test_fit_generator_input_example_autologging(keras_data_gen_sequence):
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
+    model = create_tf_keras_model()
+
+    with mlflow.start_run() as run:
+        model.fit_generator(keras_data_gen_sequence)
+        _assert_keras_autolog_input_example_load_and_predict_with_nparray(
+            run, keras_data_gen_sequence[:][0]
+        )
+
+
+@pytest.mark.large
+def test_tf_signature_with_tuple_dict(
+    tmpdir, titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+):
+    _assert_tf_signature(
+        tmpdir, "tuple_dict", titanic_dataset_spec, tf_titanic_estimator_prediction_schema
+    )
 
 
 @pytest.mark.large
@@ -761,7 +1123,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
-    assert any(["tensorboard_logs" in a.path and a.is_dir for a in artifacts])
+    assert any("tensorboard_logs" in a.path and a.is_dir for a in artifacts)
 
 
 @pytest.mark.large
@@ -941,7 +1303,6 @@ def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_logs_expected_content(
     random_train_data, random_one_hot_labels
 ):
@@ -969,7 +1330,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
 
 def test_callback_is_picklable():
     cb = __MLflowTfKeras2Callback(
-        log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
+        metrics_logger=BatchMetricsLogger(run_id="1234"), log_every_n_steps=5
     )
     pickle.dumps(cb)
 
@@ -999,7 +1360,6 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow only has a hard dependency on Keras in version >= 2.6.0"),
 )
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     """
     Verifies that, in TensorFlow >= 2.6.0, `tensorflow.keras.Model` refers to the correct class in
@@ -1015,7 +1375,6 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     assert tensorflow.keras.Model is ModelV2
 
 
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -1032,7 +1391,6 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
 
 
 @pytest.mark.large
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     mlflow.autolog()
 
@@ -1052,7 +1410,6 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     Version(tf.__version__) < Version("2.6.0"),
     reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
 )
-@pytest.mark.usefixtures("clear_tf_keras_imports")
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
@@ -1062,7 +1419,7 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
 
 
-def _assert_keras_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
@@ -1091,14 +1448,10 @@ def _assert_keras_autolog_input_example_load_and_predict_with_nparray(run, rando
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
@@ -1106,18 +1459,14 @@ def test_keras_autolog_input_example_load_and_predict_with_nparray(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_nparray(
     random_train_data, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(random_train_data, random_one_hot_labels)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
@@ -1126,11 +1475,11 @@ def test_keras_autolog_infers_model_signature_correctly_with_nparray(
 
 @pytest.mark.large
 @pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for input example logging in TensorFlow < 2.1.0",
 )
 def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
@@ -1143,15 +1492,15 @@ def test_keras_autolog_input_example_load_and_predict_with_tf_dataset(fashion_mn
 
 @pytest.mark.large
 @pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
+    Version(tf.__version__) < Version("2.1.0"),
+    reason="tf.data.Dataset inputs are unsupported for signature logging in TensorFlow < 2.1.0",
 )
 def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_mnist_tf_dataset):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     fashion_mnist_model = _create_fashion_mnist_model()
     with mlflow.start_run() as run:
         fashion_mnist_model.fit(fashion_mnist_tf_dataset)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 28, 28]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 10]}}],
@@ -1159,14 +1508,10 @@ def test_keras_autolog_infers_model_signature_correctly_with_tf_dataset(fashion_
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
@@ -1180,18 +1525,14 @@ def test_keras_autolog_input_example_load_and_predict_with_dict(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_dict(
     random_train_dict_mapping, random_one_hot_labels
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     model = _create_model_for_dict_mapping()
     with mlflow.start_run() as run:
         model.fit(random_train_dict_mapping, random_one_hot_labels)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [
                 {"name": "a", "type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1]}},
@@ -1204,12 +1545,8 @@ def test_keras_autolog_infers_model_signature_correctly_with_dict(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_data_gen_sequence):
-    mlflow.tensorflow.autolog(log_input_examples=True)
+    mlflow.tensorflow.autolog(log_input_examples=True, log_model_signatures=True)
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(keras_data_gen_sequence)
@@ -1219,19 +1556,52 @@ def test_keras_autolog_input_example_load_and_predict_with_keras_sequence(keras_
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason="TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0",
-)
 def test_keras_autolog_infers_model_signature_correctly_with_keras_sequence(
     keras_data_gen_sequence,
 ):
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(log_model_signatures=True)
     initial_model = create_tf_keras_model()
     with mlflow.start_run() as run:
         initial_model.fit(keras_data_gen_sequence)
-        _assert_keras_autolog_infers_model_signature_correctly(
+        _assert_autolog_infers_model_signature_correctly(
             run,
             [{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": [-1, 4]}}],
             [{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}}],
         )
+
+
+@pytest.mark.large
+def test_keras_autolog_does_not_log_model_signature_when_mlflow_autolog_called(
+    keras_data_gen_sequence,
+):
+    mlflow.autolog()
+    initial_model = create_tf_keras_model()
+    initial_model.fit(keras_data_gen_sequence)
+
+    mlmodel_path = mlflow.artifacts.download_artifacts(
+        f"runs:/{mlflow.last_active_run().info.run_id}/model/MLmodel"
+    )
+    mlmodel_contents = yaml.safe_load(open(mlmodel_path, "r"))
+    assert "signature" not in mlmodel_contents, mlmodel_contents.keys()
+
+
+@pytest.mark.large
+def test_extract_tf_keras_input_example_unsupported_type_returns_None():
+    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+    extracted_data = extract_tf_keras_input_example([1, 2, 4, 5])
+    assert extracted_data is None, (
+        "Keras input data extraction function should have "
+        "returned None as input type is not supported."
+    )
+
+
+@pytest.mark.large
+def test_extract_input_example_from_tf_input_fn_unsupported_type_returns_None():
+    from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+    extracted_data = extract_tf_keras_input_example(lambda: [1, 2, 4, 5])
+    assert extracted_data is None, (
+        "Tensorflow's input_fn training data extraction should have"
+        " returned None as input type is not supported."
+    )

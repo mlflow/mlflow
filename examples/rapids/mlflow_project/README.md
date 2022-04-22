@@ -7,7 +7,7 @@ persistence and deployment."
 The example workflows below train RAPIDs regression models to predict airline flight delays, using
 MLflow to log models and deploy them as local REST API endpoints for real-time inference. You can run them:
 
-* On a GPU-enabled instance for free in Colab. If following this approach, we recommend using the "Jupyter notebook workflow" below 
+* On a GPU-enabled instance for free in Colab. If following this approach, we recommend using the "Jupyter notebook workflow" below
 and following the setup steps in [this Colab notebook](https://colab.research.google.com/drive/1rY7Ln6rEE1pOlfSHCYOVaqt8OvDO35J0#forceEdit=true&offline=true&sandboxMode=true) to configure your
 environment.
 
@@ -50,7 +50,7 @@ for more details on necessary prerequisites for running the examples on your own
 
 1. Deploy your model
     1. Deploy your model
-        1. `$ mlflow models serve --no-conda -m models:/rapids_mlflow_cli/[VERSION] -p 55755`
+        1. `$ mlflow models serve --env-manager=local -m models:/rapids_mlflow_cli/[VERSION] -p 55755`
 
 1. Query the deployed model with test data `src/sample_server_query.sh` example script.
     1. `bash src/sample_server_query.sh`

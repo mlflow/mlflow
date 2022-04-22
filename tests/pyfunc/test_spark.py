@@ -20,7 +20,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-from mlflow.utils.environment import _EnvManager
 
 import tests
 from mlflow.types import Schema, ColSpec
@@ -157,7 +156,8 @@ def test_spark_udf(spark, model_path):
 
 
 @pytest.mark.parametrize("sklearn_version", ["0.22.1", "0.24.0"])
-def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_version):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_version, env_manager):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -185,13 +185,14 @@ def test_spark_udf_conda_manager_can_restore_env(spark, model_path, sklearn_vers
         ],
     )
 
-    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager="conda")
+    python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager=env_manager)
     result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
 
     assert result == 1
 
 
-def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, model_path):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model_path, env_manager):
     model, inference_data = sklearn_model
 
     mlflow.sklearn.save_model(model, model_path)
@@ -200,7 +201,7 @@ def test_spark_udf_conda_manager_predict_sklearn_model(spark, sklearn_model, mod
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
     infer_spark_df = spark.createDataFrame(infer_data)
 
-    pyfunc_udf = spark_udf(spark, model_path, env_manager="conda")
+    pyfunc_udf = spark_udf(spark, model_path, env_manager=env_manager)
     result = (
         infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
         .toPandas()
@@ -398,7 +399,10 @@ def test_model_cache(spark, model_path):
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
 @pytest.mark.large
-def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn_model, model_path):
+@pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
+def test_spark_udf_embedded_model_server_killed_when_job_canceled(
+    spark, sklearn_model, model_path, env_manager
+):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
@@ -411,7 +415,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         from mlflow.models.cli import _get_flavor_backend
 
         _get_flavor_backend(
-            model_path, env_manager=_EnvManager.CONDA, workers=1, install_mlflow=False
+            model_path, env_manager=env_manager, workers=1, install_mlflow=False
         ).serve(
             model_uri=model_path,
             port=server_port,
@@ -429,9 +433,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(spark, sklearn
         # and the udf task starts a mlflow model server process.
         spark.range(1).repartition(1).select(udf_with_model_server("id")).collect()
 
-    _get_flavor_backend(
-        model_path, env_manager=_EnvManager.CONDA, install_mlflow=False
-    ).prepare_env(model_uri=model_path)
+    _get_flavor_backend(model_path, env_manager=env_manager, install_mlflow=False).prepare_env(
+        model_uri=model_path
+    )
 
     job_thread = threading.Thread(target=run_job)
     job_thread.start()

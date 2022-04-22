@@ -30,6 +30,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -37,7 +38,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
-from mlflow.utils.validation import _validate_run_id
+from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -52,6 +53,7 @@ _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
+_last_active_run_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
@@ -229,6 +231,7 @@ def start_run(
         0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
     """
     global _active_run_stack
+    _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
@@ -349,12 +352,13 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         --
         Active run: None
     """
-    global _active_run_stack
+    global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
         env.unset_variable(_RUN_ID_ENV_VAR)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
+        _last_active_run_id = run.info.run_id
 
 
 atexit.register(end_run)
@@ -383,6 +387,64 @@ def active_run() -> Optional[ActiveRun]:
         Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+
+
+def last_active_run() -> Optional[Run]:
+    """
+    Gets the most recent active run.
+
+    Examples:
+
+    .. code-block:: python
+        :caption: To retrieve the most recent autologged run:
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+        autolog_run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To get the most recently active run that ended:
+
+        import mlflow
+
+        mlflow.start_run()
+        mlflow.end_run()
+        run = mlflow.last_active_run()
+
+    .. code-block:: python
+        :caption: To retrieve the currently active run:
+
+        import mlflow
+
+        mlflow.start_run()
+        run = mlflow.last_active_run()
+        mlflow.end_run()
+
+    :return: The active run (this is equivalent to ``mlflow.active_run()``) if one exists.
+             Otherwise, the last run started from the current Python process that reached
+             a terminal status (i.e. FINISHED, FAILED, or KILLED).
+    """
+    _active_run = active_run()
+    if _active_run is not None:
+        return _active_run
+    if _last_active_run_id is None:
+        return None
+    return get_run(_last_active_run_id)
 
 
 def get_run(run_id: str) -> Run:
@@ -1142,7 +1204,7 @@ def search_runs(
         print("--")
 
         # Search for all the runs in the experiment with the given experiment name
-        df = mlflow.search_runs(experiment_name=[experiment_name], order_by=["metrics.m DESC"])
+        df = mlflow.search_runs(experiment_names=[experiment_name], order_by=["metrics.m DESC"])
         print(df[["metrics.m", "tags.s.release", "run_id"]])
 
 
@@ -1544,8 +1606,6 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
-
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1562,20 +1622,22 @@ def autolog(
             # Logic is as follows:
             # - if a previous_config exists, that means either `mlflow.autolog` or
             #   `mlflow.integration.autolog` was called.
-            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
-            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
-            #   `autologging_params`.
+            # - if the config contains `AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED`, the
+            #   configuration was set by `mlflow.autolog`, and so we can safely call `autolog_fn`
+            #   with `autologging_params`.
             # - if the config doesn't contain this key, the configuration was set by an
             #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
             #   new configs.
             prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
-            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+            if prev_config and not prev_config.get(
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            ):
                 return
 
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
-                CONF_KEY_IS_GLOBALLY_CONFIGURED
+                AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
             if not autologging_is_disabled(
                 autolog_fn.integration_name

@@ -6,6 +6,21 @@ on:
   schedule:
     # Run this action daily at 7:00 UTC
     - cron: "0 7 * * *"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
@@ -23,6 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
@@ -46,8 +65,6 @@ jobs:
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
 
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
@@ -77,6 +94,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+
     - name: Increase available disk space
       run: |
         rm -rf "$AGENT_TOOLSDIRECTORY"

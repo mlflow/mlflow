@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
-import { RunInfo } from '../sdk/MlflowMessages';
+import { RunInfo, Experiment } from '../sdk/MlflowMessages';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
@@ -38,7 +38,7 @@ const EMPTY_CELL_PLACEHOLDER = '-';
 
 export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string,
+    experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)),
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     modelVersionsByRunUuid: PropTypes.object.isRequired,
     // List of list of params in all the visible runs
@@ -64,6 +64,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     isLoading: PropTypes.bool.isRequired,
     categorizedUncheckedKeys: PropTypes.object.isRequired,
     nestChildren: PropTypes.bool,
+    compareExperiments: PropTypes.bool,
+  };
+
+  static defaultProps = {
+    compareExperiments: false,
   };
 
   static defaultColDef = {
@@ -84,6 +89,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   // https://www.ag-grid.com/javascript-grid-performance/#3-create-fast-cell-renderers
   static frameworkComponents = {
     sourceCellRenderer: SourceCellRenderer,
+    experimentNameRenderer: ExperimentNameRenderer,
     versionCellRenderer: VersionCellRenderer,
     modelsCellRenderer: ModelsCellRenderer,
     dateCellRenderer: DateCellRenderer,
@@ -138,10 +144,14 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   getLocalStore = () =>
     LocalStorageUtils.getStoreForComponent(
       'ExperimentRunsTableMultiColumnView2',
-      this.props.experimentId,
+      JSON.stringify(this.props.experiments.map(({ experiment_id }) => experiment_id).sort()),
     );
 
   applyingRowSelectionFromProps = false;
+
+  hasMultipleExperiments() {
+    return this.props.experiments.length > 1;
+  }
 
   getColumnDefs() {
     const {
@@ -181,6 +191,18 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           },
           cellStyle,
         },
+        ...(this.props.compareExperiments
+          ? [
+              {
+                headerName: ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME,
+                field: 'experimentId',
+                cellRenderer: 'experimentNameRenderer',
+                pinned: 'left',
+                initialWidth: 140,
+                cellStyle,
+              },
+            ]
+          : []),
         {
           headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
           field: 'duration',
@@ -305,6 +327,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
   getRowData() {
     const {
+      experiments,
       runInfos,
       paramsList,
       metricsList,
@@ -328,6 +351,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       nestChildren,
     });
 
+    const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments));
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
@@ -337,6 +361,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       }));
       const runInfo = runInfos[idx];
 
+      const { experiment_id: experimentId } = runInfo;
+      const { name: experimentName, basename: experimentBasename } = experimentNameMap[
+        experimentId
+      ];
       const user = Utils.getUser(runInfo, tags);
       const queryParams = window.location && window.location.search ? window.location.search : '';
       const startTime = runInfo.start_time;
@@ -349,7 +377,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
       return {
         runInfo,
+        experimentName,
+        experimentBasename,
         startTime,
+        experimentId,
         duration,
         user,
         runName,
@@ -649,6 +680,16 @@ function VersionCellRenderer(props) {
   return Utils.renderVersion(tags) || EMPTY_CELL_PLACEHOLDER;
 }
 
+ExperimentNameRenderer.propTypes = { data: PropTypes.object };
+function ExperimentNameRenderer(props) {
+  const { experimentId, experimentName, experimentBasename } = props.data;
+  return (
+    <Link to={Routes.getExperimentPageRoute(experimentId)} title={experimentName}>
+      {experimentBasename}
+    </Link>
+  );
+}
+
 export function ModelsCellRenderer(props) {
   const { runInfo, tags, modelVersionsByRunUuid } = props.data;
   const registeredModels = modelVersionsByRunUuid[runInfo.run_uuid] || [];
@@ -676,6 +717,8 @@ export function ModelsCellRenderer(props) {
             title='Registered Model'
             src={registeredModelSvg}
           />
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/jsx-no-target-blank */}
           <a
             href={Utils.getIframeCorrectedRoute(
               getModelVersionPageRoute(registeredModelName, registeredModelVersion),
@@ -698,6 +741,8 @@ export function ModelsCellRenderer(props) {
       modelDiv = (
         <>
           <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/jsx-no-target-blank */}
           <a href={loggedModelLink} target='_blank' className='logged-model-link'>
             {loggedModelFlavorText}
           </a>

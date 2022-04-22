@@ -13,7 +13,7 @@ def main(expected_env_name):
     actual_conda_env = os.environ.get("CONDA_DEFAULT_ENV", None)
     assert (
         actual_conda_env == expected_env_name
-    ), "Script expected to be run from conda env %s but was actually run from env" " %s" % (
+    ), "Script expected to be run from conda env %s but was actually run from env %s" % (
         expected_env_name,
         actual_conda_env,
     )

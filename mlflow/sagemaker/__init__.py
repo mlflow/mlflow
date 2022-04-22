@@ -316,7 +316,7 @@ def deploy(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -665,7 +665,7 @@ def deploy_transform_job(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -941,7 +941,7 @@ def push_model_to_sagemaker(
     if not os.path.exists(model_config_path):
         raise MlflowException(
             message=(
-                "Failed to find {} configuration within the specified model's" " root directory."
+                "Failed to find {} configuration within the specified model's root directory."
             ).format(MLMODEL_FILE_NAME),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -1881,7 +1881,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             config[key] = value
 
     @experimental
-    def create_deployment(self, name, model_uri, flavor=None, config=None):
+    def create_deployment(self, name, model_uri, flavor=None, config=None, endpoint=None):
         """
         Deploy an MLflow model on AWS SageMaker.
         The currently active AWS account must have correct permissions set up.
@@ -2005,6 +2005,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+        :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2085,7 +2086,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return dict(name=app_name, flavor=flavor)
 
     @experimental
-    def update_deployment(self, name, model_uri=None, flavor=None, config=None):
+    def update_deployment(self, name, model_uri=None, flavor=None, config=None, endpoint=None):
         """
         Update a deployment on AWS SageMaker. This function can replace or add a new model to
         an existing SageMaker endpoint. By default, this function replaces the existing model
@@ -2205,6 +2206,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+        :param endpoint: (optional) Endpoint containing the deployment to update. Currently
+                         unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2298,7 +2301,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return dict(name=app_name, flavor=flavor)
 
     @experimental
-    def delete_deployment(self, name, config=None):
+    def delete_deployment(self, name, config=None, endpoint=None):
         """
         Delete a SageMaker application.
 
@@ -2331,6 +2334,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          is responsible for monitoring the status of the deletion process via native
                          SageMaker APIs or the AWS console. If `synchronous` is False, this
                          parameter is ignored. Defaults to ``300``.
+        :param endpoint: (optional) Endpoint containing the deployment to delete. Currently
+                         unsupported
 
         .. code-block:: python
             :caption: Python example
@@ -2377,7 +2382,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             timeout_seconds=final_config["timeout_seconds"],
         )
 
-    def list_deployments(self):
+    def list_deployments(self, endpoint=None):
         """
         List deployments. This method returns a list of dictionaries that describes each deployment.
 
@@ -2387,6 +2392,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         To assume an IAM role, the plugin must be initialized
         with the AWS region and the role ARN in the ``target_uri`` such as
         ``sagemaker:/us-east-1/arn:aws:1234:role/assumed_role``.
+
+        :param endpoint: (optional) List deployments in the specified endpoint. Currently
+                         unsupported
 
         :return: A list of dictionaries corresponding to deployments.
 
@@ -2414,7 +2422,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         )
         return sage_client.list_endpoints()["Endpoints"]
 
-    def get_deployment(self, name):
+    def get_deployment(self, name, endpoint=None):
         """
         Returns a dictionary describing the specified deployment.
 
@@ -2429,6 +2437,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         while retrieving the deployment.
 
         :param name: Name of deployment to retrieve
+        :param endpoint: (optional) Endpoint containing the deployment to get. Currently
+                         unsupported
         :return: A dictionary that describes the specified deployment
 
         .. code-block:: python
@@ -2461,7 +2471,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while retrieving the deployment: {exc}\n")
             )
 
-    def predict(self, deployment_name, df):
+    def predict(self, deployment_name=None, df=None, endpoint=None):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
 
@@ -2478,6 +2488,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         :param deployment_name: Name of the deployment to predict against.
         :param df: A PyFunc input, such as a Pandas DataFrame, NumPy array, list, or dictionary.
                    For a complete list of supported input types, see :ref:`pyfunc-inference-api`.
+        :param endpoint: Endpoint to predict against. Currently unsupported
         :return: A PyFunc output, such as a Pandas DataFrame, Pandas Series, or NumPy array.
                  For a complete list of supported output types, see :ref:`pyfunc-inference-api`.
 
@@ -2529,9 +2540,78 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 message=(f"There was an error while getting model prediction: {exc}\n")
             )
 
-    def explain(self, deployment_name, df):
+    def explain(self, deployment_name=None, df=None, endpoint=None):
         """
         *This function has not been implemented and will be coming in the future.*
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def create_endpoint(self, name, config=None):
+        """
+        Create an endpoint with the specified target. By default, this method should block until
+        creation completes (i.e. until it's possible to create a deployment within the endpoint).
+        In the case of conflicts (e.g. if it's not possible to create the specified endpoint
+        due to conflict with an existing endpoint), raises a
+        :py:class:`mlflow.exceptions.MlflowException`. See target-specific plugin documentation
+        for additional detail on support for asynchronous creation and other configuration.
+
+        :param name: Unique name to use for endpoint. If another endpoint exists with the same
+                     name, raises a :py:class:`mlflow.exceptions.MlflowException`.
+        :param config: (optional) Dict containing target-specific configuration for the
+                       endpoint.
+        :return: Dict corresponding to created endpoint, which must contain the 'name' key.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def update_endpoint(self, endpoint, config=None):
+        """
+        Update the endpoint with the specified name. You can update any target-specific attributes
+        of the endpoint (via `config`). By default, this method should block until the update
+        completes (i.e. until it's possible to create a deployment within the endpoint). See
+        target-specific plugin documentation for additional detail on support for asynchronous
+        update and other configuration.
+
+        :param endpoint: Unique name of endpoint to update
+        :param config: (optional) dict containing target-specific configuration for the
+                       endpoint
+        :return: None
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def delete_endpoint(self, endpoint):
+        """
+        Delete the endpoint from the specified target. Deletion should be idempotent (i.e. deletion
+        should not fail if retried on a non-existent deployment).
+
+        :param endpoint: Name of endpoint to delete
+        :return: None
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def list_endpoints(self):
+        """
+        List endpoints in the specified target. This method is expected to return an
+        unpaginated list of all endpoints (an alternative would be to return a dict with
+        an 'endpoints' field containing the actual endpoints, with plugins able to specify
+        other fields, e.g. a next_page_token field, in the returned dictionary for pagination,
+        and to accept a `pagination_args` argument to this method for passing
+        pagination-related args).
+
+        :return: A list of dicts corresponding to endpoints. Each dict is guaranteed to
+                 contain a 'name' key containing the endpoint name. The other fields of
+                 the returned dictionary and their types may vary across targets.
+        """
+        raise NotImplementedError("This function is not implemented yet.")
+
+    def get_endpoint(self, endpoint):
+        """
+        Returns a dictionary describing the specified endpoint, throwing a
+        py:class:`mlflow.exception.MlflowException` if no endpoint exists with the provided
+        name.
+        The dict is guaranteed to contain an 'name' key containing the endpoint name.
+        The other fields of the returned dictionary and their types may vary across targets.
+
+        :param endpoint: Name of endpoint to fetch
         """
         raise NotImplementedError("This function is not implemented yet.")
 

@@ -31,6 +31,12 @@ const isExperimentsActive = (match, location) => {
   return isActive;
 };
 
+let mlflowHashRouting = false;
+
+export function setMLFlowHashRouting() {
+  mlflowHashRouting = true;
+}
+
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
 };
@@ -38,7 +44,10 @@ const classNames = {
 class App extends Component {
   render() {
     return (
-      <Router>
+      <Router
+        basename={mlflowHashRouting ? '/mlflow' : undefined}
+        hashType={mlflowHashRouting ? 'noslash' : undefined}
+      >
         <div style={{ height: '100vh' }}>
           <ErrorModal />
           {process.env.HIDE_HEADER === 'true' ? null : (
@@ -94,6 +103,7 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
               <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
               {/* TODO(Zangr) see if route component can be injected here */}
               <Route exact path={modelListPageRoute} component={ModelListPage} />

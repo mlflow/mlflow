@@ -1,6 +1,6 @@
 """
 A script to update the index of known PyPI packages, which is used during dependency inference to
-print warnings when unrecognized packages are inferred as depenndencies. The index is located
+print warnings when unrecognized packages are inferred as dependencies. The index is located
 at 'mlflow/pypi_package_index.json'.
 
 # How to run (make sure you're in the repository root):

@@ -34,6 +34,8 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
@@ -317,6 +319,8 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
@@ -397,6 +401,18 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.keras.log_model(keras_model, "models")
     """
+    if signature is not None:
+        warnings.warn(
+            "The pyfunc inference behavior of Keras models logged "
+            "with signatures differs from the behavior of Keras "
+            "models logged without signatures. Specifically, when a "
+            "signature is present, passing a Pandas DataFrame as "
+            "input to the pyfunc `predict()` API produces an `ndarray` "
+            "(for single-output models) or a dictionary of `str -> ndarray`: "
+            "(for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces "
+            "a Pandas DataFrame output in response to a Pandas DataFrame input."
+        )
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.keras,

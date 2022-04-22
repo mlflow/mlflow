@@ -42,8 +42,9 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
     ├── MLmodel
     ├── model.pkl
     ├── conda.yaml
+    ├── python_env.yaml
     └── requirements.txt
-    
+
 
 And its ``MLmodel`` file describes two flavors:
 
@@ -98,7 +99,7 @@ databricks_runtime
 
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
+For environment recreation, we automatically log ``conda.yaml``, ``python_env.yaml``, and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using ``conda`` or ``virtualenv`` with ``pip``.
 
 .. note::
     Anaconda Inc. updated their `terms of service <https://www.anaconda.com/terms-of-service>`_ for anaconda.org channels. Based on the new terms of service you may require a commercial license if you rely on Anaconda’s packaging and distribution. See `Anaconda Commercial Edition FAQ <https://www.anaconda.com/blog/anaconda-commercial-edition-faq>`_ for more information. Your use of any Anaconda channels is governed by their terms of service.
@@ -127,8 +128,15 @@ For environment recreation, we automatically log ``conda.yaml`` and ``requiremen
 
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
+python_env.yaml
+    This file contains the following information that's required to restore a model environment using virtualenv:
+
+    - Python version
+    - Version specifiers for ``pip``, ``setuptools``, and ``wheel``
+    - Pip requirements of the model (reference to ``requirements.txt``)
+
 requirements.txt
-    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
+    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment or using the ``pip_requirements`` argument of the `mlflow.<flavor>.log_model` API.
 
 The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
 
@@ -162,6 +170,18 @@ The written ``conda.yaml`` file:
       - mlflow
       - scikit-learn==0.23.2
       - cloudpickle==1.6.0
+
+The written ``python_env.yaml`` file:
+
+.. code-block:: yaml
+
+    python: 3.8.8
+    build_dependencies:
+      - pip==21.1.3
+      - setuptools==57.4.0
+      - wheel==0.37.0
+    dependencies:
+      - -r requirements.txt
 
 The written ``requirements.txt`` file:
 
@@ -208,7 +228,7 @@ Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 All flavors support column-based signatures.
 
-Each column-based input and output is represented by a type corresponding to one of 
+Each column-based input and output is represented by a type corresponding to one of
 :py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
 displays an MLmodel file excerpt containing the model signature for a classification model trained on
 the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
@@ -221,7 +241,7 @@ The output is an unnamed integer specifying the predicted class.
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}]'
       outputs: '[{"type": "integer"}]'
-      
+
 Tensor-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
@@ -234,7 +254,7 @@ classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/m
 The input has one named tensor where input sample is an image represented by a 28 × 28 × 1 array
 of float32 numbers. The output is an unnamed tensor that has 10 units specifying the
 likelihood corresponding to each of the 10 classes. Note that the first dimension of the input
-and the output is the batch size and is thus set to -1 to allow for variable batch sizes. 
+and the output is the batch size and is thus set to -1 to allow for variable batch sizes.
 
 .. code-block:: yaml
 
@@ -269,7 +289,7 @@ example, int -> long or int -> double conversions are ok, long -> double is not.
 be made compatible, MLflow will raise an error.
 
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
-the input type does not match the type specified by the schema). 
+the input type does not match the type specified by the schema).
 
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
@@ -360,7 +380,7 @@ on the ``MNIST dataset``:
     testX = test_X.reshape((test_X.shape[0], 28, 28, 1))
     trainY = to_categorical(train_Y)
     testY = to_categorical(test_Y)
-    
+
     model = Sequential()
     model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', input_shape=(28, 28, 1)))
     model.add(MaxPooling2D((2, 2)))
@@ -511,11 +531,11 @@ Once loaded, you can score the model by calling the :py:func:`predict <mlflow.py
 method, which has the following signature::
 
   predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
-  
+
 All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
 DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
 whether a model flavor supports tensor inputs, please check the flavor's documentation.
-  
+
 For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
 If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
 python `List` or a `numpy.ndarray` is provided as input for schemas with unnamed columns, MLflow will cast the
@@ -528,6 +548,18 @@ shape and type against the shape and type specified in the model's schema and th
 
 For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
 propogate any errors raised by the model if the model does not accept the provided input type.
+
+
+The python environment that a PyFunc model is loaded into for prediction or inference may differ from the environment
+in which it was trained. In the case of an environment mismatch, a warning message will be printed when calling
+:py:func:`mlflow.pyfunc.load_model`. This warning statement will identify the packages that have a version mismatch
+between those used during training and the current environment.  In order to get the full dependencies of the
+environment in which the model was trained, you can call :py:func:`mlflow.pyfunc.get_model_dependencies`.
+Furthermore, if you want to run model inference in the same environment used in model training, you can call
+:py:func:`mlflow.pyfunc.spark_udf` with the `env_manager` argument set as "conda". This will generate the environment
+from the `conda.yaml` file, ensuring that the python UDF will execute with the exact package versions that were used
+during training.
+
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -892,6 +924,198 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
+Diviner (``diviner``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``diviner`` model flavor enables logging of
+`diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
+:py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
+``python_function`` flavor to the MLflow Models that they produce, allowing the model to be interpreted as generic
+Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
+model flavor in native diviner formats.
+
+Diviner Types
+~~~~~~~~~~~~~
+Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
+related series. Forecasting in ``diviner`` is accomplished through wrapping popular open source libraries such as
+`prophet <https://facebook.github.io/prophet/>`_ and `pmdarima <http://alkaline-ml.com/pmdarima/>`_. The ``diviner``
+library offers a simplified set of APIs to simultaneously generate distinct time series forecasts for multiple data
+groupings using a single input DataFrame and a unified high-level API.
+
+Metrics and Parameters logging for Diviner
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Unlike other flavors that are supported in MLflow, Diviner has the concept of grouped models. As a collection of many
+(perhaps thousands) of individual forecasting models, the burden to the tracking server to log individual metrics
+and parameters for each of these models is significant. For this reason, metrics and parameters are exposed for
+retrieval from Diviner's APIs as ``Pandas`` ``DataFrames``, rather than discrete primitive values.
+
+To illustrate, let us assume we are forecasting hourly electricity consumption from major cities around the world.
+A sample of our input data looks like this:
+
+======= ========== =================== =======
+country city       datetime            watts
+======= ========== =================== =======
+US      NewYork    2022-03-01 00:01:00 23568.9
+US      NewYork    2022-03-01 00:02:00 22331.7
+US      Boston     2022-03-01 00:01:00 14220.1
+US      Boston     2022-03-01 00:02:00 14183.4
+CA      Toronto    2022-03-01 00:01:00 18562.2
+CA      Toronto    2022-03-01 00:02:00 17681.6
+MX      MexicoCity 2022-03-01 00:01:00 19946.8
+MX      MexicoCity 2022-03-01 00:02:00 19444.0
+======= ========== =================== =======
+
+If we were to ``fit`` a model on this data, supplying the grouping keys as:
+
+.. code-block:: py
+
+    grouping_keys = ["country", "city"]
+
+We will have a model generated for each of the grouping keys that have been supplied:
+
+.. code-block:: py
+
+    [("US", "NewYork"),
+     ("US", "Boston"),
+     ("CA", "Toronto"),
+     ("MX", "MexicoCity")]
+
+With a model constructed for each of these, entering each of their metrics and parameters wouldn't be an issue for the
+MLflow tracking server. What would become a problem, however, is if we modeled each major city on the planet and ran
+this forecasting scenario every day. If we were to adhere to the conditions of the World Bank, that would mean just
+over 10,000 models as of 2022. After a mere few weeks of running this forecasting every day we would have a very large
+metrics table.
+
+To eliminate this issue for large-scale forecasting, the metrics and parameters for ``diviner`` are extracted as a
+grouping key indexed ``Pandas DataFrame``, as shown below for example (float values truncated for visibility):
+
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+grouping_key_columns  country city       mse        rmse   mae    mape mdape smape
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+"('country', 'city')" CA      Toronto    8276851.6  2801.7 2417.7 0.16 0.16  0.159
+"('country', 'city')" MX      MexicoCity 3548872.4  1833.8 1584.5 0.15 0.16  0.159
+"('country', 'city')" US      NewYork    3167846.4  1732.4 1498.2 0.15 0.16  0.158
+"('country', 'city')" US      Boston     14082666.4 3653.2 3156.2 0.15 0.16  0.159
+===================== ======= ========== ========== ====== ====== ==== ===== =====
+
+There are two recommended means of logging the metrics and parameters from a ``diviner`` model :
+
+
+* Writing the DataFrames to local storage and using :py:func:`mlflow.log_artifacts`
+
+
+.. code-block:: py
+
+    import os
+    import mlflow
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        params = model.extract_model_params()
+        metrics = model.cross_validate_and_score(
+            horizon="72 hours",
+            period="240 hours",
+            initial="480 hours",
+            parallel="threads",
+            rolling_window=0.1,
+            monthly=False,
+        )
+        params.to_csv(f"{tmpdir}/params.csv", index=False, header=True)
+        metrics.to_csv(f"{tmpdir}/metrics.csv", index=False, header=True)
+
+        mlflow.log_artifacts(tmpdir, artifact_path="data")
+
+
+* Writing directly as a JSON artifact using :py:func:`mlflow.log_dict`
+
+
+.. note::
+    The parameters extract from ``diviner`` models *may require* casting (or dropping of columns) if using the
+    ``pd.DataFrame.to_dict()`` approach due to the inability of this method to serialize objects.
+
+.. code-block:: py
+
+    import mlflow
+
+    params = model.extract_model_params()
+    metrics = model.cross_validate_and_score(
+        horizon="72 hours",
+        period="240 hours",
+        initial="480 hours",
+        parallel="threads",
+        rolling_window=0.1,
+        monthly=False,
+    )
+    params["t_scale"] = params["t_scale"].astype(str)
+    params["start"] = params["start"].astype(str)
+    params = params.drop("stan_backend", axis=1)
+
+    mlflow.log_dict(params.to_dict(), "params.json")
+    mlflow.log_dict(metrics.to_dict(), "metrics.json")
+
+Logging of the model artifact is shown in the ``pyfunc`` example below.
+
+Diviner pyfunc usage
+~~~~~~~~~~~~~~~~~~~~
+The MLflow Diviner flavor includes an implementation of the ``pyfunc`` interface for Diviner models. To control
+prediction behavior, you can specify configuration arguments in the first row of a Pandas DataFrame input.
+
+As this configuration is dependent upon the underlying model type (i.e., the ``diviner.GroupedProphet.forecast()``
+method has a different signature than does ``diviner.GroupedPmdarima.predict()``), the Diviner pyfunc implementation
+attempts to coerce arguments to the types expected by the underlying model.
+
+.. note::
+    Diviner models support both "full group" and "partial group" forecasting. If a column named ``"groups"`` is present
+    in the configuration ``DataFrame`` submitted to the ``pyfunc`` flavor, the grouping key values in the first row
+    will be used to generate a subset of forecast predictions. This functionality removes the need to filter a subset
+    from the full output of all groups forecasts if the results of only a few (or one) groups are needed.
+
+For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``predict()`` method is:
+
+.. code-block:: py
+
+    import mlflow
+    import pandas as pd
+    from pmdarima.arima.auto import AutoARIMA
+    from diviner import GroupedPmdarima
+
+    with mlflow.start_run():
+        base_model = AutoARIMA(out_of_sample_size=96, maxiter=200)
+        model = GroupedPmdarima(model_template=base_model).fit(
+            df=df,
+            group_key_columns=["country", "city"],
+            y_col="watts",
+            datetime_col="datetime",
+            silence_warnings=True,
+        )
+
+        mlflow.diviner.save_model(diviner_model=model, path="/tmp/diviner_model")
+
+    diviner_pyfunc = mlflow.pyfunc.load_model(model_uri="/tmp/diviner_model")
+
+    predict_conf = pd.DataFrame(
+        {"n_periods": 120,
+         "groups": [("US", "NewYork"), ("CA", "Toronto"), ("MX", "MexicoCity")],  # NB: List of tuples required.
+         "predict_col": "wattage_forecast",
+         "alpha": 0.1,
+         "return_conf_int": True,
+         "on_error": "warn",
+        },
+        index=[0],
+    )
+
+    subset_forecasts = diviner_pyfunc.predict(predict_conf)
+
+.. note::
+    There are several instances in which a configuration ``DataFrame`` submitted to the ``pyfunc`` ``predict()`` method
+    will cause an ``MlflowException`` to be raised:
+
+        * If neither ``horizon`` or ``n_periods`` are provided.
+        * The value of ``n_periods`` or ``horizon`` is not an integer.
+        * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
+        * If both ``horizon`` and ``n_periods`` are provided with different values.
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -951,16 +1175,16 @@ and behavior:
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to 
+If the default set of metrics is insufficient, you can specify a list of ``custom_metrics`` functions to
 :py:func:`mlflow.evaluate()` to produce custom performance metrics for the model(s) that you're evaluating. Custom metric
 functions should accept at least two arguments: a DataFrame containing ``prediction`` and ``target`` columns,
-and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation 
+and a dictionary containing the default set of metrics. For a full list of default metrics, refer to the documentation
 of :py:func:`mlflow.evaluate()`. If the custom metric function produces artifacts in the form of files, it should also
 accept an additional string argument representing the path to the temporary directory that can be used to store such
 artifacts.
 
 The following `short example from the MLflow GitHub Repository
-<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_ 
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics.py>`_
 uses :py:func:`mlflow.evaluate()` with a custom metric function to evaluate the performance of a regressor on the
 `California Housing Dataset <https://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.html>`_.
 Note that custom metric functions can return both metrics and artifacts. They can either return a single
@@ -1310,15 +1534,15 @@ Serving with MLServer (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Python models can be deployed using `Seldon's MLServer
-<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server. 
+<https://mlserver.readthedocs.io/en/latest/>`_ as alternative inference server.
 MLServer is integrated with two leading open source model deployment tools,
 `Seldon Core
 <https://docs.seldon.io/projects/seldon-core/en/latest/graph/protocols.html#v2-kfserving-protocol>`_
 and `KServe (formerly known as KFServing)
 <https://kserve.github.io/website/modelserving/v1beta1/sklearn/v2/>`_, and can
-be used to test and deploy models using these frameworks. 
+be used to test and deploy models using these frameworks.
 This is especially powerful when building docker images since the docker image
-built with MLServer can be deployed directly with both of these frameworks. 
+built with MLServer can be deployed directly with both of these frameworks.
 
 MLServer exposes the same scoring API through the ``/invocations`` endpoint.
 In addition, it supports the standard `V2 Inference Protocol
@@ -1408,12 +1632,43 @@ For more info, see:
     mlflow models predict --help
     mlflow models build-docker --help
 
+Environment Management Tools
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MLflow currently supports the following environment management tools to restore model environments:
+
+local
+    Use the local environment. No extra tools are required.
+conda
+    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
+
+    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
+virtualenv
+    Create environments using virtualenv and pyenv (for python version management). Virtualenv and
+    pyenv (for Linux and macOS) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
+
+    - `virtualenv installation instructions <https://virtualenv.pypa.io/en/latest/installation.html>`_
+    - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
+    - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
+
+    .. note::
+        Virtualenv support is still experimental and may be changed in a future MLflow release.
+
+The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
+
+.. code-block:: bash
+
+    # Use conda
+    mlflow models serve ... --env-manager=conda
+    # Use virtualenv
+    mlflow models predict ... --env-manager=virtualenv
+
 .. _azureml_deployment:
 
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving. 
+The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML, either to Azure Kubernetes Service (AKS) or Azure Container Instances (ACI) for real-time serving.
 
 The resulting deployment accepts the following data formats as input:
 
@@ -1441,7 +1696,7 @@ Deployments can be generated using both the Python API or MLflow CLI. In both ca
 
     {
       "computeType": "aci",
-      "containerResourceRequirements": 
+      "containerResourceRequirements":
       {
         "cpu": 1,
         "memoryInGB": 1
@@ -1494,13 +1749,13 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
     model_version = 1
 
     # define the model path and the name is the service name
-    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below 
+    # if model is not registered, it gets registered automatically and a name is autogenerated using the "name" parameter below
     client.create_deployment(model_uri=f'models:/{model_name}/{model_version}',
                             config=config,
                             name="mymodel-aci-deployment")
 
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
-    # webservice's scoring URI. 
+    # webservice's scoring URI.
     print("Scoring URI is: %s", webservice.scoring_uri)
 
     # The following example posts a sample input from the wine dataset
@@ -1538,7 +1793,7 @@ The following examples show how to create a deployment in ACI. Please, ensure yo
 .. rubric:: Example: Workflow using the MLflow CLI
 
 .. code-block:: bash
-    
+
     echo "{ computeType: aci }" > deployment_config.json
     mlflow deployments create --name <deployment-name> -m models:/<model-name>/<model-version> -t <azureml-mlflow-tracking-url> --deploy-config-file deployment_config.json
 
@@ -1656,8 +1911,10 @@ Spark cluster and used to score the model.
 .. code-block:: py
 
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
 If a model contains a signature, the UDF can be called without specifying column name arguments.
@@ -1668,7 +1925,10 @@ dataframe's column names must match the model signature's column names.
 
 .. code-block:: py
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model-with-signature>)
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, <path-to-model-with-signature>)
     df = spark_df.withColumn("prediction", pyfunc_udf())
 
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
@@ -1704,10 +1964,39 @@ argument. The following values are supported:
 
     from pyspark.sql.types import ArrayType, FloatType
     from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
 
-    pyfunc_udf = mlflow.pyfunc.spark_udf("path/to/model", result_type=ArrayType(FloatType()))
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType())
+    )
     # The prediction column will contain all the numeric columns returned by the model as floats
     df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
+
+If you want to use conda to restore the python environment that was used to train the model,
+set the `env_manager` argument when calling :py:func:`mlflow.pyfunc.spark_udf`.
+
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    from pyspark.sql.types import ArrayType, FloatType
+    from pyspark.sql.functions import struct
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.getOrCreate()
+    pyfunc_udf = mlflow.pyfunc.spark_udf(
+        spark,
+        "path/to/model",
+        result_type=ArrayType(FloatType()),
+        env_manager="conda"  # Use conda to restore the environment used in training
+    )
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
+
 
 
 .. _deployment_plugin:

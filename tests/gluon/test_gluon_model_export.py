@@ -1,6 +1,5 @@
 from packaging.version import Version
 import os
-import warnings
 import yaml
 from unittest import mock
 
@@ -39,7 +38,9 @@ else:
     array_module = mx.nd
 
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("mxnet") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("mxnet") else ["--env-manager", "local"]
+)
 
 
 @pytest.fixture
@@ -79,9 +80,9 @@ def gluon_model(model_data):
     )
 
     est = get_estimator(model, trainer)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        est.fit(train_data_loader, epochs=3)
+
+    est.fit(train_data_loader, epochs=3)
+
     return model
 
 

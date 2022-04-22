@@ -1,11 +1,10 @@
 import logging
-import sys
 
 import click
 
+from mlflow.artifacts import download_artifacts as _download_artifacts
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.proto_json_utils import message_to_json
 
 _logger = logging.getLogger(__name__)
@@ -107,27 +106,36 @@ def _file_infos_to_json(file_infos):
     help="URI pointing to the artifact file or artifacts directory; use as an "
     "alternative to specifying --run_id and --artifact-path",
 )
-def download_artifacts(run_id, artifact_path, artifact_uri):
+@click.option(
+    "--dst-path",
+    "-d",
+    help=(
+        "Path of the local filesystem destination directory to which to download the"
+        " specified artifacts. If the directory does not exist, it is created. If unspecified"
+        " the artifacts are downloaded to a new uniquely-named directory on the local filesystem,"
+        " unless the artifacts already exist on the local filesystem, in which case their local"
+        " path is returned directly"
+    ),
+)
+def download_artifacts(run_id, artifact_path, artifact_uri, dst_path):
     """
     Download an artifact file or directory to a local directory.
-    The output is the name of the file or directory on the local disk.
+    The output is the name of the file or directory on the local filesystem.
 
-    Either ``--run-id`` or ``--artifact-uri`` must be provided.
+    Either ``--artifact-uri`` or ``--run-id`` must be provided.
     """
-    if run_id is None and artifact_uri is None:
-        _logger.error("Either ``--run-id`` or ``--artifact-uri`` must be provided.")
-        sys.exit(1)
-
+    # Preserve preexisting behavior in MLflow <= 1.24.0 where specifying `artifact_uri` and
+    # `artifact_path` together did not throw an exception (unlike
+    # `mlflow.artifacts.download_artifacts()`) and instead used `artifact_uri` while ignoring
+    # `run_id` and `artifact_path`
     if artifact_uri is not None:
-        click.echo(_download_artifact_from_uri(artifact_uri))
-        return
+        run_id = None
+        artifact_path = None
 
-    artifact_path = artifact_path if artifact_path is not None else ""
-    store = _get_store()
-    artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri)
-    artifact_location = artifact_repo.download_artifacts(artifact_path)
-    click.echo(artifact_location)
+    downloaded_local_artifact_location = _download_artifacts(
+        artifact_uri=artifact_uri, run_id=run_id, artifact_path=artifact_path, dst_path=dst_path
+    )
+    click.echo(downloaded_local_artifact_location)
 
 
 if __name__ == "__main__":

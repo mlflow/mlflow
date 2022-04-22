@@ -179,6 +179,8 @@ and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/m
 `S3ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/s3_artifact_repo.py#L14>`_ are
 concrete implementations of the abstract class `ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L13>`_.
 
+.. _scenario_5:
+
 Scenario 5: MLflow Tracking Server enabled with proxied artifact storage access
 -------------------------------------------------------------------------------
 
@@ -212,6 +214,13 @@ Enabling the Tracking Server to perform proxied artifact access in order to rout
   * Retrieving artifacts from the configured backend store for a user request is done with the same authorized authentication that was configured at server start
   * Artifacts are passed to the end user through the Tracking Server through the interface of the ``HttpArtifactRepository``
 
+.. note::
+    When an experiment is created, the artifact storage location from the configuration of the tracking server is logged in the experiment's metadata.
+    When enabling proxied artifact storage, any existing experiments that were created while operating a tracking server in
+    non-proxied mode will continue to use a non-proxied artifact location. In order to use proxied artifact logging, a new experiment must be created.
+    If the intention of enabling a tracking server in ``-serve-artifacts`` mode is to eliminate the need for a client to have authentication to
+    the underlying storage, new experiments should be created for use by clients so that the tracking server can handle authentication after this migration.
+
 .. warning::
     The MLflow artifact proxied access service enables users to have an *assumed role of access to all artifacts* that are accessible to the Tracking Server.
     Administrators who are enabling this feature should ensure that the access level granted to the Tracking Server for artifact
@@ -243,6 +252,13 @@ Running an MLFlow server in ``--artifacts-only`` mode:
 
   * Listing of artifact responses will pass from the file store through the Tracking Server to the client
   * Loading of artifacts will utilize the access credentials of the MLflow Tracking Server to acquire the files which are then passed on to the client
+
+.. note::
+  - If migrating from Scenario 5 to Scenario 6 due to request volumes, it is important to perform two validations:
+
+    - Ensure that the new tracking server that is operating in ``--artifacts-only`` mode has access permissions to the
+      location set by ``--artifacts-destination`` that the former multi-role tracking server had.
+    - The former multi-role tracking server that was serving artifacts must have the ``-serve-artifacts`` argument disabled.
 
 .. warning::
     Operating the Tracking Server in proxied artifact access mode by setting the parameter ``--serve-artifacts`` during server start, even in ``--artifacts-only`` mode,
@@ -296,6 +312,9 @@ such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
+:py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
+currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding
+the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
@@ -410,6 +429,28 @@ The following libraries support autologging:
 
 For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
+You can access the most recent autolog run through the :py:func:`mlflow.last_active_run` function. Here's a short sklearn autolog example that makes use of this function:
+
+.. code-block:: python
+
+    import mlflow
+
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_diabetes
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog()
+
+    db = load_diabetes()
+    X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+    # Create and train models.
+    rf = RandomForestRegressor(n_estimators = 100, max_depth = 6, max_features = 3)
+    rf.fit(X_train, y_train)
+
+    # Use the model to make predictions on the test dataset.
+    predictions = rf.predict(X_test)
+    autolog_run = mlflow.last_active_run()
 
 Scikit-learn
 ------------
@@ -764,7 +805,6 @@ An MLflow Tracking server can also be run as a proxied artifact handler. An exam
         --port 8889 \
         --serve-artifacts \
         --artifacts-destination s3://my-mlflow-bucket/ \
-        --artifacts-only
 
 .. note::
     When started in ``--artifacts-only`` mode, the tracking server will not permit any operation other than saving, loading, and listing artifacts.
@@ -1064,25 +1104,39 @@ Additionally, you should ensure that the ``--backend-store-uri`` (which defaults
 
 .. _artifact_only_mode:
 
-Using the Tracking Server exclusively for proxied artifact access
------------------------------------------------------------------
+Using the Tracking Server for proxied artifact access
+-----------------------------------------------------
 
-To use an instance of the MLflow Tracking server *exclusively* for artifact operations ( :ref:`scenario_6` ),
-start a server with the optional parameters ``--serve-artifacts`` to enable proxied artifact access and ``--artifacts-only``
-for disabling all other functionality of the Tracking server.
+To use an instance of the MLflow Tracking server for artifact operations ( :ref:`scenario_5` ),
+start a server with the optional parameters ``--serve-artifacts`` to enable proxied artifact access and set a
+path to record artifacts to by providing a value for the argument ``--artifacts-destination``. The tracking server will,
+in this mode, stream any artifacts that a client is logging directly through an assumed (server-side) identity,
+eliminating the need for access credentials to be handled by end-users.
 
-To start the MLflow server in this restricted mode with proxied access to an HDFS location (as an example):
+.. note::
+    Authentication access to the value set by ``--artifacts-destination`` must be configured when starting the tracking
+    server, if required.
+
+To start the MLflow server with proxy artifact access enabled to an HDFS location (as an example):
 
 .. code-block:: bash
+
+    export HADOOP_USER_NAME=mlflowserverauth
 
     mlflow server \
         --host 0.0.0.0 \
         --port 8885 \
         --artifacts-destination hdfs://myhost:8887/mlprojects/models \
-        --serve-artifacts \
-        --artifacts-only
+        --serve-artifacts
 
-Using an MLflow server configured in ``--artifacts-only`` mode for any tasks aside from those concerned with artifact
+Optionally using a Tracking Server instance exclusively for artifact handling
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If the volume of tracking server requests is sufficiently large and performance issues are noticed, a tracking server
+can be configured to serve in ``--artifacts-only`` mode ( :ref:`scenario_6` ), operating in tandem with an instance that
+operates without ``--serve-artifacts`` enabled. This configuration ensures that the processing of artifacts is isolated
+from all other tracking server event handling.
+
+When a tracking server is configured in ``--artifacts-only`` mode, any tasks apart from those concerned with artifact
 handling (i.e., model logging, loading models, logging artifacts, listing artifacts, etc.) will return an HTTPError.
 See the following example of a client REST call in Python attempting to list experiments from a server that is configured in
 ``--artifacts-only`` mode:
@@ -1102,9 +1156,6 @@ Using an additional MLflow server to handle artifacts exclusively can be useful 
 Decoupling the longer running and more compute-intensive tasks of artifact handling from the faster and higher-volume
 metadata functionality of the other Tracking API requests can help minimize the burden of an otherwise single MLflow
 server handling both types of payloads.
-Additionally, this mode to control access to artifacts without exposing the server endpoint's ability to create experiments,
-manage runs, or perform any action apart from artifact handling can be useful in some scenarios (continuous deployment
-by an external team, for instance).
 
 
 .. _logging_to_a_tracking_server:

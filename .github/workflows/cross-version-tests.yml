@@ -55,7 +55,7 @@ jobs:
           python-version: "3.7"
       - name: Install dependencies
         run: |
-          pip install packaging requests pyyaml pytest
+          pip install packaging requests pyyaml pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v4
         id: enable-dev-tests
@@ -125,7 +125,7 @@ jobs:
           then
             python_version=3.8
           else
-            python_version=3.7
+            python_version=$(python setup.py -q min-python-version)
           fi
           echo "::set-output name=version::$python_version"
       - uses: ./.github/actions/setup-python

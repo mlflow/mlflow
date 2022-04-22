@@ -47,7 +47,7 @@ def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
     if backend_config is None:
         raise ExecutionException(
-            "Backend spec must be provided when launching MLflow project " "runs on Databricks."
+            "Backend spec must be provided when launching MLflow project runs on Databricks."
         )
     elif "existing_cluster_id" in backend_config:
         raise MlflowException(
@@ -210,7 +210,7 @@ class DatabricksJobRunner:
             _logger.warning(
                 (
                     "Your client is running a non-release version of MLFlow. "
-                    "This version is not avaialable on the databricks runtime. "
+                    "This version is not available on the databricks runtime. "
                     "MLFlow will fallback the MLFlow version provided by the runtime. "
                     "This might lead to unforeseen issues. "
                 )

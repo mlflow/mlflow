@@ -89,9 +89,12 @@ def only_register(callback_fn, module, overwrite):  # pylint: disable=unused-arg
 
 
 @pytest.fixture(autouse=True)
-def disable_new_import_hook_firing_if_module_already_exists():
-    with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+def disable_new_import_hook_firing_if_module_already_exists(request):
+    if "do_not_disable_new_import_hook_firing_if_module_already_exists" in request.keywords:
         yield
+    else:
+        with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+            yield
 
 
 @pytest.mark.large
@@ -332,3 +335,18 @@ def test_autolog_obeys_silent_mode(
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     assert not stream.getvalue()
+
+
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_last_active_run_retrieves_autologged_run():
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog()
+
+    rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
+    rf.fit([[1, 2]], [[3]])
+    rf.predict([[2, 1]])
+
+    autolog_run = mlflow.last_active_run()
+    assert autolog_run is not None
+    assert autolog_run.info.run_id is not None
