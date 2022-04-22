@@ -103,7 +103,12 @@ def is_databricks_default_tracking_uri(tracking_uri):
 
 @_use_repl_context_if_available("isInNotebook")
 def is_in_databricks_notebook():
-    return "DATABRICKS_RUNTIME_VERSION" in os.environ
+    if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
+        return True
+    try:
+        return acl_path_of_acl_root().startswith("/workspace")
+    except Exception:
+        return False
 
 
 @_use_repl_context_if_available("isInJob")
@@ -123,13 +128,7 @@ def is_in_databricks_repo_notebook():
 
 
 def is_in_databricks_runtime():
-    try:
-        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks
-
-        return True
-    except ModuleNotFoundError:
-        return False
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 
 def is_dbfs_fuse_available():
