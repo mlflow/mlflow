@@ -352,7 +352,6 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v3
       - uses: ./.github/actions/setup-pyenv
       - name: Install python dependencies
         run: |
