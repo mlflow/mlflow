@@ -812,7 +812,7 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
     if format == "pip":
         prefix = "%" if _is_in_ipython_notebook() else ""
         _logger.info(
-            "To install these model dependencies, run the "
+            "To install the dependencies that were used to train the model, run the "
             f"following command: '{prefix}pip install -r {dep_file}'."
         )
     return dep_file

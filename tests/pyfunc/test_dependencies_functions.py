@@ -133,15 +133,15 @@ scikit-learn==1.0.2"""
     with mock.patch("mlflow.pyfunc._logger.info") as mock_log_info:
         get_model_dependencies(model_path, format="pip")
         mock_log_info.assert_called_once_with(
-            "To install these model dependencies, run the "
+            "To install the dependencies that were used to train the model, run the "
             f"following command: 'pip install -r {req_file}'."
         )
 
         mock_log_info.reset_mock()
-        with mock.patch("mlflow.pyfunc.is_in_ipython_notebook", return_value=True):
+        with mock.patch("mlflow.pyfunc._is_in_ipython_notebook", return_value=True):
             get_model_dependencies(model_path, format="pip")
             mock_log_info.assert_called_once_with(
-                "To install these model dependencies, run the "
+                "To install the dependencies that were used to train the model, run the "
                 f"following command: '%pip install -r {req_file}'."
             )
 
