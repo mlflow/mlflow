@@ -57,7 +57,7 @@ Include any logs or source code that would be helpful to diagnose the problem. I
 
 
 ### What component(s), interfaces, languages, and integrations does this bug affect?
-Components 
+Components
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
@@ -69,13 +69,13 @@ Components
 - [ ] `area/server-infra`: MLflow Tracking server backend
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
-Interface 
+Interface
 - [ ] `area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server
 - [ ] `area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
 
-Language 
+Language
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
 - [ ] `language/new`: Proposals for new client languages

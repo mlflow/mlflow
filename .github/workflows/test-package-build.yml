@@ -40,10 +40,7 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
-
+      - uses: ./.github/actions/setup-python
       - name: Set environment variable for skinny client build
         if: ${{ matrix.type == 'skinny' }}
         run: |

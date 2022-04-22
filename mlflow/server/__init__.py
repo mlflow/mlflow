@@ -14,7 +14,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.utils.process import _exec_cmd
 
-# NB: These are intenrnal environment variables used for communication between
+# NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
