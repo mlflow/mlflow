@@ -34,7 +34,10 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+    _get_root_uri_and_artifact_path,
+)
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -48,6 +51,8 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir, write_to
@@ -660,6 +665,22 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
     return PipelineModel.load(model_uri)
 
 
+def _load_model_from_mlflowdbfs(artifact_repo, artifact_path):
+    assert isinstance(artifact_repo, DatabricksArtifactRepository)
+
+    from pyspark.ml.pipeline import PipelineModel
+
+    mlflowdbfs_path = artifact_repo._get_mlflowdbfs_path(artifact_path)
+    artifact_repo._set_databricks_host_creds_to_credential_context()
+
+    try:
+        model = PipelineModel.load(mlflowdbfs_path)
+    finally:
+        artifact_repo._clear_credential_context()
+
+    return model
+
+
 def load_model(model_uri, dfs_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
@@ -705,10 +726,20 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(model_uri)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+    artifact_repo = get_artifact_repository(artifact_uri=root_uri)
 
-    return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
+    if (
+        isinstance(artifact_repo, DatabricksArtifactRepository)
+        and databricks_utils.is_mlflowdbfs_available()
+    ):
+        return _load_model_from_mlflowdbfs(artifact_repo, artifact_path)
+    else:
+        local_model_path = artifact_repo.download_artifacts(
+            artifact_path=artifact_path, dst_path=None
+        )
+        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+        return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
