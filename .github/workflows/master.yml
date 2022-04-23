@@ -147,6 +147,7 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
+    - uses: ./.github/actions/setup-pyenv
     - name: Install dependencies
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
@@ -169,6 +170,7 @@ jobs:
         # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
+    - uses: ./.github/actions/setup-pyenv
     - uses: actions/setup-java@v3
       with:
         java-version: 11
