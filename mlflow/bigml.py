@@ -38,6 +38,7 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
+    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
@@ -69,6 +70,7 @@ def save_model(
     bigml_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -121,6 +123,7 @@ def save_model(
         os.makedirs(path)
     except Exception:
         pass
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     def model_filename(model_id):
         return os.path.join(path, model_id.replace("/", "_"))
@@ -153,8 +156,11 @@ def save_model(
         loader_module="mlflow.bigml",
         model_path=model_path,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, bigml_version=bigml.__version__, model_path=model_path)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, bigml_version=bigml.__version__, model_path=model_path, code=code_dir_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
