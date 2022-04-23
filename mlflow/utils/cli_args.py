@@ -121,7 +121,7 @@ INSTALL_MLFLOW = click.option(
     default=False,
     help="If specified and there is a conda environment to be activated "
     "mlflow will be installed into the environment after it has been"
-    " activated. The version of installed mlflow will be the same as"
+    " activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
 )
 
