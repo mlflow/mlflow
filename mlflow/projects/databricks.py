@@ -7,6 +7,7 @@ import textwrap
 import time
 import logging
 import posixpath
+import re
 
 from shlex import quote as shlex_quote
 
@@ -41,6 +42,20 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 
 
 _logger = logging.getLogger(__name__)
+
+_MLFLOW_GIT_URI_REGEX = re.compile(r"^git\+https://github.com/[\w-]+/mlflow")
+
+
+def _is_mlflow_git_uri(s):
+    return bool(_MLFLOW_GIT_URI_REGEX.match(s))
+
+
+def _contains_mlflow_git_uri(libraries):
+    for lib in libraries:
+        package = lib.get("pypi", {}).get("package")
+        if package and _is_mlflow_git_uri(package):
+            return True
+    return False
 
 
 def before_run_validations(tracking_uri, backend_config):
@@ -203,7 +218,7 @@ class DatabricksJobRunner:
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
-            libraries = [{"pypi": {"package": "mlflow==%s" % VERSION}}]
+            mlflow_lib = {"pypi": {"package": "mlflow==%s" % VERSION}}
         else:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
@@ -215,14 +230,23 @@ class DatabricksJobRunner:
                     "This might lead to unforeseen issues. "
                 )
             )
-            libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
+            mlflow_lib = {"pypi": {"package": "'mlflow<=%s'" % VERSION}}
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
         if "new_cluster" in cluster_spec:
             # Libraries are optional, so we don't require that this be specified
-            if "libraries" in cluster_spec:
-                libraries.extend(cluster_spec["libraries"])
+            cluster_spec_libraries = cluster_spec.get("libraries", [])
+            libraries = (
+                # This is for development purposes only. If the cluster spec already includes
+                # an MLflow Git URI, then we don't append `mlflow_lib` to avoid having
+                # two different pip requirements for mlflow.
+                cluster_spec_libraries
+                if _contains_mlflow_git_uri(cluster_spec_libraries)
+                else cluster_spec_libraries + [mlflow_lib]
+            )
             cluster_spec = cluster_spec["new_cluster"]
+        else:
+            libraries = [mlflow_lib]
 
         # Make jobs API request to launch run.
         req_body_json = {
@@ -237,7 +261,15 @@ class DatabricksJobRunner:
         return databricks_run_id
 
     def run_databricks(
-        self, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id
+        self,
+        uri,
+        entry_point,
+        work_dir,
+        parameters,
+        experiment_id,
+        cluster_spec,
+        run_id,
+        env_manager,
     ):
         tracking_uri = _get_tracking_uri_for_run()
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
@@ -247,7 +279,9 @@ class DatabricksJobRunner:
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)
         # Launch run on Databricks
-        command = _get_databricks_run_cmd(dbfs_fuse_uri, run_id, entry_point, parameters)
+        command = _get_databricks_run_cmd(
+            dbfs_fuse_uri, run_id, entry_point, parameters, env_manager
+        )
         return self._run_shell_command_job(uri, command, env_vars, cluster_spec)
 
     def _get_status(self, databricks_run_id):
@@ -293,9 +327,20 @@ def _get_tracking_uri_for_run():
     return uri
 
 
-def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
+def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters, env_manager):
     mlflow_run_arr = list(
-        map(shlex_quote, ["mlflow", "run", project_dir, "--entry-point", entry_point])
+        map(
+            shlex_quote,
+            [
+                "mlflow",
+                "run",
+                project_dir,
+                "--entry-point",
+                entry_point,
+                "--env-manager",
+                env_manager,
+            ],
+        )
     )
     if run_id:
         mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
@@ -305,7 +350,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
     return mlflow_run_arr
 
 
-def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
+def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters, env_manager):
     """
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
@@ -316,7 +361,13 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     )
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
 
-    mlflow_run_arr = _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters)
+    mlflow_run_arr = _get_cluster_mlflow_run_cmd(
+        project_dir,
+        run_id,
+        entry_point,
+        parameters,
+        env_manager,
+    )
     mlflow_run_cmd = " ".join([shlex_quote(elem) for elem in mlflow_run_arr])
     shell_command = textwrap.dedent(
         """
@@ -346,7 +397,9 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     return ["bash", "-c", shell_command]
 
 
-def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
+def run_databricks(
+    remote_run, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, env_manager
+):
     """
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
@@ -354,7 +407,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile_uri=tracking.get_tracking_uri())
     db_run_id = db_job_runner.run_databricks(
-        uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id
+        uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id, env_manager
     )
     submitted_run = DatabricksSubmittedRun(db_run_id, run_id, db_job_runner)
     submitted_run._print_description_and_log_tags()
