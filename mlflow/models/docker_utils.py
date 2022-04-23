@@ -17,14 +17,17 @@ RUN bash ./miniconda.sh -b -p /miniconda && rm ./miniconda.sh
 ENV PATH="/miniconda/bin:$PATH"
 """
 
-SETUP_PYENV_AND_VIRTUALENV = """
+SETUP_PYENV_AND_VIRTUALENV = r"""
 # Setup pyenv
 RUN apt -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get -y install tzdata
 RUN apt-get install -y \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
     libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
-RUN git clone --depth 1 https://github.com/pyenv/pyenv.git "/root/.pyenv"
+RUN git clone \
+    --depth 1 \
+    --branch $(git ls-remote --tags https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
+    https://github.com/pyenv/pyenv.git /root/.pyenv
 ENV PYENV_ROOT="/root/.pyenv"
 ENV PATH="$PYENV_ROOT/bin:$PATH"
 RUN apt install -y python3.7
