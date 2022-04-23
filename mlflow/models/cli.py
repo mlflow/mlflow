@@ -189,6 +189,7 @@ def build_docker(model_uri, name, env_manager, install_mlflow, enable_mlserver):
     'python_function' flavor.
     """
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
+    env_manager = env_manager or _EnvManager.CONDA
     _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,

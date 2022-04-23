@@ -9,6 +9,7 @@ from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 import mlflow.models.docker_utils
+from mlflow.utils import env_manager as em
 
 
 @click.group("sagemaker")
@@ -577,6 +578,7 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
     The image is built locally and it requires Docker to run.
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
+    env_manager = env_manager or em.CONDA
     if not (build or push):
         click.echo("skipping both build and push, have nothing to do!")
     if build:
