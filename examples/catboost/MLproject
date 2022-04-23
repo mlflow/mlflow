@@ -1,0 +1,11 @@
+name: catboost-tutorial
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+        iterations: {type: int, default: 2}
+        depth : {type: int, default: 2}
+        learning_rate: {type:float, default: 1.0}
+    command: "python train.py {iterations} {depth} {learning_rate}"
