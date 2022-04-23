@@ -71,7 +71,7 @@ that is used to execute project entry points.
 
 Project Environments
 ^^^^^^^^^^^^^^^^^^^^
-MLflow currently supports the following project environments: Conda environment, Docker container environment, and system environment.
+MLflow currently supports the following project environments: Conda environment, Virtualenv environment, Docker container environment, and system environment.
 
 .. _project-conda-environments:
 
@@ -88,7 +88,7 @@ Conda environment
   file in the root of the project directory or by including a ``conda_env`` entry in your
   ``MLproject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
 
-  The ``mlflow run`` command supports running a Conda environment project as a Virtualenv environment project.
+  The ``mlflow run`` command supports running a conda environment project as a virtualenv environment project.
   To do this, run ``mlflow run`` with ``--env-manager virtualenv``:
 
   .. code-block:: bash
@@ -97,7 +97,7 @@ Conda environment
 
   .. warning::
 
-      When a Conda environment project is executed as a Virtualenv environment project,
+      When a conda environment project is executed as a virtualenv environment project,
       conda dependencies will be ignored and only pip dependencies will be installed.
 
 .. _project-virtualenv-environments:
