@@ -4,6 +4,7 @@ import shutil
 import uuid
 import re
 from pathlib import Path
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
@@ -94,7 +95,7 @@ def _find_latest_installable_python_version(version_prefix):
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
         raise MlflowException((f"Could not find python version that matches {version_prefix}"))
-    return sorted(matched)[-1]
+    return sorted(matched, key=Version)[-1]
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
@@ -184,6 +185,17 @@ def _get_python_env(local_model_path):
             return _PythonEnv.from_conda_yaml(conda_env_file)
 
 
+def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
+    requirements = _parse_requirements(
+        python_env.dependencies,
+        is_constraint=False,
+        base_dir=work_dir_path,
+    )
+    return _get_mlflow_env_name(
+        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
+    )
+
+
 def _create_virtualenv(
     local_model_path, python_bin_path, env_dir, python_env, extra_env=None, capture_output=False
 ):
@@ -269,14 +281,7 @@ def _get_or_create_virtualenv(
     python_bin_path = _install_python(
         python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
     )
-    requirements = _parse_requirements(
-        python_env.dependencies,
-        is_constraint=False,
-        base_dir=local_model_path,
-    )
-    env_name = _get_mlflow_env_name(
-        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
-    )
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     try:
         return _create_virtualenv(
