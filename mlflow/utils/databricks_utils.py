@@ -341,7 +341,6 @@ def get_workspace_url():
         return None
 
 
-@_use_repl_context_if_available("isMlflowdbfsAvailable")  # todo: add repl context
 def is_mlflowdbfs_available():
     try:
         spark_session = _get_active_spark_session()
