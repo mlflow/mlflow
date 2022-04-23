@@ -91,7 +91,7 @@ def _resolve_env_manager(ctx, _, env_manager):
         return env_manager
 
     # Neither `--no-conda` nor `--env-manager` is specified
-    return _EnvManager.CONDA
+    return None
 
 
 ENV_MANAGER = click.option(
