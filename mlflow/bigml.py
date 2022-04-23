@@ -10,7 +10,6 @@ BigML (native) format
 import os
 import warnings
 import yaml
-import json
 import cloudpickle
 import pickle
 
@@ -39,7 +38,6 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
-    _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
@@ -71,9 +69,7 @@ def save_model(
     bigml_model,
     path,
     conda_env=None,
-    code_paths=None,
     mlflow_model=None,
-    settings=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -113,10 +109,9 @@ def save_model(
 
     from bigml.supervised import SupervisedModel
     from packaging import version
+
     if version.parse(bigml.__version__) < version.parse(MIN_VERSION):
-        warnings.warn(
-            "A higher version of BigML's bindings is needed. Please upgrade."
-        )
+        warnings.warn("A higher version of BigML's bindings is needed. Please upgrade.")
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -126,15 +121,13 @@ def save_model(
         os.makedirs(path)
     except Exception:
         pass
-    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-    model_data_path = path
 
     def model_filename(model_id):
         return os.path.join(path, model_id.replace("/", "_"))
 
     def dump_model(model):
         filename = model_filename(model.resource_id)
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             cloudpickle.dump(model, f)
         return filename
 
@@ -145,15 +138,15 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     # Save bigml-model
-    if (isinstance(bigml_model, dict) and bigml_model.get("resource")) or \
-            isinstance(bigml_model, list) and \
-            bigml_model[0].get("resource").startswith("ensemble"):
+    if (
+        (isinstance(bigml_model, dict) and bigml_model.get("resource"))
+        or isinstance(bigml_model, list)
+        and bigml_model[0].get("resource").startswith("ensemble")
+    ):
         local_model = SupervisedModel(bigml_model)
         model_path = os.path.basename(dump_model(local_model))
     else:
-        warnings.warn(
-            "Only BigML model objects can be stored."
-        )
+        warnings.warn("Only BigML model objects can be stored.")
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -161,11 +154,7 @@ def save_model(
         model_path=model_path,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        bigml_version=bigml.__version__,
-        model_path=model_path
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, bigml_version=bigml.__version__, model_path=model_path)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -267,16 +256,14 @@ def log_model(
     )
 
 
-def _load_model(path, init=False):
-    from bigml.supervised import SupervisedModel
+def _load_model(path):
 
     path = os.path.abspath(path)
     with open(os.path.join(path, "MLmodel")) as f:
         params = yaml.safe_load(f.read())
-    model_path = os.path.join(path, params.get(
-        "flavors").get("bigml").get("model_path"))
+    model_path = os.path.join(path, params.get("flavors").get("bigml").get("model_path"))
 
-    with open(model_path, 'rb') as f:
+    with open(model_path, "rb") as f:
         return pickle.load(f)
 
 
@@ -286,7 +273,7 @@ class _BigMLModelWrapper:
 
     def predict(self, dataframe):
         predictions = []
-        for input_data in dataframe.to_dict('records'):
+        for input_data in dataframe.to_dict("records"):
             predictions.append(self.bigml_model.predict(input_data, full=True))
         return predictions
 
@@ -297,7 +284,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``BigML`` flavor.
     """
-    return _BigMLModelWrapper(_load_model(path, init=True))
+    return _BigMLModelWrapper(_load_model(path))
 
 
 def load_model(model_uri, dst_path=None):
@@ -327,6 +314,6 @@ def load_model(model_uri, dst_path=None):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
-    # `data` key; in this case, we assume the model artifact path to be `model`
-    bigml_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model"))
+    # `data` key; in this case, we assume the model artifact path to be in the same directory
+    bigml_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", ""))
     return _load_model(path=bigml_model_file_path)

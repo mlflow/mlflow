@@ -14,11 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def train_test_split(api, dataset):
-    train_conf = {"seed": "bigml",
-                  "sample_rate": 0.8}
-    test_conf = {"seed": "bigml",
-                 "sample_rate": 0.8,
-                 "out_of_bag": True}
+    train_conf = {"seed": "bigml", "sample_rate": 0.8}
+    test_conf = {"seed": "bigml", "sample_rate": 0.8, "out_of_bag": True}
     train_dataset = api.create_dataset(dataset, train_conf)
     api.ok(train_dataset)
     test_dataset = api.create_dataset(dataset, test_conf)
@@ -30,13 +27,12 @@ def evaluation_metric(evaluation, metric_name):
     """Returns the corresponding evaluation metric"""
     return evaluation["object"]["result"]["model"][metric_name]
 
+
 if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     # Read the diabetes csv file from the URL
-    csv_url = (
-        "http://static.bigml.com/csv/diabetes.csv"
-    )
+    csv_url = "http://static.bigml.com/csv/diabetes.csv"
     # create connection
     api = BigML()
     print("Connecting to BigML.")
@@ -62,10 +58,10 @@ if __name__ == "__main__":
         evaluation = api.create_evaluation(model, test)
         print("Creating Evaluation.")
         api.ok(evaluation)
-        print("BigML model: %s\nconf: %s (%s)" % (
-            model["object"]["name"],
-            model["object"]["name_options"],
-            model["resource"]))
+        print(
+            "BigML model: %s\nconf: %s (%s)"
+            % (model["object"]["name"], model["object"]["name_options"], model["resource"])
+        )
         print("accuracy: %s" % evaluation_metric(evaluation, "accuracy"))
         print("precision: %s" % evaluation_metric(evaluation, "average_precision"))
         print("recall: %s" % evaluation_metric(evaluation, "average_recall"))

@@ -18,9 +18,10 @@ if __name__ == "__main__":
         model = json.load(handler)
 
     with mlflow.start_run():
-        print("Registering BigML logistic regression: %s\nconf: %s (%s)" % (
-            model["object"]["name"],
-            model["object"]["name_options"], model["resource"]))
+        print(
+            "Registering BigML logistic regression: %s\nconf: %s (%s)"
+            % (model["object"]["name"], model["object"]["name_options"], model["resource"])
+        )
         mlflow.bigml.log_model(model, "model")
         """
         Testing example:

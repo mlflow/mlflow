@@ -39,8 +39,8 @@ if __name__ == "__main__":
     ensemble = ensemble_info[0]
 
     with mlflow.start_run():
-        print("Registering BigML ensemble: %s\nconf: %s (%s)" % (
-            ensemble["object"]["name"],
-            ensemble["object"]["name_options"],
-            ensemble["resource"]))
+        print(
+            "Registering BigML ensemble: %s\nconf: %s (%s)"
+            % (ensemble["object"]["name"], ensemble["object"]["name_options"], ensemble["resource"])
+        )
         mlflow.bigml.log_model(ensemble_info, "model")
