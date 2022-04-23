@@ -94,6 +94,9 @@ input_example
 databricks_runtime
     Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
 
+mlflow_version
+    The version of MLflow that was used to log the model.
+
 
 
 

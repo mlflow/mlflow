@@ -9,6 +9,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import cli_args
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils import env_manager as _EnvManager
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +63,7 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
+    env_manager = env_manager or _EnvManager.CONDA
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
@@ -114,6 +116,7 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
+    env_manager = env_manager or _EnvManager.CONDA
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(
@@ -143,6 +146,7 @@ def prepare_env(
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
+    env_manager = env_manager or _EnvManager.CONDA
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
