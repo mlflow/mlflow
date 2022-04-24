@@ -101,6 +101,8 @@ jobs:
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
     - name: Install dependencies
       run: |
+        sudo apt-get update -y
+        sudo apt-get install libharfbuzz-dev libfribidi-dev
         Rscript -e 'source(".install-deps.R", echo=TRUE)'
         # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
         Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
