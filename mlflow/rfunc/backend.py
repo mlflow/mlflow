@@ -63,6 +63,7 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def can_score_model(self):
+        # `Rscript --version` writes to stderr in R < 4.2.0, but stdout in R >= 4.2.0
         process = subprocess.Popen(
             ["Rscript", "--version"],
             close_fds=True,
