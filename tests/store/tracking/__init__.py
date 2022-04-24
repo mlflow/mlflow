@@ -7,10 +7,10 @@ from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 class AbstractStoreTest:
     def create_test_run(self):
-        raise Exception("this should be overriden")
+        raise Exception("this should be overridden")
 
     def get_store(self):
-        raise Exception("this should be overriden")
+        raise Exception("this should be overridden")
 
     def test_record_logged_model(self):
         store = self.get_store()

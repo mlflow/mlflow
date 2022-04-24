@@ -301,7 +301,7 @@ def process_requirements(requirements, version=None):
         return requirements
 
     if isinstance(requirements, dict):
-        # The version "dev" should always compare as greater than any exisiting versions.
+        # The version "dev" should always compare as greater than any existing versions.
         dev_numeric = "9999.9999.9999"
 
         if version == DEV_VERSION:

@@ -5,7 +5,7 @@ including environment reproducibility capabilities with argument `env_manager="c
 which creates a spark UDF for model inference that executes in an environment containing the exact dependency
 versions used during training.
 
-- Example `spark_udf.py` runs a sklearn model inference via spark UDF 
+- Example `spark_udf.py` runs a sklearn model inference via spark UDF
 using a python environment containing the precise versions of dependencies used during model training.
 
 

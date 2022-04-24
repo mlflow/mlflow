@@ -499,7 +499,9 @@ def get_or_create_tmp_dir():
         # Note: For python process attached to databricks notebook, atexit does not work.
         # The /tmp/repl_tmp_data/{repl_id} directory will be removed once databricks notebook
         # detaches.
-        tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id())
+        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        tmp_dir = os.path.join("/tmp", "repl_tmp_data", get_repl_id(), "mlflow")
         os.makedirs(tmp_dir, exist_ok=True)
     else:
         tmp_dir = tempfile.mkdtemp()
@@ -525,7 +527,9 @@ def get_or_create_nfs_tmp_dir():
         # Note: In databricks, atexit hook does not work.
         # The {nfs_root_dir}/repl_tmp_data/{repl_id} directory will be removed once databricks
         # notebook detaches.
-        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id())
+        # The repl_tmp_data directory is designed to be used by all kinds of applications,
+        # so create a child directory "mlflow" for storing mlflow temp data.
+        tmp_nfs_dir = os.path.join(nfs_root_dir, "repl_tmp_data", get_repl_id(), "mlflow")
         os.makedirs(tmp_nfs_dir, exist_ok=True)
     else:
         tmp_nfs_dir = tempfile.mkdtemp(dir=nfs_root_dir)
