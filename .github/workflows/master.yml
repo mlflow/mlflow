@@ -117,6 +117,7 @@ jobs:
         LINTR_COMMENT_BOT: false
       run: |
         cd tests
+        Rscript --version
         Rscript -e 'source("../.run-tests.R", echo=TRUE)'
 
   # python-skinny tests cover a subset of mlflow functionality
