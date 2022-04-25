@@ -39,7 +39,6 @@ from tests.helper_functions import (
     _is_importable,
     _compare_logged_code_paths,
 )
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
