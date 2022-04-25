@@ -37,7 +37,7 @@ _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
 MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
 
-PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_ENV_MANAGER = "ENV_MANAGER"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
@@ -183,14 +183,14 @@ def _fetch_git_repo(uri, version, dst_dir):
     helper.
     """
     # We defer importing git until the last moment, because the import requires that the git
-    # executable is availble on the PATH, so we only want to fail if we actually need it.
+    # executable is available on the PATH, so we only want to fail if we actually need it.
     import git
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch(depth=GIT_FETCH_DEPTH)
     if version is not None:
         try:
+            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
@@ -199,6 +199,7 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
+        origin.fetch(depth=GIT_FETCH_DEPTH)
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
     repo.submodule_update(init=True, recursive=True)

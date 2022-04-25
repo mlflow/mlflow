@@ -1,6 +1,5 @@
 import React from 'react';
 import { IntlProvider } from 'react-intl';
-import $ from 'jquery';
 import { shallow, mount } from 'enzyme';
 import { DEFAULT_LOCALE } from '../../i18n/loadMessages';
 
@@ -19,16 +18,6 @@ export function deepFreeze(o) {
     }
   });
   return o;
-}
-
-// Replaces AJAX calls with a mock function that returns a nonsense result. This is sufficient
-// for testing connected components that would otherwise attempt to make real REST calls, but
-// which have no reducers associated -- so the result of the call is thrown out. We mostly
-// just want to prevent actual connection attempts from being made and throwing spurious errors.
-export function mockAjax() {
-  $.ajax = jest.fn().mockImplementation(() => {
-    return Promise.resolve({ value: '' });
-  });
 }
 
 const defaultProvderProps = {

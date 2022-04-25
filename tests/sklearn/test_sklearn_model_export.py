@@ -38,7 +38,7 @@ from tests.helper_functions import (
 )
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--no-conda"]
+    [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -529,7 +529,7 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
         if type(dependency) == dict and "pip" in dependency
     ]
     assert len(pip_deps) == 1
-    assert any(["cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"]])
+    assert any("cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"])
 
 
 @pytest.mark.large
@@ -560,10 +560,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         with open(saved_conda_env_path, "r") as f:
             saved_conda_env_parsed = yaml.safe_load(f)
         assert all(
-            [
-                "cloudpickle" not in dependency
-                for dependency in saved_conda_env_parsed["dependencies"]
-            ]
+            "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
         )
 
 

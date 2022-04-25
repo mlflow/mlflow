@@ -12,6 +12,7 @@ import { message } from 'antd';
 import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
+import { ErrorWrapper } from './ErrorWrapper';
 
 message.config({
   maxCount: 1,
@@ -847,20 +848,54 @@ class Utils {
     });
   }
 
-  static getAjaxUrl(relativeUrl) {
-    if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
-      return '/' + relativeUrl;
-    }
-    return relativeUrl;
-  }
-
   static logErrorAndNotifyUser(e) {
     console.error(e);
-    // not all error is wrapped by ErrorWrapper
-    if (e.renderHttpError) {
+    if (typeof e === 'string') {
+      message.error(e);
+    } else if (e instanceof ErrorWrapper) {
+      // not all error is wrapped by ErrorWrapper
       message.error(e.renderHttpError());
     }
   }
+
+  static sortExperimentsById = (experiments) => {
+    return _.sortBy(experiments, [({ experiment_id }) => experiment_id]);
+  };
+
+  static getExperimentNameMap = (experiments) => {
+    // Input:
+    // [
+    //  { experiment_id: 1, name: '/1/bar' },
+    //  { experiment_id: 2, name: '/2/foo' },
+    //  { experiment_id: 3, name: '/3/bar' },
+    // ]
+    //
+    // Output:
+    // {
+    //   1: {name: '/1/bar', basename: 'bar (1)'},
+    //   2: {name: '/2/foo', basename: 'foo'},
+    //   3: {name: '/3/bar', basename: 'bar (2)'},
+    // }
+    const experimentsByBasename = {};
+    experiments.forEach((experiment) => {
+      const { name } = experiment;
+      const basename = name.split('/').pop();
+      experimentsByBasename[basename] = [...(experimentsByBasename[basename] || []), experiment];
+    });
+
+    const idToNames = {};
+    Object.entries(experimentsByBasename).forEach(([basename, exps]) => {
+      const isUnique = exps.length === 1;
+      exps.forEach(({ experiment_id, name }, index) => {
+        idToNames[experiment_id] = {
+          name,
+          basename: isUnique ? basename : `${basename} (${index + 1})`,
+        };
+      });
+    });
+
+    return idToNames;
+  };
 
   static isModelRegistryEnabled() {
     return true;

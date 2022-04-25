@@ -34,7 +34,11 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.file_utils import path_to_local_file_uri
 
 from tests.integration.utils import invoke_cli_runner
-from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
+from tests.tracking.integration_test_utils import (
+    _await_server_down_or_die,
+    _init_server,
+    _send_rest_tracking_post_request,
+)
 
 # pylint: disable=unused-argument
 
@@ -157,6 +161,41 @@ def test_create_get_list_experiment(mlflow_client):
     assert len(first_page_names) == 1
     assert len(second_page_names) == 1
     assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
+
+
+def test_create_experiment_validation(tracking_server_uri):
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            tracking_server_uri,
+            "/api/2.0/mlflow/experiments/create",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    assert_bad_request(
+        {
+            "name": 123,
+        },
+        "Invalid value 123 for parameter 'name'",
+    )
+    assert_bad_request({}, "Missing value for required parameter 'name'")
+    assert_bad_request(
+        {
+            "name": "experiment name",
+            "artifact_location": 9.0,
+            "tags": [{"key": "key", "value": "value"}],
+        },
+        "Invalid value 9.0 for parameter 'artifact_location'",
+    )
+    assert_bad_request(
+        {
+            "name": "experiment name",
+            "artifact_location": "my_location",
+            "tags": "5",
+        },
+        "Invalid value 5 for parameter 'tags'",
+    )
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -297,6 +336,172 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     assert metric1.step == 0
 
 
+def test_log_metric_validation(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment("metrics validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            tracking_server_uri,
+            "/api/2.0/mlflow/runs/log-metric",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    assert_bad_request(
+        {
+            "run_id": 31,
+            "key": "metric",
+            "value": 41,
+            "timestamp": 59,
+            "step": 26,
+        },
+        "Invalid value 31 for parameter 'run_id' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": 31,
+            "value": 41,
+            "timestamp": 59,
+            "step": 26,
+        },
+        "Invalid value 31 for parameter 'key' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": "foo",
+            "value": 31,
+            "timestamp": 59,
+            "step": "foo",
+        },
+        "Invalid value foo for parameter 'step' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": "foo",
+            "value": 31,
+            "timestamp": "foo",
+            "step": 41,
+        },
+        "Invalid value foo for parameter 'timestamp' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": None,
+            "key": "foo",
+            "value": 31,
+            "timestamp": 59,
+            "step": 41,
+        },
+        "Missing value for required parameter 'run_id'",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            # Missing key
+            "value": 31,
+            "timestamp": 59,
+            "step": 41,
+        },
+        "Missing value for required parameter 'key'",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": None,
+            "value": 31,
+            "timestamp": 59,
+            "step": 41,
+        },
+        "Missing value for required parameter 'key'",
+    )
+
+
+def test_log_param_validation(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment("params validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            tracking_server_uri,
+            "/api/2.0/mlflow/runs/log-parameter",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    assert_bad_request(
+        {
+            "run_id": 31,
+            "key": "param",
+            "value": 41,
+        },
+        "Invalid value 31 for parameter 'run_id' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": 31,
+            "value": 41,
+        },
+        "Invalid value 31 for parameter 'key' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": "param",
+            # Missing value
+        },
+        "Missing value for required parameter 'value'",
+    )
+
+
+def test_set_tag_validation(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment("tags validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            tracking_server_uri,
+            "/api/2.0/mlflow/runs/set-tag",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    assert_bad_request(
+        {
+            "run_id": 31,
+            "key": "tag",
+            "value": 41,
+        },
+        "Invalid value 31 for parameter 'run_id' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            "key": "param",
+            "value": 41,
+        },
+        "Invalid value 41 for parameter 'value' supplied",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+            # Missing key
+            "value": "value",
+        },
+        "Missing value for required parameter 'key'",
+    )
+
+
 def test_set_experiment_tag(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
@@ -368,6 +573,30 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.value == 123.456
     assert metric.timestamp == 789
     assert metric.step == 3
+
+
+def test_log_batch_validation(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment("log_batch validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            tracking_server_uri,
+            "/api/2.0/mlflow/runs/log-batch",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    for request_parameter in ["metrics", "params", "tags"]:
+        assert_bad_request(
+            {
+                "run_id": run_id,
+                request_parameter: "foo",
+            },
+            f"Invalid value foo for parameter '{request_parameter}' supplied",
+        )
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -469,6 +698,14 @@ def test_search_pagination(mlflow_client):
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[8:]
     assert result.token is None
+
+
+def test_search_validation(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("search_validation")
+    with pytest.raises(
+        MlflowException, match=r"Invalid value 123456789 for parameter 'max_results' supplied"
+    ):
+        mlflow_client.search_runs([experiment_id], max_results=123456789)
 
 
 def test_get_experiment_by_name(mlflow_client, backend_store_uri):

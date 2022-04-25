@@ -38,6 +38,7 @@ div.artifact-view {
 
 .artifact-info-path {
   display: flex;
+  align-items: center;
 }
 
 .artifact-info-text {

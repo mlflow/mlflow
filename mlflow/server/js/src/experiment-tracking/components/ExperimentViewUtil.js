@@ -15,6 +15,35 @@ import {
   DEFAULT_EXPANDED_VALUE,
   COLUMN_TYPES,
 } from '../constants';
+import {
+  CheckCircleBorderIcon,
+  Clock1Icon,
+  XCircleBorderIcon,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { css } from 'emotion';
+
+function ErrorIcon() {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <XCircleBorderIcon
+      className={css({
+        color: theme.colors.textValidationDanger,
+      })}
+    />
+  );
+}
+
+function FinishedIcon() {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <CheckCircleBorderIcon
+      className={css({
+        color: theme.colors.textValidationSuccess,
+      })}
+    />
+  );
+}
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -54,11 +83,11 @@ export default class ExperimentViewUtil {
     switch (status) {
       case 'FAILED':
       case 'KILLED':
-        return <i className='far fa-times-circle' style={{ color: '#DB1905' }} />;
+        return <ErrorIcon />;
       case 'FINISHED':
-        return <i className='far fa-check-circle' style={{ color: '#10B36B' }} />;
+        return <FinishedIcon />;
       case 'SCHEDULED':
-        return <i className='far fa-clock' style={{ color: '#258BD2' }} />;
+        return <Clock1Icon />; // This one is the same color as the link
       default:
         return <i />;
     }
@@ -344,6 +373,11 @@ export default class ExperimentViewUtil {
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.DATE,
       },
       {
+        key: 'duration',
+        displayName: ATTRIBUTE_COLUMN_LABELS.DURATION,
+        canonicalSortKey: null,
+      },
+      {
         key: 'user_id',
         displayName: ATTRIBUTE_COLUMN_LABELS.USER,
         canonicalSortKey: ATTRIBUTE_COLUMN_SORT_KEY.USER,
@@ -450,6 +484,8 @@ export default class ExperimentViewUtil {
       <div className='version-link'>
         <img src={registryIcon} alt='MLflow Model Registry Icon' />
         <span className='model-link-text'>
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/jsx-no-target-blank */}
           <a
             href={Utils.getIframeCorrectedRoute(getModelVersionPageRoute(name, version))}
             className='model-version-link'

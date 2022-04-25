@@ -184,7 +184,7 @@ def verify_rest_response(response, endpoint):
         if _can_parse_as_json_object(response.text):
             raise RestException(json.loads(response.text))
         else:
-            base_msg = "API request to endpoint %s failed with error code " "%s != 200" % (
+            base_msg = "API request to endpoint %s failed with error code %s != 200" % (
                 endpoint,
                 response.status_code,
             )

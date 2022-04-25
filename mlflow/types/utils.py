@@ -12,9 +12,7 @@ from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 class TensorsNotSupportedException(MlflowException):
     def __init__(self, msg):
-        super().__init__(
-            "Multidimensional arrays (aka tensors) are not supported. " "{}".format(msg)
-        )
+        super().__init__("Multidimensional arrays (aka tensors) are not supported. {}".format(msg))
 
 
 def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
@@ -145,7 +143,7 @@ def _infer_schema(data: Any) -> Schema:
             "but got '{}'".format(type(data))
         )
     if not schema.is_tensor_spec() and any(
-        [t in (DataType.integer, DataType.long) for t in schema.input_types()]
+        t in (DataType.integer, DataType.long) for t in schema.input_types()
     ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "

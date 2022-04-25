@@ -5,6 +5,21 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: >
+          [Optional] Repository name with owner. For example, mlflow/mlflow.
+           Defaults to the repository that triggered a workflow.
+        required: false
+        default: ""
+      ref:
+        description: >
+          [Optional] The branch, tag or SHA to checkout. When checking out the repository that
+           triggered a workflow, this defaults to the reference or SHA for that event. Otherwise,
+           uses the default branch.
+        required: false
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
@@ -22,28 +37,30 @@ jobs:
         type: ["full", "skinny"]
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-node@v1
         with:
-          node-version: "16"
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
-
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
       - name: Set environment variable for skinny client build
         if: ${{ matrix.type == 'skinny' }}
         run: |
           echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
 
-      - name: Build UI
-        if: ${{ matrix.type == 'full' }}
-        working-directory: mlflow/server/js
-        env:
-          # Prevent warnings (emitted from react-pdf) from being treated as errors
-          # https://github.com/wojtekmaj/react-pdf/issues/280
-          CI: false
+      - name: Create dummy MLflow UI
         run: |
-          yarn install
-          yarn run build
+          mkdir -p mlflow/server/js/build
+          echo '
+          <!DOCTYPE html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8">
+              <title>MLflow</title>
+            </head>
+          <body>
+            MLflow
+          </body>
+          </html>
+          ' > mlflow/server/js/build/index.html
 
       - name: Install dependencies
         run: |

@@ -14,6 +14,6 @@ RUN curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt
 # install SQL Server drivers and tools
 RUN apt-get update && ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
 
-RUN pip install pyodbc pytest
+RUN pip install pyodbc pytest pytest-cov
 RUN echo "${DEPENDENCIES}" > /tmp/requriements.txt && pip install -r /tmp/requriements.txt
 RUN pip list

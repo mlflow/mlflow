@@ -65,9 +65,9 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
     expected_env_path = (
         os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
     )
-    assert project.conda_env_path == expected_env_path
+    assert project.env_config_path == expected_env_path
     if conda_env_path:
-        assert open(project.conda_env_path).read() == conda_env_contents
+        assert open(project.env_config_path).read() == conda_env_contents
 
 
 def test_load_docker_project(tmpdir):
@@ -81,8 +81,17 @@ def test_load_docker_project(tmpdir):
     )
     project = _project_spec.load_project(tmpdir.strpath)
     assert project._entry_points == {}
-    assert project.conda_env_path is None
+    assert project.env_config_path is None
     assert project.docker_env.get("image") == "some-image"
+
+
+def test_load_virtualenv_project(tmp_path):
+    tmp_path.joinpath("MLproject").write_text("python_env: python_env.yaml")
+    python_env = tmp_path.joinpath("python_env.yaml")
+    python_env.write_text("python: 3.7.10")
+    project = _project_spec.load_project(tmp_path)
+    assert project._entry_points == {}
+    assert python_env.samefile(project.env_config_path)
 
 
 @pytest.mark.parametrize(
@@ -96,7 +105,7 @@ def test_load_docker_project(tmpdir):
     conda_env: some-file.yaml
     """
             ),
-            "cannot contain both a docker and conda env",
+            "cannot contain multiple environment fields",
         ),
         (
             textwrap.dedent(

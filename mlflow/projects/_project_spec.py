@@ -9,7 +9,7 @@ from mlflow.exceptions import ExecutionException
 from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
-
+from mlflow.projects import env_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
@@ -32,10 +32,24 @@ def load_project(directory):
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file)
 
+    # Validate the project config does't contain multiple environment fields
+    env_fields = set(yaml_obj.keys()).intersection(env_type.ALL)
+    if len(env_fields) > 1:
+        raise ExecutionException(
+            f"Project cannot contain multiple environment fields: {env_fields}"
+        )
+
     project_name = yaml_obj.get("name")
 
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
     # Validate config if docker_env parameter is present
-    docker_env = yaml_obj.get("docker_env")
+    docker_env = yaml_obj.get(env_type.DOCKER)
     if docker_env:
         if not docker_env.get("image"):
             raise ExecutionException(
@@ -45,7 +59,7 @@ def load_project(directory):
         if docker_env.get("volumes"):
             if not (
                 isinstance(docker_env["volumes"], list)
-                and all([isinstance(i, str) for i in docker_env["volumes"]])
+                and all(isinstance(i, str) for i in docker_env["volumes"])
             ):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
@@ -56,7 +70,7 @@ def load_project(directory):
             if not (
                 isinstance(docker_env["environment"], list)
                 and all(
-                    [isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]]
+                    isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]
                 )
             ):
                 raise ExecutionException(
@@ -66,19 +80,31 @@ def load_project(directory):
                     "environment variables)."
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
+        return Project(
+            env_type=env_type.DOCKER,
+            env_config_path=None,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
-    # Validate config if conda_env parameter is present
-    conda_path = yaml_obj.get("conda_env")
-    if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
+    python_env = yaml_obj.get(env_type.PYTHON)
+    if python_env:
+        python_env_path = os.path.join(directory, python_env)
+        if not os.path.exists(python_env_path):
+            raise ExecutionException(
+                "Project specified python_env file %s, but no such "
+                "file was found." % python_env_path
+            )
+        return Project(
+            env_type=env_type.PYTHON,
+            env_config_path=python_env_path,
+            entry_points=entry_points,
+            docker_env=None,
+            name=project_name,
+        )
 
-    # Parse entry points
-    entry_points = {}
-    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-        parameters = entry_point_yaml.get("parameters", {})
-        command = entry_point_yaml.get("command")
-        entry_points[name] = EntryPoint(name, parameters, command)
-
+    conda_path = yaml_obj.get(env_type.CONDA)
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
@@ -87,31 +113,38 @@ def load_project(directory):
                 "file was found." % conda_env_path
             )
         return Project(
-            conda_env_path=conda_env_path,
+            env_type=env_type.CONDA,
+            env_config_path=conda_env_path,
             entry_points=entry_points,
-            docker_env=docker_env,
+            docker_env=None,
             name=project_name,
         )
 
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(
-            conda_env_path=default_conda_path,
+            env_type=env_type.CONDA,
+            env_config_path=default_conda_path,
             entry_points=entry_points,
-            docker_env=docker_env,
+            docker_env=None,
             name=project_name,
         )
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+        env_type=env_type.CONDA,
+        env_config_path=None,
+        entry_points=entry_points,
+        docker_env=None,
+        name=project_name,
     )
 
 
 class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
-        self.conda_env_path = conda_env_path
+    def __init__(self, env_type, env_config_path, entry_points, docker_env, name):
+        self.env_type = env_type
+        self.env_config_path = env_config_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name
@@ -214,7 +247,7 @@ class Parameter:
     def _compute_uri_value(self, user_param_value):
         if not data.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter %s but got " "%s" % (self.name, user_param_value)
+                "Expected URI for parameter %s but got %s" % (self.name, user_param_value)
             )
         return user_param_value
 

@@ -2,6 +2,7 @@ import { createIntlCache, createIntl } from 'react-intl';
 import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 
 const FALLBACK_LOCALES = {
+  es: 'es-ES',
   fr: 'fr-FR',
   pt: 'pt-PT',
   ja: 'ja-JP',

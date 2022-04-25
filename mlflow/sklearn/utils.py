@@ -295,6 +295,8 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
     if not _is_plotting_supported():
         return []
 
+    is_plot_function_deprecated = Version(sklearn.__version__) >= Version("1.0")
+
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
 
@@ -310,8 +312,13 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 "axes.labelsize": 10.0,
             }
         ):
-            return sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            return (
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
+                if is_plot_function_deprecated
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+            )
 
+    y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
     classifier_artifacts = [
         _SklearnArtifact(
             name=prefix + "confusion_matrix",
@@ -319,10 +326,10 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             arguments=dict(
                 estimator=fitted_estimator,
                 X=X,
-                y_true=y_true,
                 sample_weight=sample_weight,
                 normalize="true",
                 cmap="Blues",
+                **{y_true_arg_name: y_true},
             ),
             title="Normalized confusion matrix",
         ),
@@ -335,7 +342,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
             [
                 _SklearnArtifact(
                     name=prefix + "roc_curve",
-                    function=sklearn.metrics.plot_roc_curve,
+                    function=sklearn.metrics.RocCurveDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_roc_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
@@ -346,7 +355,9 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                 ),
                 _SklearnArtifact(
                     name=prefix + "precision_recall_curve",
-                    function=sklearn.metrics.plot_precision_recall_curve,
+                    function=sklearn.metrics.PrecisionRecallDisplay.from_estimator
+                    if is_plot_function_deprecated
+                    else sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
@@ -597,10 +608,8 @@ def _is_parameter_search_estimator(estimator):
     ]
 
     return any(
-        [
-            isinstance(estimator, param_search_estimator)
-            for param_search_estimator in parameter_search_estimators
-        ]
+        isinstance(estimator, param_search_estimator)
+        for param_search_estimator in parameter_search_estimators
     )
 
 
@@ -735,7 +744,7 @@ def _create_child_runs_for_parameter_search(
         metrics_to_log = {
             key: value
             for key, value in result_row.iteritems()
-            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            if not any(key.startswith(prefix) for prefix in excluded_metric_prefixes)
             and isinstance(value, Number)
         }
         autologging_client.log_metrics(
@@ -808,7 +817,7 @@ def _backported_all_estimators(type_filter=None):
     -------
     estimators : list of tuples
         List of (name, class), where ``name`` is the class name as string
-        and ``class`` is the actuall type of the class.
+        and ``class`` is the actual type of the class.
     """
     # lazy import to avoid circular imports from sklearn.base
     import pkgutil

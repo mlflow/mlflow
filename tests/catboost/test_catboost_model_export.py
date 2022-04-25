@@ -31,7 +31,9 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("catboost") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("catboost") else ["--env-manager", "local"]
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 

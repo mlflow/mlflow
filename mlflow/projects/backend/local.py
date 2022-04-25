@@ -4,6 +4,7 @@ import platform
 import posixpath
 import subprocess
 import sys
+from pathlib import Path
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -19,23 +20,41 @@ from mlflow.projects.utils import (
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     MLFLOW_DOCKER_WORKDIR_PATH,
-    PROJECT_USE_CONDA,
+    PROJECT_ENV_MANAGER,
     PROJECT_SYNCHRONOUS,
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
 )
+from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_conda_command, get_or_create_conda_env
+from mlflow.utils.virtualenv import (
+    _install_python,
+    _create_virtualenv,
+    _get_virtualenv_name,
+    _get_mlflow_virtualenv_root,
+)
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
+from mlflow.projects import env_type
 
 
 _logger = logging.getLogger(__name__)
+
+
+def _env_type_to_env_manager(env_typ):
+    if env_typ == env_type.CONDA:
+        return _EnvManager.CONDA
+    elif env_typ == env_type.PYTHON:
+        return _EnvManager.VIRTUALENV
+    elif env_typ == env_type.DOCKER:
+        return _EnvManager.LOCAL
 
 
 class LocalBackend(AbstractBackend):
@@ -53,10 +72,21 @@ class LocalBackend(AbstractBackend):
         )
         command_args = []
         command_separator = " "
-        use_conda = backend_config[PROJECT_USE_CONDA]
+        env_manager = backend_config[PROJECT_ENV_MANAGER]
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
+
+        # Select an appropriate env manager for the project env type
+        if env_manager is None:
+            env_manager = _env_type_to_env_manager(project.env_type)
+        else:
+            if project.env_type == env_type.PYTHON and env_manager == _EnvManager.CONDA:
+                raise MlflowException.invalid_parameter_value(
+                    "python_env project cannot be executed using conda. Set `--env-manager` to "
+                    "'virtualenv' or 'local' to execute this project."
+                )
+
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
@@ -84,11 +114,28 @@ class LocalBackend(AbstractBackend):
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
-        elif use_conda:
+        elif env_manager == _EnvManager.VIRTUALENV:
+            tracking.MlflowClient().set_tag(
+                active_run.info.run_id, MLFLOW_PROJECT_ENV, "virtualenv"
+            )
+            command_separator = " && "
+            if project.env_type == env_type.CONDA:
+                python_env = _PythonEnv.from_conda_yaml(project.env_config_path)
+            else:
+                python_env = _PythonEnv.from_yaml(project.env_config_path)
+            python_bin_path = _install_python(python_env.python)
+            env_root = _get_mlflow_virtualenv_root()
+            work_dir_path = Path(work_dir)
+            env_name = _get_virtualenv_name(python_env, work_dir_path)
+            env_dir = Path(env_root).joinpath(env_name)
+            activate_cmd = _create_virtualenv(work_dir_path, python_bin_path, env_dir, python_env)
+            command_args += [activate_cmd]
+        elif env_manager == _EnvManager.CONDA:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
-            conda_env_name = get_or_create_conda_env(project.conda_env_path)
+            conda_env_name = get_or_create_conda_env(project.env_config_path)
             command_args += get_conda_command(conda_env_name)
+
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
@@ -104,7 +151,7 @@ class LocalBackend(AbstractBackend):
             entry_point=entry_point,
             parameters=params,
             experiment_id=experiment_id,
-            use_conda=use_conda,
+            env_manager=env_manager,
             docker_args=docker_args,
             storage_dir=storage_dir,
             run_id=active_run.info.run_id,
@@ -112,7 +159,7 @@ class LocalBackend(AbstractBackend):
 
 
 def _invoke_mlflow_run_subprocess(
-    work_dir, entry_point, parameters, experiment_id, use_conda, docker_args, storage_dir, run_id
+    work_dir, entry_point, parameters, experiment_id, env_manager, docker_args, storage_dir, run_id
 ):
     """
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
@@ -124,7 +171,7 @@ def _invoke_mlflow_run_subprocess(
         entry_point=entry_point,
         docker_args=docker_args,
         storage_dir=storage_dir,
-        use_conda=use_conda,
+        env_manager=env_manager,
         run_id=run_id,
         parameters=parameters,
     )
@@ -135,7 +182,7 @@ def _invoke_mlflow_run_subprocess(
 
 
 def _build_mlflow_run_cmd(
-    uri, entry_point, docker_args, storage_dir, use_conda, run_id, parameters
+    uri, entry_point, docker_args, storage_dir, env_manager, run_id, parameters
 ):
     """
     Build and return an array containing an ``mlflow run`` command that can be invoked to locally
@@ -148,8 +195,7 @@ def _build_mlflow_run_cmd(
             mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
-    if not use_conda:
-        mlflow_run_arr.extend(["--env-manager", "local"])
+    mlflow_run_arr.extend(["--env-manager", env_manager])
     for key, value in parameters.items():
         mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
     return mlflow_run_arr

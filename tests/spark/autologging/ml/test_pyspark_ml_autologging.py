@@ -323,6 +323,30 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
         assert not _should_log_model(nested_pipeline_model)
 
 
+def test_should_log_model_with_wildcards_in_allowlist(dataset_binomial, dataset_multinomial):
+    mlflow.pyspark.ml.autolog(log_models=True)
+    lor = LogisticRegression()
+    ova1 = OneVsRest(classifier=lor)
+    ova1_model = ova1.fit(dataset_multinomial)
+
+    with mock.patch(
+        "mlflow.pyspark.ml._log_model_allowlist",
+        {
+            "pyspark.ml.regression.*",
+            "pyspark.ml.classification.LogisticRegressionModel",
+            "pyspark.ml.feature.*",
+        },
+    ):
+        lr = LinearRegression()
+        with mlflow.start_run():
+            lr_model = lr.fit(dataset_binomial)
+        assert _should_log_model(lr_model)
+        with mlflow.start_run():
+            lor_model = lor.fit(dataset_binomial)
+        assert _should_log_model(lor_model)
+        assert not _should_log_model(ova1_model)
+
+
 def test_log_stage_type_params(spark_session):
     from pyspark.ml.base import Estimator, Transformer, Model
     from pyspark.ml.evaluation import Evaluator
@@ -744,8 +768,8 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog(disable=True)
     recall_original = mce.evaluate(pred_result)
     assert np.isclose(logloss, recall_original)
-    accruacy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
-    assert np.isclose(accuracy, accruacy_original)
+    accuracy_original = mce.evaluate(pred_result, params={mce.metricName: "accuracy"})
+    assert np.isclose(accuracy, accuracy_original)
     areaUnderROC_original = bce.evaluate(pred_result)
     assert np.isclose(areaUnderROC, areaUnderROC_original)
 
