@@ -241,22 +241,22 @@ def log_model(
     except Py4JError:
         if databricks_utils.is_in_cluster() and databricks_utils.is_mlflowdbfs_available():
             return _log_model_via_mlflowdbfs(run_root_artifact_uri, artifact_path, spark_model)
-        else:
-            return Model.log(
-                artifact_path=artifact_path,
-                flavor=mlflow.spark,
-                spark_model=spark_model,
-                conda_env=conda_env,
-                code_paths=code_paths,
-                dfs_tmpdir=dfs_tmpdir,
-                sample_input=sample_input,
-                registered_model_name=registered_model_name,
-                signature=signature,
-                input_example=input_example,
-                await_registration_for=await_registration_for,
-                pip_requirements=pip_requirements,
-                extra_pip_requirements=extra_pip_requirements,
-            )
+
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=mlflow.spark,
+            spark_model=spark_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            dfs_tmpdir=dfs_tmpdir,
+            sample_input=sample_input,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+        )
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -743,11 +743,11 @@ def load_model(model_uri, dfs_tmpdir=None):
 
     if databricks_utils.is_in_cluster() and databricks_utils.is_mlflowdbfs_available():
         return _load_model_via_mlflowdbfs(model_uri)
-    else:
-        local_model_path = _download_artifact_from_uri(model_uri)
-        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-        return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
+    local_model_path = _download_artifact_from_uri(model_uri)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
+    return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
