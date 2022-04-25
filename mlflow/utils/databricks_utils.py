@@ -342,6 +342,11 @@ def get_workspace_url():
 
 
 def is_mlflowdbfs_available():
+    # allow users to choose not to use mlflowdbfs via an environment variable
+    disable_mlflowdbfs = os.environ.get("DISABLE_MLFLOWDBFS")
+    if disable_mlflowdbfs is not None and disable_mlflowdbfs != "":
+        return False
+
     try:
         spark_session = _get_active_spark_session()
     except Exception:
@@ -358,7 +363,7 @@ def is_mlflowdbfs_available():
         if (
             str(e.java_exception)
             == "org.apache.hadoop.fs.UnsupportedFileSystemException:"
-            + 'No FileSystem for scheme "mlflowdbfs"'
+            + ' No FileSystem for scheme "mlflowdbfs"'
         ):
             return False
 
