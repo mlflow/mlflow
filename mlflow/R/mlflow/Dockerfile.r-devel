@@ -18,4 +18,6 @@ RUN wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-
     tar xvzf pandoc-2.18-linux-arm64.tar.gz --strip-components 1 -C /usr/local
 COPY DESCRIPTION .
 COPY .install-deps.R .
+ENV OMP_NUM_THREADS=1
+ENV USE_SIMPLE_THREADED_LEVEL3= 1
 RUN Rscript -e 'source(".install-deps.R", echo = TRUE)'
