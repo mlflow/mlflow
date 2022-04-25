@@ -284,9 +284,10 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
 
 @pytest.fixture(scope="module", autouse=True)
 def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+    pass
+    # os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    # os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    # os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
 
 
 @pytest.fixture
