@@ -255,11 +255,11 @@ def log_model(
     )
 
 
-def _load_model(path):
+def _load_model(path, **kwargs):
     import spacy
 
     path = os.path.abspath(path)
-    return spacy.load(path)
+    return spacy.load(path, **kwargs)
 
 
 class _SpacyModelWrapper:
@@ -291,7 +291,7 @@ def _load_pyfunc(path):
     return _SpacyModelWrapper(_load_model(path))
 
 
-def load_model(model_uri, dst_path=None):
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
@@ -311,6 +311,11 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
+    :param kwargs: Extra keyword arguments to pass through to `spacy.load()` like config, disable, exclude,
+                   etc. Example usage: ``mlflow.spacy.load_model(model_uri, exclude=["ner"], disable=["x"])``
+                   For more info on kwargs available spaCy docs for model load.
+
+
     :return: A spaCy loaded model
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
@@ -319,4 +324,4 @@ def load_model(model_uri, dst_path=None):
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
     spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))
-    return _load_model(path=spacy_model_file_path)
+    return _load_model(path=spacy_model_file_path, **kwargs)

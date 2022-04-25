@@ -113,6 +113,18 @@ def test_model_save_load(spacy_model_with_data, model_path):
 
 
 @pytest.mark.large
+def test_model_save_load_with_config(spacy_model_with_data, model_path):
+    spacy_model = spacy_model_with_data.model
+    mlflow.spacy.save_model(spacy_model=spacy_model, path=model_path)
+    loaded_model = mlflow.spacy.load_model(model_path)
+    assert 'textcat' in loaded_model.pipe_names
+
+    # Check if our kwarg override to exclude textcat worked
+    loaded_model = mlflow.spacy.load_model(model_path, exclude=['textcat'])
+    assert 'textcat' not in loaded_model.pipe_names
+
+
+@pytest.mark.large
 def test_model_export_with_schema_and_examples(spacy_model_with_data):
     spacy_model = spacy_model_with_data.model
     signature_ = infer_signature(spacy_model_with_data.inference_data)
