@@ -14,9 +14,13 @@ RUN apt-get install git wget libxml2-dev libgit2-dev libfontconfig1-dev \
 #       /etc/apt/apt.conf.d/docker-clean
 # pandoc installed by `apt-get` is too old and contains a bug, so we install it
 # from source using Haskell platform, as discussed in https://pandoc.org/installing.html#linux
-RUN apt-get install haskell-platform -y
-RUN cabal update
-RUN cabal install pandoc
+RUN wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-arm64.tar.gz && \
+    tar xvzf pandoc-2.18-linux-arm64.tar.gz --strip-components 1 -C /usr/local
+RUN echo $(pandoc --version)
+
+# RUN apt-get install haskell-platform -y
+# RUN cabal update
+# RUN cabal install pandoc
 # RUN TEMP_DEB=$(mktemp) && \
 #     wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb && \
 #     dpkg --install $(find $TEMP_DEB -name '*.deb') && \
