@@ -4,6 +4,8 @@ FROM rocker/r-ver:devel
 # https://developer.r-project.org/blosxom.cgi/R-devel
 
 WORKDIR /mlflow/mlflow/R/mlflow
+RUN sed -i -e 's/^APT/# APT/' -e 's/^DPkg/# DPkg/' \
+      /etc/apt/apt.conf.d/docker-clean
 RUN apt-get update -y
 RUN apt-get install git wget libxml2-dev libgit2-dev libfontconfig1-dev \
     libssl-dev libharfbuzz-dev libfribidi-dev libcurl4-openssl-dev \
