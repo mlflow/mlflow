@@ -52,7 +52,6 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir, write_to
@@ -240,12 +239,8 @@ def log_model(
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JError:
-        artifact_repo = get_artifact_repository(artifact_uri=run_root_artifact_uri)
-        if (
-            isinstance(artifact_repo, DatabricksArtifactRepository)
-            and databricks_utils.is_mlflowdbfs_available()
-        ):
-            return _log_model_via_mlflowdbfs(artifact_repo, artifact_path, spark_model)
+        if databricks_utils.is_in_cluster() and databricks_utils.is_mlflowdbfs_available():
+            return _log_model_via_mlflowdbfs(run_root_artifact_uri, artifact_path, spark_model)
         else:
             return Model.log(
                 artifact_path=artifact_path,
@@ -672,9 +667,8 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
     return PipelineModel.load(model_uri)
 
 
-def _log_model_via_mlflowdbfs(artifact_repo, artifact_path, model):
-    assert isinstance(artifact_repo, DatabricksArtifactRepository)
-
+def _log_model_via_mlflowdbfs(run_root_artifact_uri, artifact_path, model):
+    artifact_repo = get_artifact_repository(artifact_uri=run_root_artifact_uri)
     mlflowdbfs_path = artifact_repo._get_mlflowdbfs_path(artifact_path)
     artifact_repo._set_databricks_host_creds_to_credential_context()
 
@@ -684,8 +678,9 @@ def _log_model_via_mlflowdbfs(artifact_repo, artifact_path, model):
         artifact_repo._clear_credential_context()
 
 
-def _load_model_via_mlflowdbfs(artifact_repo, artifact_path):
-    assert isinstance(artifact_repo, DatabricksArtifactRepository)
+def _load_model_via_mlflowdbfs(model_uri):
+    run_root_artifact_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
+    artifact_repo = get_artifact_repository(artifact_uri=run_root_artifact_uri)
 
     from pyspark.ml.pipeline import PipelineModel
 
@@ -745,19 +740,13 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
-    artifact_repo = get_artifact_repository(artifact_uri=root_uri)
 
-    if (
-        isinstance(artifact_repo, DatabricksArtifactRepository)
-        and databricks_utils.is_mlflowdbfs_available()
-    ):
-        return _load_model_via_mlflowdbfs(artifact_repo, artifact_path)
+    if databricks_utils.is_in_cluster() and databricks_utils.is_mlflowdbfs_available():
+        return _load_model_via_mlflowdbfs(model_uri)
     else:
-        local_model_path = artifact_repo.download_artifacts(
-            artifact_path=artifact_path, dst_path=None
-        )
+        local_model_path = _download_artifact_from_uri(model_uri)
         _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
         return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
