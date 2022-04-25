@@ -1,4 +1,4 @@
-FROM rocker/r-ver:devel
+FROM r-base:latest
 
 # Daily News about R-devel:
 # https://developer.r-project.org/blosxom.cgi/R-devel
@@ -6,8 +6,8 @@ FROM rocker/r-ver:devel
 WORKDIR /mlflow/mlflow/R/mlflow
 # Apply a fix for apt-get update failures on Ubuntu 22.04,
 # as discussed in https://stackoverflow.com/a/71982514/11952869
-RUN sed -i -e 's/^APT/# APT/' -e 's/^DPkg/# DPkg/' \
-      /etc/apt/apt.conf.d/docker-clean
+# RUN sed -i -e 's/^APT/# APT/' -e 's/^DPkg/# DPkg/' \
+#       /etc/apt/apt.conf.d/docker-clean
 RUN apt-get update -y
 RUN apt-get install git wget libxml2-dev libgit2-dev libfontconfig1-dev \
     libssl-dev libharfbuzz-dev libfribidi-dev libcurl4-openssl-dev \
@@ -20,5 +20,4 @@ COPY DESCRIPTION .
 COPY .install-deps.R .
 ENV OMP_NUM_THREADS=1
 ENV USE_SIMPLE_THREADED_LEVEL3=1
-RUN free -m
 RUN Rscript .install-deps.R
