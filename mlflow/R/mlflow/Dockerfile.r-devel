@@ -4,27 +4,18 @@ FROM rocker/r-ver:devel
 # https://developer.r-project.org/blosxom.cgi/R-devel
 
 WORKDIR /mlflow/mlflow/R/mlflow
+# Apply a fix for apt-get update failures on Ubuntu 22.04,
+# as discussed in https://stackoverflow.com/a/71982514/11952869
 RUN sed -i -e 's/^APT/# APT/' -e 's/^DPkg/# DPkg/' \
       /etc/apt/apt.conf.d/docker-clean
 RUN apt-get update -y
 RUN apt-get install git wget libxml2-dev libgit2-dev libfontconfig1-dev \
     libssl-dev libharfbuzz-dev libfribidi-dev libcurl4-openssl-dev \
     libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev -y
-# RUN sed -i -e 's/# APT/APT/' -e 's/# DPkg/DPkg/' \
-#       /etc/apt/apt.conf.d/docker-clean
 # pandoc installed by `apt-get` is too old and contains a bug, so we install it
-# from source using Haskell platform, as discussed in https://pandoc.org/installing.html#linux
+# from source via tarball as discussed in https://pandoc.org/installing.html#linux
 RUN wget https://github.com/jgm/pandoc/releases/download/2.18/pandoc-2.18-linux-arm64.tar.gz && \
     tar xvzf pandoc-2.18-linux-arm64.tar.gz --strip-components 1 -C /usr/local
-RUN echo $(pandoc --version)
-
-# RUN apt-get install haskell-platform -y
-# RUN cabal update
-# RUN cabal install pandoc
-# RUN TEMP_DEB=$(mktemp) && \
-#     wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb && \
-#     dpkg --install $(find $TEMP_DEB -name '*.deb') && \
-#     rm -rf $TEMP_DEB
 COPY DESCRIPTION .
 COPY .install-deps.R .
 RUN Rscript -e 'source(".install-deps.R", echo = TRUE)'
