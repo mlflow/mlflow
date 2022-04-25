@@ -282,7 +282,7 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
