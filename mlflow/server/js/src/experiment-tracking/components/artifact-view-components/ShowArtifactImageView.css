@@ -1,15 +1,8 @@
 .image-outer-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   height: 100%;
+  width: 100%;
   min-height: 1000px;
-  width: 100%;
-  padding-left: 16px;
-}
-.image-container {
-  background-repeat: no-repeat;
-  background-size: contain;
-  height: 100%;
-  width: 100%;
+  max-height: 1500px;
+  padding: 10px;
+  vertical-align:top;
 }
