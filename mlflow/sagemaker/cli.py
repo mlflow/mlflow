@@ -9,6 +9,7 @@ from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 import mlflow.models.docker_utils
+from mlflow.utils import env_manager as em
 
 
 @click.group("sagemaker")
@@ -567,8 +568,9 @@ def run_local(model_uri, port, image, flavor):
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
 @click.option("--container", "-c", default=IMAGE, help="image name")
+@cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
-def build_and_push_container(build, push, container, mlflow_home):
+def build_and_push_container(build, push, container, env_manager, mlflow_home):
     """
     Build new MLflow Sagemaker image, assign it a name, and push to ECR.
 
@@ -576,13 +578,16 @@ def build_and_push_container(build, push, container, mlflow_home):
     The image is built locally and it requires Docker to run.
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
+    env_manager = env_manager or em.CONDA
     if not (build or push):
         click.echo("skipping both build and push, have nothing to do!")
     if build:
         sagemaker_image_entrypoint = """
         ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
-        C._init(sys.argv[1])"]
-        """
+        C._init(sys.argv[1], '{env_manager}')"]
+        """.format(
+            env_manager=env_manager
+        )
 
         def setup_container(_):
             return "\n".join(
@@ -598,6 +603,7 @@ def build_and_push_container(build, push, container, mlflow_home):
             mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
             entrypoint=sagemaker_image_entrypoint,
             custom_setup_steps_hook=setup_container,
+            env_manager=env_manager,
         )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
