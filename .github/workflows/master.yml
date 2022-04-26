@@ -70,6 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
+        shell: bash --noprofile --norc -exo pipefail {0}
         working-directory: mlflow/R/mlflow
     steps:
     - uses: actions/checkout@v3
