@@ -1095,9 +1095,8 @@ def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
     from pyspark.sql.types import ArrayType, DoubleType
 
     output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
-    assert [_field for _field in output_df.schema.fields if _field.name == "features"][
-        0
-    ].dataType == ArrayType(
+    features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
+    assert features_col.dataType == ArrayType(
         DoubleType(), False
     ), "'features' column isn't of expected type array<double>"
 
@@ -1121,11 +1120,11 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
     df_with_vector_features = find_and_set_features_col_as_vector_if_needed(
         df_with_array_features, pipeline_model
     )
+    features_col = next(
+        filter(lambda f: f.name == "features", df_with_vector_features.schema.fields)
+    )
     assert isinstance(
-        [_field for _field in df_with_vector_features.schema.fields if _field.name == "features"][
-            0
-        ].dataType,
-        VectorUDT,
+        features_col.dataType, VectorUDT
     ), "'features' column wasn't cast to vector type"
     pipeline_model.transform(df_with_vector_features)
     with pytest.raises(
