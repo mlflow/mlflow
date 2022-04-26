@@ -15,7 +15,12 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
     <div className='image-outer-container'>
       {isLoading && <Skeleton active />}
       <Image
-        style={isLoading ? { display: 'none' } : {}}
+        style={
+          isLoading
+            ? { display: 'none' }
+            : // Workaround for https://github.com/ant-design/ant-design/discussions/28434#discussion-77663
+              { display: 'inline' }
+        }
         src={getSrc(path, runUuid)}
         onLoad={() => setIsLoading(false)}
       />

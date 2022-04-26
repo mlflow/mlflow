@@ -1,6 +1,6 @@
 .image-outer-container {
   min-height: 500px;
-  width: 100%;
+  max-height: 1500px;
   padding: 10px;
-  vertical-align:top;
+  overflow: auto;
 }
