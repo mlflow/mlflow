@@ -31,9 +31,9 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
-_MAX_RETRIES=5
-_BACKOFF_FACTOR=2
-_DEFAULT_TIMEOUT=120
+_MAX_RETRIES = 5
+_BACKOFF_FACTOR = 2
+_DEFAULT_TIMEOUT = 120
 
 
 @lru_cache(maxsize=64)
