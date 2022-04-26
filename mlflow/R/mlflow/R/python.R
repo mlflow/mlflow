@@ -12,14 +12,13 @@ get_python_bin <- function() {
     stop(paste("MLflow not configured, please run install_mlflow() or ",
                "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
   }
-  mlflow_env$python
+  file.path(dirname(mlflow_env$python), "python.exe")
 }
 
 # Returns path to Python executable within conda environment created for the MLflow R package
 python_bin <- function() {
   if (is.null(.globals$python_bin)) {
     python <- get_python_bin()
-    python <- file.path(dirname(python), "python.exe")
     .globals$python_bin <- path.expand(python)
   }
 
