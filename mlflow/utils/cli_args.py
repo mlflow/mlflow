@@ -91,7 +91,7 @@ def _resolve_env_manager(ctx, _, env_manager):
         return env_manager
 
     # Neither `--no-conda` nor `--env-manager` is specified
-    return _EnvManager.CONDA
+    return None
 
 
 ENV_MANAGER = click.option(
@@ -120,8 +120,8 @@ INSTALL_MLFLOW = click.option(
     is_flag=True,
     default=False,
     help="If specified and there is a conda environment to be activated "
-    "mlflow will be installed into the environment after it has been"
-    " activated. The version of installed mlflow will be the same as"
+    "mlflow will be installed into the environment after it has been "
+    "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
 )
 

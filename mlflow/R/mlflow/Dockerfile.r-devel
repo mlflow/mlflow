@@ -1,4 +1,4 @@
-FROM rocker/r-ver:devel
+FROM r-base:latest
 
 # Daily News about R-devel:
 # https://developer.r-project.org/blosxom.cgi/R-devel
