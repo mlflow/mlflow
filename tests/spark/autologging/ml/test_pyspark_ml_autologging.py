@@ -463,7 +463,7 @@ def test_pipeline(dataset_text):
 def test_param_search_estimator(  # pylint: disable=unused-argument
     metric_name, param_search_estimator, spark_session, dataset_regression
 ):
-    mlflow.pyspark.ml.autolog()
+    mlflow.pyspark.ml.autolog(log_input_examples=True)
     lr = LinearRegression(solver="l-bfgs", regParam=0.01)
     lrParamMaps = [
         {lr.maxIter: 1, lr.standardization: False},
@@ -942,7 +942,6 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
             run,
             [{"name": "features", "type": "string"}],
             [
-                {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},
                 {"name": "prediction", "type": "double"},
@@ -973,7 +972,6 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
                 {"name": "text", "type": "string"},
             ],
             [
-                {"name": "text", "type": "string"},
                 {"name": "words", "type": "string"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
@@ -1032,7 +1030,6 @@ def test_signature_with_index_to_string_stage(
             run,
             [{"name": "id", "type": "long"}],
             [
-                {"name": "id", "type": "long"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},
@@ -1084,7 +1081,6 @@ def test_signature_with_non_feature_input_columns(
             run,
             [{"name": "id", "type": "long"}],
             [
-                {"name": "id", "type": "long"},
                 {"name": "features", "type": "string"},
                 {"name": "rawPrediction", "type": "string"},
                 {"name": "probability", "type": "string"},

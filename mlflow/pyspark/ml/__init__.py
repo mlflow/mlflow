@@ -959,7 +959,9 @@ def autolog(
                     input_slice_df = find_and_set_features_col_as_vector_if_needed(
                         spark.createDataFrame(input_example_slice), spark_model
                     )
-                    model_output = spark_model.transform(input_slice_df)
+                    model_output = spark_model.transform(input_slice_df).drop(
+                        *input_slice_df.columns
+                    )
                     return infer_signature(input_example_slice, model_output.toPandas())
 
                 input_example, signature = resolve_input_example_and_signature(
