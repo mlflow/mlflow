@@ -1,4 +1,5 @@
 import pytest
+from unittest import mock
 
 from mlflow.utils.environment import _PythonEnv
 
@@ -61,7 +62,7 @@ dependencies:
     yaml_path.write_text(content)
     python_env = _PythonEnv.from_conda_yaml(yaml_path)
     assert python_env.python == "3.7.5"
-    assert python_env.build_dependencies is None
+    assert python_env.build_dependencies == ["pip"]
     assert python_env.dependencies == ["a", "b"]
 
 
@@ -119,3 +120,26 @@ dependencies:
     yaml_path.write_text(content)
     with pytest.raises(Exception, match="Invalid version comperator for python"):
         _PythonEnv.from_conda_yaml(yaml_path)
+
+
+def test_from_conda_yaml_conda_dependencies_warning(tmp_path):
+    content = """
+name: example
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - foo
+  - bar
+  - pip:
+    - a
+"""
+    yaml_path = tmp_path / "conda.yaml"
+    yaml_path.write_text(content)
+    with mock.patch("mlflow.utils.environment._logger.warning") as mock_warning:
+        _PythonEnv.from_conda_yaml(yaml_path)
+        mock_warning.assert_called_with(
+            "The following conda dependencies will not be installed "
+            "in the resulting environment: %s",
+            ["foo", "bar"],
+        )

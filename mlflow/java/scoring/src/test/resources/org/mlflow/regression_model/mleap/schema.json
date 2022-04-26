@@ -1,7 +1,7 @@
 {
     "fields": [
         {
-            "nullable": true, 
+            "nullable": true,
             "type": "integer",
             "name": "age",
             "metadata": {}
@@ -37,7 +37,7 @@
             "metadata": {}
         },
         {
-            "nullable": true, 
+            "nullable": true,
             "type": "integer",
             "name": "hours_per_week",
             "metadata": {}
@@ -48,6 +48,6 @@
             "name": "income",
             "metadata": {}
         }
-    ], 
+    ],
     "type": "struct"
 }
