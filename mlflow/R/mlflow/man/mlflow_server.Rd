@@ -9,7 +9,7 @@ mlflow_server(
   default_artifact_root = NULL,
   host = "127.0.0.1",
   port = 5000,
-  workers = 4,
+  workers = NULL,
   static_prefix = NULL
 )
 }
