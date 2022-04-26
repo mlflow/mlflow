@@ -120,62 +120,69 @@ class BertDataModule(pl.LightningDataModule):
         self.train_count = None
         self.val_count = None
         self.test_count = None
+        self.RANDOM_SEED = 42
+        self.news_group_df = None
 
     def prepare_data(self):
-        RANDOM_SEED = 42
-        np.random.seed(RANDOM_SEED)
-        torch.manual_seed(RANDOM_SEED)
+        """
+        Downloads the ag_news or 20newsgroup dataset and initializes bert tokenizer
+        """
+        np.random.seed(self.RANDOM_SEED)
+        torch.manual_seed(self.RANDOM_SEED)
 
         if self.dataset == "20newsgroups":
             num_samples = self.args["num_samples"]
-            df = (
+            self.news_group_df = (
                 get_20newsgroups(num_samples)
                 if self.args["dataset"] == "20newsgroups"
                 else get_ag_news(num_samples)
             )
-
-            self.train_dataset, self.test_dataset = train_test_split(
-                df, test_size=0.3, random_state=RANDOM_SEED, stratify=df["label"]
-            )
-            self.val_dataset, self.test_dataset = train_test_split(
-                self.test_dataset,
-                test_size=0.5,
-                random_state=RANDOM_SEED,
-                stratify=self.test_dataset["label"],
-            )
-
-            self.train_count = len(self.train_dataset)
-            self.val_count = len(self.val_dataset)
-            self.test_count = len(self.test_dataset)
         else:
-
             train_iter, test_iter = AG_NEWS()
             self.train_dataset = to_map_style_dataset(train_iter)
             self.test_dataset = to_map_style_dataset(test_iter)
-
-            num_train = int(len(self.train_dataset) * 0.95)
-            self.train_dataset, self.val_dataset = random_split(
-                self.train_dataset, [num_train, len(self.train_dataset) - num_train]
-            )
-
-            self.train_count = self.args.get("num_samples")
-            self.val_count = int(self.train_count / 10)
-            self.test_count = int(self.train_count / 10)
-            self.train_count = self.train_count - (self.val_count + self.test_count)
-
-        print("Number of samples used for training: {}".format(self.train_count))
-        print("Number of samples used for validation: {}".format(self.val_count))
-        print("Number of samples used for test: {}".format(self.test_count))
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
 
     def setup(self, stage=None):
         """
-        Downloads the data, parse it and split the data into train, test, validation data
+        Split the data into train, test, validation data
 
         :param stage: Stage - training or testing
         """
-        pass
+        if stage == "fit":
+            if self.dataset == "20newsgroups":
+                self.train_dataset, self.test_dataset = train_test_split(
+                    self.news_group_df,
+                    test_size=0.3,
+                    random_state=self.RANDOM_SEED,
+                    stratify=self.news_group_df["label"],
+                )
+                self.val_dataset, self.test_dataset = train_test_split(
+                    self.test_dataset,
+                    test_size=0.5,
+                    random_state=self.RANDOM_SEED,
+                    stratify=self.test_dataset["label"],
+                )
+
+                self.train_count = len(self.train_dataset)
+                self.val_count = len(self.val_dataset)
+                self.test_count = len(self.test_dataset)
+            else:
+
+                num_train = int(len(self.train_dataset) * 0.95)
+                self.train_dataset, self.val_dataset = random_split(
+                    self.train_dataset, [num_train, len(self.train_dataset) - num_train]
+                )
+
+                self.train_count = self.args.get("num_samples")
+                self.val_count = int(self.train_count / 10)
+                self.test_count = int(self.train_count / 10)
+                self.train_count = self.train_count - (self.val_count + self.test_count)
+
+            print("Number of samples used for training: {}".format(self.train_count))
+            print("Number of samples used for validation: {}".format(self.val_count))
+            print("Number of samples used for test: {}".format(self.test_count))
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -427,7 +434,6 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = BertDataModule(**dict_args)
-    dm.setup(stage="fit")
 
     model = BertNewsClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
