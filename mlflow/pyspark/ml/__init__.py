@@ -943,7 +943,7 @@ def autolog(
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
                 )
-                from mlflow.spark import find_and_set_features_col_as_vector_if_needed
+                from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
                 from pyspark.sql import SparkSession
 
                 spark = SparkSession.builder.getOrCreate()
@@ -956,7 +956,7 @@ def autolog(
                     return cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
 
                 def _infer_model_signature(input_example_slice):
-                    input_slice_df = find_and_set_features_col_as_vector_if_needed(
+                    input_slice_df = _find_and_set_features_col_as_vector_if_needed(
                         spark.createDataFrame(input_example_slice), spark_model
                     )
                     model_output = spark_model.transform(input_slice_df).drop(

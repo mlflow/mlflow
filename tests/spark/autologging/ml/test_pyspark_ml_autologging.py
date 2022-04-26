@@ -1111,13 +1111,13 @@ def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols)
 
 @pytest.mark.large
 def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
-    from mlflow.spark import find_and_set_features_col_as_vector_if_needed
+    from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
     from pyspark.ml.linalg import VectorUDT
     from pyspark.sql.utils import IllegalArgumentException
 
     pipeline_model = lr.fit(dataset_binomial)
     df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)
-    df_with_vector_features = find_and_set_features_col_as_vector_if_needed(
+    df_with_vector_features = _find_and_set_features_col_as_vector_if_needed(
         df_with_array_features, pipeline_model
     )
     features_col = next(

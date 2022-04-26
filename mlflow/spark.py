@@ -741,7 +741,7 @@ def _load_pyfunc(path):
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
-def find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
+def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
     """
     Finds the `featuresCol` column in spark_model and
     then tries to cast that column to `vector` type.
@@ -809,7 +809,7 @@ class _PyFuncModelWrapper:
         """
         from pyspark.ml import PipelineModel
 
-        spark_df = find_and_set_features_col_as_vector_if_needed(
+        spark_df = _find_and_set_features_col_as_vector_if_needed(
             self.spark.createDataFrame(pandas_df), self.spark_model
         )
         prediction_column = "prediction"
