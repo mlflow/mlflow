@@ -50,23 +50,13 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(error_code)
         except (ValueError, TypeError):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
-        if isinstance(message, BaseException):
-            self.original_exception_class = (
-                f"{message.__class__.__module__}.{message.__class__.__name__}"
-            )
-        else:
-            self.original_exception_class = None
         message = str(message)
         self.message = message
         self.json_kwargs = kwargs
         super().__init__(message)
 
     def serialize_as_json(self):
-        exception_dict = {
-            "error_code": self.error_code,
-            "message": self.message,
-            "original_exception_class": self.original_exception_class,
-        }
+        exception_dict = {"error_code": self.error_code, "message": self.message}
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
 

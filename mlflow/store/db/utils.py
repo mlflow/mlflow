@@ -81,7 +81,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
         except MlflowException:
             session.rollback()
             raise
-        except sqlalchemy.exc.IntegrityError as e:
+        except sqlalchemy.exc.SQLAlchemyError as e:
             session.rollback()
             raise MlflowException(message=e, error_code=BAD_REQUEST)
         except Exception as e:

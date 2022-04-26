@@ -542,10 +542,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 run = models.SqlRun()
                 session.add(run)
                 warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(
-            BAD_REQUEST
-        ), f"Wrong exception {exception_context.exception.original_exception_class}: " \
-           f"{exception_context.exception.message} raised."
+        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
@@ -890,10 +887,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with self.assertRaises(MlflowException) as exception_context:
             self.store.log_param(run.info.run_id, param)
-        assert exception_context.exception.error_code == ErrorCode.Name(
-            BAD_REQUEST
-        ), f"Wrong exception {exception_context.exception.original_exception_class} " \
-           f"{exception_context.exception.message}raised."
+        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
