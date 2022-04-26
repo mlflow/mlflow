@@ -332,6 +332,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         dbutils.endpoint.clearMlflowProperties()
 
     def _get_mlflowdbfs_path(self, artifact_path):
+        if artifact_path.startswith("/"):
+            raise MlflowException(
+                "artifact_path should be relative, found: {}".format(artifact_path)
+            )
         return "mlflowdbfs:///artifacts?run_id={}&path=/{}".format(self.run_id, artifact_path)
 
     def log_artifact(self, local_file, artifact_path=None):

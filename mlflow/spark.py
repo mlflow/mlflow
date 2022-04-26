@@ -239,7 +239,7 @@ def log_model(
     try:
         spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JError:
-        if databricks_utils.is_in_cluster() and databricks_utils.is_mlflowdbfs_available():
+        if databricks_utils.is_mlflowdbfs_available():
             return _log_model_via_mlflowdbfs(run_root_artifact_uri, artifact_path, spark_model)
 
         return Model.log(

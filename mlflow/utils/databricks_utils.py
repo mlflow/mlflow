@@ -342,6 +342,9 @@ def get_workspace_url():
 
 
 def is_mlflowdbfs_available():
+    if not is_in_cluster():
+        return False
+
     # allow users to choose not to use mlflowdbfs via an environment variable
     disable_mlflowdbfs = os.environ.get("DISABLE_MLFLOWDBFS")
     if disable_mlflowdbfs is not None and disable_mlflowdbfs != "":
