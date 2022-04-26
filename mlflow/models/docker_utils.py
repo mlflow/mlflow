@@ -88,28 +88,26 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         return (
             "COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
-            # Temporarily commented out for faster development
-            # "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            # "mvn --batch-mode package -DskipTests && "
-            # "mkdir -p /opt/java/jars && "
-            # "mv /opt/mlflow/mlflow/java/scoring/target/"
-            # "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
+            "RUN cd /opt/mlflow/mlflow/java/scoring && "
+            "mvn --batch-mode package -DskipTests && "
+            "mkdir -p /opt/java/jars && "
+            "mv /opt/mlflow/mlflow/java/scoring/target/"
+            "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
         ).format(mlflow_dir=mlflow_dir)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
-            # Temporarily commented out for faster development
-            # "RUN mvn "
-            # " --batch-mode dependency:copy"
-            # " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            # " -DoutputDirectory=/opt/java\n"
-            # "RUN mvn "
-            # " --batch-mode dependency:copy"
-            # " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            # " -DoutputDirectory=/opt/java/jars\n"
-            # "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
-            # "RUN cd /opt/java && mvn "
-            # "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
+            "RUN mvn "
+            " --batch-mode dependency:copy"
+            " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+            " -DoutputDirectory=/opt/java\n"
+            "RUN mvn "
+            " --batch-mode dependency:copy"
+            " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+            " -DoutputDirectory=/opt/java/jars\n"
+            "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
+            "RUN cd /opt/java && mvn "
+            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
         ).format(version=mlflow.version.VERSION)
 
 
