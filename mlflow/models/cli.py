@@ -1,6 +1,5 @@
 import logging
 import click
-import os
 
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -155,9 +154,11 @@ def prepare_env(
 @commands.command("build-docker")
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
+@cli_args.ENV_MANAGER
+@cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def build_docker(model_uri, name, install_mlflow, enable_mlserver):
+def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
     Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
@@ -187,8 +188,8 @@ def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """
-    mlflow_home = os.environ.get("MLFLOW_HOME", None)
-    _get_flavor_backend(model_uri, docker_build=True).build_image(
+    env_manager = env_manager or _EnvManager.CONDA
+    _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,
         mlflow_home=mlflow_home,

@@ -6,14 +6,16 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-SAGEMAKER_OUT=$(mktemp)
-if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-  echo "Sagemaker container build succeeded.";
-  # output the last few lines for the timing information (defaults to 10 lines)
-else
-  echo "Sagemaker container build failed, output:";
-  cat $SAGEMAKER_OUT;
-fi
+for env_manager in conda virtualenv; do
+  SAGEMAKER_OUT=$(mktemp)
+  if mlflow sagemaker build-and-push-container --no-push --mlflow-home . --env-manager $env_manager > $SAGEMAKER_OUT 2>&1; then
+    echo "Sagemaker container build with $env_manager succeeded.";
+    # output the last few lines for the timing information (defaults to 10 lines)
+  else
+    echo "Sagemaker container build with $env_manager failed, output:";
+    cat $SAGEMAKER_OUT;
+  fi
+done
 
 pytest tests/sagemaker --large
 pytest tests/sagemaker/mock --large

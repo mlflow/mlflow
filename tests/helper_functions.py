@@ -93,6 +93,9 @@ def pyfunc_build_image(model_uri, extra_args=None):
     """
     name = uuid.uuid4().hex
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd)
