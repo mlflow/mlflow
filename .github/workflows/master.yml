@@ -134,6 +134,7 @@ jobs:
         INSTALL_SKINNY_PYTHON_DEPS: true
         MLFLOW_SKINNY: true
       run: |
+        git branch --show-current
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
