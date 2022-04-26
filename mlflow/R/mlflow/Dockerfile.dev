@@ -1,4 +1,4 @@
-FROM r-base:latest
+FROM rocker/r-ver:latest
 
 WORKDIR /mlflow/mlflow/R/mlflow
 RUN apt-get update -y
