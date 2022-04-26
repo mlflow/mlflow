@@ -2,26 +2,32 @@
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 
+import math
 import os
 from argparse import ArgumentParser
-import mlflow.pytorch
+
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
+import torchtext.datasets as td
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
     LearningRateMonitor,
 )
+from sklearn.datasets import fetch_20newsgroups
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
-from sklearn.datasets import fetch_20newsgroups
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.dataset import IterDataPipe, random_split
+from torchtext.data.functional import to_map_style_dataset
+from torchtext.datasets import AG_NEWS
 from transformers import BertModel, BertTokenizer, AdamW
-import torchtext.datasets as td
+
+import mlflow.pytorch
 
 
 def get_20newsgroups(num_samples):
@@ -41,57 +47,59 @@ def get_ag_news(num_samples):
     )
 
 
-class NewsDataset(Dataset):
-    def __init__(self, reviews, targets, tokenizer, max_length):
+class NewsDataset(IterDataPipe):
+    def __init__(self, tokenizer, source, max_length, num_samples, dataset="20newsgroups"):
         """
-        Performs initialization of tokenizer
-
-        :param reviews: AG news text
-        :param targets: labels
+        Custom Dataset - Converts the input text and label to tensor
         :param tokenizer: bert tokenizer
+        :param source: data source - Either a dataframe or DataPipe
         :param max_length: maximum length of the news text
-
+        :param num_samples: number of samples to load
+        :param dataset: Dataset type - 20newsgroups or ag_news
         """
-        self.reviews = reviews
-        self.targets = targets
+        super(NewsDataset, self).__init__()
+        self.source = source
+        self.start = 0
         self.tokenizer = tokenizer
         self.max_length = max_length
+        self.dataset = dataset
+        self.end = num_samples
 
-    def __len__(self):
-        """
-        :return: returns the number of datapoints in the dataframe
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            iter_start = self.start
+            iter_end = self.end
+        else:
+            per_worker = int(math.ceil((self.end - self.start) / float(worker_info.num_workers)))
+            worker_id = worker_info.id
+            iter_start = self.start + worker_id * per_worker
+            iter_end = min(iter_start + per_worker, self.end)
 
-        """
-        return len(self.reviews)
+        for idx in range(iter_start, iter_end):
+            if self.dataset == "20newsgroups":
+                review = str(self.source["description"].iloc[idx])
+                target = int(self.source["label"].iloc[idx])
+            else:
+                target, review = self.source[idx]
+                target -= 1
+            encoding = self.tokenizer.encode_plus(
+                review,
+                add_special_tokens=True,
+                max_length=self.max_length,
+                return_token_type_ids=False,
+                padding="max_length",
+                return_attention_mask=True,
+                return_tensors="pt",
+                truncation=True,
+            )
 
-    def __getitem__(self, item):
-        """
-        Returns the review text and the targets of the specified item
-
-        :param item: Index of sample review
-
-        :return: Returns the dictionary of review text, input ids, attention mask, targets
-        """
-        review = str(self.reviews[item])
-        target = self.targets[item]
-
-        encoding = self.tokenizer.encode_plus(
-            review,
-            add_special_tokens=True,
-            max_length=self.max_length,
-            return_token_type_ids=False,
-            padding="max_length",
-            return_attention_mask=True,
-            return_tensors="pt",
-            truncation=True,
-        )
-
-        return {
-            "review_text": review,
-            "input_ids": encoding["input_ids"].flatten(),
-            "attention_mask": encoding["attention_mask"].flatten(),
-            "targets": torch.tensor(target, dtype=torch.long),
-        }
+            yield {
+                "review_text": review,
+                "input_ids": encoding["input_ids"].flatten(),
+                "attention_mask": encoding["attention_mask"].flatten(),
+                "targets": torch.tensor(target, dtype=torch.long),
+            }
 
 
 class BertDataModule(pl.LightningDataModule):
@@ -101,16 +109,65 @@ class BertDataModule(pl.LightningDataModule):
         """
         super(BertDataModule, self).__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
-        self.df_train = None
-        self.df_val = None
-        self.df_test = None
-        self.train_data_loader = None
-        self.val_data_loader = None
-        self.test_data_loader = None
+        self.train_dataset = None
+        self.val_dataset = None
+        self.test_dataset = None
         self.MAX_LEN = 100
         self.encoding = None
         self.tokenizer = None
         self.args = kwargs
+        self.dataset = self.args["dataset"]
+        self.train_count = None
+        self.val_count = None
+        self.test_count = None
+
+    def prepare_data(self):
+        RANDOM_SEED = 42
+        np.random.seed(RANDOM_SEED)
+        torch.manual_seed(RANDOM_SEED)
+
+        if self.dataset == "20newsgroups":
+            num_samples = self.args["num_samples"]
+            df = (
+                get_20newsgroups(num_samples)
+                if self.args["dataset"] == "20newsgroups"
+                else get_ag_news(num_samples)
+            )
+
+            self.train_dataset, self.test_dataset = train_test_split(
+                df, test_size=0.3, random_state=RANDOM_SEED, stratify=df["label"]
+            )
+            self.val_dataset, self.test_dataset = train_test_split(
+                self.test_dataset,
+                test_size=0.5,
+                random_state=RANDOM_SEED,
+                stratify=self.test_dataset["label"],
+            )
+
+            self.train_count = len(self.train_dataset)
+            self.val_count = len(self.val_dataset)
+            self.test_count = len(self.test_dataset)
+        else:
+
+            train_iter, test_iter = AG_NEWS()
+            self.train_dataset = to_map_style_dataset(train_iter)
+            self.test_dataset = to_map_style_dataset(test_iter)
+
+            num_train = int(len(self.train_dataset) * 0.95)
+            self.train_dataset, self.val_dataset = random_split(
+                self.train_dataset, [num_train, len(self.train_dataset) - num_train]
+            )
+
+            self.train_count = self.args.get("num_samples")
+            self.val_count = int(self.train_count / 10)
+            self.test_count = int(self.train_count / 10)
+            self.train_count = self.train_count - (self.val_count + self.test_count)
+
+        print("Number of samples used for training: {}".format(self.train_count))
+        print("Number of samples used for validation: {}".format(self.val_count))
+        print("Number of samples used for test: {}".format(self.test_count))
+
+        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
 
     def setup(self, stage=None):
         """
@@ -118,30 +175,7 @@ class BertDataModule(pl.LightningDataModule):
 
         :param stage: Stage - training or testing
         """
-
-        num_samples = self.args["num_samples"]
-        df = (
-            get_20newsgroups(num_samples)
-            if self.args["dataset"] == "20newsgroups"
-            else get_ag_news(num_samples)
-        )
-
-        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-
-        RANDOM_SEED = 42
-        np.random.seed(RANDOM_SEED)
-        torch.manual_seed(RANDOM_SEED)
-
-        df_train, df_test = train_test_split(
-            df, test_size=0.3, random_state=RANDOM_SEED, stratify=df["label"]
-        )
-        df_val, df_test = train_test_split(
-            df_test, test_size=0.5, random_state=RANDOM_SEED, stratify=df_test["label"]
-        )
-
-        self.df_train = df_train
-        self.df_test = df_test
-        self.df_val = df_val
+        pass
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -169,22 +203,22 @@ class BertDataModule(pl.LightningDataModule):
         )
         return parser
 
-    def create_data_loader(self, df, tokenizer, max_len, batch_size):
+    def create_data_loader(self, source, count):
         """
         Generic data loader function
 
         :param df: Input dataframe
         :param tokenizer: bert tokenizer
-        :param max_len: Max length of the news datapoint
-        :param batch_size: Batch size for training
+
 
         :return: Returns the constructed dataloader
         """
         ds = NewsDataset(
-            reviews=df.description.to_numpy(),
-            targets=df.label.to_numpy(),
-            tokenizer=tokenizer,
-            max_length=max_len,
+            source=source,
+            tokenizer=self.tokenizer,
+            max_length=self.MAX_LEN,
+            num_samples=count,
+            dataset=self.dataset,
         )
 
         return DataLoader(
@@ -195,28 +229,19 @@ class BertDataModule(pl.LightningDataModule):
         """
         :return: output - Train data loader for the given input
         """
-        self.train_data_loader = self.create_data_loader(
-            self.df_train, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
-        )
-        return self.train_data_loader
+        return self.create_data_loader(source=self.train_dataset, count=self.train_count)
 
     def val_dataloader(self):
         """
         :return: output - Validation data loader for the given input
         """
-        self.val_data_loader = self.create_data_loader(
-            self.df_val, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
-        )
-        return self.val_data_loader
+        return self.create_data_loader(source=self.val_dataset, count=self.val_count)
 
     def test_dataloader(self):
         """
         :return: output - Test data loader for the given input
         """
-        self.test_data_loader = self.create_data_loader(
-            self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
-        )
-        return self.test_data_loader
+        return self.create_data_loader(source=self.test_dataset, count=self.test_count)
 
 
 class BertNewsClassifier(pl.LightningModule):
@@ -377,7 +402,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=15000,
+        default=2000,
         metavar="N",
         help="Number of samples to be used for training and evaluation steps (default: 15000) Maximum:100000",
     )
@@ -388,7 +413,6 @@ if __name__ == "__main__":
         help="Dataset to use",
         choices=["20newsgroups", "ag_news"],
     )
-
     parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
@@ -415,10 +439,14 @@ if __name__ == "__main__":
         monitor="val_loss",
         mode="min",
     )
+
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
+        args,
+        callbacks=[lr_logger, early_stopping, checkpoint_callback],
+        enable_checkpointing=True,
     )
+
     trainer.fit(model, dm)
-    trainer.test(datamodule=dm)
+    trainer.test(model, datamodule=dm)
