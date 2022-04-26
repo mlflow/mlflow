@@ -18,7 +18,8 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
         style={
           isLoading
             ? { display: 'none' }
-            : // Workaround for https://github.com/ant-design/ant-design/discussions/28434#discussion-77663
+            : // Workaround for
+              // https://github.com/ant-design/ant-design/discussions/28434#discussion-77663
               { display: 'inline' }
         }
         src={getSrc(path, runUuid)}
