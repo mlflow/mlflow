@@ -14,11 +14,11 @@ from bigml.fields import Fields
 MODELS_PATH = "../tests/bigml/models"
 
 
-def res_filename(file):
+def _res_filename(file):
     return pkg_resources.resource_filename("mlflow", os.path.join(MODELS_PATH, file))
 
 
-def local_model_check(model, examples, model_path):
+def _local_model_check(model, examples, model_path):
     """Generic function to test local model registry, recovery and scoring"""
     local_model = SupervisedModel(model)
     predictions = [local_model.predict(example, full=True) for example in examples]
@@ -37,7 +37,7 @@ def local_model_check(model, examples, model_path):
 
 @pytest.fixture
 def diabetes_examples():
-    filename = res_filename("logistic_regression.json")
+    filename = _res_filename("logistic_regression.json")
     with open(filename) as handler:
         model_info = json.load(handler)
     fields = Fields(model_info)
@@ -49,7 +49,7 @@ def diabetes_examples():
 
 @pytest.fixture
 def wines_examples():
-    filename = res_filename("linear_regression.json")
+    filename = _res_filename("linear_regression.json")
     with open(filename) as handler:
         model_info = json.load(handler)
     fields = Fields(model_info)
@@ -61,7 +61,7 @@ def wines_examples():
 
 @pytest.fixture
 def diabetes_logistic():
-    filename = res_filename("logistic_regression.json")
+    filename = _res_filename("logistic_regression.json")
     with open(filename) as handler:
         return json.load(handler)
 
@@ -69,14 +69,14 @@ def diabetes_logistic():
 @pytest.fixture
 def diabetes_ensemble():
     model_list = []
-    filename = res_filename("ensemble.json")
+    filename = _res_filename("ensemble.json")
     with open(filename) as handler:
         ensemble = json.load(handler)
         model_list.append(ensemble)
     try:
         for model in ensemble["object"]["models"]:
             filename = model.replace("/", "_")
-            with open(res_filename(filename)) as handler:
+            with open(_res_filename(filename)) as handler:
                 model_list.append(json.load(handler))
         return model_list
     except KeyError:
@@ -85,7 +85,7 @@ def diabetes_ensemble():
 
 @pytest.fixture
 def wines_linear():
-    filename = res_filename("linear_regression.json")
+    filename = _res_filename("linear_regression.json")
     with open(filename) as handler:
         return json.load(handler)
 
@@ -97,14 +97,14 @@ def model_path(tmpdir):
 
 @pytest.mark.large
 def test_logistic_save_load(diabetes_logistic, diabetes_examples, model_path):
-    local_model_check(diabetes_logistic, diabetes_examples, model_path)
+    _local_model_check(diabetes_logistic, diabetes_examples, model_path)
 
 
 @pytest.mark.large
 def test_linear_save_load(wines_linear, wines_examples, model_path):
-    local_model_check(wines_linear, wines_examples, model_path)
+    _local_model_check(wines_linear, wines_examples, model_path)
 
 
 @pytest.mark.large
 def test_ensemble_save_load(diabetes_ensemble, diabetes_examples, model_path):
-    local_model_check(diabetes_ensemble, diabetes_examples, model_path)
+    _local_model_check(diabetes_ensemble, diabetes_examples, model_path)

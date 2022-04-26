@@ -12,7 +12,7 @@ pytest tests/pyfunc --large
 pytest tests/azureml --large
 pytest tests/utils/test_model_utils.py --large
 
-# TODO: Run tests for h2o, shap, and paddle in the cross-version-tests workflow
+# TODO: Run tests for h2o, shap, paddle and bigml in the cross-version-tests workflow
 pytest tests/h2o --large
 pytest tests/shap --large
 pytest tests/paddle --large
