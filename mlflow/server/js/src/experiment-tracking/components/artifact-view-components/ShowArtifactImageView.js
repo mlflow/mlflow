@@ -48,14 +48,12 @@ ShowArtifactImageView.propTypes = {
 const classNames = {
   imageOuterContainer: css({
     minHeight: '500px',
-    maxHeight: '1500px',
+    maxHeight: '1000px',
     padding: '10px',
-    overflow: 'auto',
+    overflow: 'scroll',
   }),
   imageWrapper: css({ display: 'inline-block' }),
   image: css({
-    width: '100%',
-    height: 'auto',
     cursor: 'pointer',
     '&:hover': {
       boxShadow: '0 0 4px gray',
