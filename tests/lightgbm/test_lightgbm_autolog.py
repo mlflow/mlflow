@@ -388,6 +388,60 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
 
 
 @pytest.mark.large
+def test_lgb_autolog_batch_metrics_logger_logs_ranking_metrics(bst_params, train_set):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+
+        mlflow.lightgbm.autolog()
+        evals_result = {}
+        params = {"metric": ["map"], "eval_at": [1]}
+        params.update(bst_params)
+        valid_sets = [train_set, lgb.Dataset(train_set.data)]
+        valid_names = ["train", "valid"]
+        if Version(lgb.__version__) <= Version("3.3.1"):
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                evals_result=evals_result,
+            )
+        else:
+            lgb.train(
+                params,
+                train_set,
+                num_boost_round=10,
+                valid_sets=valid_sets,
+                valid_names=valid_names,
+                callbacks=[lgb.record_evaluation(evals_result)],
+            )
+
+    run = get_latest_run()
+    original_metrics = run.data.metrics
+    patched_metrics_data = dict(patched_metrics_data)
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "train-map@1" in original_metrics
+    assert "train-map_at_1" in patched_metrics_data
+
+
+@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}

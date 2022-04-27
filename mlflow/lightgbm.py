@@ -371,6 +371,7 @@ class _LGBModelWrapper:
     def predict(self, dataframe):
         return self.lgb_model.predict(dataframe)
 
+
 def _patch_metric_names(metric_dict):
     # XGBoost provides some metrics with "@", e.g. "ndcg@3" that are not valid MLflow metric names
     patched_metrics = {
@@ -385,6 +386,7 @@ def _patch_metric_names(metric_dict):
         )
 
     return patched_metrics
+
 
 def _autolog_callback(env, metrics_logger, eval_results):
     res = {}
