@@ -415,10 +415,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
         if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
             _validate_param_against_schema(
                 schema=schema_validation_fns,
                 param=schema_key,
-                value=request_json.get(schema_key),
+                value=value,
                 proto_parsing_succeeded=proto_parsing_succeeded,
             )
 

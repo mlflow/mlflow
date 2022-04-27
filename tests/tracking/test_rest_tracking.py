@@ -501,6 +501,17 @@ def test_set_tag_validation(mlflow_client, tracking_server_uri):
         "Missing value for required parameter 'key'",
     )
 
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/set-tag",
+        {
+            "run_uuid": run_id,
+            "key": "key",
+            "value": "value",
+        },
+    )
+    assert response.status_code == 200
+
 
 def test_set_experiment_tag(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
