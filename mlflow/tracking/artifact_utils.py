@@ -57,6 +57,7 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
 # or no path.
 def _get_root_uri_and_artifact_path(artifact_uri):
     """
+    Parse the artifact_uri to get the root_uri and artifact_path.
     :param artifact_uri: The *absolute* URI of the artifact to download.
     """
     if os.path.exists(artifact_uri):

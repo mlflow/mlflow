@@ -336,12 +336,12 @@ def get_workspace_url():
 
 
 def is_mlflowdbfs_available():
-    if not is_in_cluster():
+    if not is_in_databricks_runtime():
         return False
 
     # allow users to choose not to use mlflowdbfs via an environment variable
     disable_mlflowdbfs = os.environ.get("DISABLE_MLFLOWDBFS")
-    if disable_mlflowdbfs is not None and disable_mlflowdbfs != "":
+    if disable_mlflowdbfs:
         return False
 
     try:
@@ -357,14 +357,33 @@ def is_mlflowdbfs_available():
     try:
         spark_session.read.load("mlflowdbfs:///123")
     except Py4JJavaError as e:
-        if (
-            str(e.java_exception)
-            == "org.apache.hadoop.fs.UnsupportedFileSystemException:"
-            + ' No FileSystem for scheme "mlflowdbfs"'
-        ):
+        if str(e.java_exception) == 'No FileSystem for scheme "mlflowdbfs"':
             return False
 
         return True
+
+
+def set_databricks_host_creds_to_credential_context(databricks_profile_uri):
+    db_creds = get_databricks_host_creds(databricks_profile_uri)
+    dbutils = _get_dbutils()
+    dbutils.endpoint.putMlflowProperties(
+        db_creds.host,
+        db_creds.ignore_tls_verification,
+        db_creds.token,
+        db_creds.username,
+        db_creds.password,
+    )
+
+
+def clear_credential_context():
+    dbutils = _get_dbutils()
+    dbutils.endpoint.clearMlflowProperties()
+
+
+def get_mlflowdbfs_path(run_id, artifact_path):
+    if artifact_path.startswith("/"):
+        raise MlflowException("artifact_path should be relative, found: {}".format(artifact_path))
+    return "mlflowdbfs:///artifacts?run_id={}&path=/{}".format(run_id, artifact_path)
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):

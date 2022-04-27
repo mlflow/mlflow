@@ -673,25 +673,29 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
 
 
 def _log_model_via_mlflowdbfs(artifact_repo, artifact_path, model):
-    mlflowdbfs_path = artifact_repo._get_mlflowdbfs_path(artifact_path)
-    artifact_repo._set_databricks_host_creds_to_credential_context()
+    mlflowdbfs_path = databricks_utils.get_mlflowdbfs_path(artifact_repo.run_id, artifact_path)
+    databricks_utils.set_databricks_host_creds_to_credential_context(
+        artifact_repo.databricks_profile_uri
+    )
 
     try:
         model.save(mlflowdbfs_path)
     finally:
-        artifact_repo._clear_credential_context()
+        databricks_utils.clear_credential_context()
 
 
 def _load_model_via_mlflowdbfs(artifact_repo, artifact_path):
     from pyspark.ml.pipeline import PipelineModel
 
-    mlflowdbfs_path = artifact_repo._get_mlflowdbfs_path(artifact_path)
-    artifact_repo._set_databricks_host_creds_to_credential_context()
+    mlflowdbfs_path = databricks_utils.get_mlflowdbfs_path(artifact_repo.run_id, artifact_path)
+    databricks_utils.set_databricks_host_creds_to_credential_context(
+        artifact_repo.databricks_profile_uri
+    )
 
     try:
         model = PipelineModel.load(mlflowdbfs_path)
     finally:
-        artifact_repo._clear_credential_context()
+        databricks_utils.clear_credential_context()
 
     return model
 

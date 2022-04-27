@@ -24,7 +24,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
-from mlflow.utils.databricks_utils import _get_dbutils, get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     relative_path_to_artifact_path,
@@ -315,28 +315,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         else:
             run_relative_artifact_path = self.run_relative_artifact_repo_root_path
         return run_relative_artifact_path
-
-    def _set_databricks_host_creds_to_credential_context(self):
-        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
-        dbutils = _get_dbutils()
-        dbutils.endpoint.putMlflowProperties(
-            db_creds.host,
-            db_creds.ignore_tls_verification,
-            db_creds.token,
-            db_creds.username,
-            db_creds.password,
-        )
-
-    def _clear_credential_context(self):
-        dbutils = _get_dbutils()
-        dbutils.endpoint.clearMlflowProperties()
-
-    def _get_mlflowdbfs_path(self, artifact_path):
-        if artifact_path.startswith("/"):
-            raise MlflowException(
-                "artifact_path should be relative, found: {}".format(artifact_path)
-            )
-        return "mlflowdbfs:///artifacts?run_id={}&path=/{}".format(self.run_id, artifact_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
