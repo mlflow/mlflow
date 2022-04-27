@@ -79,13 +79,6 @@ def test_databricks_job_run_context_tags():
         webapp_url_mock,
         workspace_url_mock,
         workspace_info_mock,
-        git_repo_url_mock,
-        git_repo_provider_mock,
-        git_repo_commit_mock,
-        git_repo_relative_path_mock,
-        git_repo_reference_mock,
-        git_repo_reference_type_mock,
-        git_repo_status_mock,
     ):
         assert DatabricksJobRunContext().tags() == {
             MLFLOW_SOURCE_NAME: "jobs/{job_id}/run/{job_run_id}".format(

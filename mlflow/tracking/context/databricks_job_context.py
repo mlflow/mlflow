@@ -46,5 +46,4 @@ class DatabricksJobRunContext(RunContextProvider):
             tags[MLFLOW_DATABRICKS_WORKSPACE_URL] = workspace_url_fallback
         if workspace_id is not None:
             tags[MLFLOW_DATABRICKS_WORKSPACE_ID] = workspace_id
-
         return tags
