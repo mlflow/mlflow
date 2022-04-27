@@ -373,7 +373,7 @@ class _LGBModelWrapper:
 
 
 def _patch_metric_names(metric_dict):
-    # XGBoost provides some metrics with "@", e.g. "ndcg@3" that are not valid MLflow metric names
+    # lightgbm provides some metrics with "@", e.g. "ndcg@3" that are not valid MLflow metric names
     patched_metrics = {
         metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
     }
