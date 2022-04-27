@@ -19,6 +19,7 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
       {isLoading && <Skeleton active />}
       <div className={isLoading ? classNames.hidden : classNames.imageWrapper}>
         <img
+          alt={path}
           className={classNames.image}
           src={src}
           onLoad={() => setIsLoading(false)}
