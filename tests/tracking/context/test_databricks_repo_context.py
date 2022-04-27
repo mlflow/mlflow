@@ -81,5 +81,13 @@ def test_databricks_repo_run_context_tags_nones():
     patch_git_repo_status = mock.patch(
         "mlflow.utils.databricks_utils.get_git_repo_status", return_value=None
     )
-    with patch_git_repo_url, patch_git_repo_provider, patch_git_repo_commit, patch_git_repo_relative_path, patch_git_repo_reference, patch_git_repo_reference_type, patch_git_repo_status:
+    with multi_context(
+        patch_git_repo_url,
+        patch_git_repo_provider,
+        patch_git_repo_commit,
+        patch_git_repo_relative_path,
+        patch_git_repo_reference,
+        patch_git_repo_reference_type,
+        patch_git_repo_status,
+    ):
         assert DatabricksRepoRunContext().tags() == {}
