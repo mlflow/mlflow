@@ -118,6 +118,12 @@ def is_in_databricks_job():
     except Exception:
         return False
 
+def is_in_databricks_repo():
+    try:
+        return get_git_repo_relative_path() is not None
+    except Exception:
+        return False
+
 
 def is_in_databricks_repo_notebook():
     try:
