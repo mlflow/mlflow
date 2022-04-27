@@ -39,7 +39,6 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
 )
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
