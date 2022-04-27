@@ -746,6 +746,8 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_model_path = _download_artifact_from_uri(model_uri)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
     artifact_repo = get_artifact_repository(artifact_uri=root_uri)
@@ -754,9 +756,6 @@ def load_model(model_uri, dfs_tmpdir=None):
         and databricks_utils.is_mlflowdbfs_available()
     ):
         return _load_model_via_mlflowdbfs(artifact_repo, artifact_path)
-
-    local_model_path = _download_artifact_from_uri(model_uri)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
