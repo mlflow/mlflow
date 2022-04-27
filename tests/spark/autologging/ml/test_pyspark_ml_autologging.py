@@ -949,185 +949,185 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
         )
 
 
-@pytest.mark.large
-def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-    with mlflow.start_run() as run:
-        lr_pipeline.fit(dataset_text)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
-
-
-@pytest.mark.large
-def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-    with mlflow.start_run() as run:
-        lr_pipeline.fit(dataset_text)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [
-                {"name": "text", "type": "string"},
-            ],
-            [
-                {"name": "words", "type": "string"},
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-            ],
-        )
-
-
-@pytest.fixture()
-def multinomial_df_with_string_labels(spark_session):
-    return spark_session.createDataFrame(
-        [(0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c")]
-    ).toDF("id", "category")
-
-
-@pytest.fixture()
-def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_string_labels):
-    string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
-        multinomial_df_with_string_labels
-    )
-    return Pipeline(
-        stages=[
-            string_indexer,
-            VectorAssembler(inputCols=["id"], outputCol="features"),
-            LogisticRegression(),
-            IndexToString(
-                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
-            ),
-        ]
-    )
-
-
-@pytest.mark.large
-def test_input_example_with_index_to_string_stage(
-    multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
-):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-    with mlflow.start_run() as run:
-        multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
-
-
-@pytest.mark.large
-def test_signature_with_index_to_string_stage(
-    multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
-):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-    with mlflow.start_run() as run:
-        multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"name": "id", "type": "long"}],
-            [
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-                {"name": "originalLabel", "type": "string"},
-            ],
-        )
-
-
-@pytest.fixture()
-def input_df_with_non_features(spark_session):
-    return spark_session.createDataFrame(
-        [
-            (0, "a", "a", "b"),
-            (1, "b", "a", "b"),
-            (2, "c", "a", "b"),
-            (3, "a", "a", "b"),
-            (4, "a", "a", "b"),
-            (5, "c", "a", "b"),
-        ]
-    ).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
-
-
-@pytest.fixture()
-def pipeline_for_feature_cols(input_df_with_non_features):
-    string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
-        input_df_with_non_features
-    )
-    return Pipeline(
-        stages=[
-            string_indexer,
-            VectorAssembler(inputCols=["id"], outputCol="features"),
-            LogisticRegression(),
-            IndexToString(
-                inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
-            ),
-        ]
-    )
-
-
-@pytest.mark.large
-def test_signature_with_non_feature_input_columns(
-    input_df_with_non_features, pipeline_for_feature_cols
-):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-    with mlflow.start_run() as run:
-        pipeline_for_feature_cols.fit(input_df_with_non_features)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"name": "id", "type": "long"}],
-            [
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-                {"name": "originalLabel", "type": "string"},
-            ],
-        )
-
-
-@pytest.mark.large
-def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
-    from pyspark.sql.types import ArrayType, DoubleType
-
-    output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
-    features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
-    assert features_col.dataType == ArrayType(
-        DoubleType(), False
-    ), "'features' column isn't of expected type array<double>"
-
-
-@pytest.mark.large
-def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
-    pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
-    assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == {
-        "id"
-    }, "Wrong feature columns returned"
-
-
-@pytest.mark.large
-def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
-    from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
-    from pyspark.ml.linalg import VectorUDT
-    from pyspark.sql.utils import IllegalArgumentException
-
-    pipeline_model = lr.fit(dataset_binomial)
-    df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)
-    df_with_vector_features = _find_and_set_features_col_as_vector_if_needed(
-        df_with_array_features, pipeline_model
-    )
-    features_col = next(
-        filter(lambda f: f.name == "features", df_with_vector_features.schema.fields)
-    )
-    assert isinstance(
-        features_col.dataType, VectorUDT
-    ), "'features' column wasn't cast to vector type"
-    pipeline_model.transform(df_with_vector_features)
-    with pytest.raises(
-        IllegalArgumentException, match="requirement failed: Column features must be of type"
-    ):
-        pipeline_model.transform(df_with_array_features)
+# @pytest.mark.large
+# def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#     with mlflow.start_run() as run:
+#         lr_pipeline.fit(dataset_text)
+#         model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+#         model_conf = Model.load(model_path.joinpath("MLmodel"))
+#         input_example = _read_example(model_conf, model_path.as_posix())
+#         pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
+#         pyfunc_model.predict(input_example)
+#
+#
+# @pytest.mark.large
+# def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#     with mlflow.start_run() as run:
+#         lr_pipeline.fit(dataset_text)
+#         _assert_autolog_infers_model_signature_correctly(
+#             run,
+#             [
+#                 {"name": "text", "type": "string"},
+#             ],
+#             [
+#                 {"name": "words", "type": "string"},
+#                 {"name": "features", "type": "string"},
+#                 {"name": "rawPrediction", "type": "string"},
+#                 {"name": "probability", "type": "string"},
+#                 {"name": "prediction", "type": "double"},
+#             ],
+#         )
+#
+#
+# @pytest.fixture()
+# def multinomial_df_with_string_labels(spark_session):
+#     return spark_session.createDataFrame(
+#         [(0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c")]
+#     ).toDF("id", "category")
+#
+#
+# @pytest.fixture()
+# def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_string_labels):
+#     string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
+#         multinomial_df_with_string_labels
+#     )
+#     return Pipeline(
+#         stages=[
+#             string_indexer,
+#             VectorAssembler(inputCols=["id"], outputCol="features"),
+#             LogisticRegression(),
+#             IndexToString(
+#                 inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+#             ),
+#         ]
+#     )
+#
+#
+# @pytest.mark.large
+# def test_input_example_with_index_to_string_stage(
+#     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
+# ):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#     with mlflow.start_run() as run:
+#         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
+#         model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+#         model_conf = Model.load(model_path.joinpath("MLmodel"))
+#         input_example = _read_example(model_conf, model_path.as_posix())
+#         pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
+#         pyfunc_model.predict(input_example)
+#
+#
+# @pytest.mark.large
+# def test_signature_with_index_to_string_stage(
+#     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
+# ):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#     with mlflow.start_run() as run:
+#         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
+#         _assert_autolog_infers_model_signature_correctly(
+#             run,
+#             [{"name": "id", "type": "long"}],
+#             [
+#                 {"name": "features", "type": "string"},
+#                 {"name": "rawPrediction", "type": "string"},
+#                 {"name": "probability", "type": "string"},
+#                 {"name": "prediction", "type": "double"},
+#                 {"name": "originalLabel", "type": "string"},
+#             ],
+#         )
+#
+#
+# @pytest.fixture()
+# def input_df_with_non_features(spark_session):
+#     return spark_session.createDataFrame(
+#         [
+#             (0, "a", "a", "b"),
+#             (1, "b", "a", "b"),
+#             (2, "c", "a", "b"),
+#             (3, "a", "a", "b"),
+#             (4, "a", "a", "b"),
+#             (5, "c", "a", "b"),
+#         ]
+#     ).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
+#
+#
+# @pytest.fixture()
+# def pipeline_for_feature_cols(input_df_with_non_features):
+#     string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
+#         input_df_with_non_features
+#     )
+#     return Pipeline(
+#         stages=[
+#             string_indexer,
+#             VectorAssembler(inputCols=["id"], outputCol="features"),
+#             LogisticRegression(),
+#             IndexToString(
+#                 inputCol="prediction", outputCol="originalLabel", labels=string_indexer.labels
+#             ),
+#         ]
+#     )
+#
+#
+# @pytest.mark.large
+# def test_signature_with_non_feature_input_columns(
+#     input_df_with_non_features, pipeline_for_feature_cols
+# ):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#     with mlflow.start_run() as run:
+#         pipeline_for_feature_cols.fit(input_df_with_non_features)
+#         _assert_autolog_infers_model_signature_correctly(
+#             run,
+#             [{"name": "id", "type": "long"}],
+#             [
+#                 {"name": "features", "type": "string"},
+#                 {"name": "rawPrediction", "type": "string"},
+#                 {"name": "probability", "type": "string"},
+#                 {"name": "prediction", "type": "double"},
+#                 {"name": "originalLabel", "type": "string"},
+#             ],
+#         )
+#
+#
+# @pytest.mark.large
+# def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
+#     from pyspark.sql.types import ArrayType, DoubleType
+#
+#     output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
+#     features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
+#     assert features_col.dataType == ArrayType(
+#         DoubleType(), False
+#     ), "'features' column isn't of expected type array<double>"
+#
+#
+# @pytest.mark.large
+# def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
+#     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
+#     assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == {
+#         "id"
+#     }, "Wrong feature columns returned"
+#
+#
+# @pytest.mark.large
+# def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
+#     from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
+#     from pyspark.ml.linalg import VectorUDT
+#     from pyspark.sql.utils import IllegalArgumentException
+#
+#     pipeline_model = lr.fit(dataset_binomial)
+#     df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)
+#     df_with_vector_features = _find_and_set_features_col_as_vector_if_needed(
+#         df_with_array_features, pipeline_model
+#     )
+#     features_col = next(
+#         filter(lambda f: f.name == "features", df_with_vector_features.schema.fields)
+#     )
+#     assert isinstance(
+#         features_col.dataType, VectorUDT
+#     ), "'features' column wasn't cast to vector type"
+#     pipeline_model.transform(df_with_vector_features)
+#     with pytest.raises(
+#         IllegalArgumentException, match="requirement failed: Column features must be of type"
+#     ):
+#         pipeline_model.transform(df_with_array_features)
