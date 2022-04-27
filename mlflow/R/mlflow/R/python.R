@@ -12,6 +12,7 @@ get_python_bin <- function() {
     stop(paste("MLflow not configured, please run install_mlflow() or ",
                "set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment variables.", sep = ""))
   }
+  mlflow_env$python <- normalizePath(mlflow_env$python, winslash = "/", mustWork = FALSE)
   mlflow_env$python
 }
 
@@ -33,7 +34,11 @@ python_mlflow_bin <- function() {
     return(in_env)
   }
   python_bin_dir <- dirname(python_bin())
-  file.path(python_bin_dir, "mlflow")
+  if (.Platform$OS.type == "windows") {
+    file.path(python_bin_dir, "Scripts", "mlflow")
+  } else {
+    file.path(python_bin_dir, "mlflow")
+  }
 }
 
 # Return path to conda home directory, such that the `conda` executable can be found
