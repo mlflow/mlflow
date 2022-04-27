@@ -280,22 +280,22 @@ def test_fit_with_a_list_of_params(dataset_binomial):
             mock_set_tags.assert_not_called()
 
 
-@pytest.fixture()
+@pytest.fixture
 def tokenizer():
     return Tokenizer(inputCol="text", outputCol="words")
 
 
-@pytest.fixture()
+@pytest.fixture
 def hashing_tf(tokenizer):
     return HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
 
 
-@pytest.fixture()
+@pytest.fixture
 def lr():
     return LogisticRegression(maxIter=2)
 
 
-@pytest.fixture()
+@pytest.fixture
 def lr_pipeline(tokenizer, hashing_tf, lr):
     return Pipeline(stages=[tokenizer, hashing_tf, lr])
 
@@ -981,14 +981,14 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def multinomial_df_with_string_labels(spark_session):
     return spark_session.createDataFrame(
         [(0, "a"), (1, "b"), (2, "c"), (3, "a"), (4, "a"), (5, "c")]
     ).toDF("id", "category")
 
 
-@pytest.fixture()
+@pytest.fixture
 def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_string_labels):
     string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
         multinomial_df_with_string_labels
@@ -1039,7 +1039,7 @@ def test_signature_with_index_to_string_stage(
         )
 
 
-@pytest.fixture()
+@pytest.fixture
 def input_df_with_non_features(spark_session):
     return spark_session.createDataFrame(
         [
@@ -1053,7 +1053,7 @@ def input_df_with_non_features(spark_session):
     ).toDF("id", "category", "not_a_feature_1", "not_a_feature_2")
 
 
-@pytest.fixture()
+@pytest.fixture
 def pipeline_for_feature_cols(input_df_with_non_features):
     string_indexer = StringIndexer(inputCol="category", outputCol="label").fit(
         input_df_with_non_features
