@@ -44,9 +44,13 @@ def test_databricks_notebook_run_context_tags():
     patch_git_repo_url = mock.patch("mlflow.utils.databricks_utils.get_git_repo_url")
     patch_git_repo_provider = mock.patch("mlflow.utils.databricks_utils.get_git_repo_provider")
     patch_git_repo_commit = mock.patch("mlflow.utils.databricks_utils.get_git_repo_commit")
-    patch_git_repo_relative_path = mock.patch("mlflow.utils.databricks_utils.get_git_repo_relative_path")
+    patch_git_repo_relative_path = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_relative_path"
+    )
     patch_git_repo_reference = mock.patch("mlflow.utils.databricks_utils.get_git_repo_reference")
-    patch_git_repo_reference_type = mock.patch("mlflow.utils.databricks_utils.get_git_repo_reference_type")
+    patch_git_repo_reference_type = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_reference_type"
+    )
     patch_git_repo_status = mock.patch("mlflow.utils.databricks_utils.get_git_repo_status")
 
     with multi_context(

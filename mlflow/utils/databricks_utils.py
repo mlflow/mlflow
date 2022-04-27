@@ -418,57 +418,57 @@ def get_databricks_host_creds(server_uri=None):
     _fail_malformed_databricks_auth(profile)
 
 
-@_use_repl_context_if_available("gitRepoUrl")
+@_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:
-        return _get_command_context().gitRepoUrl().get()
+        return _get_command_context().mlflowGitRepoUrl().get()
     except Exception:
-        return _get_extra_context("gitUrl")
+        return _get_extra_context("mlflowGitUrl")
 
 
-@_use_repl_context_if_available("gitRepoProvider")
+@_use_repl_context_if_available("mlflowGitRepoProvider")
 def get_git_repo_provider():
     try:
-        return _get_command_context().gitRepoProvider().get()
+        return _get_command_context().mlflowGitRepoProvider().get()
     except Exception:
-        return _get_extra_context("gitProvider")
+        return _get_extra_context("mlflowGitProvider")
 
 
-@_use_repl_context_if_available("gitRepoCommit")
+@_use_repl_context_if_available("mlflowGitRepoCommit")
 def get_git_repo_commit():
     try:
-        return _get_command_context().gitRepoCommit().get()
+        return _get_command_context().mlflowGitRepoCommit().get()
     except Exception:
-        return _get_extra_context("gitCommit")
+        return _get_extra_context("mlflowGitCommit")
 
 
-@_use_repl_context_if_available("gitRelativePath")
+@_use_repl_context_if_available("mlflowGitRelativePath")
 def get_git_repo_relative_path():
     try:
-        return _get_command_context().gitRelativePath().get()
+        return _get_command_context().mlflowGitRelativePath().get()
     except Exception:
-        return _get_extra_context("gitRelativePath")
+        return _get_extra_context("mlflowGitRelativePath")
 
 
-@_use_repl_context_if_available("gitRepoRef")
+@_use_repl_context_if_available("mlflowGitRepoReference")
 def get_git_repo_reference():
     try:
-        return _get_command_context().gitRepoRef().get()
+        return _get_command_context().mlflowGitRepoReference().get()
     except Exception:
-        return _get_extra_context("gitReference")
+        return _get_extra_context("mlflowGitReference")
 
 
-@_use_repl_context_if_available("gitRepoRefType")
+@_use_repl_context_if_available("mlflowGitRepoReferenceType")
 def get_git_repo_reference_type():
     try:
-        return _get_command_context().gitRepoRefType().get()
+        return _get_command_context().mlflowGitRepoReferenceType().get()
     except Exception:
-        return _get_extra_context("gitReferenceType")
+        return _get_extra_context("mlflowGitReferenceType")
 
 
-@_use_repl_context_if_available("gitRepoStatus")
+@_use_repl_context_if_available("mlflowGitRepoStatus")
 def get_git_repo_status():
     try:
-        return _get_command_context().gitRepoStatus().get()
+        return _get_command_context().mlflowGitRepoStatus().get()
     except Exception:
-        return _get_extra_context("gitStatus")
+        return _get_extra_context("mlflowGitStatus")
