@@ -245,23 +245,24 @@ def log_model(
             isinstance(artifact_repo, DatabricksArtifactRepository)
             and databricks_utils.is_mlflowdbfs_available()
         ):
-            return _log_model_via_mlflowdbfs(artifact_repo, artifact_path, spark_model)
-
-        return Model.log(
-            artifact_path=artifact_path,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-        )
+            # TODO: test we're saving model metadata when mlflowdbfs is available.
+            _log_model_via_mlflowdbfs(artifact_repo, artifact_path, spark_model)
+        else:
+            return Model.log(
+                artifact_path=artifact_path,
+                flavor=mlflow.spark,
+                spark_model=spark_model,
+                conda_env=conda_env,
+                code_paths=code_paths,
+                dfs_tmpdir=dfs_tmpdir,
+                sample_input=sample_input,
+                registered_model_name=registered_model_name,
+                signature=signature,
+                input_example=input_example,
+                await_registration_for=await_registration_for,
+                pip_requirements=pip_requirements,
+                extra_pip_requirements=extra_pip_requirements,
+            )
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
