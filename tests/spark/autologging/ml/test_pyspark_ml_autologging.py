@@ -900,53 +900,53 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
         assert registered_model.name == registered_model_name
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
-    artifacts_dir = pathlib.Path(run.info.artifact_uri.replace("file://", ""))
-    client = mlflow.tracking.MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
-    ml_model_filename = "MLmodel"
-    ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
-    assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
-    with open(ml_model_path, "r") as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
-        assert data is not None
-        assert "signature" in data
-        signature = data["signature"]
-        assert signature is not None
-        assert "inputs" in signature
-        assert "outputs" in signature
-        assert json.loads(signature["inputs"]) == input_sig_spec
-        assert json.loads(signature["outputs"]) == output_sig_spec
-
-
-@pytest.mark.large
-def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-
-    with mlflow.start_run() as run:
-        lr.fit(dataset_multinomial)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
-
-
-@pytest.mark.large
-def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
-    mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
-
-    with mlflow.start_run() as run:
-        lr.fit(dataset_multinomial)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"name": "features", "type": "string"}],
-            [
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-            ],
-        )
+# def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+#     artifacts_dir = pathlib.Path(run.info.artifact_uri.replace("file://", ""))
+#     client = mlflow.tracking.MlflowClient()
+#     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
+#     ml_model_filename = "MLmodel"
+#     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
+#     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
+#     with open(ml_model_path, "r") as f:
+#         data = yaml.load(f, Loader=yaml.FullLoader)
+#         assert data is not None
+#         assert "signature" in data
+#         signature = data["signature"]
+#         assert signature is not None
+#         assert "inputs" in signature
+#         assert "outputs" in signature
+#         assert json.loads(signature["inputs"]) == input_sig_spec
+#         assert json.loads(signature["outputs"]) == output_sig_spec
+#
+#
+# @pytest.mark.large
+# def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#
+#     with mlflow.start_run() as run:
+#         lr.fit(dataset_multinomial)
+#         model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+#         model_conf = Model.load(model_path.joinpath("MLmodel"))
+#         input_example = _read_example(model_conf, model_path.as_posix())
+#         pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
+#         pyfunc_model.predict(input_example)
+#
+#
+# @pytest.mark.large
+# def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
+#     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
+#
+#     with mlflow.start_run() as run:
+#         lr.fit(dataset_multinomial)
+#         _assert_autolog_infers_model_signature_correctly(
+#             run,
+#             [{"name": "features", "type": "string"}],
+#             [
+#                 {"name": "rawPrediction", "type": "string"},
+#                 {"name": "probability", "type": "string"},
+#                 {"name": "prediction", "type": "double"},
+#             ],
+#         )
 
 
 # @pytest.mark.large
