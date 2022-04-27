@@ -60,4 +60,26 @@ def test_databricks_repo_run_context_tags():
 
 
 def test_databricks_repo_run_context_tags_nones():
-    assert DatabricksRepoRunContext().tags() == {}
+    patch_git_repo_url = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_url", return_value=None
+    )
+    patch_git_repo_provider = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_provider", return_value=None
+    )
+    patch_git_repo_commit = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_commit", return_value=None
+    )
+    patch_git_repo_relative_path = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_relative_path", return_value=None
+    )
+    patch_git_repo_reference = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_reference", return_value=None
+    )
+    patch_git_repo_reference_type = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_reference_type", return_value=None
+    )
+    patch_git_repo_status = mock.patch(
+        "mlflow.utils.databricks_utils.get_git_repo_status", return_value=None
+    )
+    with patch_git_repo_url, patch_git_repo_provider, patch_git_repo_commit, patch_git_repo_relative_path, patch_git_repo_reference, patch_git_repo_reference_type, patch_git_repo_status:
+        assert DatabricksRepoRunContext().tags() == {}
