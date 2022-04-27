@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
 import { Image } from 'antd';
 import { Skeleton } from '@databricks/design-system';
