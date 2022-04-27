@@ -371,12 +371,27 @@ class _LGBModelWrapper:
     def predict(self, dataframe):
         return self.lgb_model.predict(dataframe)
 
+def _patch_metric_names(metric_dict):
+    # XGBoost provides some metrics with "@", e.g. "ndcg@3" that are not valid MLflow metric names
+    patched_metrics = {
+        metric_name.replace("@", "_at_"): value for metric_name, value in metric_dict.items()
+    }
+    changed_keys = set(patched_metrics.keys()) - set(metric_dict.keys())
+    if changed_keys:
+        _logger.info(
+            "Identified one or more metrics with names containing the invalid character `@`."
+            " These metric names have been sanitized by replacing `@` with `_at_`, as follows: %s",
+            ", ".join(changed_keys),
+        )
+
+    return patched_metrics
 
 def _autolog_callback(env, metrics_logger, eval_results):
     res = {}
     for data_name, eval_name, value, _ in env.evaluation_result_list:
         key = data_name + "-" + eval_name
         res[key] = value
+    res = _patch_metric_names(res)
     metrics_logger.record_metrics(res, env.iteration)
     eval_results.append(res)
 
