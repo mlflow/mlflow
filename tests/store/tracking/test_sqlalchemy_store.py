@@ -30,9 +30,9 @@ from mlflow.entities import (
 )
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
+    BAD_REQUEST,
     RESOURCE_DOES_NOT_EXIST,
     INVALID_PARAMETER_VALUE,
-    INTERNAL_ERROR,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import (
@@ -542,7 +542,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 run = models.SqlRun()
                 session.add(run)
                 warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
+        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
@@ -887,7 +887,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         with self.assertRaises(MlflowException) as exception_context:
             self.store.log_param(run.info.run_id, param)
-        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
+        assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")

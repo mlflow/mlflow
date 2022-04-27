@@ -237,7 +237,7 @@ from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version, _is_in_ipython_notebook
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import (
@@ -808,10 +808,11 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
              specifying the model's dependencies.
     """
     dep_file = _get_model_dependencies(model_uri, format)
+
     if format == "pip":
-        prefix = "%" if is_in_databricks_runtime() else ""
+        prefix = "%" if _is_in_ipython_notebook() else ""
         _logger.info(
-            "To install these model dependencies, run the "
+            "To install the dependencies that were used to train the model, run the "
             f"following command: '{prefix}pip install -r {dep_file}'."
         )
     return dep_file

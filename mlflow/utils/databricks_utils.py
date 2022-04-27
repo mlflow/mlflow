@@ -128,13 +128,7 @@ def is_in_databricks_repo_notebook():
 
 
 def is_in_databricks_runtime():
-    try:
-        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks
-
-        return True
-    except ModuleNotFoundError:
-        return False
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 
 def is_dbfs_fuse_available():
