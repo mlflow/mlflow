@@ -1,23 +1,32 @@
 import sys
 
+
 def is_module_imported(module_name: str) -> bool:
     return module_name in sys.modules
 
-def __converter_requires(func, module_name: str):  
-    """ Wrapper function that checks if specified `module_name` is already imported before invoking wrapped function."""
+
+def __converter_requires(func, module_name: str):
+    """Wrapper function that checks if specified `module_name` is already imported before invoking wrapped function."""
+
     def wrap(x):
         if not is_module_imported(module_name):
             return x
-        
+
         return func(x)
 
     return wrap
 
+
 def convert_metric_value_to_str_if_possible(x) -> str:
     if type(x) == str:
         return x
-    
-    converter_fns_to_try = [convert_metric_value_to_str_if_pyspark_mlparam, convert_metric_value_to_str_if_ndarray, convert_metric_value_to_str_if_tensorflow_tensor, convert_metric_value_to_str_if_torch_tensor]
+
+    converter_fns_to_try = [
+        convert_metric_value_to_str_if_pyspark_mlparam,
+        convert_metric_value_to_str_if_ndarray,
+        convert_metric_value_to_str_if_tensorflow_tensor,
+        convert_metric_value_to_str_if_torch_tensor,
+    ]
 
     for converter_fn in converter_fns_to_try:
         possible_str = converter_fn(x)
@@ -26,11 +35,16 @@ def convert_metric_value_to_str_if_possible(x) -> str:
 
     return str(x)
 
+
 def convert_metric_value_to_float_if_possible(x) -> float:
     if type(x) == float:
         return x
-    
-    converter_fns_to_try = [convert_metric_value_to_float_if_ndarray, convert_metric_value_to_float_if_tensorflow_tensor, convert_metric_value_to_float_if_torch_tensor]
+
+    converter_fns_to_try = [
+        convert_metric_value_to_float_if_ndarray,
+        convert_metric_value_to_float_if_tensorflow_tensor,
+        convert_metric_value_to_float_if_torch_tensor,
+    ]
 
     for converter_fn in converter_fns_to_try:
         possible_float = converter_fn(x)
@@ -38,6 +52,7 @@ def convert_metric_value_to_float_if_possible(x) -> float:
             return possible_float
 
     return float(x)
+
 
 @__converter_requires("pyspark.ml")
 def convert_metric_value_to_str_if_pyspark_mlparam(x):
@@ -48,6 +63,7 @@ def convert_metric_value_to_str_if_pyspark_mlparam(x):
 
     return x
 
+
 @__converter_requires("numpy")
 def convert_metric_value_to_str_if_ndarray(x):
     import numpy as np
@@ -57,6 +73,7 @@ def convert_metric_value_to_str_if_ndarray(x):
 
     return x
 
+
 @__converter_requires("numpy")
 def convert_metric_value_to_float_if_ndarray(x):
     import numpy as np
@@ -65,6 +82,7 @@ def convert_metric_value_to_float_if_ndarray(x):
         return float(x.item())
 
     return x
+
 
 @__converter_requires("torch")
 def convert_metric_value_to_float_if_torch_tensor(x):
@@ -76,6 +94,7 @@ def convert_metric_value_to_float_if_torch_tensor(x):
 
     return x
 
+
 @__converter_requires("torch")
 def convert_metric_value_to_str_if_torch_tensor(x):
     import torch
@@ -86,6 +105,7 @@ def convert_metric_value_to_str_if_torch_tensor(x):
 
     return x
 
+
 @__converter_requires("tensorflow")
 def convert_metric_value_to_float_if_tensorflow_tensor(x):
     import tensorflow as tf
@@ -94,6 +114,7 @@ def convert_metric_value_to_float_if_tensorflow_tensor(x):
         return float(x)
 
     return x
+
 
 @__converter_requires("tensorflow")
 def convert_metric_value_to_str_if_tensorflow_tensor(x):

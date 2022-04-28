@@ -3,6 +3,7 @@ from mlflow.protos.service_pb2 import Param as ProtoParam
 
 from .metic_value_conversion_utils import convert_metric_value_to_str_if_possible
 
+
 class Param(_MLflowObject):
     """
     Parameter object.
@@ -11,7 +12,7 @@ class Param(_MLflowObject):
         key: `str` or `pyspark.ml.param.Param`
         value: `str`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`, or any value `x` that
         can be converted to string by `str(x)`.
-        
+
         Multidimensional arrays or tensors will be stringified after being converted to a list.
 
     """
