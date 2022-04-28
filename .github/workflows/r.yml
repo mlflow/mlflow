@@ -62,8 +62,10 @@ jobs:
         if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
           USE_R_DEVEL=true
         elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          # Use r-devel on a pull request targeted to a release branch
           USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
         else
+          # Use r-devel on a push to a release branch
           USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
         fi
         echo "USE_R_DEVEL=$USE_R_DEVEL" >> $GITHUB_ENV
