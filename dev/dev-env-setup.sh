@@ -5,7 +5,8 @@ set +exv
 showHelp() {
 cat << EOF
 Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f]
-Development environment setup script for Python.
+Development environment setup script for Python in linux-based Operationg Systems (including OSX).
+Note: this script will not work on Windows.
 This script will:
 
   - Install pyenv if not installed
@@ -64,7 +65,6 @@ fi
 case "$(uname -s)" in
   Darwin*)                       machine=mac;;
   Linux*)                        machine=linux;;
-  CYGWIN*|MINGW32*|MSYS*|MINGW*) machine=win;;
   *)                             machine=unknown;;
 esac
 
@@ -76,23 +76,23 @@ function quietpip(){
 pyenv_exist=$(command -v pyenv)
 
 if [ -z "$pyenv_exist" ]; then
-  if [ -z "$MLFLOW_DEV_ENV_PYENV_INSTALL" ]; then
+  if [ -z "$GITHUB_ACTIONS" ]; then
     read -p "pyenv is required to be installed to manage python versions. Would you like to install it? $(tput bold)(y/n)$(tput sgr0): " -n 1 -r
     echo
   fi
-  if [[ $REPLY =~ ^[Yy]$ || $MLFLOW_DEV_ENV_PYENV_INSTALL == 1 ]]; then
+  if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
     if [[ "$machine" == mac ]]; then
       # Check if brew is installed and install it if it isn't present
       # Note: if xcode isn't installed, this will fail.
       if [ -z "$(command -v brew)" ]; then
         echo "Brew is required to install pyenv on MacOS. Installing in your home directory."
-        wget -O ~/brew_install.sh https://raw.githubusercontent.com/Homebrew/install/master/install.sh
-        bash ~/brew_install.sh
+        bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       fi
       echo "Updating brew and installing pyenv..."
       echo "Note: this will probably take a considerable amount of time."
       brew update
       brew install pyenv
+      brew install openssl readline sqlite3 xz zlib
     elif [[ "$machine" == linux ]]; then
       sudo apt-get update -y
       sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
@@ -102,38 +102,16 @@ if [ -z "$pyenv_exist" ]; then
       git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
       PYENV_ROOT="$HOME/.pyenv"
       PYENV_BIN="$PYENV_ROOT/bin"
-      if [ "$MLFLOW_DEV_ENV_CI_RUN" == 1 ]; then
+      if [ -n "$GITHUB_ACTIONS" ]; then
         echo "$PYENV_BIN" >> "$GITHUB_PATH"
         echo "PYENV_ROOT=$PYENV_ROOT" >> "$GITHUB_ENV"
-      fi
-    elif [[ "$machine" == win ]]; then
-      if [ -z "$(command -v pip)" ]; then
-        echo "A pip installation cannot be found. Install pip first."
-        exit 1
-      fi
-      # install via system pip as per pyenv-win docs
-      pip install $(quietpip) pyenv-win --target "$HOME\\.pyenv"
-      if [ "$MLFLOW_DEV_ENV_CI_RUN" == 1 ]; then
-        {
-          echo "PYENV=$USERPROFILE\.pyenv\pyenv-win\\";
-          echo "PYENV_ROOT=$USERPROFILE\.pyenv\pyenv-win\\";
-          echo "PYENV_HOME=$USERPROFILE\.pyenv\pyenv-win\\";
-        } >> "$GITHUB_ENV"
-        echo "$USERPROFILE\.pyenv\pyenv-win\\bin\\" >> "$GITHUB_PATH"
       fi
     else
       echo "Unknown operating system environment: $machine exiting."
       exit 1
     fi
   else
-    if [[ "$machine" == win ]]; then
-      PYENV_README=https://github.com/pyenv-win/pyenv-win/blob/master/README.md
-    elif [[ "$machine" == mac || "$machine" == linux ]]; then
-      PYENV_README=https://github.com/pyenv/pyenv/blob/master/README.md
-    else
-      echo "The current OS is unknown. Please visit: https://github.com/pyenv/pyenv#installation for instructions. "
-      exit 1
-    fi
+    PYENV_README=https://github.com/pyenv/pyenv/blob/master/README.md
     echo "pyenv is required to use this environment setup script. Please install by following instructions here: $PYENV_README"
     exit 1
   fi
@@ -169,8 +147,8 @@ case $min_py_version in
 esac
 
 # Install the Python version if it cannot be found
-pyenv install -s $PY_INSTALL_VERSION
-pyenv local $PY_INSTALL_VERSION
+pyenv install -s "$PY_INSTALL_VERSION"
+pyenv local "$PY_INSTALL_VERSION"
 pyenv exec pip install $(quietpip) --upgrade pip
 pyenv exec pip install $(quietpip) virtualenv
 
@@ -178,18 +156,18 @@ VENV_DIR="$directory/bin/activate"
 
 # Check if the virtualenv already exists at the specified path
 if [[ -d "$directory"  ]]; then
-  if [ -z "$MLFLOW_DEV_ENV_REPLACE_ENV" ]; then
+  if [ -z "$GITHUB_ACTIONS" ]; then
     read -p "A virtual environment is already located at $directory. Do you wish to replace it? $(tput bold; tput setaf 2)(y/n) $(tput sgr0)" -n 1 -r
     echo
   fi
-  if [[ $REPLY =~ ^[Yy]$ || $MLFLOW_DEV_ENV_REPLACE_ENV == 1 ]]; then
+  if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
     deactivate
     echo "Replacing Virtual environment in '$directory'. Installing new instance."
     pyenv exec virtualenv --clear "$directory"
   fi
 else
   # Create a virtual environment with the specified Python version
-  pyenv exec virtualenv "$directory"
+  pyenv exec virtualenv --python "$PY_INSTALL_VERSION" "$directory"
 fi
 
 # Activate the virtual environment

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Test that the dev-env-setup.sh script installs appropriate versions
-
 set -x
 
 err=0
@@ -14,6 +13,8 @@ export MLFLOW_DEV_ENV_PYENV_INSTALL=1
 DEV_DIR=$MLFLOW_HOME/.venvs/mlflow-dev
 
 "$MLFLOW_HOME"/dev/dev-env-setup.sh -d "$DEV_DIR" -f -v
+
+source "$DEV_DIR/bin/activate"
 
 # Check that packages are installed
 
