@@ -60,13 +60,13 @@ jobs:
     - name: Set USE_R_DEVEL
       run: |
         if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
-          use_r_devel=true
+          USE_R_DEVEL=true
+        elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
         else
-          # Use r-devel on a release branch or a PR targeted to a release branch
-          branch=$([ "$GITHUB_EVENT_NAME" = "pull_request" ] && echo "$GITHUB_BASE_REF" || echo "$GITHUB_REF_NAME")
-          use_r_devel=$([[ $branch =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+          USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
         fi
-        echo "USE_R_DEVEL=$use_r_devel" >> $GITHUB_ENV
+        echo "USE_R_DEVEL=$USE_R_DEVEL" >> $GITHUB_ENV
     - name: Build package
       run: |
         ./build-package.sh
