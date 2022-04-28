@@ -6,6 +6,14 @@ from .metic_value_conversion_utils import convert_metric_value_to_str_if_possibl
 class Param(_MLflowObject):
     """
     Parameter object.
+
+    Args:
+        key: `str` or `pyspark.ml.param.Param`
+        value: `str`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`, or any value `x` that
+        can be converted to string by `str(x)`.
+        
+        Multidimensional arrays or tensors will be stringified after being converted to a list.
+
     """
 
     def __init__(self, key, value):
