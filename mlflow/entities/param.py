@@ -9,7 +9,7 @@ class Param(_MLflowObject):
     Parameter object.
 
     Args:
-        key: `str` or `pyspark.ml.param.Param`
+        key: `str`, `pyspark.ml.param.Param`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
         value: `str`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`, or any value `x` that
         can be converted to string by `str(x)`.
 

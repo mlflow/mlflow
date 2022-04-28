@@ -5,20 +5,23 @@ def is_module_imported(module_name: str) -> bool:
     return module_name in sys.modules
 
 
-def __converter_requires(func, module_name: str):
+def __converter_requires(module_name: str):
     """Wrapper function that checks if specified `module_name` is already imported before invoking wrapped function."""
 
-    def wrap(x):
-        if not is_module_imported(module_name):
-            return x
+    def decorator(func):
+        def wrapper(x):
+            if not is_module_imported(module_name):
+                return x
 
-        return func(x)
+            return func(x)
 
-    return wrap
+        return wrapper
+
+    return decorator
 
 
 def convert_metric_value_to_str_if_possible(x) -> str:
-    if type(x) == str:
+    if x is None or type(x) == str:
         return x
 
     converter_fns_to_try = [
@@ -36,8 +39,11 @@ def convert_metric_value_to_str_if_possible(x) -> str:
     return str(x)
 
 
-def convert_metric_value_to_float_if_possible(x) -> float:
-    if type(x) == float:
+def convert_metric_value_to_float_if_possible(x, convert_int: bool = True) -> float:
+    if x is None or type(x) == float:
+        return x
+
+    if not convert_int and type(x) == int:
         return x
 
     converter_fns_to_try = [
@@ -101,6 +107,10 @@ def convert_metric_value_to_str_if_torch_tensor(x):
 
     if isinstance(x, torch.Tensor):
         extracted_ndarray = x.detach().cpu().numpy()
+        if not hasattr(extracted_ndarray, "len"):
+            # single-valued item ex. numpy.float32
+            return f"[{extracted_ndarray.item()}]"
+
         return convert_metric_value_to_float_if_ndarray(extracted_ndarray)
 
     return x
@@ -122,6 +132,10 @@ def convert_metric_value_to_str_if_tensorflow_tensor(x):
 
     if isinstance(x, tf.Tensor):
         extracted_ndarray = x.numpy()
+        if not hasattr(extracted_ndarray, "len"):
+            # single-valued item ex. numpy.float32
+            return f"[{extracted_ndarray.item()}]"
+
         return convert_metric_value_to_str_if_ndarray(extracted_ndarray)
 
     return x

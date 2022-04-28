@@ -12,7 +12,10 @@ class Metric(_MLflowObject):
     Metric object.
 
     Args:
-        key: `str` or `pyspark.ml.param.Param`
+        key: `str`, `pyspark.ml.param.Param`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
+
+        Multidimensional arrays or tensors will be stringified after being converted to a list.
+
         value: `float`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
 
         Multidimensional arrays or tensors should contain a single element in order for them
@@ -23,7 +26,7 @@ class Metric(_MLflowObject):
     def __init__(self, key, value, timestamp, step):
         self._key = convert_metric_value_to_str_if_possible(key)
 
-        self._value = convert_metric_value_to_float_if_possible(value)
+        self._value = convert_metric_value_to_float_if_possible(value, convert_int=False)
 
         self._timestamp = timestamp
         self._step = step
