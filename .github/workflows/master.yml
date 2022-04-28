@@ -66,56 +66,6 @@ jobs:
     - name: Run lint checks
       run: |
         ./dev/lint.sh
-  r:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mlflow/R/mlflow
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - uses: actions/setup-java@v3
-      with:
-        java-version: 11
-        distribution: 'adopt'
-    - uses: r-lib/actions/setup-r@v1
-    # This step dumps the current set of R dependencies and R version into files to be used
-    # as a cache key when caching/restoring R dependencies.
-    - name: Dump dependencies
-      run: |
-        Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
-    - name: Get OS name
-      id: os-name
-      run: |
-        # `os_name` will be like "Ubuntu-20.04.1-LTS"
-        os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo "::set-output name=os-name::$os_name"
-    - name: Cache R packages
-      uses: actions/cache@v2
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-        # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
-    - name: Install dependencies
-      run: |
-        Rscript -e 'source(".install-deps.R", echo=TRUE)'
-        # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
-        Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
-    - name: Build package
-      run: |
-        ./build-package.sh
-    - name: Create test environment
-      run: |
-        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
-    - name: Run tests
-      env:
-        LINTR_COMMENT_BOT: false
-      run: |
-        cd tests
-        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
