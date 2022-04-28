@@ -1,6 +1,6 @@
 ## Using Captum and MLflow to interpret Pytorch models
 
-In this example, we will demonstrate the basic features of the [Captum](https://captum.ai/) interpretability,and loging those features using mlflow library through an example model trained on the Titanic survival data. 
+In this example, we will demonstrate the basic features of the [Captum](https://captum.ai/) interpretability,and loging those features using mlflow library through an example model trained on the Titanic survival data.
 We will first train a deep neural network on the data using PyTorch and use Captum to understand which of the features were most important and how the network reached its prediction.
 
 you can get more details about used attributions methods used in this example
@@ -27,10 +27,10 @@ mlflow run . -P max_epochs=X
 
 where `X` is your desired value for `max_epochs`.
 
-If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--env-manager=local`.
 
 ```
-mlflow run . --no-conda
+mlflow run . --env-manager=local
 ```
 ### Viewing results in the MLflow UI
 

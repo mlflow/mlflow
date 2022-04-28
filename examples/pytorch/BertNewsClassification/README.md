@@ -1,6 +1,6 @@
 ## BERT news classification example
 In this example, we train a Pytorch Lightning model to classify news articles into "World", "Sports", "Business" and "Sci/Tech" categories. The code, adapted from this [repository](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, and models.
- 
+
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/BertNewsClassification` directory and run the command
@@ -19,11 +19,10 @@ mlflow run . -P max_epochs=X
 
 where `X` is your desired value for `max_epochs`.
 
-If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--env-manager=local`.
 
 ```
-mlflow run . --no-conda
-
+mlflow run . --env-manager=local
 ```
 
 ### Viewing results in the MLflow UI
@@ -44,7 +43,7 @@ The parameters can be overridden via the command line:
 
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. gpus - Number of GPUs
-3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
+3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used.
 4. batch_size - Input batch size for training
 5. num_workers - Number of worker threads to load training data
 6. lr - Learning rate

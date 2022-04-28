@@ -29,7 +29,8 @@ from mlflow.pyfunc.backend import _execute_in_conda_env
 import mlflow.models.cli as models_cli
 
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from mlflow.utils.environment import _mlflow_conda_env, _EnvManager
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import (
@@ -447,6 +448,21 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 
 
 @pytest.mark.large
+def test_build_docker_virtualenv(iris_data, sk_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sk_model, "model")
+
+    x, _ = iris_data
+    df = pd.DataFrame(iris_data[0])
+
+    extra_args = ["--install-mlflow", "--env-manager", "virtualenv"]
+    image_name = pyfunc_build_image(model_info.model_uri, extra_args=extra_args)
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
@@ -533,10 +549,10 @@ def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
 
 
 def test_env_manager_unsupported_value():
-    with pytest.raises(ValueError, match=r"Expected .+ but got 'abc'"):
+    with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--env-manager=abc"],
+            ["--model-uri", "model", "--env-manager", "abc"],
             catch_exceptions=False,
         )
 

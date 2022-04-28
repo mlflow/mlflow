@@ -107,6 +107,23 @@ class ListDependencies(distutils.cmd.Command):
         print("\n".join(dependencies))
 
 
+MINIMUM_SUPPORTED_PYTHON_VERSION = "3.7"
+
+
+class MinPythonVersion(distutils.cmd.Command):
+    description = "Print out the minimum supported Python version"
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        print(MINIMUM_SUPPORTED_PYTHON_VERSION)
+
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
@@ -125,7 +142,7 @@ setup(
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             # Required to log artifacts and models to GCS artifact locations
-            "google-cloud-storage",
+            "google-cloud-storage>=1.30.0",
             "azureml-core>=1.2.0",
             # Required to log artifacts to SFTP artifact locations
             "pysftp",
@@ -144,7 +161,10 @@ setup(
         [console_scripts]
         mlflow=mlflow.cli:cli
     """,
-    cmdclass={"dependencies": ListDependencies},
+    cmdclass={
+        "dependencies": ListDependencies,
+        "min_python_version": MinPythonVersion,
+    },
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
@@ -153,10 +173,13 @@ setup(
     else open("README_SKINNY.rst").read() + open("README.rst").read(),
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.7"],
+    classifiers=[
+        "Intended Audience :: Developers",
+        f"Programming Language :: Python :: {MINIMUM_SUPPORTED_PYTHON_VERSION}",
+    ],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.7",
+    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

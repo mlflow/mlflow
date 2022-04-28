@@ -18,10 +18,11 @@ RUN apt-get update && \
     # install mlflow in editable form
     pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
-    mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless && \
-    # install npm for node.js support
-    curl -sL https://deb.nodesource.com/setup_14.x | bash - && \
+    mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless
+# Build MLflow UI
+RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     apt-get update && apt-get install -y nodejs && \
+    npm install --global yarn && \
     cd mlflow/server/js && \
-    npm install && \
-    npm run build
+    yarn install && \
+    yarn build

@@ -267,6 +267,78 @@ export class CompareRunView extends Component {
     );
   }
 
+  renderTimeRows(colWidthStyle) {
+    const unknown = (
+      <FormattedMessage
+        defaultMessage='(unknown)'
+        description="Filler text when run's time information is unavailable"
+      />
+    );
+    const getTimeAttributes = (runInfo) => {
+      const startTime = runInfo.getStartTime();
+      const endTime = runInfo.getEndTime();
+      return {
+        runUuid: runInfo.run_uuid,
+        startTime: startTime ? Utils.formatTimestamp(startTime) : unknown,
+        endTime: endTime ? Utils.formatTimestamp(endTime) : unknown,
+        duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : unknown,
+      };
+    };
+    const timeAttributes = this.props.runInfos.map(getTimeAttributes);
+    const rows = [
+      {
+        key: 'startTime',
+        title: (
+          <FormattedMessage
+            defaultMessage='Start Time:'
+            description='Row title for the start time of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, startTime }) => [runUuid, startTime]),
+      },
+      {
+        key: 'endTime',
+        title: (
+          <FormattedMessage
+            defaultMessage='End Time:'
+            description='Row title for the end time of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, endTime }) => [runUuid, endTime]),
+      },
+      {
+        key: 'duration',
+        title: (
+          <FormattedMessage
+            defaultMessage='Duration:'
+            description='Row title for the duration of runs on the experiment compare runs page'
+          />
+        ),
+        data: timeAttributes.map(({ runUuid, duration }) => [runUuid, duration]),
+      },
+    ];
+    return rows.map(({ key, title, data }) => (
+      <tr key={key}>
+        <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+          {title}
+        </th>
+        {data.map(([runUuid, value]) => (
+          <td className='data-value' key={runUuid} style={colWidthStyle}>
+            <Tooltip
+              title={value}
+              color='gray'
+              placement='topLeft'
+              overlayStyle={{ maxWidth: '400px' }}
+              mouseEnterDelay={1.0}
+            >
+              {value}
+            </Tooltip>
+          </td>
+        ))}
+      </tr>
+    ));
+  }
+
   render() {
     const { experimentIds } = this.props;
     const { runInfos, runNames } = this.props;
@@ -391,33 +463,7 @@ export class CompareRunView extends Component {
                   );
                 })}
               </tr>
-              <tr>
-                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
-                  <FormattedMessage
-                    defaultMessage='Start Time:'
-                    // eslint-disable-next-line max-len
-                    description='Row title for the start time of runs on the experiment compare runs page'
-                  />
-                </th>
-                {this.props.runInfos.map((run) => {
-                  const startTime = run.getStartTime()
-                    ? Utils.formatTimestamp(run.getStartTime())
-                    : '(unknown)';
-                  return (
-                    <td className='data-value' key={run.run_uuid} style={colWidthStyle}>
-                      <Tooltip
-                        title={startTime}
-                        color='gray'
-                        placement='topLeft'
-                        overlayStyle={{ maxWidth: '400px' }}
-                        mouseEnterDelay={1.0}
-                      >
-                        {startTime}
-                      </Tooltip>
-                    </td>
-                  );
-                })}
-              </tr>
+              {this.renderTimeRows(colWidthStyle)}
               {this.shouldShowExperimentNameRow() && (
                 <tr>
                   <th scope='row' className='data-value'>

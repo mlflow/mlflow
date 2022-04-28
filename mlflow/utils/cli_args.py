@@ -4,7 +4,7 @@ Definitions of click options shared by several CLI commands.
 import click
 import warnings
 
-from mlflow.utils.environment import _EnvManager
+from mlflow.utils import env_manager as _EnvManager
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -56,10 +56,10 @@ NO_CONDA = click.option(
 )
 
 
-def _resolve_env_manager(ctx, _, value):
+def _resolve_env_manager(ctx, _, env_manager):
     no_conda = ctx.params.get("no_conda", False)
     # Both `--no-conda` and `--env-manager` are specified
-    if no_conda and value is not None:
+    if no_conda and env_manager is not None:
         raise click.BadParameter(
             "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
         )
@@ -77,9 +77,9 @@ def _resolve_env_manager(ctx, _, value):
         return _EnvManager.LOCAL
 
     # Only `--env-manager` is specified
-    if value is not None:
-        env_manager = _EnvManager.from_string(value)
-        if env_manager is _EnvManager.VIRTUALENV:
+    if env_manager is not None:
+        _EnvManager.validate(env_manager)
+        if env_manager == _EnvManager.VIRTUALENV:
             warnings.warn(
                 (
                     "Virtualenv support is still experimental and may be changed in a future "
@@ -91,7 +91,7 @@ def _resolve_env_manager(ctx, _, value):
         return env_manager
 
     # Neither `--no-conda` nor `--env-manager` is specified
-    return _EnvManager.CONDA
+    return None
 
 
 ENV_MANAGER = click.option(
@@ -119,9 +119,9 @@ INSTALL_MLFLOW = click.option(
     "--install-mlflow",
     is_flag=True,
     default=False,
-    help="If specified and there is a conda environment to be activated "
-    "mlflow will be installed into the environment after it has been"
-    " activated. The version of installed mlflow will be the same as"
+    help="If specified and there is a conda or virtualenv environment to be activated "
+    "mlflow will be installed into the environment after it has been "
+    "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
 )
 

@@ -6,6 +6,7 @@ import inspect
 import os
 import pytest
 from collections import namedtuple
+from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
 import mlflow
@@ -27,6 +28,7 @@ from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
+    ValidationExemptArgument,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -1141,16 +1143,18 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
         "biz": {"baz": 5},
     }
 
-    _validate_args(args, kwargs, args, kwargs)
-    _validate_args(args, None, args, None)
-    _validate_args(None, kwargs, None, kwargs)
+    _validate_args("autologging_integration_name", "function_name", args, kwargs, args, kwargs)
+    _validate_args("autologging_integration_name", "function_name", args, {}, args, {})
+    _validate_args("autologging_integration_name", "function_name", (), kwargs, (), kwargs)
 
     args_copy = copy.deepcopy(args)
     kwargs_copy = copy.deepcopy(kwargs)
 
-    _validate_args(args, kwargs, args_copy, kwargs_copy)
-    _validate_args(args, None, args_copy, None)
-    _validate_args(None, kwargs, None, kwargs_copy)
+    _validate_args(
+        "autologging_integration_name", "function_name", args, kwargs, args_copy, kwargs_copy
+    )
+    _validate_args("autologging_integration_name", "function_name", args, {}, args_copy, {})
+    _validate_args("autologging_integration_name", "function_name", (), kwargs, (), kwargs_copy)
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1168,12 +1172,22 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_type_autologging_call_args, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_type_autologging_call_args,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_type_autologging_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_type_autologging_call_kwargs,
         )
 
 
@@ -1195,12 +1209,22 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
     with pytest.raises(Exception, match="not exception-safe"):
         _validate_args(
-            user_call_args, user_call_kwargs, unsafe_autologging_call_args, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            unsafe_autologging_call_args,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs1
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            unsafe_autologging_call_kwargs1,
         )
 
     unsafe_autologging_call_kwargs2 = copy.deepcopy(user_call_kwargs)
@@ -1208,7 +1232,12 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
     with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs2
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            unsafe_autologging_call_kwargs2,
         )
 
 
@@ -1235,7 +1264,14 @@ def test_validate_args_succeeds_when_extra_args_are_picklable_exception_safe_fun
     autologging_call_kwargs["foo"].append(picklable_exception_safe_function(lambda: "foo"))
     autologging_call_kwargs["new"] = Safe()
 
-    _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
+    _validate_args(
+        "autologging_integration_name",
+        "function_name",
+        user_call_args,
+        user_call_kwargs,
+        autologging_call_args,
+        autologging_call_kwargs,
+    )
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1253,12 +1289,22 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_autologging_call_args_1,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_autologging_call_kwargs_1,
         )
 
     invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)[1:]
@@ -1267,12 +1313,22 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_autologging_call_args_2,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_autologging_call_kwargs_2,
         )
 
     invalid_autologging_call_args_3 = copy.deepcopy(user_call_args)
@@ -1282,12 +1338,22 @@ def test_validate_args_throws_when_args_are_omitted():
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_autologging_call_args_3, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_autologging_call_args_3,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_3
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_autologging_call_kwargs_3,
         )
 
 
@@ -1305,12 +1371,22 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_autologging_call_args_1,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_autologging_call_kwargs_1,
         )
 
     call_arg_1, call_arg_2, _ = copy.deepcopy(user_call_args)
@@ -1320,13 +1396,137 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
     with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
-            user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            invalid_autologging_call_args_2,
+            user_call_kwargs,
         )
 
     with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
-            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
+            "autologging_integration_name",
+            "function_name",
+            user_call_args,
+            user_call_kwargs,
+            user_call_args,
+            invalid_autologging_call_kwargs_2,
         )
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+@mock.patch(
+    "mlflow.utils.autologging_utils.safety._VALIDATION_EXEMPT_ARGUMENTS",
+    [
+        ValidationExemptArgument("foo", "fit", lambda x: isinstance(x, int), 1, "x"),
+        ValidationExemptArgument("ml", "flow", lambda z: isinstance(z, list), 0, "cool"),
+    ],
+)
+@pytest.mark.parametrize(
+    "expectation,al_name,func_name,user_args,user_kwargs,al_args,al_kwargs",
+    [
+        (
+            does_not_raise(),
+            "foo",
+            "fit",
+            (
+                None,
+                3,
+            ),
+            {},
+            (
+                None,
+                4,
+            ),
+            {},
+        ),
+        (does_not_raise(), "foo", "fit", tuple(), {"x": 3}, tuple(), {"x": 4}),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit",
+            (None, None, 3),
+            {},
+            (
+                None,
+                None,
+                4,
+            ),
+            {},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit",
+            tuple(),
+            {"y": 3},
+            tuple(),
+            {"y": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo2",
+            "fit",
+            tuple(),
+            {"x": 3},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected input"),
+            "foo",
+            "fit2",
+            tuple(),
+            {"x": 3},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "foo",
+            "fit",
+            tuple(),
+            {"x": [1, 2]},
+            tuple(),
+            {"x": 4},
+        ),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "foo",
+            "bar",
+            (1,),
+            {},
+            (None,),
+            {},
+        ),
+        (
+            pytest.raises(AssertionError, match="Invalid new input"),
+            "foo",
+            "bar",
+            (None,),
+            {},
+            (2,),
+            {},
+        ),
+        (does_not_raise(), "ml", "flow", ([1, 2, 3],), {}, ([2],), {}),
+        (does_not_raise(), "ml", "flow", tuple(), {"cool": [1, 2, 3]}, tuple(), {"cool": [2]}),
+        (
+            pytest.raises(AssertionError, match="does not match expected type"),
+            "ml",
+            "flow",
+            tuple(),
+            {"cool": 3},
+            tuple(),
+            {"cool": [2]},
+        ),
+    ],
+)
+def test_validate_args_respects_validation_exemptions(
+    expectation, al_name, func_name, user_args, user_kwargs, al_args, al_kwargs
+):
+    with expectation:
+        _validate_args(al_name, func_name, user_args, user_kwargs, al_args, al_kwargs)
 
 
 def test_validate_autologging_run_validates_autologging_tag_correctly():

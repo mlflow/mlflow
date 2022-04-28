@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Table, Tooltip } from 'antd';
 import { Link } from 'react-router-dom';
+import { Typography } from '@databricks/design-system';
 import Utils from '../../common/utils/Utils';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
 import {
@@ -14,6 +15,8 @@ import {
 import { getModelVersionPageRoute } from '../routes';
 import { RegisteringModelDocUrl } from '../../common/constants';
 import { FormattedMessage, injectIntl } from 'react-intl';
+
+const { Text } = Typography;
 
 export class ModelVersionTableImpl extends React.Component {
   static propTypes = {
@@ -37,7 +40,7 @@ export class ModelVersionTableImpl extends React.Component {
         title: '', // Status column does not have title
         render: ({ status, status_message }) => (
           <Tooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-            {ModelVersionStatusIcons[status]}
+            <Text size='lg'>{ModelVersionStatusIcons[status]}</Text>
           </Tooltip>
         ),
         align: 'right',

@@ -93,6 +93,9 @@ def pyfunc_build_image(model_uri, extra_args=None):
     """
     name = uuid.uuid4().hex
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd)
@@ -282,11 +285,11 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+@pytest.fixture(scope="function", autouse=True)
+def set_boto_credentials(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
 
 
 @pytest.fixture

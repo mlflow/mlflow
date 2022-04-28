@@ -207,6 +207,10 @@
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
   },
+  "7kUi8J": {
+    "defaultMessage": "Duration:",
+    "description": "Row title for the duration of runs on the experiment compare runs page"
+  },
   "7nAMnb": {
     "defaultMessage": "Please input a name for the new model.",
     "description": "Error message for having no input for creating models in the model registry"
@@ -387,6 +391,10 @@
     "defaultMessage": "Loading...",
     "description": "Loading state text for the artifact model view"
   },
+  "G0gYkS": {
+    "defaultMessage": "End Time:",
+    "description": "Row title for the end time of runs on the experiment compare runs page"
+  },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
@@ -506,6 +514,10 @@
   "MatV9u": {
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
+  },
+  "NJ1bYP": {
+    "defaultMessage": "{fieldName} are identical",
+    "description": "Default text in data table where items are identical in the model comparison page"
   },
   "NN0ScV": {
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
@@ -722,6 +734,10 @@
   "ZYBoeF": {
     "defaultMessage": "Transition to",
     "description": "Text for activity description under confirmation modal for model\n             version stage transition"
+  },
+  "Zc48NC": {
+    "defaultMessage": "(unknown)",
+    "description": "Filler text when run's time information is unavailable"
   },
   "ZvBSjw": {
     "defaultMessage": "Value",
@@ -990,10 +1006,6 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
-  },
-  "nuLuf2": {
-    "defaultMessage": "{fieldName} are identical",
-    "description": "Default text in data table where items are identical in the model\n                    comparison page"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",

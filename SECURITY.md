@@ -8,7 +8,7 @@ resolve the vulnerabilities they discover.
 ## Supported Versions
 
 The latest version of MLflow has continued support. If a critical vulnerability is found in the current version
-of MLflow, we may opt to backport patches to previous versions. 
+of MLflow, we may opt to backport patches to previous versions.
 
 ## Reporting a Vulnerability
 

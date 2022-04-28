@@ -185,7 +185,7 @@ def run(
             docker_args=args_dict,
             backend=backend,
             backend_config=backend_config,
-            env_manager=str(env_manager),
+            env_manager=env_manager,
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id,

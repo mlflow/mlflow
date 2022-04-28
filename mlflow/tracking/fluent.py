@@ -38,7 +38,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
 )
-from mlflow.utils.validation import _validate_run_id
+from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -231,6 +231,7 @@ def start_run(
         0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
     """
     global _active_run_stack
+    _validate_experiment_id_type(experiment_id)
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:

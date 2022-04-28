@@ -485,7 +485,11 @@ def test_run_databricks_failed(_):
 
 def test_run_databricks_generates_valid_mlflow_run_cmd():
     cmd = _get_cluster_mlflow_run_cmd(
-        project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"}
+        project_dir="my_project_dir",
+        run_id="hi",
+        entry_point="main",
+        parameters={"a": "b"},
+        env_manager="conda",
     )
     assert cmd[0] == "mlflow"
     with mock.patch("mlflow.projects.run"):

@@ -345,6 +345,19 @@ def _validate_experiment_name(experiment_name):
         )
 
 
+def _validate_experiment_id_type(experiment_id):
+    """
+    Check that a user-provided experiment_id is either a string, int, or None and raise an
+    exception if it isn't.
+    """
+    if experiment_id is not None and not isinstance(experiment_id, (str, int)):
+        raise MlflowException(
+            f"Invalid experiment id: {experiment_id} of type {type(experiment_id)}. "
+            "Must be one of str, int, or None.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
         raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)

@@ -33,10 +33,11 @@ def _exec_cmd(
     throw_on_error=True,
     extra_env=None,
     capture_output=True,
+    synchronous=True,
     **kwargs,
 ):
     """
-    A convenience wrapper of `subprocess.run` for running a command from a Python script.
+    A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
 
     :param cmd: The command to run, as a list of strings.
     :param throw_on_error: If True, raises an Exception if the exit code of the program is nonzero.
@@ -44,10 +45,14 @@ def _exec_cmd(
                       If this argument is specified, `kwargs` cannot contain `env`.
     :param: capture_output: If True, stdout and stderr will be captured and included in an exception
                             message on failure; if False, these streams won't be captured.
-    :param kwargs: Keyword arguments (except `check` and `text`) passed to `subprocess.run`.
-    :return: A `subprocess.CompletedProcess` instance.
+    :param: synchronous: If True, wait for the command to complete and return a CompletedProcess
+                         instance, If False, does not wait for the command to complete and return
+                         a Popen instance, and ignore the `throw_on_error` argument.
+    :param kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
+    :return:  If synchronous is True, return a `subprocess.CompletedProcess` instance,
+              otherwise return a Popen instance.
     """
-    illegal_kwargs = set(kwargs.keys()).intersection(("check", "text"))
+    illegal_kwargs = set(kwargs.keys()).intersection({"text"})
     if illegal_kwargs:
         raise ValueError(f"`kwargs` cannot contain {list(illegal_kwargs)}")
 
@@ -56,21 +61,38 @@ def _exec_cmd(
         raise ValueError("`extra_env` and `env` cannot be used at the same time")
 
     env = env if extra_env is None else {**os.environ, **extra_env}
-    prc = subprocess.run(
-        # In Python < 3.8, `subprocess.Popen` doesn't accpet a command containing path-like
-        # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
-        # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
-        map(str, cmd),
+
+    # In Python < 3.8, `subprocess.Popen` doesn't accept a command containing path-like
+    # objects (e.g. `["ls", pathlib.Path("abc")]`) on Windows. To avoid this issue,
+    # stringify all elements in `cmd`. Note `str(pathlib.Path("abc"))` returns 'abc'.
+    cmd = list(map(str, cmd))
+
+    if capture_output:
+        if kwargs.get("stdout") is not None or kwargs.get("stderr") is not None:
+            raise ValueError("stdout and stderr arguments may not be used with capture_output.")
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.PIPE
+
+    process = subprocess.Popen(
+        cmd,
         env=env,
-        check=False,
-        capture_output=capture_output,
         text=True,
         **kwargs,
     )
+    if not synchronous:
+        return process
 
-    if throw_on_error and prc.returncode != 0:
-        raise ShellCommandException.from_completed_process(prc)
-    return prc
+    stdout, stderr = process.communicate()
+    returncode = process.poll()
+    comp_process = subprocess.CompletedProcess(
+        process.args,
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
+    )
+    if throw_on_error and returncode != 0:
+        raise ShellCommandException.from_completed_process(comp_process)
+    return comp_process
 
 
 def _join_commands(*commands):

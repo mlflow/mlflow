@@ -16,7 +16,7 @@ class RFuncBackend(FlavorBackend):
     Predict and serve locally models with 'crate' flavor.
     """
 
-    version_pattern = re.compile("version ([0-9]+[.][0-9]+[.][0-9]+)")
+    version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -63,14 +63,18 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def can_score_model(self):
+        # `Rscript --version` writes to stderr in R < 4.2.0 but stdout in R >= 4.2.0.
         process = subprocess.Popen(
-            ["Rscript", "--version"], close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["Rscript", "--version"],
+            close_fds=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
-        _, stderr = process.communicate()
+        stdout, _ = process.communicate()
         if process.wait() != 0:
             return False
 
-        version = self.version_pattern.search(stderr.decode("utf-8"))
+        version = self.version_pattern.search(stdout.decode("utf-8"))
         if not version:
             return False
         version = [int(x) for x in version.group(1).split(".")]

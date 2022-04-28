@@ -82,3 +82,15 @@ def _init_server(backend_uri, root_artifact_uri):
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     _logger.info(f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}")
     return url, process
+
+
+def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload):
+    """
+    Make a POST request to the specified MLflow Tracking API and retrieve the
+    corresponding `requests.Response` object
+    """
+    import requests
+
+    url = tracking_server_uri + api_path
+    response = requests.post(url, json=json_payload)
+    return response

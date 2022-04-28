@@ -155,7 +155,7 @@ Then run `mlflow run` with custom parameters as
     mlflow run tests/testthat/examples/ --entry-point params_example.R -P my_int=10 -P my_num=20.0 -P my_str=XYZ
 
     === Created directory /var/folders/ks/wm_bx4cn70s6h0r5vgqpsldm0000gn/T/tmpi6d2_wzf for downloading remote URIs passed to arguments of type 'path' ===
-    === Running command 'source /miniconda2/bin/activate mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709 && Rscript -e "mlflow::mlflow_source('params_example.R')" --args --my_int 10 --my_num 20.0 --my_str XYZ' in run with ID '191b489b2355450a8c3cc9bf96cb1aa3' === 
+    === Running command 'source /miniconda2/bin/activate mlflow-da39a3ee5e6b4b0d3255bfef95601890afd80709 && Rscript -e "mlflow::mlflow_source('params_example.R')" --args --my_int 10 --my_num 20.0 --my_str XYZ' in run with ID '191b489b2355450a8c3cc9bf96cb1aa3' ===
     === Run (ID '191b489b2355450a8c3cc9bf96cb1aa3') succeeded ===
 
 Run results that we can view with `mlflow_ui()`.
@@ -225,7 +225,7 @@ mlflow_rfunc_predict("model", data = data.frame(x = c(0.3, 0.2)))
 
     ## 3.400381396714573.40656987651099
 
-    ##        1        2 
+    ##        1        2
     ## 3.400381 3.406570
 
 ## Deployment
