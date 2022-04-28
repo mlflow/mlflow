@@ -1,7 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
 
-from .conversion_utils import convert_to_str_if_possible
+from .metic_value_conversion_utils import convert_metric_value_to_str_if_possible
 
 class Param(_MLflowObject):
     """
@@ -9,8 +9,8 @@ class Param(_MLflowObject):
     """
 
     def __init__(self, key, value):
-        key = convert_to_str_if_possible(key)
-        value = convert_to_str_if_possible(value)
+        key = convert_metric_value_to_str_if_possible(key)
+        value = convert_metric_value_to_str_if_possible(value)
 
         self._key = key
         self._value = value

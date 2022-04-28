@@ -1,7 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 
-from .conversion_utils import convert_to_float_if_possible, convert_to_str_if_possible
+from .metic_value_conversion_utils import convert_to_float_if_possible, convert_to_str_if_possible
 
 class Metric(_MLflowObject):
     """
