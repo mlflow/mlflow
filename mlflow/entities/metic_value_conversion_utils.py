@@ -4,6 +4,7 @@ def is_module_imported(module_name: str) -> bool:
     return module_name in sys.modules
 
 def __converter_requires(func, module_name: str):  
+    """ Wrapper function that checks if specified `module_name` is already imported before invoking wrapped function."""
     def wrap(x):
         if not is_module_imported(module_name):
             return x
