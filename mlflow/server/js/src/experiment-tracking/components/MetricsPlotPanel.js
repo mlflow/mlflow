@@ -13,6 +13,7 @@ import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
 } from './MetricsPlotControls';
+import MetricsSummaryTable from './MetricsSummaryTable';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
@@ -582,43 +583,50 @@ export class MetricsPlotPanel extends React.Component {
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
         />
-        <RequestStateWrapper
-          requestIds={historyRequestIds}
-          // In this case where there are no history request IDs (e.g. on the
-          // initial page load / before we try to load additional metrics),
-          // optimistically render the children
-          shouldOptimisticallyRender={historyRequestIds.length === 0}
-        >
-          {this.hasMultipleExperiments() ? null : (
-            <RunLinksPopover
-              experimentId={experimentIds[0]}
-              visible={popoverVisible}
-              x={popoverX}
-              y={popoverY}
-              runItems={popoverRunItems}
-              handleKeyDown={this.handleKeyDownOnPopover}
-              handleClose={() => this.setState({ popoverVisible: false })}
-              handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+        <div className='metrics-plot-data'>
+          <RequestStateWrapper
+            requestIds={historyRequestIds}
+            // In this case where there are no history request IDs (e.g. on the
+            // initial page load / before we try to load additional metrics),
+            // optimistically render the children
+            shouldOptimisticallyRender={historyRequestIds.length === 0}
+          >
+            {this.hasMultipleExperiments() ? null : (
+              <RunLinksPopover
+                experimentId={experimentIds[0]}
+                visible={popoverVisible}
+                x={popoverX}
+                y={popoverY}
+                runItems={popoverRunItems}
+                handleKeyDown={this.handleKeyDownOnPopover}
+                handleClose={() => this.setState({ popoverVisible: false })}
+                handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+              />
+            )}
+            <MetricsPlotView
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              xAxis={selectedXAxis}
+              metrics={this.getMetrics()}
+              metricKeys={selectedMetricKeys}
+              showPoint={showPoint}
+              chartType={chartType}
+              isComparing={MetricsPlotPanel.isComparing(location.search)}
+              lineSmoothness={lineSmoothness}
+              extraLayout={state.layout}
+              deselectedCurves={state.deselectedCurves}
+              onLayoutChange={this.handleLayoutChange}
+              onClick={this.updatePopover}
+              onLegendClick={this.handleLegendClick}
+              onLegendDoubleClick={this.handleLegendDoubleClick}
             />
-          )}
-          <MetricsPlotView
-            runUuids={runUuids}
-            runDisplayNames={runDisplayNames}
-            xAxis={selectedXAxis}
-            metrics={this.getMetrics()}
-            metricKeys={selectedMetricKeys}
-            showPoint={showPoint}
-            chartType={chartType}
-            isComparing={MetricsPlotPanel.isComparing(location.search)}
-            lineSmoothness={lineSmoothness}
-            extraLayout={state.layout}
-            deselectedCurves={state.deselectedCurves}
-            onLayoutChange={this.handleLayoutChange}
-            onClick={this.updatePopover}
-            onLegendClick={this.handleLegendClick}
-            onLegendDoubleClick={this.handleLegendDoubleClick}
-          />
-        </RequestStateWrapper>
+            <MetricsSummaryTable
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              metricKeys={selectedMetricKeys}
+            />
+          </RequestStateWrapper>
+        </div>
       </div>
     );
   }
