@@ -299,6 +299,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
+        import matplotlib.pyplot as plt
 
         class_labels = _get_class_labels_from_estimator(fitted_estimator)
         if class_labels is None:
@@ -306,16 +307,16 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
         with matplotlib.rc_context(
             {
-                "figure.dpi": 288,
-                "figure.figsize": [6.0, 4.0],
-                "font.size": min(10.0, 50.0 / len(class_labels)),
-                "axes.labelsize": 10.0,
+                "font.size": min(8.0, 50.0 / len(class_labels)),
+                "axes.labelsize": 8.0,
+                "figure.dpi": 175,
             }
         ):
+            _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0))
             return (
-                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs, ax=ax)
                 if is_plot_function_deprecated
-                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs, ax=ax)
             )
 
     y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
@@ -471,6 +472,7 @@ def _log_specialized_estimator_content(
     autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
+    import matplotlib
 
     metrics = dict()
 
@@ -508,14 +510,16 @@ def _log_specialized_estimator_content(
             _logger.warning(msg)
             return
 
-        with TempDir() as tmp_dir:
+        _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
+
+        with TempDir() as tmp_dir, matplotlib.rc_context(_matplotlib_config):
             for artifact in artifacts:
                 try:
                     display = artifact.function(**artifact.arguments)
                     display.ax_.set_title(artifact.title)
                     artifact_path = "{}.png".format(artifact.name)
                     filepath = tmp_dir.path(artifact_path)
-                    display.figure_.savefig(filepath)
+                    display.figure_.savefig(fname=filepath, format="png")
                     import matplotlib.pyplot as plt
 
                     plt.close(display.figure_)

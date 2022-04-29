@@ -271,8 +271,10 @@ def _gen_classifier_curve(
 
 
 _matplotlib_config = {
-    "figure.dpi": 288,
+    "figure.dpi": 175,
     "figure.figsize": [6.0, 4.0],
+    "figure.autolayout": True,
+    "font.size": 8,
 }
 
 
@@ -828,17 +830,19 @@ class DefaultEvaluator(ModelEvaluator):
 
         def plot_confusion_matrix():
             import matplotlib
+            import matplotlib.pyplot as plt
 
             with matplotlib.rc_context(
                 {
-                    "font.size": min(10, 50.0 / self.num_classes),
-                    "axes.labelsize": 10,
+                    "font.size": min(8, 50.0 / self.num_classes),
+                    "axes.labelsize": 8,
                 }
             ):
+                _, ax = plt.subplots(1, 1, figsize=(6, 4))
                 sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
-                ).plot(cmap="Blues")
+                ).plot(cmap="Blues", ax=ax)
 
         if hasattr(sk_metrics, "ConfusionMatrixDisplay"):
             self._log_image_artifact(
