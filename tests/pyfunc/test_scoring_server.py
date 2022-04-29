@@ -147,6 +147,25 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
 
 
 @pytest.mark.large
+def test_scoring_server_responds_to_invalid_jsonlines_input_with_stacktrace_and_error_code(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    incorrect_jsonlines_content = json.dumps({"not": "a serialized dataframe"})
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=incorrect_jsonlines_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSONLINES,
+    )
+    response_json = json.loads(response.content)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
+    assert "message" in response_json
+    assert "stack_trace" in response_json
+
+
+@pytest.mark.large
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -282,6 +301,24 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
     assert response.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_dataframes_with_jsonlines(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_dict(orient="records")
+    jsonlines_content = "\n".join(
+        [json.dumps(item, cls=NumpyEncoder) for item in pandas_record_content]
+    )
+    response_default_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=jsonlines_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSONLINES,
+    )
+    assert response_default_content_type.status_code == 200
 
 
 @pytest.mark.large
@@ -444,6 +481,18 @@ def test_split_oriented_json_to_df():
         '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
     )
     df = pyfunc_scoring_server.parse_json_input(jstr, orient="split")
+
+    assert set(df.columns) == {"zip", "cost", "count"}
+    assert set(str(dt) for dt in df.dtypes) == {"object", "float64", "int64"}
+
+
+@pytest.mark.large
+def test_jsonlines_to_df():
+    jsonlines_payload = (
+        '{"zip": "95120", "cost": 10.45, "count": -8}\n{"zip": "95128", "cost": 23.0, "count": 2}'
+    )
+    # test that datatype for "zip" column is not converted to "int64"
+    df = pyfunc_scoring_server.parse_jsonlines_input(jsonlines_payload)
 
     assert set(df.columns) == {"zip", "cost", "count"}
     assert set(str(dt) for dt in df.dtypes) == {"object", "float64", "int64"}
