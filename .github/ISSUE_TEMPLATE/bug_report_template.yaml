@@ -1,7 +1,7 @@
 name: Bug Report
 description: Create a report to help us reproduce and correct the bug
-labels: ['Bug', 'Needs Triage']
-title: '[Bug]'
+labels: ['bug']
+title: '[BUG]'
 
 body:
   - type: markdown
@@ -9,30 +9,31 @@ body:
       value: | 
         Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
         #### Please fill in this bug report template to ensure a timely and thorough response.
-  - type: checkboxes
+  - type: dropdown
     id: contribution
     attributes:
       label: Willingness to contribute
       description: The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
       options:
-        - label: Yes. I can contribute a fix for this bug independently.
-          required: false
-        - label: Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
-          required: false
-        - label: No. I cannot contribute a bug fix at this time.
-          required: false
-  - type: markdown
+        - Yes. I can contribute a fix for this bug independently.
+        - Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
+        - No. I cannot contribute a bug fix at this time.
+    validations:
+      required: true
+  - type: textarea
     attributes:
-      value: | 
-        ### System information
-        #### Please fill in this bug report template to ensure a timely and thorough response.
+      label: System information
+      description: |
+        Please fill in this bug report template to ensure a timely and thorough response.
+      placeholder: | 
         - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
         - **MLflow installed from (source or binary)**:
         - **MLflow version (run ``mlflow --version``)**:
         - **Python version**:
         - **npm version, if running the dev UI**:
-        - **Exact command to reproduce**:
+    validations:
+      required: true
   - type: textarea
     attributes:
       label: Describe the problem
@@ -45,14 +46,14 @@ body:
       label: Tracking information
       description: |
         For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
-        ```
+        ```python
         print("MLflow version:", mlflow.__version__)
         print("Tracking URI:", mlflow.get_tracking_uri())
         print("Artifact URI:", mlflow.get_artifact_uri())
         ```
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. mlflow server -h 0.0.0.0 -p 5000), please provide it.
     validations:
-      required: true
+      required: false
   - type: textarea
     attributes:
       label: Code to reproduce issue
