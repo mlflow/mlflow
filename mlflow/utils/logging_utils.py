@@ -62,6 +62,7 @@ def _configure_mlflow_loggers(root_module_name):
         {
             "version": 1,
             "disable_existing_loggers": False,
+            "incremental": True,
             "formatters": {
                 "mlflow_formatter": {
                     "format": LOGGING_LINE_FORMAT,
