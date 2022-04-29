@@ -25,7 +25,7 @@ body:
       label: System information
       description: |
         Please fill in this bug report template to ensure a timely and thorough response.
-      placeholder: | 
+      value: | 
         - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
         - **MLflow installed from (source or binary)**:
@@ -52,6 +52,10 @@ body:
         print("Artifact URI:", mlflow.get_artifact_uri())
         ```
         Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. mlflow server -h 0.0.0.0 -p 5000), please provide it.
+      placeholder: |
+        ```python
+        # code to reproduce issue
+        ```
     validations:
       required: false
   - type: textarea
