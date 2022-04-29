@@ -56,11 +56,13 @@ CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
 CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
+CONTENT_TYPE_JSONLINES = "application/jsonlines"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_JSON_SPLIT_NUMPY,
+    CONTENT_TYPE_JSONLINES,
 ]
 
 CONTENT_TYPE_FORMAT_RECORDS_ORIENTED = "pandas-records"
@@ -131,6 +133,30 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
                 " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
                 " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
                 " method.".format(orient=orient)
+            ),
+            error_code=BAD_REQUEST,
+        )
+
+
+def parse_jsonlines_input(jsonlines_input, schema: Schema = None):
+    """
+    :param jsonlines_input: A line-delimited JSON-formatted string representation of
+                      a Pandas DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+
+    try:
+        if schema is None:
+            return pd.read_json(jsonlines_input, dtype=False, precise_float=False, lines=True)
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+            return pd.read_json(jsonlines_input, dtype=dtypes, precise_float=False, lines=True)
+    except Exception:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid line-delimted JSON-formatted Pandas DataFrame produced using the"
+                " `pandas.DataFrame.to_json(..., lines=True)` method."
             ),
             error_code=BAD_REQUEST,
         )
@@ -290,6 +316,10 @@ def init(model: PyFuncModel):
             )
         elif mime_type == CONTENT_TYPE_JSON_SPLIT_NUMPY and not content_format:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
+        elif mime_type == CONTENT_TYPE_JSONLINES and not content_format:
+            data = parse_jsonlines_input(
+                jsonlines_input=flask.request.data.decode("utf-8"), schema=input_schema
+            )
         else:
             return flask.Response(
                 response=(
