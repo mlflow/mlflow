@@ -55,10 +55,14 @@ export class MetricsPlotView extends React.Component {
     deselectedCurves: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
 
-  static getLineLegend = (metricKey, runDisplayName, isComparing) => {
+  static getLineLegend = (metricKey, runDisplayName, isComparing, shorten) => {
     let legend = metricKey;
     if (isComparing) {
-      legend += `, ${Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)}`;
+      if (shorten) {
+        legend += `, ${Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)}`;
+      } else {
+        legend += `, ${runDisplayName}`;
+      }
     }
     return legend;
   };
@@ -89,7 +93,8 @@ export class MetricsPlotView extends React.Component {
         ? true
         : 'legendonly';
       return {
-        name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
+        name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing, true),
+        longName: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing, false),
         x: history.map((entry) => {
           if (xAxis === X_AXIS_STEP) {
             return entry.step;

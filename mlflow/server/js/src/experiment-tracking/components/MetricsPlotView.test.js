@@ -295,6 +295,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_0',
           name: 'metric_0',
+          longName: 'metric_0',
           runId: 'runUuid1',
           x: [0, 1],
           y: [100, 200],
@@ -308,6 +309,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_1',
           name: 'metric_1',
+          longName: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
           y: [300, 400],
@@ -321,6 +323,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_2',
           name: 'metric_2',
+          longName: 'metric_2',
           runId: 'runUuid3',
           x: [0],
           y: [300],
@@ -334,6 +337,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_3',
           name: 'metric_3',
+          longName: 'metric_3',
           runId: 'runUuid3',
           x: [],
           y: [],
@@ -357,6 +361,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_0',
           name: 'metric_0',
+          longName: 'metric_0',
           runId: 'runUuid1',
           x: [0, 1, 2],
           y: [100, 200, NaN],
@@ -370,6 +375,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_1',
           name: 'metric_1',
+          longName: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
           y: [NaN, 400],
@@ -383,6 +389,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_2',
           name: 'metric_2',
+          longName: 'metric_2',
           runId: 'runUuid3',
           x: [0],
           y: [NaN],
@@ -396,6 +403,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_3',
           name: 'metric_3',
+          longName: 'metric_3',
           runId: 'runUuid3',
           x: [0, 1],
           y: [NaN, NaN],
@@ -419,6 +427,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_0',
           name: 'metric_0',
+          longName: 'metric_0',
           runId: 'runUuid1',
           x: [0, 1],
           y: [100, 166.88741721854302],
@@ -432,6 +441,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_1',
           name: 'metric_1',
+          longName: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
           y: [300, 366.887417218543],
@@ -445,6 +455,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_2',
           name: 'metric_2',
+          longName: 'metric_2',
           runId: 'runUuid3',
           x: [0],
           y: [300],
@@ -458,6 +469,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_3',
           name: 'metric_3',
+          longName: 'metric_3',
           runId: 'runUuid3',
           x: [],
           y: [],
@@ -481,6 +493,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_0',
           name: 'metric_0',
+          longName: 'metric_0',
           runId: 'runUuid1',
           x: [0, 1, 2],
           y: [100, 166.88741721854302, NaN],
@@ -494,6 +507,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_1',
           name: 'metric_1',
+          longName: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
           y: [NaN, 400],
@@ -507,6 +521,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_2',
           name: 'metric_2',
+          longName: 'metric_2',
           runId: 'runUuid3',
           x: [0],
           y: [NaN],
@@ -520,6 +535,7 @@ describe('unit tests', () => {
         {
           metricName: 'metric_3',
           name: 'metric_3',
+          longName: 'metric_3',
           runId: 'runUuid3',
           x: [0, 1],
           y: [NaN, NaN],
@@ -589,9 +605,14 @@ describe('unit tests', () => {
 
   test('getLineLegend()', () => {
     // how both metric and run name when comparing multiple runs
-    expect(MetricsPlotView.getLineLegend('metric_1', 'Run abc', true)).toBe('metric_1, Run abc');
+    const name = 'abcdefghijklmnopqrstuvwxyz';
+    const nameShortened = 'abcdefghijklmnopqrstu...';
+    expect(MetricsPlotView.getLineLegend('metric_1', name, true, false)).toBe(`metric_1, ${name}`);
+    expect(MetricsPlotView.getLineLegend('metric_1', name, true, true)).toBe(
+      `metric_1, ${nameShortened}`,
+    );
     // only show metric name when there
-    expect(MetricsPlotView.getLineLegend('metric_1', 'Run abc', false)).toBe('metric_1');
+    expect(MetricsPlotView.getLineLegend('metric_1', name, false, true)).toBe('metric_1');
   });
 
   test('parseTimestamp()', () => {

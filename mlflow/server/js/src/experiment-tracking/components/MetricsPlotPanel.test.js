@@ -361,14 +361,14 @@ describe('unit tests', () => {
       },
       points: [
         {
-          data: { runId: 'runUuid1', name: 'run1' },
+          data: { runId: 'runUuid1', name: 'run1', longName: 'run1_long' },
           fullData: {
             marker: { color: 'rgb(1, 1, 1)' },
           },
           y: 0.2,
         },
         {
-          data: { runId: 'runUuid2', name: 'run2' },
+          data: { runId: 'runUuid2', name: 'run2', longName: 'run2_long' },
           fullData: {
             marker: { color: 'rgb(2, 2, 2)' },
           },
@@ -384,13 +384,13 @@ describe('unit tests', () => {
       runItems: [
         {
           runId: 'runUuid1',
-          name: 'run1',
+          name: 'run1_long',
           color: 'rgb(1, 1, 1)',
           y: 0.2,
         },
         {
           runId: 'runUuid2',
-          name: 'run2',
+          name: 'run2_long',
           color: 'rgb(2, 2, 2)',
           y: 0.1,
         },
