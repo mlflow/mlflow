@@ -77,7 +77,6 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
     """
     Obtains the names of the subdirectories contained under the specified source code
     path and joins them with the specified destination code path.
-
     :param src_code_path: The path of the source code directory for which to list subdirectories.
     :param dst_code_path: The destination directory path to which subdirectory names should be
                           joined.
