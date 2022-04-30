@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.mleap import FLAVOR_NAME as MLEAP_FLAVOR_NAME
+from mlflow.utils.file_utils import TempDir
 
 
 @pytest.fixture(scope="module")
@@ -79,7 +80,10 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
-    with pytest.raises(ModuleNotFoundError, match="No module named 'dummy_module'"):
+    with TempDir(chdr=True):
+        # Load the model from a new directory that is not a parent of the source code path to
+        # verify that source code paths and their subdirectories are resolved correctly
+        with pytest.raises(ModuleNotFoundError, match="No module named 'dummy_module'"):
+            import dummy_module
+        mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
         import dummy_module
-    mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
-    import dummy_module
