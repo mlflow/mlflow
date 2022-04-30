@@ -387,58 +387,47 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
     assert "train-multi_logloss" in patched_metrics_data
 
 
+def ranking_dataset(num_rows=100, num_queries=10):
+    # https://stackoverflow.com/a/67621253
+    num_rows_per_query = num_rows // num_queries
+    df = pd.DataFrame(
+        {
+            "query_id": [i for i in range(num_queries) for _ in range(num_rows_per_query)],
+            "f1": np.random.random(size=(num_rows,)),
+            "f2": np.random.random(size=(num_rows,)),
+            "relevance": np.random.randint(2, size=(num_rows,)),
+        }
+    )
+    train_size = int(num_rows * 0.75)
+    df_train = df[:train_size]
+    df_valid = df[train_size:]
+    # Train
+    group_train = df_train.groupby("query_id")["query_id"].count().to_numpy()
+    X_train = df_train.drop(["query_id", "relevance"], axis=1)
+    y_train = df_train["relevance"]
+    train_set = lgb.Dataset(X_train, y_train, group=group_train)
+    # Validation
+    group_val = df_valid.groupby("query_id")["query_id"].count().to_numpy()
+    X_valid = df_valid.drop(["query_id", "relevance"], axis=1)
+    y_valid = df_valid["relevance"]
+    valid_set = lgb.Dataset(X_valid, y_valid, group=group_val)
+    return train_set, valid_set
+
+
 @pytest.mark.large
-def test_lgb_autolog_batch_metrics_logger_logs_ranking_metrics(bst_params, train_set):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to ensure that expected metrics are being logged.
-    original = BatchMetricsLogger.record_metrics
-
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(self, metrics, step=None):
-            patched_metrics_data.extend(metrics.items())
-            original(self, metrics, step)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-
-        mlflow.lightgbm.autolog()
-        evals_result = {}
-        params = {"metric": ["map"], "eval_at": [1]}
-        params.update(bst_params)
-        valid_sets = [train_set, lgb.Dataset(train_set.data)]
-        valid_names = ["train", "valid"]
-        if Version(lgb.__version__) <= Version("3.3.1"):
-            lgb.train(
-                params,
-                train_set,
-                num_boost_round=10,
-                valid_sets=valid_sets,
-                valid_names=valid_names,
-                evals_result=evals_result,
-            )
-        else:
-            lgb.train(
-                params,
-                train_set,
-                num_boost_round=10,
-                valid_sets=valid_sets,
-                valid_names=valid_names,
-                callbacks=[lgb.record_evaluation(evals_result)],
-            )
-
+def test_lgb_autolog_atsign_metrics(train_set):
+    train_set, valid_set = ranking_dataset()
+    mlflow.lightgbm.autolog()
+    params = {"objective": "regression", "metric": ["map"], "eval_at": [1]}
+    lgb.train(
+        params,
+        train_set,
+        valid_sets=[valid_set],
+        valid_names=["valid"],
+        num_boost_round=5,
+    )
     run = get_latest_run()
-    original_metrics = run.data.metrics
-    patched_metrics_data = dict(patched_metrics_data)
-    for metric_name in original_metrics:
-        assert metric_name in patched_metrics_data
-        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
-
-    assert "train-map@1" in original_metrics
-    assert "train-map_at_1" in patched_metrics_data
+    assert set(run.data.metrics) == {"valid-map_at_1"}
 
 
 @pytest.mark.large
