@@ -834,8 +834,11 @@ class DefaultEvaluator(ModelEvaluator):
 
             with matplotlib.rc_context(
                 {
-                    "font.size": min(8, 50.0 / self.num_classes),
+                    "font.size": min(8, math.ceil(50.0 / self.num_classes)),
                     "axes.labelsize": 8,
+                    "figure.figsize": [6.0, 4.0],
+                    "figure.autolayout": True,
+                    "savefig.facecolor": "white",
                 }
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0))
