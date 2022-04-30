@@ -147,7 +147,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
+def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Compute and record various common metrics for classifiers
 
@@ -157,8 +157,9 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
     (3) f1_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
-    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`,
-    `average` to be `weighted` to compute the weighted precision score.
+    By default, when `pos_label` is not specified (passed in as `None`), we set `average`
+    to `weighted` to compute the weighted score of theese metrics.
+    When the `pos_label` is specified (not `None`), we set `average` to `binary`.
 
     For (4) accuracy score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
@@ -187,6 +188,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     import sklearn
 
+    average = "weighted" if pos_label is None else "binary"
     y_pred = fitted_estimator.predict(X)
 
     classifier_metrics = [
@@ -194,21 +196,21 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
             name=prefix + "precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
             name=prefix + "recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
             name=prefix + "f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
@@ -468,7 +470,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
 ):
     import sklearn
 
@@ -478,7 +480,7 @@ def _log_specialized_estimator_content(
         try:
             if sklearn.base.is_classifier(fitted_estimator):
                 metrics = _get_classifier_metrics(
-                    fitted_estimator, prefix, X, y_true, sample_weight
+                    fitted_estimator, prefix, X, y_true, sample_weight, pos_label
                 )
             elif sklearn.base.is_regressor(fitted_estimator):
                 metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
@@ -528,7 +530,8 @@ def _log_specialized_estimator_content(
 
 
 def _log_estimator_content(
-    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None,
+    pos_label=None,
 ):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
@@ -544,6 +547,10 @@ def _log_estimator_content(
     :param X: The data samples.
     :param y_true: Labels.
     :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
+    :param pos_label: The positive label used to compute binary classification metrics such as
+        precision, recall, f1, etc. This parameter is only used for classification metrics.
+        If set to `None`, the function will calculate metrics for each label and find their
+        average weighted by support (number of true instances for each label).
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
@@ -554,6 +561,7 @@ def _log_estimator_content(
         X=X,
         y_true=y_true,
         sample_weight=sample_weight,
+        pos_label=pos_label,
     )
 
     if hasattr(estimator, "score") and y_true is not None:

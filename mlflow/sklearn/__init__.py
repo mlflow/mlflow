@@ -1719,7 +1719,7 @@ def _autolog(
         )
 
 
-def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
+def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None, pos_label=None):
     """
     Computes and logs metrics (and artifacts) for the given model and labeled dataset.
     The metrics/artifacts mirror what is auto-logged when training a model
@@ -1730,6 +1730,10 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     :param y_true: The labels for the evaluation dataset.
     :param prefix: Prefix used to name metrics and artifacts.
     :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
+    :param pos_label: The positive label used to compute binary classification metrics such as
+        precision, recall, f1, etc. This parameter is only used for classification metrics.
+        If set to `None`, the function will calculate metrics for each label and find their
+        average weighted by support (number of true instances for each label).
     :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
 
     ** Example **
@@ -1769,11 +1773,11 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     metrics_manager = _AUTOLOGGING_METRICS_MANAGER
     with metrics_manager.disable_log_post_training_metrics():
         return _eval_and_log_metrics_impl(
-            model, X, y_true, prefix=prefix, sample_weight=sample_weight
+            model, X, y_true, prefix=prefix, sample_weight=sample_weight, pos_label=pos_label
         )
 
 
-def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight=None):
+def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight, pos_label):
     from mlflow.sklearn.utils import _log_estimator_content
     from sklearn.base import BaseEstimator
 
@@ -1804,6 +1808,7 @@ def _eval_and_log_metrics_impl(model, X, y_true, *, prefix, sample_weight=None):
             X=X,
             y_true=y_true,
             sample_weight=sample_weight,
+            pos_label=pos_label,
         )
 
     return metrics
