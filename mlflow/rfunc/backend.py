@@ -58,9 +58,6 @@ class RFuncBackend(FlavorBackend):
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
 
-        if timeout:
-            raise Exception("Timeout is not yet supported in the R backend.")
-
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")
 
