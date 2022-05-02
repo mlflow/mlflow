@@ -85,7 +85,7 @@ if [ -z "$pyenv_exist" ]; then
       # Check if brew is installed and install it if it isn't present
       # Note: if xcode isn't installed, this will fail.
       if [ -z "$(command -v brew)" ]; then
-        echo "Brew is required to install pyenv on MacOS. Installing in your home directory."
+        echo "Homebrew is required to install pyenv on MacOS. Installing in your home directory."
         bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       fi
       echo "Updating brew and installing pyenv..."
@@ -102,6 +102,7 @@ if [ -z "$pyenv_exist" ]; then
       git clone --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
       PYENV_ROOT="$HOME/.pyenv"
       PYENV_BIN="$PYENV_ROOT/bin"
+      PATH="$PYENV_BIN:$PATH"
       if [ -n "$GITHUB_ACTIONS" ]; then
         echo "$PYENV_BIN" >> "$GITHUB_PATH"
         echo "PYENV_ROOT=$PYENV_ROOT" >> "$GITHUB_ENV"
@@ -121,7 +122,7 @@ MLFLOW_HOME=$(pwd)
 rd="$MLFLOW_HOME/requirements"
 
 # Get the minimum supported version from MLflow to ensure any feature development adheres to legacy Python versions
-min_py_version=$(grep "python_requires=" "$MLFLOW_HOME/setup.py" | grep -E -o "([0-9]{1,}\.)+[0-9]{1,}")
+min_py_version=$(python setup.py -q min_python_version)
 
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
 

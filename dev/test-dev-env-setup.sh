@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 
+function error_handling() {
+  echo "Error occurred in dev-env-setup.sh script at line: ${1}"
+  echo "Line exited with status: ${2}"
+}
+
+trap 'error_handling ${LINENO} $?' ERR
+
+set -o errexit
+set -o errtrace
+set -o errpipe
+set -o nounset
+set -o pipefail
+shopt -s inherit_errexit
+
 # Test that the dev-env-setup.sh script installs appropriate versions
 set -x
 
 err=0
-trap 'err=1' ERR
+
 MLFLOW_HOME=$(pwd)
 export MLFLOW_HOME
-export MLFLOW_DEV_ENV_REPLACE_ENV=0
-export MLFLOW_DEV_ENV_PYENV_INSTALL=1
+
 # Run the installation of the environment
 DEV_DIR=$MLFLOW_HOME/.venvs/mlflow-dev
 
@@ -20,7 +33,7 @@ source "$DEV_DIR/bin/activate"
 
 SKLEARN_VER=$(pip freeze | grep "scikit-learn")
 
-if [ -z $SKLEARN_VER ]; then
+if [ -z "$SKLEARN_VER" ]; then
   err=$((err + 1))
 fi
 
