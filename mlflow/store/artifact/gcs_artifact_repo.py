@@ -140,4 +140,14 @@ class GCSArtifactRepository(ArtifactRepository):
         ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        (bucket_name, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        gcs_bucket = self._get_bucket(bucket_name)
+        try:
+            blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
+            for blob in blobs:
+                blob.delete()
+        except Exception:
+            raise MlflowException("Run not found")
