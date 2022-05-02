@@ -9,12 +9,8 @@ trap 'error_handling ${LINENO} $?' ERR
 
 set -o errexit
 set -o errtrace
-set -o errpipe
-set -o nounset
 set -o pipefail
 shopt -s inherit_errexit
-
-# Test that the dev-env-setup.sh script installs appropriate versions
 set -x
 
 err=0
