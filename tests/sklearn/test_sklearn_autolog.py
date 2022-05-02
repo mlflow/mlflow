@@ -1230,7 +1230,7 @@ def test_eval_and_log_metrics_for_binary_classifier_with_pos_label():
             average="weighted",
             multi_class="ovo",
         )
-    assert eval_metrics == expected_metrics
+    assert eval_metrics == pytest.approx(expected_metrics)
 
     eval_artifacts = []
     if _is_plotting_supported():
