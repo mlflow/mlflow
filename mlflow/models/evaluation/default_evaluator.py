@@ -838,7 +838,7 @@ class DefaultEvaluator(ModelEvaluator):
                     "axes.labelsize": 8,
                 }
             ):
-                _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0))
+                _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
                 sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,
                     display_labels=self.label_list,
