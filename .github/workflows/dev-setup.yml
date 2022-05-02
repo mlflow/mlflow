@@ -1,6 +1,11 @@
 name: Dev environment setup
 
 on:
+  push:
+    paths:
+      - 'dev/dev-env-setup.sh'
+      - 'dev/test-dev-env-setup.sh'
+      - '.github/workflows/dev-setup.yml'
   schedule:
     - cron: "42 7 * * 0"
   workflow_dispatch:
@@ -18,9 +23,6 @@ on:
            uses the default branch.
         required: false
         default: ""
-  push:
-    paths:
-      - 'dev/dev-env-setup.sh'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
