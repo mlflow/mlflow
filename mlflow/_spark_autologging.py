@@ -6,8 +6,6 @@ import uuid
 
 from py4j.java_gateway import CallbackServerParameters
 
-from pyspark import SparkContext
-
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -69,14 +67,14 @@ def _get_spark_major_version(sc):
     return spark_major_version
 
 
-def _get_jvm_event_publisher():
+def _get_jvm_event_publisher(spark_context):
     """
     Get JVM-side object implementing the following methods:
     - init() for initializing JVM state needed for autologging (e.g. attaching a SparkListener
       to watch for datasource reads)
     - register(subscriber) for registering subscribers to receive datasource events
     """
-    jvm = SparkContext._gateway.jvm
+    jvm = spark_context._gateway.jvm
     qualified_classname = "{}.{}".format(_JAVA_PACKAGE, "MlflowAutologEventPublisher")
     return getattr(jvm, qualified_classname)
 
@@ -125,7 +123,7 @@ def _listen_for_spark_activity(spark_context):
     callback_server_started = gw.start_callback_server(callback_server_params)
 
     try:
-        event_publisher = _get_jvm_event_publisher()
+        event_publisher = _get_jvm_event_publisher(spark_context)
         event_publisher.init(1)
         _spark_table_info_listener = PythonSubscriber()
         event_publisher.register(_spark_table_info_listener)

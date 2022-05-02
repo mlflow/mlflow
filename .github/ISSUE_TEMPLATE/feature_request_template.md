@@ -26,7 +26,7 @@ The MLflow Community encourages new feature contributions. Would you or another 
 - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
 
 ### What component(s), interfaces, languages, and integrations does this feature affect?
-Components 
+Components
 - [ ] `area/artifacts`: Artifact stores and artifact logging
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
@@ -44,7 +44,7 @@ Interfaces
 - [ ] `area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry
 - [ ] `area/windows`: Windows support
 
-Languages 
+Languages
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
 - [ ] `language/new`: Proposals for new client languages

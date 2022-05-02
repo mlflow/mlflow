@@ -817,7 +817,7 @@ def _backported_all_estimators(type_filter=None):
     -------
     estimators : list of tuples
         List of (name, class), where ``name`` is the class name as string
-        and ``class`` is the actuall type of the class.
+        and ``class`` is the actual type of the class.
     """
     # lazy import to avoid circular imports from sklearn.base
     import pkgutil

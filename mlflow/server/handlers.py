@@ -415,10 +415,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
         if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
             _validate_param_against_schema(
                 schema=schema_validation_fns,
                 param=schema_key,
-                value=request_json.get(schema_key),
+                value=value,
                 proto_parsing_succeeded=proto_parsing_succeeded,
             )
 
@@ -935,8 +938,8 @@ def _get_metric_history():
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entites = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
-    response_message.metrics.extend([m.to_proto() for m in metric_entites])
+    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+    response_message.metrics.extend([m.to_proto() for m in metric_entities])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

@@ -448,6 +448,21 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 
 
 @pytest.mark.large
+def test_build_docker_virtualenv(iris_data, sk_model):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(sk_model, "model")
+
+    x, _ = iris_data
+    df = pd.DataFrame(iris_data[0])
+
+    extra_args = ["--install-mlflow", "--env-manager", "virtualenv"]
+    image_name = pyfunc_build_image(model_info.model_uri, extra_args=extra_args)
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:

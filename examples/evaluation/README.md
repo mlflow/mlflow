@@ -11,7 +11,7 @@ specified dataset using builtin default evaluator, and log resulting metrics & a
   `sklearn.datasets.fetch_california_housing`
 - Example `evaluate_with_custom_metrics.py` evaluates a scikit-learn `LinearRegression`
   model with a custom metric function on dataset loaded by `sklearn.datasets.fetch_california_housing`
-- Example `evaluate_with_custom_metrics_comprehensive.py` evaluates a scikit-learn `LinearRegression` model 
+- Example `evaluate_with_custom_metrics_comprehensive.py` evaluates a scikit-learn `LinearRegression` model
   with a comprehensive list of custom metric functions on dataset loaded by `sklearn.datasets.fetch_california_housing`
 
 #### Prerequisites

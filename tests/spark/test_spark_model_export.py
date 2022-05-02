@@ -38,7 +38,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)

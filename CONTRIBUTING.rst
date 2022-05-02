@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to 
+recommend waiting for feebdack from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -55,7 +55,7 @@ Write designs for significant changes
 
 For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
 an MLflow committer before investing heavily in implementation. During issue triage, we try to proactively
-identify issues require design by labeling them with ``needs design``. This is particularly important if your 
+identify issues require design by labeling them with ``needs design``. This is particularly important if your
 proposed implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
@@ -555,7 +555,7 @@ for an example.
 Sign your work
 ~~~~~~~~~~~~~~
 
-In order to commit your work, you need to sign that you wrote the patch or otherwise have the right 
+In order to commit your work, you need to sign that you wrote the patch or otherwise have the right
 to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
 
   Developer Certificate of Origin
@@ -601,7 +601,7 @@ Then add a line to every git commit message::
 
   Signed-off-by: Jane Smith <jane.smith@email.com>
 
-Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
+Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
 
 Code of Conduct

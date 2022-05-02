@@ -30,7 +30,11 @@ _PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
 
 # Note this regular expression does not cover all possible patterns
-_CONDA_DEPENDENCY_REGEX = re.compile(r"^(python|pip|setuptools|wheel)(<|>|<=|>=|=|==|!=)([\d.]+)$")
+_CONDA_DEPENDENCY_REGEX = re.compile(
+    r"^(?P<package>python|pip|setuptools|wheel)"
+    r"(?P<operator><|>|<=|>=|=|==|!=)?"
+    r"(?P<version>[\d.]+)?$"
+)
 
 
 class _PythonEnv:
@@ -110,16 +114,26 @@ class _PythonEnv:
 
         python = None
         build_dependencies = None
+        unmatched_dependencies = []
         dependencies = None
         for dep in conda_env.get("dependencies", []):
             if isinstance(dep, str):
                 match = _CONDA_DEPENDENCY_REGEX.match(dep)
                 if not match:
+                    unmatched_dependencies.append(dep)
                     continue
-                package, operator, version = match.groups()
+                package = match.group("package")
+                operator = match.group("operator")
+                version = match.group("version")
 
                 # Python
                 if not python and package == "python":
+                    if operator is None:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid dependency for python: {dep}. "
+                            "It must be pinned (e.g. python=3.8.13)."
+                        )
+
                     if operator in ("<", ">", "!="):
                         raise MlflowException(
                             f"Invalid version comperator for python: '{operator}'. "
@@ -134,7 +148,7 @@ class _PythonEnv:
                     build_dependencies = []
                 # "=" is an invalid operator for pip
                 operator = "==" if operator == "=" else operator
-                build_dependencies.append(package + operator + version)
+                build_dependencies.append(package + (operator or "") + (version or ""))
             elif _is_pip_deps(dep):
                 dependencies = dep["pip"]
             else:
@@ -148,6 +162,13 @@ class _PythonEnv:
             raise MlflowException(
                 f"Could not extract python version from {path}",
                 error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if unmatched_dependencies:
+            _logger.warning(
+                "The following conda dependencies will not be installed in the resulting "
+                "environment: %s",
+                unmatched_dependencies,
             )
 
         return dict(python=python, build_dependencies=build_dependencies, dependencies=dependencies)

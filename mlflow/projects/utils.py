@@ -183,7 +183,7 @@ def _fetch_git_repo(uri, version, dst_dir):
     helper.
     """
     # We defer importing git until the last moment, because the import requires that the git
-    # executable is availble on the PATH, so we only want to fail if we actually need it.
+    # executable is available on the PATH, so we only want to fail if we actually need it.
     import git
 
     repo = git.Repo.init(dst_dir)

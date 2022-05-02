@@ -45,7 +45,6 @@ _logger = logging.getLogger(__name__)
 # Therefore, we attempt to import from `tests` and gracefully emit a warning if it's unavailable.
 try:
     from tests.helper_functions import pyfunc_serve_and_score_model
-    from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
     from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 except ImportError:
     _logger.warning(

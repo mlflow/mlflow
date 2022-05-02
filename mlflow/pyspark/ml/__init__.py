@@ -18,6 +18,7 @@ from mlflow.utils.autologging_utils import (
     _get_new_training_session_class,
     autologging_integration,
     safe_patch,
+    resolve_input_example_and_signature,
 )
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
@@ -26,6 +27,9 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
+)
+from mlflow.utils.autologging_utils import (
+    INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 
 _logger = logging.getLogger(__name__)
@@ -101,7 +105,14 @@ def _should_log_model(spark_model):
 
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
-    if class_name in _log_model_allowlist:
+    should_log = class_name in _log_model_allowlist
+    if not should_log:
+        for name in _log_model_allowlist:
+            # only support one trailing *
+            if name.endswith("*") and class_name.startswith(name[:-1]):
+                should_log = True
+                break
+    if should_log:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
         elif class_name == "pyspark.ml.pipeline.PipelineModel":
@@ -706,6 +717,8 @@ def autolog(
     silent=False,
     log_post_training_metrics=True,
     registered_model_name=None,
+    log_input_examples=False,
+    log_model_signatures=True,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -823,6 +836,14 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with pyspark ml model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with spark ml pipeline/estimator artifacts during training.
+                                 If ``False`` signatures are not logged.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -876,7 +897,7 @@ def autolog(
 
         mlflow.set_tags(_get_estimator_info_tags(estimator))
 
-    def _log_posttraining_metadata(estimator, spark_model, params):
+    def _log_posttraining_metadata(estimator, spark_model, params, input_df):
 
         if _is_parameter_search_estimator(estimator):
             try:
@@ -924,9 +945,46 @@ def autolog(
 
         if log_models:
             if _should_log_model(spark_model):
-                # TODO: support model signature
+                from mlflow.models import infer_signature
+                from mlflow.pyspark.ml._autolog import (
+                    cast_spark_df_with_vector_to_array,
+                    get_feature_cols,
+                )
+                from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
+                from pyspark.sql import SparkSession
+
+                spark = SparkSession.builder.getOrCreate()
+
+                def _get_input_example_as_pd_df():
+                    feature_cols = list(get_feature_cols(input_df.schema, spark_model))
+                    limited_input_df = input_df.select(feature_cols).limit(
+                        INPUT_EXAMPLE_SAMPLE_ROWS
+                    )
+                    return cast_spark_df_with_vector_to_array(limited_input_df).toPandas()
+
+                def _infer_model_signature(input_example_slice):
+                    input_slice_df = _find_and_set_features_col_as_vector_if_needed(
+                        spark.createDataFrame(input_example_slice), spark_model
+                    )
+                    model_output = spark_model.transform(input_slice_df).drop(
+                        *input_slice_df.columns
+                    )
+                    return infer_signature(input_example_slice, model_output.toPandas())
+
+                input_example, signature = resolve_input_example_and_signature(
+                    _get_input_example_as_pd_df,
+                    _infer_model_signature,
+                    log_input_examples,
+                    log_model_signatures,
+                    _logger,
+                )
+
                 mlflow.spark.log_model(
-                    spark_model, artifact_path="model", registered_model_name=registered_model_name
+                    spark_model,
+                    artifact_path="model",
+                    registered_model_name=registered_model_name,
+                    input_example=input_example,
+                    signature=signature,
                 )
                 if _is_parameter_search_model(spark_model):
                     mlflow.spark.log_model(
@@ -951,10 +1009,15 @@ def autolog(
         else:
             # we need generate estimator param map so we call `self.copy(params)` to construct
             # an estimator with the extra params.
+            from pyspark.storagelevel import StorageLevel
+
             estimator = self.copy(params) if params is not None else self
             _log_pretraining_metadata(estimator, params)
+            input_training_df = args[0].persist(StorageLevel.MEMORY_AND_DISK)
             spark_model = original(self, *args, **kwargs)
-            _log_posttraining_metadata(estimator, spark_model, params)
+            _log_posttraining_metadata(estimator, spark_model, params, input_training_df)
+            input_training_df.unpersist()
+
             return spark_model
 
     def patched_fit(original, self, *args, **kwargs):

@@ -1,6 +1,5 @@
 import logging
 import click
-import os
 
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -9,6 +8,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import cli_args
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils import env_manager as _EnvManager
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +62,7 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
+    env_manager = env_manager or _EnvManager.CONDA
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
@@ -114,6 +115,7 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
+    env_manager = env_manager or _EnvManager.CONDA
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(
@@ -143,6 +145,7 @@ def prepare_env(
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
+    env_manager = env_manager or _EnvManager.CONDA
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
@@ -151,9 +154,11 @@ def prepare_env(
 @commands.command("build-docker")
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
+@cli_args.ENV_MANAGER
+@cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def build_docker(model_uri, name, install_mlflow, enable_mlserver):
+def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
     Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
@@ -183,8 +188,8 @@ def build_docker(model_uri, name, install_mlflow, enable_mlserver):
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """
-    mlflow_home = os.environ.get("MLFLOW_HOME", None)
-    _get_flavor_backend(model_uri, docker_build=True).build_image(
+    env_manager = env_manager or _EnvManager.CONDA
+    _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,
         mlflow_home=mlflow_home,
