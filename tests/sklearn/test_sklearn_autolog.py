@@ -1198,7 +1198,8 @@ def test_eval_and_log_metrics_for_binary_classifier_with_pos_label():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
-    model = sklearn.linear_model.LogisticRegression()
+    import sklearn.ensemble
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
     X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
     X_eval = X[:-1, :]
     y_eval = y[:-1]
