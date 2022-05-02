@@ -196,21 +196,33 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
             name=prefix + "precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
             name=prefix + "recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
             name=prefix + "f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, pos_label=pos_label, average=average, sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
