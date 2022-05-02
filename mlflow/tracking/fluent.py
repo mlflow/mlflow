@@ -80,11 +80,10 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
 
         import mlflow
 
-        # Set an experiment name, which must be unique and case sensitive.
-        mlflow.set_experiment("Social NLP Experiments")
+        # Set an experiment name, which must be unique and case-sensitive.
+        experiment = mlflow.set_experiment("Social NLP Experiments")
 
         # Get Experiment Details
-        experiment = mlflow.get_experiment_by_name("Social NLP Experiments")
         print("Experiment_id: {}".format(experiment.experiment_id))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
