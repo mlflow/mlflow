@@ -9,6 +9,10 @@ import os
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
+from mlflow.tracking.metic_value_conversion_utils import (
+    convert_metric_value_to_float_if_possible,
+    convert_metric_value_to_str_if_possible,
+)
 from mlflow.utils.validation import (
     _validate_run_id,
     _validate_experiment_artifact_location,
@@ -212,7 +216,8 @@ class TrackingServiceClient:
                     underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
                     All backend stores will support keys up to length 250, but some may
                     support larger keys.
-        :param value: Metric value (float). Note that some special values such
+        :param value: Metric value (float) or single-item ndarray / tensor.
+                      Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
                       All backend stores will support values up to length 5000, but some
@@ -222,14 +227,18 @@ class TrackingServiceClient:
         """
         timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
-        metric = Metric(key, value, timestamp, step)
+        metric_value = convert_metric_value_to_float_if_possible(value)
+        metric = Metric(key, metric_value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
         """
-        Log a parameter against the run ID. Value is converted to a string.
+        Log a parameter against the run ID.
+
+        :param value: `str`, or ndarray or tensor, which will be converted to
+                      a list and then stringified.
         """
-        param = Param(key, str(value))
+        param = Param(key, convert_metric_value_to_str_if_possible(value))
         try:
             self.store.log_param(run_id, param)
         except MlflowException as e:
