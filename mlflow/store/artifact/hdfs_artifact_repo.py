@@ -33,8 +33,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             _, file_name = os.path.split(local_file)
             destination = posixpath.join(hdfs_base_path, file_name)
-            with hdfs.open(destination, "wb") as output:
-                output.write(open(local_file, "rb").read())
+            hdfs.upload(destination, open(local_file, "rb"))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         """
@@ -66,8 +65,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                 for each_file in files:
                     source = os.path.join(subdir_path, each_file)
                     destination = posixpath.join(hdfs_subdir_path, each_file)
-                    with hdfs.open(destination, "wb") as output_stream:
-                        output_stream.write(open(source, "rb").read())
+                    hdfs.upload(destination, open(source, "rb"))
 
     def list_artifacts(self, path=None):
         """
