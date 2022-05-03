@@ -1,26 +1,21 @@
+import sys
+
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
-
-from .metic_value_conversion_utils import convert_metric_value_to_str_if_possible
 
 
 class Param(_MLflowObject):
     """
     Parameter object.
-
-    Args:
-        key: `str`, `pyspark.ml.param.Param`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
-        value: `str`, `numpy.ndarray`, `tensorflow.Tensor`, `torch.Tensor`, or any value `x` that
-        can be converted to string by `str(x)`.
-
-        Multidimensional arrays or tensors will be stringified after being converted to a list.
-
     """
 
     def __init__(self, key, value):
-        key = convert_metric_value_to_str_if_possible(key)
-        value = convert_metric_value_to_str_if_possible(value)
+        if "pyspark.ml" in sys.modules:
+            import pyspark.ml.param
 
+            if isinstance(key, pyspark.ml.param.Param):
+                key = key.name
+                value = str(value)
         self._key = key
         self._value = value
 

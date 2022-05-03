@@ -1,33 +1,15 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 
-from .metic_value_conversion_utils import (
-    convert_metric_value_to_float_if_possible,
-    convert_metric_value_to_str_if_possible,
-)
-
 
 class Metric(_MLflowObject):
     """
     Metric object.
-
-    Args:
-        key: `str`, `pyspark.ml.param.Param`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
-
-        Multidimensional arrays or tensors will be stringified after being converted to a list.
-
-        value: `float`, `numpy.ndarray`, `tensorflow.Tensor` or `torch.Tensor`
-
-        Multidimensional arrays or tensors should contain a single element in order for them
-        to be converted to a float value.
-
     """
 
     def __init__(self, key, value, timestamp, step):
-        self._key = convert_metric_value_to_str_if_possible(key)
-
-        self._value = convert_metric_value_to_float_if_possible(value, convert_int=False)
-
+        self._key = key
+        self._value = value
         self._timestamp = timestamp
         self._step = step
 
