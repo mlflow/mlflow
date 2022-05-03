@@ -1,82 +1,55 @@
-name: Bug Report
-description: Create a report to help us reproduce and correct the bug
-labels: 'bug'
-title: '[BUG]'
+name: Feature Request
+description: Use this template for feature and enhancement proposals.
+labels: 'enhancement'
+title: '[FR]'
 
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
-        #### Please fill in this bug report template to ensure a timely and thorough response.
+        Thank you for submitting a feature request. **Before proceeding, please review MLflow's [Issue Policy for feature requests](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md#feature-requests) and the [MLflow Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst)**.
+        **Please fill in this feature request template to ensure a timely and thorough response.**
   - type: dropdown
     id: contribution
     attributes:
       label: Willingness to contribute
-      description: The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
+      description: The MLflow Community encourages new feature contributions. Would you or another member of your organization be willing to contribute an implementation of this feature (either as an MLflow Plugin or an enhancement to the MLflow code base)?
       options:
-        - Yes. I can contribute a fix for this bug independently.
-        - Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
-        - No. I cannot contribute a bug fix at this time.
+        - Yes. I can contribute this feature independently.
+        - Yes. I would be willing to contribute this feature with guidance from the MLflow community.
+        - No. I cannot contribute this feature at this time.
     validations:
       required: true
   - type: textarea
     attributes:
-      label: System information
+      label: Proposal Summary
       description: |
-        Describe the system where you encountered the bug.
+        In a few sentences, provide a clear, high-level description of the feature request
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Motivation
+      description: |
+        - What is the use case for this feature?
+        - Why is this use case valuable to support for MLflow users in general?
+        - Why is this use case valuable to support for your project(s) or organization?
+        - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
       value: |
-        - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
-        - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
-        - **MLflow installed from (source or binary)**:
-        - **MLflow version (run ``mlflow --version``)**:
-        - **Python version**:
-        - **npm version, if running the dev UI**:
+        #### What is the use case for this feature?
+
+        #### Why is this use case valuable to support for MLflow users in general?
+
+        #### Why is this use case valuable to support for your project(s) or organization?
+
+        #### Why is it currently difficult to achieve this use case?
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Describe the problem
+      label: Details
       description: |
-        Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Tracking information
-      description: |
-        For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
-        ```python
-        print("MLflow version:", mlflow.__version__)
-        print("Tracking URI:", mlflow.get_tracking_uri())
-        print("Artifact URI:", mlflow.get_artifact_uri())
-        ```
-        Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
-    validations:
-      required: false
-  - type: textarea
-    attributes:
-      label: Code to reproduce issue
-      description: |
-        Provide a reproducible test case that is the bare minimum necessary to generate the problem.
-      placeholder: |
-        ```python
-        # code to reproduce issue
-        ```
-    validations:
-      required: true
-  - type: textarea
-    attributes:
-      label: Other info / logs
-      description: |
-        Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
-      placeholder: |
-        ```python-traceback
-        Traceback (most recent call last):
-          File "example.py", line 1, in <module>
-            raise Exception("something went wrong")
-        Exception: something went wrong
-        ```
+        Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).
     validations:
       required: false
   - type: checkboxes
