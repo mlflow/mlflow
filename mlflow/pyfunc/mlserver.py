@@ -23,7 +23,7 @@ def get_cmd(
         cmd_env["MLSERVER_HOST"] = host
 
     if timeout:
-        _logger.warning("Timeout is not yet supported in MLServer.")
+        raise Exception("Timeout is not yet supported in MLServer.")
 
     cmd_env["MLSERVER_MODEL_NAME"] = MLServerDefaultModelName
 
