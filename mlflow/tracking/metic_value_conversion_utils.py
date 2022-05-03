@@ -70,7 +70,10 @@ def convert_metric_value_to_float_if_possible(x, convert_int: bool = True) -> fl
         if type(possible_float) == float:
             return possible_float
 
-    return float(x)
+    try:
+        return float(x)
+    except ValueError:
+        raise MlflowException(f"Can't convert {x} to float")
 
 
 @__converter_requires("pyspark.ml")
