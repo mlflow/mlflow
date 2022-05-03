@@ -40,15 +40,18 @@ This script will:
 
 -q, -quiet        --quiet       Whether to have pip install in quiet mode (Default: false)
 
+-o, -override     --override    Override the python version (useful for M1 arm-based users)
+
 EOF
 }
 
 export verbose=0
 export quiet=0
-while getopts "d:fvqh" opt
+while getopts "d:o:fvqh" opt
 do
   case "$opt" in
     d) directory="$OPTARG" ;;
+    o) override_py_ver="$OPTARG" ;;
     f) full_install=1 ;;
     v) verbose=1 ;;
     q) quiet=1 ;;
@@ -71,6 +74,8 @@ esac
 function quietpip(){
   echo $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' )
 }
+
+echo "LINE 78!"
 
 # Check if pyenv is installed and offer to install it if not present
 pyenv_exist=$(command -v pyenv)
@@ -126,6 +131,19 @@ min_py_version=$(python setup.py -q min_python_version)
 
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
 
+# Resolve a minor version to the latest micro version
+case $min_py_version in
+  "3.7") PY_INSTALL_VERSION="3.7.13" ;;
+  "3.8") PY_INSTALL_VERSION="3.8.13" ;;
+  "3.9") PY_INSTALL_VERSION="3.9.11" ;;
+  "3.10") PY_INSTALL_VERSION="3.10.3" ;;
+esac
+
+if [[ -n "$override_py_ver" ]]; then
+  echo "$(tput bold; tput setaf 1)You are overriding the recommended version of Python for MLflow development: $min_py_version. $(tput sgr0)"
+  PY_INSTALL_VERSION=$override_py_ver
+fi
+
 echo "The top-level dependencies that will be installed are: "
 
 if [[ $full_install == 1 ]]; then
@@ -139,13 +157,8 @@ else
 fi
 echo "$(tail -n +1 $files | grep "^[^#= ]")"
 
-# Resolve a minor version to the latest micro version
-case $min_py_version in
-  "3.7") PY_INSTALL_VERSION="3.7.13" ;;
-  "3.8") PY_INSTALL_VERSION="3.8.13" ;;
-  "3.9") PY_INSTALL_VERSION="3.9.11" ;;
-  "3.10") PY_INSTALL_VERSION="3.10.3" ;;
-esac
+
+echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
 
 # Install the Python version if it cannot be found
 pyenv install -s "$PY_INSTALL_VERSION"
