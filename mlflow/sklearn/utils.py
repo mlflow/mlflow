@@ -200,7 +200,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                 y_pred=y_pred,
                 pos_label=pos_label,
                 average=average,
-                sample_weight=sample_weight
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
@@ -211,7 +211,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                 y_pred=y_pred,
                 pos_label=pos_label,
                 average=average,
-                sample_weight=sample_weight
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
@@ -222,7 +222,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
                 y_pred=y_pred,
                 pos_label=pos_label,
                 average=average,
-                sample_weight=sample_weight
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
@@ -542,7 +542,13 @@ def _log_specialized_estimator_content(
 
 
 def _log_estimator_content(
-    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None,
+    autologging_client,
+    estimator,
+    run_id,
+    prefix,
+    X,
+    y_true=None,
+    sample_weight=None,
     pos_label=None,
 ):
     """

@@ -1199,6 +1199,7 @@ def test_eval_and_log_metrics_for_binary_classifier_with_pos_label():
     mlflow.sklearn.autolog(disable=True)
 
     import sklearn.ensemble
+
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
     X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
     X_eval = X[:-1, :]
