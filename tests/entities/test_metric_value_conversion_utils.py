@@ -1,5 +1,6 @@
 import unittest
 
+from mlflow.exceptions import MlflowException
 from mlflow.entities.metic_value_conversion_utils import *
 from tests.helper_functions import random_str, random_int
 
@@ -12,6 +13,20 @@ import pyspark.ml.util
 
 
 class TestMetricValueConversionUtils(unittest.TestCase):
+    def test_reraised_value_errors(self):
+        multi_item_array = np.random.rand(2, 2)
+        multi_item_tf_tensor = tf.random.uniform([2, 2])
+        multi_item_torch_tensor = torch.rand((2, 2))
+
+        with self.assertRaises(MlflowException):
+            convert_metric_value_to_float_if_possible(multi_item_array)
+
+        with self.assertRaises(MlflowException):
+            convert_metric_value_to_float_if_possible(multi_item_tf_tensor)
+
+        with self.assertRaises(MlflowException):
+            convert_metric_value_to_float_if_possible(multi_item_torch_tensor)
+
     def test_convert_metric_value_to_str(self):
         str_mertic_val = random_str(random_int(10, 50))
 
@@ -45,9 +60,6 @@ class TestMetricValueConversionUtils(unittest.TestCase):
         self.assertEqual(
             float_metric_val, convert_metric_value_to_float_if_possible(float_metric_val)
         )
-
-        with self.assertRaises(ValueError):
-            convert_metric_value_to_float_if_possible(np.random.randint((2, 2, 2)))
 
         ndarray_val = np.random.rand(1)
         self.assertEqual(

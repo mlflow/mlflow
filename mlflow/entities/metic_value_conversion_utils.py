@@ -1,8 +1,21 @@
 import sys
 
+from mlflow.exceptions import MlflowException
+
 
 def is_module_imported(module_name: str) -> bool:
     return module_name in sys.modules
+
+
+def __try_get_item(x):
+    try:
+        xval = x.item()
+    except ValueError:
+        raise MlflowException(
+            f"Expected metric value to contain a single element, got shape {x.shape} instead"
+        )
+
+    return xval
 
 
 def __converter_requires(module_name: str):
@@ -85,7 +98,7 @@ def convert_metric_value_to_float_if_ndarray(x):
     import numpy as np
 
     if isinstance(x, np.ndarray):
-        return float(x.item())
+        return float(__try_get_item(x))
 
     return x
 
@@ -95,8 +108,9 @@ def convert_metric_value_to_float_if_torch_tensor(x):
     import torch
 
     if isinstance(x, torch.Tensor):
-        extracted_tensor_val = x.detach().cpu().item()
-        return float(extracted_tensor_val)
+        extracted_tensor_val = x.detach().cpu()
+
+        return float(__try_get_item(extracted_tensor_val))
 
     return x
 
@@ -109,7 +123,7 @@ def convert_metric_value_to_str_if_torch_tensor(x):
         extracted_ndarray = x.detach().cpu().numpy()
         if not hasattr(extracted_ndarray, "len"):
             # single-valued item ex. numpy.float32
-            return f"[{extracted_ndarray.item()}]"
+            return f"[{__try_get_item(extracted_ndarray)}]"
 
         return convert_metric_value_to_float_if_ndarray(extracted_ndarray)
 
@@ -121,7 +135,12 @@ def convert_metric_value_to_float_if_tensorflow_tensor(x):
     import tensorflow as tf
 
     if isinstance(x, tf.Tensor):
-        return float(x)
+        try:
+            return float(x)
+        except TypeError:
+            raise MlflowException(
+                f"Expected metric value to contain a single element, got shape {x.shape} instead"
+            )
 
     return x
 
@@ -134,7 +153,7 @@ def convert_metric_value_to_str_if_tensorflow_tensor(x):
         extracted_ndarray = x.numpy()
         if not hasattr(extracted_ndarray, "len"):
             # single-valued item ex. numpy.float32
-            return f"[{extracted_ndarray.item()}]"
+            return f"[{__try_get_item(extracted_ndarray)}]"
 
         return convert_metric_value_to_str_if_ndarray(extracted_ndarray)
 
