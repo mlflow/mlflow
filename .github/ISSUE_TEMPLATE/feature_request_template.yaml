@@ -36,15 +36,22 @@ body:
         - Why is this use case valuable to support for your project(s) or organization?
         - Why is it currently difficult to achieve this use case? (please be as specific as possible about why related MLflow features and components are insufficient)
       value: |
-        ### What is the use case for this feature?
+        #### What is the use case for this feature?
 
-        ### Why is this use case valuable to support for MLflow users in general?
+        #### Why is this use case valuable to support for MLflow users in general?
 
-        ### Why is this use case valuable to support for your project(s) or organization?
+        #### Why is this use case valuable to support for your project(s) or organization?
 
-        ### Why is it currently difficult to achieve this use case?
+        #### Why is it currently difficult to achieve this use case?
     validations:
       required: true
+  - type: textarea
+    attributes:
+      label: Details
+      description: |
+        Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).
+    validations:
+      required: false
   - type: checkboxes
     id: component
     attributes:
@@ -109,10 +116,3 @@ body:
           required: false
         - label: "`integrations/databricks`: Databricks integrations"
           required: false
-  - type: textarea
-    attributes:
-      label: Details
-      description: |
-        Use this section to include any additional information about the feature. If you have a proposal for how to implement this feature, please include it here. For implementation guidelines, please refer to the [Contributing Guide](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#contribution-guidelines).
-    validations:
-      required: false
