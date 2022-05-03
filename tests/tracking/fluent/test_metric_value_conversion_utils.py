@@ -1,7 +1,7 @@
 import unittest
 
 from mlflow.exceptions import MlflowException
-from mlflow.entities.metic_value_conversion_utils import *
+from mlflow.tracking.metic_value_conversion_utils import *
 from tests.helper_functions import random_str, random_int
 
 import numpy as np
