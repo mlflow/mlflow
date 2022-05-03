@@ -1731,9 +1731,12 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None, pos_la
     :param prefix: Prefix used to name metrics and artifacts.
     :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
     :param pos_label: The positive label used to compute binary classification metrics such as
-        precision, recall, f1, etc. This parameter is only used for classification metrics.
-        If set to `None`, the function will calculate metrics for each label and find their
-        average weighted by support (number of true instances for each label).
+        precision, recall, f1, etc. This parameter is only used for binary classification model
+        - if used on multi-label model, the evaluation will fail;
+        - if used for regression model, the parameter will be ignored.
+        For multi-label classification, keep `pos_label` unset (or set to `None`), and the
+        function will calculate metrics for each label and find their average weighted by support
+        (number of true instances for each label).
     :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
 
     ** Example **
