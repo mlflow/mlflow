@@ -75,8 +75,6 @@ function quietpip(){
   echo $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' )
 }
 
-echo "LINE 78!"
-
 # Check if pyenv is installed and offer to install it if not present
 pyenv_exist=$(command -v pyenv)
 
