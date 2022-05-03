@@ -434,6 +434,7 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = BertDataModule(**dict_args)
+    dm.prepare_data()
 
     model = BertNewsClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
