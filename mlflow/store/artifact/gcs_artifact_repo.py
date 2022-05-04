@@ -6,7 +6,6 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.exceptions import MlflowException
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -145,9 +144,6 @@ class GCSArtifactRepository(ArtifactRepository):
             dest_path = posixpath.join(dest_path, artifact_path)
 
         gcs_bucket = self._get_bucket(bucket_name)
-        try:
-            blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
-            for blob in blobs:
-                blob.delete()
-        except Exception:
-            raise MlflowException("Run not found")
+        blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
+        for blob in blobs:
+            blob.delete()
