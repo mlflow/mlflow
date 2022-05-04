@@ -43,7 +43,7 @@ The parameters can be overridden via the command line:
 
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. gpus - Number of GPUs
-3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used.
+3. strategy - [strategy](https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#trainer-class-api) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no strategy is used.
 4. batch_size - Input batch size for training
 5. num_workers - Number of worker threads to load training data
 6. lr - Learning rate
@@ -58,7 +58,7 @@ Or to run the training script directly with custom parameters:
 python bert_classification.py \
     --max_epochs 5 \
     --gpus 1 \
-    --accelerator "ddp" \
+    --strategy "ddp" \
     --batch_size 64 \
     --num_workers 2 \
     --lr 0.001
