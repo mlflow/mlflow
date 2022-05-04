@@ -53,9 +53,7 @@ def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: st
         msg = (
             "You are starting a tracking server in `--artifacts-only` mode and have provided a "
             f"value for `--backend_store_uri`: '{backend_store_uri}'. A tracking server in "
-            "`--artifacts-only` mode cannot have a custom value set for `--backend_store_uri` to "
-            "properly proxy access to the artifact storage location. Remove the "
-            "`--backend_store_uri` argument in your configuration arguments for this server and "
-            "any other tracking servers when operating in proxy artifact access mode."
+            "`--artifacts-only` mode cannot have a value set for `--backend_store_uri` to "
+            "properly proxy access to the artifact storage location."
         )
         raise click.UsageError(message=msg)
