@@ -50,7 +50,7 @@ The parameters can be overridden via the command line:
 
 For example:
 ```
-mlflow run . -P max_epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P accelerator="ddp"
+mlflow run . -P max_epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P strategy="ddp"
 ```
 Or to run the training script directly with custom parameters:
 
