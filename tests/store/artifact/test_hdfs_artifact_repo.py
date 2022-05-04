@@ -1,10 +1,11 @@
 import os
 import sys
+from io import BufferedReader
 from tempfile import NamedTemporaryFile
 from unittest import mock
 
 import pytest
-from unittest.mock import call, mock_open
+from unittest.mock import call, mock_open, ANY
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
@@ -33,11 +34,10 @@ def test_log_artifact(hdfs_system_mock):
             extra_conf=None, host="hdfs://host_name", kerb_ticket=None, port=8020, user=None
         )
 
-        open_mock = hdfs_system_mock.return_value.open
-        open_mock.assert_called_once_with("/hdfs/path/more_path/some/sample_file", "wb")
-
-        write_mock = open_mock.return_value.__enter__.return_value.write
-        write_mock.assert_called_once_with(b"PyArrow Works")
+        upload_mock = hdfs_system_mock.return_value.upload
+        upload_mock.assert_called_once_with("/hdfs/path/more_path/some/sample_file", ANY)
+        args, _ = upload_mock.call_args
+        assert isinstance(args[1], BufferedReader)
 
 
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
@@ -54,12 +54,10 @@ def test_log_artifact_viewfs(hdfs_system_mock):
         hdfs_system_mock.assert_called_once_with(
             extra_conf=None, host="viewfs://host_name", kerb_ticket=None, port=0, user=None
         )
-
-        open_mock = hdfs_system_mock.return_value.open
-        open_mock.assert_called_once_with("/mypath/more_path/some/sample_file", "wb")
-
-        write_mock = open_mock.return_value.__enter__.return_value.write
-        write_mock.assert_called_once_with(b"PyArrow Works")
+        upload_mock = hdfs_system_mock.return_value.upload
+        upload_mock.assert_called_once_with("/mypath/more_path/some/sample_file", ANY)
+        args, _ = upload_mock.call_args
+        assert isinstance(args[1], BufferedReader)
 
 
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
@@ -84,10 +82,8 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
             port=0,
             user="some_kerberos_user",
         )
-
-        # TODO: refactor this magic ...
-        write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
-        write_mock.assert_called_once_with(b"PyArrow Works")
+        upload_mock = hdfs_system_mock.return_value.upload
+        upload_mock.assert_called_once()
 
 
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
@@ -123,18 +119,21 @@ def test_log_artifacts(hdfs_system_mock):
             user="some_kerberos_user",
         )
 
-        open_mock = hdfs_system_mock.return_value.open
-        open_mock.assert_has_calls(
+        upload_mock = hdfs_system_mock.return_value.upload
+        upload_mock.assert_has_calls(
             calls=[
-                call("/some_path/maybe/path/file_one.txt", "wb"),
-                call("/some_path/maybe/path/subdir/file_two.txt", "wb"),
+                call("/some_path/maybe/path/file_one.txt", ANY),
+                call("/some_path/maybe/path/subdir/file_two.txt", ANY),
             ],
             any_order=True,
         )
-        write_mock = open_mock.return_value.__enter__.return_value.write
-        write_mock.assert_has_calls(
-            calls=[call(b"PyArrow Works once"), call(b"PyArrow Works two")], any_order=True
-        )
+        call_args_list = upload_mock.call_args_list
+
+        args, _ = call_args_list[0]
+        assert isinstance(args[1], BufferedReader)
+
+        args, _ = call_args_list[1]
+        assert isinstance(args[1], BufferedReader)
 
 
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
