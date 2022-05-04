@@ -306,9 +306,10 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
             ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
-        assert result.stdout.startswith(
-            "You are starting a tracking server in `--artifacts-only` mode with a "
-            "non-default `--backend_store_uri`:"
+        assert result.stderr.startswith(
+            "Usage: server [OPTIONS]\nTry 'server --help' for help.\n\nError: You are starting a "
+            "tracking server in `--artifacts-only` mode and have provided a value for "
+            "`--backend_store_uri`"
         )
-        assert result.exit_code == 0
-        run_server_mock.assert_called()
+        assert result.exit_code != 0
+        run_server_mock.assert_not_called()

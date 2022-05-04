@@ -35,13 +35,27 @@ def resolve_default_artifact_root(
     return default_artifact_root
 
 
-def artifacts_only_config_warning(artifacts_only: bool, backend_store_uri: str) -> None:
+def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
+    """
+    Utility function to validate if the configured backend store uri location is set as the
+    default value for MLflow server.
 
-    if artifacts_only and not is_local_uri(backend_store_uri):
+    :param backend_store_uri: The value set for the backend store uri for MLflow server artifact
+           handling.
+    :return: bool True if the default value is set.
+    """
+    return backend_store_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+
+def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: str) -> None:
+
+    if artifacts_only and not _is_default_backend_store_uri(backend_store_uri):
         msg = (
-            "You are starting a tracking server in `--artifacts-only` mode with a non-default "
-            f"`--backend_store_uri`: '{backend_store_uri}'. To prevent errors in listing "
-            "artifacts, please ensure that any other tracking servers that are started do not "
-            "specify the argument `--backend_store_uri` at initialization."
+            "You are starting a tracking server in `--artifacts-only` mode and have provided a "
+            f"value for `--backend_store_uri`: '{backend_store_uri}'. A tracking server in "
+            "`--artifacts-only` mode cannot have a custom value set for `--backend_store_uri` to "
+            "properly proxy access to the artifact storage location. Remove the "
+            "`--backend_store_uri` argument in your configuration arguments for this server and "
+            "any other tracking servers when operating in proxy artifact access mode."
         )
-        click.echo(message=msg, nl=True, color=True)
+        raise click.UsageError(message=msg)
