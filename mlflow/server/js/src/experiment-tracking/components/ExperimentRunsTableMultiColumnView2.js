@@ -540,15 +540,24 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const agGridOverrides = css({
       '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
       '--ag-header-foreground-color': '#20272e',
-      '.ag-root-wrapper': {
-        border: '0!important',
+      '&.ag-grid-sticky .ag-header': {
+        position: 'sticky',
+        top: 0,
+        zIndex: 1,
+      },
+      '&.ag-grid-sticky .ag-root': {
+        overflow: 'visible',
+      },
+      '&.ag-grid-sticky .ag-root-wrapper': {
+        border: '0',
         borderRadius: '4px',
+        overflow: 'visible',
       },
     });
 
     return (
       <div
-        className={`ag-theme-balham multi-column-view ${agGridOverrides}`}
+      className={`ag-theme-balham multi-column-view ag-grid-sticky ${agGridOverrides}`}
         data-test-id='detailed-runs-table-view'
       >
         <AgGridReact
