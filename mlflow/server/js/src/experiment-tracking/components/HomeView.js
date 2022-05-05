@@ -74,7 +74,7 @@ class HomeView extends Component {
           <Spacer />
           {this.state.listExperimentsExpanded ? (
             <ExperimentListView
-              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+              activeExperimentIds={this.props.experimentIds}
               onClickListExperiments={this.onClickListExperiments}
             />
           ) : (

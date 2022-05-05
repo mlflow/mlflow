@@ -45,6 +45,11 @@ input.experiment-list-search-input[type="text"]:focus{
   margin-bottom: 8px;
 }
 
+.experiments-checkbox {
+  vertical-align: center;
+  margin-right: 8px;
+}
+
 .collapser-container {
   display: inline-block;
   position: relative;
@@ -82,4 +87,78 @@ input.experiment-list-search-input[type="text"]:focus{
   font-size: 13px;
   text-align: center;
   cursor: pointer;
+}
+
+.experiment-input-field {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.experiment-input-wrapper {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    line-height: normal;
+    position: relative;
+}
+
+.experiment-link-like-checkbox-wrapper {
+    font-family: "agGridBalham";
+    font-size: 16px;
+    line-height: 16px;
+    font-style: normal;
+    font-weight: normal;
+    font-variant: normal;
+    text-transform: none;
+    /* Better Font Rendering =========== */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 16px;
+    height: 16px;
+    background-color: white;
+    background-color: white;
+    border-radius: 3px;
+    display: inline-block;
+    vertical-align: middle;
+    flex: none;
+    cursor: default;
+}
+
+.experiment-link-like-checkbox-wrapper a {
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+}
+
+.experiment-link-like-checkbox-wrapper::after {
+    content: "\f108";
+    color: #7f8c8d;
+    color: #7f8c8d;
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    cursor: default;
+}
+
+.experiment-link-like-checkbox-wrapper.checked::after {
+    content: "\f106";
+    color: #0091ea;
+    color: #0091ea;
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    cursor: default;
+}
+
+.experiment-link-like-checkbox-wrapper:focus-within, .experiment-link-like-checkbox-wrapper:active {
+    outline: none;
+    box-shadow: 0 0 2px 1px #719ECE;
+}
+
+.experiment-link-like-checkbox-wrapper.disabled {
+    opacity: 0.5;
 }

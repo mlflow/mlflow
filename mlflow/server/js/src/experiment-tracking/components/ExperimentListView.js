@@ -13,12 +13,12 @@ import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
+import ExperimentViewUtil from './ExperimentViewUtil';
 
 export class ExperimentListView extends Component {
   static propTypes = {
     onClickListExperiments: PropTypes.func.isRequired,
-    // If activeExperimentId is undefined, then the active experiment is the first one.
-    activeExperimentId: PropTypes.string,
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string),
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
 
@@ -102,6 +102,52 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
+  getFilteredActiveExperimentIds = () => {
+    const { experiments, activeExperimentIds } = this.props;
+    const { searchInput } = this.state;
+
+    if (activeExperimentIds === undefined) {
+      return [];
+    }
+    if (experiments === undefined || searchInput === undefined || searchInput === '') {
+      return activeExperimentIds;
+    }
+    const filteredExperimentIds =
+      experiments
+        .filter((exp) =>
+          exp
+            .getName()
+            .toLowerCase()
+            .includes(searchInput.toLowerCase())
+        ).map((exp) => exp.experiment_id);
+
+    return activeExperimentIds.filter((exp_id) => filteredExperimentIds.includes(exp_id));
+  };
+
+  getCompareExperimentsPageRoute = (experimentId) => {
+    return () => {
+      // Make a copy to avoid modifying the props
+      const activeIds = [...this.getFilteredActiveExperimentIds()];
+      const index = activeIds.indexOf(experimentId);
+      if (index > -1) {
+          activeIds.splice(index, 1)
+      } else {
+          activeIds.push(experimentId);
+      }
+      // Route to a currently selected experiment if there are no active ones
+      if (activeIds.length === 0) {
+        return Routes.getExperimentPageRoute(this.state.selectedExperimentId)
+      }
+      return Routes.getCompareExperimentsPageRoute(activeIds);
+    }
+  };
+
+  handleMultiSelect = (ev) => {
+    const activeIds = this.getFilteredActiveExperimentIds();
+    const data = ev.currentTarget.dataset;
+    return activeIds.length === 1 && activeIds[0] === data.experimentid ? ev.preventDefault() : ev;
+  };
+
   render() {
     const height = this.state.height || window.innerHeight;
     // 60 pixels for the height of the top bar.
@@ -118,7 +164,8 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentId={this.props.activeExperimentId}
+//          activeExperimentId={this.props.activeExperimentId}
+          activeExperimentIds={this.props.activeExperimentIds}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -164,22 +211,38 @@ export class ExperimentListView extends Component {
               .map((exp, idx) => {
                 const { name, experiment_id } = exp;
                 const active =
-                  this.props.activeExperimentId !== undefined
-                    ? experiment_id === this.props.activeExperimentId
+                  this.props.activeExperimentIds !== undefined
+                    ? this.props.activeExperimentIds.indexOf(experiment_id) > -1
                     : idx === 0;
+                const clickable =
+                  this.props.activeExperimentIds === undefined
+                  || this.props.activeExperimentIds.length !== 1
+                  || !active;
                 const className = `experiment-list-item ${
                   active ? 'active-experiment-list-item' : ''
                 }`;
+
                 return (
-                  <div key={experiment_id} title={name} className={`header-container ${className}`}>
+                  <div key={experiment_id} title={name} className={`header-container ${className}`} style={{ padding: '0' }}>
+                    {/*  Decorate a link as a checkbox for multi-experiment selection */}
+                    <div className="experiment-input-field" style={{ width: '30px', left: '0', padding: '0' }}>
+                      <div className={`experiment-input-wrapper experiment-link-like-checkbox-wrapper ${active ? 'checked' : ''}`}>
+                        <Link
+                          to={this.getCompareExperimentsPageRoute(experiment_id)}
+                          onClick={this.handleMultiSelect}
+                          data-experimentid={experiment_id}
+                        >&nbsp;&nbsp;&nbsp;</Link>
+                      </div>
+                    </div>
+                    {/*  This link allow one click drop of multi-experiment selection */}
                     <Link
                       style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
                       to={Routes.getExperimentPageRoute(experiment_id)}
-                      onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
+                      onClick={clickable ? (ev) => ev : (ev) => ev.preventDefault()}
                     >
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+                      <div style={{ textDecoration: 'none', color: 'unset', width: '80%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
                     </Link>
-                    {/* Edit/Rename Experiment Option */}
+                    {/*  Edit/Rename Experiment Option */}
                     <IconButton
                       icon={<EditOutlined />}
                       onClick={this.handleRenameExperiment}

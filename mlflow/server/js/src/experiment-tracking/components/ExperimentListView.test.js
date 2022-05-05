@@ -6,34 +6,6 @@ import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 
-test('If activeExperimentId is defined then choose that one', () => {
-  const wrapper = shallow(
-    <ExperimentListView
-      onClickListExperiments={() => {}}
-      experiments={Fixtures.experiments}
-      activeExperimentId={'1'}
-    />,
-  );
-  expect(
-    wrapper
-      .find('.active-experiment-list-item')
-      .first()
-      .prop('title'),
-  ).toEqual('Test');
-});
-
-test('If activeExperimentId is undefined then choose first experiment', () => {
-  const wrapper = shallow(
-    <ExperimentListView onClickListExperiments={() => {}} experiments={Fixtures.experiments} />,
-  );
-  expect(
-    wrapper
-      .find('.active-experiment-list-item')
-      .first()
-      .prop('title'),
-  ).toEqual('Default');
-});
-
 test('If searchInput is set to "Test" then first shown element in experiment list has the title "Test"', () => {
   const wrapper = shallow(
     <ExperimentListView onClickListExperiments={() => {}} experiments={Fixtures.experiments} />,
@@ -53,7 +25,7 @@ test('If searchInput is set to "Test" and default experiment is active then no a
     <ExperimentListView
       onClickListExperiments={() => {}}
       experiments={Fixtures.experiments}
-      activeExperimentId={'0'}
+      activeExperimentIds={['0']}
     />,
   );
 
@@ -81,7 +53,7 @@ test('If button to delete experiment is pressed then open DeleteExperimentModal'
   const deleteLink = wrapper
     .find('.active-experiment-list-item')
     .children()
-    .at(2);
+    .at(3);
   // mock event that is passed when clicking the link
   const mockedExperiment = Fixtures.experiments[0];
   const mockedEvent = {
@@ -106,7 +78,7 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
   const editLink = wrapper
     .find('.active-experiment-list-item')
     .children()
-    .at(1);
+    .at(2);
   // mock event that is passed when clicking the link
   const mockedExperiment = Fixtures.experiments[0];
   const mockedEvent = {
@@ -120,4 +92,41 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
   editLink.simulate('click', mockedEvent);
 
   expect(wrapper.find(RenameExperimentModal).prop('isOpen')).toEqual(true);
+});
+
+test('If activeExperimentIds is defined then choose all the corresponding experiments', () => {
+  const experiments = [
+    Fixtures.createExperiment(),
+    Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
+    Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
+    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' })
+  ];
+  const wrapper = shallow(
+    <ExperimentListView
+      onClickListExperiments={() => {}}
+      experiments={experiments}
+      activeExperimentIds={['1', '3']}
+    />,
+  );
+  expect(wrapper.find('.active-experiment-list-item').length).toEqual(2);
+  expect(wrapper.find('.active-experiment-list-item').first().prop('title')).toEqual('Test');
+  expect(wrapper.find('.active-experiment-list-item').at(1).prop('title')).toEqual('Third');
+});
+
+test('If activeExperimentIds is undefined then choose the first experiment', () => {
+  const experiments = [
+    Fixtures.createExperiment(),
+    Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
+    Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
+    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' })
+  ];
+  const wrapper = shallow(
+    <ExperimentListView onClickListExperiments={() => {}} experiments={experiments} />,
+  );
+  expect(
+    wrapper
+      .find('.active-experiment-list-item')
+      .first()
+      .prop('title'),
+  ).toEqual('Default');
 });
