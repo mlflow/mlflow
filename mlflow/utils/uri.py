@@ -1,13 +1,10 @@
-import sys
 import posixpath
 import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.utils.validation import _validate_db_type_string
-from mlflow.utils.logging_utils import eprint
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -297,22 +294,3 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
         )
 
     return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
-
-
-def resolve_default_artifact_root(
-    serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=False
-):
-    if serve_artifacts and not default_artifact_root:
-        default_artifact_root = DEFAULT_ARTIFACTS_URI
-    elif not serve_artifacts and not default_artifact_root:
-        if is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        elif resolve_to_local:
-            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-        else:
-            eprint(
-                "Option 'default-artifact-root' is required, when backend store is not "
-                "local file based."
-            )
-            sys.exit(1)
-    return default_artifact_root

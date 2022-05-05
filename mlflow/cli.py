@@ -21,7 +21,10 @@ from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import resolve_default_artifact_root
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    artifacts_only_config_validation,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -269,7 +272,7 @@ def ui(
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at http://localhost:5000 by default, and only accept connections
+    The UI will be visible at http://localhost:5000 by default, and only accepts connections
     from the local machine. To let the UI server accept connections from other machines, you will
     need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
     address).
@@ -400,7 +403,7 @@ def server(
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections
+    The server listens on http://localhost:5000 by default and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
@@ -417,6 +420,7 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
+    artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
