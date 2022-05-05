@@ -11,5 +11,6 @@ dependencies:
   - transformers>=4.0.0
   - pandas
   - torch>=1.11.0
+  - torchdata
   - torchtext==0.12.0
   - pytorch-lightning==1.6.1

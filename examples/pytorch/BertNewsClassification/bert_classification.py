@@ -429,11 +429,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-    if "accelerator" in dict_args:
-        if dict_args["accelerator"] == "None":
-            dict_args["accelerator"] = None
+    if "strategy" in dict_args:
+        if dict_args["strategy"] == "None":
+            dict_args["strategy"] = None
 
     dm = BertDataModule(**dict_args)
+    dm.prepare_data()
 
     model = BertNewsClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
