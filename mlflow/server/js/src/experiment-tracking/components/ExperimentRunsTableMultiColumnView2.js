@@ -703,6 +703,10 @@ function VersionCellRenderer(props) {
 VersionCellRenderer.propTypes = { value: PropTypes.object };
 
 function ExperimentNameRenderer(props) {
+  // We can get the experiment id from the row data rather than needing to
+  // include it in the column value, as the experiment id for a row won't change.
+  // (If it could, we would need to include it in the value so that we would
+  // re-render this cell when it changed).
   const { experimentId } = props.data;
   const { name, basename } = props.value;
   return (
