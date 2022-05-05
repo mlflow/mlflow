@@ -103,7 +103,7 @@ class Utils {
     return dateFormat(d, format);
   }
 
-  static timeSinceStr(date, referenceDate) {
+  static timeSinceStr(date, referenceDate = new Date()) {
     const seconds = Math.max(0, Math.floor((referenceDate - date) / 1000));
 
     let interval = Math.floor(seconds / 31536000);
