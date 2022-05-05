@@ -99,7 +99,7 @@ test('If activeExperimentIds is defined then choose all the corresponding experi
     Fixtures.createExperiment(),
     Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
     Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
-    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' })
+    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
   ];
   const wrapper = shallow(
     <ExperimentListView
@@ -109,8 +109,18 @@ test('If activeExperimentIds is defined then choose all the corresponding experi
     />,
   );
   expect(wrapper.find('.active-experiment-list-item').length).toEqual(2);
-  expect(wrapper.find('.active-experiment-list-item').first().prop('title')).toEqual('Test');
-  expect(wrapper.find('.active-experiment-list-item').at(1).prop('title')).toEqual('Third');
+  expect(
+    wrapper
+      .find('.active-experiment-list-item')
+      .first()
+      .prop('title'),
+  ).toEqual('Test');
+  expect(
+    wrapper
+      .find('.active-experiment-list-item')
+      .at(1)
+      .prop('title'),
+  ).toEqual('Third');
 });
 
 test('If activeExperimentIds is undefined then choose the first experiment', () => {
@@ -118,7 +128,7 @@ test('If activeExperimentIds is undefined then choose the first experiment', () 
     Fixtures.createExperiment(),
     Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
     Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
-    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' })
+    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
   ];
   const wrapper = shallow(
     <ExperimentListView onClickListExperiments={() => {}} experiments={experiments} />,

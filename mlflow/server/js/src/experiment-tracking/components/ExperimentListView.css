@@ -103,7 +103,7 @@ input.experiment-list-search-input[type="text"]:focus{
     position: relative;
 }
 
-.experiment-link-like-checkbox-wrapper {
+.experiment-link-checkbox-wrapper {
     font-family: "agGridBalham";
     font-size: 16px;
     line-height: 16px;
@@ -125,14 +125,14 @@ input.experiment-list-search-input[type="text"]:focus{
     cursor: default;
 }
 
-.experiment-link-like-checkbox-wrapper a {
+.experiment-link-checkbox-wrapper a {
     opacity: 0;
     width: 100%;
     height: 100%;
     cursor: default;
 }
 
-.experiment-link-like-checkbox-wrapper::after {
+.experiment-link-checkbox-wrapper::after {
     content: "\f108";
     color: #7f8c8d;
     color: #7f8c8d;
@@ -143,7 +143,7 @@ input.experiment-list-search-input[type="text"]:focus{
     cursor: default;
 }
 
-.experiment-link-like-checkbox-wrapper.checked::after {
+.experiment-link-checkbox-wrapper.checked::after {
     content: "\f106";
     color: #0091ea;
     color: #0091ea;
@@ -154,11 +154,11 @@ input.experiment-list-search-input[type="text"]:focus{
     cursor: default;
 }
 
-.experiment-link-like-checkbox-wrapper:focus-within, .experiment-link-like-checkbox-wrapper:active {
+.experiment-link-checkbox-wrapper:focus-within, .experiment-link-checkbox-wrapper:active {
     outline: none;
     box-shadow: 0 0 2px 1px #719ECE;
 }
 
-.experiment-link-like-checkbox-wrapper.disabled {
+.experiment-link-checkbox-wrapper.disabled {
     opacity: 0.5;
 }
