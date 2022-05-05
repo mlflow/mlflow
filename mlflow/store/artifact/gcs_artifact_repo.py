@@ -6,7 +6,6 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.exceptions import MlflowException
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -140,4 +139,11 @@ class GCSArtifactRepository(ArtifactRepository):
         ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        (bucket_name, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        gcs_bucket = self._get_bucket(bucket_name)
+        blobs = gcs_bucket.list_blobs(prefix=f"{dest_path}")
+        for blob in blobs:
+            blob.delete()
