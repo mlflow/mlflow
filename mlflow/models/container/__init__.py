@@ -33,7 +33,6 @@ DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 DEFAULT_INFERENCE_SERVER_PORT = 8000
 DEFAULT_NGINX_SERVER_PORT = 8080
 DEFAULT_MLSERVER_PORT = 8080
-DEFAULT_INFERENCE_SERVER_TIMEOUT = 60
 
 SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
@@ -176,11 +175,7 @@ def _serve_pyfunc(model):
     # Since MLServer will run without NGINX, expose the server in the `8080`
     # port, which is the assumed "public" port.
     port = DEFAULT_MLSERVER_PORT if enable_mlserver else DEFAULT_INFERENCE_SERVER_PORT
-    timeout = None if enable_mlserver else DEFAULT_INFERENCE_SERVER_TIMEOUT
-
-    cmd, cmd_env = inference_server.get_cmd(
-        model_uri=MODEL_PATH, nworkers=cpu_count, port=port, timeout=timeout
-    )
+    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count, port=port)
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)

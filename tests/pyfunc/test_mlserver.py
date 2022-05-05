@@ -52,4 +52,4 @@ def test_raise_error_mlserver_timeout(params: dict, expected: str):
     model_uri = "/foo/bar"
 
     with pytest.raises(Exception, match=expected):
-        _, _ = get_cmd(model_uri=model_uri, **params)
+        get_cmd(model_uri=model_uri, **params)

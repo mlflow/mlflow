@@ -1,12 +1,9 @@
 import os
-import logging
 
 from typing import Tuple, Dict
 
 MLServerMLflowRuntime = "mlserver_mlflow.MLflowRuntime"
 MLServerDefaultModelName = "mlflow-model"
-
-_logger = logging.getLogger(__name__)
 
 
 def get_cmd(
