@@ -276,7 +276,7 @@ export class RunViewImpl extends Component {
           >
             <div style={{ display: 'flex', alignItems: 'center' }}>
               {Utils.renderSourceTypeIcon(tags)}
-              {Utils.renderSource(tags)}
+              {Utils.renderSource(tags, queryParams, runUuid)}
             </div>
           </Descriptions.Item>
           {Utils.getSourceVersion(tags) ? (
