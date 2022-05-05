@@ -557,7 +557,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
 
     return (
       <div
-      className={`ag-theme-balham multi-column-view ag-grid-sticky ${agGridOverrides}`}
+        className={`ag-theme-balham multi-column-view ag-grid-sticky ${agGridOverrides}`}
         data-test-id='detailed-runs-table-view'
       >
         <AgGridReact
