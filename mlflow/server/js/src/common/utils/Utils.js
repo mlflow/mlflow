@@ -103,8 +103,8 @@ class Utils {
     return dateFormat(d, format);
   }
 
-  static timeSinceStr(date) {
-    const seconds = Math.max(0, Math.floor((new Date() - date) / 1000));
+  static timeSinceStr(date, referenceDate = new Date()) {
+    const seconds = Math.max(0, Math.floor((referenceDate - date) / 1000));
 
     let interval = Math.floor(seconds / 31536000);
 
@@ -609,6 +609,10 @@ class Utils {
     const sourceVersion = Utils.getSourceVersion(tags);
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
+    return Utils.renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion);
+  }
+
+  static renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion = true) {
     if (sourceVersion) {
       const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
       if (sourceType === 'PROJECT') {
