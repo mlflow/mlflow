@@ -5,6 +5,7 @@ import itertools
 import pickle
 import os
 import pytest
+from pathlib import Path
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -15,6 +16,8 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
+    set_tracking_uri,
+    get_tracking_uri,
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
@@ -358,3 +361,14 @@ def test_store_object_can_be_serialized_by_pickle(tmpdir):
     pickle.dump(_get_store("https://example.com"), io.BytesIO())
     # pickle.dump(_get_store(f"sqlite:///{tmpdir.strpath}/mlflow.db"), io.BytesIO())
     # This throws `AttributeError: Can't pickle local object 'create_engine.<locals>.connect'`
+
+
+@pytest.mark.parametrize("absolute", [True, False], ids=["absolute", "relative"])
+def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
+    monkeypatch.chdir(tmp_path)
+    path = Path("foo/bar")
+    if absolute:
+        path = tmp_path / path
+    with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
+        set_tracking_uri(path)
+        assert get_tracking_uri() == path.resolve().as_uri()
