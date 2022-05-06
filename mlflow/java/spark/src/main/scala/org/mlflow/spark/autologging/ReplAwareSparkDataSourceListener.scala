@@ -44,7 +44,7 @@ class ReplAwareSparkDataSourceListener(
     executionIdToReplId.put(executionId, replIdOpt.get)
   }
 
-  override protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {
+  override protected def popReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = {
     executionIdToReplId.remove(event.executionId)
   }
 }
