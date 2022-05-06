@@ -50,7 +50,7 @@ class ReplAwareSparkDataSourceListener(
     val replIdOpt = popReplIdOpt(event)
     if (replIdOpt.isDefined) {
       tableInfos.foreach { tableInfo =>
-        publisher.publishEvent(replIdOpt, sparkTableInfo = tableInfo)
+        publisher.publishEvent(replIdOpt = replIdOpt, sparkTableInfo = tableInfo)
       }
     }
   }
