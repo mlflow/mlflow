@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 from shlex import quote
@@ -6,8 +5,6 @@ import subprocess
 
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-
-_logger = logging.getLogger(__name__)
 
 
 class RFuncBackend(FlavorBackend):
@@ -38,7 +35,15 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def serve(
-        self, model_uri, port, host, enable_mlserver, synchronous=True, stdout=None, stderr=None
+        self,
+        model_uri,
+        port,
+        host,
+        timeout,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
     ):
         """
         Generate R model locally.
@@ -49,6 +54,9 @@ class RFuncBackend(FlavorBackend):
         """
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
+
+        if timeout:
+            raise Exception("Timeout is not yet supported in the R backend.")
 
         if not synchronous:
             raise Exception("RBackend does not support call with synchronous=False")
