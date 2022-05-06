@@ -179,3 +179,18 @@ SERVE_ARTIFACTS = click.option(
     "overridden via the '--artifacts-destination' argument. "
     "Default: False",
 )
+
+EXPOSE_PROMETHEUS = click.option(
+    "--expose-prometheus",
+    default=None,
+    help="Path to the directory where metrics will be stored. If the directory"
+    "doesn't exist, it will be created."
+    "Activate prometheus exporter to expose metrics on /metrics endpoint.",
+)
+
+APP_NAME = click.option(
+    "--app-name",
+    default="default",
+    help="the name of the application, which is used for the models serve prometheus export,"
+    "to distinguish application name in the prometheus metrics",
+)

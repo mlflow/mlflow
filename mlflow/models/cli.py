@@ -1,6 +1,10 @@
 import logging
+import tempfile
+import platform
 import click
+import os
 
+from mlflow.pyfunc import scoring_server
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
@@ -34,6 +38,8 @@ def commands():
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
+@cli_args.EXPOSE_PROMETHEUS
+@cli_args.APP_NAME
 def serve(
     model_uri,
     port,
@@ -44,6 +50,8 @@ def serve(
     env_manager=None,
     install_mlflow=False,
     enable_mlserver=False,
+    expose_prometheus=None,
+    app_name="default",
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -65,6 +73,13 @@ def serve(
         }'
     """
     env_manager = env_manager or _EnvManager.CONDA
+    if expose_prometheus:
+        os.environ[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
+        os.environ[scoring_server.APP_ENV_VAR] = app_name
+    else:
+        tmp_dir = "/tmp" if platform.system() == "Darwin" else tempfile.gettempdir()
+        prometheus_metrics_path = tmp_dir + "/metrics"
+        os.environ[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = prometheus_metrics_path
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(
