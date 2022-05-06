@@ -183,19 +183,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           cellRendererParams: {
             onExpand: onExpand,
           },
-          equals: (dateInfo1, dateInfo2) => {
-            return (
-              dateInfo1.referenceTime === dateInfo2.referenceTime &&
-              dateInfo1.startTime === dateInfo2.startTime &&
-              dateInfo1.experimentId === dateInfo2.experimentId &&
-              dateInfo1.runUuid === dateInfo2.runUuid &&
-              dateInfo1.runStatus === dateInfo2.runStatus &&
-              dateInfo1.isParent === dateInfo2.isParent &&
-              dateInfo1.hasExpander === dateInfo2.hasExpander &&
-              dateInfo1.expanderOpen === dateInfo2.expanderOpen &&
-              _.isEqual(dateInfo1.childrenIds, dateInfo2.childrenIds)
-            );
-          },
+          equals: (dateInfo1, dateInfo2) => _.isEqual(dateInfo1, dateInfo2),
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
@@ -210,12 +198,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
                 headerName: ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME,
                 field: 'experimentName',
                 cellRenderer: 'experimentNameRenderer',
-                equals: (experimentName1, experimentName2) => {
-                  return (
-                    experimentName1.name === experimentName2.name &&
-                    experimentName1.basename === experimentName2.basename
-                  );
-                },
+                equals: (experimentName1, experimentName2) =>
+                  _.isEqual(experimentName1, experimentName2),
                 pinned: 'left',
                 initialWidth: 140,
                 cellStyle,
@@ -269,13 +253,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           headerName: ATTRIBUTE_COLUMN_LABELS.VERSION,
           field: 'version',
           cellRenderer: 'versionCellRenderer',
-          equals: (version1, version2) => {
-            return (
-              version1.version === version2.version &&
-              version1.name === version2.name &&
-              version1.type === version2.type
-            );
-          },
+          equals: (version1, version2) => _.isEqual(version1, version2),
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
@@ -289,14 +267,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           field: 'models',
           cellRenderer: 'modelsCellRenderer',
           initialWidth: 200,
-          equals: (models1, models2) => {
-            return (
-              models1.experimentId === models2.experimentId &&
-              models1.runUuid === models2.runUuid &&
-              _.isEqual(models1.registeredModels, models2.registeredModels) &&
-              _.isEqual(models1.loggedModels, models2.loggedModels)
-            );
-          },
+          equals: (models1, models2) => _.isEqual(models1, models2),
         },
       ].filter((c) => !categorizedUncheckedKeys[COLUMN_TYPES.ATTRIBUTES].includes(c.headerName)),
       {
