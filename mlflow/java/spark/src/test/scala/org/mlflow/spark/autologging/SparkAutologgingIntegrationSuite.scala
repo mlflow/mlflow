@@ -293,6 +293,8 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
   }
 
   test("repl-ID-aware listener publishes events with expected REPL IDs") {
+    MlflowAutologEventPublisher.stop()
+
     // Create a ReplAwareSparkDataSourceListener that uses a DatasourceAttributeExtractor instead
     // of a ReplAwareDatasourceAttributeExtractor for testing, since
     // ReplAwareDatasourceAttributeExtractor requires Databricks-specific packages that are not
@@ -301,7 +303,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
         publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
       extends ReplAwareSparkDataSourceListener(publisher) {
       override protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
-        DatasourceAttributeExtractor 
+        DatasourceAttributeExtractor
       }
     }
 
@@ -323,10 +325,10 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
 
     val sc = spark.sparkContext
     val formatToTablePathList = formatToTablePath.toList
-    
+
     // Read a collection of Spark DataFrames from different sources with different REPL ID
     // context for each read
-    
+
     // Because `spark.databricks.replId` is null, we expect that none of the subscribers will
     // be notified when `path1` is read via `df1`
     sc.setLocalProperty("spark.databricks.replId", null)
