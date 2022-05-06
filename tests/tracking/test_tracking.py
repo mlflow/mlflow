@@ -451,9 +451,10 @@ def test_set_tags():
 def test_log_metric_validation():
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException) as e:
             mlflow.log_metric("name_1", "apple")
 
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     finished_run = tracking.MlflowClient().get_run(run_id)
     assert len(finished_run.data.metrics) == 0
 

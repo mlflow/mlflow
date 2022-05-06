@@ -9,10 +9,7 @@ import os
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
-from mlflow.tracking.metic_value_conversion_utils import (
-    convert_metric_value_to_float_if_possible,
-    convert_metric_value_to_str_if_possible,
-)
+from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils.validation import (
     _validate_run_id,
     _validate_experiment_artifact_location,
@@ -234,11 +231,8 @@ class TrackingServiceClient:
     def log_param(self, run_id, key, value):
         """
         Log a parameter against the run ID.
-
-        :param value: `str`, or ndarray or tensor, which will be converted to
-                      a list and then stringified.
         """
-        param = Param(key, convert_metric_value_to_str_if_possible(value))
+        param = Param(key, str(value))
         try:
             self.store.log_param(run_id, param)
         except MlflowException as e:
