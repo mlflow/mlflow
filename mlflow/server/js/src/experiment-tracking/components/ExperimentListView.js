@@ -8,7 +8,6 @@ import {
 } from '@ant-design/icons';
 import { Tree, Input, Typography } from '@databricks/design-system';
 import { withRouter } from 'react-router-dom';
-import _ from 'lodash';
 import './ExperimentListView.css';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
