@@ -16,20 +16,11 @@ export const getFirstActiveExperiment = (experiments) => {
 };
 
 class HomeView extends Component {
-  constructor(props) {
-    super(props);
-    this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  }
-
   static propTypes = {
     history: PropTypes.shape({}),
     experiments: PropTypes.shape({}),
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
-  };
-
-  state = {
-    listExperimentsExpanded: true,
   };
 
   componentDidMount() {
@@ -44,65 +35,30 @@ class HomeView extends Component {
     }
   }
 
-  onClickListExperiments() {
-    this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
-  }
-
   render() {
-    const { experimentIds, compareExperiments } = this.props;
+    const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
-    if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
-      return (
-        <div style={{ height: containerHeight }}>
-          {this.props.experimentIds ? (
-            <PageContainer>
-              <ExperimentPage
-                experimentIds={experimentIds}
-                compareExperiments={compareExperiments}
-              />
-            </PageContainer>
-          ) : (
-            <NoExperimentView />
-          )}
-        </div>
-      );
+
+    if (experimentIds === undefined) {
+      return <NoExperimentView />;
     }
+
     return (
-      <div className='outer-container' style={{ height: containerHeight }}>
-        <div>
-          <Spacer />
-          {this.state.listExperimentsExpanded ? (
-            <ExperimentListView
-              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
-              onClickListExperiments={this.onClickListExperiments}
-            />
-          ) : (
-            <i
-              onClick={this.onClickListExperiments}
-              title='Show experiment list'
-              style={styles.showExperimentListExpander}
-              className='expander fa fa-chevron-right login-icon'
-            />
-          )}
-        </div>
+      <div className='outer-container' style={{ height: containerHeight, display: 'flex' }}>
+        {process.env.HIDE_EXPERIMENT_LIST !== 'true' && (
+          <div>
+            <Spacer />
+            <ExperimentListView activeExperimentId={experimentIds[0]} experiments={experiments} />
+          </div>
+        )}
         <PageContainer>
-          {this.props.experimentIds ? (
-            <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
-          ) : (
-            <NoExperimentView />
-          )}
+          <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
         </PageContainer>
       </div>
     );
   }
 }
-
-const styles = {
-  showExperimentListExpander: {
-    marginTop: 24,
-  },
-};
 
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);
