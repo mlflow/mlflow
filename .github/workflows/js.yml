@@ -40,8 +40,10 @@ jobs:
           node-version: '16'
       - name: Install dependencies
         run: |
+          set -x
           yarn install
-          git diff --exit-code
+          echo $CI
+          git diff
       - name: Run lint
         run: |
           yarn run lint
