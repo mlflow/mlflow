@@ -80,12 +80,6 @@ class HomeView extends Component {
   }
 }
 
-const styles = {
-  showExperimentListExpander: {
-    marginTop: 24,
-  },
-};
-
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);
   return { experiments };
