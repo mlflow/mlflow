@@ -17,7 +17,6 @@ class SparkDataSourceListener(
     DatasourceAttributeExtractor
   }
 
-  // Exposed for testing
   protected[autologging] def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
     val extractor = getDatasourceAttributeExtractor
     val tableInfos = extractor.getTableInfos(event)
