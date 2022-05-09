@@ -325,6 +325,7 @@ def _log_early_stop_metrics(early_stop_callback, client, run_id):
     client.log_metrics(run_id, metrics)
 
 
+@rank_zero_only
 def patched_fit(original, self, *args, **kwargs):
     """
     A patched implementation of `pytorch_lightning.Trainer.fit` which enables logging the
