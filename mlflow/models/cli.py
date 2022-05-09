@@ -81,7 +81,12 @@ def serve(
         prometheus_metrics_path = tmp_dir + "/metrics"
         os.environ[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = prometheus_metrics_path
     return _get_flavor_backend(
-        model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
+        model_uri,
+        env_manager=env_manager,
+        workers=workers,
+        install_mlflow=install_mlflow,
+        expose_prometheus=expose_prometheus,
+        app_name=app_name,
     ).serve(
         model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
     )
