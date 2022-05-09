@@ -72,7 +72,10 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         Current tracking uri: file:///tmp/my_tracking
     """
     if isinstance(uri, Path):
-        uri = uri.absolute().as_uri()
+        # On Windows with Python3.7 (https://bugs.python.org/issue38671)
+        # resolve doesn't return the absolute path if the directory doesn't exist
+        uri.mkdir(parents=True, exist_ok=True)
+        uri = uri.resolve().as_uri()
     global _tracking_uri
     _tracking_uri = uri
 
