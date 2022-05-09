@@ -116,7 +116,7 @@ export class ExperimentListView extends Component {
         <IconButton
           icon={<i className='far fa-trash-alt' />}
           onClick={this.handleDeleteExperiment(key, title)}
-          style={{ marginRight: 5 }}
+          style={{ marginRight: 15 }}
         />
       </div>
     );

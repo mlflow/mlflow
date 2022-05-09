@@ -8,6 +8,7 @@
   overflow-y: scroll;
   overflow-x: hidden;
   width: 100%;
+  height: 90vh;
   margin-top: 8px;
 }
 
