@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+log_file="outputs/mlflow-server.log"
+
 function wait_server_ready {
   for backoff in 0 1 2 4 8; do
     echo "Waiting for server to be ready..."
@@ -10,11 +12,12 @@ function wait_server_ready {
       return 0
     fi
   done
+  echo "Failed to launch mlflow server"
+  cat $log_file
   return 1
 }
 
 mkdir -p outputs
-log_file="outputs/mlflow-server.log"
 echo 'Running mlflow server in the background'
 echo "Logging to $log_file"
 if [ -z "$MLFLOW_TRACKING_URI" ]; then
