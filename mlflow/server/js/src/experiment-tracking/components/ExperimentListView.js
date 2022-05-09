@@ -18,7 +18,7 @@ import { IconButton } from '../../common/components/IconButton';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    history: PropTypes.object.isRequired,
+    history: PropTypes.object,
     activeExperimentId: PropTypes.string.isRequired,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
