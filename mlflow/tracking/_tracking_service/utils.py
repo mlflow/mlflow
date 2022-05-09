@@ -72,7 +72,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         Current tracking uri: file:///tmp/my_tracking
     """
     if isinstance(uri, Path):
-        uri = uri.resolve().as_uri()
+        uri = uri.absolute().as_uri()
     global _tracking_uri
     _tracking_uri = uri
 
