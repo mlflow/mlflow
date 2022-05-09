@@ -35,30 +35,56 @@ class HomeView extends Component {
     }
   }
 
+  onClickListExperiments() {
+    this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
+  }
+
   render() {
     const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
-
-    if (experimentIds === undefined) {
-      return <NoExperimentView />;
+    if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
+      return (
+        <div style={{ height: containerHeight }}>
+          {this.props.experimentIds ? (
+            <PageContainer>
+              <ExperimentPage
+                experimentIds={experimentIds}
+                compareExperiments={compareExperiments}
+              />
+            </PageContainer>
+          ) : (
+            <NoExperimentView />
+          )}
+        </div>
+      );
     }
-
     return (
-      <div className='outer-container' style={{ height: containerHeight, display: 'flex' }}>
-        {process.env.HIDE_EXPERIMENT_LIST !== 'true' && (
-          <div>
-            <Spacer />
-            <ExperimentListView activeExperimentId={experimentIds[0]} experiments={experiments} />
-          </div>
-        )}
+      <div className='outer-container' style={{ height: containerHeight }}>
+        <div>
+          <Spacer />
+          <ExperimentListView
+            activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+            experiments={experiments}
+          />
+        </div>
         <PageContainer>
-          <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
+          {this.props.experimentIds ? (
+            <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
+          ) : (
+            <NoExperimentView />
+          )}
         </PageContainer>
       </div>
     );
   }
 }
+
+const styles = {
+  showExperimentListExpander: {
+    marginTop: 24,
+  },
+};
 
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);
