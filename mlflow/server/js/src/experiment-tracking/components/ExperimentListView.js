@@ -19,8 +19,12 @@ import { IconButton } from '../../common/components/IconButton';
 export class ExperimentListView extends Component {
   static propTypes = {
     history: PropTypes.object,
-    activeExperimentId: PropTypes.string.isRequired,
+    activeExperimentId: PropTypes.string,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
+  };
+
+  static defaultProps = {
+    activeExperimentId: '0',
   };
 
   state = {
@@ -95,8 +99,11 @@ export class ExperimentListView extends Component {
   };
 
   renderListItem = ({ title, key }) => {
+    const { activeExperimentId } = this.props;
+    const dataTestId =
+      activeExperimentId === key ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
-      <div style={{ display: 'flex', marginLeft: '8px' }}>
+      <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
         <div
           style={{
             width: '180px',
@@ -112,11 +119,13 @@ export class ExperimentListView extends Component {
           icon={<EditOutlined />}
           onClick={this.handleRenameExperiment(key, title)}
           style={{ marginRight: 5 }}
+          data-test-id='rename-experiment-button'
         />
         <IconButton
           icon={<i className='far fa-trash-alt' />}
           onClick={this.handleDeleteExperiment(key, title)}
           style={{ marginRight: 15 }}
+          data-test-id='delete-experiment-button'
         />
       </div>
     );
@@ -183,6 +192,7 @@ export class ExperimentListView extends Component {
                 marginLeft: 'auto',
               }}
               title='New Experiment'
+              data-test-id='create-experiment-button'
             />
             <LeftSquareFilled
               onClick={() => this.setState({ expanded: false })}
@@ -195,6 +205,7 @@ export class ExperimentListView extends Component {
             aria-label='search experiments'
             value={searchInput}
             onChange={this.handleSearchInputChange}
+            data-test-id='search-experiment-input'
           />
           <div className='experiment-list-container'>
             <Tree
@@ -213,4 +224,4 @@ export class ExperimentListView extends Component {
   }
 }
 
-export default withRouter(ExperimentListView);
+// export default withRouter(ExperimentListView);
