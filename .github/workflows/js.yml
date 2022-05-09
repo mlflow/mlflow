@@ -40,9 +40,8 @@ jobs:
           node-version: '16'
       - name: Install dependencies
         run: |
-          set -x
+          # set -x
           yarn install
-          echo $CI
           git diff
       - name: Run lint
         run: |
