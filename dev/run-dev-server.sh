@@ -26,7 +26,4 @@ else
 fi
 mlflow server $backend_store_uri $default_artifact_root --gunicorn-opts="--log-level debug" > $log_file 2>&1 &
 wait_server_ready localhost:5000/health
-
-# `FORCE_COLOR=true ... | cat` prevents `yarn start` from clearing the console:
-# https://github.com/facebook/create-react-app/issues/2495#issuecomment-344537005
-FORCE_COLOR=true yarn --cwd mlflow/server/js start | cat
+yarn --cwd mlflow/server/js start
