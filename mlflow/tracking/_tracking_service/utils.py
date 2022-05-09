@@ -55,7 +55,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
-                - A :py:class:`pathlib.Path` instance
+                - A ``pathlib.Path`` instance
 
     .. code-block:: python
         :caption: Example
