@@ -4,9 +4,10 @@ set +exv
 
 showHelp() {
 cat << EOF
-Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f]
+Usage: ./install-dev-env.sh [-d] [directory to install virtual environment] [-v] [-q] [-f] [-o] [override python version]
 Development environment setup script for Python in linux-based Operationg Systems (including OSX).
-Note: this script will not work on Windows.
+Note: this script will not work on Windows or MacOS M1 arm64 chipsets.
+
 This script will:
 
   - Install pyenv if not installed
@@ -36,31 +37,51 @@ This script will:
 
 -f, -full         --full        Whether to install all dev requirements (Default: false)
 
--v, -verbose      --verbose     Whether to fill stdout with every command or not
-
 -q, -quiet        --quiet       Whether to have pip install in quiet mode (Default: false)
 
--o, -override     --override    Override the python version (useful for M1 arm-based users)
+-o, -override     --override    Override the python version
 
 EOF
 }
 
-export verbose=0
-export quiet=0
-while getopts "d:o:fvqh" opt
+while :
 do
-  case "$opt" in
-    d) directory="$OPTARG" ;;
-    o) override_py_ver="$OPTARG" ;;
-    f) full_install=1 ;;
-    v) verbose=1 ;;
-    q) quiet=1 ;;
-    h) showHelp; exit ;;
-    *) showHelp; exit ;;
+  case "$1" in
+    -d | -directory | --directory)
+      directory="$2"
+      shift 2
+      ;;
+    -f | -full | --full)
+      full="full"
+      shift
+      ;;
+    -q | -quiet | --quiet)
+      quiet="quiet"
+      shift
+      ;;
+    -o | -override | --override)
+      override_py_ver="$2"
+      shift 2
+      ;;
+    -h | -help | --help)
+      showHelp
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
   esac
 done
 
-if [[ $verbose == 1 ]]; then
+if [[ -n "$verbose" ]]; then
   set -exv
 fi
 
@@ -71,8 +92,8 @@ case "$(uname -s)" in
   *)                             machine=unknown;;
 esac
 
-function quietpip(){
-  echo $( (( quiet == 1 && verbose == 0 )) && printf %s '-q' )
+function quietcommand(){
+  echo $( [[ -n $quiet ]] && printf %s '-q' )
 }
 
 # Check if pyenv is installed and offer to install it if not present
@@ -129,6 +150,11 @@ min_py_version=$(python setup.py -q min_python_version)
 
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
 
+if [[ -n "$override_py_ver" ]]; then
+  echo "$(tput bold; tput setaf 1)You are overriding the recommended version of Python for MLflow development: $min_py_version. $(tput sgr0)"
+  min_py_version="$(grep -o "^[0-9]*\.[0-9]*" <<< "$override_py_ver")"
+fi
+
 # Resolve a minor version to the latest micro version
 case $min_py_version in
   "3.7") PY_INSTALL_VERSION="3.7.13" ;;
@@ -137,32 +163,31 @@ case $min_py_version in
   "3.10") PY_INSTALL_VERSION="3.10.3" ;;
 esac
 
-if [[ -n "$override_py_ver" ]]; then
-  echo "$(tput bold; tput setaf 1)You are overriding the recommended version of Python for MLflow development: $min_py_version. $(tput sgr0)"
+microver=$(grep -o '\.' <<< "$override_py_ver" | wc -l)
+if [[ $microver -gt 1 ]]; then
   PY_INSTALL_VERSION=$override_py_ver
 fi
 
 echo "The top-level dependencies that will be installed are: "
 
-if [[ $full_install == 1 ]]; then
-  files=("$rd/dev-requirements.txt")
+if [[ -n "$full" ]]; then
+  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt" "$rd/extra-ml-requirements.txt")
   echo "Files:"
   echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
-  echo "All dependencies of the top-level requirements listed in the following files located in $rd: "
+  echo "The following packages: "
 else
   files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
 fi
-echo "$(tail -n +1 $files | grep "^[^#= ]")"
-
+tail -n +1 "${files[@]}" | grep "^[^#= ]" | sort | cat
 
 echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$(tput sgr0)"
 
 # Install the Python version if it cannot be found
 pyenv install -s "$PY_INSTALL_VERSION"
 pyenv local "$PY_INSTALL_VERSION"
-pyenv exec pip install $(quietpip) --upgrade pip
-pyenv exec pip install $(quietpip) virtualenv
+pyenv exec pip install $(quietcommand) --upgrade pip
+pyenv exec pip install $(quietcommand) virtualenv
 
 VENV_DIR="$directory/bin/activate"
 
@@ -173,7 +198,6 @@ if [[ -d "$directory"  ]]; then
     echo
   fi
   if [[ $REPLY =~ ^[Yy]$ || -n "$GITHUB_ACTIONS" ]]; then
-    deactivate
     echo "Replacing Virtual environment in '$directory'. Installing new instance."
     pyenv exec virtualenv --clear "$directory"
   fi
@@ -191,25 +215,25 @@ echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/b
 
 echo "Installing pip dependencies for development environment."
 
-if [[ $full_install == 1 ]]; then
+if [[ -n "$full" ]]; then
   # Install required dependencies for Prophet
   tmp_dir=$(mktemp -d)
-  pip download $(quietpip) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
+  pip download $(quietcommand) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
   tar -zxvf "$tmp_dir"/*.tar.gz -C "$tmp_dir"
-  pip install $(quietpip) -r "$(find "$tmp_dir" -name requirements.txt)"
+  pip install $(quietcommand) -r "$(find "$tmp_dir" -name requirements.txt)"
   rm -rf "$tmp_dir"
   # Install dev requirements and test plugin
-  pip install $(quietpip) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
+  pip install $(quietcommand) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
   # Install current checked out version of MLflow (local)
-  pip install $(quietpip) -e .[extras]
+  pip install $(quietcommand) -e .[extras]
   # Install test plugin
-  pip install $(quietpip) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+  pip install $(quietcommand) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."
 else
   files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
   for r in "${files[@]}";
   do
-    pip install $(quietpip) -r "$r"
+    pip install $(quietcommand) -r "$r"
   done
 fi
 
