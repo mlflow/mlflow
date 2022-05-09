@@ -21,7 +21,7 @@ export MLFLOW_HOME
 # Run the installation of the environment
 DEV_DIR=$MLFLOW_HOME/.venvs/mlflow-dev
 
-"$MLFLOW_HOME"/dev/dev-env-setup.sh -d "$DEV_DIR" -f -v
+"$MLFLOW_HOME"/dev/dev-env-setup.sh -d "$DEV_DIR" -f
 
 source "$DEV_DIR/bin/activate"
 
