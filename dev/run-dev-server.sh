@@ -12,8 +12,8 @@ function wait_server_ready {
       return 0
     fi
   done
-  echo "Failed to launch mlflow server"
   cat $log_file
+  echo -e "\nFailed to launch mlflow server"
   return 1
 }
 
