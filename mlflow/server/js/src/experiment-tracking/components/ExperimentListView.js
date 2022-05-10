@@ -28,7 +28,7 @@ export class ExperimentListView extends Component {
   };
 
   state = {
-    hidden: true,
+    hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
