@@ -371,4 +371,4 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
         path = tmp_path / path
     with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
         set_tracking_uri(path)
-        assert get_tracking_uri() == path.resolve().as_uri()
+        assert get_tracking_uri() == path.absolute().resolve().as_uri()
