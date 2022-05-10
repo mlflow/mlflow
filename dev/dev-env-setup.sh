@@ -92,8 +92,17 @@ case "$(uname -s)" in
   *)                             machine=unknown;;
 esac
 
-function quietcommand(){
+quiet_command(){
   echo $( [[ -n $quiet ]] && printf %s '-q' )
+}
+
+minor_to_micro() {
+  case $1 in
+    "3.7") echo "3.7.13" ;;
+    "3.8") echo "3.8.13" ;;
+    "3.9") echo "3.9.11" ;;
+    "3.10") echo "3.10.3" ;;
+  esac
 }
 
 # Check if pyenv is installed and offer to install it if not present
@@ -151,21 +160,17 @@ min_py_version=$(python setup.py -q min_python_version)
 echo "The minimum version of Python to ensure backwards compatibility for MLflow development is: $(tput bold; tput setaf 3)$min_py_version$(tput sgr0)"
 
 if [[ -n "$override_py_ver" ]]; then
-  echo "$(tput bold; tput setaf 1)You are overriding the recommended version of Python for MLflow development: $min_py_version. $(tput sgr0)"
-  min_py_version="$(grep -o "^[0-9]*\.[0-9]*" <<< "$override_py_ver")"
-fi
-
-# Resolve a minor version to the latest micro version
-case $min_py_version in
-  "3.7") PY_INSTALL_VERSION="3.7.13" ;;
-  "3.8") PY_INSTALL_VERSION="3.8.13" ;;
-  "3.9") PY_INSTALL_VERSION="3.9.11" ;;
-  "3.10") PY_INSTALL_VERSION="3.10.3" ;;
-esac
-
-microver=$(grep -o '\.' <<< "$override_py_ver" | wc -l)
-if [[ $microver -gt 1 ]]; then
-  PY_INSTALL_VERSION=$override_py_ver
+  version_levels=$(grep -o '\.' <<< "$override_py_ver" | wc -l)
+  if [[ $version_levels -eq 1 ]]; then
+    PY_INSTALL_VERSION=$(minor_to_micro $override_py_ver)
+  elif [[ $version_levels -eq 2 ]]; then
+    PY_INSTALL_VERSION=$override_py_ver
+  else
+    echo "You must supply a python override version with either minor (e.g., '3.9') or micro (e.g., '3.9.5'). '$override_py_ver' is invalid."
+    exit 1
+  fi
+else
+  PY_INSTALL_VERSION=$(minor_to_micro $min_py_version)
 fi
 
 echo "The top-level dependencies that will be installed are: "
@@ -186,8 +191,8 @@ echo "$(tput setaf 2) Installing Python version $(tput bold)$PY_INSTALL_VERSION$
 # Install the Python version if it cannot be found
 pyenv install -s "$PY_INSTALL_VERSION"
 pyenv local "$PY_INSTALL_VERSION"
-pyenv exec pip install $(quietcommand) --upgrade pip
-pyenv exec pip install $(quietcommand) virtualenv
+pyenv exec pip install $(quiet_command) --upgrade pip
+pyenv exec pip install $(quiet_command) virtualenv
 
 VENV_DIR="$directory/bin/activate"
 
@@ -218,22 +223,22 @@ echo "Installing pip dependencies for development environment."
 if [[ -n "$full" ]]; then
   # Install required dependencies for Prophet
   tmp_dir=$(mktemp -d)
-  pip download $(quietcommand) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
+  pip download $(quiet_command) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
   tar -zxvf "$tmp_dir"/*.tar.gz -C "$tmp_dir"
-  pip install $(quietcommand) -r "$(find "$tmp_dir" -name requirements.txt)"
+  pip install $(quiet_command) -r "$(find "$tmp_dir" -name requirements.txt)"
   rm -rf "$tmp_dir"
   # Install dev requirements and test plugin
-  pip install $(quietcommand) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
+  pip install $(quiet_command) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
   # Install current checked out version of MLflow (local)
-  pip install $(quietcommand) -e .[extras]
+  pip install $(quiet_command) -e .[extras]
   # Install test plugin
-  pip install $(quietcommand) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+  pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."
 else
   files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
   for r in "${files[@]}";
   do
-    pip install $(quietcommand) -r "$r"
+    pip install $(quiet_command) -r "$r"
   done
 fi
 

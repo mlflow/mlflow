@@ -40,7 +40,6 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: ./.github/actions/setup-pyenv
       - name: Setup environment
         run: |
           git config --global user.name "test"

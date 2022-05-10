@@ -142,7 +142,7 @@ Python version (to ensure compatibility) is:
 
 .. code-block:: bash
 
-    dev/dev-env-setup.sh -d ~/.venvs/mlflow-dev -q
+    dev/dev-env-setup.sh -d .venvs/mlflow-dev -q
 
 The ``-q`` parameter is to "quiet" the pip install processes preventing stdout printing during installation.
 
