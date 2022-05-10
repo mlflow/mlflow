@@ -224,4 +224,4 @@ export class ExperimentListView extends Component {
   }
 }
 
-// export default withRouter(ExperimentListView);
+export default withRouter(ExperimentListView);

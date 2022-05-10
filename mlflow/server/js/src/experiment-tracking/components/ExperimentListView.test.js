@@ -1,5 +1,4 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -54,7 +53,6 @@ test('If activeExperimentId is undefined then choose first experiment', () => {
 
 test('If searchInput is set to "Test" then first shown element in experiment list has the title "Test"', () => {
   const wrapper = mountComponent({ experiments: Fixtures.experiments });
-  console.log(wrapper);
   wrapper
     .find('input[data-test-id="search-experiment-input"]')
     .first()
