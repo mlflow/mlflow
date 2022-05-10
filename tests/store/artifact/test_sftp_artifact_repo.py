@@ -1,10 +1,10 @@
 import os
-import posixpath
+import shutil
 import subprocess
 import tempfile
 import time
 import uuid
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import NamedTuple
 
 import pytest
@@ -12,7 +12,12 @@ import pytest
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 
-URI = "sftp://user:pass@localhost:2222/upload"
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("docker") is None, reason="Docker is required to run tests in this module"
+)
+
+ROOT_SFTP_URI = "sftp://user:pass@localhost:2222/upload"
 
 
 class SFTP(NamedTuple):
@@ -45,7 +50,7 @@ def sftp():
         # Wait for the server to be ready
         for sleep_sec in (0, 1, 2, 4, 8):
             prc = subprocess.run(
-                ["docker", "logs", container],
+                ["docker", "logs", "--tail", "5", container],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -69,93 +74,99 @@ def rand_str():
 
 
 def test_artifact_uri_factory():
-    assert isinstance(get_artifact_repository(URI), SFTPArtifactRepository)
+    assert isinstance(get_artifact_repository(ROOT_SFTP_URI), SFTPArtifactRepository)
 
 
 def test_list_artifacts_empty():
     artifact_subdir = rand_str()
-    store = SFTPArtifactRepository(URI + "/" + artifact_subdir)
+    store = SFTPArtifactRepository(ROOT_SFTP_URI + "/" + artifact_subdir)
     assert store.list_artifacts() == []
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_list_artifacts(tmp_path, artifact_path):
-    file_content_1 = rand_str()
-    file_content_2 = rand_str()
-
-    file_1 = tmp_path.joinpath(rand_str())
-    subdir = tmp_path.joinpath(rand_str())
-    subdir.mkdir()
-    file_2 = subdir.joinpath(rand_str())
-    file_1.write_text(file_content_1)
-    file_2.write_text(file_content_2)
+    file_content1 = rand_str()
+    file_content2 = rand_str()
+    local_file1 = tmp_path.joinpath("file1")
+    local_dir = tmp_path.joinpath("dir")
+    local_dir.mkdir()
+    local_file2 = local_dir.joinpath("file2")
+    local_file1.write_text(file_content1)
+    local_file2.write_text(file_content2)
 
     artifact_subdir = rand_str()
-    store = SFTPArtifactRepository(URI + "/" + artifact_subdir)
+    store = SFTPArtifactRepository(ROOT_SFTP_URI + "/" + artifact_subdir)
     store.log_artifacts(tmp_path, artifact_path)
+
     artifacts = store.list_artifacts(artifact_path)
     assert len(artifacts) == 2
-    remote_file_1 = artifacts[0]
-    assert remote_file_1.is_dir is False
+    remote_file1 = artifacts[0]
+    assert remote_file1.is_dir is False
     assert (
-        remote_file_1.path == posixpath.join(artifact_path, file_1.name)
+        remote_file1.path == str(PosixPath(artifact_path, local_file1.name))
         if artifact_path
-        else file_1.name
+        else local_file1.name
     )
-    remote_subdir = artifacts[1]
-    assert remote_file_1.file_size == file_1.stat().st_size
-    assert remote_subdir.is_dir is True
+    remote_dir = artifacts[1]
+    assert remote_file1.file_size == local_file1.stat().st_size
+    assert remote_dir.is_dir is True
     assert (
-        remote_subdir.path == posixpath.join(artifact_path, subdir.name)
+        remote_dir.path == str(PosixPath(artifact_path, local_dir.name))
         if artifact_path
-        else subdir.name
+        else local_dir.name
     )
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_log_artifact(tmp_path, sftp, artifact_path):
-    file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-    tmp_file = tmp_path.joinpath(rand_str())
-    tmp_file.write_text(file_content)
-    store = SFTPArtifactRepository(URI)
-    store.log_artifact(tmp_file, artifact_path)
-    remote_file = sftp.path.joinpath(artifact_path or ".", tmp_file.name)
+    file_content = rand_str()
+    local_file = tmp_path.joinpath("file")
+    local_file.write_text(file_content)
+
+    store = SFTPArtifactRepository(ROOT_SFTP_URI)
+    store.log_artifact(local_file, artifact_path)
+
+    remote_file = sftp.path.joinpath(artifact_path or ".", local_file.name)
     assert remote_file.read_text() == file_content
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_log_artifacts(tmp_path, sftp, artifact_path):
-    file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-    file_content_2 = str(artifact_path)
+    file_content1 = rand_str()
+    file_content2 = rand_str()
+    local_file1 = tmp_path.joinpath("file1")
+    local_dir = tmp_path.joinpath("dir")
+    local_dir.mkdir()
+    local_file2 = local_dir.joinpath("file2")
+    local_file1.write_text(file_content1)
+    local_file2.write_text(file_content2)
 
-    file_1 = tmp_path.joinpath(rand_str())
-    subdir = tmp_path.joinpath(rand_str())
-    subdir.mkdir()
-    file_2 = subdir.joinpath(rand_str())
-    file_1.write_text(file_content_1)
-    file_2.write_text(file_content_2)
-
-    store = SFTPArtifactRepository(URI)
+    artifact_subdir = rand_str()
+    store = SFTPArtifactRepository(ROOT_SFTP_URI + "/" + artifact_subdir)
     store.log_artifacts(tmp_path, artifact_path)
 
-    remote_file_1 = sftp.path.joinpath(artifact_path or ".", file_1.name)
-    assert remote_file_1.read_text() == file_content_1
-    remote_file_2 = sftp.path.joinpath(artifact_path or ".", subdir.name, file_2.name)
-    assert remote_file_2.read_text() == file_content_2
+    remote_dir = sftp.path.joinpath(artifact_subdir, artifact_path or ".")
+    remote_file1 = remote_dir.joinpath(local_file1.name)
+    assert remote_file1.read_text() == file_content1
+    remote_file2 = remote_dir.joinpath(local_dir.name, local_file2.name)
+    assert remote_file2.read_text() == file_content2
 
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_delete_artifact(tmp_path, sftp, artifact_path):
-    file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-    tmp_file = tmp_path.joinpath(rand_str())
-    tmp_file.write_text(file_content)
+    file_content = rand_str()
+    local_file = tmp_path.joinpath("file")
+    local_file.write_text(file_content)
     artifact_subdir = rand_str()
-    store = SFTPArtifactRepository(URI + "/" + artifact_subdir)
-    store.log_artifact(tmp_file, artifact_path)
+
+    store = SFTPArtifactRepository(ROOT_SFTP_URI + "/" + artifact_subdir)
+    store.log_artifact(local_file, artifact_path)
+
     remote_dir = sftp.path.joinpath(artifact_subdir, artifact_path or ".")
-    remote_file = remote_dir.joinpath(tmp_file.name)
+    remote_file = remote_dir.joinpath(local_file.name)
     assert remote_file.read_text() == file_content
-    artifact_path = Path(store.path, artifact_path or ".", tmp_file.name).resolve()
+
+    artifact_path = Path(store.path, artifact_path or ".", local_file.name).resolve()
     store.delete_artifacts(str(artifact_path))
     assert not remote_file.exists()
     assert remote_dir.exists()
@@ -163,29 +174,28 @@ def test_delete_artifact(tmp_path, sftp, artifact_path):
 
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_delete_artifacts(tmp_path, sftp, artifact_path):
-    file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
-    file_content_2 = str(artifact_path)
-
-    file_1 = tmp_path.joinpath(rand_str())
-    subdir = tmp_path.joinpath(rand_str())
-    subdir.mkdir()
-    file_2 = subdir.joinpath(rand_str())
-    file_1.write_text(file_content_1)
-    file_2.write_text(file_content_2)
+    file_content1 = rand_str()
+    file_content2 = rand_str()
+    local_file1 = tmp_path.joinpath("file1")
+    local_dir = tmp_path.joinpath("dir")
+    local_dir.mkdir()
+    local_file2 = local_dir.joinpath("file2")
+    local_file1.write_text(file_content1)
+    local_file2.write_text(file_content2)
 
     artifact_subdir = rand_str()
-    store = SFTPArtifactRepository(URI + "/" + artifact_subdir)
+    store = SFTPArtifactRepository(ROOT_SFTP_URI + "/" + artifact_subdir)
     store.log_artifacts(tmp_path, artifact_path)
 
     remote_dir = sftp.path.joinpath(artifact_subdir, artifact_path or ".")
-    remote_file_1 = remote_dir.joinpath(file_1.name)
-    assert remote_file_1.read_text() == file_content_1
-    remote_file_2 = remote_dir.joinpath(subdir.name, file_2.name)
-    assert remote_file_2.read_text() == file_content_2
+    remote_file1 = remote_dir.joinpath(local_file1.name)
+    assert remote_file1.read_text() == file_content1
+    remote_file2 = remote_dir.joinpath(local_dir.name, local_file2.name)
+    assert remote_file2.read_text() == file_content2
 
     artifact_dir = Path(store.path, artifact_path or ".").resolve()
     store.delete_artifacts(str(artifact_dir))
 
     assert not remote_dir.exists()
-    assert not remote_file_1.exists()
-    assert not remote_file_2.exists()
+    assert not remote_file1.exists()
+    assert not remote_file2.exists()
