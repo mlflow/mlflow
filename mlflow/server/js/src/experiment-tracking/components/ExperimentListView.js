@@ -124,6 +124,7 @@ export class ExperimentListView extends Component {
         <IconButton
           icon={<i className='far fa-trash-alt' />}
           onClick={this.handleDeleteExperiment(key, title)}
+          // Use a larger margin to avoid overlapping the vertical scrollbar
           style={{ marginRight: 15 }}
           data-test-id='delete-experiment-button'
         />
@@ -188,7 +189,6 @@ export class ExperimentListView extends Component {
               onClick={this.handleCreateExperiment}
               style={{
                 fontSize: '24px',
-                // Align the icon to the right
                 marginLeft: 'auto',
               }}
               title='New Experiment'
