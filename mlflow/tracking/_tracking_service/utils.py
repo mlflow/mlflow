@@ -74,7 +74,8 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
     if isinstance(uri, Path):
         # On Windows with Python3.7 (https://bugs.python.org/issue38671)
         # resolve doesn't return the absolute path if the directory doesn't exist
-        uri.mkdir(parents=True, exist_ok=True)
+        if not uri.is_absolute():
+            uri = Path.cwd() / uri
         uri = uri.resolve().as_uri()
     global _tracking_uri
     _tracking_uri = uri
