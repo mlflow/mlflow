@@ -31,15 +31,15 @@ This script will:
   To install the full development environment that supports working on all flavors and running all tests locally, set
   the flag '-f' or '--full'
 
--h, -help,        --help        Display help
+-h,     --help        Display help
 
--d, -directory    --directory   The path to install the virtual environment into
+-d,     --directory   The path to install the virtual environment into
 
--f, -full         --full        Whether to install all dev requirements (Default: false)
+-f,     --full        Whether to install all dev requirements (Default: false)
 
--q, -quiet        --quiet       Whether to have pip install in quiet mode (Default: false)
+-q,     --quiet       Whether to have pip install in quiet mode (Default: false)
 
--o, -override     --override    Override the python version
+-o,     --override    Override the python version
 
 EOF
 }
@@ -47,23 +47,23 @@ EOF
 while :
 do
   case "$1" in
-    -d | -directory | --directory)
+    -d | --directory)
       directory="$2"
       shift 2
       ;;
-    -f | -full | --full)
+    -f | --full)
       full="full"
       shift
       ;;
-    -q | -quiet | --quiet)
+    -q | --quiet)
       quiet="quiet"
       shift
       ;;
-    -o | -override | --override)
+    -o | --override)
       override_py_ver="$2"
       shift 2
       ;;
-    -h | -help | --help)
+    -h | --help)
       showHelp
       exit 0
       ;;
