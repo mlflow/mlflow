@@ -1,8 +1,9 @@
+import os
 import posixpath
-import uuid
 import subprocess
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from typing import NamedTuple
 
@@ -20,14 +21,12 @@ class SFTP(NamedTuple):
 
 @pytest.fixture(autouse=True, scope="module")
 def sftp():
-    image = "atmoz/sftp"
-    subprocess.run(["docker", "pull", image], check=True)
     with tempfile.TemporaryDirectory() as t:
         tmpdir = Path(t).joinpath("upload")
         tmpdir.mkdir()
         tmpdir.chmod(0o0777)
         container = "mlflow-sftp"
-        # Run an SFTP server in the background
+        # Launch an SFTP server in the background
         process = subprocess.Popen(
             [
                 "docker",
@@ -38,11 +37,26 @@ def sftp():
                 f"{tmpdir}:/home/user/upload",
                 "--name",
                 container,
+                # https://hub.docker.com/r/atmoz/sftp
                 "atmoz/sftp",
-                "user:pass:::upload",
+                f"user:pass:{os.getuid()}:{os.getgid()}:::upload",
             ],
         )
-        time.sleep(5)
+        # Wait for the server to be ready
+        for sleep_sec in (0, 1, 2, 4, 8):
+            prc = subprocess.run(
+                ["docker", "logs", container],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+            if "Server listening on" in prc.stdout:
+                break
+            time.sleep(sleep_sec)
+        else:
+            raise Exception(f"Failed to launch SFTP server: {prc.stdout}")
+
         yield SFTP(tmpdir)
         # Stop and remove the container
         subprocess.run(["docker", "stop", container], check=True)
