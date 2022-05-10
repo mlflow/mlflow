@@ -79,7 +79,7 @@ test('If button to create experiment is pressed then open CreateExperimentModal'
   wrapper
     .find('[data-test-id="create-experiment-button"]')
     .first()
-    .click();
+    .simulate('click');
   expect(wrapper.find(CreateExperimentModal).prop('isOpen')).toEqual(true);
 });
 
@@ -88,7 +88,7 @@ test('If button to delete experiment is pressed then open DeleteExperimentModal'
   wrapper
     .find('[data-test-id="delete-experiment-button"]')
     .first()
-    .click();
+    .simulate('click');
   expect(wrapper.find(DeleteExperimentModal).prop('isOpen')).toEqual(true);
 });
 
@@ -97,6 +97,6 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
   wrapper
     .find('[data-test-id="rename-experiment-button"]')
     .first()
-    .click();
+    .simulate('click');
   expect(wrapper.find(RenameExperimentModal).prop('isOpen')).toEqual(true);
 });
