@@ -28,7 +28,7 @@ export class ExperimentListView extends Component {
   };
 
   state = {
-    expanded: true,
+    hidden: true,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
@@ -133,7 +133,7 @@ export class ExperimentListView extends Component {
   };
 
   render() {
-    const { searchInput, expanded } = this.state;
+    const { searchInput, hidden } = this.state;
     const { experiments, activeExperimentId } = this.props;
     const lowerCasedSearchInput = searchInput.toLowerCase();
     const filteredExperiments = experiments.filter(({ name }) =>
@@ -144,10 +144,10 @@ export class ExperimentListView extends Component {
       key: experiment_id,
     }));
 
-    if (!expanded) {
+    if (hidden) {
       return (
         <RightSquareFilled
-          onClick={() => this.setState({ expanded: true })}
+          onClick={() => this.setState({ hidden: false })}
           style={{ fontSize: '24px' }}
           title='Show experiment list'
         />
@@ -195,7 +195,7 @@ export class ExperimentListView extends Component {
               data-test-id='create-experiment-button'
             />
             <LeftSquareFilled
-              onClick={() => this.setState({ expanded: false })}
+              onClick={() => this.setState({ hidden: true })}
               style={{ fontSize: '24px' }}
               title='Hide experiment list'
             />
