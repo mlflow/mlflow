@@ -208,7 +208,7 @@ def delete_deployment(target, name, config, endpoint):
         if 'endpoint' in sig.parameters:
             client.delete_deployment(name, endpoint=endpoint)
         else:
-            client.delete_endpoint(name)
+            client.delete_deployment(name)
 
     click.echo("Deployment {} is deleted".format(name))
 
@@ -346,6 +346,7 @@ def explain(target, name, input_path, output_path, endpoint):
         predictions_to_json(result, sys.stdout)
 
 
+@commands.command("create-endpoint")
 @click.option(
     "--config",
     "-C",
@@ -370,6 +371,7 @@ def create_endpoint(target, name, config):
     click.echo("\nEndpoint {} is created".format(endpoint["name"]))
 
 
+@commands.command("update-endpoint")
 @click.option(
     "--config",
     "-C",
@@ -390,10 +392,11 @@ def update_endpoint(target, endpoint, config):
     """
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
-    updated_endpoint = client.update_endpoint(endpoint, config=config_dict)
-    click.echo("\nEndpoint {} is updated".format(updated_endpoint["name"]))
+    client.update_endpoint(endpoint, config=config_dict)
+    click.echo("\nEndpoint {} is updated".format(endpoint))
 
 
+@commands.command("delete-endpoint")
 @required_endpoint_param
 @target_details
 def delete_endpoint(target, endpoint):
@@ -405,6 +408,7 @@ def delete_endpoint(target, endpoint):
     click.echo("\nEndpoint {} is deleted".format(endpoint))
 
 
+@commands.command("list-endpoints")
 @target_details
 def list_endpoints(target):
     """
@@ -415,6 +419,7 @@ def list_endpoints(target):
     click.echo("List of all endpoints:\n{}".format(ids))
 
 
+@commands.command("get-endpoint")
 @required_endpoint_param
 @target_details
 def get_endpoint(target, endpoint):
