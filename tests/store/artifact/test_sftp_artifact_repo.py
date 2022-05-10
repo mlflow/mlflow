@@ -25,24 +25,28 @@ class SFTP(NamedTuple):
 @pytest.fixture(autouse=True, scope="module")
 def sftp():
     with tempfile.TemporaryDirectory() as t:
-        tmpdir = Path(t).joinpath("upload")
+        # Launch an SFTP server in the background
+        user = "user"
+        password = "password"
+        port = 2222
+        container = "mlflow-sftp"
+        directory = "upload"
+        tmpdir = Path(t).joinpath(directory)
         tmpdir.mkdir()
         tmpdir.chmod(0o0777)
-        container = "mlflow-sftp"
-        # Launch an SFTP server in the background
         process = subprocess.Popen(
             [
                 "docker",
                 "run",
                 "-p",
-                "2222:22",
+                f"{port}:22",
                 "-v",
-                f"{tmpdir}:/home/user/upload",
+                f"{tmpdir}:/home/{user}/{directory}",
                 "--name",
                 container,
                 # https://hub.docker.com/r/atmoz/sftp
                 "atmoz/sftp",
-                f"user:pass:{os.getuid()}:{os.getgid()}:::upload",
+                f"{user}:{password}:{os.getuid()}:{os.getgid()}:::{directory}",
             ],
         )
         # Wait for the server to be ready
@@ -60,7 +64,9 @@ def sftp():
         else:
             raise Exception(f"Failed to launch SFTP server: {prc.stdout}")
 
-        yield SFTP(tmpdir, "sftp://user:pass@localhost:2222/upload")
+        uri = f"sftp://{user}:{password}@localhost:{port}/{directory}"
+        yield SFTP(tmpdir, uri)
+
         # Stop and remove the container
         subprocess.run(["docker", "stop", container], check=True)
         subprocess.run(["docker", "rm", container], check=True)
