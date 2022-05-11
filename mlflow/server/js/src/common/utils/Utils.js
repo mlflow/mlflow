@@ -414,6 +414,8 @@ class Utils {
     const baseName = sourceName
       ? Utils.baseName(sourceName)
       : Utils.getDefaultNotebookRevisionName(notebookId, revisionId);
+    const name = nameOverride || baseName;
+
     if (notebookId) {
       let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
       url += `#notebook/${notebookId}`;
@@ -429,11 +431,11 @@ class Utils {
           href={url}
           target='_top'
         >
-          {nameOverride || baseName}
+          {name}
         </a>
       );
     } else {
-      return nameOverride || baseName;
+      return name;
     }
   }
 
@@ -448,11 +450,13 @@ class Utils {
     workspaceUrl = null,
     nameOverride = null,
   ) {
+    // jobName may not be present when rendering feature table job consumers from remote
+    // workspaces or when getJob API failed to fetch the jobName. Always provide a default
+    // job name in such case.
+    const reformatJobName = jobName || Utils.getDefaultJobRunName(jobId, jobRunId);
+    const name = nameOverride || reformatJobName;
+
     if (jobId) {
-      // jobName may not be present when rendering feature table job consumers from remote
-      // workspaces or when getJob API failed to fetch the jobName. Always provide a default
-      // job name in such case.
-      const reformatJobName = jobName || Utils.getDefaultJobRunName(jobId, jobRunId);
       let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
       url += `#job/${jobId}`;
       if (jobRunId) {
@@ -460,11 +464,11 @@ class Utils {
       }
       return (
         <a title={reformatJobName} href={url} target='_top'>
-          {nameOverride || reformatJobName}
+          {name}
         </a>
       );
     } else {
-      return nameOverride || jobName;
+      return name;
     }
   }
 
@@ -860,6 +864,29 @@ class Utils {
       // not all error is wrapped by ErrorWrapper
       message.error(e.renderHttpError());
     }
+  }
+
+  static logGenericUserFriendlyError(e, intl) {
+    const errorMessages = {
+      404: intl.formatMessage({
+        defaultMessage: '404: Resource not found',
+        description: 'Generic 404 user-friendly error for the MLFlow UI',
+      }),
+      500: intl.formatMessage({
+        defaultMessage: '500: Internal server error',
+        description: 'Generic 500 user-friendly error for the MLFlow UI',
+      }),
+    };
+
+    if (
+      e instanceof ErrorWrapper &&
+      typeof intl === 'object' &&
+      Object.keys(errorMessages).includes(e.getStatus().toString())
+    ) {
+      return Utils.logErrorAndNotifyUser(errorMessages[e.getStatus()]);
+    }
+
+    return Utils.logErrorAndNotifyUser(e);
   }
 
   static sortExperimentsById = (experiments) => {

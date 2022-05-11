@@ -397,7 +397,7 @@ export class RunViewImpl extends Component {
           ) : null}
           <CollapsibleSection
             title={
-              <span>
+              <span className='RunView-editDescriptionHeader'>
                 <FormattedMessage
                   defaultMessage='Description'
                   description='Label for the notes editable content for the experiment run'
