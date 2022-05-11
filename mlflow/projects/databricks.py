@@ -328,20 +328,16 @@ def _get_tracking_uri_for_run():
 
 
 def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters, env_manager):
-    mlflow_run_arr = list(
-        map(
-            shlex_quote,
-            [
-                "mlflow",
-                "run",
-                project_dir,
-                "--entry-point",
-                entry_point,
-                "--env-manager",
-                env_manager,
-            ],
-        )
-    )
+    cmd = [
+        "mlflow",
+        "run",
+        project_dir,
+        "--entry-point",
+        entry_point,
+    ]
+    if env_manager:
+        cmd += ["--env-manager", env_manager]
+    mlflow_run_arr = list(map(shlex_quote, cmd))
     if run_id:
         mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
     if parameters:
