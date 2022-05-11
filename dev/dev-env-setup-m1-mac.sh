@@ -23,7 +23,7 @@ display_help() {
       An option that will remove an environment that has been specified with the '-e' argument.
 
   Usage (from MLflow repository root):
-    dev/dev-env-setup-miniforge.sh -e "mlflow-dev" -q -s
+    dev/dev-env-setup-m1-mac.sh -e "mlflow-dev" -q -f
 
 EOF
 }
@@ -158,8 +158,6 @@ conda activate --no-stack "$environment"
 
 # Install packages for dev environment
 
-# TODO: clean up these operations with functions
-
 # Setup for Tensorflow on M1
 conda install $(quietcommand) $(autoaccept) -c apple tensorflow-deps
 python -m pip install $(quietcommand) tensorflow-macos
@@ -196,13 +194,16 @@ python -m pip install $(quietcommand) -r "$rd/doc-requirements.txt"
 
 # Install the ML packages that have the ability to be installed from pypi for M1 chips
 tmp_dir=$(mktemp -d)
-grep -v '#\|onnx\|paddle\|azure\|lightgbm\|prophet\|tensorflow' ./requirements/extra-ml-requirements.txt > $tmp_dir/requirements.txt
+grep -v '#\|onnx\|paddle\|azure\|lightgbm\|prophet\|tensorflow\|mxnet' ./requirements/extra-ml-requirements.txt > $tmp_dir/requirements.txt
 python -m pip install $(quietcommand) -r "$(find "$tmp_dir" -name requirements.txt)"
 rm -rf "$tmp_dir"
 
 # Install a development version of MLflow from the local branch
 python -m pip install $(quietcommand) -e .[extras]
 python -m pip install $(quietcommand) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
+
+# To prevent a liblapack dylib import error, force reinstall numpy, scipy, and scikit-learn
+conda install --force-reinstall $(quietcommand) numpy scikit-learn scipy
 
 echo "$(tput setaf 2; tput smul)Python packages that have been installed:$(tput rmul)"
 echo "$(python -m pip freeze)$(tput sgr0)"
