@@ -18,7 +18,7 @@ def sftp_mock():
 
 
 def test_artifact_uri_factory(tmp_path):
-    assert isinstance(get_artifact_repository(f"sftp:/{tmp_path}"), SFTPArtifactRepository)
+    assert isinstance(get_artifact_repository(f"sftp://{tmp_path}"), SFTPArtifactRepository)
 
 
 def test_list_artifacts_empty(sftp_mock):
