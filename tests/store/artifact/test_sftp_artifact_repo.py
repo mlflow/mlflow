@@ -9,6 +9,9 @@ import os
 import posixpath
 
 
+pytestmark = pytest.mark.requires_ssh
+
+
 @pytest.fixture
 def sftp_mock():
     return MagicMock(autospec=pysftp.Connection)
