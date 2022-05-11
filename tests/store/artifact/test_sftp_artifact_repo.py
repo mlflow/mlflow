@@ -17,10 +17,8 @@ def sftp_mock():
     return MagicMock(autospec=pysftp.Connection)
 
 
-def test_artifact_uri_factory():
-    assert isinstance(
-        get_artifact_repository("sftp://user:pass@test_sftp:123/some/path"), SFTPArtifactRepository
-    )
+def test_artifact_uri_factory(tmp_path):
+    assert isinstance(get_artifact_repository(f"sftp:/{tmp_path}"), SFTPArtifactRepository)
 
 
 def test_list_artifacts_empty(sftp_mock):
