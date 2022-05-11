@@ -7,7 +7,7 @@ import {
   PlusSquareFilled,
 } from '@ant-design/icons';
 import { Tree, Input, Typography } from '@databricks/design-system';
-import { withRouter } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import './ExperimentListView.css';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
@@ -90,31 +90,23 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
-  onSelect = (experimentId) => () => {
-    const { history, activeExperimentId } = this.props;
-    if (experimentId === activeExperimentId) {
-      return;
-    }
-    history.push(Routes.getExperimentPageRoute(experimentId));
-  };
-
   renderListItem = ({ title, key }) => {
     const { activeExperimentId } = this.props;
     const dataTestId =
       activeExperimentId === key ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
       <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
-        <div
+        <Link
+          to={Routes.getExperimentPageRoute(key)}
           style={{
             width: '180px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
-          onClick={this.onSelect(key)}
         >
           {title}
-        </div>
+        </Link>
         <IconButton
           icon={<EditOutlined />}
           onClick={this.handleRenameExperiment(key, title)}
@@ -224,4 +216,4 @@ export class ExperimentListView extends Component {
   }
 }
 
-export default withRouter(ExperimentListView);
+export default ExperimentListView;
