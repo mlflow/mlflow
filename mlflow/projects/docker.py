@@ -13,7 +13,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
-from mlflow.utils import process, file_utils
+from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
 
@@ -26,15 +26,12 @@ _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 def validate_docker_installation():
     """
-    Verify if Docker is installed on host machine.
+    Verify if Docker is installed and running on host machine.
     """
-    try:
-        docker_path = "docker"
-        process._exec_cmd([docker_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
+    if shutil.which("docker") is None:
         raise ExecutionException(
             "Could not find Docker executable. "
-            "Ensure Docker is installed as per the instructions "
+            "Ensure Docker is installed and running as per the instructions "
             "at https://docs.docker.com/install/overview/."
         )
 
