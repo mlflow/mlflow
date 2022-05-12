@@ -19,7 +19,7 @@ tensorflow>=2.8.0
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision
-pytorch_lightning>=1.0.2
+pytorch_lightning>=1.6.3
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm
@@ -31,7 +31,7 @@ statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
-onnx
+onnx>=1.11.0
 onnxruntime
 # Required by mlflow.spark
 pyspark
