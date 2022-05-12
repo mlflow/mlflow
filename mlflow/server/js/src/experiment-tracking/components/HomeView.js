@@ -16,20 +16,11 @@ export const getFirstActiveExperiment = (experiments) => {
 };
 
 class HomeView extends Component {
-  constructor(props) {
-    super(props);
-    this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  }
-
   static propTypes = {
     history: PropTypes.shape({}),
     experiments: PropTypes.shape({}),
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
-  };
-
-  state = {
-    listExperimentsExpanded: true,
   };
 
   componentDidMount() {
@@ -49,7 +40,7 @@ class HomeView extends Component {
   }
 
   render() {
-    const { experimentIds, compareExperiments } = this.props;
+    const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
@@ -72,19 +63,10 @@ class HomeView extends Component {
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
           <Spacer />
-          {this.state.listExperimentsExpanded ? (
-            <ExperimentListView
-              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
-              onClickListExperiments={this.onClickListExperiments}
-            />
-          ) : (
-            <i
-              onClick={this.onClickListExperiments}
-              title='Show experiment list'
-              style={styles.showExperimentListExpander}
-              className='expander fa fa-chevron-right login-icon'
-            />
-          )}
+          <ExperimentListView
+            activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+            experiments={experiments}
+          />
         </div>
         <PageContainer>
           {this.props.experimentIds ? (
@@ -97,12 +79,6 @@ class HomeView extends Component {
     );
   }
 }
-
-const styles = {
-  showExperimentListExpander: {
-    marginTop: 24,
-  },
-};
 
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);
