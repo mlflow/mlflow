@@ -38,8 +38,9 @@ def validate_docker_installation():
     cmd = ["docker", "ps"]
     prc = process._exec_cmd(cmd, throw_on_error=False)
     if prc.returncode != 0:
+        joined_cmd = " ".join(cmd)
         raise ExecutionException(
-            f"Ran {cmd} to ensure docker daemon is running but it failed: {prc.stderr}"
+            f"Ran `{joined_cmd}` to ensure docker daemon is running but it failed: {prc.stderr}"
         )
 
 
