@@ -15,10 +15,10 @@ fastai>=2.4.1
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
-tensorflow==2.8.0
+tensorflow>=2.8.0
 # Required by mlflow.pytorch
 torch
-torchvision
+torchvision>=1.11.0
 pytorch_lightning>=1.0.2
 # Required by mlflow.xgboost
 xgboost>=0.82
