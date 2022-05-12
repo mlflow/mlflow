@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Redirect } from 'react-router';
 import { Spacer } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import ExperimentPage from './ExperimentPage';
@@ -17,36 +18,28 @@ export const getFirstActiveExperiment = (experiments) => {
 
 class HomeView extends Component {
   static propTypes = {
-    history: PropTypes.shape({}),
-    experiments: PropTypes.shape({}),
+    experiments: PropTypes.arrayOf(PropTypes.object),
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
   };
-
-  componentDidMount() {
-    const { history, experiments, experimentIds } = this.props;
-    if (experimentIds === undefined) {
-      const firstExp = getFirstActiveExperiment(experiments);
-      if (firstExp) {
-        // Reported during ESLint upgrade
-        // eslint-disable-next-line react/prop-types
-        history.push(Routes.getExperimentPageRoute(firstExp.experiment_id));
-      }
-    }
-  }
-
-  onClickListExperiments() {
-    this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
-  }
 
   render() {
     const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
+    const hasExperiments = experiments.length === 0;
+
+    if (experimentIds === undefined) {
+      const firstExp = getFirstActiveExperiment(experiments);
+      if (firstExp) {
+        return <Redirect to={Routes.getExperimentPageRoute(firstExp.experiment_id)} />;
+      }
+    }
+
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
         <div style={{ height: containerHeight }}>
-          {this.props.experimentIds ? (
+          {hasExperiments ? (
             <PageContainer>
               <ExperimentPage
                 experimentIds={experimentIds}
@@ -64,12 +57,12 @@ class HomeView extends Component {
         <div>
           <Spacer />
           <ExperimentListView
-            activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
+            activeExperimentId={experimentIds && experimentIds[0]}
             experiments={experiments}
           />
         </div>
         <PageContainer>
-          {this.props.experimentIds ? (
+          {hasExperiments ? (
             <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
           ) : (
             <NoExperimentView />
