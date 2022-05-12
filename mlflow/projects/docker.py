@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import urllib.parse
 import urllib.request
+import subprocess
 
 import docker
 
@@ -36,11 +37,18 @@ def validate_docker_installation():
         )
 
     cmd = ["docker", "ps"]
-    prc = process._exec_cmd(cmd, throw_on_error=False)
+    prc = process._exec_cmd(
+        cmd,
+        throw_on_error=False,
+        capture_output=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
     if prc.returncode != 0:
         joined_cmd = " ".join(cmd)
         raise ExecutionException(
-            f"Ran `{joined_cmd}` to ensure docker daemon is running but it failed: {prc.stderr}"
+            f"Ran `{joined_cmd}` to ensure docker daemon is running but it failed "
+            f"with the following output:\n{prc.stdout}"
         )
 
 
