@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import time
 from pkg_resources import resource_filename
-from smart_open import open
+import smart_open
 import weakref
 
 import mlflow
@@ -41,7 +41,7 @@ AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 def _read_log_model_allowlist_from_file(allowlist_file):
     allowlist = set()
-    with open(allowlist_file) as f:
+    with smart_open.open(allowlist_file) as f:
         for line in f:
             stripped = line.strip()
             is_blankline_or_comment = stripped == "" or stripped.startswith("#")
