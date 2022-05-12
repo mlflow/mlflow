@@ -35,10 +35,11 @@ def validate_docker_installation():
             "at https://docs.docker.com/install/overview/."
         )
 
-    prc = process._exec_cmd(["docker", "ps"], throw_on_error=False)
+    cmd = ["docker", "ps"]
+    prc = process._exec_cmd(cmd, throw_on_error=False)
     if prc.returncode != 0:
         raise ExecutionException(
-            f"Ran `docker ps` to ensure docker daemon is running but it failed: {prc.stderr}"
+            f"Ran {cmd} to ensure docker daemon is running but it failed: {prc.stderr}"
         )
 
 
