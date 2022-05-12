@@ -105,6 +105,13 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
+        # Establish SSH to localhost for test_sftp_artifact_repo.py
+        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+        ssh -v $(whoami)@localhost exit
+        export LOGNAME=$(whoami)
+
         ./dev/run-small-python-tests.sh
 
   python-large:

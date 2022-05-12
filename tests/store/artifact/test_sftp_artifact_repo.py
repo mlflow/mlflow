@@ -9,20 +9,18 @@ import os
 import posixpath
 
 
+pytestmark = pytest.mark.requires_ssh
+
+
 @pytest.fixture
 def sftp_mock():
     return MagicMock(autospec=pysftp.Connection)
 
 
-@pytest.mark.large
-def test_artifact_uri_factory():
-    from paramiko.ssh_exception import SSHException
-
-    with pytest.raises(SSHException, match="No hostkey for host test_sftp found"):
-        get_artifact_repository("sftp://user:pass@test_sftp:123/some/path")
+def test_artifact_uri_factory(tmp_path):
+    assert isinstance(get_artifact_repository(f"sftp://{tmp_path}"), SFTPArtifactRepository)
 
 
-@pytest.mark.large
 def test_list_artifacts_empty(sftp_mock):
     repo = SFTPArtifactRepository("sftp://test_sftp/some/path", sftp_mock)
     sftp_mock.listdir = MagicMock(return_value=[])
@@ -30,7 +28,6 @@ def test_list_artifacts_empty(sftp_mock):
     sftp_mock.listdir.assert_called_once_with("/some/path")
 
 
-@pytest.mark.large
 def test_list_artifacts(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
@@ -70,7 +67,6 @@ def test_list_artifacts(sftp_mock):
     assert artifacts[1].file_size is None
 
 
-@pytest.mark.large
 def test_list_artifacts_with_subdir(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
@@ -114,7 +110,6 @@ def test_list_artifacts_with_subdir(sftp_mock):
     assert artifacts[1].file_size is None
 
 
-@pytest.mark.requires_ssh
 def test_log_artifact():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
         file_content = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
@@ -137,7 +132,6 @@ def test_log_artifact():
                 assert remote_content.read() == file_content
 
 
-@pytest.mark.requires_ssh
 def test_log_artifacts():
     for artifact_path in [None, "sub_dir", "very/nested/sub/dir"]:
         file_content_1 = "A simple test artifact\nThe artifact is located in: " + str(artifact_path)
@@ -172,7 +166,6 @@ def test_log_artifacts():
                 assert remote_content.read() == file_content_2
 
 
-@pytest.mark.requires_ssh
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_delete_artifact(artifact_path):
     file_content = f"A simple test artifact\nThe artifact is located in: {artifact_path}"
@@ -180,7 +173,7 @@ def test_delete_artifact(artifact_path):
         local.write(file_content)
         local.flush()
 
-        sftp_path = f"sftp://{remote.path}"
+        sftp_path = f"sftp://{remote.path()}"
         store = SFTPArtifactRepository(sftp_path)
         store.log_artifact(local.name, artifact_path)
 
@@ -191,7 +184,7 @@ def test_delete_artifact(artifact_path):
         )
         assert posixpath.isfile(remote_file)
 
-        with open(remote_file, "r", encoding="uft8") as remote_content:
+        with open(remote_file, "r") as remote_content:
             assert remote_content.read() == file_content
 
         store.delete_artifacts(remote.path())
@@ -200,7 +193,6 @@ def test_delete_artifact(artifact_path):
         assert not posixpath.exists(remote.path())
 
 
-@pytest.mark.requires_ssh
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_delete_artifacts(artifact_path):
     file_content_1 = f"A simple test artifact\nThe artifact is located in: {artifact_path}"
@@ -241,7 +233,6 @@ def test_delete_artifacts(artifact_path):
         assert not posixpath.exists(remote.path())
 
 
-@pytest.mark.requires_ssh
 @pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
 def test_delete_selective_artifacts(artifact_path):
     file_content_1 = f"A simple test artifact\nThe artifact is located in: {artifact_path}"
