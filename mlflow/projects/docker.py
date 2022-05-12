@@ -13,7 +13,7 @@ from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.tracking.context.git_context import _get_git_commit
-from mlflow.utils import file_utils
+from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
 
@@ -31,8 +31,14 @@ def validate_docker_installation():
     if shutil.which("docker") is None:
         raise ExecutionException(
             "Could not find Docker executable. "
-            "Ensure Docker is installed and running as per the instructions "
+            "Ensure Docker is installed as per the instructions "
             "at https://docs.docker.com/install/overview/."
+        )
+
+    prc = process._exec_cmd(["docker", "ps"], throw_on_error=False)
+    if prc.returncode != 0:
+        raise ExecutionException(
+            f"Ran `docker ps` to ensure docker daemon is running but it failed: {prc.stderr}"
         )
 
 
