@@ -19,7 +19,7 @@ tensorflow>=2.8.0
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
-pytorch_lightning>=1.6.3
+pytorch_lightning>=1.5.10
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm
