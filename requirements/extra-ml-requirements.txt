@@ -13,7 +13,7 @@ mxnet!=1.8.0
 # Required by mlflow.fastai
 fastai>=2.4.1
 # Required by mlflow.spacy
-spacy
+spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.8.0
 # Required by mlflow.pytorch
