@@ -3,7 +3,7 @@
 set -ex
 
 function retry-with-backoff() {
-    for BACKOFF in 0 1 2 4 8 16 32 64; do
+    for BACKOFF in 0 1 2; do
         sleep $BACKOFF
         if "$@"; then
             return 0
