@@ -17,8 +17,8 @@ spacy
 # Required by mlflow.tensorflow
 tensorflow>=2.8.0
 # Required by mlflow.pytorch
-torch
-torchvision>=1.11.0
+torch>=1.11.0
+torchvision
 pytorch_lightning>=1.0.2
 # Required by mlflow.xgboost
 xgboost>=0.82
