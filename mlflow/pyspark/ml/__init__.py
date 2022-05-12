@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import time
 from pkg_resources import resource_filename
+from smart_open import open
 import weakref
 
 import mlflow
