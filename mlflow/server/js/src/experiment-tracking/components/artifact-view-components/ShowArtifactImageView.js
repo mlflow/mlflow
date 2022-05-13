@@ -47,8 +47,6 @@ ShowArtifactImageView.propTypes = {
 
 const classNames = {
   imageOuterContainer: css({
-    minHeight: '500px',
-    maxHeight: '1000px',
     padding: '10px',
     overflow: 'scroll',
   }),
