@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import urllib.parse
 import urllib.request
+import subprocess
 
 import docker
 
@@ -26,16 +27,28 @@ _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 def validate_docker_installation():
     """
-    Verify if Docker is installed on host machine.
+    Verify if Docker is installed and running on host machine.
     """
-    try:
-        docker_path = "docker"
-        process._exec_cmd([docker_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
+    if shutil.which("docker") is None:
         raise ExecutionException(
             "Could not find Docker executable. "
             "Ensure Docker is installed as per the instructions "
             "at https://docs.docker.com/install/overview/."
+        )
+
+    cmd = ["docker", "info"]
+    prc = process._exec_cmd(
+        cmd,
+        throw_on_error=False,
+        capture_output=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    if prc.returncode != 0:
+        joined_cmd = " ".join(cmd)
+        raise ExecutionException(
+            f"Ran `{joined_cmd}` to ensure docker daemon is running but it failed "
+            f"with the following output:\n{prc.stdout}"
         )
 
 

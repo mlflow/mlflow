@@ -18,14 +18,11 @@ describe('HomeView', () => {
   let wrapper;
   let minimalStore;
   let minimalProps;
-  let mockHistory;
 
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockHistory = { push: jest.fn() };
     minimalProps = {
-      history: mockHistory,
       experimentIds: undefined,
       compareExperiments: false,
     };
@@ -64,6 +61,6 @@ describe('HomeView', () => {
         </BrowserRouter>
       </Provider>,
     );
-    expect(mockHistory.push).toHaveBeenCalledWith('/experiments/2');
+    expect(window.location.pathname).toBe('/experiments/2');
   });
 });
