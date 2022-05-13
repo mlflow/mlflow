@@ -17,6 +17,7 @@ import {
   modelListPageRoute,
   modelPageRoute,
   modelSubpageRoute,
+  modelSubpageRouteWithName,
   modelVersionPageRoute,
   compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
@@ -110,6 +111,7 @@ class App extends Component {
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
               <Route exact path={modelPageRoute} component={ModelPage} />
               <Route exact path={modelSubpageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
               <Route
                 exact
                 path={compareModelVersionsPageRoute}

@@ -54,6 +54,10 @@ class ShowArtifactTextView extends Component {
       const overrideStyles = {
         fontFamily: 'Source Code Pro,Menlo,monospace',
         fontSize: '13px',
+        overflow: 'auto',
+        marginTop: '0',
+        width: '100%',
+        height: '100%',
       };
       const renderedContent = ShowArtifactTextView.prettifyText(language, this.state.text);
       return (

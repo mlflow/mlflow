@@ -60,9 +60,17 @@ export const experimentsById = (state = {}, action) => {
     }
     case fulfilled(GET_EXPERIMENT_API): {
       const { experiment } = action.payload;
+
+      // getExperiment API response might not contain all relevant fields,
+      // thus instead of overwriting it, we rather want to merge the new data
+      // into the existing record. We're replacing it only if no experiment
+      // with this ID exists in the state.
+      const mergedExperiment =
+        state[experiment.experiment_id]?.mergeDeep(experiment) || Experiment.fromJs(experiment);
+
       return {
         ...state,
-        [experiment.experiment_id]: Experiment.fromJs(experiment),
+        [experiment.experiment_id]: mergedExperiment,
       };
     }
     default:

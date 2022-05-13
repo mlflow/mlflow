@@ -1,6 +1,7 @@
 export const modelListPageRoute = '/models';
 export const modelPageRoute = '/models/:modelName';
 export const modelSubpageRoute = '/models/:modelName/:subpage';
+export const modelSubpageRouteWithName = '/models/:modelName/:subpage/:name';
 export const modelVersionPageRoute = '/models/:modelName/versions/:version';
 export const compareModelVersionsPageRoute = '/compare-model-versions';
 export const getModelPageRoute = (modelName) => `/models/${encodeURIComponent(modelName)}`;
