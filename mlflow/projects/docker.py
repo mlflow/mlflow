@@ -36,7 +36,7 @@ def validate_docker_installation():
             "at https://docs.docker.com/install/overview/."
         )
 
-    cmd = ["docker", "ps"]
+    cmd = ["docker", "info"]
     prc = process._exec_cmd(
         cmd,
         throw_on_error=False,
