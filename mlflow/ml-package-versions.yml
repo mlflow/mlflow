@@ -9,13 +9,13 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.0.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.0.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
