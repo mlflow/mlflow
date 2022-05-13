@@ -245,7 +245,7 @@ dependencies via:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm install
+   npm install # NOTE: you may need to add --legacy-peer-deps for newer versions of npm
    cd - # return to root repository directory
 
 If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
