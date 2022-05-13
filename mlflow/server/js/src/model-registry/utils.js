@@ -36,7 +36,7 @@ export function CircleIcon({ type }) {
       break;
     }
     case 'PENDING': {
-      color = theme.colors.yellow500; // textValidationWarning was too dark/red
+      color = theme.colors.yellow400; // textValidationWarning was too dark/red
       break;
     }
     case 'READY':
@@ -45,7 +45,7 @@ export function CircleIcon({ type }) {
       break;
     }
   }
-  return <DuboisCircleIcon className={css({ color })} />;
+  return <DuboisCircleIcon className={css({ color, fontSize: 16 })} />;
 }
 CircleIcon.propTypes = {
   type: PropTypes.oneOf(['FAILED', 'PENDING', 'READY']).isRequired,

@@ -21,7 +21,7 @@ export function ExperimentNoteSection(props) {
   return (
     <CollapsibleSection
       title={
-        <span>
+        <span className='ExperimentView-editDescriptionHeader'>
           <FormattedMessage
             defaultMessage='Description'
             description='Header for displaying notes for the experiment table'
@@ -58,7 +58,6 @@ ExperimentNoteSection.propTypes = {
   showNotesEditor: PropTypes.bool,
   noteInfo: PropTypes.object,
 };
-
 export class ArtifactLocation extends Component {
   static propTypes = {
     experiment: PropTypes.instanceOf(Experiment).isRequired,

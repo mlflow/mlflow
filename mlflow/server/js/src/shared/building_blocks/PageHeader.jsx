@@ -1,12 +1,11 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { css } from 'emotion';
-import { Typography } from '@databricks/design-system';
+import { Typography, Spacer as DbSpacer } from '@databricks/design-system';
 import { Dropdown, Menu } from 'antd';
 import { Breadcrumb } from './antd/Breadcrumb';
 import { Button } from './antd/Button';
 import { RightChevron } from '../icons/RightChevron';
-import { grayRule } from '../colors';
 import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
@@ -92,9 +91,7 @@ export class PageHeader extends React.Component {
             <Spacer direction='horizontal'>{children}</Spacer>
           </div>
         </div>
-        <div className={css(styles.hrWrapper)}>
-          <hr className={css(styles.hr)} />
-        </div>
+        <DbSpacer size='medium' />
       </>
     );
   }
@@ -104,7 +101,6 @@ export class PageHeader extends React.Component {
 const antButtonHeight = '32px';
 const styles = {
   titleContainer: {
-    marginBottom: 8,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -120,16 +116,6 @@ const styles = {
     flexShrink: 1,
     display: 'flex',
     alignItems: 'flex-end',
-  },
-  hr: {
-    marginTop: 0, // hr margin comes from bootstrap. Must override.
-    marginBottom: 24,
-    height: '1px',
-    backgroundColor: grayRule,
-    border: 'none',
-  },
-  hrWrapper: {
-    margin: 0,
   },
   iconWrapper: {
     display: 'inline-block',

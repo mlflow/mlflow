@@ -319,7 +319,7 @@ export class ExperimentPage extends Component {
       .then(this.updateNumRunsFromLatestSearch)
       .then(this.fetchModelVersionsForRuns)
       .catch((e) => {
-        Utils.logErrorAndNotifyUser(e);
+        Utils.logGenericUserFriendlyError(e, this.props.intl);
         this.setState({ ...PAGINATION_DEFAULT_STATE });
       });
   };
