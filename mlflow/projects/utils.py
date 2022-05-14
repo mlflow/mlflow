@@ -206,7 +206,7 @@ def _fetch_git_repo(uri, version, dst_dir):
             try:
                 repo.create_head("main", origin.refs.main)
             except AttributeError:
-                raise ExecutionException('Cannot find git master or main')
+                raise ExecutionException('Cannot find a git branch named master or main')
             else:
                 repo.heads.main.checkout()
         else:
