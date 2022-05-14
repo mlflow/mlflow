@@ -200,8 +200,17 @@ def _fetch_git_repo(uri, version, dst_dir):
             )
     else:
         origin.fetch(depth=GIT_FETCH_DEPTH)
-        repo.create_head("master", origin.refs.master)
-        repo.heads.master.checkout()
+        try:
+            repo.create_head("master", origin.refs.master)
+        except AttributeError:
+            try:
+                repo.create_head("main", origin.refs.main)
+            except AttributeError:
+                raise ExecutionException('Cannot find git master or main')
+            else:
+                repo.heads.main.checkout()
+        else:
+            repo.heads.master.checkout()
     repo.submodule_update(init=True, recursive=True)
 
 
