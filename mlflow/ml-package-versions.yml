@@ -41,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.6.0"
+    maximum: "1.6.3"
     requirements:
       "< 1.2.0": ["torch<1.11.0", "torchvision", "scikit-learn"]
       ">= 1.2.0, < 1.3.0": ["torchvision", "scikit-learn"]
@@ -121,14 +121,14 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.5.2"
+    maximum: "1.6.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.5.2"
+    maximum: "1.6.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -200,14 +200,14 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.5.6"
+    maximum: "2.6.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.5.6"
+    maximum: "2.6.3"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -249,7 +249,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.2.4"
+    maximum: "3.3.0"
     requirements:
       "<= 3.0.8": ["scikit-learn", "click<8.1.0", "flask<2.1.0"]
       "> 3.0.8": ["scikit-learn", "click<8.1.0"]
