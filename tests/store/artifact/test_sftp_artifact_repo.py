@@ -1,7 +1,5 @@
-from unittest.mock import MagicMock
 import pytest
 from tempfile import NamedTemporaryFile
-import pysftp
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.utils.file_utils import TempDir
@@ -12,100 +10,30 @@ import posixpath
 pytestmark = pytest.mark.requires_ssh
 
 
-@pytest.fixture
-def sftp_mock():
-    return MagicMock(autospec=pysftp.Connection)
-
-
 def test_artifact_uri_factory(tmp_path):
     assert isinstance(get_artifact_repository(f"sftp://{tmp_path}"), SFTPArtifactRepository)
 
 
-def test_list_artifacts_empty(sftp_mock):
-    repo = SFTPArtifactRepository("sftp://test_sftp/some/path", sftp_mock)
-    sftp_mock.listdir = MagicMock(return_value=[])
+def test_list_artifacts_empty(tmp_path):
+    repo = SFTPArtifactRepository(f"sftp://{tmp_path}")
     assert repo.list_artifacts() == []
-    sftp_mock.listdir.assert_called_once_with("/some/path")
 
 
-def test_list_artifacts(sftp_mock):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
-
-    # mocked file structure
-    #  |- file
-    #  |- model
-    #     |- model.pb
-
+@pytest.mark.parametrize("artifact_path", [None, "sub_dir", "very/nested/sub/dir"])
+def test_list_artifacts(tmp_path, artifact_path):
     file_path = "file"
-    file_size = 678
     dir_path = "model"
-    sftp_mock.isdir = MagicMock(
-        side_effect=lambda path: {
-            artifact_root_path: True,
-            os.path.join(artifact_root_path, file_path): False,
-            os.path.join(artifact_root_path, dir_path): True,
-        }[path]
-    )
-    sftp_mock.listdir = MagicMock(return_value=[file_path, dir_path])
+    tmp_path.joinpath(artifact_path or "").mkdir(parents=True, exist_ok=True)
+    tmp_path.joinpath(artifact_path or "", file_path).write_text("test")
+    tmp_path.joinpath(artifact_path or "", dir_path).mkdir()
 
-    file_stat = MagicMock()
-    file_stat.configure_mock(st_size=file_size)
-    sftp_mock.stat = MagicMock(return_value=file_stat)
-
-    artifacts = repo.list_artifacts(path=None)
-
-    sftp_mock.listdir.assert_called_once_with(artifact_root_path)
-    sftp_mock.stat.assert_called_once_with(artifact_root_path + file_path)
-
+    repo = SFTPArtifactRepository(f"sftp://{tmp_path}")
+    artifacts = repo.list_artifacts(path=artifact_path)
     assert len(artifacts) == 2
-    assert artifacts[0].path == file_path
+    assert artifacts[0].path == posixpath.join(artifact_path or "", file_path)
     assert artifacts[0].is_dir is False
-    assert artifacts[0].file_size == file_size
-    assert artifacts[1].path == dir_path
-    assert artifacts[1].is_dir is True
-    assert artifacts[1].file_size is None
-
-
-def test_list_artifacts_with_subdir(sftp_mock):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = SFTPArtifactRepository("sftp://test_sftp" + artifact_root_path, sftp_mock)
-
-    # mocked file structure
-    #  |- model
-    #     |- model.pb
-    #     |- variables
-    dir_name = "model"
-
-    # list artifacts at sub directory level
-    file_path = "model.pb"
-    file_size = 345
-    subdir_name = "variables"
-
-    sftp_mock.listdir = MagicMock(return_value=[file_path, subdir_name])
-
-    sftp_mock.isdir = MagicMock(
-        side_effect=lambda path: {
-            posixpath.join(artifact_root_path, dir_name): True,
-            posixpath.join(artifact_root_path, dir_name, file_path): False,
-            posixpath.join(artifact_root_path, dir_name, subdir_name): True,
-        }[path]
-    )
-
-    file_stat = MagicMock()
-    file_stat.configure_mock(st_size=file_size)
-    sftp_mock.stat = MagicMock(return_value=file_stat)
-
-    artifacts = repo.list_artifacts(path=dir_name)
-
-    sftp_mock.listdir.assert_called_once_with(artifact_root_path + dir_name)
-    sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + "/" + file_path)
-
-    assert len(artifacts) == 2
-    assert artifacts[0].path == posixpath.join(dir_name, file_path)
-    assert artifacts[0].is_dir is False
-    assert artifacts[0].file_size == file_size
-    assert artifacts[1].path == posixpath.join(dir_name, subdir_name)
+    assert artifacts[0].file_size == 4
+    assert artifacts[1].path == posixpath.join(artifact_path or "", dir_path)
     assert artifacts[1].is_dir is True
     assert artifacts[1].file_size is None
 
