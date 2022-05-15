@@ -1,0 +1,12 @@
+**
+
+!.devcontainer/.zshrc
+!.devcontainer/.p10k.zsh
+!requirements
+!setup.py
+!mlflow/__init__.py
+!mlflow/version.py
+!README.rst
+!mlflow/server/js
+
+node_modules

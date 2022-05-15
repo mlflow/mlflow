@@ -1,0 +1,35 @@
+{
+  // https://code.visualstudio.com/docs/remote/devcontainerjson-reference
+  "name": "MLflow Development Container",
+  "dockerComposeFile": "docker-compose.yml",
+  "workspaceFolder": "/workspaces/mlflow",
+  "service": "mlflow",
+  "postCreateCommand": ".devcontainer/postCreate.sh",
+  "overrideCommand": true,
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "editor.rulers": [100],
+    "editor.formatOnSave": true,
+    "python.defaultInterpreterPath": "~/miniconda/envs/mlflow-dev-env/bin/python",
+    // Disable automatic environment activation on terminal creation because we run `conda activate mlflow-dev-env` in `.zshrc`.
+    "python.terminal.activateEnvironment": false,
+    // Auto import complemtion feature often imports incorrect modules.
+    "python.analysis.autoImportCompletions": false,
+    // Disable lint check because pylint is slow
+    "python.linting.enabled": false,
+    "python.formatting.provider": "black",
+    "prettier.prettierPath": "/workspaces/mlflow/mlflow/server/js/node_modules/prettier",
+    "prettier.configPath": "/workspaces/mlflow/mlflow/server/js/.prettierrc.js"
+  },
+  "extensions": [
+    "dbaeumer.vscode-eslint",
+    "eamodio.gitlens",
+    "esbenp.prettier-vscode",
+    "GitHub.vscode-pull-request-github",
+    "ms-python.python",
+    "oderwat.indent-rainbow",
+    "PKief.material-icon-theme",
+    "ritwickdey.LiveServer",
+    "shardulm94.trailing-spaces"
+  ]
+}

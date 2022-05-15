@@ -1,0 +1,44 @@
+name: Devcontainer
+
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+    branches:
+      - "master"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+env:
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+
+jobs:
+  devcontainer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dev-container-cli
+        run: |
+          npm install -g "@vscode/dev-container-cli"
+      - name: Get image name
+        run: |
+          IMAGE_NAME=$(yq '.services.mlflow.image' .devcontainer/docker-compose.yml)
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+      - name: Build image
+        run: |
+          docker build -f .devcontainer/Dockerfile.devcontainer -t $IMAGE_NAME .
+      - name: Inspect image
+        run: |
+          docker image inspect $IMAGE_NAME
+      - name: Push image
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker push $IMAGE_NAME

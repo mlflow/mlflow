@@ -1,0 +1,74 @@
+FROM --platform=linux/amd64 ubuntu:20.04
+
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+
+# GitHub Codespaces use /workspaces/mlflow as a working directory
+WORKDIR /workspaces/mlflow
+
+RUN apt-get update -y
+RUN apt-get install -y sudo
+RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC \
+    sudo -E apt-get install --no-install-recommends -y \
+    # Common development tools
+    git curl wget jq vim tree \
+    # Zsh
+    zsh \
+    # Extra dependencies for pyenv
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev \
+    libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev \
+    # Java
+    openjdk-11-jdk
+
+# Install powerlevel10k
+RUN git clone --depth 1 --branch v1.16.1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
+COPY .devcontainer/.zshrc /root
+COPY .devcontainer/.p10k.zsh /root
+
+# Install conda using a miniforge installer to avoid using conda's defaults channel
+RUN sudo wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+RUN bash Miniforge3-Linux-x86_64.sh -b -p /root/miniconda
+RUN rm Miniforge3-Linux-x86_64.sh
+ENV PATH="/root/miniconda/bin:$PATH"
+
+# Install pyenv
+RUN git clone --depth 1 \
+    # Install the latest release of pyenv
+    --branch $(git ls-remote --tags https://github.com/pyenv/pyenv.git | grep -o -E 'v[1-9]+(\.[1-9]+)+$' | tail -1) \
+    https://github.com/pyenv/pyenv.git /root/.pyenv
+ENV PYENV_ROOT="/root/.pyenv"
+ENV PATH="$PYENV_ROOT/bin:$PATH"
+
+# Install Yarn
+RUN curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+RUN sudo apt-get install -y nodejs
+RUN npm -g install yarn
+
+# Create a dev environment using conda. We could use virtualenv and pyenv but it's slow.
+ARG DEV_ENVIRONMENT_NAME="mlflow-dev-env"
+RUN conda create -y -n mlflow-dev-env python=3.7
+RUN conda clean --all --yes
+RUN conda init zsh
+RUN echo "conda activate ${DEV_ENVIRONMENT_NAME}" >> ~/.zshrc
+
+# Install mlflow dependencies
+RUN mkdir -p mlflow
+COPY mlflow/version.py ./mlflow
+COPY mlflow/__init__.py ./mlflow
+COPY README.rst .
+COPY setup.py .
+# This step creates package metadata for mlflow in the current working directory, but it'll be
+# removed once the repository is mounted as a volume when launching a container.
+# `postCreate.sh` runs `pip install --no-deps -e .` to recreate the package metadata.
+RUN conda run -n ${DEV_ENVIRONMENT_NAME} pip install -e '.[extras]'
+
+# Install python dev dependencies
+COPY requirements ./requirements
+RUN conda run -n ${DEV_ENVIRONMENT_NAME} pip install \
+    -r ./requirements/lint-requirements.txt \
+    -r ./requirements/doc-requirements.txt \
+    -r ./requirements/small-requirements.txt
+
+# Install JS dependencies
+COPY mlflow/server/js ./mlflow/server/js
+RUN cd mlflow/server/js && yarn install
