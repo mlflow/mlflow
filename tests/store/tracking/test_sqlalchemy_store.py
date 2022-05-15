@@ -120,14 +120,7 @@ class TestParseDbUri(unittest.TestCase):
 
     def test_fail_on_multiple_drivers(self):
         bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
-        self._db_uri_error(
-            bad_db_uri_strings,
-            (
-                r"Invalid database URI: '.+'\. "
-                r"Please refer to https://mlflow\.org/docs/latest/tracking\.html#storage "
-                r"for format specifications\."
-            ),
-        )
+        self._db_uri_error(bad_db_uri_strings, r"Invalid database URI")
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
