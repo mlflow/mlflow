@@ -116,11 +116,11 @@ class TestParseDbUri(unittest.TestCase):
             "://...",
             "abcdefg",
         ]
-        self._db_uri_error(bad_db_uri_strings, "Invalid database engine")
+        self._db_uri_error(bad_db_uri_strings, r"Invalid database engine")
 
     def test_fail_on_multiple_drivers(self):
         bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
-        self._db_uri_error(bad_db_uri_strings, "Invalid database URI")
+        self._db_uri_error(bad_db_uri_strings, r"Invalid database URI")
 
 
 class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
@@ -238,7 +238,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self._experiment_factory(["test", "test"])
 
     def test_raise_experiment_dont_exist(self):
-        with self.assertRaisesRegex(Exception, "No Experiment with id=.+ exists"):
+        with self.assertRaisesRegex(Exception, r"No Experiment with id=.+ exists"):
             self.store.get_experiment(experiment_id=100)
 
     def test_delete_experiment(self):
@@ -331,14 +331,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_list_experiments_paginated_errors(self):
         # test that providing a completely invalid page token throws
         with self.assertRaisesRegex(
-            MlflowException, "Invalid page token, could not base64-decode"
+            MlflowException, r"Invalid page token, could not base64-decode"
         ) as exception_context:
             self.store.list_experiments(page_token="evilhax", max_results=20)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
         with self.assertRaisesRegex(
-            MlflowException, "Invalid value for request parameter max_results"
+            MlflowException, r"Invalid value for request parameter max_results"
         ) as exception_context:
             self.store.list_experiments(page_token=None, max_results=int(1e15))
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -531,17 +531,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(added_param.key, new_param.key)
 
     def test_run_needs_uuid(self):
-        mssql_regex = "Cannot insert the value NULL into column .+, table .+"
-        mysql_regex = "Field .+ doesn't have a default value"
-        pgsql_regex = "null value in column .+ of relation .+ violates not-null constrain"
-        sqlite_regex = "NOT NULL constraint failed"
-
+        regex = {
+            SQLITE: r"NOT NULL constraint failed",
+            POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
+            MYSQL: r"(Field .+ doesn't have a default value|Instance .+ has a NULL identity key)",
+            MSSQL: r"Cannot insert the value NULL into column .+, table .+",
+        }[self.store._get_dialect()]
         # Depending on the implementation, a NULL identity key may result in different
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
-        with self.assertRaisesRegex(
-            MlflowException, rf"({mssql_regex}|{mysql_regex}|{pgsql_regex}|{sqlite_regex})"
-        ) as exception_context:
+        with self.assertRaisesRegex(MlflowException, regex) as exception_context:
             with self.store.ManagedSessionMaker() as session:
                 run = models.SqlRun()
                 session.add(run)
@@ -836,7 +835,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
         with self.assertRaisesRegex(
-            MlflowException, "Got invalid value None for metric"
+            MlflowException, r"Got invalid value None for metric"
         ) as exception_context:
             self.store.log_metric(run.info.run_id, metric)
             warnings.resetwarnings()
@@ -866,7 +865,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         param2 = entities.Param(tkey, "newval")
         self.store.log_param(run.info.run_id, param)
 
-        with self.assertRaisesRegex(MlflowException, "Changing param values is not allowed"):
+        with self.assertRaisesRegex(MlflowException, r"Changing param values is not allowed"):
             self.store.log_param(run.info.run_id, param2)
 
     def test_log_empty_str(self):
@@ -890,14 +889,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tval = None
         param = entities.Param(tkey, tval)
 
-        mssql_regex = "Cannot insert the value NULL into column .+, table .+"
-        mysql_regex = "Column .+ cannot be null"
-        pgsql_regex = "null value in column .+ of relation .+ violates not-null constraint"
-        sqlite_regex = "NOT NULL constraint failed"
-
-        with self.assertRaisesRegex(
-            MlflowException, rf"({mssql_regex}|{mysql_regex}|{pgsql_regex}|{sqlite_regex})"
-        ) as exception_context:
+        regex = {
+            SQLITE: r"NOT NULL constraint failed",
+            POSTGRES: r"null value in column .+ of relation .+ violates not-null constrain",
+            MYSQL: r"Column .+ cannot be null",
+            MSSQL: r"Cannot insert the value NULL into column .+, table .+",
+        }[self.store._get_dialect()]
+        with self.assertRaisesRegex(MlflowException, regex) as exception_context:
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
@@ -1070,11 +1068,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self._run_factory()
         self.assertEqual(run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'deleted' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
             self.store.restore_run(run.info.run_id)
 
         self.store.delete_run(run.info.run_id)
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'active' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
             self.store.delete_run(run.info.run_id)
 
         deleted = self.store.get_run(run.info.run_id)
@@ -1082,7 +1080,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
 
         self.store.restore_run(run.info.run_id)
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'deleted' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
             self.store.restore_run(run.info.run_id)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
@@ -1096,13 +1094,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(
             self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.DELETED
         )
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'active' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
 
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'active' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
             self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
 
-        with self.assertRaisesRegex(MlflowException, "The run .+ must be in the 'active' state"):
+        with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'active' state"):
             self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
 
         # restore this run and try again
@@ -1556,7 +1554,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "run_id": r1,
             "run_uuid": r2,
         }.items():
-            with self.assertRaisesRegex(MlflowException, "Invalid attribute key '.+' specified"):
+            with self.assertRaisesRegex(MlflowException, r"Invalid attribute key '.+' specified"):
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
 
     def test_search_full(self):
@@ -1635,7 +1633,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             assert runs[: min(1200, n)] == self._search(exp, max_results=n)
 
         with self.assertRaisesRegex(
-            MlflowException, "Invalid value for request parameter max_results"
+            MlflowException, r"Invalid value for request parameter max_results"
         ):
             self._search(exp, max_results=int(1e10))
 
@@ -1724,7 +1722,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaisesRegex(
-            MlflowException, "Changing param values is not allowed"
+            MlflowException, r"Changing param values is not allowed"
         ) as exception_context:
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
@@ -1741,7 +1739,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaisesRegex(
-            MlflowException, "Duplicate parameter keys have been submitted"
+            MlflowException, r"Duplicate parameter keys have been submitted"
         ) as exception_context:
             self.store.log_batch(
                 run.info.run_id, metrics=[metric], params=[param0, param1], tags=[tag]
@@ -1777,7 +1775,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
                 with self.assertRaisesRegex(
-                    MlflowException, "Some internal error"
+                    MlflowException, r"Some internal error"
                 ) as exception_context:
                     self.store.log_batch(run.info.run_id, **log_batch_kwargs)
                 self.assertIn(str(exception_context.exception.message), "Some internal error")
@@ -1785,7 +1783,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_log_batch_nonexistent_run(self):
         nonexistent_run_id = uuid.uuid4().hex
         with self.assertRaisesRegex(
-            MlflowException, f"Run with id={nonexistent_run_id} not found"
+            MlflowException, rf"Run with id={nonexistent_run_id} not found"
         ) as exception_context:
             self.store.log_batch(nonexistent_run_id, [], [], [])
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -1901,7 +1899,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         metrics = [metric_1, metric_2]
 
         with self.assertRaisesRegex(
-            MlflowException, "Got invalid value None for metric"
+            MlflowException, r"Got invalid value None for metric"
         ) as exception_context:
             self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
