@@ -32,7 +32,7 @@ def parse_args():
         "--python-versions",
         help=(
             "Comma separated string represeting python versions. "
-            "If `requires_python` is unavailable in a specified package, "
+            "If `requires_python` is unavailable for a specified package, "
             "the minimum version will be selected."
         ),
         required=True,
