@@ -22,7 +22,7 @@ Features:
 - [Models] Add support for `input_example` and `signature` logging for `tensorflow` flavor when using autologging (#5510, @bali0019)
 - [Server-infra] Add JSON Schema Type Validation to enable raising 400 errors on malformed requests to REST API endpoints (#5458, @mrkaye97)
 - [Scoring] Introduce abstract `endpoint` interface for mlflow deployments (#5378, @trangevi)
-- [UI] Add 'end time' and 'run duration' fields to Compare Runs view (#3378, @RealArpanBhattacharya)
+- [UI] Add `End Time` and `Duration` fields to run comparison page (#3378, @RealArpanBhattacharya)
 - [Serving] Add schema validation support when parsing input csv data for model serving (#5531, @vvijay-bolt)
 
 Bug fixes and documentation updates:
