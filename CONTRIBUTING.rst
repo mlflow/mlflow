@@ -248,7 +248,7 @@ dependencies via:
    yarn install
    cd - # return to root repository directory
 
-If modifying dependencies in ``mlflow/server/js/package.json``, run ``yarn update`` within
+If modifying dependencies in ``mlflow/server/js/package.json``, run ``yarn upgrade`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
 Launching the Development UI
