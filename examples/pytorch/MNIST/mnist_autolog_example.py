@@ -10,6 +10,7 @@
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
 import mlflow.pytorch
+import logging
 import os
 import torch
 from argparse import ArgumentParser
@@ -274,7 +275,6 @@ if __name__ == "__main__":
     parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
-    mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
@@ -303,5 +303,16 @@ if __name__ == "__main__":
     trainer = pl.Trainer.from_argparse_args(
         args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
     )
+
+    # CPU Training
+    if dict_args["gpus"] is None or int(dict_args["gpus"]) == 0:
+        mlflow.pytorch.autolog()
+    elif int(dict_args["gpus"]) >= 1 and trainer.global_rank == 0:
+        # To avoid duplication of mlflow runs when the model
+        # is trained using multiple gpus
+        mlflow.pytorch.autolog()
+    else:
+        logging.info("Active run exists.. ")
+
     trainer.fit(model, dm)
     trainer.test(datamodule=dm)
