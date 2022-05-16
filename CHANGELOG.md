@@ -8,8 +8,8 @@ Features:
 
 - [CLI] Add endpoint naming and options configuration to the deployment CLI (#5731, @trangevi)
 - [Build,Doc] Add development environment setup script for Linux and MacOS x86 Operating Systems (#5717, @BenWilson2)
-- [Tracking] Update `mlflow.set_tracking_uri` to add support for paths defined as `pathlib.Path` in addition to existing `str` path declarations (#5820) (#5824, @cacharle)
-- [Scoring] Add custom timeout override option to the scoring server CLI to support high latency models #5381 (#5663, @sniafas)
+- [Tracking] Update `mlflow.set_tracking_uri` to add support for paths defined as `pathlib.Path` in addition to existing `str` path declarations (#5824, @cacharle)
+- [Scoring] Add custom timeout override option to the scoring server CLI to support high latency models (#5663, @sniafas)
 - [UI] Add sticky header to experiment run list table to support column name visibility when scrolling beyond page fold (#5818, @hubertzub-db)
 - [Artifacts] Add GCS support for MLflow garbage collection (#5811, @aditya-iyengar-rtl-de)
 - [Evaluate] Add `pos_label` argument for `eval_and_log_metrics` API to support accurate binary classifier evaluation metrics (#5807, @yxiong)
