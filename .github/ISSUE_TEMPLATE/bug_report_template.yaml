@@ -31,7 +31,7 @@ body:
         - **MLflow installed from (source or binary)**:
         - **MLflow version (run ``mlflow --version``)**:
         - **Python version**:
-        - **npm version, if running the dev UI**:
+        - **yarn version, if running the dev UI**:
     validations:
       required: true
   - type: textarea
