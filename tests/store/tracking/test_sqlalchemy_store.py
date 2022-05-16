@@ -531,11 +531,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(added_param.key, new_param.key)
 
     def test_run_needs_uuid(self):
+        mssql_regex = "Cannot insert the value NULL into column .+, table .+"
+        mysql_regex = "Field .+ doesn't have a default value"
+        pgsql_regex = "null value in column .+ of relation .+ violates not-null constrain"
+        sqlite_regex = "NOT NULL constraint failed"
+
         # Depending on the implementation, a NULL identity key may result in different
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with self.assertRaisesRegex(
-            MlflowException, "NOT NULL constraint failed"
+            MlflowException, rf"({mssql_regex}|{mysql_regex}|{pgsql_regex}|{sqlite_regex})"
         ) as exception_context:
             with self.store.ManagedSessionMaker() as session:
                 run = models.SqlRun()
@@ -885,8 +890,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         tval = None
         param = entities.Param(tkey, tval)
 
+        mssql_regex = "Cannot insert the value NULL into column .+, table .+"
+        mysql_regex = "Column .+ cannot be null"
+        pgsql_regex = "null value in column .+ of relation .+ violates not-null constraint"
+        sqlite_regex = "NOT NULL constraint failed"
+
         with self.assertRaisesRegex(
-            MlflowException, "NOT NULL constraint failed"
+            MlflowException, rf"({mssql_regex}|{mysql_regex}|{pgsql_regex}|{sqlite_regex})"
         ) as exception_context:
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
