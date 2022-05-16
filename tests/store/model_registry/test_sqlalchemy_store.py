@@ -70,7 +70,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # error on duplicate
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model \(name={}\) already exists".format(name)
+            MlflowException, rf"Registered Model \(name={name}\) already exists"
         ) as exception_context:
             self._rm_maker(name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -105,12 +105,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # invalid model name will fail
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self._rm_maker(None)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self._rm_maker("")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -172,7 +172,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # test accessing the model with the old name will fail
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(original_name)
+            MlflowException, f"Registered Model with name={original_name} not found"
         ) as exception_context:
             self.store.get_registered_model(original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -181,19 +181,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(original_name)
         # cannot rename model to conflict with an existing model
         with self.assertRaisesRegex(
-            MlflowException,
-            r"Registered Model \(name={}\) already exists".format(original_name),
+            MlflowException, rf"Registered Model \(name={original_name}\) already exists"
         ) as exception_context:
             self.store.rename_registered_model(new_name, original_name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
         # invalid model name will fail
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.rename_registered_model(original_name, None)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.rename_registered_model(original_name, "")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -212,28 +211,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot get model
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(name)
+            MlflowException, f"Registered Model with name={name} not found"
         ) as exception_context:
             self.store.get_registered_model(name=name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # cannot update a delete model
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(name)
+            MlflowException, f"Registered Model with name={name} not found"
         ) as exception_context:
             self.store.update_registered_model(name=name, description="deleted")
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # cannot delete it again
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(name)
+            MlflowException, f"Registered Model with name={name} not found"
         ) as exception_context:
             self.store.delete_registered_model(name=name)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # model versions are cascade deleted with the registered model
         with self.assertRaisesRegex(
-            MlflowException, r"Model Version \(name={}, version=1\) not found".format(name)
+            MlflowException, rf"Model Version \(name={name}, version=1\) not found"
         ) as exception_context:
             self.store.get_model_version(name, 1)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -307,14 +306,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
         # test that providing a completely invalid page token throws
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid page token, could not base64-decode"
+            MlflowException, "Invalid page token, could not base64-decode"
         ) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=20)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid value for request parameter max_results"
+            MlflowException, "Invalid value for request parameter max_results"
         ) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=1e15)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -436,7 +435,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # can not set tag on deleted (non-existed) registered model
         self.store.delete_registered_model(name1)
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(name1)
+            MlflowException, f"Registered Model with name={name1} not found"
         ) as exception_context:
             self.store.set_registered_model_tag(name1, overriding_tag)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -453,13 +452,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_registered_model_tag(name2, long_tag)
         # can not set invalid tag
         with self.assertRaisesRegex(
-            MlflowException, r"Tag name cannot be None"
+            MlflowException, "Tag name cannot be None"
         ) as exception_context:
             self.store.set_registered_model_tag(name2, RegisteredModelTag(key=None, value=""))
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # can not use invalid model name
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -494,19 +493,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # can not delete tag on deleted (non-existed) registered model
         self.store.delete_registered_model(name1)
         with self.assertRaisesRegex(
-            MlflowException, r"Registered Model with name={} not found".format(name1)
+            MlflowException, f"Registered Model with name={name1} not found"
         ) as exception_context:
             self.store.delete_registered_model_tag(name1, "anotherKey")
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # can not delete tag with invalid key
         with self.assertRaisesRegex(
-            MlflowException, r"Tag name cannot be None"
+            MlflowException, "Tag name cannot be None"
         ) as exception_context:
             self.store.delete_registered_model_tag(name2, None)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # can not use invalid model name
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.delete_registered_model_tag(None, "key")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -606,7 +605,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # only valid stages can be set
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid Model Version stage unknown"
+            MlflowException, "Invalid Model Version stage unknown"
         ) as exception_context:
             self.store.transition_model_version_stage(
                 mv1.name, mv1.version, stage="unknown", archive_existing_versions=False
@@ -729,24 +728,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot get a deleted model version
         with self.assertRaisesRegex(
-            MlflowException,
-            r"Model Version \(name={}, version={}\) not found".format(mv.name, mv.version),
+            MlflowException, rf"Model Version \(name={mv.name}, version={mv.version}\) not found"
         ) as exception_context:
             self.store.get_model_version(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # cannot update a delete
         with self.assertRaisesRegex(
-            MlflowException,
-            r"Model Version \(name={}, version={}\) not found".format(mv.name, mv.version),
+            MlflowException, rf"Model Version \(name={mv.name}, version={mv.version}\) not found"
         ) as exception_context:
             self.store.update_model_version(mv.name, mv.version, description="deleted!")
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
         # cannot delete it again
         with self.assertRaisesRegex(
-            MlflowException,
-            r"Model Version \(name={}, version={}\) not found".format(mv.name, mv.version),
+            MlflowException, rf"Model Version \(name={mv.name}, version={mv.version}\) not found"
         ) as exception_context:
             self.store.delete_model_version(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -802,8 +798,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot retrieve download URI for deleted model versions
         self.store.delete_model_version(name=mv.name, version=mv.version)
         with self.assertRaisesRegex(
-            MlflowException,
-            r"Model Version \(name={}, version={}\) not found".format(mv.name, mv.version),
+            MlflowException, rf"Model Version \(name={mv.name}, version={mv.version}\) not found"
         ) as exception_context:
             self.store.get_model_version_download_uri(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -852,9 +847,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaisesRegex(
             MlflowException,
             (
-                r"While parsing a list in the query, "
-                r"expected string value or punctuation, "
-                r"but got different type in list"
+                "While parsing a list in the query, "
+                "expected string value or punctuation, "
+                "but got different type in list"
             ),
         ) as exception_context:
             search_versions("run_id IN (1,2,3)")
@@ -864,9 +859,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaisesRegex(
             MlflowException,
             (
-                r"While parsing a list in the query, "
-                r"expected a non-empty list of string values, "
-                r"but got empty list"
+                "While parsing a list in the query, "
+                "expected a non-empty list of string values, "
+                "but got empty list"
             ),
         ) as exception_context:
             search_versions("run_id IN ()")
@@ -879,16 +874,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             search_versions("run_id IN (")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
+        with self.assertRaisesRegex(MlflowException, "Invalid filter '.+'") as exception_context:
             search_versions("run_id IN")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
             MlflowException,
             (
-                r"While parsing a list in the query, "
-                r"expected a non-empty list of string values, "
-                r"but got ill-formed list"
+                "While parsing a list in the query, "
+                "expected a non-empty list of string values, "
+                "but got ill-formed list"
             ),
         ) as exception_context:
             search_versions("run_id IN (,)")
@@ -897,9 +892,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaisesRegex(
             MlflowException,
             (
-                r"While parsing a list in the query, "
-                r"expected a non-empty list of string values, "
-                r"but got ill-formed list"
+                "While parsing a list in the query, "
+                "expected a non-empty list of string values, "
+                "but got ill-formed list"
             ),
         ) as exception_context:
             search_versions("run_id IN ('runid1',,'runid2')")
@@ -907,7 +902,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # search using the IN operator is not allowed with other additional filters
         with self.assertRaisesRegex(
-            MlflowException, r"Search filter '.+' contains multiple expressions"
+            MlflowException, "Search filter '.+' contains multiple expressions"
         ) as exception_context:
             search_versions(
                 "name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(
@@ -1033,21 +1028,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by invalid comparator types
         with self.assertRaisesRegex(
-            MlflowException, r"Expected a quoted string value for attributes"
+            MlflowException, "Expected a quoted string value for attributes"
         ) as exception_context:
             self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by run_id
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, "Invalid attribute key '.+' specified"
         ) as exception_context:
             self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, "Invalid attribute key '.+' specified"
         ) as exception_context:
             self._search_registered_models("source_path = 'A/D'")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1145,14 +1140,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # test that providing a completely invalid page token throws
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid page token, could not base64-decode"
+            MlflowException, "Invalid page token, could not base64-decode"
         ) as exception_context:
             self._search_registered_models(query, page_token="evilhax", max_results=20)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # test that providing too large of a max_results throws
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid value for request parameter max_results"
+            MlflowException, "Invalid value for request parameter max_results"
         ) as exception_context:
             self._search_registered_models(query, page_token="evilhax", max_results=1e15)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1284,7 +1279,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         query = "name LIKE 'RM%'"
         # test that invalid columns throw even if they come after valid columns
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid order by key '.+' specified"
+            MlflowException, "Invalid order by key '.+' specified"
         ) as exception_context:
             self._search_registered_models(
                 query,
@@ -1295,7 +1290,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test that invalid columns with random text throw even if they come after valid columns
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid order_by clause '.+'"
+            MlflowException, "Invalid order_by clause '.+'"
         ) as exception_context:
             self._search_registered_models(
                 query,
@@ -1341,7 +1336,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # can not set tag on deleted (non-existed) model version
         self.store.delete_model_version(name1, 2)
         with self.assertRaisesRegex(
-            MlflowException, r"Model Version \(name={}, version=2\) not found".format(name1)
+            MlflowException, rf"Model Version \(name={name1}, version=2\) not found"
         ) as exception_context:
             self.store.set_model_version_tag(name1, 2, overriding_tag)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -1358,18 +1353,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_model_version_tag(name1, 1, long_tag)
         # can not set invalid tag
         with self.assertRaisesRegex(
-            MlflowException, r"Tag name cannot be None"
+            MlflowException, "Tag name cannot be None"
         ) as exception_context:
             self.store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # can not use invalid model name or version
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         with self.assertRaisesRegex(
-            MlflowException, r"Model version must be an integer"
+            MlflowException, "Model version must be an integer"
         ) as exception_context:
             self.store.set_model_version_tag(
                 name2, "I am not a version", ModelVersionTag(key="key", value="value")
@@ -1414,24 +1409,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # can not delete tag on deleted (non-existed) model version
         self.store.delete_model_version(name2, 1)
         with self.assertRaisesRegex(
-            MlflowException, r"Model Version \(name={}, version=1\) not found".format(name2)
+            MlflowException, rf"Model Version \(name={name2}, version=1\) not found"
         ) as exception_context:
             self.store.delete_model_version_tag(name2, 1, "key")
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
         # can not delete tag with invalid key
         with self.assertRaisesRegex(
-            MlflowException, r"Tag name cannot be None"
+            MlflowException, "Tag name cannot be None"
         ) as exception_context:
             self.store.delete_model_version_tag(name1, 2, None)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # can not use invalid model name or version
         with self.assertRaisesRegex(
-            MlflowException, r"Registered model name cannot be empty"
+            MlflowException, "Registered model name cannot be empty"
         ) as exception_context:
             self.store.delete_model_version_tag(None, 2, "key")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         with self.assertRaisesRegex(
-            MlflowException, r"Model version must be an integer"
+            MlflowException, "Model version must be an integer"
         ) as exception_context:
             self.store.delete_model_version_tag(name1, "I am not a version", "key")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
