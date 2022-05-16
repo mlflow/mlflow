@@ -18,7 +18,8 @@ Features:
 - [Models] Add `virtualenv` environment manager support for `mlflow models docker-build` CLI (#5728, @harupy)
 - [Models] Add support for wildcard module matching in log_model_allowlist for PySpark models (#5723, @serena-ruan)
 - [Projects] Add `virtualenv` environment manager support for MLflow projects (#5631, @harupy)
-- [Models] Add `virtualenv` support for `mlflow.pyfunc.spark_udf` (#5676, @WeichenXu123)
+- [Models] Add `virtualenv` environment manager support for MLflow Models (#5380, @harupy)
+- [Models] Add `virtualenv` environment manager support for `mlflow.pyfunc.spark_udf` (#5676, @WeichenXu123)
 - [Models] Add support for `input_example` and `signature` logging for `tensorflow` flavor when using autologging (#5510, @bali0019)
 - [Server-infra] Add JSON Schema Type Validation to enable raising 400 errors on malformed requests to REST API endpoints (#5458, @mrkaye97)
 - [Scoring] Introduce abstract `endpoint` interface for mlflow deployments (#5378, @trangevi)
@@ -40,7 +41,7 @@ Bug fixes and documentation updates:
 - [Models] Fix autologging validation and batch_size calculations for `tensorflow` flavor (#5683, @MarkYHZhang)
 - [Artifacts] Fix `SqlAlchemyStore.log_batch` implementation to make it log data in batches (#5460, @erensahin)
 
-Small bug fixes and doc updates (#5858, #5859, #5853, #5854, #5845, #5829, #5842, #5834, #5795, #5777, #5794, #5766, #5778, #5765, #5763, #5768, #5769, #5760, #5727, #5748, #5726, #5721, #5711, #5710, #5708, #5703, #5702, #5696, #5695, #5380, #5669, #5670, #5668, #5661, #5638, @harupy; #5749, @arpitjasa-db; #5675, @Davidswinkels; #5803, #5797, @ahlag; #5743, @kzhang01; #5650, #5805, #5724, #5720, #5662, @BenWilson2; #5627, @cterrelljones; #5646, @kutal10; #5758, @davideli-db; #5810, @rahulporuri; #5816, #5764, @shrinath-suresh; #5869, #5715, #5737, #5752, #5677, #5636, @WeichenXu123; #5735, @subramaniam02; #5746, @akaigraham; #5734, #5685, @lucalves; #5761, @marcelatoffernet; #5707, @aashish-khub; #5808, @ketangangal; #5730, #5700, @shaikmoeed; #5775, @dbczumar; #5747, @zhixuanevelynwu)
+Small bug fixes and doc updates (#5858, #5859, #5853, #5854, #5845, #5829, #5842, #5834, #5795, #5777, #5794, #5766, #5778, #5765, #5763, #5768, #5769, #5760, #5727, #5748, #5726, #5721, #5711, #5710, #5708, #5703, #5702, #5696, #5695, #5669, #5670, #5668, #5661, #5638, @harupy; #5749, @arpitjasa-db; #5675, @Davidswinkels; #5803, #5797, @ahlag; #5743, @kzhang01; #5650, #5805, #5724, #5720, #5662, @BenWilson2; #5627, @cterrelljones; #5646, @kutal10; #5758, @davideli-db; #5810, @rahulporuri; #5816, #5764, @shrinath-suresh; #5869, #5715, #5737, #5752, #5677, #5636, @WeichenXu123; #5735, @subramaniam02; #5746, @akaigraham; #5734, #5685, @lucalves; #5761, @marcelatoffernet; #5707, @aashish-khub; #5808, @ketangangal; #5730, #5700, @shaikmoeed; #5775, @dbczumar; #5747, @zhixuanevelynwu)
 
 ## 1.25.1 (2022-04-13)
 
