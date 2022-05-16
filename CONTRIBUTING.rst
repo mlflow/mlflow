@@ -553,7 +553,7 @@ Generate JS files in ``mlflow/server/js/build``:
 .. code-block:: bash
 
    cd mlflow/server/js
-   yarn run build
+   yarn build
 
 Build a pip-installable wheel in ``dist/``:
 
