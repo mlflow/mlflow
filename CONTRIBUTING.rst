@@ -222,9 +222,9 @@ Finally, we use ``pytest`` to test all Python contributed code. Install ``pytest
 JavaScript and UI
 ~~~~~~~~~~~~~~~~~
 
-The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
-You can verify that ``npm`` is on the PATH by running ``npm -v``, and
-`install npm <https://www.npmjs.com/get-npm>`_ if needed.
+The MLflow UI is written in JavaScript. ``yarn`` is required to run the Javascript dev server and the tracking UI.
+You can verify that ``yarn`` is on the PATH by running ``yarn -v``, and
+`install yarn <https://classic.yarnpkg.com/lang/en/docs/install>`_ if needed.
 
 Install Node Module Dependencies
 ++++++++++++++++++++++++++++++++
@@ -245,10 +245,10 @@ dependencies via:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm install
+   yarn install
    cd - # return to root repository directory
 
-If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
+If modifying dependencies in ``mlflow/server/js/package.json``, run ``yarn upgrade`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
 Launching the Development UI
@@ -274,7 +274,7 @@ In another shell:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm start
+   yarn start
 
 The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
@@ -553,7 +553,7 @@ Generate JS files in ``mlflow/server/js/build``:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm run build
+   yarn build
 
 Build a pip-installable wheel in ``dist/``:
 
