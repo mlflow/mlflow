@@ -22,11 +22,9 @@ IGNORE_FILES = list(
             # 5. Run pytest and confirm the changed lines don't fail.
             # 6. Open a PR.
             "tests/entities/test_run_status.py",
-            "tests/store/model_registry/test_sqlalchemy_store.py",
             "tests/store/db/test_utils.py",
             "tests/store/tracking/__init__.py",
             "tests/store/tracking/test_file_store.py",
-            "tests/store/tracking/test_sqlalchemy_store.py",
         ],
     )
 )
