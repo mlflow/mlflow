@@ -1974,7 +1974,7 @@ class UnpicklableKmeans(sklearn.cluster.KMeans):
         super().__init__(n_clusters)
         self.generator = (i for i in range(3))
 
-    # Ignore parameter validation in scikit-learn > 1.1.0
+    # Ignore parameter validation added in scikit-learn > 1.1.0
     def _validate_params(self):
         pass
 
@@ -1985,11 +1985,11 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     mlflow.sklearn.autolog()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        unpickable_kmeans = UnpicklableKmeans()
+        unpicklable_kmeans = UnpicklableKmeans()
         with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
-            pickle.dumps(unpickable_kmeans)
+            pickle.dumps(unpicklable_kmeans)
 
-        unpickable_kmeans.fit(*get_iris())
+        unpicklable_kmeans.fit(*get_iris())
         assert any(
             call_args[0][0].startswith("Pickling custom sklearn model UnpicklableKmeans failed")
             for call_args in mock_warning.call_args_list
