@@ -1974,6 +1974,7 @@ class UnpicklableKmeans(sklearn.cluster.KMeans):
         super().__init__(n_clusters)
         self.generator = (i for i in range(3))
 
+    # Ignore parameter validation in scikit-learn > 1.1.0
     def _validate_params(self):
         pass
 
