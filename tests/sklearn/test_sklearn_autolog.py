@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import re
+import contextlib
 from packaging.version import Version
 
 import sklearn
@@ -382,13 +383,23 @@ def test_meta_estimator():
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
+def disable_parameter_validation(cls):
+    return (
+        mock.patch(f"{cls}._validate_params")
+        if Version(sklearn.__version__) > Version("1.1.0")
+        else contextlib.nullcontext()
+    )
+
+
 def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_batch():
     mlflow.sklearn.autolog()
 
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
+    with disable_parameter_validation("sklearn.cluster.KMeans"), mock.patch(
+        "sklearn.cluster.KMeans.get_params", return_value=large_params
+    ):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
             model.fit(X, y)
@@ -422,9 +433,9 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     X, y = get_iris()
 
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
-        "mlflow.utils._logger.warning"
-    ) as mock_warning, mlflow.start_run() as run:
+    with disable_parameter_validation("sklearn.cluster.KMeans"), mock.patch(
+        "sklearn.cluster.KMeans.get_params", return_value=long_params
+    ), mock.patch("mlflow.utils._logger.warning") as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
 
@@ -1958,10 +1969,14 @@ def test_log_post_training_metrics_configuration():
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
 
 
-class NonPickleableKmeans(sklearn.cluster.KMeans):
-    def __init__(self, n_clusters=8, *, init="k-means++"):
-        super(NonPickleableKmeans, self).__init__(n_clusters, init=init)
+class UnpicklableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8):
+        super().__init__(n_clusters)
         self.generator = (i for i in range(3))
+
+    # Ignore parameter validation added in scikit-learn > 1.1.0
+    def _validate_params(self):
+        pass
 
 
 def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
@@ -1970,13 +1985,13 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     mlflow.sklearn.autolog()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        non_pickable_kmeans = NonPickleableKmeans()
+        unpicklable_kmeans = UnpicklableKmeans()
         with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
-            pickle.dumps(non_pickable_kmeans)
+            pickle.dumps(unpicklable_kmeans)
 
-        non_pickable_kmeans.fit(*get_iris())
+        unpicklable_kmeans.fit(*get_iris())
         assert any(
-            call_args[0][0].startswith("Pickling custom sklearn model NonPickleableKmeans failed")
+            call_args[0][0].startswith("Pickling custom sklearn model UnpicklableKmeans failed")
             for call_args in mock_warning.call_args_list
         )
 
