@@ -385,7 +385,7 @@ def test_meta_estimator():
 
 @contextlib.contextmanager
 def disable_parameter_validation():
-    return (
+    yield (
         mock.patch("sklearn.cluster.KMeans._validate_params")
         if Version(sklearn.__version__) > Version("1.1.0")
         else contextlib.nullcontext()
