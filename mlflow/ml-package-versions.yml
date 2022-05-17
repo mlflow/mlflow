@@ -67,7 +67,7 @@ tensorflow:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large -vv
 
       # Run tests for keras against keras-nightly that's installed with tf-nightly:
       # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
@@ -81,7 +81,7 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_autolog.py --large
+      pytest tests/tensorflow/test_tensorflow2_autolog.py --large -vv
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
         pytest tests/keras/test_keras_autolog.py --large
