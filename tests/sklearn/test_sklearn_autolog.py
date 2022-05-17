@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import re
+import contextlib
 from packaging.version import Version
 
 import sklearn
@@ -388,7 +389,15 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
+    mock_validate_params = (
+        # Disable parameter validation
+        mock.patch("sklearn.cluster.KMeans._validate_params")
+        if Version(sklearn.__version__) > Version("1.1.0")
+        else contextlib.nullcontext()
+    )
+    with mock_validate_params, mock.patch(
+        "sklearn.cluster.KMeans.get_params", return_value=large_params
+    ):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
             model.fit(X, y)
