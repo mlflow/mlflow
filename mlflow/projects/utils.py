@@ -201,6 +201,7 @@ def _fetch_git_repo(uri, version, dst_dir):
     else:
         origin.fetch(depth=GIT_FETCH_DEPTH)
         branch = str(origin.refs[0].name).split("/")[-1]
+        _logger.info("Fetched '%s' branch", branch)
         repo.create_head(branch, origin.refs[0])
         repo.heads[branch].checkout()
     repo.submodule_update(init=True, recursive=True)
