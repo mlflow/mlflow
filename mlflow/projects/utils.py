@@ -200,8 +200,8 @@ def _fetch_git_repo(uri, version, dst_dir):
             )
     else:
         origin.fetch(depth=GIT_FETCH_DEPTH)
-        repo.create_head("master", origin.refs.master)
-        repo.heads.master.checkout()
+        repo.create_head("head", origin.refs[0])
+        repo.heads["head"].checkout()
     repo.submodule_update(init=True, recursive=True)
 
 
