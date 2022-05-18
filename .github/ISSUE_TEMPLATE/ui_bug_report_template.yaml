@@ -76,7 +76,7 @@ body:
         - [Overview of DevTools](https://docs.microsoft.com/en-us/microsoft-edge/devtools-guide-chromium/overview)
 
         ![console-panel](https://github.com/harupy/mlflow/blob/ui-bug-template/.github/ISSUE_TEMPLATE/images/console-panel.png?raw=true)
-        <p style="text-align: center;">Console panel on Chrome</P>
+        <p align="center">Console panel on Chrome</P>
 
   - type: textarea
     attributes:
@@ -85,7 +85,7 @@ body:
         If the network panel in DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them.
 
         ![network-panel](https://github.com/harupy/mlflow/blob/ui-bug-template/.github/ISSUE_TEMPLATE/images/network-panel.png?raw=true)
-        <p style="text-align: center;">Network panel on Chrome</P>
+        <p align="center">Network panel on Chrome</P>
 
   - type: checkboxes
     id: component
