@@ -8,10 +8,6 @@ Pick a test workspace of your choice, create a compute instance. It's recommende
 
 ![New compute instance](./1.png)
 
-## Authenticate your GitHub Account with SSH
-
-Follow the AzureML official instructions [here](https://docs.microsoft.com/en-us/azure/machine-learning/concept-train-model-git-integration#authenticate-your-git-account-with-ssh) for the SSH setup. This is to make sure you can clone the code repo needed for this workshop.
-
 ## Clone the mlflow repository
 
 Code of this worship is checked into a forked mlflow GH repo. After the git setup above, run below command to clone the repo
