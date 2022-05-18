@@ -68,7 +68,13 @@ body:
     attributes:
       label: Is the console panel showing errors relevant to the bug?
       description: |
-        If the console panel in the developer tools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide as them.
+        If the console panel in DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide as them.
+
+
+        See the following pages for instructions on how to use DevTools:
+        - [Open Chrome DevTools](https://developer.chrome.com/docs/devtools/open/)
+        - [Firefox DevTools User Docs](https://firefox-source-docs.mozilla.org/devtools-user/index.html)
+        - [Overview of DevTools](https://docs.microsoft.com/en-us/microsoft-edge/devtools-guide-chromium/overview)
 
         ![console-panel](https://github.com/harupy/mlflow/blob/ui-bug-template/.github/ISSUE_TEMPLATE/images/console-panel.png?raw=true)
 
@@ -76,7 +82,7 @@ body:
     attributes:
       label: Does the network panel contain failed requests relevant to the bug?
       description: |
-        If the network panel in the developer tools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below,, please provide them.
+        If the network panel in DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them.
 
         ![network-panel](https://github.com/harupy/mlflow/blob/ui-bug-template/.github/ISSUE_TEMPLATE/images/network-panel.png?raw=true)
 
