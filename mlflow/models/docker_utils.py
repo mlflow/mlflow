@@ -97,11 +97,11 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     else:
         return (
             "RUN pip install mlflow=={version}\n"
-            "RUN mvn "
+            "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
             " -DoutputDirectory=/opt/java\n"
-            "RUN mvn "
+            "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
             " -DoutputDirectory=/opt/java/jars\n"

@@ -180,7 +180,7 @@ class SearchUtils:
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException(
                 "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_attributes)
+                "are '{}'".format(key, valid_attributes)
             )
         return {"type": identifier, "key": key}
 
@@ -681,7 +681,7 @@ class SearchUtils:
         if key not in valid_search_keys:
             raise MlflowException(
                 "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_search_keys),
+                "are '{}'".format(key, valid_search_keys),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         value_token = stripped_comparison[2]
