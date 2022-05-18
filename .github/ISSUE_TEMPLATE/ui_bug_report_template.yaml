@@ -59,6 +59,8 @@ body:
         Please provide code to generate data required to reproduce the bug.
       placeholder: |
         ```python
+        import mlflow
+
         with mlflow.start_run():
             mlflow.log_param("p", 0)
             mlflow.log_metric("m", 1)
