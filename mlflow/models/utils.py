@@ -9,9 +9,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
-from scipy.sparse import csr_matrix, csc_matrix
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
+try:
+    import scipy.sparse
+
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
+
+
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "scipy.sparse.csr_matrix",
+                          "scipy.sparse.csc_matrix"]
 
 
 class _Example:
@@ -65,6 +73,9 @@ class _Example:
             )
 
         def _is_sparse_matrix(x):
+            if not HAS_SCIPY:
+                # we can safely assume that if no scipy is installed, the user won't log scipy sparse matrices
+                return False
             return isinstance(x, (csc_matrix, csr_matrix))
 
         def _handle_ndarray_nans(x: np.ndarray):
