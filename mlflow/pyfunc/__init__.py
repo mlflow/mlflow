@@ -269,7 +269,11 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from scipy.sparse import csc_matrix, csr_matrix
+try:
+    import scipy.sparse
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
 from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
@@ -285,7 +289,7 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[pandas.DataFrame, np.ndarray, csc_matrix, csr_matrix, List[Any], Dict[str, Any]]
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix", List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -430,7 +434,7 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
 
 
 def _enforce_tensor_spec(
-    values: Union[np.ndarray, csc_matrix, csr_matrix], tensor_spec: TensorSpec
+    values: Union[np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix"], tensor_spec: TensorSpec
 ):
     """
     Enforce the input tensor shape and type matches the provided tensor spec.
@@ -479,6 +483,11 @@ def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
 
 def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
+    def _is_sparse_matrix(x):
+        if not HAS_SCIPY:
+            # we can safely assume that it's not a sparse matrix if scipy is not installed
+            return False
+        return isinstance(x, (scipy.sparse.csr_matrix, scipy.sparse.csc_matrix))
     if input_schema.has_input_names():
         if isinstance(pfInput, dict):
             new_pfInput = dict()
@@ -507,7 +516,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     else:
         if isinstance(pfInput, pandas.DataFrame):
             new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
-        elif isinstance(pfInput, (np.ndarray, csc_matrix, csr_matrix)):
+        elif isinstance(pfInput, np.ndarray) or _is_sparse_matrix(pfInput):
             new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
         else:
             raise MlflowException(
