@@ -143,7 +143,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     docker_login_cmd = (
         "aws ecr get-login-password"
         " | docker login  --username AWS "
-        " --password-stdin "
+        "--password-stdin "
         "{account}.dkr.ecr.{region}.amazonaws.com".format(account=account, region=region)
     )
 

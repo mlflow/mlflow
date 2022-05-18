@@ -129,9 +129,9 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException(
             message=(
-                "Cannot set a deleted experiment '%s' as the active experiment."
-                " You can restore the experiment, or permanently delete the "
-                " experiment to create a new one." % experiment.name
+                "Cannot set a deleted experiment '%s' as the active experiment. "
+                "You can restore the experiment, or permanently delete the "
+                "experiment to create a new one." % experiment.name
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
