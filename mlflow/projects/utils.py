@@ -209,11 +209,14 @@ def _fetch_git_repo(uri, version, dst_dir):
             )
     else:
         g = git.cmd.Git(dst_dir)
-        output = g.execute(["git", "remote", "show", "origin"])
+        cmd = ["git", "remote", "show", "origin"]
+        output = g.execute(cmd)
         head_branch = _get_head_branch(output)
         if head_branch is None:
             raise ExecutionException(
-                f"Failed to find HEAD branch. Output of `git remote show origin`:\n{output}"
+                "Failed to find HEAD branch. Output of `{cmd}`:\n{output}".format(
+                    cmd=" ".join(cmd), output=output
+                )
             )
         origin.fetch(head_branch, depth=GIT_FETCH_DEPTH)
         ref = origin.refs[0]
