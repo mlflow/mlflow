@@ -89,15 +89,20 @@ After model is trained and registered (done in the training script) we will star
 To deploy a model locally run the below command on the terminal.
 
 ```bash
-mlflow models serve --model-uri models:/digits_cnn_model/1
+mlflow models serve --model-uri models:/ElasticnetWineModel/1
 ```
 
-The command above will deploy model `ElasticWineModel` version `1` locally as local REST API endpoint. Default port used is 5000.
+The command above will deploy model `ElasticnetWineModel` version `1` locally as local REST API endpoint. Default port used is 5000.
 
 Screenshot below show that local endpoint is up and running
 ![Local Inference](./local_inference.png)
 
 Now we can use `http://localhost:5000/invocations` endpoint to do some inferencing locally from our notebook. Yuppiieeee .....
+
+Run following command to do inference with local endpoint
+```bash
+curl -X POST -H "Content-Type:application/json; format=pandas-split" --data @input_example.json  http://127.0.0.1:1234/invocations
+```
 
 ### Deploy remote
 
