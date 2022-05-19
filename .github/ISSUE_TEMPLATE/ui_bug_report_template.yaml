@@ -88,7 +88,9 @@ body:
         TypeError: Cannot read properties of undefined (reading 'x')
           at n.value (HomeView.js:33:22)
           at za (react-dom.production.min.js:187:188)
-          ...
+          at Za (react-dom.production.min.js:186:173)
+          at qs (react-dom.production.min.js:269:427)
+          at Tl (react-dom.production.min.js:250:347)
         ```
 
   - type: textarea
@@ -101,10 +103,10 @@ body:
         <p align="center">Network panel on Chrome</P>
       value: |
         ```
-        # Request URL:
+        # Request URL
         http://localhost:5000/ajax-api/2.0/preview/mlflow/xxx/yyy
 
-        # Status Code:
+        # Status Code
         400
 
         # Payload
