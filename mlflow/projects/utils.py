@@ -4,7 +4,6 @@ import re
 import tempfile
 import urllib.parse
 
-
 from distutils import dir_util
 
 import mlflow.utils
@@ -175,6 +174,16 @@ def _unzip_repo(zip_file, dst_dir):
         zip_in.extractall(dst_dir)
 
 
+_HEAD_BRANCH_REGEX = re.compile(r"^\s*HEAD branch:\s+(?P<branch>\S+)")
+
+
+def _get_head_branch(remote_show_output):
+    for line in remote_show_output.splitlines():
+        match = _HEAD_BRANCH_REGEX.match(line)
+        if match:
+            return match.group("branch")
+
+
 def _fetch_git_repo(uri, version, dst_dir):
     """
     Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
@@ -199,9 +208,21 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
-        origin.fetch(depth=GIT_FETCH_DEPTH)
-        repo.create_head("master", origin.refs.master)
-        repo.heads.master.checkout()
+        g = git.cmd.Git(dst_dir)
+        cmd = ["git", "remote", "show", "origin"]
+        output = g.execute(cmd)
+        head_branch = _get_head_branch(output)
+        if head_branch is None:
+            raise ExecutionException(
+                "Failed to find HEAD branch. Output of `{cmd}`:\n{output}".format(
+                    cmd=" ".join(cmd), output=output
+                )
+            )
+        origin.fetch(head_branch, depth=GIT_FETCH_DEPTH)
+        ref = origin.refs[0]
+        _logger.info("Fetched '%s' branch", head_branch)
+        repo.create_head(head_branch, ref)
+        repo.heads[head_branch].checkout()
     repo.submodule_update(init=True, recursive=True)
 
 
