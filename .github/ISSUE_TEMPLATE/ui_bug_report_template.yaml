@@ -101,7 +101,7 @@ body:
 
         ![network-panel](https://github.com/mlflow/mlflow/blob/master/.github/ISSUE_TEMPLATE/images/network-panel.png?raw=true)
         <p align="center">Network panel on Chrome</P>
-      value: |
+      placeholder: |
         ```
         # Request URL
         http://localhost:5000/ajax-api/2.0/preview/mlflow/xxx/yyy
