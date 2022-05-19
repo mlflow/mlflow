@@ -23,7 +23,7 @@ body:
 
   - type: input
     validations:
-      required: false
+      required: true
     attributes:
       label: MLflow version
       description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
