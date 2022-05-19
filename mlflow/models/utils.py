@@ -76,7 +76,7 @@ class _Example:
             if not HAS_SCIPY:
                 # we can safely assume that if no scipy is installed, the user won't log scipy sparse matrices
                 return False
-            return isinstance(x, (csc_matrix, csr_matrix))
+            return isinstance(x, (scipy.sparse.csc_matrix, scipy.sparse.csr_matrix))
 
         def _handle_ndarray_nans(x: np.ndarray):
             if np.issubdtype(x.dtype, np.number):
@@ -93,7 +93,7 @@ class _Example:
             else:
                 return {"inputs": _handle_ndarray_nans(input_array).tolist()}
 
-        def _handle_sparse_matrix(x: Union[csr_matrix, csc_matrix]):
+        def _handle_sparse_matrix(x: Union[scipy.sparse.csr_matrix, scipy.sparse.csc_matrix]):
             return {
                 "data": _handle_ndarray_nans(x.data).tolist(),
                 "indices": x.indices.tolist(),
@@ -242,9 +242,9 @@ def _read_sparse_matrix_from_json(path, example_type):
         shape = tuple(matrix_data["shape"])
 
         if example_type == "sparse_matrix_csc":
-            return csc_matrix((data, indices, indptr), shape=shape)
+            return scipy.sparse.csc_matrix((data, indices, indptr), shape=shape)
         else:
-            return csr_matrix((data, indices, indptr), shape=shape)
+            return scipy.sparse.csr_matrix((data, indices, indptr), shape=shape)
 
 
 def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
