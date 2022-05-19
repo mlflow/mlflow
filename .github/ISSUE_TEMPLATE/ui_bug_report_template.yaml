@@ -30,7 +30,7 @@ body:
         Describe the system where you encountered the bug.
       value: |
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
-        - **MLflow version (run `mlflow --version`) or commit SHA if you have mlflow installed from source (run `pip freeze | grep mlflow`)**:
+        - **MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`)**:
         - **Python version**:
         - **yarn version, if running the dev UI**:
 
