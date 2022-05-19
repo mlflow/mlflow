@@ -569,6 +569,11 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance_plot",
         )
 
+    def _log_sklearn_model_score_if_needed(self):
+        if self.model_loader_module == "mlflow.sklearn" and \
+                hasattr(self.raw_model, "scoring") and self.raw_model.scoring is not None:
+            self.metrics["score"] = self.raw_model.score(self.X, self.y)
+
     def _log_binary_classifier(self):
         self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
 
@@ -811,6 +816,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
             )
         )
+        self._log_sklearn_model_score_if_needed()
 
         if self.is_binomial:
             self._log_binary_classifier()
@@ -855,6 +861,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+        self._log_sklearn_model_score_if_needed()
 
         return self._log_and_return_evaluation_result()
 
