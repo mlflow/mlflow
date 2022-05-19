@@ -900,12 +900,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics = dict()
             self.artifacts = {}
 
-            infered_model_type = _infer_model_type_by_labels(self.y)
+            inferred_model_type = _infer_model_type_by_labels(self.y)
 
-            if infered_model_type is not None and model_type != infered_model_type:
+            if inferred_model_type is not None and model_type != inferred_model_type:
                 _logger.warning(
                     f"According to the evaluation dataset label values, the model type looks like "
-                    f"{infered_model_type}, but you specified model type {model_type}. Please "
+                    f"{inferred_model_type}, but you specified model type {model_type}. Please "
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
