@@ -386,7 +386,7 @@ def test_meta_estimator():
 def disable_parameter_validation(cls):
     return (
         mock.patch(f"{cls}._validate_params")
-        if Version(sklearn.__version__) > Version("1.1.0")
+        if Version(sklearn.__version__) >= Version("1.2.0")
         else contextlib.nullcontext()
     )
 
