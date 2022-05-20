@@ -8,8 +8,16 @@ import {
   postJson,
 } from '../common/utils/FetchUtils';
 
+
 export class Services {
+
   /**
+   * Get model Stages
+   */
+  static getModelStages = (data) =>
+    getJson({ relativeUrl: 'ajax-api/2.0/preview/mlflow/model-stages/list', data });
+
+    /**
    * Create a registered model
    */
   static createRegisteredModel = (data) =>
@@ -80,6 +88,12 @@ export class Services {
    */
   static deleteModelVersion = (data) =>
     deleteJson({ relativeUrl: 'ajax-api/2.0/preview/mlflow/model-versions/delete', data });
+  
+    /**
+   * Get stage configs
+   */
+   static getMlflowConfigs = () =>
+   getJson({ relativeUrl: 'configs' });
 
   /**
    * Get individual registered model

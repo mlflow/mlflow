@@ -4,9 +4,14 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import { RegisterModelButtonWithIntl } from './RegisterModelButton';
+import { modelStageNames, stageTagComponents } from '../test-utils';
 import { getProtoField } from '../utils';
 
 describe('RegisterModelButton', () => {
+  // TODO: remove global fetch mock by explicitly mocking all the service API calls
+  global.fetch = jest.fn(() =>
+    Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+  );
   let wrapper;
   let minimalProps;
   let minimalStore;
@@ -21,6 +26,7 @@ describe('RegisterModelButton', () => {
       modelByName: {},
       createRegisteredModelApi: jest.fn(() => Promise.resolve({})),
       createModelVersionApi: jest.fn(() => Promise.resolve({})),
+      listModelStagesApi: jest.fn(() => Promise.resolve({})),
       listRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
@@ -28,6 +34,10 @@ describe('RegisterModelButton', () => {
     minimalStore = mockStore({
       entities: {
         modelByName: {},
+      },
+      listModelStages: {
+        'stageTagComponents': stageTagComponents(),
+        'modelStageNames': modelStageNames
       },
     });
   });

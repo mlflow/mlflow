@@ -1,5 +1,6 @@
 import {
   LIST_REGISTERED_MODELS,
+  LIST_MODEL_STAGES,
   SEARCH_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
   GET_REGISTERED_MODEL,
@@ -16,6 +17,22 @@ import { getProtoField } from './utils';
 import _ from 'lodash';
 import { fulfilled, rejected } from '../common/utils/ActionUtils';
 import { RegisteredModelTag, ModelVersionTag } from './sdk/ModelRegistryMessages';
+import { Tag } from '@databricks/design-system';
+import React from 'react';
+
+
+export const createTag = (stage) => {
+  const color = stage.color || "charcoal"
+  if (stage.name === "None") {
+    return <Tag>None</Tag>
+  } else {
+    return (
+      <Tag color={color}>
+        {stage.name}
+      </Tag>
+    )
+  }
+};
 
 const modelByName = (state = {}, action) => {
   switch (action.type) {
@@ -54,6 +71,27 @@ const modelByName = (state = {}, action) => {
       return state;
   }
 };
+
+const listModelStages = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(LIST_MODEL_STAGES): {
+      const stages = action.payload[getProtoField('model_stages')];
+
+      let configuredStages = {}
+      Object.values(stages).forEach(s => configuredStages[s.name] = createTag(s));
+      const stageTagComponents = {
+        "None": createTag({"name":'None'}),
+        ...configuredStages,
+        "Archived": createTag({"name": 'Archived'})
+      };
+
+      const modelStageNames = Object.values(stages).map(s => s.name);
+      return { ...state, "stageTagComponents": stageTagComponents, "modelStageNames": modelStageNames};
+    }
+    default:
+      return state;
+  }
+}
 
 // 2-levels lookup for model version indexed by (modelName, version)
 const modelVersionsByModel = (state = {}, action) => {
@@ -300,7 +338,16 @@ export const getModelVersionTags = (modelName, version, state) => {
   }
 };
 
+export const getStageComponents = (state) => {
+  return {
+    stageTagComponents: state.entities.listModelStages["stageTagComponents"] || {},
+    modelStageNames: state.entities.listModelStages["modelStageNames"] || []
+  }
+};
+
+
 const reducers = {
+  listModelStages,
   modelByName,
   modelVersionsByModel,
   tagsByRegisteredModel,

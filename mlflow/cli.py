@@ -265,8 +265,13 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli_args.ARTIFACTS_DESTINATION
 @cli_args.PORT
 @cli_args.HOST
+@click.option(
+    "--mlflow-config",
+    default=None,
+    help="""Path to the MLflow configuration file. Will use the MLflow default configuration if not provided."""
+)
 def ui(
-    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host, mlflow_config
 ):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
@@ -307,6 +312,7 @@ def ui(
             port,
             None,
             1,
+            mlflow_config=mlflow_config
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -386,6 +392,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "doesn't exist, it will be created. "
     "Activate prometheus exporter to expose metrics on /metrics endpoint.",
 )
+@click.option(
+    "--mlflow-config",
+    default=None,
+    help="""Path to the MLflow configuration file. Will use the MLflow default configuration if not provided."""
+)
 def server(
     backend_store_uri,
     default_artifact_root,
@@ -399,6 +410,7 @@ def server(
     gunicorn_opts,
     waitress_opts,
     expose_prometheus,
+    mlflow_config,
 ):
     """
     Run the MLflow tracking server.
@@ -443,6 +455,7 @@ def server(
             gunicorn_opts,
             waitress_opts,
             expose_prometheus,
+            mlflow_config=mlflow_config
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

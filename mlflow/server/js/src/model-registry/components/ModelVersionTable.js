@@ -6,8 +6,6 @@ import { Typography } from '@databricks/design-system';
 import Utils from '../../common/utils/Utils';
 import { truncateToFirstLineWithMaxLength } from '../../common/utils/StringUtils';
 import {
-  ACTIVE_STAGES,
-  StageTagComponents,
   ModelVersionStatus,
   ModelVersionStatusIcons,
   modelVersionStatusIconTooltips,
@@ -24,6 +22,8 @@ export class ModelVersionTableImpl extends React.Component {
     modelVersions: PropTypes.array.isRequired,
     activeStageOnly: PropTypes.bool,
     onChange: PropTypes.func.isRequired,
+    allStagesAvailable: PropTypes.array.isRequired, // Nico
+    stageTagComponents: PropTypes.object.isRequired,
     intl: PropTypes.any,
   };
 
@@ -91,7 +91,7 @@ export class ModelVersionTableImpl extends React.Component {
         }),
         dataIndex: 'current_stage',
         render: (currentStage) => {
-          return StageTagComponents[currentStage];
+          return this.props.stageTagComponents[currentStage];
         },
       },
       {
@@ -132,10 +132,11 @@ export class ModelVersionTableImpl extends React.Component {
   static getLearnMoreLinkUrl = () => RegisteringModelDocUrl;
 
   render() {
-    const { modelVersions, activeStageOnly } = this.props;
+    const { modelVersions, activeStageOnly, allStagesAvailable } = this.props;
     const versions = activeStageOnly
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage))
+      ? modelVersions.filter((v) => allStagesAvailable.includes(v.current_stage))
       : modelVersions;
+
     return (
       <Table
         size='middle'

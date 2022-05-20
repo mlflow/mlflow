@@ -1,9 +1,8 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Stages } from '../constants';
 import { Dropdown } from 'antd';
-import { mockGetFieldValue } from '../test-utils';
+import { mockGetFieldValue, Stages, stageTagComponents, modelStageNames } from '../test-utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('ModelStageTransitionDropdown', () => {
@@ -14,6 +13,8 @@ describe('ModelStageTransitionDropdown', () => {
   beforeEach(() => {
     minimalProps = {
       currentStage: Stages.NONE,
+      stageTagComponents: stageTagComponents(),
+      modelStageNames: modelStageNames
     };
     commonProps = {
       ...minimalProps,

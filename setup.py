@@ -33,6 +33,7 @@ extra_files = [
     "ml-package-versions.yml",
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
+    "server/default-config.json",
 ]
 
 """

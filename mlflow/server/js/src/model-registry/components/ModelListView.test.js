@@ -1,7 +1,7 @@
 import React from 'react';
 import { ModelListView, ModelListViewImpl } from './ModelListView';
-import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, Stages, stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import { ModelRegistryDocUrl } from '../../common/constants';
@@ -40,6 +40,8 @@ describe('ModelListView', () => {
       onClickSortableColumn: jest.fn(),
       onSetMaxResult: jest.fn(),
       getMaxResultValue: jest.fn().mockReturnValue(10),
+      stageTagComponents: stageTagComponents(),
+      modelStageNames: modelStageNames
     };
     minimalStore = mockStore({});
   });

@@ -473,6 +473,8 @@ def test_latest_models(mlflow_client, backend_store_uri):
         ("5", "Staging"),
         ("6", "Staging"),
         ("7", "None"),
+        ("8", "CustomName"),
+        ("9", "CustomName"),
     )
     name = "LatestVersionTest"
     mlflow_client.create_registered_model(name)
@@ -491,9 +493,10 @@ def test_latest_models(mlflow_client, backend_store_uri):
 
     assert {"None": "7"} == get_latest(["None"])
     assert {"Staging": "6"} == get_latest(["Staging"])
+    assert {"CustomName": "9"} == get_latest(["CustomName"])
     assert {"None": "7", "Staging": "6"} == get_latest(["None", "Staging"])
-    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest(None)
-    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest([])
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7", "CustomName": "9"} == get_latest(None)
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7", "CustomName": "9"} == get_latest([])
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):

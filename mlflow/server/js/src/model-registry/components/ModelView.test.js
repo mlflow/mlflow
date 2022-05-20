@@ -1,7 +1,8 @@
 import React from 'react';
 import { ModelView, ModelViewImpl, StageFilters } from './ModelView';
-import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus } from '../constants';
+import { Stages } from '../test-utils';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
@@ -59,6 +60,7 @@ describe('ModelView', () => {
       ),
       modelVersions: mockModel.versions,
       handleEditDescription: jest.fn(),
+      listModelStagesApi: jest.fn(),
       handleDelete: jest.fn(),
       showEditPermissionModal: jest.fn(),
       history: { push: historyMock },
@@ -75,6 +77,10 @@ describe('ModelView', () => {
               value: 'not so special value',
             }),
           },
+        },
+        listModelStages: {
+          'stageTagComponents': stageTagComponents(),
+          'modelStageNames': modelStageNames
         },
       },
       apis: {},

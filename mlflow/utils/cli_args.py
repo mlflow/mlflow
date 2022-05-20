@@ -36,6 +36,13 @@ MLFLOW_HOME = click.option(
     help="Path to local clone of MLflow project. Use for development only.",
 )
 
+MLFLOW_CONFIG = click.option(
+    "--mlflow-config",
+    default=None,
+    metavar="PATH",
+    help="Path to your mlflow config file.",
+)
+
 RUN_ID = click.option(
     "--run-id",
     "-r",

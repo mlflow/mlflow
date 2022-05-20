@@ -12,6 +12,7 @@ import {
 import {
   createRegisteredModelApi,
   createModelVersionApi,
+  listModelStagesApi,
   listRegisteredModelsApi,
   searchModelVersionsApi,
   searchRegisteredModelsApi,
@@ -34,6 +35,7 @@ export class RegisterModelButtonImpl extends React.Component {
     modelByName: PropTypes.object.isRequired,
     createRegisteredModelApi: PropTypes.func.isRequired,
     createModelVersionApi: PropTypes.func.isRequired,
+    listModelStagesApi: PropTypes.func.isRequired,
     listRegisteredModelsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
     searchRegisteredModelsApi: PropTypes.func.isRequired,
@@ -124,6 +126,7 @@ export class RegisterModelButtonImpl extends React.Component {
   };
 
   componentDidMount() {
+    this.props.listModelStagesApi();
     this.props.listRegisteredModelsApi();
   }
 
@@ -204,6 +207,7 @@ const mapStateToProps = (state) => ({
 const mapDispatchToProps = {
   createRegisteredModelApi,
   createModelVersionApi,
+  listModelStagesApi,
   listRegisteredModelsApi,
   searchModelVersionsApi,
   searchRegisteredModelsApi,

@@ -6,7 +6,7 @@ import ModelRegistryReducers, {
   getModelVersionTags,
   getModelVersionSchemas,
 } from './reducers';
-import { mockModelVersionDetailed, mockRegisteredModelDetailed } from './test-utils';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, mockStage, stageTagComponents, modelStageNames } from './test-utils';
 import {
   DELETE_MODEL_VERSION,
   DELETE_REGISTERED_MODEL,
@@ -19,17 +19,62 @@ import {
   SET_MODEL_VERSION_TAG,
   DELETE_MODEL_VERSION_TAG,
   PARSE_MLMODEL_FILE,
+  LIST_MODEL_STAGES,
 } from './actions';
 import { fulfilled } from '../common/utils/ActionUtils';
 import { ModelVersionTag, RegisteredModelTag } from './sdk/ModelRegistryMessages';
 
 const {
   modelByName,
+  listModelStages,
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
   mlModelArtifactByModelVersion,
 } = ModelRegistryReducers;
+
+describe('test listModelStages', () => {
+  test('initial state', () => {
+    expect(listModelStages(undefined, {})).toEqual({});
+  });
+
+  
+  test('LIST_MODEL_STAGES handles default stages correctly', () => {
+    const s1 = mockStage("Staging", "lemon") 
+    const s2 = mockStage("Production", "lime")
+    const state = {};
+    const action = {
+      type: fulfilled(LIST_MODEL_STAGES),
+      payload: {
+        model_stages: [s1, s2],
+      },
+    };
+
+    expect(listModelStages(state, action)).toEqual({ 
+      "stageTagComponents": stageTagComponents(),
+      "modelStageNames": modelStageNames 
+    });
+  });
+
+  
+  test('LIST_MODEL_STAGES handles custom stages correctly', () => {
+    const s1 = mockStage("ab", "pink") 
+    const s2 = mockStage("bc", "red")
+    const state = {};
+    const action = {
+      type: fulfilled(LIST_MODEL_STAGES),
+      payload: {
+        model_stages: [s1, s2],
+      },
+    };
+
+    expect(listModelStages(state, action)).toEqual({ 
+      "stageTagComponents": stageTagComponents([s1, s2]), 
+      "modelStageNames": ["ab", "bc"] 
+    });
+  });
+});
+
 
 describe('test modelByName', () => {
   test('initial state', () => {

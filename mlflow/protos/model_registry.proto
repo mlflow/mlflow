@@ -110,6 +110,22 @@ service ModelRegistryService {
     };
   }
 
+  rpc listModelStages (ListModelStages) returns (ListModelStages.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/model-stages/list"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/mlflow/model-stages/list"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"List ModelStages",
+    };
+  }
+
   rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [{
@@ -323,6 +339,14 @@ service ModelRegistryService {
   }
 }
 
+message ModelStage {
+  // Unique name for the stage.
+  optional string name = 1;
+
+  // Color to display
+  optional string color = 2;
+}
+
 message RegisteredModel {
   // Unique name for the model.
   optional string name = 1;
@@ -421,14 +445,8 @@ message CreateRegisteredModel {
 message RenameRegisteredModel {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Registered model unique name identifier.
-  optional string name = 1 [(validate_required) = true];
-
-  // If provided, updates the name for this ``registered_model``.
-  optional string new_name = 2;
-
   message Response {
-    optional RegisteredModel registered_model = 1;
+    optional ModelStage model_stages = 1;
   }
 }
 
@@ -464,6 +482,14 @@ message GetRegisteredModel {
 
   message Response {
     optional RegisteredModel registered_model = 1;
+  }
+}
+
+message ListModelStages {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    repeated ModelStage model_stages = 1;
   }
 }
 

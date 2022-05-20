@@ -37,9 +37,9 @@ import {
 } from '../actions';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { deepFreeze } from '../../common/utils/TestUtils';
-import { mockModelVersionDetailed } from '../../model-registry/test-utils';
+import { mockModelVersionDetailed, Stages } from '../../model-registry/test-utils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
-import { Stages, ModelVersionStatus } from '../../model-registry/constants';
+import { ModelVersionStatus } from '../../model-registry/constants';
 
 describe('test experimentsById', () => {
   test('should set up initial state correctly', () => {

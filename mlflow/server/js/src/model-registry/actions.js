@@ -10,6 +10,13 @@ export const createRegisteredModelApi = (name, id = getUUID()) => ({
   meta: { id, name },
 });
 
+export const LIST_MODEL_STAGES = 'LIST_MODEL_STAGES';
+export const listModelStagesApi = (id = getUUID()) => ({
+  type: LIST_MODEL_STAGES,
+  payload: Services.getModelStages({ }),
+  meta: { id },
+});
+
 export const LIST_REGISTERED_MODELS = 'LIST_REGISTERED_MODELS';
 export const listRegisteredModelsApi = (id = getUUID()) => ({
   type: LIST_REGISTERED_MODELS,

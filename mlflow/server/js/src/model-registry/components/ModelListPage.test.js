@@ -3,8 +3,8 @@ import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD, Stages } from '../constants';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, Stages,  stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus, REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelListPage, ModelListPageImpl } from './ModelListPage';
@@ -18,6 +18,10 @@ describe('ModelListPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const location = {};
 
     pushSpy = jest.fn();
@@ -33,6 +37,7 @@ describe('ModelListPage', () => {
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
       listEndpointsApi: jest.fn(() => Promise.resolve({})),
       listEndpointsV2Api: jest.fn(() => Promise.resolve({})),
+      listModelStagesApi: jest.fn(() => Promise.resolve()),
       history,
       location,
     };
@@ -44,6 +49,10 @@ describe('ModelListPage', () => {
       entities: {
         modelByName: {
           [name]: mockRegisteredModelDetailed(name, versions),
+        },
+        listModelStages: {
+          'stageTagComponents': stageTagComponents(),
+          'modelStageNames': modelStageNames
         },
       },
       apis: {},

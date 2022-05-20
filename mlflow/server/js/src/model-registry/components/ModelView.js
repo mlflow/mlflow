@@ -5,12 +5,11 @@ import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getCompareModelVersionsPageRoute, getModelPageRoute } from '../routes';
 import { Button as AntdButton, Descriptions, Modal, message } from 'antd';
-import { ACTIVE_STAGES } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
 import { getRegisteredModelTags } from '../reducers';
-import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../actions';
+import { setRegisteredModelTagApi, deleteRegisteredModelTagApi, listModelStagesApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { Spacer } from '../../shared/building_blocks/Spacer';
@@ -46,6 +45,7 @@ export class ModelViewImpl extends React.Component {
     tags: PropTypes.object.isRequired,
     setRegisteredModelTagApi: PropTypes.func.isRequired,
     deleteRegisteredModelTagApi: PropTypes.func.isRequired,
+    listModelStagesApi: PropTypes.func.isRequired,
     intl: PropTypes.any,
   };
 
@@ -61,6 +61,7 @@ export class ModelViewImpl extends React.Component {
   formRef = React.createRef();
 
   componentDidMount() {
+    this.props.listModelStagesApi()
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
@@ -72,7 +73,7 @@ export class ModelViewImpl extends React.Component {
   getActiveVersionsCount() {
     const { modelVersions } = this.props;
     return modelVersions
-      ? modelVersions.filter((v) => ACTIVE_STAGES.includes(v.current_stage)).length
+      ? modelVersions.filter((v) => this.props.modelStageNames.includes(v.current_stage)).length
       : 0;
   }
 
@@ -371,6 +372,8 @@ export class ModelViewImpl extends React.Component {
             modelName={modelName}
             modelVersions={modelVersions}
             onChange={this.onChange}
+            allStagesAvailable={this.props.modelStageNames}
+            stageTagComponents={this.props.stageTagComponents}
           />
         </CollapsibleSection>
 
@@ -443,8 +446,11 @@ export class ModelViewImpl extends React.Component {
 const mapStateToProps = (state, ownProps) => {
   const modelName = ownProps.model.name;
   const tags = getRegisteredModelTags(modelName, state);
-  return { tags };
+
+  const stageTagComponents = state.entities.listModelStages["stageTagComponents"] || {}
+  const modelStageNames = state.entities.listModelStages["modelStageNames"] || []
+  return { tags, modelStageNames, stageTagComponents };
 };
-const mapDispatchToProps = { setRegisteredModelTagApi, deleteRegisteredModelTagApi };
+const mapDispatchToProps = { setRegisteredModelTagApi, deleteRegisteredModelTagApi, listModelStagesApi };
 
 export const ModelView = connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelViewImpl));

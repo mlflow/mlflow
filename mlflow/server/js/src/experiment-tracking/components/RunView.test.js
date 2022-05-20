@@ -7,8 +7,8 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { RunView, RunViewImpl } from './RunView';
 import { Experiment, RunInfo, RunTag, Param } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { mockModelVersionDetailed } from '../../model-registry/test-utils';
-import { ModelVersionStatus, Stages } from '../../model-registry/constants';
+import { mockModelVersionDetailed, Stages } from '../../model-registry/test-utils';
+import { ModelVersionStatus } from '../../model-registry/constants';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('RunView', () => {

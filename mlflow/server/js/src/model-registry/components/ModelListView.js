@@ -7,12 +7,10 @@ import { getModelPageRoute, getModelVersionPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import {
   AntdTableSortOrder,
-  Stages,
-  StageTagComponents,
   EMPTY_CELL_PLACEHOLDER,
   REGISTERED_MODELS_PER_PAGE,
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
-  REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD,
+  REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD
 } from '../constants';
 import {
   ModelRegistryDocUrl,
@@ -79,6 +77,8 @@ export class ModelListViewImpl extends React.Component {
     onClickSortableColumn: PropTypes.func.isRequired,
     onSetMaxResult: PropTypes.func.isRequired,
     getMaxResultValue: PropTypes.func.isRequired,
+    stageTagComponents: PropTypes.object,
+    modelStageNames: PropTypes.array,
     intl: PropTypes.any,
   };
 
@@ -138,6 +138,24 @@ export class ModelListViewImpl extends React.Component {
     this.forceUpdate();
   };
 
+  getModelVersionColumns = () => {
+    let columns = []  
+
+    this.props.modelStageNames.forEach((stage) => {
+      columns.push({
+        title: this.props.stageTagComponents[stage],
+        className: `latest-${stage.toLowerCase()}`,
+        render: ({ name, latest_versions }) => {
+          const versionNumber = getLatestVersionNumberByStage(latest_versions, stage);
+          return versionNumber
+            ? this.renderModelVersionLink(name, versionNumber)
+            : EMPTY_CELL_PLACEHOLDER;
+        },
+      });
+    });
+    return columns
+  };
+
   getColumns = () => {
     const columns = [
       {
@@ -166,26 +184,7 @@ export class ModelListViewImpl extends React.Component {
             : EMPTY_CELL_PLACEHOLDER;
         },
       },
-      {
-        title: StageTagComponents[Stages.STAGING],
-        className: 'latest-staging',
-        render: ({ name, latest_versions }) => {
-          const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.STAGING);
-          return versionNumber
-            ? this.renderModelVersionLink(name, versionNumber)
-            : EMPTY_CELL_PLACEHOLDER;
-        },
-      },
-      {
-        title: StageTagComponents[Stages.PRODUCTION],
-        className: 'latest-production',
-        render: ({ name, latest_versions }) => {
-          const versionNumber = getLatestVersionNumberByStage(latest_versions, Stages.PRODUCTION);
-          return versionNumber
-            ? this.renderModelVersionLink(name, versionNumber)
-            : EMPTY_CELL_PLACEHOLDER;
-        },
-      },
+      ...this.getModelVersionColumns(),
       {
         title: this.props.intl.formatMessage({
           defaultMessage: 'Last Modified',

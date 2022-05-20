@@ -13,8 +13,9 @@ from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
+from mlflow.utils.config import read_configs
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
-from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag, ModelStage
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -56,6 +57,7 @@ from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     UpdateModelVersion,
     DeleteModelVersion,
+    ListModelStages,
     GetModelVersion,
     GetModelVersionDownloadUri,
     SearchModelVersions,
@@ -244,6 +246,15 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
         _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
     return _tracking_store
 
+
+def _get_model_stage_store(backend_store_uri=None):
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+
+    global _model_registry_store
+    if _model_registry_store is None:
+        store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        _model_registry_store = _model_registry_store_registry.get_store(store_uri)
+    return _model_registry_store
 
 def _get_model_registry_store(backend_store_uri=None):
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR
@@ -1132,7 +1143,6 @@ def _delete_registered_model():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _list_registered_models():
-
     request_message = _get_request_message(
         ListRegisteredModels(),
         schema={
@@ -1147,6 +1157,20 @@ def _list_registered_models():
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
         response_message.next_page_token = registered_models.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_model_stages():
+
+    configs = read_configs()
+    model_stages = [
+        ModelStage(name= stage.get("name"), color=stage.get("color"))
+        for stage in configs.get("model_stages")
+    ]
+    response_message = ListModelStages.Response()
+    response_message.model_stages.extend([e.to_proto() for e in model_stages])
     return _wrap_response(response_message)
 
 
@@ -1553,6 +1577,7 @@ HANDLERS = {
     UpdateRegisteredModel: _update_registered_model,
     RenameRegisteredModel: _rename_registered_model,
     ListRegisteredModels: _list_registered_models,
+    ListModelStages: _list_model_stages,
     SearchRegisteredModels: _search_registered_models,
     GetLatestVersions: _get_latest_versions,
     CreateModelVersion: _create_model_version,
