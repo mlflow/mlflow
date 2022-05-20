@@ -105,3 +105,15 @@ def test_models_artifact_repo_uses_repo_download_artifacts():
         models_repo.repo = Mock()
         models_repo.download_artifacts("artifact_path", "dst_path")
         models_repo.repo.download_artifacts.assert_called_once()
+
+
+def test_split_models_uri():
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1") == ("models:/model/1", "")
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path") == (
+        "models:/model/1",
+        "path",
+    )
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path/to/artifact") == (
+        "models:/model/1",
+        "path/to/artifact",
+    )
