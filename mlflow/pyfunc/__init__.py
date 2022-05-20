@@ -289,7 +289,9 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[pandas.DataFrame, np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix", List[Any], Dict[str, Any]]
+PyFuncInput = Union[pandas.DataFrame, np.ndarray,
+                    "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix",
+                    List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -434,7 +436,8 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
 
 
 def _enforce_tensor_spec(
-    values: Union[np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix"], tensor_spec: TensorSpec
+    values: Union[np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix"],
+    tensor_spec: TensorSpec
 ):
     """
     Enforce the input tensor shape and type matches the provided tensor spec.

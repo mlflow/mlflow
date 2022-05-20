@@ -11,7 +11,6 @@ from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
 
 try:
-    import scipy.sparse
     from scipy.sparse import csr_matrix, csc_matrix
 
     HAS_SCIPY = True
@@ -75,7 +74,8 @@ class _Example:
 
         def _is_sparse_matrix(x):
             if not HAS_SCIPY:
-                # we can safely assume that if no scipy is installed, the user won't log scipy sparse matrices
+                # we can safely assume that if no scipy is installed,
+                # the user won't log scipy sparse matrices
                 return False
             return isinstance(x, (csc_matrix, csr_matrix))
 
