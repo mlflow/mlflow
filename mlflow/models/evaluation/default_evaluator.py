@@ -18,6 +18,7 @@ from mlflow.models.evaluation.artifacts import (
 )
 
 from sklearn import metrics as sk_metrics
+from sklearn.pipeline import Pipeline as sk_Pipeline
 import math
 import json
 from collections import namedtuple
@@ -451,15 +452,18 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
-        for feature_dtype in feature_dtypes:
-            if not np.issubdtype(feature_dtype, np.number):
-                _logger.warning(
-                    "Skip logging model explainability insights because it requires all feature "
-                    "values to be numeric, and each feature column must only contain scalar "
-                    "values."
-                )
-                return
+        algorithm = self.evaluator_config.get("explainability_algorithm", None)
+
+        if algorithm != "kernel":
+            feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+            for feature_dtype in feature_dtypes:
+                if not np.issubdtype(feature_dtype, np.number):
+                    _logger.warning(
+                        "Skip logging model explainability insights because it requires all feature "
+                        "values to be numeric, and each feature column must only contain scalar "
+                        "values."
+                    )
+                    return
 
         try:
             import shap
@@ -482,7 +486,6 @@ class DefaultEvaluator(ModelEvaluator):
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
-        algorithm = self.evaluator_config.get("explainability_algorithm", None)
 
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
@@ -494,7 +497,7 @@ class DefaultEvaluator(ModelEvaluator):
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
         }
 
-        sampled_X = shap.sample(self.X, sample_rows)
+        sampled_X = shap.sample(self.X, sample_rows, random_state=0)
 
         if isinstance(sampled_X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
@@ -502,20 +505,30 @@ class DefaultEvaluator(ModelEvaluator):
             sampled_X = sampled_X.rename(columns=truncated_feature_name_map, copy=False)
 
         if algorithm:
-            supported_algos = ["exact", "permutation", "partition"]
+            supported_algos = ["exact", "permutation", "partition", "kernel"]
             if algorithm not in supported_algos:
                 raise ValueError(
                     f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
                     f"support {','.join(supported_algos)} algorithms."
                 )
-            explainer = shap.Explainer(
-                self.predict_fn,
-                sampled_X,
-                feature_names=truncated_feature_names,
-                algorithm=algorithm,
-            )
+            if algorithm == "kernel":
+                predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
+                mode = self.X.mode().iloc[0]
+                sampled_X = sampled_X.fillna(mode)
+                background_X = shap.sample(self.X, sample_rows, random_state=3) \
+                    .rename(columns=truncated_feature_name_map, copy=False)
+                background_X = background_X.fillna(mode)
+                explainer = shap.KernelExplainer(predict_fn, background_X, link="identity")
+            else:
+                explainer = shap.Explainer(
+                    self.predict_fn,
+                    sampled_X,
+                    feature_names=truncated_feature_names,
+                    algorithm=algorithm,
+                )
         else:
-            if self.raw_model and not is_multinomial_classifier:
+            if self.raw_model and not is_multinomial_classifier and \
+                    not isinstance(self.raw_model, sk_Pipeline):
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
                 # raw model, this case shap plot doesn't support it well, so exclude the
                 # multinomial_classifier case here.
@@ -530,7 +543,10 @@ class DefaultEvaluator(ModelEvaluator):
 
         _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
-        shap_values = explainer(sampled_X)
+        if algorithm == "kernel":
+            shap_values = explainer.shap_values(sampled_X)
+        else:
+            shap_values = explainer(sampled_X)
 
         try:
             mlflow.shap.log_explainer(
