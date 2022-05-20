@@ -498,11 +498,21 @@ class DefaultEvaluator(ModelEvaluator):
         }
 
         sampled_X = shap.sample(self.X, sample_rows, random_state=0)
+        if algorithm == "kernel":
+            background_X = shap.sample(self.X, sample_rows, random_state=3)
+        else:
+            background_X = None
 
         if isinstance(sampled_X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
             # using feature_names argument value. So rename the dataframe column names.
             sampled_X = sampled_X.rename(columns=truncated_feature_name_map, copy=False)
+            if background_X is not None:
+                background_X = background_X.rename(columns=truncated_feature_name_map, copy=False)
+        else:
+            # If sample_X is numpy array, convert to pandas dataframe.
+            sampled_X = pd.DataFrame(sampled_X, columns=truncated_feature_name_map)
+            background_X = pd.DataFrame(background_X, columns=truncated_feature_name_map)
 
         if algorithm:
             supported_algos = ["exact", "permutation", "partition", "kernel"]
@@ -512,13 +522,11 @@ class DefaultEvaluator(ModelEvaluator):
                     f"support {','.join(supported_algos)} algorithms."
                 )
             if algorithm == "kernel":
-                predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
-                mode = self.X.mode().iloc[0]
+                # predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
+                mode = sampled_X.mode().iloc[0]
                 sampled_X = sampled_X.fillna(mode)
-                background_X = shap.sample(self.X, sample_rows, random_state=3) \
-                    .rename(columns=truncated_feature_name_map, copy=False)
                 background_X = background_X.fillna(mode)
-                explainer = shap.KernelExplainer(predict_fn, background_X, link="identity")
+                explainer = shap.KernelExplainer(self.predict_fn, background_X, link="identity")
             else:
                 explainer = shap.Explainer(
                     self.predict_fn,
@@ -544,7 +552,7 @@ class DefaultEvaluator(ModelEvaluator):
         _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
 
         if algorithm == "kernel":
-            shap_values = explainer.shap_values(sampled_X)
+            shap_values = shap.Explanation(explainer.shap_values(sampled_X))
         else:
             shap_values = explainer(sampled_X)
 
