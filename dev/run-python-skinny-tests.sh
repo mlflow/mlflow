@@ -37,7 +37,7 @@ pytest tests/utils/test_search_utils.py
 pytest tests/store/tracking/test_file_store.py
 
 # pandas is an autolog dependency. Ideally we could remove this dependency as well?
-python -mpip install pandas
+python -m pip install pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py
 
 test $err = 0
