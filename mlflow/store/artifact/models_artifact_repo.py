@@ -45,7 +45,7 @@ class ModelsArtifactRepository(ArtifactRepository):
     def split_models_uri(uri):
         """
         Split 'models:/<name>/<version>/path/to/model' into
-        ('models:/<name>/<version>', '/path/to/model').
+        ('models:/<name>/<version>', 'path/to/model').
         """
         path = urllib.parse.urlparse(uri).path
         if path.count("/") >= 3 and not path.endswith("/"):
