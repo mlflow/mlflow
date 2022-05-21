@@ -199,14 +199,14 @@ by running the following from your checkout of MLflow:
 
     conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
-    pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
+    pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
 
 If you plan on doing development and testing, you will also need to install the following into the conda environment:
 
 .. code-block:: bash
 
     pip install -r requirements/dev-requirements.txt
-    pip install -e .[extras]  # installs mlflow from current checkout
+    pip install -e '.[extras]'  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
