@@ -569,11 +569,14 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance_plot",
         )
 
-    def _evaluate_sklearn_model_score_if_needed(self):
+    def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
-            from sklearn.model_selection._search import BaseSearchCV
-            if isinstance(self.raw_model, BaseSearchCV) and self.raw_model.scoring is not None:
-                self.metrics["score"] = self.raw_model.score(self.X, self.y)
+            try:
+                score = self.raw_model.score(self.X, self.y)
+            except Exception as e:
+                _logger.warning(f"Computing sklearn model score failed, error {repr(e)}")
+                _logger.debug("", exc_info=True)
+            self.metrics["score"] = score
 
     def _log_binary_classifier(self):
         self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
@@ -817,7 +820,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
             )
         )
-        self._evaluate_sklearn_model_score_if_needed()
+        self._evaluate_sklearn_model_score_if_scorable()
 
         if self.is_binomial:
             self._log_binary_classifier()
@@ -862,7 +865,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
-        self._evaluate_sklearn_model_score_if_needed()
+        self._evaluate_sklearn_model_score_if_scorable()
 
         return self._log_and_return_evaluation_result()
 
