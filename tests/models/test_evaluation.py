@@ -18,6 +18,8 @@ import sklearn
 import os
 import sklearn.datasets
 import sklearn.linear_model
+import sklearn.pipeline
+import sklearn.preprocessing
 import pytest
 import numpy as np
 import pandas as pd
@@ -134,6 +136,55 @@ def breast_cancer_dataset():
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
     return ds
+
+
+def get_pipeline_model_dataset():
+    """
+    The dataset tweaks the IRIS dataset by changing its features into categorical features.
+    The dataset is prepared for a pipeline model
+    (contains an indexer on feature "f1" and a classifier).
+    """
+    X, y = get_iris()
+
+    def convert_num_to_label(x):
+        return f"v_{round(x)}"
+
+    data = pd.DataFrame(
+        {
+            "f1": np.array(map(convert_num_to_label, X[:, 0])),
+            "f2": np.array(map(convert_num_to_label, X[:, 1])),
+            "y": y,
+        }
+    )
+    return data, "y"
+
+
+@pytest.fixture(scope="module")
+def pipeline_model_dataset():
+    data, target_col = get_pipeline_model_dataset()
+    constructor_args = {"data": data[0::3], "targets": target_col, "name": "pipeline_model_dataset"}
+    ds = EvaluationDataset(**constructor_args)
+    ds._constructor_args = constructor_args
+    return ds
+
+
+@pytest.fixture
+def pipeline_model_uri():
+    data, target_col = get_pipeline_model_dataset()
+    X = data.drop(target_col, axis=1)
+    y = data[target_col].to_numpy()
+
+    pipeline = sklearn.pipeline.Pipeline(
+        [('indexer', sklearn.preprocessing.OrdinalEncoder()),
+         ('clf', sklearn.linear_model.LogisticRegression())]
+    )
+    pipeline.fit(X, y)
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(pipeline, "pipeline_model")
+        pipeline_model_uri = get_artifact_uri(run.info.run_id, "pipeline_model")
+
+    return pipeline_model_uri
 
 
 @pytest.fixture

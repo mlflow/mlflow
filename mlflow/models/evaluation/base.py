@@ -719,7 +719,8 @@ def evaluate(
         - **log_model_explainability**: A boolean value specifying whether or not to log model
           explainability insights, default value is True.
         - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
-          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
+          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition',
+          'kernel'.
           If not set, ``shap.Explainer`` is used with the "auto" algorithm, which chooses the best
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model

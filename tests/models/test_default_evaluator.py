@@ -47,6 +47,8 @@ from tests.models.test_evaluation import (
     spark_linear_regressor_model_uri,
     diabetes_spark_dataset,
     svm_model_uri,
+    pipeline_model_dataset,
+    pipeline_model_uri,
 )
 from mlflow.models.utils import plot_lines
 
@@ -292,6 +294,25 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
         "shap_summary_plot",
         "shap_feature_importance_plot",
     }
+
+
+def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri, pipeline_model_dataset):
+    with mlflow.start_run() as run:
+        result = evaluate(
+            pipeline_model_uri,
+            pipeline_model_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=pipeline_model_dataset._constructor_args["targets"],
+            dataset_name=pipeline_model_dataset.name,
+            evaluators="default",
+            evaluator_config={"explainability_algorithm": "kernel"},
+        )
+    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    for shap_plot in [
+            'shap_beeswarm_plot_on_data_pipeline_model_dataset.png',
+            'shap_feature_importance_plot_on_data_pipeline_model_dataset.png',
+            'shap_summary_plot_on_data_pipeline_model_dataset.png']:
+        assert shap_plot in artifacts
 
 
 def test_infer_model_type_by_labels():
