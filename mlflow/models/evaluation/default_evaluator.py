@@ -573,10 +573,12 @@ class DefaultEvaluator(ModelEvaluator):
         if self.model_loader_module == "mlflow.sklearn":
             try:
                 score = self.raw_model.score(self.X, self.y)
+                self.metrics["score"] = score
             except Exception as e:
-                _logger.warning(f"Computing sklearn model score failed, error {repr(e)}")
+                _logger.warning(
+                    f"Computing sklearn model score failed: {repr(e)}. Set logging level to "
+                    "DEBUG to see the full traceback.")
                 _logger.debug("", exc_info=True)
-            self.metrics["score"] = score
 
     def _log_binary_classifier(self):
         self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
