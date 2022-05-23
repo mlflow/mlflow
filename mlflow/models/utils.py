@@ -18,8 +18,7 @@ except ImportError:
     HAS_SCIPY = False
 
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix",
-                          "csc_matrix"]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix"]
 
 
 class _Example:
