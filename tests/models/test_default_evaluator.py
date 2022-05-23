@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import mock
 import numpy as np
 import json
 import pandas as pd
@@ -928,3 +929,19 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_pickled_artifact_on_data_breast_cancer_dataset.pickle" in artifacts
     assert isinstance(result.artifacts["test_pickled_artifact"], PickleEvaluationArtifact)
     assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
+
+
+def test_evaluate_sklearn_model_score_skip_when_not_scorable(linear_regressor_model_uri, diabetes_dataset):
+    with mock.patch("sklearn.linear_model.LinearRegression.score") as score_mock:
+        score_mock.side_effect = RuntimeError("LinearRegression.score failed")
+        with mlflow.start_run() as run:
+            result = evaluate(
+                linear_regressor_model_uri,
+                diabetes_dataset._constructor_args["data"],
+                model_type="regressor",
+                targets=diabetes_dataset._constructor_args["targets"],
+                dataset_name=diabetes_dataset.name,
+                evaluators="default",
+            )
+
+        assert "score" not in result.metrics
