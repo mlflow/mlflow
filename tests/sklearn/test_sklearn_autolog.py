@@ -383,10 +383,10 @@ def test_meta_estimator():
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
-def disable_parameter_validation(cls):
+def disable_validate_params(cls):
     return (
         mock.patch(f"{cls}._validate_params")
-        if Version(sklearn.__version__) >= Version("1.2.0")
+        if Version(sklearn.__version__) >= Version("1.2.dev0")
         else contextlib.nullcontext()
     )
 
@@ -397,7 +397,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with disable_parameter_validation("sklearn.cluster.KMeans"), mock.patch(
+    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
         "sklearn.cluster.KMeans.get_params", return_value=large_params
     ):
         with mlflow.start_run() as run:
@@ -433,7 +433,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     X, y = get_iris()
 
-    with disable_parameter_validation("sklearn.cluster.KMeans"), mock.patch(
+    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
         "sklearn.cluster.KMeans.get_params", return_value=long_params
     ), mock.patch("mlflow.utils._logger.warning") as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
