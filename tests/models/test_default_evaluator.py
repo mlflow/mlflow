@@ -943,5 +943,4 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(linear_regressor_mo
                 dataset_name=diabetes_dataset.name,
                 evaluators="default",
             )
-
         assert "score" not in result.metrics
