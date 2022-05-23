@@ -931,7 +931,9 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
 
 
-def test_evaluate_sklearn_model_score_skip_when_not_scorable(linear_regressor_model_uri, diabetes_dataset):
+def test_evaluate_sklearn_model_score_skip_when_not_scorable(
+    linear_regressor_model_uri, diabetes_dataset
+):
     with mock.patch("sklearn.linear_model.LinearRegression.score") as score_mock:
         score_mock.side_effect = RuntimeError("LinearRegression.score failed")
         with mlflow.start_run() as run:

@@ -577,7 +577,8 @@ class DefaultEvaluator(ModelEvaluator):
             except Exception as e:
                 _logger.warning(
                     f"Computing sklearn model score failed: {repr(e)}. Set logging level to "
-                    "DEBUG to see the full traceback.")
+                    "DEBUG to see the full traceback."
+                )
                 _logger.debug("", exc_info=True)
 
     def _log_binary_classifier(self):
