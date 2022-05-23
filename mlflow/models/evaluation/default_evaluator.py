@@ -461,9 +461,9 @@ class DefaultEvaluator(ModelEvaluator):
             for feature_dtype in feature_dtypes:
                 if not np.issubdtype(feature_dtype, np.number):
                     _logger.warning(
-                        "Skip logging model explainability insights because it requires all feature "
-                        "values to be numeric, and each feature column must only contain scalar "
-                        "values."
+                        "Skip logging model explainability insights because the shap explainer "
+                        f"{algorithm} requires all feature values to be numeric, and each feature "
+                        "column must only contain scalar values."
                     )
                     return
 
