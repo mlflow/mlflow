@@ -934,9 +934,11 @@ def test_custom_metric_logs_artifacts_from_objects(
 def test_evaluate_sklearn_model_score_skip_when_not_scorable(
     linear_regressor_model_uri, diabetes_dataset
 ):
-    with mock.patch("sklearn.linear_model.LinearRegression.score",
-                    side_effect=RuntimeError("LinearRegression.score failed")):
-        with mlflow.start_run() as run:
+    with mock.patch(
+        "sklearn.linear_model.LinearRegression.score",
+        side_effect=RuntimeError("LinearRegression.score failed"),
+    ) as mock_score:
+        with mlflow.start_run():
             result = evaluate(
                 linear_regressor_model_uri,
                 diabetes_dataset._constructor_args["data"],
@@ -945,4 +947,5 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
                 dataset_name=diabetes_dataset.name,
                 evaluators="default",
             )
+        mock_score.assert_called_once()
         assert "score" not in result.metrics
