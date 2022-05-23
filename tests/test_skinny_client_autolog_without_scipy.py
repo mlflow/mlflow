@@ -31,10 +31,10 @@ def test_autolog_without_scipy():
     mlflow.models.utils._Example(dict())
 
     with mock.patch.multiple(
-        'mlflow.models.utils',
+        "mlflow.models.utils",
         HAS_SCIPY=True,
     ):
-        mlflow.models.utils.csc_matrix = Scipy.sparse.csc_matrix,
+        mlflow.models.utils.csc_matrix = Scipy.sparse.csc_matrix
         mlflow.models.utils.csr_matrix = Scipy.sparse.csr_matrix
 
         csc = mock.MagicMock(spec=Scipy.sparse.csc_matrix)
