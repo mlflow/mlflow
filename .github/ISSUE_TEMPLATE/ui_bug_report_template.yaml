@@ -54,7 +54,7 @@ body:
     attributes:
       label: Steps to reproduce the bug
       description: |
-        **Record** steps to reproduce the bug as a video or GIF and attach it here.
+        **Record steps to reproduce the bug as a video or GIF** (to eliminate ambiguity) and attach it here.
 
   - type: textarea
     attributes:
