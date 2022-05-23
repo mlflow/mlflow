@@ -703,6 +703,9 @@ def evaluate(
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
+     - For sklearn models, the default evaluator additionally logs the model score computed
+       by `model.score` method.
+
      - The logged MLflow metric keys are constructed using the format:
        ``{metric_name}_on_{dataset_name}``. Any preexisting metrics with the same name are
        overwritten.
