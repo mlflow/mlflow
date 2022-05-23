@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import mock
+from unittest import mock
 import numpy as np
 import json
 import pandas as pd
