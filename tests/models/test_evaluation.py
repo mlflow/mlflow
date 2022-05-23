@@ -175,8 +175,10 @@ def pipeline_model_uri():
     y = data[target_col].to_numpy()
 
     pipeline = sklearn.pipeline.Pipeline(
-        [('indexer', sklearn.preprocessing.OrdinalEncoder()),
-         ('clf', sklearn.linear_model.LogisticRegression())]
+        [
+            ("indexer", sklearn.preprocessing.OrdinalEncoder()),
+            ("clf", sklearn.linear_model.LogisticRegression()),
+        ]
     )
     pipeline.fit(X, y)
 

@@ -296,9 +296,11 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
-def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri, pipeline_model_dataset):
+def test_pipeline_model_kernel_explainer_on_categorical_features(
+    pipeline_model_uri, pipeline_model_dataset
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        evaluate(
             pipeline_model_uri,
             pipeline_model_dataset._constructor_args["data"],
             model_type="classifier",
@@ -307,11 +309,12 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
         )
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, _, _, artifacts = get_run_data(run.info.run_id)
     for shap_plot in [
-            'shap_beeswarm_plot_on_data_pipeline_model_dataset.png',
-            'shap_feature_importance_plot_on_data_pipeline_model_dataset.png',
-            'shap_summary_plot_on_data_pipeline_model_dataset.png']:
+        "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
+        "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
+        "shap_summary_plot_on_data_pipeline_model_dataset.png",
+    ]:
         assert shap_plot in artifacts
 
 

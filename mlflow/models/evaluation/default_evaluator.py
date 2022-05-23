@@ -455,7 +455,9 @@ class DefaultEvaluator(ModelEvaluator):
         algorithm = self.evaluator_config.get("explainability_algorithm", None)
 
         if algorithm != "kernel":
-            feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+            feature_dtypes = (
+                list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+            )
             for feature_dtype in feature_dtypes:
                 if not np.issubdtype(feature_dtype, np.number):
                     _logger.warning(
@@ -535,8 +537,11 @@ class DefaultEvaluator(ModelEvaluator):
                     algorithm=algorithm,
                 )
         else:
-            if self.raw_model and not is_multinomial_classifier and \
-                    not isinstance(self.raw_model, sk_Pipeline):
+            if (
+                self.raw_model
+                and not is_multinomial_classifier
+                and not isinstance(self.raw_model, sk_Pipeline)
+            ):
                 # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
                 # raw model, this case shap plot doesn't support it well, so exclude the
                 # multinomial_classifier case here.
