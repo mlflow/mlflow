@@ -514,7 +514,8 @@ class DefaultEvaluator(ModelEvaluator):
         else:
             # If sample_X is numpy array, convert to pandas dataframe.
             sampled_X = pd.DataFrame(sampled_X, columns=truncated_feature_name_map)
-            background_X = pd.DataFrame(background_X, columns=truncated_feature_name_map)
+            if background_X is not None:
+                background_X = pd.DataFrame(background_X, columns=truncated_feature_name_map)
 
         if algorithm:
             supported_algos = ["exact", "permutation", "partition", "kernel"]
@@ -528,7 +529,8 @@ class DefaultEvaluator(ModelEvaluator):
                 mode = sampled_X.mode().iloc[0]
                 sampled_X = sampled_X.fillna(mode)
                 background_X = background_X.fillna(mode)
-                explainer = shap.KernelExplainer(self.predict_fn, background_X, link="identity")
+                predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
+                explainer = shap.KernelExplainer(predict_fn, background_X, link="identity")
             else:
                 explainer = shap.Explainer(
                     self.predict_fn,
