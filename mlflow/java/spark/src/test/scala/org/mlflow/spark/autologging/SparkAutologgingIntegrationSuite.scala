@@ -182,8 +182,8 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     val subscriber = spy(new MockSubscriber())
     MlflowAutologEventPublisher.register(subscriber)
     leftDf.join(rightDf).collect()
-    // Sleep a second to let the SparkListener trigger read
-    Thread.sleep(1000)
+    // Sleep a few seconds to let the SparkListener trigger read
+    Thread.sleep(4000)
     verify(subscriber, times(2)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(getFileUri(leftPath), "unknown", leftFormat)
     verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
@@ -210,7 +210,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     // Register subscribers & collect the DF to trigger a datasource read event
     subscriberSeq.foreach(MockPublisher.register)
     df.collect()
-    Thread.sleep(1000)
+    Thread.sleep(4000)
     verify(subscriber, times(1)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(
       getFileUri(path), "unknown", format)

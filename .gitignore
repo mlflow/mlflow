@@ -80,6 +80,7 @@ venv.bak/
 *.idea
 *.vscode
 *.iml
+*.devcontainer
 *~
 
 # mkdocs documentation
