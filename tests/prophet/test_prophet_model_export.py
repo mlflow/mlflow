@@ -113,8 +113,6 @@ INFER_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 ModelWithSource = namedtuple("ModelWithSource", ["model", "data"])
 
-pytestmark = pytest.mark.large
-
 
 @pytest.fixture(scope="module")
 def prophet_model():
