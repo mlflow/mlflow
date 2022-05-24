@@ -184,7 +184,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     leftDf.join(rightDf).collect()
     // Sleep to let the SparkListener trigger read
     Thread.sleep(1000)
-    verify(subscriber, atLeast(1)).notify(any(), any(), any())
+    verify(subscriber, times(2)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(getFileUri(leftPath), "unknown", leftFormat)
     verify(subscriber, times(1)).notify(getFileUri(rightPath), "unknown", rightFormat)
   }
