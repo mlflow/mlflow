@@ -430,12 +430,12 @@ Python Model Flavors
 
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Github action configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
-2. ``dev/run-python-tests.sh``:
+1. ``dev/run-python-tests.sh``:
 
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
+2. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
