@@ -24,7 +24,6 @@ from tests.projects.utils import (
 _logger = logging.getLogger(__name__)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
 def test_run_local_params(name):
     excitement_arg = 2
@@ -44,14 +43,12 @@ def test_run_local_params(name):
     )
 
 
-@pytest.mark.large
 def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
     invoke_cli_runner(cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"])
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("experiment_name", [b"test-experiment".decode("utf-8"), "test-experiment"])
 def test_run_local_experiment_specification(experiment_name):
     invoke_cli_runner(
@@ -84,7 +81,6 @@ def clean_mlruns_dir():
         shutil.rmtree(dir_path)
 
 
-@pytest.mark.large
 def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
         conda_env_contents = handle.read()
@@ -103,7 +99,6 @@ def test_run_local_conda_env():
     )
 
 
-@pytest.mark.large
 def test_run_local_no_spec():
     # Run an example project that doesn't contain an MLproject file
     expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
@@ -119,7 +114,6 @@ def test_run_local_no_spec():
     )
 
 
-@pytest.mark.large
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
@@ -128,7 +122,6 @@ def test_run_git_https():
     invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
-@pytest.mark.large
 @pytest.mark.requires_ssh
 def test_run_git_ssh():
     # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH

@@ -678,7 +678,6 @@ def test_log_dict(subdir, extension):
             assert loaded == dictionary
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_matplotlib(subdir):
     import matplotlib.pyplot as plt
@@ -699,7 +698,6 @@ def test_log_figure_matplotlib(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_plotly(subdir):
     from plotly import graph_objects as go
@@ -718,13 +716,11 @@ def test_log_figure_plotly(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
-@pytest.mark.large
 def test_log_figure_raises_error_for_unsupported_figure_object_type():
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
         mlflow.log_figure("not_figure", "figure.png")
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_numpy(subdir):
     import numpy as np
@@ -748,7 +744,6 @@ def test_log_image_numpy(subdir):
         np.testing.assert_array_equal(loaded_image, image)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_pillow(subdir):
     from PIL import Image
@@ -773,7 +768,6 @@ def test_log_image_pillow(subdir):
         assert ImageChops.difference(loaded_image, image).getbbox() is None
 
 
-@pytest.mark.large
 @pytest.mark.parametrize(
     "size",
     [
@@ -796,7 +790,6 @@ def test_log_image_numpy_shape(size):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
-@pytest.mark.large
 @pytest.mark.parametrize(
     "dtype",
     [
@@ -828,7 +821,6 @@ def test_log_image_numpy_dtype(dtype):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
-@pytest.mark.large
 @pytest.mark.parametrize(
     "array",
     # 1 pixel images with out-of-range values
@@ -848,7 +840,6 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
         assert any(msg in args[0] for args in warn_mock.call_args_list)
 
 
-@pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
     import numpy as np
 
@@ -856,7 +847,6 @@ def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
         mlflow.log_image(np.tile("a", (1, 1, 3)), "image.png")
 
 
-@pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_array_shape():
     import numpy as np
 
@@ -864,7 +854,6 @@ def test_log_image_numpy_raises_exception_for_invalid_array_shape():
         mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
 
 
-@pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_channel_length():
     import numpy as np
 
@@ -872,7 +861,6 @@ def test_log_image_numpy_raises_exception_for_invalid_channel_length():
         mlflow.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
 
 
-@pytest.mark.large
 def test_log_image_raises_exception_for_unsupported_image_object_type():
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
         mlflow.log_image("not_image", "image.png")

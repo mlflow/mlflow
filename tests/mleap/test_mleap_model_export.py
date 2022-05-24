@@ -54,7 +54,6 @@ def spark_context():
     spark_session.stop()
 
 
-@pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     mlflow.spark.save_model(
         spark_model_iris.model,
@@ -74,7 +73,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     )
 
 
-@pytest.mark.large
 def test_mleap_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
     spark_model_iris,
 ):
@@ -95,7 +93,6 @@ def test_mleap_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert mlflow.mleap.FLAVOR_NAME in config.flavors
 
 
-@pytest.mark.large
 def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produces_mleap_flavor(
     spark_model_iris, model_path
 ):
@@ -115,7 +112,6 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
     assert mlflow.mleap.FLAVOR_NAME in config.flavors
 
 
-@pytest.mark.large
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
     spark_model_iris, model_path
 ):
@@ -135,7 +131,6 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
         )
 
 
-@pytest.mark.large
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
@@ -161,7 +156,6 @@ def test_mleap_model_log(spark_model_iris):
     assert mlflow.mleap.FLAVOR_NAME in mlflow_model.flavors
 
 
-@pytest.mark.large
 def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
     spark_model_iris,
 ):
@@ -182,7 +176,6 @@ def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert mlflow.mleap.FLAVOR_NAME in config.flavors
 
 
-@pytest.mark.large
 def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
     spark_model_iris, model_path
 ):
@@ -193,7 +186,6 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
         )
 
 
-@pytest.mark.large
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
     spark_model_iris, model_path
 ):

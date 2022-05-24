@@ -6,7 +6,6 @@ from mlflow.exceptions import MlflowException
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 
-@pytest.mark.large
 def test_enabling_autologging_throws_for_missing_jar():
     # pylint: disable=unused-argument
     spark_session = _get_or_create_spark_session(jars="")

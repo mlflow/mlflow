@@ -36,8 +36,6 @@ from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
 from tests.autologging.test_autologging_utils import get_func_attrs
 
-pytestmark = pytest.mark.large
-
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
 

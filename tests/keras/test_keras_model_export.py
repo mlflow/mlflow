@@ -265,7 +265,6 @@ def test_that_keras_module_arg_works(model_path):
         (get_tf_keras_model, "tf"),
     ],
 )
-@pytest.mark.large
 def test_model_save_load(build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
@@ -307,7 +306,6 @@ def test_model_save_load(build_model, save_format, model_path, data):
     np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(model, data):
     signature_ = infer_signature(*data)
     example_ = data[0].head(3)
@@ -326,7 +324,6 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
@@ -378,7 +375,6 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         model_loaded = mlflow.keras.load_model(model_path)
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
     mlflow.keras.save_model(model, model_path)
@@ -393,7 +389,6 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
     assert all(model_loaded.predict(x.values) == predicted)
 
 
-@pytest.mark.large
 def test_model_log(model, data, predicted):
     x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -442,7 +437,6 @@ def test_log_model_no_registered_model_name(model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
@@ -460,7 +454,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
     conda_env = dict(mlflow.keras.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -475,7 +468,6 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
@@ -485,7 +477,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -512,7 +503,6 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
     default_reqs = mlflow.keras.get_default_pip_requirements()
     # Path to a requirements file
@@ -547,7 +537,6 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -564,7 +553,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -589,7 +577,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     model, model_path
 ):
@@ -597,7 +584,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.keras.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
@@ -606,7 +592,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.keras.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
     tf_keras_model, model_path, data
 ):
@@ -643,7 +628,6 @@ def test_save_model_with_tf_save_format(model_path):
     assert not args[0].endswith(".h5")
 
 
-@pytest.mark.large
 def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
     mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
@@ -663,7 +647,6 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
-@pytest.mark.large
 def test_load_without_save_format(tf_keras_model, model_path):
     """Ensures that keras models without save_format can still be loaded."""
     mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
@@ -678,7 +661,6 @@ def test_load_without_save_format(tf_keras_model, model_path):
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
-@pytest.mark.large
 @pytest.mark.skipif(
     not _is_importable("transformers"),
     reason="This test requires transformers, which is incompatible with Keras < 2.3.0",
@@ -709,7 +691,6 @@ def test_pyfunc_serve_and_score_transformers():
     np.testing.assert_array_equal(json.loads(resp.content), model.predict(dummy_inputs))
 
 
-@pytest.mark.large
 def test_log_model_with_code_paths(model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
