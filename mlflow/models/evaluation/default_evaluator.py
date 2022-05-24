@@ -545,7 +545,8 @@ class DefaultEvaluator(ModelEvaluator):
                 kernel_link = self.evaluator_config.get("explainability_kernel_link", "identity")
                 if kernel_link not in ["identity", "logit"]:
                     raise ValueError(
-                        f"explainability_kernel_link config can only be set to 'identity' or 'logit'."
+                        "explainability_kernel_link config can only be set to 'identity' or "
+                        f"'logit', but get value '{kernel_link}'."
                     )
                 mode_or_mean_dict = _compute_df_mode_or_mean(self.X)
                 mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
