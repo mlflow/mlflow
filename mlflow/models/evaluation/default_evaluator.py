@@ -370,6 +370,33 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     )
 
 
+def _compute_df_mode_or_mean(df):
+    """
+    Compute mode (for integer or non-numeric columns or mean (for float columns) for the
+    input dataframe, return a dict, key is column name, value is the corresponding mode or
+    mean value.
+    """
+    # convert pandas dataframe columns to be the best type.
+    # e.g. if one column has float type values, but they are actually all integers,
+    # it will be converted to integer column
+    df = df.convert_dtypes()
+    columns = df.columns.tolist()
+    float_columns = []
+    non_float_column = []
+    for col_name in columns:
+        if df.dtypes[col_name].name.lower().startswith("float"):
+            float_columns.append(col_name)
+        else:
+            non_float_column.append(col_name)
+
+    means = df[float_columns].mean().to_dict()
+    modes = df[non_float_column].mode().loc[0].to_dict()
+    return {**means, **modes}
+
+
+_SUPPORTED_SHAP_ALGORITHMS = ["exact", "permutation", "partition", "kernel"]
+
+
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
@@ -453,6 +480,11 @@ class DefaultEvaluator(ModelEvaluator):
             return
 
         algorithm = self.evaluator_config.get("explainability_algorithm", None)
+        if algorithm is not None and algorithm not in _SUPPORTED_SHAP_ALGORITHMS:
+            raise ValueError(
+                f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
+                f"support {','.join(_SUPPORTED_SHAP_ALGORITHMS)} algorithms."
+            )
 
         if algorithm != "kernel":
             feature_dtypes = (
@@ -518,19 +550,18 @@ class DefaultEvaluator(ModelEvaluator):
                 background_X = pd.DataFrame(background_X, columns=truncated_feature_name_map)
 
         if algorithm:
-            supported_algos = ["exact", "permutation", "partition", "kernel"]
-            if algorithm not in supported_algos:
-                raise ValueError(
-                    f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
-                    f"support {','.join(supported_algos)} algorithms."
-                )
             if algorithm == "kernel":
-                # predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
-                mode = sampled_X.mode().iloc[0]
-                sampled_X = sampled_X.fillna(mode)
-                background_X = background_X.fillna(mode)
+                kernel_link = self.evaluator_config.get("explainability_kernel_link", "identity")
+                if kernel_link not in ["identity", "logit"]:
+                    raise ValueError(
+                        f"explainability_kernel_link config can only be set to 'identity' or 'logit'."
+                    )
+                mode_or_mean_dict = _compute_df_mode_or_mean(self.X)
+                mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict}
+                sampled_X = sampled_X.fillna(mode_or_mean_dict)
+                background_X = background_X.fillna(mode_or_mean_dict)
                 predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
-                explainer = shap.KernelExplainer(predict_fn, background_X, link="identity")
+                explainer = shap.KernelExplainer(predict_fn, background_X, link=kernel_link)
             else:
                 explainer = shap.Explainer(
                     self.predict_fn,
