@@ -302,5 +302,4 @@ jobs:
           pip install -e .[extras]
       - name: Run python tests
         run: |
-          pytest --ignore-flavors --ignore=tests/projects tests
-          pytest tests/pyfunc/test_virtualenv.py
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests
