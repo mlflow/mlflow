@@ -6,7 +6,6 @@ import uuid
 import threading
 
 import math
-from typing import List
 
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
