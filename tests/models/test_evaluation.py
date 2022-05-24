@@ -159,15 +159,6 @@ def get_pipeline_model_dataset():
     return data, "y"
 
 
-@pytest.fixture(scope="module")
-def pipeline_model_dataset():
-    data, target_col = get_pipeline_model_dataset()
-    constructor_args = {"data": data[0::3], "targets": target_col, "name": "pipeline_model_dataset"}
-    ds = EvaluationDataset(**constructor_args)
-    ds._constructor_args = constructor_args
-    return ds
-
-
 @pytest.fixture
 def pipeline_model_uri():
     data, target_col = get_pipeline_model_dataset()
@@ -183,10 +174,8 @@ def pipeline_model_uri():
     pipeline.fit(X, y)
 
     with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(pipeline, "pipeline_model")
-        pipeline_model_uri = get_artifact_uri(run.info.run_id, "pipeline_model")
-
-    return pipeline_model_uri
+        model_info = mlflow.sklearn.log_model(pipeline, "pipeline_model")
+        return model_info.model_uri
 
 
 @pytest.fixture
