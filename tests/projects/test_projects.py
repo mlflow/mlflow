@@ -90,7 +90,6 @@ def test_invalid_run_mode():
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-@pytest.mark.large
 def test_use_conda():
     """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
@@ -99,7 +98,6 @@ def test_use_conda():
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
 
-@pytest.mark.large
 def test_expected_tags_logged_when_using_conda():
     with mock.patch.object(mlflow.tracking.MlflowClient, "set_tag") as tag_mock:
         try:

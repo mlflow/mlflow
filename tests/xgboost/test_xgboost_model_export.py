@@ -73,7 +73,6 @@ def xgb_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(xgb_model, model_path):
     model = xgb_model.model
 
@@ -92,7 +91,6 @@ def test_model_save_load(xgb_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     model = xgb_sklearn_model.model
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
@@ -110,7 +108,6 @@ def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(xgb_model):
     model = xgb_model.model
     for signature in (None, infer_signature(xgb_model.inference_dataframe)):
@@ -128,7 +125,6 @@ def test_signature_and_examples_are_saved_correctly(xgb_model):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(xgb_model, model_path, mock_s3_bucket):
     mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
 
@@ -145,7 +141,6 @@ def test_model_load_from_remote_uri_succeeds(xgb_model, model_path, mock_s3_buck
     )
 
 
-@pytest.mark.large
 def test_model_log(xgb_model, model_path):
     model = xgb_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -215,7 +210,6 @@ def test_log_model_no_registered_model_name(xgb_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     xgb_model, model_path, xgb_custom_env
 ):
@@ -233,7 +227,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == xgb_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     xgb_model, model_path, xgb_custom_env
 ):
@@ -243,7 +236,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_save_model_with_pip_requirements(xgb_model, tmpdir):
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
@@ -269,7 +261,6 @@ def test_save_model_with_pip_requirements(xgb_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
@@ -299,7 +290,6 @@ def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(xgb_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -330,7 +320,6 @@ def test_log_model_with_pip_requirements(xgb_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
@@ -362,7 +351,6 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     conda_env = dict(mlflow.xgboost.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -377,7 +365,6 @@ def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     xgb_model, xgb_custom_env
 ):
@@ -403,7 +390,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == xgb_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xgb_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -419,7 +405,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xg
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model, model_path
 ):
@@ -427,7 +412,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.xgboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model,
 ):
@@ -439,7 +423,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.xgboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(xgb_model):
     model, inference_dataframe, inference_dmatrix = xgb_model
     artifact_path = "model"
@@ -482,7 +465,6 @@ def test_pyfunc_serve_and_score_sklearn(model):
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
 
 
-@pytest.mark.large
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model, model_path):
     """
     This test verifies that xgboost models saved in older versions of MLflow are loaded
