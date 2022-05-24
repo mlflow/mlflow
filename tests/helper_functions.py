@@ -222,9 +222,9 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
-            time.sleep(5)
+            time.sleep(1)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
