@@ -249,7 +249,6 @@ def test_standard_store_registry_with_mocked_entrypoint():
         )
 
 
-@pytest.mark.large
 def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 

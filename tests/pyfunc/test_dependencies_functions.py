@@ -12,7 +12,6 @@ from tests.helper_functions import AnyStringWith
 from mlflow.exceptions import MlflowException
 
 
-@pytest.mark.large
 def test_warn_dependency_requirement_mismatches(tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write(f"cloudpickle=={cloudpickle.__version__}\nscikit-learn=={sklearn.__version__}\n")
@@ -150,7 +149,6 @@ scikit-learn==1.0.2"""
         get_model_dependencies(model_path, format="abc")
 
 
-@pytest.mark.large
 def test_get_model_dependencies_read_conda_file(tmp_path):
     MLmodel_file = tmp_path / "MLmodel"
     MLmodel_file.write_text(

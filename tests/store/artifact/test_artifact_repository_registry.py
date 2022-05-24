@@ -33,7 +33,6 @@ def test_standard_artifact_registry():
     )
 
 
-@pytest.mark.large
 def test_plugin_registration_via_installed_package():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 

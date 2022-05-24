@@ -36,9 +36,6 @@ from mlflow.utils.autologging_utils.versioning import (
 from tests.autologging.fixtures import test_mode_off
 
 
-pytestmark = pytest.mark.large
-
-
 # Example function signature we are testing on
 # def fn(arg1, default1=1, default2=2):
 #     pass
