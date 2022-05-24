@@ -309,28 +309,28 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
         )
-    _, _, _, artifacts = get_run_data(run.info.run_id)
+    run_data = get_run_data(run.info.run_id)
     assert {
         "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
         "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
         "shap_summary_plot_on_data_pipeline_model_dataset.png",
-    }.issubset(artifacts)
+    }.issubset(run_data.artifacts)
 
 
 def test_compute_df_mode_or_mean():
-    df = pd.DataFrame({
-        'a': [2.0, 2.0, 5.0],
-        'b': [3, 3, 5],
-        'c': [2.0, 2.0, 6.5],
-        'd': [True, False, True],
-        'e': ['abc', 'b', 'abc'],
-        'f': [1.5, 2.5, np.nan],
-        'g': ['ab', 'ab', None]
-    })
+    df = pd.DataFrame(
+        {
+            "a": [2.0, 2.0, 5.0],
+            "b": [3, 3, 5],
+            "c": [2.0, 2.0, 6.5],
+            "d": [True, False, True],
+            "e": ["abc", "b", "abc"],
+            "f": [1.5, 2.5, np.nan],
+            "g": ["ab", "ab", None],
+        }
+    )
     result = _compute_df_mode_or_mean(df)
-    assert result == {
-        'a': 2, 'b': 3, 'c': 3.5, 'd': True, 'e': 'abc', 'f': 2.0, 'g': 'ab'
-    }
+    assert result == {"a": 2, "b": 3, "c": 3.5, "d": True, "e": "abc", "f": 2.0, "g": "ab"}
 
 
 def test_infer_model_type_by_labels():

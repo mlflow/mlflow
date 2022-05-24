@@ -380,8 +380,8 @@ def _compute_df_mode_or_mean(df):
     # e.g. if one column has float type values, but they are actually all integers,
     # it will be converted to integer column
     df = df.convert_dtypes()
-    means = df.select_dtypes(include=['floating']).mean().to_dict()
-    modes = df.select_dtypes(exclude=['floating']).mode().loc[0].to_dict()
+    means = df.select_dtypes(include=["floating"]).mean().to_dict()
+    modes = df.select_dtypes(exclude=["floating"]).mode().loc[0].to_dict()
     return {**means, **modes}
 
 
@@ -536,9 +536,9 @@ class DefaultEvaluator(ModelEvaluator):
                 background_X = background_X.rename(columns=truncated_feature_name_map, copy=False)
         else:
             # If sample_X is numpy array, convert to pandas dataframe.
-            sampled_X = pd.DataFrame(sampled_X, columns=truncated_feature_name_map)
+            sampled_X = pd.DataFrame(sampled_X, columns=truncated_feature_names)
             if background_X is not None:
-                background_X = pd.DataFrame(background_X, columns=truncated_feature_name_map)
+                background_X = pd.DataFrame(background_X, columns=truncated_feature_names)
 
         if algorithm:
             if algorithm == "kernel":
@@ -546,10 +546,12 @@ class DefaultEvaluator(ModelEvaluator):
                 if kernel_link not in ["identity", "logit"]:
                     raise ValueError(
                         "explainability_kernel_link config can only be set to 'identity' or "
-                        f"'logit', but get value '{kernel_link}'."
+                        f"'logit', but got '{kernel_link}'."
                     )
                 mode_or_mean_dict = _compute_df_mode_or_mean(self.X)
-                mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
+                mode_or_mean_dict = {
+                    truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()
+                }
                 sampled_X = sampled_X.fillna(mode_or_mean_dict)
                 background_X = background_X.fillna(mode_or_mean_dict)
                 predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))

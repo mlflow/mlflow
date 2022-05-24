@@ -726,7 +726,7 @@ def evaluate(
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
         - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
-          Avalable values are "identity" and "logit". Default value is "identity".
+          Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is
