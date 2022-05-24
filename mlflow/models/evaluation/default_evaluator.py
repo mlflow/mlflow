@@ -376,25 +376,16 @@ def _compute_df_mode_or_mean(df):
     input dataframe, return a dict, key is column name, value is the corresponding mode or
     mean value.
     """
-    # convert pandas dataframe columns to be the best type.
+    # convert pandas dataframe columns to best possible dtypes.
     # e.g. if one column has float type values, but they are actually all integers,
     # it will be converted to integer column
     df = df.convert_dtypes()
-    columns = df.columns.tolist()
-    float_columns = []
-    non_float_column = []
-    for col_name in columns:
-        if df.dtypes[col_name].name.lower().startswith("float"):
-            float_columns.append(col_name)
-        else:
-            non_float_column.append(col_name)
-
-    means = df[float_columns].mean().to_dict()
-    modes = df[non_float_column].mode().loc[0].to_dict()
+    means = df.select_dtypes(include=['floating']).mean().to_dict()
+    modes = df.select_dtypes(exclude=['floating']).mode().loc[0].to_dict()
     return {**means, **modes}
 
 
-_SUPPORTED_SHAP_ALGORITHMS = ["exact", "permutation", "partition", "kernel"]
+_SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -557,7 +548,7 @@ class DefaultEvaluator(ModelEvaluator):
                         f"explainability_kernel_link config can only be set to 'identity' or 'logit'."
                     )
                 mode_or_mean_dict = _compute_df_mode_or_mean(self.X)
-                mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict}
+                mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
                 sampled_X = sampled_X.fillna(mode_or_mean_dict)
                 background_X = background_X.fillna(mode_or_mean_dict)
                 predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
