@@ -356,6 +356,9 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     val df4 = df1.union(df2).union(df3)
     df4.collect()
 
+    // Sleep to give time for the execution to complete
+    Thread.sleep(1000)
+    
     // Verify that the only time subscriber1 was notified of a datasource read was when
     // `path2` was read via `df2` with `spark.databricks.replId` set to `subscriber1.replId`
     verify(subscriber1, times(1)).notify(any(), any(), any())
