@@ -24,7 +24,8 @@ from tests.projects.utils import (
 _logger = logging.getLogger(__name__)
 
 skip_if_skinny = pytest.mark.skipif(
-    "MLFLOW_SKINNY" in os.environ, reason="MLflow skinny is missing dependencies to run this test"
+    "MLFLOW_SKINNY" in os.environ,
+    reason="MLflow skinny does not have dependencies to run this test",
 )
 
 
@@ -129,11 +130,13 @@ def test_run_git_https():
     invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
-@pytest.mark.requires_ssh
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ, reason="SSH keys are unavailable in GitHub Actions"
+)
 def test_run_git_ssh():
-    # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
-    # keys are unavailable. However it should be run locally whenever logic related to running
-    # Git projects is modified.
+    # Note: this test requires SSH authentication to GitHub, and so is disabled in GitHub Actions,
+    # where SSH keys are unavailable. However it should be run locally whenever logic related to
+    # running Git projects is modified.
     assert SSH_PROJECT_URI.startswith("git@")
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
