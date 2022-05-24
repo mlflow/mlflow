@@ -280,6 +280,7 @@ jobs:
           INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
+          pip install keras tensorflow
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
