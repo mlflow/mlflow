@@ -89,32 +89,7 @@ jobs:
       run: |
         ./dev/run-python-skinny-tests.sh
 
-  python-small:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - uses: ./.github/actions/setup-python
-    - uses: ./.github/actions/setup-pyenv
-    - name: Install dependencies
-      env:
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      run: |
-        # Establish SSH to localhost for test_sftp_artifact_repo.py
-        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
-        ssh -v $(whoami)@localhost exit
-        export LOGNAME=$(whoami)
-
-        ./dev/run-small-python-tests.sh
-
-  python-large:
+  python:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -144,7 +119,14 @@ jobs:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        ./dev/run-large-python-tests.sh
+        # Establish SSH to localhost for test_sftp_artifact_repo.py
+        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+        ssh $(whoami)@localhost exit
+        export LOGNAME=$(whoami)
+
+        ./dev/run-python-tests.sh
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
@@ -280,7 +262,7 @@ jobs:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest tests/models --large
+          pytest tests/models
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -315,6 +297,10 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install python dependencies
         run: |
           pip install -r requirements/small-requirements.txt
@@ -322,5 +308,4 @@ jobs:
           pip install -e .[extras]
       - name: Run python tests
         run: |
-          pytest --ignore-flavors --ignore=tests/projects tests
-          pytest tests/pyfunc/test_virtualenv.py
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests

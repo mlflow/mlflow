@@ -108,7 +108,6 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -349,7 +348,6 @@ def test_spark_udf_with_datetime_columns(spark):
         assert res["res"][0] == ["timestamp", "date"]
 
 
-@pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -400,7 +398,6 @@ def test_model_cache(spark, model_path):
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
-@pytest.mark.large
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager

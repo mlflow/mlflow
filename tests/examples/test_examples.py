@@ -73,7 +73,6 @@ def report_free_disk_space(capsys):
         print(" | Free disk space: {:.1f} GiB".format(get_free_disk_space()), end="")
 
 
-@pytest.mark.large
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, params",
@@ -134,7 +133,6 @@ def test_mlflow_run_example(directory, params, tmpdir):
     invoke_cli_runner(cli.run, cli_run_list)
 
 
-@pytest.mark.large
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, command",

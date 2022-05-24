@@ -30,7 +30,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 
-pytestmark = pytest.mark.large
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("pmdarima") else ["--env-manager", "local"]

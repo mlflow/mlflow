@@ -22,7 +22,6 @@ def mock_get_current_listener():
         yield get_listener_patch
 
 
-@pytest.mark.large
 @pytest.mark.usefixtures("spark_session")
 def test_autolog_call_idempotent():
     mlflow.spark.autolog()
@@ -31,7 +30,6 @@ def test_autolog_call_idempotent():
     assert _get_current_listener() == listener
 
 
-@pytest.mark.large
 def test_subscriber_methods():
     # Test that PythonSubscriber satisfies the contract expected by the underlying Scala trait
     # it implements (MlflowAutologEventSubscriber)
@@ -42,7 +40,6 @@ def test_subscriber_methods():
     assert PythonSubscriber().replId() != subscriber.replId()
 
 
-@pytest.mark.large
 def test_enabling_autologging_throws_for_wrong_spark_version(
     spark_session, mock_get_current_listener
 ):

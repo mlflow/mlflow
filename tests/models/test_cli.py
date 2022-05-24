@@ -75,7 +75,6 @@ def sk_model(iris_data):
     return knn_model
 
 
-@pytest.mark.large
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
         pytest.skip("This test needs conda.")
@@ -126,7 +125,6 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert all(expected == actual)
 
 
-@pytest.mark.large
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
@@ -151,7 +149,6 @@ def test_mlflow_is_not_installed_unless_specified():
             assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
 
 
-@pytest.mark.large
 def test_model_with_no_deployable_flavors_fails_pollitely():
     from mlflow.models import Model
 
@@ -176,7 +173,6 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in stderr
 
 
-@pytest.mark.large
 def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
@@ -212,7 +208,6 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         assert expected_command_pattern.search(stdout) is not None
 
 
-@pytest.mark.large
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
@@ -370,7 +365,6 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
-@pytest.mark.large
 def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -400,7 +394,6 @@ def test_prepare_env_passes(sk_model):
         assert p.wait() == 0
 
 
-@pytest.mark.large
 def test_prepare_env_fails(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -423,7 +416,6 @@ def test_prepare_env_fails(sk_model):
         assert p.wait() != 0
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
@@ -450,7 +442,6 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
 
 
-@pytest.mark.large
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sk_model, "model")
@@ -465,7 +456,6 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("enable_mlserver", [True, False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:

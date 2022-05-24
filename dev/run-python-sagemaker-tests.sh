@@ -17,7 +17,7 @@ for env_manager in conda virtualenv; do
   fi
 done
 
-pytest tests/sagemaker --large
-pytest tests/sagemaker/mock --large
+pytest tests/sagemaker
+pytest tests/sagemaker/mock
 
 test $err = 0

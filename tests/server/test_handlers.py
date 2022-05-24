@@ -213,7 +213,6 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
-@pytest.mark.large
 def test_mlflow_server_with_installed_plugin(tmpdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
