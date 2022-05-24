@@ -23,6 +23,10 @@ from tests.projects.utils import (
 
 _logger = logging.getLogger(__name__)
 
+skip_if_skinny = pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ, reason="MLflow skinny is missing dependencies to run this test"
+)
+
 
 @pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
 def test_run_local_params(name):
@@ -43,6 +47,7 @@ def test_run_local_params(name):
     )
 
 
+@skip_if_skinny
 def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
@@ -81,6 +86,7 @@ def clean_mlruns_dir():
         shutil.rmtree(dir_path)
 
 
+@skip_if_skinny
 def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
         conda_env_contents = handle.read()
@@ -114,6 +120,7 @@ def test_run_local_no_spec():
     )
 
 
+@skip_if_skinny
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
