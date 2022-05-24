@@ -295,6 +295,10 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install python dependencies
         run: |
           pip install -r requirements/small-requirements.txt

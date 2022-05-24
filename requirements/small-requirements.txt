@@ -17,3 +17,4 @@ pillow
 matplotlib
 shap>=0.40
 plotly
+pyspark
