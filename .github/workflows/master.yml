@@ -126,7 +126,7 @@ jobs:
         ssh $(whoami)@localhost exit
         export LOGNAME=$(whoami)
 
-        ./dev/run-large-python-tests.sh
+        ./dev/run-python-tests.sh
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
