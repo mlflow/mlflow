@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from unittest import mock
 import numpy as np
 import json
 import pandas as pd
@@ -76,6 +77,9 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     y_pred = model.predict(diabetes_dataset.features_data)
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics["score"] = model._model_impl.score(
+        diabetes_dataset.features_data, diabetes_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -121,7 +125,9 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        iris_dataset.features_data, iris_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
@@ -174,7 +180,9 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -267,7 +275,9 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -919,3 +929,23 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_pickled_artifact_on_data_breast_cancer_dataset.pickle" in artifacts
     assert isinstance(result.artifacts["test_pickled_artifact"], PickleEvaluationArtifact)
     assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
+
+
+def test_evaluate_sklearn_model_score_skip_when_not_scorable(
+    linear_regressor_model_uri, diabetes_dataset
+):
+    with mock.patch(
+        "sklearn.linear_model.LinearRegression.score",
+        side_effect=RuntimeError("LinearRegression.score failed"),
+    ) as mock_score:
+        with mlflow.start_run():
+            result = evaluate(
+                linear_regressor_model_uri,
+                diabetes_dataset._constructor_args["data"],
+                model_type="regressor",
+                targets=diabetes_dataset._constructor_args["targets"],
+                dataset_name=diabetes_dataset.name,
+                evaluators="default",
+            )
+        mock_score.assert_called_once()
+        assert "score" not in result.metrics

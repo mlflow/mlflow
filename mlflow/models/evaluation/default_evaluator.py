@@ -569,6 +569,18 @@ class DefaultEvaluator(ModelEvaluator):
             "shap_feature_importance_plot",
         )
 
+    def _evaluate_sklearn_model_score_if_scorable(self):
+        if self.model_loader_module == "mlflow.sklearn":
+            try:
+                score = self.raw_model.score(self.X, self.y)
+                self.metrics["score"] = score
+            except Exception as e:
+                _logger.warning(
+                    f"Computing sklearn model score failed: {repr(e)}. Set logging level to "
+                    "DEBUG to see the full traceback."
+                )
+                _logger.debug("", exc_info=True)
+
     def _log_binary_classifier(self):
         self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
 
@@ -811,6 +823,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
             )
         )
+        self._evaluate_sklearn_model_score_if_scorable()
 
         if self.is_binomial:
             self._log_binary_classifier()
@@ -855,6 +868,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_regressor(self):
         self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+        self._evaluate_sklearn_model_score_if_scorable()
 
         return self._log_and_return_evaluation_result()
 
@@ -900,12 +914,12 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics = dict()
             self.artifacts = {}
 
-            infered_model_type = _infer_model_type_by_labels(self.y)
+            inferred_model_type = _infer_model_type_by_labels(self.y)
 
-            if infered_model_type is not None and model_type != infered_model_type:
+            if inferred_model_type is not None and model_type != inferred_model_type:
                 _logger.warning(
                     f"According to the evaluation dataset label values, the model type looks like "
-                    f"{infered_model_type}, but you specified model type {model_type}. Please "
+                    f"{inferred_model_type}, but you specified model type {model_type}. Please "
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 

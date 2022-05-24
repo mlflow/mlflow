@@ -22,6 +22,9 @@ class ImageEvaluationArtifact(EvaluationArtifact):
         self._content = open_image(local_artifact_path)
         return self._content
 
+    def __del__(self):
+        self._content.close()
+
 
 class CsvEvaluationArtifact(EvaluationArtifact):
     def _save(self, output_artifact_path):

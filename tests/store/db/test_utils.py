@@ -61,20 +61,16 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
                         self.assertEqual(engine, "Engine")
 
     def test_create_sqlalchemy_engine_with_retry_fail(self):
-        with mock.patch.dict(os.environ, {}):
-            with mock.patch("sqlalchemy.inspect") as mock_sqlalchemy_inspect:
-                with mock.patch(
-                    "mlflow.store.db.utils.create_sqlalchemy_engine"
-                ) as mock_create_sqlalchemy_engine:
-                    with mock.patch("time.sleep"):
-                        mock_sqlalchemy_inspect.side_effect = [Exception] * utils.MAX_RETRY_COUNT
-                        mock_create_sqlalchemy_engine.return_value = "Engine"
-                        self.assertRaises(
-                            Exception,
-                            utils.create_sqlalchemy_engine_with_retry,
-                            "mydb://host:port/",
-                        )
-                        assert (
-                            mock_create_sqlalchemy_engine.mock_calls
-                            == [mock.call("mydb://host:port/")] * utils.MAX_RETRY_COUNT
-                        )
+        with mock.patch.dict(os.environ, {}), mock.patch(
+            "sqlalchemy.inspect", side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT
+        ), mock.patch(
+            "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
+        ) as mock_create_sqlalchemy_engine, mock.patch(
+            "time.sleep"
+        ):
+            with self.assertRaisesRegex(Exception, r"failed"):
+                utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
+            assert (
+                mock_create_sqlalchemy_engine.mock_calls
+                == [mock.call("mydb://host:port/")] * utils.MAX_RETRY_COUNT
+            )
