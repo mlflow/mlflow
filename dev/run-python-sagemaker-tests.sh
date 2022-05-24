@@ -18,6 +18,5 @@ for env_manager in conda virtualenv; do
 done
 
 pytest tests/sagemaker
-pytest tests/sagemaker/mock
 
 test $err = 0
