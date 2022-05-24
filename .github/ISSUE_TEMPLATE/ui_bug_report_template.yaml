@@ -72,7 +72,7 @@ body:
 
   - type: textarea
     attributes:
-      label: Is the console panel showing errors relevant to the bug?
+      label: Is the console panel in DevTools showing errors relevant to the bug?
       description: |
         If the console panel in your browser's DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 
@@ -95,7 +95,7 @@ body:
 
   - type: textarea
     attributes:
-      label: Does the network panel contain failed requests relevant to the bug?
+      label: Does the network panel in DevTools contain failed requests relevant to the bug?
       description: |
         If the network panel in your browser's DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 
