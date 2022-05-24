@@ -118,13 +118,15 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
-    # delete code modules that are already in sys.modules 
+    # delete code modules that are already in sys.modules
     # so they will get reloaded anew from the correct code path
-    # othterwise python will use the alredy loaded modules 
+    # othterwise python will use the alredy loaded modules
     modules = []
     for path in [code_path] + _get_code_dirs(code_path):
         modules_py = glob.glob(join(path, "*.py"))
-        modules += [ basename(f)[:-3] for f in modules_py if isfile(f) and not f.endswith('__init__.py')]
+        modules += [
+            basename(f)[:-3] for f in modules_py if isfile(f) and not f.endswith("__init__.py")
+        ]
     for module in modules:
         if module in sys.modules:
             sys.modules.pop(module)
