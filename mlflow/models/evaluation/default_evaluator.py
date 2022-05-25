@@ -42,16 +42,16 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
-def _is_categorical_values(labels):
-    distinct_labels = set(labels)
-    for v in distinct_labels:
+def _is_categorical_values(values):
+    distinct_values = set(values)
+    for v in distinct_values:
         if not isinstance(v, numbers.Number):
             return True
         if not float(v).is_integer():
             return False
-    if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
+    if len(distinct_values) > 1000 and len(distinct_values) / len(values) > 0.7:
         return False
-    if len(distinct_labels) <= 20:
+    if len(distinct_values) <= 20:
         return True
     return None  # unknown
 
@@ -382,17 +382,15 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
 
 def _compute_df_mode_or_mean(df):
     """
-    Compute mode (for integer or non-numeric columns or mean (for float columns) for the
+    Compute mode (for categorical columns or mean (for continuous columns) for the
     input dataframe, return a dict, key is column name, value is the corresponding mode or
-    mean value.
+    mean value, this function calls `_is_categorical_values` to determine whether the
+    column is categorical column.
     """
-    # convert pandas dataframe columns to best possible dtypes.
-    # e.g. if one column has float type values, but they are actually all integers,
-    # it will be converted to integer column
     categorical_cols = []
     continuous_cols = []
     for col in df.columns:
-        if _is_categorical_values(df[col].tolist()):
+        if _is_categorical_values(df[col]):
             categorical_cols.append(col)
         else:
             continuous_cols.append(col)
