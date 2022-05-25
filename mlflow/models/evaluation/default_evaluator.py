@@ -604,8 +604,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         if algorithm == "kernel":
             shap_values = shap.Explanation(
-                explainer.shap_values(sampled_X),
-                feature_names=truncated_feature_names
+                explainer.shap_values(sampled_X), feature_names=truncated_feature_names
             )
         else:
             shap_values = explainer(sampled_X)
