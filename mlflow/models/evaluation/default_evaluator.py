@@ -42,18 +42,28 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
-def _infer_model_type_by_labels(labels):
+def _is_categorical_values(labels):
     distinct_labels = set(labels)
     for v in distinct_labels:
         if not isinstance(v, numbers.Number):
-            return "classifier"
+            return True
         if not float(v).is_integer():
-            return "regressor"
+            return False
     if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
-        return "regressor"
+        return False
     if len(distinct_labels) <= 20:
-        return "classifier"
+        return True
     return None  # unknown
+
+
+def _infer_model_type_by_labels(labels):
+    result = _is_categorical_values(labels)
+    if result is None:
+        return None  # unknown
+    elif result:
+        return "classifier"
+    else:
+        return "regressor"
 
 
 def _extract_raw_model_and_predict_fn(model):
@@ -379,9 +389,16 @@ def _compute_df_mode_or_mean(df):
     # convert pandas dataframe columns to best possible dtypes.
     # e.g. if one column has float type values, but they are actually all integers,
     # it will be converted to integer column
-    df = df.convert_dtypes()
-    means = df.select_dtypes(include=["floating"]).mean().to_dict()
-    modes = df.select_dtypes(exclude=["floating"]).mode().loc[0].to_dict()
+    categorical_cols = []
+    continuous_cols = []
+    for col in df.columns:
+        if _is_categorical_values(df[col].tolist()):
+            categorical_cols.append(col)
+        else:
+            continuous_cols.append(col)
+
+    means = df[continuous_cols].mean().to_dict()
+    modes = df[categorical_cols].mode().loc[0].to_dict()
     return {**means, **modes}
 
 
