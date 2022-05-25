@@ -1,7 +1,6 @@
 import os
 import sys
 import glob
-from os.path import join, basename, isfile
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -125,13 +124,12 @@ def _add_code_to_system_path(code_path):
     # othterwise python will use the alredy loaded modules
     modules = []
     for path in [code_path] + _get_code_dirs(code_path):
-        modules_py = glob.glob(join(path, "*.py"))
+        modules_py = glob.glob(os.path.join(path, "*.py"))
         modules += [
-            basename(f)[:-3] for f in modules_py if isfile(f) and not f.endswith("__init__.py")
+            os.path.basename(f)[:-3] for f in modules_py if os.path.isfile(f) and not f.endswith("__init__.py")
         ]
     for module in modules:
-        if module in sys.modules:
-            sys.modules.pop(module)
+        sys.modules.pop(module, None)
 
 
 def _validate_and_prepare_target_save_path(path):
