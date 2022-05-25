@@ -246,8 +246,6 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: false
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
