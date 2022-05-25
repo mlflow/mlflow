@@ -42,7 +42,7 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
-def _is_categorical_values(values):
+def _is_categorical(values):
     distinct_values = set(values)
     for v in distinct_values:
         if not isinstance(v, numbers.Number):
@@ -57,7 +57,7 @@ def _is_categorical_values(values):
 
 
 def _infer_model_type_by_labels(labels):
-    result = _is_categorical_values(labels)
+    result = _is_categorical(labels)
     if result is None:
         return None  # unknown
     elif result:
@@ -382,7 +382,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
 
 def _compute_df_mode_or_mean(df):
     """
-    Compute mode (for categorical columns or mean (for continuous columns) for the
+    Compute mode (for categorical columns) or mean (for continuous columns) for the
     input dataframe, return a dict, key is column name, value is the corresponding mode or
     mean value, this function calls `_is_categorical_values` to determine whether the
     column is categorical column.
@@ -390,7 +390,7 @@ def _compute_df_mode_or_mean(df):
     categorical_cols = []
     continuous_cols = []
     for col in df.columns:
-        if _is_categorical_values(df[col]):
+        if _is_categorical(df[col]):
             categorical_cols.append(col)
         else:
             continuous_cols.append(col)
