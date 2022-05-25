@@ -152,7 +152,7 @@ jobs:
           python --version
           pip install --upgrade pip wheel
           pip install -e .
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
           CACHE_DIR: /home/runner/.cache/wheels

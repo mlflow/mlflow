@@ -15,5 +15,4 @@ The full set of extra dependencies are documented, along with the modules that d
 in the following files:
 
 * extra-ml-requirements.txt: ML libraries needed to use model persistence and inference APIs
-* small-requirements.txt, large-requirements.txt: Libraries required to use non-default
-  artifact-logging and tracking server configurations
+* test-requirements.txt: Libraries required to use non-default artifact-logging and tracking server configurations

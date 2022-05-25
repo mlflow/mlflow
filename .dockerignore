@@ -8,8 +8,7 @@ examples
 
 dev
 # required for Docker build
-!requirements/small-requirements.txt
-!requirements/large-requirements.txt
+!requirements/test-requirements.txt
 !requirements/lint-requirements.txt
 !requirements/extra-ml-requirements.txt
 

@@ -328,7 +328,7 @@ jobs:
           distribution: 'adopt'
       - name: Install python dependencies
         run: |
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
       - name: Run python tests
