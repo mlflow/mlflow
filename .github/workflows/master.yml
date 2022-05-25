@@ -55,8 +55,7 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
@@ -110,8 +109,7 @@ jobs:
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
@@ -221,8 +219,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -250,8 +247,7 @@ jobs:
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
+          INSTALL_ML_DEPENDENCIES: false
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
@@ -277,8 +273,7 @@ jobs:
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
+          INSTALL_ML_DEPENDENCIES: false
         run: |
           source ./dev/install-common-deps.sh
           pip install keras tensorflow
@@ -303,8 +298,7 @@ jobs:
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
