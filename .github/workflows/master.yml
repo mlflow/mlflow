@@ -264,6 +264,33 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
+  pyfunc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+      - name: Install dependencies
+        env:
+          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_LARGE_PYTHON_DEPS: false
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install keras tensorflow
+      - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest --durations=30 tests/pyfunc
+
   sagemaker:
     runs-on: ubuntu-latest
     steps:
