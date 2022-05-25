@@ -16,7 +16,9 @@ import hashlib
 from mlflow.models.evaluation.base import _start_run_or_reuse_active_run
 import sklearn
 import os
+import sklearn.compose
 import sklearn.datasets
+import sklearn.impute
 import sklearn.linear_model
 import sklearn.pipeline
 import sklearn.preprocessing
@@ -140,19 +142,31 @@ def breast_cancer_dataset():
 
 def get_pipeline_model_dataset():
     """
-    The dataset tweaks the IRIS dataset by changing its features into categorical features.
-    The dataset is prepared for a pipeline model
-    (contains an indexer on feature "f1" and a classifier).
+    The dataset tweaks the IRIS dataset by changing its first 2 features into categorical features,
+    and replace some feature values with NA values.
+    The dataset is prepared for a pipeline model, see `pipeline_model_uri`.
     """
     X, y = get_iris()
 
     def convert_num_to_label(x):
         return f"v_{round(x)}"
 
+    f1 = np.array(list(map(convert_num_to_label, X[:, 0])))
+    f2 = np.array(list(map(convert_num_to_label, X[:, 1])))
+    f3 = X[:, 2]
+    f4 = X[:, 3]
+
+    f1[0::8] = None
+    f2[1::8] = None
+    f3[2::8] = np.nan
+    f4[3::8] = np.nan
+
     data = pd.DataFrame(
         {
-            "f1": np.array(map(convert_num_to_label, X[:, 0])),
-            "f2": np.array(map(convert_num_to_label, X[:, 1])),
+            "f1": f1,
+            "f2": f2,
+            "f3": f3,
+            "f4": f4,
             "y": y,
         }
     )
@@ -161,17 +175,40 @@ def get_pipeline_model_dataset():
 
 @pytest.fixture
 def pipeline_model_uri():
+    """
+    Create a pipeline model that transforming and training on dataset returned by
+    `get_pipeline_model_dataset`. The pipeline model imputes the missing values in
+    input dataset, encodes categorical features, and then trains a logistic regression
+    model.
+    """
     data, target_col = get_pipeline_model_dataset()
     X = data.drop(target_col, axis=1)
     y = data[target_col].to_numpy()
 
+    encoder = sklearn.preprocessing.OrdinalEncoder()
+    str_imputer = sklearn.impute.SimpleImputer(missing_values=None, strategy="most_frequent")
+    num_imputer = sklearn.impute.SimpleImputer(missing_values=np.nan, strategy="mean")
+    preproc_pipeline = sklearn.pipeline.Pipeline(
+        [
+            ("imputer", str_imputer),
+            ("encoder", encoder),
+        ]
+    )
+
     pipeline = sklearn.pipeline.Pipeline(
         [
-            ("indexer", sklearn.preprocessing.OrdinalEncoder()),
+            (
+                "transformer",
+                sklearn.compose.make_column_transformer(
+                    (preproc_pipeline, ["f1", "f2"]),
+                    (num_imputer, ["f3", "f4"]),
+                ),
+            ),
             ("clf", sklearn.linear_model.LogisticRegression()),
         ]
     )
     pipeline.fit(X, y)
+    breakpoint()
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(pipeline, "pipeline_model")
