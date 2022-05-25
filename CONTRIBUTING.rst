@@ -435,7 +435,7 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-2. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
+2. ``requirements/test-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
