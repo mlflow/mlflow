@@ -1,4 +1,4 @@
-## Extra dependencies required to run tests
+## Dependencies required to run tests
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 # NB: We're specifying a test-only minimum version bound for sqlalchemy in order to reliably
