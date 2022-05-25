@@ -55,8 +55,7 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
@@ -110,8 +109,7 @@ jobs:
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
@@ -221,8 +219,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -249,9 +246,6 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
@@ -276,12 +270,9 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
-          pip install keras tensorflow
+          pip install keras tensorflow pyspark
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
@@ -303,8 +294,7 @@ jobs:
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -328,9 +318,10 @@ jobs:
           distribution: 'adopt'
       - name: Install python dependencies
         run: |
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
+          pip install pyspark
       - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests

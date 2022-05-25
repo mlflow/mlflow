@@ -176,13 +176,13 @@ fi
 echo "The top-level dependencies that will be installed are: "
 
 if [[ -n "$full" ]]; then
-  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt" "$rd/extra-ml-requirements.txt")
+  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt" "$rd/extra-ml-requirements.txt")
   echo "Files:"
   echo "MLflow test plugin: $MLFLOW_HOME/tests/resources/mlflow-test-plugin"
   echo "The local development branch of MLflow installed in editable mode with 'extras' requirements"
   echo "The following packages: "
 else
-  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
+  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
 fi
 tail -n +1 "${files[@]}" | grep "^[^#= ]" | sort | cat
 
@@ -235,7 +235,7 @@ if [[ -n "$full" ]]; then
   pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."
 else
-  files=("$rd/small-requirements.txt" "$rd/lint-requirements.txt" "$rd/large-requirements.txt" "$rd/doc-requirements.txt")
+  files=("$rd/test-requirements.txt" "$rd/lint-requirements.txt" "$rd/doc-requirements.txt")
   for r in "${files[@]}";
   do
     pip install $(quiet_command) -r "$r"

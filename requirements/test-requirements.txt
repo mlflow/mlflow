@@ -1,7 +1,6 @@
-## Small test reqs
+## Dependencies required to run tests
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
-scipy
 # NB: We're specifying a test-only minimum version bound for sqlalchemy in order to reliably
 # execute schema consistency checks, the semantics of which were changed in sqlalchemy 1.3.21
 sqlalchemy>=1.3.21
@@ -17,4 +16,3 @@ pillow
 matplotlib
 shap>=0.40
 plotly
-pyspark
