@@ -27,7 +27,7 @@ else
 fi
 export MLFLOW_HOME=$(pwd)
 
-req_filesk=""
+req_files=""
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
   req_files+=" -r requirements/skinny-requirements.txt"
