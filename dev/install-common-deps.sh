@@ -27,10 +27,12 @@ else
 fi
 export MLFLOW_HOME=$(pwd)
 
-req_files=" -r requirements/test-requirements.txt"
+req_filesk=""
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
   req_files+=" -r requirements/skinny-requirements.txt"
+else
+  req_files+=" -r requirements/test-requirements.txt"
 fi
 if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
   # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
