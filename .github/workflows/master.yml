@@ -325,6 +325,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
+          pip install pyspark
       - name: Run python tests
         run: |
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests
