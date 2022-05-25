@@ -176,7 +176,7 @@ def get_pipeline_model_dataset():
 @pytest.fixture
 def pipeline_model_uri():
     """
-    Create a pipeline model that transforming and training on dataset returned by
+    Create a pipeline model that transforms and trains on the dataset returned by
     `get_pipeline_model_dataset`. The pipeline model imputes the missing values in
     input dataset, encodes categorical features, and then trains a logistic regression
     model.
