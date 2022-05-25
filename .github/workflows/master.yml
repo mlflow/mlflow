@@ -272,11 +272,9 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: false
         run: |
           source ./dev/install-common-deps.sh
-          pip install keras tensorflow
+          pip install keras tensorflow pyspark
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
