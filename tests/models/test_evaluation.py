@@ -208,7 +208,6 @@ def pipeline_model_uri():
         ]
     )
     pipeline.fit(X, y)
-    breakpoint()
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(pipeline, "pipeline_model")
