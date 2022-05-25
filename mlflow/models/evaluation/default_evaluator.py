@@ -569,6 +569,10 @@ class DefaultEvaluator(ModelEvaluator):
                 }
                 sampled_X = sampled_X.fillna(mode_or_mean_dict)
                 background_X = background_X.fillna(mode_or_mean_dict)
+
+                # shap kernel explainer calls provided `predict_fn` with a `numpy.ndarray` type
+                # argument, this might break some model inference, so convert the argument into
+                # a pandas dataframe.
                 predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=sampled_X.columns))
                 explainer = shap.KernelExplainer(predict_fn, background_X, link=kernel_link)
             else:
