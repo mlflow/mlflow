@@ -192,8 +192,10 @@ jobs:
         docker run --rm gen-protos protoc --version
     - name: Install dependencies
       run: |
-        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /usr
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
+        sudo unzip $HOME/protoc.zip -d /tmp/protoc
+        sudo chmod -R 777 /tmp/protoc
+        echo "/tmp/protoc/bin" >> $GITHUB_PATH
     - name: Run tests
       run: |
         ./dev/test-generate-protos.sh
