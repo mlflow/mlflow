@@ -28,6 +28,7 @@ from mlflow.utils.environment import (
 )
 
 LOCALHOST = "127.0.0.1"
+PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
 _logger = logging.getLogger(__name__)
 
