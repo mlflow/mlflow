@@ -4,7 +4,8 @@ jobs:
   build_doc_r:
     machine:
       image: ubuntu-2004:202111-01
-
+    environment:
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
     steps:
       - checkout
       - run:
@@ -41,7 +42,8 @@ jobs:
   build_doc:
     docker:
       - image: circleci/python:3.7
-
+    environment:
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
     steps:
       - checkout
       - run:
