@@ -956,7 +956,7 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
     "model",
     [LogisticRegression(), LinearRegression()],
 )
-def test_autologging_is_disable_during_evaluate(model):
+def test_autologging_is_disabled_during_evaluate(model):
     mlflow.sklearn.autolog()
     try:
         X, y = load_iris(as_frame=True, return_X_y=True)
