@@ -258,7 +258,7 @@ def run(
                         are supported:
 
                         - local: Deprecated. Use 'None' instead.
-                        - None: use the local environment
+                        - None: Use the current Python environment.
                         - conda: use conda
                         - virtualenv: use virtualenv (and pyenv for Python version management)
 
