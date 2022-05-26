@@ -531,11 +531,11 @@ def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mo
 
 
 @patch_get_flavor_backend
-def test_env_manager_local_deprecation_warning(mock_flavor_backend):
+def test_env_manager_deprecation_warning_for_local(mock_flavor_backend):
     with pytest.warns(FutureWarning, match=r"'local' option for `env_manager` is deprecated"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--env-manager", "None"],
+            ["--model-uri", "model", "--env-manager", "local"],
             catch_exceptions=False,
         )
     mock_flavor_backend.assert_called_once()
