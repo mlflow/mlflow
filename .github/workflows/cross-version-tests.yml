@@ -39,6 +39,9 @@ defaults:
   run:
     shell: bash --noprofile --norc -exo pipefail {0}
 
+env:
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
+
 jobs:
   set-matrix:
     runs-on: ubuntu-latest

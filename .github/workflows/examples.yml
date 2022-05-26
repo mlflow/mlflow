@@ -32,6 +32,7 @@ defaults:
 
 env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 jobs:
   examples:
