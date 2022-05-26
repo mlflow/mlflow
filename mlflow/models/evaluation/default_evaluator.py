@@ -784,13 +784,11 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
-        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
 
         self.label_list = np.unique(self.y)
         self.num_classes = len(self.label_list)
 
-        with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
-            self.y_pred = self.predict_fn(self.X)
+        self.y_pred = self.predict_fn(self.X)
         self.is_binomial = self.num_classes <= 2
 
         if self.is_binomial:
@@ -811,8 +809,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if self.predict_proba_fn is not None:
-            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
-                self.y_probs = self.predict_proba_fn(self.X)
+            self.y_probs = self.predict_proba_fn(self.X)
             if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
@@ -869,10 +866,7 @@ class DefaultEvaluator(ModelEvaluator):
         return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
-        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
-
-        with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
-            self.y_pred = self.model.predict(self.X)
+        self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
         self._evaluate_sklearn_model_score_if_scorable()
 
@@ -890,6 +884,7 @@ class DefaultEvaluator(ModelEvaluator):
         **kwargs,
     ):
         import matplotlib
+        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
 
         with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.client = mlflow.tracking.MlflowClient()
@@ -929,9 +924,10 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-            if model_type == "classifier":
-                return self._evaluate_classifier()
-            elif model_type == "regressor":
-                return self._evaluate_regressor()
-            else:
-                raise ValueError(f"Unsupported model type {model_type}")
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+                if model_type == "classifier":
+                    return self._evaluate_classifier()
+                elif model_type == "regressor":
+                    return self._evaluate_regressor()
+                else:
+                    raise ValueError(f"Unsupported model type {model_type}")
