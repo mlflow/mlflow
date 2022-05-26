@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 1.26.1 (2022-05-26)
+
+MLflow 1.26.1 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+
+
+Small bug fixes and doc updates ()
+
 ## 1.26.0 (2022-05-16)
 
 MLflow 1.26.0 includes several major features and improvements:
