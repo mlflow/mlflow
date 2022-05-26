@@ -10,7 +10,7 @@ WORKDIR /app
 
 RUN apt-get update --yes
 RUN apt-get install curl unzip --yes
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v21.0/protoc-21.0-linux-x86_64.zip
-RUN unzip protoc-21.0-linux-x86_64.zip -d /tmp/protoc
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip
+RUN unzip protoc-3.19.4-linux-x86_64.zip -d /tmp/protoc
 ENV PATH="/tmp/protoc/bin:${PATH}"
 RUN protoc --version
