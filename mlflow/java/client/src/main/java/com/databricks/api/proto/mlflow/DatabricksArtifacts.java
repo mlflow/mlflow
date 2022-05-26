@@ -86,6 +86,8 @@ public final class DatabricksArtifacts {
     }
 
     /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
@@ -93,6 +95,10 @@ public final class DatabricksArtifacts {
       return forNumber(value);
     }
 
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
     public static ArtifactCredentialType forNumber(int value) {
       switch (value) {
         case 1: return AZURE_SAS_URI;
@@ -158,6 +164,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return Whether the runId field is set.
      */
     boolean hasRunId();
     /**
@@ -167,6 +174,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return The runId.
      */
     java.lang.String getRunId();
     /**
@@ -176,6 +184,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return The bytes for runId.
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -187,6 +196,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
      */
     boolean hasPath();
     /**
@@ -196,6 +206,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The path.
      */
     java.lang.String getPath();
     /**
@@ -205,6 +216,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The bytes for path.
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -215,6 +227,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return Whether the signedUri field is set.
      */
     boolean hasSignedUri();
     /**
@@ -223,6 +236,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return The signedUri.
      */
     java.lang.String getSignedUri();
     /**
@@ -231,6 +245,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return The bytes for signedUri.
      */
     com.google.protobuf.ByteString
         getSignedUriBytes();
@@ -291,6 +306,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+     * @return Whether the type field is set.
      */
     boolean hasType();
     /**
@@ -300,13 +316,14 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+     * @return The type.
      */
     com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType();
   }
   /**
    * Protobuf type {@code mlflow.ArtifactCredentialInfo}
    */
-  public  static final class ArtifactCredentialInfo extends
+  public static final class ArtifactCredentialInfo extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.ArtifactCredentialInfo)
       ArtifactCredentialInfoOrBuilder {
@@ -321,6 +338,13 @@ public final class DatabricksArtifacts {
       signedUri_ = "";
       headers_ = java.util.Collections.emptyList();
       type_ = 1;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ArtifactCredentialInfo();
     }
 
     @java.lang.Override
@@ -366,7 +390,7 @@ public final class DatabricksArtifacts {
               break;
             }
             case 34: {
-              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
                 headers_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader>();
                 mutable_bitField0_ |= 0x00000008;
               }
@@ -397,11 +421,13 @@ public final class DatabricksArtifacts {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((mutable_bitField0_ & 0x00000008) != 0)) {
           headers_ = java.util.Collections.unmodifiableList(headers_);
         }
         this.unknownFields = unknownFields.build();
@@ -431,6 +457,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return Whether the name field is set.
        */
       boolean hasName();
       /**
@@ -439,6 +466,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return The name.
        */
       java.lang.String getName();
       /**
@@ -447,6 +475,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return The bytes for name.
        */
       com.google.protobuf.ByteString
           getNameBytes();
@@ -457,6 +486,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return Whether the value field is set.
        */
       boolean hasValue();
       /**
@@ -465,6 +495,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return The value.
        */
       java.lang.String getValue();
       /**
@@ -473,6 +504,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return The bytes for value.
        */
       com.google.protobuf.ByteString
           getValueBytes();
@@ -480,7 +512,7 @@ public final class DatabricksArtifacts {
     /**
      * Protobuf type {@code mlflow.ArtifactCredentialInfo.HttpHeader}
      */
-    public  static final class HttpHeader extends
+    public static final class HttpHeader extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.ArtifactCredentialInfo.HttpHeader)
         HttpHeaderOrBuilder {
@@ -492,6 +524,13 @@ public final class DatabricksArtifacts {
       private HttpHeader() {
         name_ = "";
         value_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new HttpHeader();
       }
 
       @java.lang.Override
@@ -541,6 +580,8 @@ public final class DatabricksArtifacts {
           }
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           throw e.setUnfinishedMessage(this);
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
         } catch (java.io.IOException e) {
           throw new com.google.protobuf.InvalidProtocolBufferException(
               e).setUnfinishedMessage(this);
@@ -571,9 +612,11 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return Whether the name field is set.
        */
+      @java.lang.Override
       public boolean hasName() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -581,7 +624,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return The name.
        */
+      @java.lang.Override
       public java.lang.String getName() {
         java.lang.Object ref = name_;
         if (ref instanceof java.lang.String) {
@@ -602,7 +647,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string name = 1;</code>
+       * @return The bytes for name.
        */
+      @java.lang.Override
       public com.google.protobuf.ByteString
           getNameBytes() {
         java.lang.Object ref = name_;
@@ -625,9 +672,11 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return Whether the value field is set.
        */
+      @java.lang.Override
       public boolean hasValue() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -635,7 +684,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return The value.
        */
+      @java.lang.Override
       public java.lang.String getValue() {
         java.lang.Object ref = value_;
         if (ref instanceof java.lang.String) {
@@ -656,7 +707,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string value = 2;</code>
+       * @return The bytes for value.
        */
+      @java.lang.Override
       public com.google.protobuf.ByteString
           getValueBytes() {
         java.lang.Object ref = value_;
@@ -685,10 +738,10 @@ public final class DatabricksArtifacts {
       @java.lang.Override
       public void writeTo(com.google.protobuf.CodedOutputStream output)
                           throws java.io.IOException {
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
         }
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           com.google.protobuf.GeneratedMessageV3.writeString(output, 2, value_);
         }
         unknownFields.writeTo(output);
@@ -700,10 +753,10 @@ public final class DatabricksArtifacts {
         if (size != -1) return size;
 
         size = 0;
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
         }
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, value_);
         }
         size += unknownFields.getSerializedSize();
@@ -721,19 +774,18 @@ public final class DatabricksArtifacts {
         }
         com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader) obj;
 
-        boolean result = true;
-        result = result && (hasName() == other.hasName());
+        if (hasName() != other.hasName()) return false;
         if (hasName()) {
-          result = result && getName()
-              .equals(other.getName());
+          if (!getName()
+              .equals(other.getName())) return false;
         }
-        result = result && (hasValue() == other.hasValue());
+        if (hasValue() != other.hasValue()) return false;
         if (hasValue()) {
-          result = result && getValue()
-              .equals(other.getValue());
+          if (!getValue()
+              .equals(other.getValue())) return false;
         }
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -916,11 +968,11 @@ public final class DatabricksArtifacts {
           com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader(this);
           int from_bitField0_ = bitField0_;
           int to_bitField0_ = 0;
-          if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          if (((from_bitField0_ & 0x00000001) != 0)) {
             to_bitField0_ |= 0x00000001;
           }
           result.name_ = name_;
-          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          if (((from_bitField0_ & 0x00000002) != 0)) {
             to_bitField0_ |= 0x00000002;
           }
           result.value_ = value_;
@@ -931,35 +983,35 @@ public final class DatabricksArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1020,9 +1072,10 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @return Whether the name field is set.
          */
         public boolean hasName() {
-          return ((bitField0_ & 0x00000001) == 0x00000001);
+          return ((bitField0_ & 0x00000001) != 0);
         }
         /**
          * <pre>
@@ -1030,6 +1083,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @return The name.
          */
         public java.lang.String getName() {
           java.lang.Object ref = name_;
@@ -1051,6 +1105,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @return The bytes for name.
          */
         public com.google.protobuf.ByteString
             getNameBytes() {
@@ -1071,6 +1126,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @param value The name to set.
+         * @return This builder for chaining.
          */
         public Builder setName(
             java.lang.String value) {
@@ -1088,6 +1145,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @return This builder for chaining.
          */
         public Builder clearName() {
           bitField0_ = (bitField0_ & ~0x00000001);
@@ -1101,6 +1159,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string name = 1;</code>
+         * @param value The bytes for name to set.
+         * @return This builder for chaining.
          */
         public Builder setNameBytes(
             com.google.protobuf.ByteString value) {
@@ -1120,9 +1180,10 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @return Whether the value field is set.
          */
         public boolean hasValue() {
-          return ((bitField0_ & 0x00000002) == 0x00000002);
+          return ((bitField0_ & 0x00000002) != 0);
         }
         /**
          * <pre>
@@ -1130,6 +1191,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @return The value.
          */
         public java.lang.String getValue() {
           java.lang.Object ref = value_;
@@ -1151,6 +1213,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @return The bytes for value.
          */
         public com.google.protobuf.ByteString
             getValueBytes() {
@@ -1171,6 +1234,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @param value The value to set.
+         * @return This builder for chaining.
          */
         public Builder setValue(
             java.lang.String value) {
@@ -1188,6 +1253,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @return This builder for chaining.
          */
         public Builder clearValue() {
           bitField0_ = (bitField0_ & ~0x00000002);
@@ -1201,6 +1267,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string value = 2;</code>
+         * @param value The bytes for value to set.
+         * @return This builder for chaining.
          */
         public Builder setValueBytes(
             com.google.protobuf.ByteString value) {
@@ -1275,9 +1343,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return Whether the runId field is set.
      */
+    @java.lang.Override
     public boolean hasRunId() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -1286,7 +1356,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return The runId.
      */
+    @java.lang.Override
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
       if (ref instanceof java.lang.String) {
@@ -1308,7 +1380,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1;</code>
+     * @return The bytes for runId.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getRunIdBytes() {
       java.lang.Object ref = runId_;
@@ -1332,9 +1406,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
      */
+    @java.lang.Override
     public boolean hasPath() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -1343,7 +1419,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The path.
      */
+    @java.lang.Override
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
       if (ref instanceof java.lang.String) {
@@ -1365,7 +1443,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The bytes for path.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPathBytes() {
       java.lang.Object ref = path_;
@@ -1388,9 +1468,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return Whether the signedUri field is set.
      */
+    @java.lang.Override
     public boolean hasSignedUri() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -1398,7 +1480,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return The signedUri.
      */
+    @java.lang.Override
     public java.lang.String getSignedUri() {
       java.lang.Object ref = signedUri_;
       if (ref instanceof java.lang.String) {
@@ -1419,7 +1503,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string signed_uri = 3;</code>
+     * @return The bytes for signedUri.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getSignedUriBytes() {
       java.lang.Object ref = signedUri_;
@@ -1444,6 +1530,7 @@ public final class DatabricksArtifacts {
      *
      * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
      */
+    @java.lang.Override
     public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> getHeadersList() {
       return headers_;
     }
@@ -1455,6 +1542,7 @@ public final class DatabricksArtifacts {
      *
      * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
      */
+    @java.lang.Override
     public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder> 
         getHeadersOrBuilderList() {
       return headers_;
@@ -1467,6 +1555,7 @@ public final class DatabricksArtifacts {
      *
      * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
      */
+    @java.lang.Override
     public int getHeadersCount() {
       return headers_.size();
     }
@@ -1478,6 +1567,7 @@ public final class DatabricksArtifacts {
      *
      * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader getHeaders(int index) {
       return headers_.get(index);
     }
@@ -1489,6 +1579,7 @@ public final class DatabricksArtifacts {
      *
      * <code>repeated .mlflow.ArtifactCredentialInfo.HttpHeader headers = 4;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder getHeadersOrBuilder(
         int index) {
       return headers_.get(index);
@@ -1503,9 +1594,10 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+     * @return Whether the type field is set.
      */
-    public boolean hasType() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
+    @java.lang.Override public boolean hasType() {
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
@@ -1514,8 +1606,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+     * @return The type.
      */
-    public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType() {
+    @java.lang.Override public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType() {
       @SuppressWarnings("deprecation")
       com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType result = com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType.valueOf(type_);
       return result == null ? com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType.AZURE_SAS_URI : result;
@@ -1535,19 +1628,19 @@ public final class DatabricksArtifacts {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runId_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, signedUri_);
       }
       for (int i = 0; i < headers_.size(); i++) {
         output.writeMessage(4, headers_.get(i));
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         output.writeEnum(5, type_);
       }
       unknownFields.writeTo(output);
@@ -1559,20 +1652,20 @@ public final class DatabricksArtifacts {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runId_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, signedUri_);
       }
       for (int i = 0; i < headers_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(4, headers_.get(i));
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(5, type_);
       }
@@ -1591,30 +1684,29 @@ public final class DatabricksArtifacts {
       }
       com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo) obj;
 
-      boolean result = true;
-      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId() != other.hasRunId()) return false;
       if (hasRunId()) {
-        result = result && getRunId()
-            .equals(other.getRunId());
+        if (!getRunId()
+            .equals(other.getRunId())) return false;
       }
-      result = result && (hasPath() == other.hasPath());
+      if (hasPath() != other.hasPath()) return false;
       if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
+        if (!getPath()
+            .equals(other.getPath())) return false;
       }
-      result = result && (hasSignedUri() == other.hasSignedUri());
+      if (hasSignedUri() != other.hasSignedUri()) return false;
       if (hasSignedUri()) {
-        result = result && getSignedUri()
-            .equals(other.getSignedUri());
+        if (!getSignedUri()
+            .equals(other.getSignedUri())) return false;
       }
-      result = result && getHeadersList()
-          .equals(other.getHeadersList());
-      result = result && (hasType() == other.hasType());
+      if (!getHeadersList()
+          .equals(other.getHeadersList())) return false;
+      if (hasType() != other.hasType()) return false;
       if (hasType()) {
-        result = result && type_ == other.type_;
+        if (type_ != other.type_) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -1820,20 +1912,20 @@ public final class DatabricksArtifacts {
         com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.runId_ = runId_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
         result.signedUri_ = signedUri_;
         if (headersBuilder_ == null) {
-          if (((bitField0_ & 0x00000008) == 0x00000008)) {
+          if (((bitField0_ & 0x00000008) != 0)) {
             headers_ = java.util.Collections.unmodifiableList(headers_);
             bitField0_ = (bitField0_ & ~0x00000008);
           }
@@ -1841,7 +1933,7 @@ public final class DatabricksArtifacts {
         } else {
           result.headers_ = headersBuilder_.build();
         }
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000008;
         }
         result.type_ = type_;
@@ -1852,35 +1944,35 @@ public final class DatabricksArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1976,9 +2068,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @return Whether the runId field is set.
        */
       public boolean hasRunId() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -1987,6 +2080,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @return The runId.
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -2009,6 +2103,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @return The bytes for runId.
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -2030,6 +2125,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @param value The runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -2048,6 +2145,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -2062,6 +2160,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1;</code>
+       * @param value The bytes for runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -2082,9 +2182,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return Whether the path field is set.
        */
       public boolean hasPath() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -2093,6 +2194,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return The path.
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -2115,6 +2217,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return The bytes for path.
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -2136,6 +2239,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           java.lang.String value) {
@@ -2154,6 +2259,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -2168,6 +2274,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -2187,9 +2295,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @return Whether the signedUri field is set.
        */
       public boolean hasSignedUri() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -2197,6 +2306,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @return The signedUri.
        */
       public java.lang.String getSignedUri() {
         java.lang.Object ref = signedUri_;
@@ -2218,6 +2328,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @return The bytes for signedUri.
        */
       public com.google.protobuf.ByteString
           getSignedUriBytes() {
@@ -2238,6 +2349,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @param value The signedUri to set.
+       * @return This builder for chaining.
        */
       public Builder setSignedUri(
           java.lang.String value) {
@@ -2255,6 +2368,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearSignedUri() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -2268,6 +2382,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string signed_uri = 3;</code>
+       * @param value The bytes for signedUri to set.
+       * @return This builder for chaining.
        */
       public Builder setSignedUriBytes(
           com.google.protobuf.ByteString value) {
@@ -2283,7 +2399,7 @@ public final class DatabricksArtifacts {
       private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader> headers_ =
         java.util.Collections.emptyList();
       private void ensureHeadersIsMutable() {
-        if (!((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (!((bitField0_ & 0x00000008) != 0)) {
           headers_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader>(headers_);
           bitField0_ |= 0x00000008;
          }
@@ -2602,7 +2718,7 @@ public final class DatabricksArtifacts {
           headersBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeader.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.HttpHeaderOrBuilder>(
                   headers_,
-                  ((bitField0_ & 0x00000008) == 0x00000008),
+                  ((bitField0_ & 0x00000008) != 0),
                   getParentForChildren(),
                   isClean());
           headers_ = null;
@@ -2618,9 +2734,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+       * @return Whether the type field is set.
        */
-      public boolean hasType() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+      @java.lang.Override public boolean hasType() {
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -2629,7 +2746,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+       * @return The type.
        */
+      @java.lang.Override
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType getType() {
         @SuppressWarnings("deprecation")
         com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType result = com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType.valueOf(type_);
@@ -2642,6 +2761,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+       * @param value The type to set.
+       * @return This builder for chaining.
        */
       public Builder setType(com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialType value) {
         if (value == null) {
@@ -2659,6 +2780,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional .mlflow.ArtifactCredentialType type = 5;</code>
+       * @return This builder for chaining.
        */
       public Builder clearType() {
         bitField0_ = (bitField0_ & ~0x00000010);
@@ -2729,6 +2851,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the runId field is set.
      */
     boolean hasRunId();
     /**
@@ -2737,6 +2860,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The runId.
      */
     java.lang.String getRunId();
     /**
@@ -2745,6 +2869,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for runId.
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -2756,6 +2881,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return A list containing the path.
      */
     java.util.List<java.lang.String>
         getPathList();
@@ -2766,6 +2892,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return The count of path.
      */
     int getPathCount();
     /**
@@ -2775,6 +2902,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the element to return.
+     * @return The path at the given index.
      */
     java.lang.String getPath(int index);
     /**
@@ -2784,6 +2913,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the path at the given index.
      */
     com.google.protobuf.ByteString
         getPathBytes(int index);
@@ -2794,6 +2925,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
      */
     boolean hasPageToken();
     /**
@@ -2802,6 +2934,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
      */
     java.lang.String getPageToken();
     /**
@@ -2810,6 +2943,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
@@ -2817,7 +2951,7 @@ public final class DatabricksArtifacts {
   /**
    * Protobuf type {@code mlflow.GetCredentialsForRead}
    */
-  public  static final class GetCredentialsForRead extends
+  public static final class GetCredentialsForRead extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForRead)
       GetCredentialsForReadOrBuilder {
@@ -2830,6 +2964,13 @@ public final class DatabricksArtifacts {
       runId_ = "";
       path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       pageToken_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForRead();
     }
 
     @java.lang.Override
@@ -2864,7 +3005,7 @@ public final class DatabricksArtifacts {
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
                 path_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000002;
               }
@@ -2888,11 +3029,13 @@ public final class DatabricksArtifacts {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
           path_ = path_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -2966,6 +3109,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
        */
       boolean hasNextPageToken();
       /**
@@ -2974,6 +3118,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
        */
       java.lang.String getNextPageToken();
       /**
@@ -2982,6 +3127,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
        */
       com.google.protobuf.ByteString
           getNextPageTokenBytes();
@@ -2989,7 +3135,7 @@ public final class DatabricksArtifacts {
     /**
      * Protobuf type {@code mlflow.GetCredentialsForRead.Response}
      */
-    public  static final class Response extends
+    public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForRead.Response)
         ResponseOrBuilder {
@@ -3001,6 +3147,13 @@ public final class DatabricksArtifacts {
       private Response() {
         credentialInfos_ = java.util.Collections.emptyList();
         nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
       }
 
       @java.lang.Override
@@ -3028,7 +3181,7 @@ public final class DatabricksArtifacts {
                 done = true;
                 break;
               case 18: {
-                if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
                   credentialInfos_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo>();
                   mutable_bitField0_ |= 0x00000001;
                 }
@@ -3053,11 +3206,13 @@ public final class DatabricksArtifacts {
           }
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           throw e.setUnfinishedMessage(this);
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
         } catch (java.io.IOException e) {
           throw new com.google.protobuf.InvalidProtocolBufferException(
               e).setUnfinishedMessage(this);
         } finally {
-          if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
             credentialInfos_ = java.util.Collections.unmodifiableList(credentialInfos_);
           }
           this.unknownFields = unknownFields.build();
@@ -3087,6 +3242,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo> getCredentialInfosList() {
         return credentialInfos_;
       }
@@ -3097,6 +3253,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> 
           getCredentialInfosOrBuilderList() {
         return credentialInfos_;
@@ -3108,6 +3265,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public int getCredentialInfosCount() {
         return credentialInfos_.size();
       }
@@ -3118,6 +3276,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfos(int index) {
         return credentialInfos_.get(index);
       }
@@ -3128,6 +3287,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfosOrBuilder(
           int index) {
         return credentialInfos_.get(index);
@@ -3141,9 +3301,11 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
        */
+      @java.lang.Override
       public boolean hasNextPageToken() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -3151,7 +3313,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
        */
+      @java.lang.Override
       public java.lang.String getNextPageToken() {
         java.lang.Object ref = nextPageToken_;
         if (ref instanceof java.lang.String) {
@@ -3172,7 +3336,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
        */
+      @java.lang.Override
       public com.google.protobuf.ByteString
           getNextPageTokenBytes() {
         java.lang.Object ref = nextPageToken_;
@@ -3204,7 +3370,7 @@ public final class DatabricksArtifacts {
         for (int i = 0; i < credentialInfos_.size(); i++) {
           output.writeMessage(2, credentialInfos_.get(i));
         }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           com.google.protobuf.GeneratedMessageV3.writeString(output, 3, nextPageToken_);
         }
         unknownFields.writeTo(output);
@@ -3220,7 +3386,7 @@ public final class DatabricksArtifacts {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(2, credentialInfos_.get(i));
         }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
@@ -3238,16 +3404,15 @@ public final class DatabricksArtifacts {
         }
         com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead.Response) obj;
 
-        boolean result = true;
-        result = result && getCredentialInfosList()
-            .equals(other.getCredentialInfosList());
-        result = result && (hasNextPageToken() == other.hasNextPageToken());
+        if (!getCredentialInfosList()
+            .equals(other.getCredentialInfosList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
         if (hasNextPageToken()) {
-          result = result && getNextPageToken()
-              .equals(other.getNextPageToken());
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
         }
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -3436,7 +3601,7 @@ public final class DatabricksArtifacts {
           int from_bitField0_ = bitField0_;
           int to_bitField0_ = 0;
           if (credentialInfosBuilder_ == null) {
-            if (((bitField0_ & 0x00000001) == 0x00000001)) {
+            if (((bitField0_ & 0x00000001) != 0)) {
               credentialInfos_ = java.util.Collections.unmodifiableList(credentialInfos_);
               bitField0_ = (bitField0_ & ~0x00000001);
             }
@@ -3444,7 +3609,7 @@ public final class DatabricksArtifacts {
           } else {
             result.credentialInfos_ = credentialInfosBuilder_.build();
           }
-          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          if (((from_bitField0_ & 0x00000002) != 0)) {
             to_bitField0_ |= 0x00000001;
           }
           result.nextPageToken_ = nextPageToken_;
@@ -3455,35 +3620,35 @@ public final class DatabricksArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -3561,7 +3726,7 @@ public final class DatabricksArtifacts {
         private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo> credentialInfos_ =
           java.util.Collections.emptyList();
         private void ensureCredentialInfosIsMutable() {
-          if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+          if (!((bitField0_ & 0x00000001) != 0)) {
             credentialInfos_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo>(credentialInfos_);
             bitField0_ |= 0x00000001;
            }
@@ -3862,7 +4027,7 @@ public final class DatabricksArtifacts {
             credentialInfosBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
                 com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder>(
                     credentialInfos_,
-                    ((bitField0_ & 0x00000001) == 0x00000001),
+                    ((bitField0_ & 0x00000001) != 0),
                     getParentForChildren(),
                     isClean());
             credentialInfos_ = null;
@@ -3877,9 +4042,10 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return Whether the nextPageToken field is set.
          */
         public boolean hasNextPageToken() {
-          return ((bitField0_ & 0x00000002) == 0x00000002);
+          return ((bitField0_ & 0x00000002) != 0);
         }
         /**
          * <pre>
@@ -3887,6 +4053,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return The nextPageToken.
          */
         public java.lang.String getNextPageToken() {
           java.lang.Object ref = nextPageToken_;
@@ -3908,6 +4075,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return The bytes for nextPageToken.
          */
         public com.google.protobuf.ByteString
             getNextPageTokenBytes() {
@@ -3928,6 +4096,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
          */
         public Builder setNextPageToken(
             java.lang.String value) {
@@ -3945,6 +4115,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return This builder for chaining.
          */
         public Builder clearNextPageToken() {
           bitField0_ = (bitField0_ & ~0x00000002);
@@ -3958,6 +4129,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
          */
         public Builder setNextPageTokenBytes(
             com.google.protobuf.ByteString value) {
@@ -4031,9 +4204,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the runId field is set.
      */
+    @java.lang.Override
     public boolean hasRunId() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -4041,7 +4216,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The runId.
      */
+    @java.lang.Override
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
       if (ref instanceof java.lang.String) {
@@ -4062,7 +4239,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for runId.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getRunIdBytes() {
       java.lang.Object ref = runId_;
@@ -4086,6 +4265,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return A list containing the path.
      */
     public com.google.protobuf.ProtocolStringList
         getPathList() {
@@ -4098,6 +4278,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return The count of path.
      */
     public int getPathCount() {
       return path_.size();
@@ -4109,6 +4290,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the element to return.
+     * @return The path at the given index.
      */
     public java.lang.String getPath(int index) {
       return path_.get(index);
@@ -4120,6 +4303,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the path at the given index.
      */
     public com.google.protobuf.ByteString
         getPathBytes(int index) {
@@ -4134,9 +4319,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
      */
+    @java.lang.Override
     public boolean hasPageToken() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -4144,7 +4331,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
      */
+    @java.lang.Override
     public java.lang.String getPageToken() {
       java.lang.Object ref = pageToken_;
       if (ref instanceof java.lang.String) {
@@ -4165,7 +4354,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPageTokenBytes() {
       java.lang.Object ref = pageToken_;
@@ -4194,13 +4385,13 @@ public final class DatabricksArtifacts {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runId_);
       }
       for (int i = 0; i < path_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, pageToken_);
       }
       unknownFields.writeTo(output);
@@ -4212,7 +4403,7 @@ public final class DatabricksArtifacts {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runId_);
       }
       {
@@ -4223,7 +4414,7 @@ public final class DatabricksArtifacts {
         size += dataSize;
         size += 1 * getPathList().size();
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, pageToken_);
       }
       size += unknownFields.getSerializedSize();
@@ -4241,21 +4432,20 @@ public final class DatabricksArtifacts {
       }
       com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead) obj;
 
-      boolean result = true;
-      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId() != other.hasRunId()) return false;
       if (hasRunId()) {
-        result = result && getRunId()
-            .equals(other.getRunId());
+        if (!getRunId()
+            .equals(other.getRunId())) return false;
       }
-      result = result && getPathList()
-          .equals(other.getPathList());
-      result = result && (hasPageToken() == other.hasPageToken());
+      if (!getPathList()
+          .equals(other.getPathList())) return false;
+      if (hasPageToken() != other.hasPageToken()) return false;
       if (hasPageToken()) {
-        result = result && getPageToken()
-            .equals(other.getPageToken());
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -4444,16 +4634,16 @@ public final class DatabricksArtifacts {
         com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForRead(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.runId_ = runId_;
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           path_ = path_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000002);
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
         result.pageToken_ = pageToken_;
@@ -4464,35 +4654,35 @@ public final class DatabricksArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -4563,9 +4753,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the runId field is set.
        */
       public boolean hasRunId() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -4573,6 +4764,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The runId.
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -4594,6 +4786,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for runId.
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -4614,6 +4807,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -4631,6 +4826,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -4644,6 +4840,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -4658,7 +4856,7 @@ public final class DatabricksArtifacts {
 
       private com.google.protobuf.LazyStringList path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensurePathIsMutable() {
-        if (!((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (!((bitField0_ & 0x00000002) != 0)) {
           path_ = new com.google.protobuf.LazyStringArrayList(path_);
           bitField0_ |= 0x00000002;
          }
@@ -4670,6 +4868,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return A list containing the path.
        */
       public com.google.protobuf.ProtocolStringList
           getPathList() {
@@ -4682,6 +4881,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return The count of path.
        */
       public int getPathCount() {
         return path_.size();
@@ -4693,6 +4893,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index of the element to return.
+       * @return The path at the given index.
        */
       public java.lang.String getPath(int index) {
         return path_.get(index);
@@ -4704,6 +4906,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the path at the given index.
        */
       public com.google.protobuf.ByteString
           getPathBytes(int index) {
@@ -4716,6 +4920,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           int index, java.lang.String value) {
@@ -4734,6 +4941,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param value The path to add.
+       * @return This builder for chaining.
        */
       public Builder addPath(
           java.lang.String value) {
@@ -4752,6 +4961,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param values The path to add.
+       * @return This builder for chaining.
        */
       public Builder addAllPath(
           java.lang.Iterable<java.lang.String> values) {
@@ -4768,6 +4979,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -4782,6 +4994,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param value The bytes of the path to add.
+       * @return This builder for chaining.
        */
       public Builder addPathBytes(
           com.google.protobuf.ByteString value) {
@@ -4801,9 +5015,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return Whether the pageToken field is set.
        */
       public boolean hasPageToken() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -4811,6 +5026,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return The pageToken.
        */
       public java.lang.String getPageToken() {
         java.lang.Object ref = pageToken_;
@@ -4832,6 +5048,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return The bytes for pageToken.
        */
       public com.google.protobuf.ByteString
           getPageTokenBytes() {
@@ -4852,6 +5069,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
        */
       public Builder setPageToken(
           java.lang.String value) {
@@ -4869,6 +5088,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPageToken() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -4882,6 +5102,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
        */
       public Builder setPageTokenBytes(
           com.google.protobuf.ByteString value) {
@@ -4956,6 +5178,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the runId field is set.
      */
     boolean hasRunId();
     /**
@@ -4964,6 +5187,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The runId.
      */
     java.lang.String getRunId();
     /**
@@ -4972,6 +5196,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for runId.
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
@@ -4983,6 +5208,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return A list containing the path.
      */
     java.util.List<java.lang.String>
         getPathList();
@@ -4993,6 +5219,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return The count of path.
      */
     int getPathCount();
     /**
@@ -5002,6 +5229,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the element to return.
+     * @return The path at the given index.
      */
     java.lang.String getPath(int index);
     /**
@@ -5011,6 +5240,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the path at the given index.
      */
     com.google.protobuf.ByteString
         getPathBytes(int index);
@@ -5021,6 +5252,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
      */
     boolean hasPageToken();
     /**
@@ -5029,6 +5261,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
      */
     java.lang.String getPageToken();
     /**
@@ -5037,6 +5270,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
@@ -5044,7 +5278,7 @@ public final class DatabricksArtifacts {
   /**
    * Protobuf type {@code mlflow.GetCredentialsForWrite}
    */
-  public  static final class GetCredentialsForWrite extends
+  public static final class GetCredentialsForWrite extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForWrite)
       GetCredentialsForWriteOrBuilder {
@@ -5057,6 +5291,13 @@ public final class DatabricksArtifacts {
       runId_ = "";
       path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       pageToken_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetCredentialsForWrite();
     }
 
     @java.lang.Override
@@ -5091,7 +5332,7 @@ public final class DatabricksArtifacts {
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+              if (!((mutable_bitField0_ & 0x00000002) != 0)) {
                 path_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000002;
               }
@@ -5115,11 +5356,13 @@ public final class DatabricksArtifacts {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
           path_ = path_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -5193,6 +5436,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
        */
       boolean hasNextPageToken();
       /**
@@ -5201,6 +5445,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
        */
       java.lang.String getNextPageToken();
       /**
@@ -5209,6 +5454,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
        */
       com.google.protobuf.ByteString
           getNextPageTokenBytes();
@@ -5216,7 +5462,7 @@ public final class DatabricksArtifacts {
     /**
      * Protobuf type {@code mlflow.GetCredentialsForWrite.Response}
      */
-    public  static final class Response extends
+    public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.GetCredentialsForWrite.Response)
         ResponseOrBuilder {
@@ -5228,6 +5474,13 @@ public final class DatabricksArtifacts {
       private Response() {
         credentialInfos_ = java.util.Collections.emptyList();
         nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
       }
 
       @java.lang.Override
@@ -5255,7 +5508,7 @@ public final class DatabricksArtifacts {
                 done = true;
                 break;
               case 18: {
-                if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
                   credentialInfos_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo>();
                   mutable_bitField0_ |= 0x00000001;
                 }
@@ -5280,11 +5533,13 @@ public final class DatabricksArtifacts {
           }
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
           throw e.setUnfinishedMessage(this);
+        } catch (com.google.protobuf.UninitializedMessageException e) {
+          throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
         } catch (java.io.IOException e) {
           throw new com.google.protobuf.InvalidProtocolBufferException(
               e).setUnfinishedMessage(this);
         } finally {
-          if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
             credentialInfos_ = java.util.Collections.unmodifiableList(credentialInfos_);
           }
           this.unknownFields = unknownFields.build();
@@ -5314,6 +5569,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo> getCredentialInfosList() {
         return credentialInfos_;
       }
@@ -5324,6 +5580,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public java.util.List<? extends com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder> 
           getCredentialInfosOrBuilderList() {
         return credentialInfos_;
@@ -5335,6 +5592,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public int getCredentialInfosCount() {
         return credentialInfos_.size();
       }
@@ -5345,6 +5603,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getCredentialInfos(int index) {
         return credentialInfos_.get(index);
       }
@@ -5355,6 +5614,7 @@ public final class DatabricksArtifacts {
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo credential_infos = 2;</code>
        */
+      @java.lang.Override
       public com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder getCredentialInfosOrBuilder(
           int index) {
         return credentialInfos_.get(index);
@@ -5368,9 +5628,11 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
        */
+      @java.lang.Override
       public boolean hasNextPageToken() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -5378,7 +5640,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
        */
+      @java.lang.Override
       public java.lang.String getNextPageToken() {
         java.lang.Object ref = nextPageToken_;
         if (ref instanceof java.lang.String) {
@@ -5399,7 +5663,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
        */
+      @java.lang.Override
       public com.google.protobuf.ByteString
           getNextPageTokenBytes() {
         java.lang.Object ref = nextPageToken_;
@@ -5431,7 +5697,7 @@ public final class DatabricksArtifacts {
         for (int i = 0; i < credentialInfos_.size(); i++) {
           output.writeMessage(2, credentialInfos_.get(i));
         }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           com.google.protobuf.GeneratedMessageV3.writeString(output, 3, nextPageToken_);
         }
         unknownFields.writeTo(output);
@@ -5447,7 +5713,7 @@ public final class DatabricksArtifacts {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(2, credentialInfos_.get(i));
         }
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, nextPageToken_);
         }
         size += unknownFields.getSerializedSize();
@@ -5465,16 +5731,15 @@ public final class DatabricksArtifacts {
         }
         com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite.Response other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite.Response) obj;
 
-        boolean result = true;
-        result = result && getCredentialInfosList()
-            .equals(other.getCredentialInfosList());
-        result = result && (hasNextPageToken() == other.hasNextPageToken());
+        if (!getCredentialInfosList()
+            .equals(other.getCredentialInfosList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
         if (hasNextPageToken()) {
-          result = result && getNextPageToken()
-              .equals(other.getNextPageToken());
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
         }
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -5663,7 +5928,7 @@ public final class DatabricksArtifacts {
           int from_bitField0_ = bitField0_;
           int to_bitField0_ = 0;
           if (credentialInfosBuilder_ == null) {
-            if (((bitField0_ & 0x00000001) == 0x00000001)) {
+            if (((bitField0_ & 0x00000001) != 0)) {
               credentialInfos_ = java.util.Collections.unmodifiableList(credentialInfos_);
               bitField0_ = (bitField0_ & ~0x00000001);
             }
@@ -5671,7 +5936,7 @@ public final class DatabricksArtifacts {
           } else {
             result.credentialInfos_ = credentialInfosBuilder_.build();
           }
-          if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          if (((from_bitField0_ & 0x00000002) != 0)) {
             to_bitField0_ |= 0x00000001;
           }
           result.nextPageToken_ = nextPageToken_;
@@ -5682,35 +5947,35 @@ public final class DatabricksArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -5788,7 +6053,7 @@ public final class DatabricksArtifacts {
         private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo> credentialInfos_ =
           java.util.Collections.emptyList();
         private void ensureCredentialInfosIsMutable() {
-          if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+          if (!((bitField0_ & 0x00000001) != 0)) {
             credentialInfos_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo>(credentialInfos_);
             bitField0_ |= 0x00000001;
            }
@@ -6089,7 +6354,7 @@ public final class DatabricksArtifacts {
             credentialInfosBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
                 com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo.Builder, com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfoOrBuilder>(
                     credentialInfos_,
-                    ((bitField0_ & 0x00000001) == 0x00000001),
+                    ((bitField0_ & 0x00000001) != 0),
                     getParentForChildren(),
                     isClean());
             credentialInfos_ = null;
@@ -6104,9 +6369,10 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return Whether the nextPageToken field is set.
          */
         public boolean hasNextPageToken() {
-          return ((bitField0_ & 0x00000002) == 0x00000002);
+          return ((bitField0_ & 0x00000002) != 0);
         }
         /**
          * <pre>
@@ -6114,6 +6380,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return The nextPageToken.
          */
         public java.lang.String getNextPageToken() {
           java.lang.Object ref = nextPageToken_;
@@ -6135,6 +6402,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return The bytes for nextPageToken.
          */
         public com.google.protobuf.ByteString
             getNextPageTokenBytes() {
@@ -6155,6 +6423,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
          */
         public Builder setNextPageToken(
             java.lang.String value) {
@@ -6172,6 +6442,7 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @return This builder for chaining.
          */
         public Builder clearNextPageToken() {
           bitField0_ = (bitField0_ & ~0x00000002);
@@ -6185,6 +6456,8 @@ public final class DatabricksArtifacts {
          * </pre>
          *
          * <code>optional string next_page_token = 3;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
          */
         public Builder setNextPageTokenBytes(
             com.google.protobuf.ByteString value) {
@@ -6258,9 +6531,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the runId field is set.
      */
+    @java.lang.Override
     public boolean hasRunId() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -6268,7 +6543,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The runId.
      */
+    @java.lang.Override
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
       if (ref instanceof java.lang.String) {
@@ -6289,7 +6566,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for runId.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getRunIdBytes() {
       java.lang.Object ref = runId_;
@@ -6313,6 +6592,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return A list containing the path.
      */
     public com.google.protobuf.ProtocolStringList
         getPathList() {
@@ -6325,6 +6605,7 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @return The count of path.
      */
     public int getPathCount() {
       return path_.size();
@@ -6336,6 +6617,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the element to return.
+     * @return The path at the given index.
      */
     public java.lang.String getPath(int index) {
       return path_.get(index);
@@ -6347,6 +6630,8 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>repeated string path = 2;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the path at the given index.
      */
     public com.google.protobuf.ByteString
         getPathBytes(int index) {
@@ -6361,9 +6646,11 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
      */
+    @java.lang.Override
     public boolean hasPageToken() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -6371,7 +6658,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
      */
+    @java.lang.Override
     public java.lang.String getPageToken() {
       java.lang.Object ref = pageToken_;
       if (ref instanceof java.lang.String) {
@@ -6392,7 +6681,9 @@ public final class DatabricksArtifacts {
      * </pre>
      *
      * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPageTokenBytes() {
       java.lang.Object ref = pageToken_;
@@ -6421,13 +6712,13 @@ public final class DatabricksArtifacts {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runId_);
       }
       for (int i = 0; i < path_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, pageToken_);
       }
       unknownFields.writeTo(output);
@@ -6439,7 +6730,7 @@ public final class DatabricksArtifacts {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runId_);
       }
       {
@@ -6450,7 +6741,7 @@ public final class DatabricksArtifacts {
         size += dataSize;
         size += 1 * getPathList().size();
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, pageToken_);
       }
       size += unknownFields.getSerializedSize();
@@ -6468,21 +6759,20 @@ public final class DatabricksArtifacts {
       }
       com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite other = (com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite) obj;
 
-      boolean result = true;
-      result = result && (hasRunId() == other.hasRunId());
+      if (hasRunId() != other.hasRunId()) return false;
       if (hasRunId()) {
-        result = result && getRunId()
-            .equals(other.getRunId());
+        if (!getRunId()
+            .equals(other.getRunId())) return false;
       }
-      result = result && getPathList()
-          .equals(other.getPathList());
-      result = result && (hasPageToken() == other.hasPageToken());
+      if (!getPathList()
+          .equals(other.getPathList())) return false;
+      if (hasPageToken() != other.hasPageToken()) return false;
       if (hasPageToken()) {
-        result = result && getPageToken()
-            .equals(other.getPageToken());
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -6671,16 +6961,16 @@ public final class DatabricksArtifacts {
         com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite result = new com.databricks.api.proto.mlflow.DatabricksArtifacts.GetCredentialsForWrite(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.runId_ = runId_;
-        if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((bitField0_ & 0x00000002) != 0)) {
           path_ = path_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000002);
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
         result.pageToken_ = pageToken_;
@@ -6691,35 +6981,35 @@ public final class DatabricksArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -6790,9 +7080,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the runId field is set.
        */
       public boolean hasRunId() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -6800,6 +7091,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The runId.
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -6821,6 +7113,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for runId.
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -6841,6 +7134,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -6858,6 +7153,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -6871,6 +7167,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for runId to set.
+       * @return This builder for chaining.
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -6885,7 +7183,7 @@ public final class DatabricksArtifacts {
 
       private com.google.protobuf.LazyStringList path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensurePathIsMutable() {
-        if (!((bitField0_ & 0x00000002) == 0x00000002)) {
+        if (!((bitField0_ & 0x00000002) != 0)) {
           path_ = new com.google.protobuf.LazyStringArrayList(path_);
           bitField0_ |= 0x00000002;
          }
@@ -6897,6 +7195,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return A list containing the path.
        */
       public com.google.protobuf.ProtocolStringList
           getPathList() {
@@ -6909,6 +7208,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return The count of path.
        */
       public int getPathCount() {
         return path_.size();
@@ -6920,6 +7220,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index of the element to return.
+       * @return The path at the given index.
        */
       public java.lang.String getPath(int index) {
         return path_.get(index);
@@ -6931,6 +7233,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the path at the given index.
        */
       public com.google.protobuf.ByteString
           getPathBytes(int index) {
@@ -6943,6 +7247,9 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           int index, java.lang.String value) {
@@ -6961,6 +7268,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param value The path to add.
+       * @return This builder for chaining.
        */
       public Builder addPath(
           java.lang.String value) {
@@ -6979,6 +7288,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param values The path to add.
+       * @return This builder for chaining.
        */
       public Builder addAllPath(
           java.lang.Iterable<java.lang.String> values) {
@@ -6995,6 +7306,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         path_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -7009,6 +7321,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>repeated string path = 2;</code>
+       * @param value The bytes of the path to add.
+       * @return This builder for chaining.
        */
       public Builder addPathBytes(
           com.google.protobuf.ByteString value) {
@@ -7028,9 +7342,10 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return Whether the pageToken field is set.
        */
       public boolean hasPageToken() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -7038,6 +7353,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return The pageToken.
        */
       public java.lang.String getPageToken() {
         java.lang.Object ref = pageToken_;
@@ -7059,6 +7375,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return The bytes for pageToken.
        */
       public com.google.protobuf.ByteString
           getPageTokenBytes() {
@@ -7079,6 +7396,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
        */
       public Builder setPageToken(
           java.lang.String value) {
@@ -7096,6 +7415,7 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPageToken() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -7109,6 +7429,8 @@ public final class DatabricksArtifacts {
        * </pre>
        *
        * <code>optional string page_token = 3;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
        */
       public Builder setPageTokenBytes(
           com.google.protobuf.ByteString value) {
@@ -7247,20 +7569,12 @@ public final class DatabricksArtifacts {
       "s/credentials-for-write\032\004\010\002\020\000\020\003B,\n\037com.d" +
       "atabricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
-    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
-          public com.google.protobuf.ExtensionRegistry assignDescriptors(
-              com.google.protobuf.Descriptors.FileDescriptor root) {
-            descriptor = root;
-            return null;
-          }
-        };
-    com.google.protobuf.Descriptors.FileDescriptor
+    descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
-        }, assigner);
+        });
     internal_static_mlflow_ArtifactCredentialInfo_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_mlflow_ArtifactCredentialInfo_fieldAccessorTable = new

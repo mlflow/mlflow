@@ -27,6 +27,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return Whether the packageName field is set.
      */
     boolean hasPackageName();
     /**
@@ -35,6 +36,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return The packageName.
      */
     java.lang.String getPackageName();
     /**
@@ -43,6 +45,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return The bytes for packageName.
      */
     com.google.protobuf.ByteString
         getPackageNameBytes();
@@ -56,6 +59,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional bool flat_package = 2;</code>
+     * @return Whether the flatPackage field is set.
      */
     boolean hasFlatPackage();
     /**
@@ -67,6 +71,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional bool flat_package = 2;</code>
+     * @return The flatPackage.
      */
     boolean getFlatPackage();
 
@@ -77,6 +82,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @return A list containing the import.
      */
     java.util.List<java.lang.String>
         getImportList();
@@ -87,6 +93,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @return The count of import.
      */
     int getImportCount();
     /**
@@ -96,6 +103,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @param index The index of the element to return.
+     * @return The import at the given index.
      */
     java.lang.String getImport(int index);
     /**
@@ -105,6 +114,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the import at the given index.
      */
     com.google.protobuf.ByteString
         getImportBytes(int index);
@@ -112,7 +123,7 @@ public final class Scalapb {
   /**
    * Protobuf type {@code scalapb.ScalaPbOptions}
    */
-  public  static final class ScalaPbOptions extends
+  public static final class ScalaPbOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:scalapb.ScalaPbOptions)
       ScalaPbOptionsOrBuilder {
@@ -123,8 +134,14 @@ public final class Scalapb {
     }
     private ScalaPbOptions() {
       packageName_ = "";
-      flatPackage_ = false;
       import_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ScalaPbOptions();
     }
 
     @java.lang.Override
@@ -164,7 +181,7 @@ public final class Scalapb {
             }
             case 26: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+              if (!((mutable_bitField0_ & 0x00000004) != 0)) {
                 import_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000004;
               }
@@ -182,11 +199,13 @@ public final class Scalapb {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((mutable_bitField0_ & 0x00000004) != 0)) {
           import_ = import_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -215,9 +234,11 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return Whether the packageName field is set.
      */
+    @java.lang.Override
     public boolean hasPackageName() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -225,7 +246,9 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return The packageName.
      */
+    @java.lang.Override
     public java.lang.String getPackageName() {
       java.lang.Object ref = packageName_;
       if (ref instanceof java.lang.String) {
@@ -246,7 +269,9 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional string package_name = 1;</code>
+     * @return The bytes for packageName.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPackageNameBytes() {
       java.lang.Object ref = packageName_;
@@ -272,9 +297,11 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional bool flat_package = 2;</code>
+     * @return Whether the flatPackage field is set.
      */
+    @java.lang.Override
     public boolean hasFlatPackage() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -285,7 +312,9 @@ public final class Scalapb {
      * </pre>
      *
      * <code>optional bool flat_package = 2;</code>
+     * @return The flatPackage.
      */
+    @java.lang.Override
     public boolean getFlatPackage() {
       return flatPackage_;
     }
@@ -299,6 +328,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @return A list containing the import.
      */
     public com.google.protobuf.ProtocolStringList
         getImportList() {
@@ -311,6 +341,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @return The count of import.
      */
     public int getImportCount() {
       return import_.size();
@@ -322,6 +353,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @param index The index of the element to return.
+     * @return The import at the given index.
      */
     public java.lang.String getImport(int index) {
       return import_.get(index);
@@ -333,6 +366,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string import = 3;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the import at the given index.
      */
     public com.google.protobuf.ByteString
         getImportBytes(int index) {
@@ -353,10 +388,10 @@ public final class Scalapb {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, packageName_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeBool(2, flatPackage_);
       }
       for (int i = 0; i < import_.size(); i++) {
@@ -371,10 +406,10 @@ public final class Scalapb {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, packageName_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(2, flatPackage_);
       }
@@ -401,21 +436,20 @@ public final class Scalapb {
       }
       org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions other = (org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions) obj;
 
-      boolean result = true;
-      result = result && (hasPackageName() == other.hasPackageName());
+      if (hasPackageName() != other.hasPackageName()) return false;
       if (hasPackageName()) {
-        result = result && getPackageName()
-            .equals(other.getPackageName());
+        if (!getPackageName()
+            .equals(other.getPackageName())) return false;
       }
-      result = result && (hasFlatPackage() == other.hasFlatPackage());
+      if (hasFlatPackage() != other.hasFlatPackage()) return false;
       if (hasFlatPackage()) {
-        result = result && (getFlatPackage()
-            == other.getFlatPackage());
+        if (getFlatPackage()
+            != other.getFlatPackage()) return false;
       }
-      result = result && getImportList()
-          .equals(other.getImportList());
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!getImportList()
+          .equals(other.getImportList())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -605,15 +639,15 @@ public final class Scalapb {
         org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions result = new org.mlflow.scalapb_interface.Scalapb.ScalaPbOptions(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.packageName_ = packageName_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.flatPackage_ = flatPackage_;
           to_bitField0_ |= 0x00000002;
         }
-        result.flatPackage_ = flatPackage_;
-        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((bitField0_ & 0x00000004) != 0)) {
           import_ = import_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000004);
         }
@@ -625,35 +659,35 @@ public final class Scalapb {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -722,9 +756,10 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @return Whether the packageName field is set.
        */
       public boolean hasPackageName() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -732,6 +767,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @return The packageName.
        */
       public java.lang.String getPackageName() {
         java.lang.Object ref = packageName_;
@@ -753,6 +789,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @return The bytes for packageName.
        */
       public com.google.protobuf.ByteString
           getPackageNameBytes() {
@@ -773,6 +810,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @param value The packageName to set.
+       * @return This builder for chaining.
        */
       public Builder setPackageName(
           java.lang.String value) {
@@ -790,6 +829,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPackageName() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -803,6 +843,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional string package_name = 1;</code>
+       * @param value The bytes for packageName to set.
+       * @return This builder for chaining.
        */
       public Builder setPackageNameBytes(
           com.google.protobuf.ByteString value) {
@@ -825,9 +867,11 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional bool flat_package = 2;</code>
+       * @return Whether the flatPackage field is set.
        */
+      @java.lang.Override
       public boolean hasFlatPackage() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -838,7 +882,9 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional bool flat_package = 2;</code>
+       * @return The flatPackage.
        */
+      @java.lang.Override
       public boolean getFlatPackage() {
         return flatPackage_;
       }
@@ -851,6 +897,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional bool flat_package = 2;</code>
+       * @param value The flatPackage to set.
+       * @return This builder for chaining.
        */
       public Builder setFlatPackage(boolean value) {
         bitField0_ |= 0x00000002;
@@ -867,6 +915,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>optional bool flat_package = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearFlatPackage() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -877,7 +926,7 @@ public final class Scalapb {
 
       private com.google.protobuf.LazyStringList import_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureImportIsMutable() {
-        if (!((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (!((bitField0_ & 0x00000004) != 0)) {
           import_ = new com.google.protobuf.LazyStringArrayList(import_);
           bitField0_ |= 0x00000004;
          }
@@ -889,6 +938,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @return A list containing the import.
        */
       public com.google.protobuf.ProtocolStringList
           getImportList() {
@@ -901,6 +951,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @return The count of import.
        */
       public int getImportCount() {
         return import_.size();
@@ -912,6 +963,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param index The index of the element to return.
+       * @return The import at the given index.
        */
       public java.lang.String getImport(int index) {
         return import_.get(index);
@@ -923,6 +976,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the import at the given index.
        */
       public com.google.protobuf.ByteString
           getImportBytes(int index) {
@@ -935,6 +990,9 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param index The index to set the value at.
+       * @param value The import to set.
+       * @return This builder for chaining.
        */
       public Builder setImport(
           int index, java.lang.String value) {
@@ -953,6 +1011,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param value The import to add.
+       * @return This builder for chaining.
        */
       public Builder addImport(
           java.lang.String value) {
@@ -971,6 +1031,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param values The import to add.
+       * @return This builder for chaining.
        */
       public Builder addAllImport(
           java.lang.Iterable<java.lang.String> values) {
@@ -987,6 +1049,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearImport() {
         import_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -1001,6 +1064,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string import = 3;</code>
+       * @param value The bytes of the import to add.
+       * @return This builder for chaining.
        */
       public Builder addImportBytes(
           com.google.protobuf.ByteString value) {
@@ -1075,6 +1140,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @return A list containing the extends.
      */
     java.util.List<java.lang.String>
         getExtendsList();
@@ -1084,6 +1150,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @return The count of extends.
      */
     int getExtendsCount();
     /**
@@ -1092,6 +1159,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @param index The index of the element to return.
+     * @return The extends at the given index.
      */
     java.lang.String getExtends(int index);
     /**
@@ -1100,6 +1169,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the extends at the given index.
      */
     com.google.protobuf.ByteString
         getExtendsBytes(int index);
@@ -1107,7 +1178,7 @@ public final class Scalapb {
   /**
    * Protobuf type {@code scalapb.MessageOptions}
    */
-  public  static final class MessageOptions extends
+  public static final class MessageOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:scalapb.MessageOptions)
       MessageOptionsOrBuilder {
@@ -1118,6 +1189,13 @@ public final class Scalapb {
     }
     private MessageOptions() {
       extends_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new MessageOptions();
     }
 
     @java.lang.Override
@@ -1146,7 +1224,7 @@ public final class Scalapb {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+              if (!((mutable_bitField0_ & 0x00000001) != 0)) {
                 extends_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000001;
               }
@@ -1164,11 +1242,13 @@ public final class Scalapb {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((mutable_bitField0_ & 0x00000001) != 0)) {
           extends_ = extends_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -1196,6 +1276,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @return A list containing the extends.
      */
     public com.google.protobuf.ProtocolStringList
         getExtendsList() {
@@ -1207,6 +1288,7 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @return The count of extends.
      */
     public int getExtendsCount() {
       return extends_.size();
@@ -1217,6 +1299,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @param index The index of the element to return.
+     * @return The extends at the given index.
      */
     public java.lang.String getExtends(int index) {
       return extends_.get(index);
@@ -1227,6 +1311,8 @@ public final class Scalapb {
      * </pre>
      *
      * <code>repeated string extends = 1;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the extends at the given index.
      */
     public com.google.protobuf.ByteString
         getExtendsBytes(int index) {
@@ -1282,11 +1368,10 @@ public final class Scalapb {
       }
       org.mlflow.scalapb_interface.Scalapb.MessageOptions other = (org.mlflow.scalapb_interface.Scalapb.MessageOptions) obj;
 
-      boolean result = true;
-      result = result && getExtendsList()
-          .equals(other.getExtendsList());
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!getExtendsList()
+          .equals(other.getExtendsList())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -1462,7 +1547,7 @@ public final class Scalapb {
       public org.mlflow.scalapb_interface.Scalapb.MessageOptions buildPartial() {
         org.mlflow.scalapb_interface.Scalapb.MessageOptions result = new org.mlflow.scalapb_interface.Scalapb.MessageOptions(this);
         int from_bitField0_ = bitField0_;
-        if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((bitField0_ & 0x00000001) != 0)) {
           extends_ = extends_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000001);
         }
@@ -1473,35 +1558,35 @@ public final class Scalapb {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1557,7 +1642,7 @@ public final class Scalapb {
 
       private com.google.protobuf.LazyStringList extends_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureExtendsIsMutable() {
-        if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (!((bitField0_ & 0x00000001) != 0)) {
           extends_ = new com.google.protobuf.LazyStringArrayList(extends_);
           bitField0_ |= 0x00000001;
          }
@@ -1568,6 +1653,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @return A list containing the extends.
        */
       public com.google.protobuf.ProtocolStringList
           getExtendsList() {
@@ -1579,6 +1665,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @return The count of extends.
        */
       public int getExtendsCount() {
         return extends_.size();
@@ -1589,6 +1676,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param index The index of the element to return.
+       * @return The extends at the given index.
        */
       public java.lang.String getExtends(int index) {
         return extends_.get(index);
@@ -1599,6 +1688,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the extends at the given index.
        */
       public com.google.protobuf.ByteString
           getExtendsBytes(int index) {
@@ -1610,6 +1701,9 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param index The index to set the value at.
+       * @param value The extends to set.
+       * @return This builder for chaining.
        */
       public Builder setExtends(
           int index, java.lang.String value) {
@@ -1627,6 +1721,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param value The extends to add.
+       * @return This builder for chaining.
        */
       public Builder addExtends(
           java.lang.String value) {
@@ -1644,6 +1740,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param values The extends to add.
+       * @return This builder for chaining.
        */
       public Builder addAllExtends(
           java.lang.Iterable<java.lang.String> values) {
@@ -1659,6 +1757,7 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearExtends() {
         extends_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -1672,6 +1771,8 @@ public final class Scalapb {
        * </pre>
        *
        * <code>repeated string extends = 1;</code>
+       * @param value The bytes of the extends to add.
+       * @return This builder for chaining.
        */
       public Builder addExtendsBytes(
           com.google.protobuf.ByteString value) {
@@ -1742,14 +1843,17 @@ public final class Scalapb {
 
     /**
      * <code>optional string type = 1;</code>
+     * @return Whether the type field is set.
      */
     boolean hasType();
     /**
      * <code>optional string type = 1;</code>
+     * @return The type.
      */
     java.lang.String getType();
     /**
      * <code>optional string type = 1;</code>
+     * @return The bytes for type.
      */
     com.google.protobuf.ByteString
         getTypeBytes();
@@ -1757,7 +1861,7 @@ public final class Scalapb {
   /**
    * Protobuf type {@code scalapb.FieldOptions}
    */
-  public  static final class FieldOptions extends
+  public static final class FieldOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:scalapb.FieldOptions)
       FieldOptionsOrBuilder {
@@ -1768,6 +1872,13 @@ public final class Scalapb {
     }
     private FieldOptions() {
       type_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new FieldOptions();
     }
 
     @java.lang.Override
@@ -1811,6 +1922,8 @@ public final class Scalapb {
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
         throw e.setUnfinishedMessage(this);
+      } catch (com.google.protobuf.UninitializedMessageException e) {
+        throw e.asInvalidProtocolBufferException().setUnfinishedMessage(this);
       } catch (java.io.IOException e) {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
@@ -1837,13 +1950,17 @@ public final class Scalapb {
     private volatile java.lang.Object type_;
     /**
      * <code>optional string type = 1;</code>
+     * @return Whether the type field is set.
      */
+    @java.lang.Override
     public boolean hasType() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <code>optional string type = 1;</code>
+     * @return The type.
      */
+    @java.lang.Override
     public java.lang.String getType() {
       java.lang.Object ref = type_;
       if (ref instanceof java.lang.String) {
@@ -1860,7 +1977,9 @@ public final class Scalapb {
     }
     /**
      * <code>optional string type = 1;</code>
+     * @return The bytes for type.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getTypeBytes() {
       java.lang.Object ref = type_;
@@ -1889,7 +2008,7 @@ public final class Scalapb {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, type_);
       }
       unknownFields.writeTo(output);
@@ -1901,7 +2020,7 @@ public final class Scalapb {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, type_);
       }
       size += unknownFields.getSerializedSize();
@@ -1919,14 +2038,13 @@ public final class Scalapb {
       }
       org.mlflow.scalapb_interface.Scalapb.FieldOptions other = (org.mlflow.scalapb_interface.Scalapb.FieldOptions) obj;
 
-      boolean result = true;
-      result = result && (hasType() == other.hasType());
+      if (hasType() != other.hasType()) return false;
       if (hasType()) {
-        result = result && getType()
-            .equals(other.getType());
+        if (!getType()
+            .equals(other.getType())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -2103,7 +2221,7 @@ public final class Scalapb {
         org.mlflow.scalapb_interface.Scalapb.FieldOptions result = new org.mlflow.scalapb_interface.Scalapb.FieldOptions(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.type_ = type_;
@@ -2114,35 +2232,35 @@ public final class Scalapb {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -2194,12 +2312,14 @@ public final class Scalapb {
       private java.lang.Object type_ = "";
       /**
        * <code>optional string type = 1;</code>
+       * @return Whether the type field is set.
        */
       public boolean hasType() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <code>optional string type = 1;</code>
+       * @return The type.
        */
       public java.lang.String getType() {
         java.lang.Object ref = type_;
@@ -2217,6 +2337,7 @@ public final class Scalapb {
       }
       /**
        * <code>optional string type = 1;</code>
+       * @return The bytes for type.
        */
       public com.google.protobuf.ByteString
           getTypeBytes() {
@@ -2233,6 +2354,8 @@ public final class Scalapb {
       }
       /**
        * <code>optional string type = 1;</code>
+       * @param value The type to set.
+       * @return This builder for chaining.
        */
       public Builder setType(
           java.lang.String value) {
@@ -2246,6 +2369,7 @@ public final class Scalapb {
       }
       /**
        * <code>optional string type = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearType() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -2255,6 +2379,8 @@ public final class Scalapb {
       }
       /**
        * <code>optional string type = 1;</code>
+       * @param value The bytes for type to set.
+       * @return This builder for chaining.
        */
       public Builder setTypeBytes(
           com.google.protobuf.ByteString value) {
@@ -2404,19 +2530,11 @@ public final class Scalapb {
       "\007 \001(\0132\025.scalapb.FieldOptionsB\036\n\034org.mlfl" +
       "ow.scalapb_interface"
     };
-    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
-          public com.google.protobuf.ExtensionRegistry assignDescriptors(
-              com.google.protobuf.Descriptors.FileDescriptor root) {
-            descriptor = root;
-            return null;
-          }
-        };
-    com.google.protobuf.Descriptors.FileDescriptor
+    descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.protobuf.DescriptorProtos.getDescriptor(),
-        }, assigner);
+        });
     internal_static_scalapb_ScalaPbOptions_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_scalapb_ScalaPbOptions_fieldAccessorTable = new

@@ -2,8 +2,8 @@
 
 set -ex
 PROTOC_VERSION="$(protoc --version)"
-if [[ "$PROTOC_VERSION" != 'libprotoc 3.6.0' && "$PROTOC_VERSION" != 'libprotoc 3.6.1' ]]; then
-	echo "Required libprotoc versions to be 3.6.0 or 3.6.1 (preferred)."
+if [[ "$PROTOC_VERSION" != 'libprotoc 3.21.0' && "$PROTOC_VERSION" != 'libprotoc 3.21.0' ]]; then
+	echo "Required libprotoc versions to be 3.21.0 (preferred)."
 	echo "We found: $PROTOC_VERSION"
 	exit 1
 fi
