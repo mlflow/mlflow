@@ -22,7 +22,7 @@ def resolve(env_manager):
                 "'local' option for `env_manager` is deprecated and will be removed in a future "
                 "release. Use 'None' instead."
             ),
-            UserWarning,
+            FutureWarning,
             stacklevel=2,
         )
         return NONE
