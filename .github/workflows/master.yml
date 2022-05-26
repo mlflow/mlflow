@@ -40,6 +40,7 @@ env:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   # TODO: Remove this environment variable once we regenerate protos with protoc >= 3.19.0.
+  #       Note other workflow configuration files also contain this environment variable.
   PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 jobs:
