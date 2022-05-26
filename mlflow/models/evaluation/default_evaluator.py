@@ -909,9 +909,10 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-            if model_type == "classifier":
-                return self._evaluate_classifier()
-            elif model_type == "regressor":
-                return self._evaluate_regressor()
-            else:
-                raise ValueError(f"Unsupported model type {model_type}")
+            with mlflow.utils.autologging_utils.disable_autologging():
+                if model_type == "classifier":
+                    return self._evaluate_classifier()
+                elif model_type == "regressor":
+                    return self._evaluate_regressor()
+                else:
+                    raise ValueError(f"Unsupported model type {model_type}")
