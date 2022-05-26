@@ -784,11 +784,13 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
+        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
 
         self.label_list = np.unique(self.y)
         self.num_classes = len(self.label_list)
 
-        self.y_pred = self.predict_fn(self.X)
+        with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+            self.y_pred = self.predict_fn(self.X)
         self.is_binomial = self.num_classes <= 2
 
         if self.is_binomial:
@@ -809,7 +811,8 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if self.predict_proba_fn is not None:
-            self.y_probs = self.predict_proba_fn(self.X)
+            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+                self.y_probs = self.predict_proba_fn(self.X)
             if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
