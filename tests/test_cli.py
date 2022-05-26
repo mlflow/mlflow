@@ -24,7 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
+from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -225,7 +225,7 @@ def test_mlflow_models_serve(enable_mlserver):
                 mlflow.pyfunc.log_model(
                     artifact_path="model",
                     python_model=model,
-                    extra_pip_requirements=["mlserver", "mlserver-mlflow"],
+                    extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
                 )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
