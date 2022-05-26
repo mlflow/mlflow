@@ -976,11 +976,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                         unaffected. Default value is ``local``, and the following values are
                         supported:
 
-                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                        - ``conda``: (Recommended) Use Conda to restore the software environment
                            that was used to train the model.
-                         - ``virtualenv``: Use virtualenv to restore the python environment that
+                        - ``virtualenv``: Use virtualenv to restore the python environment that
                            was used to train the model.
-                        - ``local``: DEPRECATED. Use ``None`` instead.
+                        - ``local``: Deprecated. Use ``None`` instead.
                         - ``None``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
