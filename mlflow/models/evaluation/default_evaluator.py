@@ -884,7 +884,6 @@ class DefaultEvaluator(ModelEvaluator):
         **kwargs,
     ):
         import matplotlib
-        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
 
         with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
             self.client = mlflow.tracking.MlflowClient()
@@ -924,7 +923,7 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-            with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+            with mlflow.utils.autologging_utils.disable_autologging():
                 if model_type == "classifier":
                     return self._evaluate_classifier()
                 elif model_type == "regressor":
