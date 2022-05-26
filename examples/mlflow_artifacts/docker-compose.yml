@@ -48,6 +48,7 @@ services:
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: "user"
       AWS_SECRET_ACCESS_KEY: "password"
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
     command: >
       mlflow server
       --host 0.0.0.0
