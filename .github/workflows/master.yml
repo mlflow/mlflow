@@ -194,7 +194,8 @@ jobs:
       run: |
         wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
         sudo unzip $HOME/protoc.zip -d /usr
-        chmod +x $(which protoc)
+        ls -l /usr/bin
+        chmod +x /usr/bin/protoc
     - name: Run tests
       run: |
         ./dev/test-generate-protos.sh
