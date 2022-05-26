@@ -157,7 +157,7 @@ def pyfunc_serve_and_score_model(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+                       example, passing ``extra_args=["--env-manager", "None"]`` will pass the
                        ``--env-manager local`` flag to the scoring server to ensure that conda
                        environment activation is skipped.
     """

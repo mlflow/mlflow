@@ -35,7 +35,7 @@ def test_virtualenv_project_execution_without_env_manager(create_virtualenv_spy)
 @spy_on_create_virtualenv
 def test_virtualenv_project_execution_local(create_virtualenv_spy):
     submitted_run = mlflow.projects.run(
-        TEST_VIRTUALENV_PROJECT_DIR, entry_point="main", env_manager="local"
+        TEST_VIRTUALENV_PROJECT_DIR, entry_point="main", env_manager="None"
     )
     submitted_run.wait()
     create_virtualenv_spy.assert_not_called()

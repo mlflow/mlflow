@@ -545,7 +545,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(df.to_dict(orient="split"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            extra_args=["--env-manager", "local"],
+            extra_args=["--env-manager", "None"],
         )
         response_json = json.loads(response.content)
 
@@ -556,7 +556,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-            extra_args=["--env-manager", "local"],
+            extra_args=["--env-manager", "None"],
         )
         response_json = json.loads(response.content)
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]

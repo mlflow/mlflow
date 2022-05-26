@@ -50,7 +50,7 @@ from mlflow.pyfunc.scoring_server import (
 )
 
 # NB: for now, windows tests do not have conda available.
-no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
+no_conda = ["--env-manager", "None"] if sys.platform == "win32" else []
 
 # NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []
@@ -236,7 +236,7 @@ def test_predict(iris_data, sk_model):
                 "-o",
                 output_json_path,
                 "--env-manager",
-                "local",
+                "None",
             ],
             stderr=subprocess.PIPE,
             env=env_with_tracking_uri,
@@ -376,7 +376,7 @@ def test_prepare_env_passes(sk_model):
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"],
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "None"],
             stderr=subprocess.PIPE,
         )
         assert p.wait() == 0
@@ -407,7 +407,7 @@ def test_prepare_env_fails(sk_model):
 
         # Test with no conda
         p = subprocess.Popen(
-            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "local"]
+            ["mlflow", "models", "prepare-env", "-m", model_uri, "--env-manager", "None"]
         )
         assert p.wait() == 0
 
@@ -535,7 +535,7 @@ def test_env_manager_local_deprecation_warning(mock_flavor_backend):
     with pytest.warns(FutureWarning, match=r"'local' option for `env_manager` is deprecated"):
         CliRunner().invoke(
             models_cli.serve,
-            ["--model-uri", "model", "--env-manager", "local"],
+            ["--model-uri", "model", "--env-manager", "None"],
             catch_exceptions=False,
         )
     mock_flavor_backend.assert_called_once()
