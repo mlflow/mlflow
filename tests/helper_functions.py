@@ -110,7 +110,15 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ["docker", "run", "-p", "%s:8080" % host_port, image_name]
+    scoring_cmd = [
+        "docker",
+        "run",
+        "-e",
+        "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python",
+        "-p",
+        "%s:8080" % host_port,
+        image_name,
+    ]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
@@ -130,6 +138,8 @@ def pyfunc_serve_from_docker_image_with_env_override(
         "run",
         "-e",
         "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
+        "-e",
+        "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python",
         "-p",
         "%s:8080" % host_port,
         image_name,
