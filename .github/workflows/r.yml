@@ -18,8 +18,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # TODO: Remove this environment variable once we regenerate protos with protoc >= 3.19.0.
-  #       Note other workflow configuration files also contain this environment variable.
   PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
 jobs:

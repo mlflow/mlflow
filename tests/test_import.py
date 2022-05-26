@@ -47,6 +47,8 @@ fi
             f"{os.getcwd()}:{workdir}",
             "-v",
             f"{tmp_path}:/tmp/{uid}",
+            "-e",
+            "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python",
             f"python:{python_ver}",
             "bash",
             "-c",

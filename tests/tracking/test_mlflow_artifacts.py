@@ -234,7 +234,8 @@ def test_mlflow_artifacts_example(tmpdir):
     cmd = f"""
 set -ex
 ./build.sh
-docker-compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
+docker-compose run -v ${{PWD}}/example.py:/app/example.py \
+    -e PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python client python example.py
 docker-compose logs
 docker-compose down {rmi_option} --volumes --remove-orphans
 """

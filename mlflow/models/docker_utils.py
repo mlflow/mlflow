@@ -60,6 +60,7 @@ RUN apt-get install -y --no-install-recommends \
 {setup_miniconda}
 {setup_pyenv_and_virtualenv}
 
+ENV PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 # Set up the program in the image

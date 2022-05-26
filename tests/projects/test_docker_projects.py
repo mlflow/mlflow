@@ -39,7 +39,11 @@ def test_docker_project_execution(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params,
         entry_point="test_tracking",
-        docker_args={"memory": "1g", "privileged": True},
+        docker_args={
+            "memory": "1g",
+            "privileged": True,
+            "e": "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python",
+        },
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
@@ -81,7 +85,11 @@ def test_docker_project_execution_async_docker_args(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters={"use_start_run": "0"},
         entry_point="test_tracking",
-        docker_args={"memory": "1g", "privileged": True},
+        docker_args={
+            "memory": "1g",
+            "privileged": True,
+            "e": "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python",
+        },
         synchronous=False,
     )
     submitted_run.wait()
