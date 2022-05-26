@@ -1081,7 +1081,7 @@ class CustomModel(mlflow.pyfunc.PythonModel):
         return custom_module.predict()
 
 
-def test_custom_code_does_not_use_cached_module(tmp_path):
+def test_model_with_code_path_does_not_use_cached_module(tmp_path):
     dir1 = tmp_path.joinpath("1")
     dir2 = tmp_path.joinpath("2")
     dir1.mkdir()
