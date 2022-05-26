@@ -952,33 +952,6 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
         assert "score" not in result.metrics
 
 
-def test_post_training_metrics_autologging_is_disabled_in_evaluate_classifier():
-    mlflow.sklearn.autolog()
-    try:
-        X, y = load_iris(as_frame=True, return_X_y=True)
-        with mlflow.start_run() as run:
-            clf = LogisticRegression(max_iter=2).fit(X, y)
-            model_info = mlflow.sklearn.log_model(clf, "model")
-            result = evaluate(
-                model_info.model_uri,
-                X.assign(target=y),
-                model_type="classifier",
-                targets="target",
-                dataset_name="iris",
-                evaluators="default",
-            )
-
-        run_data = get_run_data(run.info.run_id)
-        duplicate_metrics = []
-        for evaluate_metric_key in result.metrics.keys():
-            matched_keys = [k for k in run_data.metrics.keys() if k.startswith(evaluate_metric_key)]
-            if len(matched_keys) > 1:
-                duplicate_metrics += matched_keys
-        assert duplicate_metrics == []
-    finally:
-        mlflow.sklearn.autolog(disable=True)
-
-
 @pytest.mark.parametrize(
     "model",
     [LogisticRegression(), LinearRegression()],
