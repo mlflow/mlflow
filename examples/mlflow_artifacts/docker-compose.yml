@@ -77,6 +77,8 @@ services:
     ports:
       # MLflow UI is available at http://localhost:5000
       - "5000:5000"
+    environment:
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
     command: >
       mlflow server
       --host 0.0.0.0
@@ -93,3 +95,4 @@ services:
       - tracking-server
     environment:
       MLFLOW_TRACKING_URI: http://tracking-server:5000
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python

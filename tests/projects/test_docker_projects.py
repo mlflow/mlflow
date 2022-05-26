@@ -95,7 +95,7 @@ def test_docker_project_execution_async_docker_args(
     submitted_run.wait()
 
     args = submitted_run.command_proc.args
-    assert len([a for a in args if a == "--docker-args"]) == 2
+    assert args.count("--docker-args") == 3
     first_idx = args.index("--docker-args")
     second_idx = args.index("--docker-args", first_idx + 1)
     assert args[first_idx + 1] == "memory=1g"
