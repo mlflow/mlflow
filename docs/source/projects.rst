@@ -402,7 +402,7 @@ Environment
     By default, MLflow Projects are run in the environment specified by the project directory
     or the ``MLproject`` file (see :ref:`Specifying Project Environments <project-environments>`).
     You can ignore a project's specified environment and run the project in the current
-    system environment by supplying the ``--env-manager=local`` flag, but this can lead to
+    system environment by supplying the ``--env-manager=None`` flag, but this can lead to
     unexpected results if there are dependency mismatches between the project environment and
     the current system environment.
 

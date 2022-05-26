@@ -1665,7 +1665,7 @@ The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argumen
     mlflow models serve ... --env-manager=conda
     # Use virtualenv
     mlflow models predict ... --env-manager=virtualenv
-    # Use local environment
+    # Use the current system environment
     mlflow models predict ... --env-manager=None
 
 .. _azureml_deployment:
