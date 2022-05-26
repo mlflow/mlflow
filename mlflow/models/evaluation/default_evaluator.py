@@ -869,7 +869,10 @@ class DefaultEvaluator(ModelEvaluator):
         return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
-        self.y_pred = self.model.predict(self.X)
+        from mlflow.sklearn import _AUTOLOGGING_METRICS_MANAGER
+
+        with _AUTOLOGGING_METRICS_MANAGER.disable_log_post_training_metrics():
+            self.y_pred = self.model.predict(self.X)
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
         self._evaluate_sklearn_model_score_if_scorable()
 

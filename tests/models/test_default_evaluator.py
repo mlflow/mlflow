@@ -29,7 +29,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
 )
 import mlflow
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.datasets import load_iris
 
 from tempfile import TemporaryDirectory
@@ -952,7 +952,7 @@ def test_evaluate_sklearn_model_score_skip_when_not_scorable(
         assert "score" not in result.metrics
 
 
-def test_post_training_metrics_autologging_is_disabled_in_evaluate():
+def test_post_training_metrics_autologging_is_disabled_in_evaluate_classifier():
     mlflow.sklearn.autolog()
     try:
         X, y = load_iris(as_frame=True, return_X_y=True)
@@ -963,6 +963,37 @@ def test_post_training_metrics_autologging_is_disabled_in_evaluate():
                 model_info.model_uri,
                 X.assign(target=y),
                 model_type="classifier",
+                targets="target",
+                dataset_name="iris",
+                evaluators="default",
+            )
+
+        run_data = get_run_data(run.info.run_id)
+        duplicate_metrics = []
+        for evaluate_metric_key in result.metrics.keys():
+            matched_keys = [k for k in run_data.metrics.keys() if k.startswith(evaluate_metric_key)]
+            if len(matched_keys) > 1:
+                duplicate_metrics += matched_keys
+        assert duplicate_metrics == []
+    finally:
+        mlflow.sklearn.autolog(disable=True)
+
+
+@pytest.mark.parametrize(
+    "model",
+    [LogisticRegression(), LinearRegression()],
+)
+def test_post_training_metrics_autologging_is_disabled_in_evaluate(model):
+    mlflow.sklearn.autolog()
+    try:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+            model_info = mlflow.sklearn.log_model(model, "model")
+            result = evaluate(
+                model_info.model_uri,
+                X.assign(target=y),
+                model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
                 targets="target",
                 dataset_name="iris",
                 evaluators="default",
