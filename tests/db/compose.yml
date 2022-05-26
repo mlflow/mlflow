@@ -8,6 +8,8 @@ services:
     working_dir: /mlflow/home
     entrypoint: /mlflow/home/tests/db/entrypoint.sh
     command: pytest tests/db
+    environment:
+      PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
 
   postgresql:
     image: postgres
