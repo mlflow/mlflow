@@ -255,9 +255,10 @@ def run(
                      If ``None``, the MLflow Run name is left unset.
     :param env_manager: Specify an environment manager to create a new environment for the run and
                         install project dependencies within that environment. The following values
-                        are suppported:
+                        are supported:
 
-                        - local: use the local environment
+                        - local: Deprecated. Use 'None' instead.
+                        - None: use the local environment
                         - conda: use conda
                         - virtualenv: use virtualenv (and pyenv for Python version management)
 
@@ -315,9 +316,9 @@ def run(
             FutureWarning,
             stacklevel=2,
         )
-        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.LOCAL
+        env_manager = _EnvManager.CONDA if use_conda else _EnvManager.NONE
     elif env_manager is not None:
-        _EnvManager.validate(env_manager)
+        env_manager = _EnvManager.resolve(env_manager)
 
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)

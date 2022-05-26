@@ -980,7 +980,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                            that was used to train the model.
                          - ``virtualenv``: Use virtualenv to restore the python environment that
                            was used to train the model.
-                         - ``local``: Use the current Python environment for model inference, which
+                        - ``local``: DEPRECATED. Use ``None`` instead.
+                        - ``None``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
 
@@ -1003,7 +1004,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
-    _EnvManager.validate(env_manager)
+    env_manager = _EnvManager.resolve(env_manager)
 
     # Check whether spark is in local or local-cluster mode
     # this case all executors and driver share the same filesystem
@@ -1034,7 +1035,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         artifact_uri=model_uri, output_path=_create_model_downloading_tmp_dir(should_use_nfs)
     )
 
-    if env_manager == _EnvManager.LOCAL:
+    if env_manager == _EnvManager.NONE:
         # Assume spark executor python environment is the same with spark driver side.
         _warn_dependency_requirement_mismatches(local_model_path)
         _logger.warning(
@@ -1070,7 +1071,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
         # "capture_output=False" is the output will be printed immediately, otherwise you have
         # to wait conda command fail and suddenly get all output printed (included in error
         # message).
-        if env_manager != _EnvManager.LOCAL:
+        if env_manager != _EnvManager.NONE:
             _get_flavor_backend(
                 local_model_path,
                 env_manager=env_manager,
@@ -1165,7 +1166,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
 
         scoring_server_proc = None
 
-        if env_manager != _EnvManager.LOCAL:
+        if env_manager != _EnvManager.NONE:
             if should_use_spark_to_broadcast_file:
                 local_model_path_on_executor = _SparkDirectoryDistributor.get_or_extract(
                     archive_path
@@ -1246,7 +1247,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
             def batch_predict_fn(pdf):
                 return client.invoke(pdf)
 
-        elif env_manager == _EnvManager.LOCAL:
+        elif env_manager == _EnvManager.NONE:
             if should_use_spark_to_broadcast_file:
                 loaded_model, _ = SparkModelCache.get_or_load(archive_path)
             else:

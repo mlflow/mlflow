@@ -74,11 +74,11 @@ def _resolve_env_manager(ctx, _, env_manager):
             FutureWarning,
             stacklevel=2,
         )
-        return _EnvManager.LOCAL
+        return _EnvManager.NONE
 
     # Only `--env-manager` is specified
     if env_manager is not None:
-        _EnvManager.validate(env_manager)
+        env_manager = _EnvManager.resolve(env_manager)
         if env_manager == _EnvManager.VIRTUALENV:
             warnings.warn(
                 (

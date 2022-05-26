@@ -76,7 +76,7 @@ class PyFuncBackend(FlavorBackend):
                 env_root_dir=self._env_root_dir,
                 capture_output=capture_output,
             )
-        elif self._env_manager == _EnvManager.LOCAL or ENV not in self._config:
+        elif self._env_manager == _EnvManager.NONE or ENV not in self._config:
             return 0
 
         conda_env_path = os.path.join(local_path, self._config[ENV])
@@ -268,7 +268,7 @@ class PyFuncBackend(FlavorBackend):
             return child_proc
 
     def can_score_model(self):
-        if self._env_manager == _EnvManager.LOCAL:
+        if self._env_manager == _EnvManager.NONE:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = get_conda_bin_executable("conda")

@@ -54,7 +54,7 @@ def _env_type_to_env_manager(env_typ):
     elif env_typ == env_type.PYTHON:
         return _EnvManager.VIRTUALENV
     elif env_typ == env_type.DOCKER:
-        return _EnvManager.LOCAL
+        return _EnvManager.NONE
 
 
 class LocalBackend(AbstractBackend):
