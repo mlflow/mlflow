@@ -28,6 +28,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    PROTOBUF_REQUIREMENT,
 )
 
 
@@ -548,7 +549,7 @@ def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(model, artifact_path)
+        mlflow.paddle.log_model(model, artifact_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(

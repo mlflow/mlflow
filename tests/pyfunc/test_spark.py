@@ -29,6 +29,7 @@ from collections import namedtuple
 from sklearn.neighbors import KNeighborsClassifier
 
 from pyspark.sql.functions import pandas_udf
+from tests.helper_functions import PROTOBUF_REQUIREMENT
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -182,6 +183,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
             "pandas==1.3.0",
             f"scikit-learn=={sklearn_version}",
             "pytest==6.2.5",
+            PROTOBUF_REQUIREMENT,
         ],
     )
 
@@ -195,7 +197,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
 def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model_path, env_manager):
     model, inference_data = sklearn_model
 
-    mlflow.sklearn.save_model(model, model_path)
+    mlflow.sklearn.save_model(model, model_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
     expected_pred_result = model.predict(inference_data)
 
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
@@ -406,7 +408,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
-    mlflow.sklearn.save_model(sklearn_model.model, model_path)
+    mlflow.sklearn.save_model(
+        sklearn_model.model, model_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+    )
 
     server_port = 51234
     timeout = 60
