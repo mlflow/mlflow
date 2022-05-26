@@ -9,13 +9,13 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.1.1"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.1.1"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -62,7 +62,7 @@ tensorflow:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.1"
     requirements:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
@@ -77,7 +77,7 @@ tensorflow:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.1"
     requirements:
       "== dev": ["scikit-learn"]
     run: |
@@ -93,7 +93,7 @@ keras:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       "<= 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow", "transformers<=4.11.3"]
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
@@ -103,7 +103,7 @@ keras:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -166,7 +166,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.5"
+    maximum: "1.0.6"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -179,7 +179,7 @@ gluon:
 
   models:
     minimum: "1.5.1"
-    maximum: "1.9.0"
+    maximum: "1.9.1"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -189,7 +189,7 @@ gluon:
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.9.0"
+    maximum: "1.9.1"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py --large
