@@ -230,7 +230,7 @@ class TrackingServiceClient:
 
     def log_param(self, run_id, key, value):
         """
-        Log a parameter against the run ID.
+        Log a parameter against the run ID. Value is converted to a string.
         """
         param = Param(key, str(value))
         try:
