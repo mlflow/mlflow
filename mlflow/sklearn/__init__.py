@@ -754,7 +754,7 @@ class _AutologgingMetricsManager:
         :param metric_fn: metric function.
         :param call_pos_args: the positional arguments of the metric function call. If `metric_fn`
           is instance method, then the `call_pos_args` should exclude the first `self` argument.
-        :param call_kwargs: the keyword arguments ofthe metric function call.
+        :param call_kwargs: the keyword arguments of the metric function call.
         """
 
         arg_list = []

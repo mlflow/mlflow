@@ -255,7 +255,7 @@ def run(
                      If ``None``, the MLflow Run name is left unset.
     :param env_manager: Specify an environment manager to create a new environment for the run and
                         install project dependencies within that environment. The following values
-                        are suppported:
+                        are supported:
 
                         - local: use the local environment
                         - conda: use conda
