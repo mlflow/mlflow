@@ -36,7 +36,8 @@ and will typically be labeled during triage with ``needs design``.
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
 <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-mlflow>`_)
-as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+as a pull request against the MLflow Repository (we recommend pull requests be filed from a
+non-master branch on a repository fork) or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
