@@ -1,4 +1,4 @@
-<!-- 🚨 We recommend pull requests be filed from a non-master branch on a repository fork 🚨 -->
+<!-- 🚨 We recommend pull requests be filed from a non-master branch (e.g. <username>:fix-xxx) on a repository fork 🚨 -->
 
 ## Related Issues/PRs
 
