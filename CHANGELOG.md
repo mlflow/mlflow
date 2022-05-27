@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 1.26.1 (2022-05-27)
+
+MLflow 1.26.1 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+- Fix `get_model_dependencies` to support models URI containing artifact path (#5921, @harupy)
+
+Small bug fixes and doc updates (#5874, #5942, #5941, #5940, #5938, #5945, @harupy; #5891, @kyle-jarvis; #5893, @PrajwalBorkar; #5909, @yashaswikakumanu; #5900, @WeichenXu123; #5937, @BenWilson2)
+
 ## 1.26.0 (2022-05-16)
 
 MLflow 1.26.0 includes several major features and improvements:
