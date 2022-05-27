@@ -87,7 +87,7 @@ def test_registry_instance_loads_entrypoints():
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register the
-        # entrypoint given by the mocked extrypoints.get_group_all
+        # entrypoint given by the mocked entrypoints.get_group_all
         reload(mlflow.tracking.default_experiment.registry)
 
     assert MockRunContext in _currently_registered_default_experiment_provider_classes()

@@ -765,7 +765,7 @@ def autolog(
 
         **Limitations**
           - MLflow cannot find run information for other objects derived from a given prediction
-            result (e.g. by doing some tranformation on the prediction result dataset).
+            result (e.g. by doing some transformation on the prediction result dataset).
 
       **Artifacts**
         - An MLflow Model with the :py:mod:`mlflow.spark` flavor containing a fitted estimator

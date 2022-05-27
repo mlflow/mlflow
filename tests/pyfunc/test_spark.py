@@ -72,7 +72,7 @@ def get_spark_session(conf):
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
-    # which make debug easiser.
+    # which make debug easier.
     spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)

@@ -502,13 +502,13 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         metadata = _gen_estimator_metadata(estimator)
         assert metadata.hierarchy == estimator_info["hierarchy"]
 
-        param_search_estiamtor_info = estimator_info[
+        param_search_estimator_info = estimator_info[
             metadata.uid_to_indexed_name_map[estimator.uid]
         ]
-        assert param_search_estiamtor_info[
+        assert param_search_estimator_info[
             "tuned_estimator_parameter_map"
         ] == _get_instance_param_map_recursively(lr, 1, metadata.uid_to_indexed_name_map)
-        assert param_search_estiamtor_info["tuning_parameter_map_list"] == _get_tuning_param_maps(
+        assert param_search_estimator_info["tuning_parameter_map_list"] == _get_tuning_param_maps(
             estimator, metadata.uid_to_indexed_name_map
         )
 
