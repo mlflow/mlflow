@@ -21,9 +21,9 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
-  pip install . --upgrade
+  pip install . --upgrade --use-deprecated=legacy-resolver
 else
-  pip install .[extras] --upgrade
+  pip install .[extras] --upgrade --use-deprecated=legacy-resolver
 fi
 export MLFLOW_HOME=$(pwd)
 
@@ -40,7 +40,7 @@ if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
     tmp_dir=$(mktemp -d)
     pip download --no-deps --dest $tmp_dir --no-cache-dir prophet
     tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
-    pip install -r $(find $tmp_dir -name requirements.txt)
+    pip install -r $(find $tmp_dir -name requirements.txt) --use-deprecated=legacy-resolver
     rm -rf $tmp_dir
   fi
 
@@ -48,11 +48,11 @@ if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
 fi
 
 if [[ ! -z $req_files ]]; then
-  retry-with-backoff pip install $req_files
+  retry-with-backoff pip install $req_files --use-deprecated=legacy-resolver
 fi
 
 # Install `mlflow-test-plugin` without dependencies
-pip install --no-dependencies tests/resources/mlflow-test-plugin
+pip install --no-dependencies tests/resources/mlflow-test-plugin --use-deprecated=legacy-resolver
 
 # Print current environment info
 python dev/show_package_release_dates.py
