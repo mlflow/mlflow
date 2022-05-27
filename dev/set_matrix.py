@@ -17,7 +17,7 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
 
 CHANGED_FILES="
 mlflow/keras.py
-mlflow/tensorlfow/__init__.py
+mlflow/tensorflow/__init__.py
 "
 python dev/set_matrix.py --changed-files $CHANGED_FILES
 

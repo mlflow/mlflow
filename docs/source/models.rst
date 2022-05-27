@@ -550,7 +550,7 @@ dictionary mapping the tensor name to its np.ndarray value. Schema enforcement w
 shape and type against the shape and type specified in the model's schema and throw an error if they do not match.
 
 For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
-propogate any errors raised by the model if the model does not accept the provided input type.
+propagate any errors raised by the model if the model does not accept the provided input type.
 
 
 The python environment that a PyFunc model is loaded into for prediction or inference may differ from the environment
@@ -1689,7 +1689,7 @@ Deployments can be generated using both the Python API or MLflow CLI. In both ca
   * Click "View all properties in Azure Portal" on the pane popup.
   * Copy the ``MLflow tracking URI`` value from the properties section.
 
-* Programmatically, using Azure ML SDK with the method `Woskspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instace, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Programmatically, using Azure ML SDK with the method `Workspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute, like for instance a Compute Instance, you can get this value also from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
 * Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
 
 
@@ -1721,7 +1721,7 @@ Remarks:
     }
 
 Remarks:
-  * In above exmaple, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
+  * In above example, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
 
 The following examples show how to create a deployment in ACI. Please, ensure you have `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ installed before continuing.
 

@@ -24,7 +24,7 @@ and stores (logs) them as MLflow artifacts.
 * `sklearn_elasticnet_wine_quality` is an example for MLflow projects. This uses the Wine
    Quality dataset and Elastic Net to predict quality. The example uses `MLproject` to set up a
    Conda environment, define parameter types and defaults, entry point for training, etc.
-* `sklearn_logisic_regression` is a simple MLflow example with hooks to log training data to MLflow
+* `sklearn_logistic_regression` is a simple MLflow example with hooks to log training data to MLflow
 tracking server.
 * `supply_chain_security` shows how to strengthen the security of ML projects against supply-chain attacks by enforcing hash checks on Python packages.
 * `tensorflow` contains end-to-end one run examples from train to predict for both TensorFlow 1.X and 2.0. It includes usage of MLflow's

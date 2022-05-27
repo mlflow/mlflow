@@ -482,8 +482,8 @@ def autolog(
         """
         try:
             superclass = inspect.getmro(klass)[1]
-            overriden = getattr(klass, function_name) is not getattr(superclass, function_name)
-            return overriden
+            overridden = getattr(klass, function_name) is not getattr(superclass, function_name)
+            return overridden
         except (IndexError, AttributeError):
             return False
 

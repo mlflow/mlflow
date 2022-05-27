@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to
+recommend waiting for feedback from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
