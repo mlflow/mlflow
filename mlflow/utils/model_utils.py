@@ -121,11 +121,9 @@ def _add_code_to_system_path(code_path):
     sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
     # Delete cached modules so they will get reloaded anew from the correct code path
     # Otherwise python will use the cached modules
-    modules = []
-    for path in [code_path] + _get_code_dirs(code_path):
-        modules += [
-            p.stem for p in Path(path).rglob("*.py") if p.is_file() and p.name != "__init__.py"
-        ]
+    modules = [
+        p.stem for p in Path(code_path).rglob("*.py") if p.is_file() and p.name != "__init__.py"
+    ]
     for module in modules:
         sys.modules.pop(module, None)
 
