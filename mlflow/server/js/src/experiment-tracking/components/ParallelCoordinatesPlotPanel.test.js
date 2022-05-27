@@ -7,10 +7,10 @@ import { Empty } from 'antd';
 describe('unit tests', () => {
   let wrapper;
   let instance;
-  let minimumProps;
+  let mininumProps;
 
   beforeEach(() => {
-    minimumProps = {
+    mininumProps = {
       runUuids: ['runUuid_0', 'runUuid_1'],
       diffParamKeys: ['param_0', 'param_1'],
       sharedMetricKeys: ['metric_0', 'metric_1'],
@@ -20,12 +20,12 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotPanel {...minimumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render empty component when no dimension is selected', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotPanel {...minimumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps} />);
     instance = wrapper.instance();
     expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(1);
     expect(wrapper.find(Empty)).toHaveLength(0);
