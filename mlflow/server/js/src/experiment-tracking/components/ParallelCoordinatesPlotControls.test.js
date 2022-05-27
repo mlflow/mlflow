@@ -4,10 +4,10 @@ import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotContro
 
 describe('unit tests', () => {
   let wrapper;
-  let mininumProps;
+  let minimumProps;
 
   beforeEach(() => {
-    mininumProps = {
+    minimumProps = {
       paramKeys: ['param_0', 'param_1'],
       metricKeys: ['metric_0', 'metric_1'],
       selectedParamKeys: ['param_0', 'param_1'],
@@ -18,7 +18,7 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotControls {...mininumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotControls {...minimumProps} />);
     expect(wrapper.length).toBe(1);
   });
 });

@@ -11,10 +11,10 @@ import {
 describe('unit tests', () => {
   let wrapper;
   let instance;
-  let mininumProps;
+  let minimumProps;
 
   beforeEach(() => {
-    mininumProps = {
+    minimumProps = {
       runUuids: ['runUuid_0', 'runUuid_1'],
       paramKeys: ['param_0', 'param_1'],
       metricKeys: ['metric_0', 'metric_1'],
@@ -46,7 +46,7 @@ describe('unit tests', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...minimumProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -76,7 +76,7 @@ describe('unit tests', () => {
   });
 
   test('maybeUpdateStateForColorScale should trigger setState when last metric change', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...minimumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
     instance.setState = jest.fn();
@@ -85,7 +85,7 @@ describe('unit tests', () => {
   });
 
   test('maybeUpdateStateForColorScale should not trigger setState when last metric stays', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...minimumProps} />);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
     instance.setState = jest.fn();
@@ -276,7 +276,7 @@ describe('unit tests', () => {
   });
 
   test('getColorScaleConfigsForDimension', () => {
-    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps} />);
+    wrapper = shallow(<ParallelCoordinatesPlotView {...minimumProps} />);
     instance = wrapper.instance();
     const dimension = {
       label: 'metric_0',
