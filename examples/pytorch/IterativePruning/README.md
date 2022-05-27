@@ -1,6 +1,6 @@
 ## Iterative Pruning
 Pruning is the process of compressing a neural network that involves removing weights from a trained model.
-Pruning techniques include removing the neurons within a specific layer, or setting the weights of connectons that are already near zero to zero. This script applies the latter technique.
+Pruning techniques include removing the neurons within a specific layer, or setting the weights of connections that are already near zero to zero. This script applies the latter technique.
 Pruning a model reduces its size, at the cost of worsened model accuracy.
 
 For more information check - [Pytorch Pruning Tutorial](https://pytorch.org/tutorials/intermediate/pruning_tutorial.html)
