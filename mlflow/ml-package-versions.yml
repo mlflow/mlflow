@@ -405,3 +405,6 @@ protobuf:
     run: |
       pip install --no-dependencies tests/resources/mlflow-test-plugin
       pytest tests/tracking --quiet --requires-ssh --ignore-flavors
+
+      export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+      pytest tests/tracking --quiet --requires-ssh --ignore-flavors
