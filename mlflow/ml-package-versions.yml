@@ -394,3 +394,13 @@ diviner:
     maximum: "0.1.0"
     run: |
       pytest tests/diviner/test_diviner_model_export.py
+
+protobuf:
+  package_info:
+    pip_release: "protobuf"
+
+  models:
+    minimum: "3.12.0"
+    maximum: "4.21.1"
+    run: |
+      pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples
