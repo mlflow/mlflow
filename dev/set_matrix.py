@@ -254,17 +254,18 @@ def process_requirements(requirements, version=None):
     if requirements is None:
         return []
 
-    if not isinstance(requirements, dict):
-        raise TypeError(
-            f"Invalid object type for `requirements`: '{type(requirements)}'. It must be dict."
-        )
+    if isinstance(requirements, list):
+        return requirements
 
-    reqs = set()
-    for specifier, packages in requirements.items():
-        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-            reqs = reqs.union(packages)
-    return sorted(reqs)
+    if isinstance(requirements, dict):
+        reqs = set()
+        for specifier, packages in requirements.items():
+            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+                reqs = reqs.union(packages)
+        return sorted(reqs)
+
+    raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
 
 def remove_comments(s):
