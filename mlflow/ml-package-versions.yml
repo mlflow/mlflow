@@ -403,4 +403,5 @@ protobuf:
     minimum: "3.12.0"
     maximum: "4.21.1"
     run: |
+      pip install --no-dependencies tests/resources/mlflow-test-plugin
       pytest tests/tracking --quiet --requires-ssh --ignore-flavors
