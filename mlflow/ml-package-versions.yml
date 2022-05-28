@@ -403,4 +403,4 @@ protobuf:
     minimum: "3.12.0"
     maximum: "4.21.1"
     run: |
-      pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples
+      pytest tests/tracking --quiet --requires-ssh --ignore-flavors
