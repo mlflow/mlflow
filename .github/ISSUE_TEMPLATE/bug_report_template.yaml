@@ -4,16 +4,7 @@ labels: 'bug'
 title: '[BUG]'
 
 body:
-  - No. I cannot contribute a bug fix at this time.
-     validations:
-       required: true
-  
-  - type: input
-    validations:
-      required: true
-    attributes:
-      label: MLflow version
-      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+
   - type: markdown
     attributes:
       value: |
@@ -30,6 +21,14 @@ body:
         - No. I cannot contribute a bug fix at this time.
     validations:
       required: true
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: MLflow version
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+      
   - type: textarea
     attributes:
       label: System information
