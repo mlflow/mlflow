@@ -14,11 +14,10 @@ Please reference any related feature requests, issues, or PRs here. For example,
 <!--
 If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask. We'd be happy to help.
 -->
-- [ ] I've written tests for this PR using an MLflow-adopted testing framework (`pytest` for Python, `JUnit` for Java, `testthat` for R, or `jest` for JavaScript).
-- [ ] I've manually confirmed the proposed changes work properly.
+- [ ] I have written tests (not required for typo or doc fix) and confirmed the proposed feature/bug-fix/change works.
 
 <!--
-Please describe how you manually confirmed the proposed changes work properly. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
+Please describe how you confirmed the proposed feature/bug-fix/change works. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
 -->
 
 ## Does this PR change the documentation?
