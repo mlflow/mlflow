@@ -17,7 +17,7 @@ If you're unsure about what to test, where to add tests, or how to run tests, pl
 - [ ] I have written tests (not required for typo or doc fix) and confirmed the proposed feature/bug-fix/change works.
 
 <!--
-Please describe how you confirmed the proposed feature/bug-fix/change works. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
+Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
 -->
 
 ## Does this PR change the documentation?
