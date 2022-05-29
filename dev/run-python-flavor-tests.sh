@@ -12,4 +12,4 @@ pytest \
   tests/paddle \
   tests/tracking/fluent/test_fluent_autolog.py \
   tests/autologging \
-  tests/test_mlflow_lazily_imports_ml_packages.py \
+  tests/test_mlflow_lazily_imports_ml_packages.py
