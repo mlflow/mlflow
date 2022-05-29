@@ -25,7 +25,7 @@ import pytest
         "xgboost",
     ),
 )
-def test_mlflow_lazily_imports_ml_package(package):
+def test_mlflow_lazily_imports_ml_packages(package):
     # Ensure the package is importable
     __import__(package)
 
