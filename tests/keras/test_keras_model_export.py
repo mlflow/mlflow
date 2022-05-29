@@ -675,7 +675,12 @@ def test_pyfunc_serve_and_score_transformers():
     model.compile()
 
     with mlflow.start_run():
-        mlflow.keras.log_model(model, artifact_path="model", keras_module=tf.keras)
+        mlflow.keras.log_model(
+            model,
+            artifact_path="model",
+            keras_module=tf.keras,
+            extra_pip_requirements=extra_pip_requirements,
+        )
         model_uri = mlflow.get_artifact_uri("model")
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
