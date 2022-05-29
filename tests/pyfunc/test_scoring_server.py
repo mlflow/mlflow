@@ -12,10 +12,7 @@ import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
