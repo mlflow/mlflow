@@ -20,22 +20,11 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore tests for model flavors.",
     )
-    parser.addoption(
-        "--lazy-import",
-        action="store_true",
-        dest="lazy_import",
-        default=False,
-        help=(
-            "Special flag that should be enabled when running "
-            "tests/test_mlflow_lazily_imports_ml_packages.py"
-        ),
-    )
 
 
 def pytest_configure(config):
     # Register markers to suppress `PytestUnknownMarkWarning`
     config.addinivalue_line("markers", "requires_ssh")
-    config.addinivalue_line("markers", "lazy_import")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
 
@@ -44,9 +33,6 @@ def pytest_runtest_setup(item):
     markers = [mark.name for mark in item.iter_markers()]
     if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
         pytest.skip("use `--requires-ssh` to run this test")
-
-    if "lazy_import" in markers and not item.config.getoption("--lazy-import"):
-        pytest.skip("use `--lazy-import` to run this test")
 
 
 @pytest.hookimpl(hookwrapper=True)
