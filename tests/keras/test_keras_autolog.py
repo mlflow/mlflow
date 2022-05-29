@@ -52,7 +52,7 @@ def create_model():
     model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
-        optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
+5        optimizer=keras.optimizers.Adam(learning_rate=0.001, epsilon=1e-07),
         loss="categorical_crossentropy",
         metrics=["acc"],
     )
