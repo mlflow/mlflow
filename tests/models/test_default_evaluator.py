@@ -327,18 +327,28 @@ def test_compute_df_mode_or_mean():
             "e": ["abc", "b", "abc"],
             "f": [1.5, 2.5, np.nan],
             "g": ["ab", "ab", None],
+            "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
         }
     )
     result = _compute_df_mode_or_mean(df)
-    assert result == {"a": 2, "b": 3, "c": 3.5, "d": True, "e": "abc", "f": 2.0, "g": "ab"}
+    assert result == {
+        "a": 2,
+        "b": 3,
+        "c": 3.5,
+        "d": True,
+        "e": "abc",
+        "f": 2.0,
+        "g": "ab",
+        "h": 2.0,
+    }
 
 
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
+    assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
-    assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
-    assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
-    assert _infer_model_type_by_labels(list(range(30))) is None
+    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) is "classifier"
+    assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
