@@ -2,6 +2,7 @@ from unittest import mock
 import pytest
 import cloudpickle
 import sklearn
+from sklearn.linear_model import LinearRegression
 from pathlib import Path
 
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
@@ -11,7 +12,6 @@ from tests.helper_functions import AnyStringWith
 from mlflow.exceptions import MlflowException
 
 
-@pytest.mark.large
 def test_warn_dependency_requirement_mismatches(tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write(f"cloudpickle=={cloudpickle.__version__}\nscikit-learn=={sklearn.__version__}\n")
@@ -149,7 +149,6 @@ scikit-learn==1.0.2"""
         get_model_dependencies(model_path, format="abc")
 
 
-@pytest.mark.large
 def test_get_model_dependencies_read_conda_file(tmp_path):
     MLmodel_file = tmp_path / "MLmodel"
     MLmodel_file.write_text(
@@ -216,3 +215,11 @@ dependencies:
 
     with pytest.raises(MlflowException, match="No pip section found in conda.yaml file"):
         get_model_dependencies(model_path, format="pip")
+
+
+def test_get_model_dependencies_with_model_version_uri():
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(LinearRegression(), "model", registered_model_name="linear")
+
+    deps = get_model_dependencies("models:/linear/1", format="pip")
+    assert f"scikit-learn=={sklearn.__version__}" in Path(deps).read_text()

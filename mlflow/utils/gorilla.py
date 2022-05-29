@@ -564,7 +564,7 @@ def find_patches(modules, recursive=True):
 
 
 def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
-    """Retrieve an overriden attribute that has been stored.
+    """Retrieve an overridden attribute that has been stored.
 
     Parameters
     ----------

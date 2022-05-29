@@ -141,12 +141,10 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             mlflow.end_run()
 
 
-@pytest.mark.large
 def test_models_save_load(tmpdir):
     _test_models_list(tmpdir, _test_model_save_load)
 
 
-@pytest.mark.large
 def test_models_log(tmpdir):
     _test_models_list(tmpdir, _test_model_log)
 
@@ -256,7 +254,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(statsmodels_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(tmpdir):
     ols = ols_model()
     # Path to a requirements file
@@ -288,7 +285,6 @@ def test_log_model_with_pip_requirements(tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(tmpdir):
     ols = ols_model()
     default_reqs = mlflow.statsmodels.get_default_pip_requirements()

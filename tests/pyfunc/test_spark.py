@@ -29,6 +29,7 @@ from collections import namedtuple
 from sklearn.neighbors import KNeighborsClassifier
 
 from pyspark.sql.functions import pandas_udf
+from tests.helper_functions import PROTOBUF_REQUIREMENT
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -71,7 +72,7 @@ def get_spark_session(conf):
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
-    # which make debug easiser.
+    # which make debug easier.
     spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
@@ -107,7 +108,6 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -182,6 +182,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
             "pandas==1.3.0",
             f"scikit-learn=={sklearn_version}",
             "pytest==6.2.5",
+            PROTOBUF_REQUIREMENT,
         ],
     )
 
@@ -195,7 +196,7 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
 def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model_path, env_manager):
     model, inference_data = sklearn_model
 
-    mlflow.sklearn.save_model(model, model_path)
+    mlflow.sklearn.save_model(model, model_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
     expected_pred_result = model.predict(inference_data)
 
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
@@ -347,7 +348,6 @@ def test_spark_udf_with_datetime_columns(spark):
         assert res["res"][0] == ["timestamp", "date"]
 
 
-@pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -398,7 +398,6 @@ def test_model_cache(spark, model_path):
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
-@pytest.mark.large
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager
@@ -406,7 +405,9 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.models.cli import _get_flavor_backend
 
-    mlflow.sklearn.save_model(sklearn_model.model, model_path)
+    mlflow.sklearn.save_model(
+        sklearn_model.model, model_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+    )
 
     server_port = 51234
     timeout = 60

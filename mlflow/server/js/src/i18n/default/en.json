@@ -323,6 +323,10 @@
     "defaultMessage": "Parameters",
     "description": "Label for the collapsible area to display the parameters used during the experiment run"
   },
+  "ClUzUX": {
+    "defaultMessage": "Run ID",
+    "description": "Label for displaying the ID of the experiment run"
+  },
   "CpLnGS": {
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"

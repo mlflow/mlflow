@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to
+recommend waiting for feedback from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -36,7 +36,8 @@ and will typically be labeled during triage with ``needs design``.
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
 <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-mlflow>`_)
-as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+as a pull request against the MLflow Repository (we recommend pull requests be filed from a
+non-master branch on a repository fork) or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
@@ -199,14 +200,14 @@ by running the following from your checkout of MLflow:
 
     conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
-    pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
+    pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
 
 If you plan on doing development and testing, you will also need to install the following into the conda environment:
 
 .. code-block:: bash
 
     pip install -r requirements/dev-requirements.txt
-    pip install -e .[extras]  # installs mlflow from current checkout
+    pip install -e '.[extras]'  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
@@ -402,32 +403,20 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 .. code-block:: bash
 
     ./dev/lint.sh
-    ./dev/run-small-python-tests.sh
-    # Optionally, run large tests as well. Github actions will run large tests on your pull request once
-    # small tests pass. Note: models and model deployment tests are considered "large" tests. If
-    # making changes to these components, we recommend running the relevant tests (e.g. tests under
-    # tests/keras for changes to Keras model support) locally before submitting a pull request.
-    ./dev/run-large-python-tests.sh
-
-Python tests are split into "small" & "large" categories, with new tests falling into the "small"
-category by default. Tests that take 10 or more seconds to run should be marked as large tests
-via the ``@pytest.mark.large`` annotation. Dependencies for small and large tests can be added to
-``requirements/small-requirements.txt`` and ``requirements/large-requirements.txt``, respectively.
+    ./dev/run-python-tests.sh
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
-``pytest [--large] [file_or_dir] ... [file_or_dir]``, where specifying ``--large`` tells pytest to
-run tests annotated with @pytest.mark.large. For example, to run all pyfunc tests
-(including large tests), you can run:
+``pytest [file_or_dir] ... [file_or_dir]``. For example, to run all pyfunc tests, you can run:
 
 .. code-block:: bash
 
-    pytest tests/pyfunc --large
+    pytest tests/pyfunc
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
 process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you'd like to
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
-``pytest tests/sklearn --large && pytest tests/tensorflow --large``
+``pytest tests/sklearn && pytest tests/tensorflow``
 
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
@@ -442,13 +431,12 @@ Python Model Flavors
 
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Github action configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
-1. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
-2. ``dev/run-large-python-tests.sh``:
+1. ``dev/run-python-tests.sh``:
 
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
+2. ``requirements/test-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 

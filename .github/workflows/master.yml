@@ -55,8 +55,7 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
@@ -89,32 +88,7 @@ jobs:
       run: |
         ./dev/run-python-skinny-tests.sh
 
-  python-small:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - uses: ./.github/actions/setup-python
-    - uses: ./.github/actions/setup-pyenv
-    - name: Install dependencies
-      env:
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      run: |
-        # Establish SSH to localhost for test_sftp_artifact_repo.py
-        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
-        ssh -v $(whoami)@localhost exit
-        export LOGNAME=$(whoami)
-
-        ./dev/run-small-python-tests.sh
-
-  python-large:
+  python:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -135,8 +109,7 @@ jobs:
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
@@ -144,7 +117,14 @@ jobs:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        ./dev/run-large-python-tests.sh
+        # Establish SSH to localhost for test_sftp_artifact_repo.py
+        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+        ssh $(whoami)@localhost exit
+        export LOGNAME=$(whoami)
+
+        ./dev/run-python-tests.sh
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
@@ -212,8 +192,10 @@ jobs:
         docker run --rm gen-protos protoc --version
     - name: Install dependencies
       run: |
-        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /usr
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
+        sudo unzip $HOME/protoc.zip -d /tmp/protoc
+        sudo chmod -R 777 /tmp/protoc
+        echo "/tmp/protoc/bin" >> $GITHUB_PATH
     - name: Run tests
       run: |
         ./dev/test-generate-protos.sh
@@ -239,8 +221,7 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -267,9 +248,6 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
@@ -278,7 +256,31 @@ jobs:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest tests/models --large
+          pytest tests/models
+
+  pyfunc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install keras tensorflow pyspark
+      - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest --durations=30 tests/pyfunc
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -294,8 +296,7 @@ jobs:
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -313,12 +314,16 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install python dependencies
         run: |
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
+          pip install pyspark
       - name: Run python tests
         run: |
-          pytest --ignore-flavors --ignore=tests/projects tests
-          pytest tests/pyfunc/test_virtualenv.py
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests

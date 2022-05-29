@@ -17,6 +17,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
   cancel-in-progress: true
 
+env:
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
+
 jobs:
   r:
     runs-on: ubuntu-latest
