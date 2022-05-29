@@ -26,11 +26,6 @@ import pytest
     ),
 )
 def test_mlflow_lazily_imports_ml_packages(package):
-    # Ensure the package is importable
-    __import__(package)
-
-    assert package in sys.modules
-
     cached_packages = list(sys.modules.keys())
     for pkg in cached_packages:
         if pkg.split(".")[0] == pkg:
