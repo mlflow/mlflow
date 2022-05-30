@@ -28,6 +28,26 @@ def _get_git_commit(path):
         return None
 
 
+def _get_git_branch_name(path):
+    try:
+        import git
+    except ImportError as e:
+        _logger.warning(
+            "Failed to import Git (the Git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s",
+            e,
+        )
+        return None
+    try:
+        if os.path.isfile(path):
+            path = os.path.dirname(path)
+        repo = git.Repo(path, search_parent_directories=True)
+        branch_name = repo.active_branch
+        return branch_name
+    except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
+        return None
+
+
 def _get_source_version():
     main_file = _get_main_file()
     if main_file is not None:

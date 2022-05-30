@@ -12,7 +12,7 @@ from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow import tracking
-from mlflow.tracking.context.git_context import _get_git_commit
+from mlflow.tracking.context.git_context import _get_git_commit, _get_git_branch_name
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.mlflow_tags import (
@@ -260,6 +260,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     else:
         source_name = _expand_uri(uri)
     source_version = _get_git_commit(work_dir)
+    branch_name_version = _get_git_branch_name(work_dir)
     existing_run = fluent.active_run()
     if existing_run:
         parent_run_id = existing_run.info.run_id
@@ -274,6 +275,9 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     }
     if source_version is not None:
         tags[MLFLOW_GIT_COMMIT] = source_version
+    if branch_name_version is not None:
+        tags[MLFLOW_GIT_BRANCH] = branch_name_version
+        tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = branch_name_version
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
