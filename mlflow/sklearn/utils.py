@@ -486,7 +486,6 @@ def _log_specialized_estimator_content(
     autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
 ):
     import sklearn
-    import matplotlib
 
     metrics = dict()
 
@@ -524,19 +523,24 @@ def _log_specialized_estimator_content(
             _logger.warning(msg)
             return
 
-        _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
-
-        with TempDir() as tmp_dir, matplotlib.rc_context(_matplotlib_config):
+        with TempDir() as tmp_dir:
             for artifact in artifacts:
                 try:
-                    display = artifact.function(**artifact.arguments)
-                    display.ax_.set_title(artifact.title)
-                    artifact_path = "{}.png".format(artifact.name)
-                    filepath = tmp_dir.path(artifact_path)
-                    display.figure_.savefig(fname=filepath, format="png")
+                    import matplotlib
                     import matplotlib.pyplot as plt
 
-                    plt.close(display.figure_)
+                    _matplotlib_config = {
+                        "savefig.dpi": 175,
+                        "figure.autolayout": True,
+                        "font.size": 8,
+                    }
+                    with matplotlib.rc_context(_matplotlib_config):
+                        display = artifact.function(**artifact.arguments)
+                        display.ax_.set_title(artifact.title)
+                        artifact_path = "{}.png".format(artifact.name)
+                        filepath = tmp_dir.path(artifact_path)
+                        display.figure_.savefig(fname=filepath, format="png")
+                        plt.close(display.figure_)
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
