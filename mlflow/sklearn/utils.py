@@ -541,10 +541,11 @@ def _log_specialized_estimator_content(
                         filepath = tmp_dir.path(artifact_path)
                         display.figure_.savefig(fname=filepath, format="png")
                         plt.close(display.figure_)
+                except ImportError as e:
+                    _log_warning_for_artifacts(artifact.name, artifact.function, e)
+                    break
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
-                    if isinstance(e, ImportError):
-                        break
 
             MlflowClient().log_artifacts(run_id, tmp_dir.path())
 
