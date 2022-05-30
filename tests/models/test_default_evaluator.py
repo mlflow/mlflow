@@ -362,12 +362,21 @@ def test_compute_df_mode_or_mean():
     )
     assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
 
+    # Test on dataframe that all columns are not continuous.
+    df2 = pd.DataFrame(
+        {
+            "d": [True, False, True],
+            "g": ["ab", "ab", None],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"d": True, "g": "ab"}
+
 
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
     assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
-    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) is "classifier"
+    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) == "classifier"
     assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 

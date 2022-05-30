@@ -24,7 +24,6 @@ import json
 from collections import namedtuple
 from typing import NamedTuple, Callable
 import tempfile
-import numbers
 import pandas as pd
 import numpy as np
 import copy
@@ -393,14 +392,13 @@ def _compute_df_mode_or_mean(df):
     mean value, this function calls `_is_continuous` to determine whether the
     column is continuous column.
     """
-    df_cols = df.columns.tolist()
-    continuous_cols = [c for c in df_cols if _is_continuous(df[c])]
-    means = df[continuous_cols].mean().to_dict()
-    if continuous_cols == df_cols:
-        return means
-    else:
-        modes = df.drop(continuous_cols, axis=1).mode().loc[0].to_dict()
-        return {**means, **modes}
+    continuous_cols = [c for c in df.columns if _is_continuous(df[c])]
+    df_cont = df[continuous_cols]
+    df_non_cont = df.drop(continuous_cols, axis=1)
+
+    means = {} if df_cont.empty else df_cont.mean().to_dict()
+    modes = {} if df_non_cont.empty else df_non_cont.mode().loc[0].to_dict()
+    return {**means, **modes}
 
 
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
@@ -590,8 +588,8 @@ class DefaultEvaluator(ModelEvaluator):
                     and not is_multinomial_classifier
                     and not isinstance(self.raw_model, sk_Pipeline)
                 ):
-                    # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
-                    # raw model, this case shap plot doesn't support it well, so exclude the
+                    # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer
+                    # for raw model, this case shap plot doesn't support it well, so exclude the
                     # multinomial_classifier case here.
                     explainer = shap.Explainer(
                         self.raw_model, sampled_X, feature_names=truncated_feature_names
