@@ -1,23 +1,14 @@
-# If test test script is run after other test script that imports ML packages in the same pytest
-# session, this test script fails. As a workaround, this test script needs to be run in a separate
-# pytest session with the following command:
-# $ pytest tests/test_mlflow_lazily_imports_ml_packages.py --lazy-import
 import sys
 
 import pytest
 
 
-def _get_loaded_packages():
-    return {k.split(".")[0] for k in sys.modules.keys()}
-
-
-# Run this test only when the `--lazy-import` flag is specified
-@pytest.mark.lazy_import
-def test_mlflow_lazily_import_ml_packages():
-    ml_packages = {
+@pytest.mark.parametrize(
+    "package",
+    (
         "catboost",
         "fastai",
-        "gluon",
+        "mxnet",
         "h2o",
         "keras",
         "lightgbm",
@@ -32,12 +23,18 @@ def test_mlflow_lazily_import_ml_packages():
         "tensorflow",
         "torch",
         "xgboost",
-    }
+    ),
+)
+def test_mlflow_lazily_imports_ml_packages(package):
+    cached_packages = list(sys.modules.keys())
+    for pkg in cached_packages:
+        if pkg.split(".")[0] == pkg:
+            sys.modules.pop(package, None)
 
-    # Ensure ML packages are not loaded before importing mlflow
-    assert _get_loaded_packages().intersection(ml_packages) == set()
+    # Ensure the package is not loaded
+    assert package not in sys.modules
 
     import mlflow  # pylint: disable=unused-import
 
-    # Ensure ML packages are not loaded after importing mlflow
-    assert _get_loaded_packages().intersection(ml_packages) == set()
+    # Ensure mlflow didn't load the package
+    assert package not in sys.modules
