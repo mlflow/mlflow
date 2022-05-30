@@ -659,6 +659,10 @@ produced by :py:func:`mlflow.pytorch.save_model()` and :py:func:`mlflow.pytorch.
 the ``python_function`` flavor, allowing you to load them as generic Python functions for inference
 via :py:func:`mlflow.pyfunc.load_model()`.
 
+.. note::
+    In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
+    logging multiple copies of the same model.
+
 For more information, see :py:mod:`mlflow.pytorch`.
 
 Scikit-learn (``sklearn``)
