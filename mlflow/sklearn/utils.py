@@ -543,6 +543,8 @@ def _log_specialized_estimator_content(
                         plt.close(display.figure_)
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
+                    if isinstance(e, ImportError):
+                        break
 
             MlflowClient().log_artifacts(run_id, tmp_dir.path())
 
