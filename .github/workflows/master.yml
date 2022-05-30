@@ -53,6 +53,7 @@ jobs:
     - name: Add problem matchers
       run: |
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
+        echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
       env:
         INSTALL_ML_DEPENDENCIES: true
