@@ -193,7 +193,6 @@ def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_signature_and_examples_are_saved_correctly(sequential_model, data):
     model = sequential_model
@@ -214,7 +213,6 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model(sequential_model, data, sequential_predicted):
     try:
@@ -264,7 +262,6 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -292,7 +289,6 @@ def test_raise_exception(sequential_model):
             mlflow.pytorch.load_model(path)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
     mlflow.pytorch.save_model(sequential_model, model_path)
@@ -308,7 +304,6 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_pyfunc_model_works_with_np_input_type(
     sequential_model, model_path, data, sequential_predicted
@@ -339,7 +334,6 @@ def test_pyfunc_model_works_with_np_input_type(
         pyfunc_loaded.predict(4)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_from_remote_uri_succeeds(
     sequential_model, model_path, mock_s3_bucket, data, sequential_predicted
@@ -356,7 +350,6 @@ def test_load_model_from_remote_uri_succeeds(
     np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
@@ -377,7 +370,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
@@ -390,7 +382,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [False])
 def test_save_model_with_pip_requirements(sequential_model, tmpdir):
     # Path to a requirements file
@@ -417,7 +408,6 @@ def test_save_model_with_pip_requirements(sequential_model, tmpdir):
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [False])
 def test_save_model_with_extra_pip_requirements(sequential_model, tmpdir):
     default_reqs = mlflow.pytorch.get_default_pip_requirements()
@@ -448,7 +438,6 @@ def test_save_model_with_extra_pip_requirements(sequential_model, tmpdir):
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.get_default_conda_env())
@@ -464,7 +453,6 @@ def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, pytorch_custom_env
@@ -494,7 +482,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_requirements_in_mlflow_model_directory(
     sequential_model, pytorch_custom_env
@@ -516,7 +503,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model, model_path
@@ -525,7 +511,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.pytorch.get_default_pip_requirements())
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model,
@@ -538,7 +523,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
@@ -568,7 +552,6 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
     )
 
 
-@pytest.mark.large
 def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_conda_env(
     module_scoped_subclassed_model, model_path, data
 ):
@@ -604,7 +587,6 @@ def test_save_model_with_wrong_codepaths_fails_correctly(
         )
 
 
-@pytest.mark.large
 def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
     main_scoped_subclassed_model, model_path, data
 ):
@@ -630,7 +612,6 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     )
 
 
-@pytest.mark.large
 def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     module_scoped_subclassed_model, model_path, data
 ):
@@ -687,7 +668,6 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     )
 
 
-@pytest.mark.large
 def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_time(
     module_scoped_subclassed_model, model_path
 ):
@@ -716,7 +696,6 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
     assert custom_pickle_module.__name__ in imported_modules
 
 
-@pytest.mark.large
 def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time(
     module_scoped_subclassed_model,
 ):
@@ -750,7 +729,6 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     assert custom_pickle_module.__name__ in imported_modules
 
 
-@pytest.mark.large
 def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
@@ -783,7 +761,6 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     )
 
 
-@pytest.mark.large
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
@@ -825,7 +802,6 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     )
 
 
-@pytest.mark.large
 def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     module_scoped_subclassed_model, model_path
 ):
@@ -841,7 +817,6 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         warn_mock.assert_any_call(mock.ANY, mlflow_pytorch_pickle_module.__name__, pickle.__name__)
 
 
-@pytest.mark.large
 def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     main_scoped_subclassed_model, model_path
 ):
@@ -865,7 +840,6 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
         mlflow.pytorch.load_model(model_uri=model_path)
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(data):
     model = torch.nn.Linear(4, 1)
     train_model(model=model, data=data)
@@ -884,7 +858,6 @@ def test_pyfunc_serve_and_score(data):
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
 
 
-@pytest.mark.large
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertModel, BertConfig  # pylint: disable=import-error
@@ -928,7 +901,6 @@ def create_requirements_file(tmpdir):
     return fp.strpath, test_string
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirements_file_log_model(create_requirements_file, sequential_model):
     requirements_file, content_expected = create_requirements_file
@@ -964,7 +936,6 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
                 assert fp.read() == content_expected
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirements_file_save_model(create_requirements_file, sequential_model):
     requirements_file, content_expected = create_requirements_file
@@ -1035,7 +1006,6 @@ def create_extra_files(tmpdir):
     return [fp1.strpath, fp2.strpath], ["1", "2"]
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
@@ -1063,7 +1033,6 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
                     assert fp.read() == content_expected
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_save_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
@@ -1132,7 +1101,6 @@ def state_dict_equal(state_dict1, state_dict2):
     return True
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_state_dict(sequential_model, model_path, data):
     state_dict = sequential_model.state_dict()
@@ -1149,7 +1117,6 @@ def test_save_state_dict(sequential_model, model_path, data):
     )
 
 
-@pytest.mark.large
 def test_save_state_dict_can_save_nested_state_dict(model_path):
     """
     This test ensures that `save_state_dict` supports a use case described in the page below
@@ -1168,14 +1135,12 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     optim.load_state_dict(loaded_state_dict["optim"])
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
 def test_save_state_dict_throws_for_invalid_object_type(not_state_dict, model_path):
     with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):
         mlflow.pytorch.save_state_dict(not_state_dict, model_path)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_state_dict(sequential_model, data):
     artifact_path = "model"
@@ -1195,7 +1160,6 @@ def test_log_state_dict(sequential_model, data):
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_with_code_paths(sequential_model):
     artifact_path = "model"

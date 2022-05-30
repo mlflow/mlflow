@@ -85,7 +85,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -110,7 +109,6 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     )
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data):
     data = iris_data
     signature_ = infer_signature(*data)
@@ -607,7 +605,6 @@ def test_tensor_schema_enforcement_no_col_names():
         pyfunc_model.predict(np.ndarray([]))
 
 
-@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -637,7 +634,6 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -667,7 +663,6 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     mlflow.end_run()
 
 
-@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(
         MlflowException, match="Either `loader_module` or `python_model` must be specified"
@@ -675,7 +670,6 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
         mlflow.pyfunc.save_model(path=model_path, data_path="/path/to/data")
 
 
-@pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(
         MlflowException, match="Either `loader_module` or `python_model` must be specified"
@@ -683,7 +677,6 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", data_path="/path/to/data")
 
 
-@pytest.mark.large
 def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_file
 ):
@@ -720,7 +713,6 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
 
-@pytest.mark.large
 def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
 ):
@@ -754,7 +746,6 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_dict
 
 
-@pytest.mark.large
 def test_log_model_persists_requirements_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
 ):
@@ -786,7 +777,6 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
     assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements
 
 
-@pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model, tmpdir
 ):

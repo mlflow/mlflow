@@ -16,9 +16,6 @@ from mlflow.utils.validation import (
 )
 
 
-pytestmark = pytest.mark.large
-
-
 def get_run_data(run_id):
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(run_id).data

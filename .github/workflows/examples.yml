@@ -69,8 +69,7 @@ jobs:
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
-        INSTALL_SMALL_PYTHON_DEPS: true
-        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
 
@@ -79,7 +78,7 @@ jobs:
       env:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        pytest tests/examples --durations=30 --large
+        pytest tests/examples --durations=30
 
     - name: Remove conda environments
       run: |

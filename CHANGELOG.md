@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 1.26.1 (2022-05-27)
+
+MLflow 1.26.1 is a patch release containing the following bug fixes:
+
+- [Installation] Fix compatibility issue with ``protobuf >= 4.21.0`` (#5945, @harupy)
+- [Models] Fix ``get_model_dependencies`` behavior for ``models:`` URIs containing artifact paths (#5921, @harupy)
+- [Models] Revert a problematic change to ``artifacts`` persistence in ``mlflow.pyfunc.log_model()`` that was introduced in MLflow 1.25.0 (#5891, @kyle-jarvis)
+- [Models] Close associated image files when ``EvaluationArtifact`` outputs from ``mlflow.evaluate()`` are garbage collected (#5900, @WeichenXu123)
+
+Small bug fixes and updates (#5874, #5942, #5941, #5940, #5938, @harupy; #5893, @PrajwalBorkar; #5909, @yashaswikakumanu; #5937, @BenWilson2)
+
 ## 1.26.0 (2022-05-16)
 
 MLflow 1.26.0 includes several major features and improvements:

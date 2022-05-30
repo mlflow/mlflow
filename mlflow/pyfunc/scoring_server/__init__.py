@@ -44,10 +44,7 @@ except ImportError:
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
