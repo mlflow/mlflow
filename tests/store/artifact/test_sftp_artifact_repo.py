@@ -196,3 +196,18 @@ def test_delete_selective_artifacts(artifact_path):
         assert not posixpath.exists(posixpath.join(remote_dir, file1))
         assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
         assert posixpath.isdir(remote_dir)
+
+
+def test_download_sklearn():
+    from mlflow import create_experiment, start_run, sklearn
+
+    with TempDir() as remote:
+        experiment_id = create_experiment(
+            name="sklearn-model-experiment", artifact_location=f"sftp://{remote.path()}"
+        )
+
+        with start_run(experiment_id=experiment_id):
+            original = {"not": "a", "real": "model"}
+            model_uri = sklearn.log_model(original, "model").model_uri
+            downloaded = sklearn.load_model(model_uri)
+            assert downloaded == original
