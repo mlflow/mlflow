@@ -190,8 +190,8 @@ def _gen_classifier_curve(
     Generate precision-recall curve or ROC curve for classifier.
     :param is_binomial: True if it is binary classifier otherwise False
     :param y: True label values
-    :param y_probs: if binary classifer, the predicted probability for positive class.
-                    if multiclass classiifer, the predicted probabilities for all classes.
+    :param y_probs: if binary classifier, the predicted probability for positive class.
+                    if multiclass classifier, the predicted probabilities for all classes.
     :param labels: The set of labels.
     :param curve_type: "pr" or "roc"
     :return: An instance of "_Curve" which includes attributes "plot_fn", "plot_fn_args", "auc".
@@ -516,7 +516,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
         else:
             if self.raw_model and not is_multinomial_classifier:
-                # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer for
+                # For multinomial classifier, shap.Explainer may choose Tree/Linear explainer for
                 # raw model, this case shap plot doesn't support it well, so exclude the
                 # multinomial_classifier case here.
                 explainer = shap.Explainer(
@@ -923,9 +923,10 @@ class DefaultEvaluator(ModelEvaluator):
                     f"verify that you set the `model_type` and `dataset` arguments correctly."
                 )
 
-            if model_type == "classifier":
-                return self._evaluate_classifier()
-            elif model_type == "regressor":
-                return self._evaluate_regressor()
-            else:
-                raise ValueError(f"Unsupported model type {model_type}")
+            with mlflow.utils.autologging_utils.disable_autologging():
+                if model_type == "classifier":
+                    return self._evaluate_classifier()
+                elif model_type == "regressor":
+                    return self._evaluate_regressor()
+                else:
+                    raise ValueError(f"Unsupported model type {model_type}")

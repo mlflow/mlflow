@@ -226,7 +226,6 @@ def test_http_request_server_cert_path(request):
     )
 
 
-@pytest.mark.large
 @mock.patch("requests.Session.request")
 def test_http_request_request_headers(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
@@ -252,7 +251,6 @@ def test_http_request_request_headers(request):
         )
 
 
-@pytest.mark.large
 @mock.patch("requests.Session.request")
 def test_http_request_request_headers_user_agent(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
@@ -289,7 +287,6 @@ def test_http_request_request_headers_user_agent(request):
         )
 
 
-@pytest.mark.large
 @mock.patch("requests.Session.request")
 def test_http_request_request_headers_user_agent_and_extra_header(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""

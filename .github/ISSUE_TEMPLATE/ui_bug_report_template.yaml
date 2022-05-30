@@ -21,6 +21,13 @@ body:
     validations:
       required: true
 
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: MLflow version
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+
   - type: textarea
     validations:
       required: true
@@ -30,7 +37,6 @@ body:
         Describe the system where you encountered the bug.
       value: |
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
-        - **MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`)**:
         - **Python version**:
         - **yarn version, if running the dev UI**:
 
@@ -48,7 +54,7 @@ body:
     attributes:
       label: Steps to reproduce the bug
       description: |
-        **Record** steps to reproduce the bug as a video or GIF and attach it here.
+        **Record steps to reproduce the bug as a video or GIF** (to eliminate ambiguity) and attach it here.
 
   - type: textarea
     attributes:
@@ -66,9 +72,9 @@ body:
 
   - type: textarea
     attributes:
-      label: Is the console panel showing errors relevant to the bug?
+      label: Is the console panel in DevTools showing errors relevant to the bug?
       description: |
-        If the console panel in your browser's DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text or a screenshot.
+        If the console panel in your browser's DevTools is showing errors (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 
         #### Instructions on how to use DevTools:
         - Chrome: [Chrome DevTools](https://developer.chrome.com/docs/devtools/)
@@ -77,12 +83,35 @@ body:
 
         ![console-panel](https://github.com/mlflow/mlflow/blob/master/.github/ISSUE_TEMPLATE/images/console-panel.png?raw=true)
         <p align="center">Console panel on Chrome</P>
+      placeholder: |
+        ```
+        TypeError: Cannot read properties of undefined (reading 'x')
+          at n.value (HomeView.js:33:22)
+          at za (react-dom.production.min.js:187:188)
+          at Za (react-dom.production.min.js:186:173)
+          at qs (react-dom.production.min.js:269:427)
+          at Tl (react-dom.production.min.js:250:347)
+        ```
 
   - type: textarea
     attributes:
-      label: Does the network panel contain failed requests relevant to the bug?
+      label: Does the network panel in DevTools contain failed requests relevant to the bug?
       description: |
-        If the network panel in your browser's DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, provide them as text or a screenshot.
+        If the network panel in your browser's DevTools contain failed requests (displayed in red) relevant to the bug as shown in the screenshot below, please provide them as text (preferred) or a screenshot.
 
         ![network-panel](https://github.com/mlflow/mlflow/blob/master/.github/ISSUE_TEMPLATE/images/network-panel.png?raw=true)
         <p align="center">Network panel on Chrome</P>
+      placeholder: |
+        ```
+        # Request URL
+        http://localhost:5000/ajax-api/2.0/preview/mlflow/xxx/yyy
+
+        # Status Code
+        400
+
+        # Payload
+        {"a": 0}
+
+        # Response
+        {"b": 1}
+        ```

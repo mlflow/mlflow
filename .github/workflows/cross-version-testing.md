@@ -62,7 +62,7 @@ sklearn:
 
     # [Required] `run` specifies a set of commands to run tests.
     run: |
-      pytest tests/sklearn/test_sklearn_model_export.py --large
+      pytest tests/sklearn/test_sklearn_model_export.py
 ```
 
 ## How do we determine which versions to test?

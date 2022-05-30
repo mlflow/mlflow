@@ -17,9 +17,6 @@ from tests.autologging.fixtures import test_mode_off, patch_destination
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
-pytestmark = pytest.mark.large
-
-
 @pytest.fixture
 def logger():
     return logging.getLogger(mlflow.__name__)
