@@ -48,9 +48,7 @@ def _is_categorical(values):
     Return True represent they are categorical, return False represent we cannot determine result.
     """
     dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    if dtype_name in ["category", "string", "boolean"]:
-        return True
-    return False
+    return dtype_name in ["category", "string", "boolean"]
 
 
 def _is_continuous(values):
@@ -59,9 +57,7 @@ def _is_continuous(values):
     Return True represent they are continous, return False represent we cannot determine result.
     """
     dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    if dtype_name.startswith("float"):
-        return True
-    return False
+    return dtype_name.startswith("float")
 
 
 def _infer_model_type_by_labels(labels):
@@ -397,17 +393,14 @@ def _compute_df_mode_or_mean(df):
     mean value, this function calls `_is_continuous` to determine whether the
     column is continuous column.
     """
-    continuous_cols = []
-    other_cols = []  # contains columns which are categorical columns or unknown type columns.
-    for col in df.columns:
-        if _is_continuous(df[col]):
-            continuous_cols.append(col)
-        else:
-            other_cols.append(col)
-
+    df_cols = df.columns.tolist()
+    continuous_cols = [c for c in df_cols if _is_continuous(df[c])]
     means = df[continuous_cols].mean().to_dict()
-    modes = df[other_cols].mode().loc[0].to_dict()
-    return {**means, **modes}
+    if continuous_cols == df_cols:
+        return means
+    else:
+        modes = df.drop(continuous_cols, axis=1).mode().loc[0].to_dict()
+        return {**means, **modes}
 
 
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
@@ -547,17 +540,17 @@ class DefaultEvaluator(ModelEvaluator):
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
         }
 
-        sampled_X = shap.sample(self.X, sample_rows, random_state=0)
-
-        if isinstance(sampled_X, pd.DataFrame):
+        if isinstance(self.X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
             # using feature_names argument value. So rename the dataframe column names.
-            sampled_X = sampled_X.rename(columns=truncated_feature_name_map, copy=False)
+            X_df = self.X.rename(columns=truncated_feature_name_map, copy=False)
         else:
-            # If sample_X is numpy array, convert to pandas dataframe.
-            sampled_X = pd.DataFrame(sampled_X, columns=truncated_feature_names)
+            # If X is numpy array, convert to pandas dataframe.
+            X_df = pd.DataFrame(self.X, columns=truncated_feature_names)
 
-        mode_or_mean_dict = _compute_df_mode_or_mean(self.X)
+        sampled_X = shap.sample(X_df, sample_rows, random_state=0)
+
+        mode_or_mean_dict = _compute_df_mode_or_mean(X_df)
         mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
         sampled_X = sampled_X.fillna(mode_or_mean_dict)
 
@@ -579,13 +572,7 @@ class DefaultEvaluator(ModelEvaluator):
                             "explainability_kernel_link config can only be set to 'identity' or "
                             f"'logit', but got '{kernel_link}'."
                         )
-                    background_X = shap.sample(self.X, sample_rows, random_state=3)
-                    if isinstance(background_X, pd.DataFrame):
-                        background_X = background_X.rename(
-                            columns=truncated_feature_name_map, copy=False
-                        )
-                    else:
-                        background_X = pd.DataFrame(background_X, columns=truncated_feature_names)
+                    background_X = shap.sample(X_df, sample_rows, random_state=3)
                     background_X = background_X.fillna(mode_or_mean_dict)
                     explainer = shap.KernelExplainer(
                         shap_predict_fn, background_X, link=kernel_link
@@ -642,7 +629,7 @@ class DefaultEvaluator(ModelEvaluator):
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
             #   for sklearn model, there is no `.save` method, so error will happen.
             _logger.warning(
-                f"Log explainer failed. Reason: {repr(e)}."
+                f"Logging explainer failed. Reason: {repr(e)}."
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)

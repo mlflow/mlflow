@@ -353,6 +353,15 @@ def test_compute_df_mode_or_mean():
         "h": 2.0,
     }
 
+    # Test on dataframe that all columns are continuous.
+    df2 = pd.DataFrame(
+        {
+            "c": [2.0, 2.0, 6.5],
+            "f": [1.5, 2.5, np.nan],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
+
 
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
