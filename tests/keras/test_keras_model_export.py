@@ -40,6 +40,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.helper_functions import PROTOBUF_REQUIREMENT
 from tests.pyfunc.test_spark import score_model_as_udf
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -47,7 +48,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 import keras
 
 # pylint: disable=no-name-in-module,reimported
-if Version(keras.__version__) >= Version("2.6.0"):
+keras_version = Version(keras.__version__)
+if keras_version >= Version("2.6.0"):
     from tensorflow import keras
     from tensorflow.keras.models import Sequential
     from tensorflow.keras.layers import Layer, Dense
@@ -63,6 +65,7 @@ else:
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("keras") else ["--env-manager", "local"]
 )
+extra_pip_requirements = [PROTOBUF_REQUIREMENT] if keras_version < Version("2.6.0") else []
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -80,13 +83,7 @@ def fix_random_seed():
 
 @pytest.fixture(scope="module")
 def data():
-    iris = datasets.load_iris()
-    data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
-    )
-    y = data["target"]
-    x = data.drop("target", axis=1)
-    return x, y
+    return datasets.load_iris(as_frame=True, return_X_y=True)
 
 
 def get_model(data):
@@ -101,7 +98,7 @@ def get_model(data):
         # `lr` was renamed to `learning_rate` in keras 2.3.0:
         # https://github.com/keras-team/keras/releases/tag/2.3.0
         {"lr": lr}
-        if Version(keras.__version__) < Version("2.3.0")
+        if keras_version < Version("2.3.0")
         else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
@@ -287,9 +284,19 @@ def test_model_save_load(build_model, save_format, model_path, data):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
 
-    # pyfunc serve
+
+def test_pyfunc_serve_and_score(data):
+    x, _ = data
+    model = get_model(data)
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(
+            model,
+            "model",
+            extra_pip_requirements=[PROTOBUF_REQUIREMENT],
+        )
+    expected = model.predict(x.values)
     scoring_response = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
+        model_uri=model_info.model_uri,
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
@@ -299,11 +306,17 @@ def test_model_save_load(build_model, save_format, model_path, data):
     ).values.astype(np.float32)
     np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
 
-    # test spark udf
+
+def test_score_model_as_spark_udf(data):
+    x, _ = data
+    model = get_model(data)
+    with mlflow.start_run():
+        model_info = mlflow.keras.log_model(model, "model")
+    expected = model.predict(x.values)
     spark_udf_preds = score_model_as_udf(
-        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
+        model_uri=model_info.model_uri, pandas_df=pd.DataFrame(x), result_type="float"
     )
-    np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
+    np.testing.assert_allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
 
 def test_signature_and_examples_are_saved_correctly(model, data):
@@ -328,33 +341,12 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
     mlflow.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
-
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
     assert all(model_loaded.predict(x.values) == custom_predicted)
-    # pyfunc serve
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri=os.path.abspath(model_path),
-        data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
-    )
-    assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
-            np.float32
-        ),
-        custom_predicted,
-        rtol=1e-5,
-        atol=1e-9,
-    )
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
-    # test spark udf
-    spark_udf_preds = score_model_as_udf(
-        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
-    )
-    np.allclose(np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -683,7 +675,12 @@ def test_pyfunc_serve_and_score_transformers():
     model.compile()
 
     with mlflow.start_run():
-        mlflow.keras.log_model(model, artifact_path="model", keras_module=tf.keras)
+        mlflow.keras.log_model(
+            model,
+            artifact_path="model",
+            keras_module=tf.keras,
+            extra_pip_requirements=extra_pip_requirements,
+        )
         model_uri = mlflow.get_artifact_uri("model")
 
     data = json.dumps({"inputs": dummy_inputs.tolist()})
