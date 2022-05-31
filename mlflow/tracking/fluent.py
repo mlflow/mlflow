@@ -934,7 +934,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     """
     Retrieve an experiment by experiment name from the backend store
 
-    :param name: The case senstive experiment name.
+    :param name: The case sensitive experiment name.
     :return: An instance of :py:class:`mlflow.entities.Experiment`
              if an experiment with the specified name exists, otherwise None.
 
@@ -1093,7 +1093,7 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
     :param artifact_path: The run-relative artifact path for which to obtain an absolute URI.
                           For example, "path/to/artifact". If unspecified, the artifact root URI
                           for the currently active run will be returned.
-    :return: An *absolute* URI referring to the specified artifact or the currently adtive run's
+    :return: An *absolute* URI referring to the specified artifact or the currently active run's
              artifact root. For example, if an artifact path is provided and the currently active
              run uses an S3-backed store, this may be a uri of the form
              ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
