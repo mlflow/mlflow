@@ -228,7 +228,7 @@ with mlflow.start_run():
     # Since the model was logged as an artifact, it can be loaded to make predictions
     loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
 
-    # Extract a few examples from the test dataset to evaulate on
+    # Extract a few examples from the test dataset to evaluate on
     eval_data, eval_labels = next(iter(test_loader))
 
     # Make a few predictions
