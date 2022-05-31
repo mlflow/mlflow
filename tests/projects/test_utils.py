@@ -27,7 +27,7 @@ from tests.projects.utils import (
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
-    GIT_PROJECT_BRANCH
+    GIT_PROJECT_BRANCH,
 )
 
 
