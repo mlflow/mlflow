@@ -11,4 +11,5 @@ runs:
     - uses: actions/cache@v2
       with:
         path: ~/.pyenv
-        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pyenv-0-
+        # Increment (or decrement) the number at the end to manually invalidate cache
+        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pyenv-0
