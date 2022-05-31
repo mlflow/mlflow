@@ -659,7 +659,7 @@ def revert_patches(autologging_integration):
 
     :param autologging_integration: The name of the autologging integration associated with the
                                     patch. Note: If called via fluent api
-                                    (`autologging_integration="mlfow"`), then revert all patches
+                                    (`autologging_integration="mlflow"`), then revert all patches
                                     for all active autologging integrations.
     """
     for patch in _AUTOLOGGING_PATCHES.get(autologging_integration, []):

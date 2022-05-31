@@ -242,7 +242,7 @@ def layer_conductance(net, test_input_tensor):
     To use Layer Conductance, we create a LayerConductance object passing in the model as well as the module (layer) whose output we would like to understand.
     In this case, we choose net.sigmoid1, the output of the first hidden layer.
     Now obtain the conductance values for all the test examples by calling attribute on the LayerConductance object.
-    LayerConductance also requires a target index for networks with mutliple outputs, defining the index of the output for which gradients are computed.
+    LayerConductance also requires a target index for networks with multiple outputs, defining the index of the output for which gradients are computed.
     Similar to feature attributions, we provide target = 1, corresponding to survival.
     LayerConductance also utilizes a baseline, but we simply use the default zero baseline as in integrated gradients.
     """
@@ -289,7 +289,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     neuron_cond = NeuronConductance(net, net.sigmoid1)
 
     # We can now obtain the neuron conductance values for all the test examples by calling attribute on the NeuronConductance object.
-    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with mutliple outputs,
+    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with multiple outputs,
     # similar to layer conductance. As before, we provide target = 1, corresponding to survival, and compute neuron conductance for neurons 0 and 10, the significant neurons identified above.
     # The neuron index can be provided either as a tuple or as just an integer if the layer output is 1-dimensional.
 

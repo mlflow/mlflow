@@ -590,7 +590,7 @@ _last_failed_evaluator = None
 
 def _get_last_failed_evaluator():
     """
-    Return the evaluator name of the last failed evaluator when calling `evalaute`.
+    Return the evaluator name of the last failed evaluator when calling `evaluate`.
     This can be used to check which evaluator fail when `evaluate` API fail.
     """
     return _last_failed_evaluator
