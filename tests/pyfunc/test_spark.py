@@ -38,7 +38,7 @@ types = [np.int32, int, str, np.float32, np.double]
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     spark = get_spark_session(pyspark.SparkConf())
-    spark_df = spark.createDataFrame(pandas_df)
+    spark_df = spark.createDataFrame(pandas_df).coalesce(1)
     pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
