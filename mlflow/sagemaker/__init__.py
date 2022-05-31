@@ -1798,7 +1798,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     """
 
     def __init__(self, target_uri):
-        super(SageMakerDeploymentClient, self).__init__(target_uri=target_uri)
+        super().__init__(target_uri=target_uri)
 
         # Default region_name and assumed_role_arn when
         # the target_uri is `sagemaker` or `sagemaker:/`
