@@ -316,7 +316,9 @@ def test_score_model_as_spark_udf(data):
     spark_udf_preds = score_model_as_udf(
         model_uri=model_info.model_uri, pandas_df=pd.DataFrame(x), result_type="float"
     )
-    np.testing.assert_allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
+    np.testing.assert_allclose(
+        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)), rtol=1e-5
+    )
 
 
 def test_signature_and_examples_are_saved_correctly(model, data):
