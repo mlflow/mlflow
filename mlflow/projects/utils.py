@@ -29,8 +29,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-_GIT_URI_REGEX = re.compile(
-    r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?")
+_GIT_URI_REGEX = re.compile(r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
@@ -53,11 +52,10 @@ def _parse_subdirectory(uri):
     subdirectory = ""
     parsed_uri = unquoted_uri
     if "#" in unquoted_uri:
-        subdirectory = unquoted_uri[unquoted_uri.find("#") + 1:]
+        subdirectory = unquoted_uri[unquoted_uri.find("#") + 1 :]
         parsed_uri = unquoted_uri[: unquoted_uri.find("#")]
     if subdirectory and "." in subdirectory:
-        raise ExecutionException(
-            "'.' is not allowed in project subdirectory paths.")
+        raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
 
 
@@ -148,29 +146,23 @@ def _fetch_project(uri, version=None):
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
         if _is_file_uri(parsed_uri):
-            parsed_file_uri = urllib.parse.urlparse(
-                urllib.parse.unquote(parsed_uri))
-            parsed_uri = os.path.join(
-                parsed_file_uri.netloc, parsed_file_uri.path)
+            parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
+            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
         _unzip_repo(
-            zip_file=(parsed_uri if _is_local_uri(parsed_uri)
-                      else _fetch_zip_repo(parsed_uri)),
+            zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=dst_dir,
         )
     elif _is_local_uri(uri):
         if version is not None:
-            raise ExecutionException(
-                "Setting a version is only supported for Git project URIs")
+            raise ExecutionException("Setting a version is only supported for Git project URIs")
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
-        assert _GIT_URI_REGEX.match(
-            parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
+        assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
-        raise ExecutionException(
-            "Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
+        raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res
 
 
@@ -245,8 +237,7 @@ def _fetch_zip_repo(uri):
     try:
         augmented_raise_for_status(response)
     except requests.HTTPError as error:
-        raise ExecutionException(
-            "Unable to retrieve ZIP file. Reason: %s" % str(error))
+        raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
     return BytesIO(response.content)
 
 
@@ -264,8 +255,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     used to report additional data about the run (metrics/params) to the tracking server.
     """
     if _is_local_uri(uri):
-        source_name = tracking._tracking_service.utils._get_git_url_if_present(
-            _expand_uri(uri))
+        source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
     source_version = _get_git_commit(work_dir)
@@ -295,15 +285,13 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     if _is_valid_branch_name(work_dir, version):
         tags[MLFLOW_GIT_BRANCH] = version
         tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] = version
-    active_run = tracking.MlflowClient().create_run(
-        experiment_id=experiment_id, tags=tags)
+    active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
 
     project = _project_spec.load_project(work_dir)
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
-    final_params, extra_params = entry_point_obj.compute_parameters(
-        parameters, storage_dir=None)
+    final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     params_list = [
         Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
     ]
@@ -328,8 +316,7 @@ def get_entry_point_command(project, entry_point, parameters, storage_dir):
     )
     commands = []
     commands.append(
-        project.get_entry_point(entry_point).compute_command(
-            parameters, storage_dir_for_run)
+        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run)
     )
     return commands
 
