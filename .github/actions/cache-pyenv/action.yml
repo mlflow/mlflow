@@ -1,0 +1,14 @@
+name: "cache-pyenv"
+description: "Cache pyenv"
+runs:
+  using: "composite"
+  steps:
+    - name: Get cache key prefix
+      id: get-cache-key-prefix
+      shell: bash
+      run: |
+        echo "::set-output name=prefix::$ImageOS-$ImageVersion"
+    - uses: actions/cache@v2
+      with:
+        path: ~/.pyenv
+        key: ${{ steps.get-cache-key-prefix.outputs.prefix }}-pyenv-0-
