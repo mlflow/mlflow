@@ -229,9 +229,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                 if not mlflow.active_run():
                     self.managed_run = create_managed_run()
 
-                result = super()._patch_implementation(
-                    original, *args, **kwargs
-                )
+                result = super()._patch_implementation(original, *args, **kwargs)
 
                 if self.managed_run:
                     mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
