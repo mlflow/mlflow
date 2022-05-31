@@ -55,7 +55,7 @@ def get_dataset():
 def pd_model():
     class Regressor(paddle.nn.Layer):
         def __init__(self, in_features):
-            super(Regressor, self).__init__()
+            super().__init__()
             self.fc_ = Linear(in_features=in_features, out_features=1)
 
         @paddle.jit.to_static
@@ -277,7 +277,7 @@ def get_dataset_built_in_high_level_api():
 
 class UCIHousing(paddle.nn.Layer):
     def __init__(self):
-        super(UCIHousing, self).__init__()
+        super().__init__()
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
     def forward(self, inputs):  # pylint: disable=arguments-differ
