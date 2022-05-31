@@ -90,18 +90,15 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
-  handleCheck = () => (checkedKeys, e) => {
-    if (checkedKeys.length === 0) {
-      // Do not allow un-checking all
-      e.node.checked = true;
-      return;
+  handleCheck = (checkedKeys) => {
+    if (checkedKeys.length !== 0) {
+      this.props.history.push(Routes.getCompareExperimentsPageRoute(checkedKeys));
     }
-    this.props.history.push(Routes.getCompareExperimentsPageRoute(checkedKeys));
   };
 
   renderListItem = ({ title, key }) => {
     const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds !== undefined && activeExperimentIds.includes(key);
+    const isActive = activeExperimentIds?.includes(key) ?? false;
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
       <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
@@ -216,7 +213,7 @@ export class ExperimentListView extends Component {
                 multiple: true,
                 selectedKeys: activeExperimentIds,
                 checkedKeys: activeExperimentIds,
-                onCheck: this.handleCheck(),
+                onCheck: this.handleCheck,
                 titleRender: this.renderListItem,
               }}
             />
