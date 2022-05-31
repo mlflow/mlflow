@@ -29,7 +29,9 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-_GIT_URI_REGEX = re.compile(r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?")
+_GIT_URI_REGEX = re.compile(
+    r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
+)
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
