@@ -222,16 +222,14 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
         class PatchWithManagedRun(patch_function):
             def __init__(self):
-                super(PatchWithManagedRun, self).__init__()
+                super().__init__()
                 self.managed_run = None
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
                     self.managed_run = create_managed_run()
 
-                result = super(PatchWithManagedRun, self)._patch_implementation(
-                    original, *args, **kwargs
-                )
+                result = super()._patch_implementation(original, *args, **kwargs)
 
                 if self.managed_run:
                     mlflow.end_run(RunStatus.to_string(RunStatus.FINISHED))
@@ -241,7 +239,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
             def _on_exception(self, e):
                 if self.managed_run:
                     mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-                super(PatchWithManagedRun, self)._on_exception(e)
+                super()._on_exception(e)
 
         return PatchWithManagedRun
 
