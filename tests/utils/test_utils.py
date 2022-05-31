@@ -29,22 +29,22 @@ def test_truncate_dict():
     length = 5
 
     with mock.patch("mlflow.utils._logger.warning") as mock_warning:
-        max_legnth = length - 1
+        max_length = length - 1
 
         # Truncate keys
-        assert _truncate_dict(d, max_key_length=max_legnth) == {"1...": "12345"}
+        assert _truncate_dict(d, max_key_length=max_length) == {"1...": "12345"}
         mock_warning.assert_called_once_with("Truncated the key `1...`")
         mock_warning.reset_mock()
 
         # Truncate values
-        assert _truncate_dict(d, max_value_length=max_legnth) == {"12345": "1..."}
+        assert _truncate_dict(d, max_value_length=max_length) == {"12345": "1..."}
         mock_warning.assert_called_once_with(
             "Truncated the value of the key `12345`. Truncated value: `1...`"
         )
         mock_warning.reset_mock()
 
         # Truncate both keys and values
-        assert _truncate_dict(d, max_key_length=max_legnth, max_value_length=max_legnth) == {
+        assert _truncate_dict(d, max_key_length=max_length, max_value_length=max_length) == {
             "1...": "1..."
         }
         assert mock_warning.call_count == 2
