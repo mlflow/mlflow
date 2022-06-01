@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import urllib.parse
+import pathlib
 
 from distutils import dir_util
 
@@ -98,10 +99,32 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
-def _is_local_uri(uri):
-    """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
-    return not _GIT_URI_REGEX.match(uri)
+def _is_git_repo(path):
+    """Returns True if passed-in path is a valid git repository"""
+    import git
 
+    try:
+        git.Repo(path)
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        return False
+
+
+def _is_local_uri(uri):
+    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
+    if _GIT_URI_REGEX.match(uri):
+        return False
+
+    pased_uri = urllib.parse.urlparse(uri).scheme
+    drive = pathlib.Path(uri).drive
+
+    if (len(drive) and drive.lower()[0] == parsed_uri.scheme):
+        return not _is_git_repo(uri)
+    elif parsed_uri.scheme in ("file", ""):
+        return not _is_git_repo(parsed_uri.path)
+    else:
+        return False
+        
 
 def _is_zip_uri(uri):
     """Returns True if the passed-in URI points to a ZIP file."""
