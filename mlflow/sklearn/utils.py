@@ -532,8 +532,8 @@ def _log_specialized_estimator_content(
             )
             return metrics
 
+        _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
         with TempDir() as tmp_dir:
-            _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
             for artifact in artifacts:
                 try:
                     with matplotlib.rc_context(_matplotlib_config):
