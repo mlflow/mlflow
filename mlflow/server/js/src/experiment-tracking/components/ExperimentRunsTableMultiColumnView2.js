@@ -393,7 +393,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
         loggedModels: Utils.getLoggedModelsFromTags(tags),
         experimentId: runInfo.experiment_id,
-        runUuid: runInfo.runUuid,
+        runUuid: runInfo.run_uuid,
       };
 
       const version = {
