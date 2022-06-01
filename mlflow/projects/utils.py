@@ -31,7 +31,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
 _GIT_URI_REGEX = re.compile(
-    r"((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
+    r"^((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
 )
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
@@ -115,10 +115,10 @@ def _is_local_uri(uri):
     if _GIT_URI_REGEX.match(uri):
         return False
 
-    pased_uri = urllib.parse.urlparse(uri).scheme
+    parsed_uri = urllib.parse.urlparse(uri).scheme
     drive = pathlib.Path(uri).drive
 
-    if (len(drive) and drive.lower()[0] == parsed_uri.scheme):
+    if (drive != "" and drive.lower()[0] == parsed_uri.scheme):
         return not _is_git_repo(uri)
     elif parsed_uri.scheme in ("file", ""):
         return not _is_git_repo(parsed_uri.path)
