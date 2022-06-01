@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import re
+import contextlib
 from packaging.version import Version
 
 import sklearn
@@ -46,8 +47,6 @@ TRAINING_SCORE = "training_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
-
-pytestmark = pytest.mark.large
 
 
 def get_iris():
@@ -156,7 +155,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    "max_tuning_runs, total_runs, output_statment",
+    "max_tuning_runs, total_runs, output_statement",
     [
         (0, 4, "Logging no runs, all will be omitted"),
         (0, 1, "Logging no runs, one run will be omitted"),
@@ -166,11 +165,11 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
         (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
     ],
 )
-def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
+def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statement):
     with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
         mock_info.assert_called_once()
-        mock_info.called_once_with(output_statment)
+        mock_info.called_once_with(output_statement)
 
 
 @pytest.mark.skipif(
@@ -382,13 +381,23 @@ def test_meta_estimator():
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
+def disable_validate_params(cls):
+    return (
+        mock.patch(f"{cls}._validate_params")
+        if Version(sklearn.__version__) >= Version("1.2.dev0")
+        else contextlib.nullcontext()
+    )
+
+
 def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_batch():
     mlflow.sklearn.autolog()
 
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
 
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
+    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
+        "sklearn.cluster.KMeans.get_params", return_value=large_params
+    ):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
             model.fit(X, y)
@@ -422,9 +431,9 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     X, y = get_iris()
 
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
-        "mlflow.utils._logger.warning"
-    ) as mock_warning, mlflow.start_run() as run:
+    with disable_validate_params("sklearn.cluster.KMeans"), mock.patch(
+        "sklearn.cluster.KMeans.get_params", return_value=long_params
+    ), mock.patch("mlflow.utils._logger.warning") as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
 
@@ -981,7 +990,6 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     assert "signature" not in model_conf.to_dict()
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_autolog_configuration_options(log_input_examples, log_model_signatures):
@@ -998,7 +1006,6 @@ def test_autolog_configuration_options(log_input_examples, log_model_signatures)
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_sklearn_autolog_log_models_configuration(log_models):
     X, y = get_iris()
@@ -1013,7 +1020,6 @@ def test_sklearn_autolog_log_models_configuration(log_models):
     assert (MODEL_DIR in artifacts) == log_models
 
 
-@pytest.mark.large
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
     """
     Verifies that preprocessing and feature manipulation estimators, which represent data
@@ -1055,7 +1061,6 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     assert len(artifacts) == 0
 
 
-@pytest.mark.large
 def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
     """
     Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
@@ -1958,10 +1963,14 @@ def test_log_post_training_metrics_configuration():
         assert any(k.startswith(metric_name) for k in metrics.keys()) is log_post_training_metrics
 
 
-class NonPickleableKmeans(sklearn.cluster.KMeans):
-    def __init__(self, n_clusters=8, *, init="k-means++"):
-        super(NonPickleableKmeans, self).__init__(n_clusters, init=init)
+class UnpicklableKmeans(sklearn.cluster.KMeans):
+    def __init__(self, n_clusters=8):
+        super().__init__(n_clusters)
         self.generator = (i for i in range(3))
+
+    # Ignore parameter validation added in scikit-learn > 1.1.0
+    def _validate_params(self):
+        pass
 
 
 def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
@@ -1970,13 +1979,13 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     mlflow.sklearn.autolog()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        non_pickable_kmeans = NonPickleableKmeans()
+        unpicklable_kmeans = UnpicklableKmeans()
         with pytest.raises(TypeError, match=r"(can't|cannot) pickle.+generator"):
-            pickle.dumps(non_pickable_kmeans)
+            pickle.dumps(unpicklable_kmeans)
 
-        non_pickable_kmeans.fit(*get_iris())
+        unpicklable_kmeans.fit(*get_iris())
         assert any(
-            call_args[0][0].startswith("Pickling custom sklearn model NonPickleableKmeans failed")
+            call_args[0][0].startswith("Pickling custom sklearn model UnpicklableKmeans failed")
             for call_args in mock_warning.call_args_list
         )
 
@@ -1985,7 +1994,6 @@ def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
     assert len(params) > 0 and len(metrics) > 0 and len(tags) > 0 and artifacts == []
 
 
-@pytest.mark.large
 def test_autolog_registering_model():
     registered_model_name = "test_autolog_registered_model"
 

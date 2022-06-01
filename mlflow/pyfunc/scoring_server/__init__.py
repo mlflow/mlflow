@@ -25,7 +25,7 @@ import traceback
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
 # mlflow in the model's conda environment (inside) can differ. We should therefore keep mlflow
 # dependencies to the minimum here.
-# ALl of the mlfow dependencies below need to be backwards compatible.
+# ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
@@ -44,10 +44,7 @@ except ImportError:
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 

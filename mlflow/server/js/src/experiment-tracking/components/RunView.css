@@ -131,3 +131,8 @@ textarea.run-command {
   padding-left: 16px;
   padding-right: 16px;
 }
+
+.RunView-editDescriptionHeader {
+  height: 32px;
+  line-height: 32px;
+}

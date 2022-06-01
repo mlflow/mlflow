@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
+import { Redirect } from 'react-router';
 import { Spacer } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import ExperimentPage from './ExperimentPage';
@@ -16,46 +17,29 @@ export const getFirstActiveExperiment = (experiments) => {
 };
 
 class HomeView extends Component {
-  constructor(props) {
-    super(props);
-    this.onClickListExperiments = this.onClickListExperiments.bind(this);
-  }
-
   static propTypes = {
-    history: PropTypes.shape({}),
-    experiments: PropTypes.shape({}),
+    experiments: PropTypes.arrayOf(PropTypes.object),
     experimentIds: PropTypes.arrayOf(PropTypes.string),
     compareExperiments: PropTypes.bool,
   };
 
-  state = {
-    listExperimentsExpanded: true,
-  };
+  render() {
+    const { experimentIds, experiments, compareExperiments } = this.props;
+    const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
+    const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
+    const hasExperiments = experiments.length > 0;
 
-  componentDidMount() {
-    const { history, experiments, experimentIds } = this.props;
     if (experimentIds === undefined) {
       const firstExp = getFirstActiveExperiment(experiments);
       if (firstExp) {
-        // Reported during ESLint upgrade
-        // eslint-disable-next-line react/prop-types
-        history.push(Routes.getExperimentPageRoute(firstExp.experiment_id));
+        return <Redirect to={Routes.getExperimentPageRoute(firstExp.experiment_id)} />;
       }
     }
-  }
 
-  onClickListExperiments() {
-    this.setState({ listExperimentsExpanded: !this.state.listExperimentsExpanded });
-  }
-
-  render() {
-    const { experimentIds, compareExperiments } = this.props;
-    const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
-    const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
         <div style={{ height: containerHeight }}>
-          {this.props.experimentIds ? (
+          {hasExperiments ? (
             <PageContainer>
               <ExperimentPage
                 experimentIds={experimentIds}
@@ -72,22 +56,13 @@ class HomeView extends Component {
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
           <Spacer />
-          {this.state.listExperimentsExpanded ? (
-            <ExperimentListView
-              activeExperimentId={this.props.experimentIds && this.props.experimentIds[0]}
-              onClickListExperiments={this.onClickListExperiments}
-            />
-          ) : (
-            <i
-              onClick={this.onClickListExperiments}
-              title='Show experiment list'
-              style={styles.showExperimentListExpander}
-              className='expander fa fa-chevron-right login-icon'
-            />
-          )}
+          <ExperimentListView
+            activeExperimentId={experimentIds && experimentIds[0]}
+            experiments={experiments}
+          />
         </div>
         <PageContainer>
-          {this.props.experimentIds ? (
+          {hasExperiments ? (
             <ExperimentPage experimentIds={experimentIds} compareExperiments={compareExperiments} />
           ) : (
             <NoExperimentView />
@@ -97,12 +72,6 @@ class HomeView extends Component {
     );
   }
 }
-
-const styles = {
-  showExperimentListExpander: {
-    marginTop: 24,
-  },
-};
 
 const mapStateToProps = (state) => {
   const experiments = getExperiments(state);

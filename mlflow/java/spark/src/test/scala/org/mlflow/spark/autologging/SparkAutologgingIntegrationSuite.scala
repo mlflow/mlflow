@@ -8,7 +8,7 @@ import org.apache.spark.mlflow.MlflowSparkAutologgingTestUtils
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.mockito.Matchers.any
+import org.mockito.Matchers.{any, eq => meq}
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.FunSuite
@@ -182,7 +182,7 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     val subscriber = spy(new MockSubscriber())
     MlflowAutologEventPublisher.register(subscriber)
     leftDf.join(rightDf).collect()
-    // Sleep a second to let the SparkListener trigger read
+    // Sleep to let the SparkListener trigger read
     Thread.sleep(1000)
     verify(subscriber, times(2)).notify(any(), any(), any())
     verify(subscriber, times(1)).notify(getFileUri(leftPath), "unknown", leftFormat)
@@ -290,5 +290,91 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
     spark.conf.set("spark.databricks.clusterUsageTags.clusterId", "myCoolClusterId")
     MlflowAutologEventPublisher.init()
     assert(MlflowAutologEventPublisher.sparkQueryListener.isInstanceOf[ReplAwareSparkDataSourceListener])
+  }
+
+  test("repl-ID-aware listener publishes events with expected REPL IDs") {
+    MlflowAutologEventPublisher.stop()
+
+    // Create a ReplAwareSparkDataSourceListener that uses a DatasourceAttributeExtractor instead
+    // of a ReplAwareDatasourceAttributeExtractor for testing, since
+    // ReplAwareDatasourceAttributeExtractor requires Databricks-specific packages that are not
+    // available in OSS test environments
+    class ReplAwareSparkDataSourceListenerWithDefaultDatasourceAttributeExtractor(
+        publisher: MlflowAutologEventPublisherImpl = MlflowAutologEventPublisher)
+      extends ReplAwareSparkDataSourceListener(publisher) {
+      override protected def getDatasourceAttributeExtractor: DatasourceAttributeExtractorBase = {
+        DatasourceAttributeExtractor
+      }
+    }
+
+    // Create and initialize a publisher that uses the ReplAwareSparkDataSourceListener containing
+    // the DatasourceAttributeExtractor defined above
+    object MockReplAwarePublisher extends MlflowAutologEventPublisherImpl {
+      override def getSparkDataSourceListener: SparkDataSourceListener = {
+        new ReplAwareSparkDataSourceListenerWithDefaultDatasourceAttributeExtractor(this)
+      }
+    }
+    MockReplAwarePublisher.init()
+    // Register several subcribers with different REPL IDs
+    val subscriber1 = spy(new MockSubscriber())
+    val subscriber2 = spy(new MockSubscriber())
+    val subscriber3 = spy(new MockSubscriber())
+    MockReplAwarePublisher.register(subscriber1)
+    MockReplAwarePublisher.register(subscriber2)
+    MockReplAwarePublisher.register(subscriber3)
+
+    val sc = spark.sparkContext
+    val formatToTablePathList = formatToTablePath.toList
+
+    // Read a collection of Spark DataFrames from different sources with different REPL ID
+    // context for each read
+
+    // Because `spark.databricks.replId` is null, we expect that none of the subscribers will
+    // be notified when `path1` is read via `df1`
+    sc.setLocalProperty("spark.databricks.replId", null)
+    val (format1, path1) = formatToTablePathList.head
+    val df1 = spark.read.format(format1).load(path1)
+    df1.collect()
+
+    // Because `spark.databricks.replId` is set to `subscriber1.replId`, we expect that only
+    // `subscriber1` will be notified when `path2` is read via `df2`
+    sc.setLocalProperty("spark.databricks.replId", subscriber1.replId)
+    val (format2, path2) = formatToTablePathList(1)
+    val df2 = spark.read.format(format2).load(path2)
+    df2.collect()
+
+    // Because `spark.databricks.replId` is set to `subscriber2.replId`, we expect that only
+    // `subscriber2` will be notified when `path3` is read via `df3`
+    sc.setLocalProperty("spark.databricks.replId", subscriber2.replId)
+    val (format3, path3) = formatToTablePathList(2)
+    val df3 = spark.read.format(format3).load(path3)
+    df3.collect()
+
+    // Because `spark.databricks.replId` is set to `subscriber3.replId`, we expect that only
+    // `subscriber3` will be notified when `path1`, `path2`, and `path3` are read via `df4`
+    sc.setLocalProperty("spark.databricks.replId", subscriber3.replId)
+    val df4 = df1.union(df2).union(df3)
+    df4.collect()
+
+    // Sleep to give time for the execution to complete
+    Thread.sleep(1000)
+    
+    // Verify that the only time subscriber1 was notified of a datasource read was when
+    // `path2` was read via `df2` with `spark.databricks.replId` set to `subscriber1.replId`
+    verify(subscriber1, times(1)).notify(any(), any(), any())
+    verify(subscriber1, times(1)).notify(meq(s"file:$path2"), any(), meq(format2))
+
+    // Verify that the only time subscriber2 was notified of a datasource read was when
+    // `path3` was read via `df3` with `spark.databricks.replId` set to `subscriber2.replId`
+    verify(subscriber2, times(1)).notify(any(), any(), any())
+    verify(subscriber2, times(1)).notify(meq(s"file:$path3"), any(), meq(format3))
+
+    // Verify that subscriber3 was notified of three datasource reads - one for each of
+    // `path1`, `path2`, and `path3` - via `df4` with `spark.databricks.replId` set to
+    // `subscriber3.replId`
+    verify(subscriber3, times(3)).notify(any(), any(), any())
+    verify(subscriber3, times(1)).notify(meq(s"file:$path1"), any(), meq(format1))
+    verify(subscriber3, times(1)).notify(meq(s"file:$path2"), any(), meq(format2))
+    verify(subscriber3, times(1)).notify(meq(s"file:$path3"), any(), meq(format3))
   }
 }

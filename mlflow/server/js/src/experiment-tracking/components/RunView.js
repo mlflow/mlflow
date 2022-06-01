@@ -260,6 +260,16 @@ export class RunViewImpl extends Component {
 
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
+          {
+            <Descriptions.Item
+              label={this.props.intl.formatMessage({
+                defaultMessage: 'Run ID',
+                description: 'Label for displaying the ID of the experiment run',
+              })}
+            >
+              {runUuid}
+            </Descriptions.Item>
+          }
           <Descriptions.Item
             label={this.props.intl.formatMessage({
               defaultMessage: 'Date',
@@ -397,7 +407,7 @@ export class RunViewImpl extends Component {
           ) : null}
           <CollapsibleSection
             title={
-              <span>
+              <span className='RunView-editDescriptionHeader'>
                 <FormattedMessage
                   defaultMessage='Description'
                   description='Label for the notes editable content for the experiment run'

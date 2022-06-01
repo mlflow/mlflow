@@ -20,18 +20,23 @@ body:
         - No. I cannot contribute a bug fix at this time.
     validations:
       required: true
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: MLflow version
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+
   - type: textarea
     attributes:
       label: System information
       description: |
         Describe the system where you encountered the bug.
       value: |
-        - **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
         - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
-        - **MLflow installed from (source or binary)**:
-        - **MLflow version (run ``mlflow --version``)**:
         - **Python version**:
-        - **npm version, if running the dev UI**:
+        - **yarn version, if running the dev UI**:
     validations:
       required: true
   - type: textarea

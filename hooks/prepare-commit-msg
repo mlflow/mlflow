@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # A git hook to block an unsigned-off commit
 
 COMMIT_MSG_FILE=$1

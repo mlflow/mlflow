@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from unittest import mock
 import numpy as np
 import json
 import pandas as pd
@@ -25,10 +26,12 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
+    _compute_df_mode_or_mean,
     _CustomMetric,
 )
 import mlflow
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.datasets import load_iris
 
 from tempfile import TemporaryDirectory
 from os.path import join as path_join
@@ -47,6 +50,8 @@ from tests.models.test_evaluation import (
     spark_linear_regressor_model_uri,
     diabetes_spark_dataset,
     svm_model_uri,
+    pipeline_model_uri,
+    get_pipeline_model_dataset,
 )
 from mlflow.models.utils import plot_lines
 
@@ -76,6 +81,9 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     y_pred = model.predict(diabetes_dataset.features_data)
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics["score"] = model._model_impl.score(
+        diabetes_dataset.features_data, diabetes_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -121,7 +129,9 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     y_probs = predict_proba_fn(iris_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        iris_dataset.features_data, iris_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
@@ -174,7 +184,9 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -267,7 +279,9 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
-
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -294,12 +308,77 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
+def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+    data, target_col = get_pipeline_model_dataset()
+    with mlflow.start_run() as run:
+        evaluate(
+            pipeline_model_uri,
+            data[0::3],
+            model_type="classifier",
+            targets=target_col,
+            dataset_name="pipeline_model_dataset",
+            evaluators="default",
+            evaluator_config={"explainability_algorithm": "kernel"},
+        )
+    run_data = get_run_data(run.info.run_id)
+    assert {
+        "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
+        "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
+        "shap_summary_plot_on_data_pipeline_model_dataset.png",
+    }.issubset(run_data.artifacts)
+
+
+def test_compute_df_mode_or_mean():
+    df = pd.DataFrame(
+        {
+            "a": [2.0, 2.0, 5.0],
+            "b": [3, 3, 5],
+            "c": [2.0, 2.0, 6.5],
+            "d": [True, False, True],
+            "e": ["abc", "b", "abc"],
+            "f": [1.5, 2.5, np.nan],
+            "g": ["ab", "ab", None],
+            "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
+        }
+    )
+    result = _compute_df_mode_or_mean(df)
+    assert result == {
+        "a": 2,
+        "b": 3,
+        "c": 3.5,
+        "d": True,
+        "e": "abc",
+        "f": 2.0,
+        "g": "ab",
+        "h": 2.0,
+    }
+
+    # Test on dataframe that all columns are continuous.
+    df2 = pd.DataFrame(
+        {
+            "c": [2.0, 2.0, 6.5],
+            "f": [1.5, 2.5, np.nan],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
+
+    # Test on dataframe that all columns are not continuous.
+    df2 = pd.DataFrame(
+        {
+            "d": [True, False, True],
+            "g": ["ab", "ab", None],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"d": True, "g": "ab"}
+
+
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
+    assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
-    assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
-    assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
-    assert _infer_model_type_by_labels(list(range(30))) is None
+    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels(pd.Series([1.5, 2.5], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
@@ -919,3 +998,54 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_pickled_artifact_on_data_breast_cancer_dataset.pickle" in artifacts
     assert isinstance(result.artifacts["test_pickled_artifact"], PickleEvaluationArtifact)
     assert result.artifacts["test_pickled_artifact"].content == _ExampleToBePickledObject()
+
+
+def test_evaluate_sklearn_model_score_skip_when_not_scorable(
+    linear_regressor_model_uri, diabetes_dataset
+):
+    with mock.patch(
+        "sklearn.linear_model.LinearRegression.score",
+        side_effect=RuntimeError("LinearRegression.score failed"),
+    ) as mock_score:
+        with mlflow.start_run():
+            result = evaluate(
+                linear_regressor_model_uri,
+                diabetes_dataset._constructor_args["data"],
+                model_type="regressor",
+                targets=diabetes_dataset._constructor_args["targets"],
+                dataset_name=diabetes_dataset.name,
+                evaluators="default",
+            )
+        mock_score.assert_called_once()
+        assert "score" not in result.metrics
+
+
+@pytest.mark.parametrize(
+    "model",
+    [LogisticRegression(), LinearRegression()],
+)
+def test_autologging_is_disabled_during_evaluate(model):
+    mlflow.sklearn.autolog()
+    try:
+        X, y = load_iris(as_frame=True, return_X_y=True)
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+            model_info = mlflow.sklearn.log_model(model, "model")
+            result = evaluate(
+                model_info.model_uri,
+                X.assign(target=y),
+                model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
+                targets="target",
+                dataset_name="iris",
+                evaluators="default",
+            )
+
+        run_data = get_run_data(run.info.run_id)
+        duplicate_metrics = []
+        for evaluate_metric_key in result.metrics.keys():
+            matched_keys = [k for k in run_data.metrics.keys() if k.startswith(evaluate_metric_key)]
+            if len(matched_keys) > 1:
+                duplicate_metrics += matched_keys
+        assert duplicate_metrics == []
+    finally:
+        mlflow.sklearn.autolog(disable=True)

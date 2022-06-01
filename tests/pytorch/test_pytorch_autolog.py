@@ -15,8 +15,6 @@ from mlflow.tracking.client import MlflowClient
 
 NUM_EPOCHS = 20
 
-pytestmark = pytest.mark.large
-
 
 @pytest.fixture
 def pytorch_model():
@@ -376,7 +374,6 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     assert "model_summary.txt" in artifacts
 
 
-@pytest.mark.large
 def test_autolog_registering_model():
     registered_model_name = "test_autolog_registered_model"
     mlflow.pytorch.autolog(registered_model_name=registered_model_name)

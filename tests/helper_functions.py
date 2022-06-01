@@ -28,6 +28,7 @@ from mlflow.utils.environment import (
 )
 
 LOCALHOST = "127.0.0.1"
+PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
 _logger = logging.getLogger(__name__)
 
@@ -222,9 +223,9 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
-            time.sleep(5)
+            time.sleep(1)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
@@ -326,7 +327,7 @@ class safe_edit_yaml:
 
 def create_mock_response(status_code, text):
     """
-    Create a mock resposne object with the status_code and text
+    Create a mock response object with the status_code and text
 
     :param: status_code int HTTP status code
     :param: text message from the response

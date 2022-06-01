@@ -23,7 +23,7 @@ def _put_r_for_windows(sftp, local_dir, remote_dir, preserve_mtime=False):
 class SFTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 
-    def __init__(self, artifact_uri, client=None):
+    def __init__(self, artifact_uri):
         self.uri = artifact_uri
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
@@ -34,39 +34,36 @@ class SFTPArtifactRepository(ArtifactRepository):
         }
         self.path = parsed.path
 
-        if client:
-            self.sftp = client
-        else:
-            import pysftp
-            import paramiko
+        import pysftp
+        import paramiko
 
-            if self.config["host"] is None:
-                self.config["host"] = "localhost"
+        if self.config["host"] is None:
+            self.config["host"] = "localhost"
 
-            ssh_config = paramiko.SSHConfig()
-            user_config_file = os.path.expanduser("~/.ssh/config")
-            if os.path.exists(user_config_file):
-                with open(user_config_file) as f:
-                    ssh_config.parse(f)
+        ssh_config = paramiko.SSHConfig()
+        user_config_file = os.path.expanduser("~/.ssh/config")
+        if os.path.exists(user_config_file):
+            with open(user_config_file) as f:
+                ssh_config.parse(f)
 
-            user_config = ssh_config.lookup(self.config["host"])
+        user_config = ssh_config.lookup(self.config["host"])
 
-            if "hostname" in user_config:
-                self.config["host"] = user_config["hostname"]
+        if "hostname" in user_config:
+            self.config["host"] = user_config["hostname"]
 
-            if self.config.get("username", None) is None and "user" in user_config:
-                self.config["username"] = user_config["user"]
+        if self.config.get("username", None) is None and "user" in user_config:
+            self.config["username"] = user_config["user"]
 
-            if self.config.get("port", None) is None:
-                if "port" in user_config:
-                    self.config["port"] = int(user_config["port"])
-                else:
-                    self.config["port"] = 22
+        if self.config.get("port", None) is None:
+            if "port" in user_config:
+                self.config["port"] = int(user_config["port"])
+            else:
+                self.config["port"] = 22
 
-            if "identityfile" in user_config:
-                self.config["private_key"] = user_config["identityfile"][0]
+        if "identityfile" in user_config:
+            self.config["private_key"] = user_config["identityfile"][0]
 
-            self.sftp = pysftp.Connection(**self.config)
+        self.sftp = pysftp.Connection(**self.config)
 
         super().__init__(artifact_uri)
 

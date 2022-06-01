@@ -105,7 +105,7 @@ dependencies:
         _PythonEnv.from_conda_yaml(yaml_path)
 
 
-def test_from_conda_yaml_invalid_python_comperator(tmp_path):
+def test_from_conda_yaml_invalid_python_comparator(tmp_path):
     content = """
 name: example
 channels:
@@ -118,7 +118,7 @@ dependencies:
 """
     yaml_path = tmp_path / "conda.yaml"
     yaml_path.write_text(content)
-    with pytest.raises(Exception, match="Invalid version comperator for python"):
+    with pytest.raises(Exception, match="Invalid version comparator for python"):
         _PythonEnv.from_conda_yaml(yaml_path)
 
 

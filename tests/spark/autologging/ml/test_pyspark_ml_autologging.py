@@ -51,7 +51,6 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
 
-pytestmark = pytest.mark.large
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
@@ -503,13 +502,13 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         metadata = _gen_estimator_metadata(estimator)
         assert metadata.hierarchy == estimator_info["hierarchy"]
 
-        param_search_estiamtor_info = estimator_info[
+        param_search_estimator_info = estimator_info[
             metadata.uid_to_indexed_name_map[estimator.uid]
         ]
-        assert param_search_estiamtor_info[
+        assert param_search_estimator_info[
             "tuned_estimator_parameter_map"
         ] == _get_instance_param_map_recursively(lr, 1, metadata.uid_to_indexed_name_map)
-        assert param_search_estiamtor_info["tuning_parameter_map_list"] == _get_tuning_param_maps(
+        assert param_search_estimator_info["tuning_parameter_map_list"] == _get_tuning_param_maps(
             estimator, metadata.uid_to_indexed_name_map
         )
 
@@ -912,7 +911,8 @@ def test_autologging_handle_wrong_tuning_params(dataset_regression):
 
 
 # pylint: disable=unused-argument
-@pytest.mark.large
+
+
 def test_autolog_registering_model(spark_session, dataset_binomial):
     registered_model_name = "test_autolog_registered_model"
     mlflow.pyspark.ml.autolog(registered_model_name=registered_model_name)
@@ -943,7 +943,6 @@ def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output
         assert json.loads(signature["outputs"]) == output_sig_spec
 
 
-@pytest.mark.large
 def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
 
@@ -956,7 +955,6 @@ def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial
         pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
 
@@ -973,7 +971,6 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
         )
 
 
-@pytest.mark.large
 def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
@@ -985,7 +982,6 @@ def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
         pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
@@ -1029,7 +1025,6 @@ def multinomial_lr_with_index_to_string_stage_pipeline(multinomial_df_with_strin
     )
 
 
-@pytest.mark.large
 def test_input_example_with_index_to_string_stage(
     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
 ):
@@ -1043,7 +1038,6 @@ def test_input_example_with_index_to_string_stage(
         pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_signature_with_index_to_string_stage(
     multinomial_df_with_string_labels, multinomial_lr_with_index_to_string_stage_pipeline
 ):
@@ -1094,7 +1088,6 @@ def pipeline_for_feature_cols(input_df_with_non_features):
     )
 
 
-@pytest.mark.large
 def test_signature_with_non_feature_input_columns(
     input_df_with_non_features, pipeline_for_feature_cols
 ):
@@ -1114,7 +1107,6 @@ def test_signature_with_non_feature_input_columns(
         )
 
 
-@pytest.mark.large
 def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
     from pyspark.sql.types import ArrayType, DoubleType
 
@@ -1125,7 +1117,6 @@ def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
     ), "'features' column isn't of expected type array<double>"
 
 
-@pytest.mark.large
 def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
     assert get_feature_cols(input_df_with_non_features.schema, pipeline_model) == {
@@ -1133,7 +1124,6 @@ def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols)
     }, "Wrong feature columns returned"
 
 
-@pytest.mark.large
 def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
     from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
     from pyspark.ml.linalg import VectorUDT

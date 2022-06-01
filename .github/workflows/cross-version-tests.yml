@@ -125,7 +125,7 @@ jobs:
           then
             python_version=3.8
           else
-            python_version=$(python setup.py -q min_python_version)
+            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
           fi
           echo "::set-output name=version::$python_version"
       - uses: ./.github/actions/setup-python
@@ -152,7 +152,7 @@ jobs:
           python --version
           pip install --upgrade pip wheel
           pip install -e .
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
           CACHE_DIR: /home/runner/.cache/wheels

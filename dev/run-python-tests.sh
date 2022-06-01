@@ -6,7 +6,6 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-# NB: Also add --ignore'd tests to run-large-python-tests.sh
-pytest --ignore-flavors
+pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples
 
 test $err = 0

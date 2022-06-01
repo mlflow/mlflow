@@ -23,9 +23,6 @@ from tests.autologging.fixtures import test_mode_off
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
-pytestmark = pytest.mark.large
-
-
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
     mlflow.keras: "keras",

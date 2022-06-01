@@ -28,6 +28,7 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _assert_pip_requirements,
     _compare_logged_code_paths,
+    PROTOBUF_REQUIREMENT,
 )
 
 
@@ -54,7 +55,7 @@ def get_dataset():
 def pd_model():
     class Regressor(paddle.nn.Layer):
         def __init__(self, in_features):
-            super(Regressor, self).__init__()
+            super().__init__()
             self.fc_ = Linear(in_features=in_features, out_features=1)
 
         @paddle.jit.to_static
@@ -103,7 +104,6 @@ def pd_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(pd_model, model_path):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
@@ -140,7 +140,6 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     )
 
 
-@pytest.mark.large
 def test_model_log(pd_model, model_path, tmpdir):
     model = pd_model.model
     try:
@@ -198,7 +197,6 @@ def test_log_model_no_registered_model_name(pd_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     pd_model, model_path, pd_custom_env
 ):
@@ -216,7 +214,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pd_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
     conda_env = dict(mlflow.paddle.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -231,7 +228,6 @@ def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_model, pd_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -255,7 +251,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_mod
     assert saved_conda_env_parsed == pd_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     pd_model, model_path
 ):
@@ -263,7 +258,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.paddle.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     pd_model,
 ):
@@ -283,7 +277,7 @@ def get_dataset_built_in_high_level_api():
 
 class UCIHousing(paddle.nn.Layer):
     def __init__(self):
-        super(UCIHousing, self).__init__()
+        super().__init__()
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
     def forward(self, inputs):  # pylint: disable=arguments-differ
@@ -304,7 +298,6 @@ def pd_model_built_in_high_level_api(get_dataset_built_in_high_level_api):
     return ModelWithData(model=model, inference_dataframe=test_dataset)
 
 
-@pytest.mark.large
 def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
@@ -352,7 +345,6 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     )
 
 
-@pytest.mark.large
 def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path, tmpdir):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
@@ -389,7 +381,6 @@ def model_retrain_path(tmpdir):
     return os.path.join(str(tmpdir), "model_retrain")
 
 
-@pytest.mark.large
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_model_retrain_built_in_high_level_api(
     pd_model_built_in_high_level_api,
@@ -441,7 +432,6 @@ def test_model_retrain_built_in_high_level_api(
     )
 
 
-@pytest.mark.large
 def test_log_model_built_in_high_level_api(
     pd_model_built_in_high_level_api, model_path, tmpdir, get_dataset_built_in_high_level_api
 ):
@@ -480,7 +470,6 @@ def test_log_model_built_in_high_level_api(
         mlflow.end_run()
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(pd_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -511,7 +500,6 @@ def test_log_model_with_pip_requirements(pd_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
     default_reqs = mlflow.paddle.get_default_pip_requirements()
 
@@ -543,12 +531,11 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(pd_model):
     model, inference_dataframe = pd_model
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(model, artifact_path)
+        mlflow.paddle.log_model(model, artifact_path, extra_pip_requirements=[PROTOBUF_REQUIREMENT])
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     resp = pyfunc_serve_and_score_model(

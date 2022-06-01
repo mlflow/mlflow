@@ -192,7 +192,7 @@ class BertDataModule(pl.LightningDataModule):
 
         :param parent_parser: Application specific parser
 
-        :return: Returns the augmented arugument parser
+        :return: Returns the augmented argument parser
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
@@ -298,7 +298,7 @@ class BertNewsClassifier(pl.LightningModule):
 
         :param parent_parser: Application specific parser
 
-        :return: Returns the augmented arugument parser
+        :return: Returns the augmented argument parser
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
