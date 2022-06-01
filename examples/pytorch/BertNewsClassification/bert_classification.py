@@ -461,14 +461,14 @@ if __name__ == "__main__":
     if dict_args["gpus"] is None or int(dict_args["gpus"]) == 0:
         mlflow.pytorch.autolog()
     elif int(dict_args["gpus"]) >= 1 and trainer.global_rank == 0:
-        # In case of multi gpu training, the training script in invoked multiple times,
+        # In case of multi gpu training, the training script is invoked multiple times,
         # The following condition is needed to avoid multiple copies of mlflow runs.
         # When one or more gpus are used for training, it is enough to save
         # the model and its parameters using rank 0 gpu.
         mlflow.pytorch.autolog()
     else:
         # This condition is met only for multi-gpu training when the global rank is non zero.
-        # Since, the parameters are already logged using global rank 0 gpu, it is safe to ignore
+        # Since the parameters are already logged using global rank 0 gpu, it is safe to ignore
         # this condition.
         logging.info("Active run exists.. ")
 
