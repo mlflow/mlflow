@@ -8,7 +8,6 @@ import threading
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -1034,7 +1033,7 @@ class SqlAlchemyStore(AbstractStore):
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
-            stmt = select(SqlRun, *cases_orderby)
+            stmt = sql.select([SqlRun, *cases_orderby])
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect()):
                 stmt = stmt.join(j)
             # using an outer join is necessary here because we want to be able to sort
