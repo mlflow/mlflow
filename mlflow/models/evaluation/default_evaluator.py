@@ -18,12 +18,12 @@ from mlflow.models.evaluation.artifacts import (
 )
 
 from sklearn import metrics as sk_metrics
+from sklearn.pipeline import Pipeline as sk_Pipeline
 import math
 import json
 from collections import namedtuple
 from typing import NamedTuple, Callable
 import tempfile
-import numbers
 import pandas as pd
 import numpy as np
 import copy
@@ -41,18 +41,34 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
 
 
+def _is_categorical(values):
+    """
+    Infer whether input values are categorical on best effort.
+    Return True represent they are categorical, return False represent we cannot determine result.
+    """
+    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
+    return dtype_name in ["category", "string", "boolean"]
+
+
+def _is_continuous(values):
+    """
+    Infer whether input values is continuous on best effort.
+    Return True represent they are continous, return False represent we cannot determine result.
+    """
+    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
+    return dtype_name.startswith("float")
+
+
 def _infer_model_type_by_labels(labels):
-    distinct_labels = set(labels)
-    for v in distinct_labels:
-        if not isinstance(v, numbers.Number):
-            return "classifier"
-        if not float(v).is_integer():
-            return "regressor"
-    if len(distinct_labels) > 1000 and len(distinct_labels) / len(labels) > 0.7:
-        return "regressor"
-    if len(distinct_labels) <= 20:
+    """
+    Infer model type by target values.
+    """
+    if _is_categorical(labels):
         return "classifier"
-    return None  # unknown
+    elif _is_continuous(labels):
+        return "regressor"
+    else:
+        return None  # Unknown
 
 
 def _extract_raw_model_and_predict_fn(model):
@@ -369,6 +385,25 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
     )
 
 
+def _compute_df_mode_or_mean(df):
+    """
+    Compute mean (for continuous columns) and compute mode (for other columns) for the
+    input dataframe, return a dict, key is column name, value is the corresponding mode or
+    mean value, this function calls `_is_continuous` to determine whether the
+    column is continuous column.
+    """
+    continuous_cols = [c for c in df.columns if _is_continuous(df[c])]
+    df_cont = df[continuous_cols]
+    df_non_cont = df.drop(continuous_cols, axis=1)
+
+    means = {} if df_cont.empty else df_cont.mean().to_dict()
+    modes = {} if df_non_cont.empty else df_non_cont.mode().loc[0].to_dict()
+    return {**means, **modes}
+
+
+_SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
+
+
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
@@ -451,15 +486,25 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        feature_dtypes = list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
-        for feature_dtype in feature_dtypes:
-            if not np.issubdtype(feature_dtype, np.number):
-                _logger.warning(
-                    "Skip logging model explainability insights because it requires all feature "
-                    "values to be numeric, and each feature column must only contain scalar "
-                    "values."
-                )
-                return
+        algorithm = self.evaluator_config.get("explainability_algorithm", None)
+        if algorithm is not None and algorithm not in _SUPPORTED_SHAP_ALGORITHMS:
+            raise ValueError(
+                f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
+                f"support {','.join(_SUPPORTED_SHAP_ALGORITHMS)} algorithms."
+            )
+
+        if algorithm != "kernel":
+            feature_dtypes = (
+                list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
+            )
+            for feature_dtype in feature_dtypes:
+                if not np.issubdtype(feature_dtype, np.number):
+                    _logger.warning(
+                        "Skip logging model explainability insights because the shap explainer "
+                        f"{algorithm} requires all feature values to be numeric, and each feature "
+                        "column must only contain scalar values."
+                    )
+                    return
 
         try:
             import shap
@@ -482,7 +527,6 @@ class DefaultEvaluator(ModelEvaluator):
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
-        algorithm = self.evaluator_config.get("explainability_algorithm", None)
 
         truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
         for i, truncated_name in enumerate(truncated_feature_names):
@@ -494,44 +538,86 @@ class DefaultEvaluator(ModelEvaluator):
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
         }
 
-        sampled_X = shap.sample(self.X, sample_rows)
-
-        if isinstance(sampled_X, pd.DataFrame):
+        if isinstance(self.X, pd.DataFrame):
             # For some shap explainer, the plot will use the DataFrame column names instead of
             # using feature_names argument value. So rename the dataframe column names.
-            sampled_X = sampled_X.rename(columns=truncated_feature_name_map, copy=False)
-
-        if algorithm:
-            supported_algos = ["exact", "permutation", "partition"]
-            if algorithm not in supported_algos:
-                raise ValueError(
-                    f"Specified explainer algorithm {algorithm} is unsupported. Currently only "
-                    f"support {','.join(supported_algos)} algorithms."
-                )
-            explainer = shap.Explainer(
-                self.predict_fn,
-                sampled_X,
-                feature_names=truncated_feature_names,
-                algorithm=algorithm,
-            )
+            X_df = self.X.rename(columns=truncated_feature_name_map, copy=False)
         else:
-            if self.raw_model and not is_multinomial_classifier:
-                # For multinomial classifier, shap.Explainer may choose Tree/Linear explainer for
-                # raw model, this case shap plot doesn't support it well, so exclude the
-                # multinomial_classifier case here.
-                explainer = shap.Explainer(
-                    self.raw_model, sampled_X, feature_names=truncated_feature_names
+            # If X is numpy array, convert to pandas dataframe.
+            X_df = pd.DataFrame(self.X, columns=truncated_feature_names)
+
+        sampled_X = shap.sample(X_df, sample_rows, random_state=0)
+
+        mode_or_mean_dict = _compute_df_mode_or_mean(X_df)
+        mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
+        sampled_X = sampled_X.fillna(mode_or_mean_dict)
+
+        # shap explainer might call provided `predict_fn` with a `numpy.ndarray` type
+        # argument, this might break some model inference, so convert the argument into
+        # a pandas dataframe.
+        shap_predict_fn = lambda x: self.predict_fn(
+            pd.DataFrame(x, columns=truncated_feature_names)
+        )
+
+        try:
+            if algorithm:
+                if algorithm == "kernel":
+                    kernel_link = self.evaluator_config.get(
+                        "explainability_kernel_link", "identity"
+                    )
+                    if kernel_link not in ["identity", "logit"]:
+                        raise ValueError(
+                            "explainability_kernel_link config can only be set to 'identity' or "
+                            f"'logit', but got '{kernel_link}'."
+                        )
+                    background_X = shap.sample(X_df, sample_rows, random_state=3)
+                    background_X = background_X.fillna(mode_or_mean_dict)
+                    explainer = shap.KernelExplainer(
+                        shap_predict_fn, background_X, link=kernel_link
+                    )
+                else:
+                    explainer = shap.Explainer(
+                        shap_predict_fn,
+                        sampled_X,
+                        feature_names=truncated_feature_names,
+                        algorithm=algorithm,
+                    )
+            else:
+                if (
+                    self.raw_model
+                    and not is_multinomial_classifier
+                    and not isinstance(self.raw_model, sk_Pipeline)
+                ):
+                    # For mulitnomial classifier, shap.Explainer may choose Tree/Linear explainer
+                    # for raw model, this case shap plot doesn't support it well, so exclude the
+                    # multinomial_classifier case here.
+                    explainer = shap.Explainer(
+                        self.raw_model, sampled_X, feature_names=truncated_feature_names
+                    )
+                else:
+                    # fallback to default explainer
+                    explainer = shap.Explainer(
+                        shap_predict_fn, sampled_X, feature_names=truncated_feature_names
+                    )
+
+            _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
+
+            if algorithm == "kernel":
+                shap_values = shap.Explanation(
+                    explainer.shap_values(sampled_X), feature_names=truncated_feature_names
                 )
             else:
-                # fallback to default explainer
-                explainer = shap.Explainer(
-                    self.predict_fn, sampled_X, feature_names=truncated_feature_names
-                )
-
-        _logger.info(f"Shap explainer {explainer.__class__.__name__} is used.")
-
-        shap_values = explainer(sampled_X)
-
+                shap_values = explainer(sampled_X)
+        except Exception as e:
+            # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
+            # or unsupported model on specific shap explainer. Catch exception to prevent it
+            # breaking the whole `evaluate` function.
+            _logger.warning(
+                f"Shap evaluation failed. Reason: {repr(e)}. "
+                "Set logging level to DEBUG to see the full traceback."
+            )
+            _logger.debug("", exc_info=True)
+            return
         try:
             mlflow.shap.log_explainer(
                 explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
@@ -540,7 +626,11 @@ class DefaultEvaluator(ModelEvaluator):
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
             #   for sklearn model, there is no `.save` method, so error will happen.
-            _logger.warning(f"Log explainer failed. Reason: {str(e)}")
+            _logger.warning(
+                f"Logging explainer failed. Reason: {repr(e)}."
+                "Set logging level to DEBUG to see the full traceback."
+            )
+            _logger.debug("", exc_info=True)
 
         def plot_beeswarm():
             pyplot.subplots_adjust(bottom=0.2, left=0.4)
