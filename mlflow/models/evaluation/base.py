@@ -722,11 +722,14 @@ def evaluate(
         - **log_model_explainability**: A boolean value specifying whether or not to log model
           explainability insights, default value is True.
         - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
-          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
+          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition',
+          'kernel'.
           If not set, ``shap.Explainer`` is used with the "auto" algorithm, which chooses the best
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
+        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+          Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is

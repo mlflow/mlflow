@@ -26,6 +26,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
+    _compute_df_mode_or_mean,
     _CustomMetric,
 )
 import mlflow
@@ -49,6 +50,8 @@ from tests.models.test_evaluation import (
     spark_linear_regressor_model_uri,
     diabetes_spark_dataset,
     svm_model_uri,
+    pipeline_model_uri,
+    get_pipeline_model_dataset,
 )
 from mlflow.models.utils import plot_lines
 
@@ -305,12 +308,77 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
+def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+    data, target_col = get_pipeline_model_dataset()
+    with mlflow.start_run() as run:
+        evaluate(
+            pipeline_model_uri,
+            data[0::3],
+            model_type="classifier",
+            targets=target_col,
+            dataset_name="pipeline_model_dataset",
+            evaluators="default",
+            evaluator_config={"explainability_algorithm": "kernel"},
+        )
+    run_data = get_run_data(run.info.run_id)
+    assert {
+        "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
+        "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
+        "shap_summary_plot_on_data_pipeline_model_dataset.png",
+    }.issubset(run_data.artifacts)
+
+
+def test_compute_df_mode_or_mean():
+    df = pd.DataFrame(
+        {
+            "a": [2.0, 2.0, 5.0],
+            "b": [3, 3, 5],
+            "c": [2.0, 2.0, 6.5],
+            "d": [True, False, True],
+            "e": ["abc", "b", "abc"],
+            "f": [1.5, 2.5, np.nan],
+            "g": ["ab", "ab", None],
+            "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
+        }
+    )
+    result = _compute_df_mode_or_mean(df)
+    assert result == {
+        "a": 2,
+        "b": 3,
+        "c": 3.5,
+        "d": True,
+        "e": "abc",
+        "f": 2.0,
+        "g": "ab",
+        "h": 2.0,
+    }
+
+    # Test on dataframe that all columns are continuous.
+    df2 = pd.DataFrame(
+        {
+            "c": [2.0, 2.0, 6.5],
+            "f": [1.5, 2.5, np.nan],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
+
+    # Test on dataframe that all columns are not continuous.
+    df2 = pd.DataFrame(
+        {
+            "d": [True, False, True],
+            "g": ["ab", "ab", None],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"d": True, "g": "ab"}
+
+
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
+    assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
-    assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
-    assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
-    assert _infer_model_type_by_labels(list(range(30))) is None
+    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels(pd.Series([1.5, 2.5], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
 def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
