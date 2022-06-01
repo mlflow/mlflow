@@ -521,19 +521,21 @@ def _log_specialized_estimator_content(
                 + str(e)
             )
             _logger.warning(msg)
-            return
+            return metrics
+
+        try:
+            import matplotlib
+            import matplotlib.pyplot as plt
+        except ImportError as ie:
+            _logger.warning(
+                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+            )
+            return metrics
 
         with TempDir() as tmp_dir:
+            _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
             for artifact in artifacts:
                 try:
-                    import matplotlib
-                    import matplotlib.pyplot as plt
-
-                    _matplotlib_config = {
-                        "savefig.dpi": 175,
-                        "figure.autolayout": True,
-                        "font.size": 8,
-                    }
                     with matplotlib.rc_context(_matplotlib_config):
                         display = artifact.function(**artifact.arguments)
                         display.ax_.set_title(artifact.title)
@@ -541,9 +543,6 @@ def _log_specialized_estimator_content(
                         filepath = tmp_dir.path(artifact_path)
                         display.figure_.savefig(fname=filepath, format="png")
                         plt.close(display.figure_)
-                except ImportError as e:
-                    _log_warning_for_artifacts(artifact.name, artifact.function, e)
-                    break
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
