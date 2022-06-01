@@ -377,6 +377,7 @@ def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
     assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels(pd.Series([1.5, 2.5], dtype="category")) == "classifier"
     assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
