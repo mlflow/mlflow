@@ -158,7 +158,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
     (3) f1_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
     By default, when `pos_label` is not specified (passed in as `None`), we set `average`
-    to `weighted` to compute the weighted score of theese metrics.
+    to `weighted` to compute the weighted score of these metrics.
     When the `pos_label` is specified (not `None`), we set `average` to `binary`.
 
     For (4) accuracy score:
