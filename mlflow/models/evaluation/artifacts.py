@@ -10,6 +10,7 @@ from collections import namedtuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
+from mlflow.utils.import_hooks import when_imported
 
 
 class ImageEvaluationArtifact(EvaluationArtifact):
@@ -22,8 +23,14 @@ class ImageEvaluationArtifact(EvaluationArtifact):
         self._content = open_image(local_artifact_path)
         return self._content
 
-    def __del__(self):
-        self._content.close()
+
+@when_imported("PIL.Image")
+def _on_pil_image_module_imported(module):
+
+    def on_image_del(obj):
+        obj.close()
+
+    module.Image.__del__ = on_image_del
 
 
 class CsvEvaluationArtifact(EvaluationArtifact):
