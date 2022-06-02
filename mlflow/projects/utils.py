@@ -115,16 +115,16 @@ def _is_local_uri(uri):
     if _GIT_URI_REGEX.match(uri):
         return False
 
-    parsed_uri = urllib.parse.urlparse(uri).scheme
+    parsed_uri = urllib.parse.urlparse(uri)
     drive = pathlib.Path(uri).drive
 
-    if (drive != "" and drive.lower()[0] == parsed_uri.scheme):
+    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
         return not _is_git_repo(uri)
     elif parsed_uri.scheme in ("file", ""):
         return not _is_git_repo(parsed_uri.path)
     else:
         return False
-        
+
 
 def _is_zip_uri(uri):
     """Returns True if the passed-in URI points to a ZIP file."""
