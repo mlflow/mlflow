@@ -1049,3 +1049,27 @@ def test_autologging_is_disabled_during_evaluate(model):
         assert duplicate_metrics == []
     finally:
         mlflow.sklearn.autolog(disable=True)
+
+
+def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, diabetes_dataset):
+    with mlflow.start_run() as run:
+        evaluate(
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_dataset._constructor_args["targets"],
+            dataset_name=diabetes_dataset.name,
+            feature_names=[
+                "f1",
+                "f2",
+                "f3longnamelongnamelongname",
+                "f4",
+                "f5",
+                "f6",
+                "f7longlonglonglong",
+                "f8",
+                "f9",
+                "f10",
+            ],
+            evaluators="default",
+        )
