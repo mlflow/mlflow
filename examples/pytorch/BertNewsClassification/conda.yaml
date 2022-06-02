@@ -14,3 +14,4 @@ dependencies:
   - torchdata
   - torchtext==0.12.0
   - pytorch-lightning==1.6.1
+  - protobuf<=3.20.1 #Remove once PTL supports latest protobuf - https://github.com/PyTorchLightning/pytorch-lightning/issues/13212
