@@ -14,3 +14,4 @@ dependencies:
   - torchdata
   - torchtext==0.12.0
   - pytorch-lightning==1.6.1
+  - protobuf<4.0.0
