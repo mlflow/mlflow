@@ -549,7 +549,6 @@ class DefaultEvaluator(ModelEvaluator):
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
         mode_or_mean_dict = _compute_df_mode_or_mean(X_df)
-        mode_or_mean_dict = {truncated_feature_name_map[k]: v for k, v in mode_or_mean_dict.items()}
         sampled_X = sampled_X.fillna(mode_or_mean_dict)
 
         # shap explainer might call provided `predict_fn` with a `numpy.ndarray` type
