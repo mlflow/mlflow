@@ -86,33 +86,37 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(output).toEqual('-');
   });
 
-  test('should render logged model link with valid URL', () => {
-    const tagsList = [
-      {
-        'mlflow.log-model.history': {
-          key: 'mlflow.log-model.history',
-          value: `[{
-            "run_id": "123",
-            "artifact_path": "model",
-            "utc_time_created": "2022-01-01 00:00:00.000000"
-          }]`,
+  test('should render logged model link with correct href', () => {
+    const props = {
+      ...commonProps,
+      runInfos: [
+        RunInfo.fromJs({
+          artifact_uri: 'artifact_uri',
+          end_time: 1,
+          experiment_id: '0',
+          lifecycle_stage: 'active',
+          run_uuid: '123',
+          start_time: 0,
+          status: 'FINISHED',
+          user_id: 'user_id',
+          getRunUuid: () => '123',
+        }),
+      ],
+      metricsList: [[]],
+      paramsList: [[]],
+      tagsList: [
+        {
+          'mlflow.log-model.history': {
+            key: 'mlflow.log-model.history',
+            value: `[{
+              "run_id": "123",
+              "artifact_path": "model",
+              "utc_time_created": "2022-01-01 00:00:00.000000"
+            }]`,
+          },
         },
-      },
-    ];
-    const runInfos = [
-      RunInfo.fromJs({
-        artifact_uri: 'artifact_uri',
-        end_time: 1,
-        experiment_id: '0',
-        lifecycle_stage: 'active',
-        run_uuid: '123',
-        start_time: 0,
-        status: 'FINISHED',
-        user_id: 'user_id',
-        getRunUuid: () => '123',
-      }),
-    ];
-    const props = { ...commonProps, metricsList: [[]], paramsList: [[]], runInfos, tagsList };
+      ],
+    };
     wrapper = mountWithIntl(<ExperimentRunsTableMultiColumnView2 {...props} />);
     const loggedModelLink = wrapper.find('.logged-model-link');
     expect(loggedModelLink).toHaveLength(1);
