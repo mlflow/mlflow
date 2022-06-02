@@ -20,10 +20,8 @@ class ImageEvaluationArtifact(EvaluationArtifact):
         from PIL.Image import open as open_image
 
         self._content = open_image(local_artifact_path)
+        self._content.load()  # Load image and close the file descriptor.
         return self._content
-
-    def __del__(self):
-        self._content.close()
 
 
 class CsvEvaluationArtifact(EvaluationArtifact):
