@@ -11,3 +11,4 @@ dependencies:
   - ax-platform
   - prettytable
   - torch>=1.9.0
+  - protobuf<4.0.0
