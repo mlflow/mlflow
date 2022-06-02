@@ -5,7 +5,7 @@
       "severity": "error",
       "pattern": [
         {
-          "regexp": "^(would reformat) (.+)$",
+          "regexp": "^(Run `black \.`.+): (.+)$",
           "file": 2,
           "message": 1
         }
