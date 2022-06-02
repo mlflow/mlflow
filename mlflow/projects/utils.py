@@ -3,6 +3,7 @@ import os
 import re
 import tempfile
 import urllib.parse
+import pathlib
 
 from distutils import dir_util
 
@@ -29,8 +30,9 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-# TODO: this should be restricted to just Git repos and not S3 and stuff like that
-_GIT_URI_REGEX = re.compile(r"^[^/]*:")
+_GIT_URI_REGEX = re.compile(
+    r"^((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
+)
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
@@ -97,9 +99,31 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
+def _is_git_repo(path):
+    """Returns True if passed-in path is a valid git repository"""
+    import git
+
+    try:
+        git.Repo(path)
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        return False
+
+
 def _is_local_uri(uri):
-    """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
-    return not _GIT_URI_REGEX.match(uri)
+    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
+    if _GIT_URI_REGEX.match(uri):
+        return False
+
+    parsed_uri = urllib.parse.urlparse(uri)
+    drive = pathlib.Path(uri).drive
+
+    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
+        return not _is_git_repo(uri)
+    elif parsed_uri.scheme in ("file", ""):
+        return not _is_git_repo(parsed_uri.path)
+    else:
+        return False
 
 
 def _is_zip_uri(uri):
@@ -159,7 +183,6 @@ def _fetch_project(uri, version=None):
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
-        assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
