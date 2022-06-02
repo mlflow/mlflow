@@ -116,9 +116,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     wrapper = mountWithIntl(<ExperimentRunsTableMultiColumnView2 {...props} />);
     const loggedModelLink = wrapper.find('.logged-model-link');
     expect(loggedModelLink).toHaveLength(1);
-    expect(loggedModelLink.first().props()['href']).toEqual(
-      './#/experiments/0/runs/123/artifactPath/model',
-    );
+    expect(loggedModelLink.prop('href')).toEqual('./#/experiments/0/runs/123/artifactPath/model');
   });
 
   test('should show only logged model link if no registered models', () => {
