@@ -37,7 +37,6 @@ from tests.helper_functions import (
     RestEndpoint,
     get_safe_port,
     pyfunc_serve_and_score_model,
-    PROTOBUF_REQUIREMENT,
 )
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
@@ -419,9 +418,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
         if enable_mlserver:
             # MLServer requires Python 3.7, so we'll force that Python version
             with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+                mlflow.sklearn.log_model(sk_model, "model")
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
@@ -459,9 +456,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
         if enable_mlserver:
             # MLServer requires Python 3.7, so we'll force that Python version
             with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+                mlflow.sklearn.log_model(sk_model, "model")
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
