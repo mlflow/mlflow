@@ -23,8 +23,6 @@ def test_autolog_without_scipy():
     with pytest.raises(ImportError, match="scipy"):
         import scipy  # pylint: disable=unused-import
 
-        assert scipy is not None  # pylint or flake8 disabling is not working
-
     assert not mlflow.models.utils.HAS_SCIPY
 
     mlflow.autolog()
