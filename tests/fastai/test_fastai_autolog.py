@@ -72,7 +72,6 @@ def fastai_tabular_model(data, **kwargs):
     return Learner(data, Model(), loss_func=nn.MSELoss(), splitter=splitter, **kwargs)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
@@ -86,7 +85,6 @@ def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
@@ -123,7 +121,6 @@ def fastai_random_tabular_data_run(iris_data, fit_variant):
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_variant):
     # pylint: disable=unused-argument
@@ -180,7 +177,6 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
     assert "module_summary.txt" in artifacts
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
     # pylint: disable=unused-argument
@@ -206,7 +202,6 @@ def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
         assert data.params[freeze_prefix + "opt_func"] == "Adam"
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     mlflow.fastai.autolog(log_models=log_models)
@@ -220,7 +215,6 @@ def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     assert ("model" in artifacts) == log_models
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_variant):
     # pylint: disable=unused-argument
@@ -238,7 +232,6 @@ def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_
                 assert any(a.startswith(prefix + param + ".") for a in artifacts)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_run):
     run_id = fastai_random_tabular_data_run[1].info.run_id
@@ -283,7 +276,6 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patie
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["save_and_early_stop"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -310,7 +302,6 @@ def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_cal
     np.testing.assert_array_almost_equal(model_result, reloaded_result)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -333,7 +324,6 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
@@ -358,7 +348,6 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -380,7 +369,6 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -423,7 +411,6 @@ def test_callback_is_picklable():
     pickle.dumps(cb)
 
 
-@pytest.mark.large
 def test_autolog_registering_model(iris_data):
     registered_model_name = "test_autolog_registered_model"
     mlflow.fastai.autolog(registered_model_name=registered_model_name)

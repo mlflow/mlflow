@@ -16,3 +16,5 @@ databricks-cli@git+https://github.com/databricks/databricks-cli.git
 pillow
 matplotlib
 shap>=0.40
+plotly
+pyspark

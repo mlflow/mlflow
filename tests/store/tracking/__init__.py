@@ -48,7 +48,9 @@ class AbstractStoreTest:
                 RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))
             ],
         )
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(
+            TypeError, "Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'"
+        ):
             store.record_logged_model(run_id, m.to_dict())
 
     @staticmethod

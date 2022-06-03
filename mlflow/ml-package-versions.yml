@@ -11,14 +11,14 @@ sklearn:
     minimum: "0.22.1"
     maximum: "1.1.0"
     run: |
-      pytest tests/sklearn/test_sklearn_model_export.py --large
+      pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.22.1"
     maximum: "1.1.0"
     requirements: ["matplotlib"]
     run: |
-      pytest tests/sklearn/test_sklearn_autolog.py --large
+      pytest tests/sklearn/test_sklearn_autolog.py
 
 pytorch:
   package_info:
@@ -31,7 +31,7 @@ pytorch:
     maximum: "1.11.0"
     requirements: ["torchvision", "scikit-learn", "transformers"]
     run: |
-      pytest tests/pytorch/test_pytorch_model_export.py --large
+      pytest tests/pytorch/test_pytorch_model_export.py
 
 pytorch-lightning:
   package_info:
@@ -52,7 +52,7 @@ pytorch-lightning:
       ">= 1.3.0, < 1.5.0": ["torchmetrics<0.8.0", "torchvision", "scikit-learn"]
       ">= 1.5.0": ["torchvision", "scikit-learn"]
     run: |
-      pytest tests/pytorch/test_pytorch_autolog.py --large
+      pytest tests/pytorch/test_pytorch_autolog.py
 
 tensorflow:
   package_info:
@@ -67,12 +67,12 @@ tensorflow:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+      pytest tests/tensorflow/test_tensorflow2_model_export.py
 
       # Run tests for keras against keras-nightly that's installed with tf-nightly:
       # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
       if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_model_export.py --large
+        pytest tests/keras/test_keras_model_export.py
       fi
 
   autologging:
@@ -81,10 +81,10 @@ tensorflow:
     requirements:
       "== dev": ["scikit-learn"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_autolog.py --large
+      pytest tests/tensorflow/test_tensorflow2_autolog.py
 
       if [ "$PACKAGE_VERSION" == "dev" ]; then
-        pytest tests/keras/test_keras_autolog.py --large
+        pytest tests/keras/test_keras_autolog.py
       fi
 
 keras:
@@ -99,7 +99,7 @@ keras:
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow", "transformers"]
       ">= 2.6.0": ["tensorflow", "scikit-learn", "pyspark", "pyarrow", "transformers"]
     run: |
-      pytest tests/keras/test_keras_model_export.py --large
+      pytest tests/keras/test_keras_model_export.py
 
   autologging:
     minimum: "2.3.0"
@@ -111,7 +111,7 @@ keras:
       "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0"]
       ">= 2.6.0": ["tensorflow"]
     run: |
-      pytest tests/keras/test_keras_autolog.py --large
+      pytest tests/keras/test_keras_autolog.py
 
 xgboost:
   package_info:
@@ -124,14 +124,14 @@ xgboost:
     maximum: "1.6.1"
     requirements: ["scikit-learn"]
     run: |
-      pytest tests/xgboost/test_xgboost_model_export.py --large
+      pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
     minimum: "1.1.1"
     maximum: "1.6.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
-      pytest tests/xgboost/test_xgboost_autolog.py --large
+      pytest tests/xgboost/test_xgboost_autolog.py
 
 lightgbm:
   package_info:
@@ -144,14 +144,14 @@ lightgbm:
     maximum: "3.3.2"
     requirements: ["scikit-learn"]
     run: |
-      pytest tests/lightgbm/test_lightgbm_model_export.py --large
+      pytest tests/lightgbm/test_lightgbm_model_export.py
 
   autologging:
     minimum: "2.3.1"
     maximum: "3.3.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
-      pytest tests/lightgbm/test_lightgbm_autolog.py --large
+      pytest tests/lightgbm/test_lightgbm_autolog.py
 
 catboost:
   package_info:
@@ -169,7 +169,7 @@ catboost:
     maximum: "1.0.5"
     requirements: ["scikit-learn"]
     run: |
-      pytest tests/catboost/test_catboost_model_export.py --large
+      pytest tests/catboost/test_catboost_model_export.py
 
 gluon:
   package_info:
@@ -185,14 +185,14 @@ gluon:
       # Install libopenblas-dev for mxnet 1.8.0.post0
       sudo apt-get update -y
       sudo apt-get install libopenblas-dev -y
-      pytest tests/gluon/test_gluon_model_export.py --large
+      pytest tests/gluon/test_gluon_model_export.py
 
   autologging:
     minimum: "1.5.1"
     maximum: "1.9.0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
-      pytest tests/gluon/test_gluon_autolog.py --large
+      pytest tests/gluon/test_gluon_autolog.py
 
 fastai:
   package_info:
@@ -203,14 +203,14 @@ fastai:
     maximum: "2.6.3"
     requirements: [torch, torchvision]
     run: |
-      pytest tests/fastai/test_fastai_model_export.py --large
+      pytest tests/fastai/test_fastai_model_export.py
 
   autologging:
     minimum: "2.4.1"
     maximum: "2.6.3"
     requirements: [torch, torchvision]
     run: |
-      pytest tests/fastai/test_fastai_autolog.py --large
+      pytest tests/fastai/test_fastai_autolog.py
 
 onnx:
   package_info:
@@ -239,7 +239,7 @@ onnx:
     maximum: "1.11.0"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
-      pytest tests/onnx/test_onnx_model_export.py --large
+      pytest tests/onnx/test_onnx_model_export.py
 
 spacy:
   package_info:
@@ -254,7 +254,7 @@ spacy:
       "<= 3.0.8": ["scikit-learn", "click<8.1.0", "flask<2.1.0"]
       "> 3.0.8": ["scikit-learn", "click<8.1.0"]
     run: |
-      pytest tests/spacy/test_spacy_model_export.py --large
+      pytest tests/spacy/test_spacy_model_export.py
 
 statsmodels:
   package_info:
@@ -266,13 +266,13 @@ statsmodels:
     minimum: "0.11.1"
     maximum: "0.13.2"
     run: |
-      pytest tests/statsmodels/test_statsmodels_model_export.py --large
+      pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
     minimum: "0.11.1"
     maximum: "0.13.2"
     run: |
-      pytest tests/statsmodels/test_statsmodels_autolog.py --large
+      pytest tests/statsmodels/test_statsmodels_autolog.py
 
 spark:
   package_info:
@@ -308,7 +308,7 @@ spark:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/spark --large --ignore tests/spark/autologging
+      pytest tests/spark --ignore tests/spark/autologging
 
   autologging:
     minimum: "3.0.0"
@@ -319,7 +319,7 @@ spark:
     allow_unreleased_max_version: True
     requirements: ["scikit-learn"]
     run: |
-      find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+      find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest
 
       # TODO: Fix spark datasource autologging and test it against non-preview versions of pyspark
       if [ "$(pip show pyspark | grep Version | cut -d' ' -f2)" = "3.0.0" ]; then
@@ -328,7 +328,7 @@ spark:
         echo -e "${YELLOW}WARNING: Spark datasource autologging currently only works for Spark 3.0.0-preview.${NO_COLOR}"
         pip uninstall -y pyspark
         ./dev/setup-spark-datasource-autologging.sh
-        find tests/spark/autologging/datasource -name 'test*.py' | xargs -L 1 pytest --large
+        find tests/spark/autologging/datasource -name 'test*.py' | xargs -L 1 pytest
       fi
 
 mleap:
@@ -350,7 +350,7 @@ mleap:
         cat $SAGEMAKER_OUT;
         exit 1
       fi
-      pytest tests/mleap/test_mleap_model_export.py --large
+      pytest tests/mleap/test_mleap_model_export.py
 
 prophet:
   package_info:
@@ -365,7 +365,7 @@ prophet:
     minimum: "1.0.1"
     maximum: "1.0.1"
     run: |
-      pytest tests/prophet/test_prophet_model_export.py --large
+      pytest tests/prophet/test_prophet_model_export.py
 
 pmdarima:
   package_info:
@@ -381,7 +381,7 @@ pmdarima:
     maximum: "1.8.5"
     requirements: ["prophet"]
     run: |
-      pytest tests/pmdarima/test_pmdarima_model_export.py --large
+      pytest tests/pmdarima/test_pmdarima_model_export.py
 
 diviner:
   package_info:
@@ -393,4 +393,4 @@ diviner:
     minimum: "0.1.0"
     maximum: "0.1.0"
     run: |
-      pytest tests/diviner/test_diviner_model_export.py --large
+      pytest tests/diviner/test_diviner_model_export.py

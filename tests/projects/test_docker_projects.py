@@ -30,7 +30,6 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.large
 def test_docker_project_execution(
     use_start_run, tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
@@ -74,7 +73,6 @@ def test_docker_project_execution(
     assert "--privileged" in docker_cmd
 
 
-@pytest.mark.large
 def test_docker_project_execution_async_docker_args(
     tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
@@ -105,7 +103,6 @@ def test_docker_project_execution_async_docker_args(
     ],
 )
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
-@pytest.mark.large
 def test_docker_project_tracking_uri_propagation(
     ProfileConfigProvider, tmpdir, tracking_uri, expected_command_segment, docker_example_base_image
 ):  # pylint: disable=unused-argument

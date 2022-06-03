@@ -164,7 +164,6 @@ def test_statsmodels_autolog_works_after_exception():
     np.testing.assert_array_almost_equal(model_predictions, loaded_model_predictions)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
@@ -175,7 +174,6 @@ def test_statsmodels_autolog_respects_log_models_flag(log_models):
     assert ("model" in artifact_paths) == log_models
 
 
-@pytest.mark.large
 def test_statsmodels_autolog_loads_model_from_artifact():
     mlflow.statsmodels.autolog()
     fixtures = [
@@ -214,7 +212,6 @@ def test_statsmodels_autolog_loads_model_from_artifact():
             np.testing.assert_array_almost_equal(model_predictions, loaded_model_predictions)
 
 
-@pytest.mark.large
 def test_autolog_registering_model():
     registered_model_name = "test_autolog_registered_model"
     mlflow.statsmodels.autolog(registered_model_name=registered_model_name)
