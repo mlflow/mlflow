@@ -155,7 +155,7 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    "max_tuning_runs, total_runs, output_statment",
+    "max_tuning_runs, total_runs, output_statement",
     [
         (0, 4, "Logging no runs, all will be omitted"),
         (0, 1, "Logging no runs, one run will be omitted"),
@@ -165,11 +165,11 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
         (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
     ],
 )
-def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
+def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statement):
     with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
         mock_info.assert_called_once()
-        mock_info.called_once_with(output_statment)
+        mock_info.called_once_with(output_statement)
 
 
 @pytest.mark.skipif(

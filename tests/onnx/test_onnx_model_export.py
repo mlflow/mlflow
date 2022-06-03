@@ -106,7 +106,7 @@ def onnx_model(model, sample_input, tmpdir):
 def multi_tensor_model(dataset):
     class MyModel(nn.Module):
         def __init__(self, n):
-            super(MyModel, self).__init__()
+            super().__init__()
             self.linear = torch.nn.Linear(n, 1)
             self._train = True
 

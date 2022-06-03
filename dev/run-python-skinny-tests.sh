@@ -25,16 +25,17 @@ python -m pip install sqlalchemy alembic sqlparse
 # unintended libraries.
 pytest tests/test_skinny_client_omits_data_science_libs.py
 
-pytest tests/test_runs.py
-pytest tests/tracking/test_client.py
-pytest tests/tracking/test_tracking.py
-pytest tests/projects/test_projects.py
-pytest tests/deployments/test_cli.py
-pytest tests/deployments/test_deployments.py
-pytest tests/projects/test_projects_cli.py
-pytest tests/utils/test_requirements_utils.py::test_infer_requirements_excludes_mlflow
-pytest tests/utils/test_search_utils.py
-pytest tests/store/tracking/test_file_store.py
+pytest \
+  tests/test_runs.py \
+  tests/tracking/test_client.py \
+  tests/tracking/test_tracking.py \
+  tests/projects/test_projects.py \
+  tests/deployments/test_cli.py \
+  tests/deployments/test_deployments.py \
+  tests/projects/test_projects_cli.py \
+  tests/utils/test_requirements_utils.py::test_infer_requirements_excludes_mlflow \
+  tests/utils/test_search_utils.py \
+  tests/store/tracking/test_file_store.py
 
 python -m pip install pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py

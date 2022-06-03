@@ -229,7 +229,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
     with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
-        # extrypoints.get_group_all
+        # entrypoints.get_group_all
         reload(mlflow.tracking._tracking_service.utils)
 
         expected_standard_registry = {

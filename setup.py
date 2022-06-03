@@ -48,7 +48,7 @@ SKINNY_REQUIREMENTS = [
     "entrypoints",
     "gitpython>=2.1.0",
     "pyyaml>=5.1",
-    "protobuf>=3.7.0",
+    "protobuf>=3.12.0",
     "pytz",
     "requests>=2.17.3",
     "packaging",
@@ -79,7 +79,7 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
     "sqlparse>=0.3.1",
     # Required to run the MLflow server against SQL-backed storage
-    "sqlalchemy",
+    "sqlalchemy>=1.4.0",
     "waitress; platform_system == 'Windows'",
 ]
 

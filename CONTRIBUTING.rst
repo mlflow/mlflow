@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to
+recommend waiting for feedback from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -36,7 +36,8 @@ and will typically be labeled during triage with ``needs design``.
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
 <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-mlflow>`_)
-as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+as a pull request against the MLflow Repository (we recommend pull requests be filed from a
+non-master branch on a repository fork) or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
@@ -435,7 +436,7 @@ If you are adding new framework flavor support, you'll need to modify ``pytest``
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-2. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
+2. ``requirements/test-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 

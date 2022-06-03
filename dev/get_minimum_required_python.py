@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument(
         "--python-versions",
         help=(
-            "Comma separated string represeting python versions. "
+            "Comma separated string representing python versions. "
             "If `requires_python` is unavailable for a specified package, "
             "the minimum version will be selected."
         ),

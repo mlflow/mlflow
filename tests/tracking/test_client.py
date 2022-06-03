@@ -564,7 +564,7 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
         pass
 
     backend_store_path = tmpdir.join("test.db").strpath
-    artifact_store_path = tmpdir.join("artfiacts").strpath
+    artifact_store_path = tmpdir.join("artifacts").strpath
 
     mock_tracking_store = MockUnpickleableTrackingStore(
         "sqlite:///" + backend_store_path, artifact_store_path

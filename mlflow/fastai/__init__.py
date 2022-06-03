@@ -532,7 +532,7 @@ def autolog(
                 return
 
     def _log_model_info(learner):
-        # The process excuted here, are incompatible with TrackerCallback
+        # The process executed here, are incompatible with TrackerCallback
         # Hence it is removed and add again after the execution
         remove_cbs = [cb for cb in learner.cbs if isinstance(cb, TrackerCallback)]
         if remove_cbs:

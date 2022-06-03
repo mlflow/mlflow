@@ -136,7 +136,7 @@ class _PythonEnv:
 
                     if operator in ("<", ">", "!="):
                         raise MlflowException(
-                            f"Invalid version comperator for python: '{operator}'. "
+                            f"Invalid version comparator for python: '{operator}'. "
                             "Must be one of ['<=', '>=', '=', '=='].",
                             error_code=INVALID_PARAMETER_VALUE,
                         )

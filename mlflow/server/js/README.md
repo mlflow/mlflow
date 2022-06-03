@@ -1421,7 +1421,7 @@ Note that tests run much slower with coverage so it is recommended to run it sep
 
 #### Configuration
 
-The default Jest coverage configuration can be overriden by adding any of the following supported keys to a Jest config in your package.json.
+The default Jest coverage configuration can be overridden by adding any of the following supported keys to a Jest config in your package.json.
 
 Supported overrides:
  - [`collectCoverageFrom`](https://facebook.github.io/jest/docs/en/configuration.html#collectcoveragefrom-array)
@@ -2150,7 +2150,7 @@ GitHub Pages doesn’t support routers that use the HTML5 `pushState` history AP
 
 ##### "/dev/tty: No such a device or address"
 
-If, when deploying, you get `/dev/tty: No such a device or address` or a similar error, try the follwing:
+If, when deploying, you get `/dev/tty: No such a device or address` or a similar error, try the following:
 
 1. Create a new [Personal Access Token](https://github.com/settings/tokens)
 2. `git remote set-url origin https://<user>:<token>@github.com/<user>/<repo>` .

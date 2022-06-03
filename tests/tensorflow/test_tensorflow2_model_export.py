@@ -16,6 +16,7 @@ import pandas.testing
 import tensorflow as tf
 from tensorflow import estimator as tf_estimator
 import iris_data_utils
+from packaging.version import Version
 
 import mlflow
 import mlflow.tensorflow
@@ -38,11 +39,15 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    PROTOBUF_REQUIREMENT,
 )
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
+)
+extra_pip_requirements = (
+    [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
 )
 
 SavedModelInfo = collections.namedtuple(
@@ -732,6 +737,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
+            extra_pip_requirements=extra_pip_requirements,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 

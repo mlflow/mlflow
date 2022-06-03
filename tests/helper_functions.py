@@ -28,6 +28,7 @@ from mlflow.utils.environment import (
 )
 
 LOCALHOST = "127.0.0.1"
+PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
 _logger = logging.getLogger(__name__)
 
@@ -326,7 +327,7 @@ class safe_edit_yaml:
 
 def create_mock_response(status_code, text):
     """
-    Create a mock resposne object with the status_code and text
+    Create a mock response object with the status_code and text
 
     :param: status_code int HTTP status code
     :param: text message from the response
