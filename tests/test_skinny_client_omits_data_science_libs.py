@@ -9,21 +9,33 @@ def is_skinny():
 
 
 def test_fails_import_flask():
-    import mlflow   # pylint: disable=unused-import
+    import mlflow
+
+    assert mlflow is not None
 
     with pytest.raises(ImportError, match="flask"):
-        import flask  # pylint: disable=unused-import
+        import flask
+
+        assert flask is not None
 
 
 def test_fails_import_pandas():
-    import mlflow  # pylint: disable=unused-import
+    import mlflow
+
+    assert mlflow is not None
 
     with pytest.raises(ImportError, match="pandas"):
-        import pandas  # pylint: disable=unused-import
+        import pandas
+
+        assert pandas is not None
 
 
 def test_fails_import_numpy():
-    import mlflow  # pylint: disable=unused-import
+    import mlflow
+
+    assert mlflow is not None
 
     with pytest.raises(ImportError, match="numpy"):
-        import numpy  # pylint: disable=unused-import
+        import numpy
+
+        assert numpy is not None
