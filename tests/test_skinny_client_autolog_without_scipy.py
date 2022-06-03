@@ -23,8 +23,6 @@ def test_autolog_without_scipy():
     with pytest.raises(ImportError, match="scipy"):
         import scipy  # pylint: disable=unused-import
 
-        assert scipy is not None  # pylint or flake8 disabling is not working
-
     assert not mlflow.models.utils.HAS_SCIPY
 
     mlflow.autolog()
@@ -43,4 +41,5 @@ def test_autolog_without_scipy():
         csc.indptr = mock.MagicMock()
         csc.indptr.tolist = lambda: [1, 2, 3]
         csc.shape = (3, 3)
-        mlflow.models.utils._Example(csc)
+        ex = mlflow.models.utils._Example(csc)
+        assert ex.info['type'] == 'sparse_matrix_csc'
