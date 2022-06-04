@@ -6,15 +6,7 @@ err=0
 trap 'err=1' ERR
 
 echo -e "\n========== black ==========\n"
-# Exclude proto files because they are auto-generated
-black --check .
-
-if [ $? -ne 0 ]; then
-  echo '
-To apply black foramtting, do one of the following:
-- Run `pip install $(cat requirements/lint-requirements.txt | grep "^black==") && black .`
-- Comment `autoformat` on the PR'
-fi
+black --check . 2>&1 | sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `autoformat` on the PR to format./'
 
 echo -e "\n========== pylint ==========\n"
 pylint $(git ls-files | grep '\.py$')
