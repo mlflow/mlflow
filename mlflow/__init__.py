@@ -199,6 +199,5 @@ __all__ = [
     "list_run_infos",
     "autolog",
     "evaluate",
-    "last_alast_active_runlast_active_runlast_active_runlast_active_runlast_active_runlast_active_runlast_active_runctive_run",
+    "last_active_run",
 ] + _model_flavors_supported
-
