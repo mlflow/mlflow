@@ -331,7 +331,7 @@ def create_mock_response(status_code, text):
 
     :param: status_code int HTTP status code
     :param: text message from the response
-    :reutrn: mock HTTP Response
+    :return: mock HTTP Response
     """
     response = mock.MagicMock()
     response.status_code = status_code
