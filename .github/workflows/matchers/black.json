@@ -5,9 +5,9 @@
       "severity": "error",
       "pattern": [
         {
-          "regexp": "^(Run `black \.`.+): (.+)$",
-          "file": 2,
-          "message": 1
+          "regexp": "^([^:]+): (.+)",
+          "file": 1,
+          "message": 2
         }
       ]
     }
