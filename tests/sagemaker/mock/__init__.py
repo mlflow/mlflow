@@ -249,7 +249,8 @@ class SageMakerBackend(BaseBackend):
 
     BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
-    def __init__(self):
+    def __init__(self, region_name="us-west-2", account_id=None):
+        super().__init__(region_name, account_id)
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
