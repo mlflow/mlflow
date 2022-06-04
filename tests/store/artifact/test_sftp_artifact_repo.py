@@ -4,6 +4,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.utils.file_utils import TempDir
 import os
+import mlflow
 import posixpath
 
 
@@ -196,3 +197,22 @@ def test_delete_selective_artifacts(artifact_path):
         assert not posixpath.exists(posixpath.join(remote_dir, file1))
         assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
         assert posixpath.isdir(remote_dir)
+
+
+def test_log_and_download_sklearn_model(tmp_path):
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.datasets import load_iris
+    from numpy.testing import assert_allclose
+
+    X, y = load_iris(return_X_y=True)
+    original = LogisticRegression().fit(X, y)
+
+    experiment_id = mlflow.create_experiment(
+        name="sklearn-model-experiment",
+        artifact_location=f"sftp://{tmp_path}",
+    )
+    with mlflow.start_run(experiment_id=experiment_id):
+        model_uri = mlflow.sklearn.log_model(original, "model").model_uri
+        downloaded = mlflow.sklearn.load_model(model_uri)
+
+    assert_allclose(original.predict(X), downloaded.predict(X))
