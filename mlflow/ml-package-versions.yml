@@ -21,6 +21,10 @@ sklearn:
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
+      # Ensure sklearn autologging works without matplotlib
+      pip uninstall -q -y matplotlib
+      pytest tests/sklearn/test_sklearn_autolog_without_matplotlib.py
+
 pytorch:
   package_info:
     pip_release: "torch"

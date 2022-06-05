@@ -489,7 +489,7 @@ class _SklearnCustomModelPicklingError(pickle.PicklingError):
         :param sk_model: The custom sklearn model to be pickled
         :param original_exception: The original exception raised
         """
-        super(_SklearnCustomModelPicklingError, self).__init__(
+        super().__init__(
             f"Pickling custom sklearn model {sk_model.__class__.__name__} failed "
             f"when saving model: {str(original_exception)}"
         )
