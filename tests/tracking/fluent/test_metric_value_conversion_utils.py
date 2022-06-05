@@ -34,14 +34,8 @@ def test_log_np_array_as_metric():
     ndarray_val = np.random.rand(1)
     ndarray_float_val = float(ndarray_val[0])
 
-    with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
-        run_id = active_run.info.run_id
+    with start_run() as run:
         mlflow.log_metric("name_numpy", ndarray_val)
 
-    finished_run = tracking.MlflowClient().get_run(run_id)
-    # Validate metrics
-    assert len(finished_run.data.metrics) == 1
-    expected_pairs = {"name_numpy": ndarray_float_val}
-    for key, value in finished_run.data.metrics.items():
-        assert expected_pairs[key] == value
+    finished_run = tracking.MlflowClient().get_run(run.info.run_id)
+    assert finished_run.data.metrics == {"name_numpy": ndarray_float_val}
