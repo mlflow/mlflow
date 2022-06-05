@@ -28,13 +28,16 @@ export class DeleteExperimentModalImpl extends Component {
       .deleteExperimentApi(experimentId, deleteExperimentRequestId)
       .then(() => {
         // reload the page if an active experiment was deleted
-        if (activeExperimentIds !== undefined && activeExperimentIds.includes(experimentId)) {
+        if (activeExperimentIds?.includes(experimentId)) {
           if (activeExperimentIds.length === 1) {
             // send it to root
             this.props.history.push(Routes.rootRoute);
           } else {
-            activeExperimentIds.splice(activeExperimentIds.indexOf(experimentId), 1);
-            this.props.history.push(Routes.getCompareExperimentsPageRoute(activeExperimentIds));
+            this.props.history.push(
+              Routes.getCompareExperimentsPageRoute(
+                activeExperimentIds.filter((e) => e.id !== experimentId),
+              ),
+            );
           }
         }
       })
