@@ -65,7 +65,7 @@ def cb_model(request):
     model = request.param
     X, y = get_iris()
 
-    if isinstance(model, CatBoostRanker):
+    if isinstance(model, cb.CatBoostRanker):
         # the ranking task requires setting a group_id
         # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
         # if the code is running correctly
