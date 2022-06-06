@@ -70,9 +70,9 @@ def cb_model(request):
         # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
         # if the code is running correctly
 
-        indices = np.arange(len(candidates))
+        indices = np.arange(len(X))
 
-        dummy_group_id = np.zeros(len(candidates))
+        dummy_group_id = np.zeros(len(X))
         dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
         dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
         dummy_group_id = dummy_group_ids.astype("int64")
