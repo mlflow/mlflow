@@ -37,7 +37,7 @@ pytorch:
     requirements::
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
-      pytest tests/pytorch/test_pytorch_model_export.py
+      pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_convertion_utils.py
 
 pytorch-lightning:
   package_info:
@@ -73,7 +73,7 @@ tensorflow:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py
+      pytest tests/tensorflow/test_tensorflow2_model_export.py tests/tensorflow/test_tensorflow2_metric_value_convertion_utils.py
 
       # Run tests for keras against keras-nightly that's installed with tf-nightly:
       # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L110-L122
