@@ -35,7 +35,7 @@ export class DeleteExperimentModalImpl extends Component {
           } else {
             this.props.history.push(
               Routes.getCompareExperimentsPageRoute(
-                activeExperimentIds.filter((e) => e.id !== experimentId),
+                activeExperimentIds.filter((eid) => eid !== experimentId),
               ),
             );
           }

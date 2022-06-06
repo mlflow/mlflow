@@ -48,6 +48,15 @@ describe('DeleteExperimentModal', () => {
     });
   });
 
+  test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', (done) => {
+    const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
+    instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
+    instance.handleSubmit().then(() => {
+      expect(location.search).toEqual('/compare-experiments/s?experiments=["1","2"]');
+      done();
+    });
+  });
+
   test('handleSubmit does not perform redirection if DeleteExperiment request fails', (done) => {
     const props = {
       ...minimalProps,
