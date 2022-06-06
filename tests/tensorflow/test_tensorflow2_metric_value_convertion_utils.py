@@ -21,7 +21,7 @@ def test_reraised_value_errors():
 
 
 def test_convert_metric_value_to_float():
-    tf_tensor_val = tf.random.uniform([])
+    tf_tensor_val = tf.random.uniform([])  # pytlin: disable=no-value-for-parameter
     assert convert_metric_value_to_float_if_possible(tf_tensor_val) == float(tf_tensor_val.numpy())
 
 
