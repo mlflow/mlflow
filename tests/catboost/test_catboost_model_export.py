@@ -76,6 +76,7 @@ def cb_model(request):
         dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
         dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
         dummy_group_id = dummy_group_ids.astype("int64")
+        dummy_group_id.sort()
 
         return ModelWithData(model=model.fit(X, y, group_id=dummy_group_id), inference_dataframe=X)
 
