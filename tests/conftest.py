@@ -120,3 +120,20 @@ def clean_up_mlruns_directory(request):
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
             subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+
+
+@pytest.fixture
+def mock_s3_bucket():
+    """
+    Creates a mock S3 bucket using moto
+
+    :return: The name of the mock bucket
+    """
+    import boto3
+    import moto
+
+    with moto.mock_s3():
+        bucket_name = "mock-bucket"
+        s3_client = boto3.client("s3")
+        s3_client.create_bucket(Bucket=bucket_name)
+        yield bucket_name

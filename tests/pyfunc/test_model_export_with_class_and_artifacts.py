@@ -37,7 +37,6 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
 )
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 def get_model_class():
