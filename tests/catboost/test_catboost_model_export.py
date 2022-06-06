@@ -56,13 +56,29 @@ MODEL_PARAMS = {"allow_writing_files": False, "iterations": 10}
     params=[
         cb.CatBoost(MODEL_PARAMS),
         cb.CatBoostClassifier(**MODEL_PARAMS),
+        cb.CatBoostRanker(**MODEL_PARAMS),
         cb.CatBoostRegressor(**MODEL_PARAMS),
     ],
-    ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"],
+    ids=["CatBoost", "CatBoostClassifier", "CatBoostRanker", "CatBoostRegressor"],
 )
 def cb_model(request):
     model = request.param
     X, y = get_iris()
+
+    if isinstance(model, CatBoostRanker):
+        # the ranking task requires setting a group_id
+        # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
+        # if the code is running correctly
+
+        indices = np.arange(len(candidates))
+
+        dummy_group_id = np.zeros(len(candidates))
+        dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
+        dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
+        dummy_group_id = dummy_group_ids.astype("int64")
+
+        return ModelWithData(model=model.fit(X, y, group_id=dummy_group_id), inference_dataframe=X)
+
     return ModelWithData(model=model.fit(X, y), inference_dataframe=X)
 
 
@@ -85,7 +101,7 @@ def custom_env(tmpdir):
     return conda_env_path
 
 
-@pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
+@pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRanker", "CatBoostRegressor"])
 def test_init_model(model_type):
     model = mlflow.catboost._init_model(model_type)
     assert model.__class__.__name__ == model_type
