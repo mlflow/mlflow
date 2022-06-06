@@ -10,7 +10,7 @@ import tensorflow as tf
 
 
 def test_reraised_value_errors():
-    multi_item_tf_tensor = tf.random.uniform([2, 2])
+    multi_item_tf_tensor = tf.random.uniform([2, 2], dtype=tf.float32)
 
     with pytest.raises(
         MlflowException, match=r"Expected metric value to contain a single element"
@@ -21,12 +21,12 @@ def test_reraised_value_errors():
 
 
 def test_convert_metric_value_to_float():
-    tf_tensor_val = tf.random.uniform([])  # pytlin: disable=no-value-for-parameter
+    tf_tensor_val = tf.random.uniform([], dtype=tf.float32)
     assert convert_metric_value_to_float_if_possible(tf_tensor_val) == float(tf_tensor_val.numpy())
 
 
 def test_log_tf_tensor_as_metric():
-    tf_tensor_val = tf.random.uniform([])
+    tf_tensor_val = tf.random.uniform([], dtype=tf.float32)
     tf_tensor_float_val = float(tf_tensor_val.numpy())
 
     with start_run() as run:
