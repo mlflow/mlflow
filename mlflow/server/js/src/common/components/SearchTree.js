@@ -6,8 +6,8 @@ import React from 'react';
 import { Input, Tree } from 'antd';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
+import { injectIntl } from 'react-intl';
 
-const { TreeNode } = Tree;
 const { Search } = Input;
 export const NodeShape = {
   // display name of the node
@@ -18,7 +18,7 @@ export const NodeShape = {
   children: PropTypes.arrayOf(PropTypes.object),
 };
 
-export class SearchTree extends React.Component {
+export class SearchTreeImpl extends React.Component {
   static propTypes = {
     // A forest of data nodes for rendering the checkbox tree view
     data: PropTypes.arrayOf(PropTypes.shape(NodeShape)),
@@ -28,6 +28,7 @@ export class SearchTree extends React.Component {
     checkedKeys: PropTypes.array.isRequired,
     // Handler called when user press ESC key in the search input
     onSearchInputEscapeKeyPress: PropTypes.func.isRequired,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   state = {
@@ -113,24 +114,34 @@ export class SearchTree extends React.Component {
           </span>
         );
       if (item.children) {
-        return (
-          <TreeNode data-test-id={item.key} key={item.key} title={title}>
-            {this.renderTreeNodes(item.children)}
-          </TreeNode>
-        );
+        return {
+          key: item.key,
+          title,
+          children: this.renderTreeNodes(item.children),
+          'data-test-id': item.key,
+        };
       }
-      return <TreeNode data-test-id={item.key} key={item.key} title={title} />;
+      return {
+        key: item.key,
+        title,
+        'data-test-id': item.key,
+      };
     });
   };
 
   render() {
-    const { data, checkedKeys } = this.props;
+    const { data, checkedKeys, intl } = this.props;
     const { expandedKeys, autoExpandParent, searchValue } = this.state;
     return (
       <div>
         <Search
           style={{ marginBottom: 8 }}
-          placeholder='Search'
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Search',
+            description:
+              // eslint-disable-next-line max-len
+              'Placeholder text for input box to search for the columns names that could be selected or unselected to be rendered on the experiment runs table',
+          })}
           value={searchValue}
           onChange={this.handleSearch}
           onKeyUp={this.handleSearchInputKeyUp}
@@ -142,9 +153,8 @@ export class SearchTree extends React.Component {
           expandedKeys={expandedKeys}
           autoExpandParent={autoExpandParent}
           checkedKeys={checkedKeys}
-        >
-          {this.renderTreeNodes(data)}
-        </Tree>
+          treeData={this.renderTreeNodes(data)}
+        />
       </div>
     );
   }
@@ -192,11 +202,11 @@ export const getParentKey = (key, treeData) => {
 
 export const styles = {
   treeNodeTextStyle: {
-    display: 'inline-block',
     maxWidth: 400,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    marginRight: 20,
   },
   searchHighlight: { color: '#f50' },
 };
+
+export const SearchTree = injectIntl(SearchTreeImpl);

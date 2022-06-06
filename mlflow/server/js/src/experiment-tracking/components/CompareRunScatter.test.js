@@ -8,6 +8,7 @@ import { mount } from 'enzyme';
 import { Experiment, Metric, Param, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter, CompareRunScatterImpl } from './CompareRunScatter';
 import { ArtifactNode } from '../utils/ArtifactUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('CompareRunScatter', () => {
   let wrapper;
@@ -126,7 +127,7 @@ describe('CompareRunScatter', () => {
         },
       },
     });
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={store}>
         <BrowserRouter>
           <CompareRunScatter {...minimalProps} />
@@ -136,18 +137,6 @@ describe('CompareRunScatter', () => {
 
     const instance = wrapper.find(CompareRunScatterImpl).instance();
     expect(instance.state.disabled).toBe(false);
-    // params show up in select
-    expect(wrapper.find({ label: 'Parameter' }).length).toBe(2);
-    expect(wrapper.find({ value: 'param-p1' }).length).toBe(3); // default select, option x, option y
-    expect(wrapper.find({ value: 'param-p2' }).length).toBe(2); // option x, option y
-    expect(wrapper.find({ value: 'param-p3' }).length).toBe(2); // option x, option y
-    expect(wrapper.find({ label: 'Metric' }).length).toBe(2);
-    // metrics show up in select
-    expect(wrapper.find({ label: 'Parameter' }).length).toBe(2);
-    expect(wrapper.find({ value: 'metric-m1' }).length).toBe(3); // default select, option x, option y
-    expect(wrapper.find({ value: 'metric-m2' }).length).toBe(2); // option x, option y
-    expect(wrapper.find({ value: 'metric-m3' }).length).toBe(2); // option x, option y
-    expect(wrapper.find({ label: 'Metric' }).length).toBe(2);
 
     // getPlotlyTooltip
     expect(instance.getPlotlyTooltip(0)).toEqual(

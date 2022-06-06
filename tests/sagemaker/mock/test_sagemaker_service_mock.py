@@ -43,7 +43,7 @@ def test_created_model_is_listed_by_list_models_function(sagemaker_client):
     models_response = sagemaker_client.list_models()
     assert "Models" in models_response
     models = models_response["Models"]
-    assert all(["ModelName" in model for model in models])
+    assert all("ModelName" in model for model in models)
     assert model_name in [model["ModelName"] for model in models]
 
 
@@ -63,7 +63,7 @@ def test_creating_model_with_name_already_in_use_raises_exception(sagemaker_clie
 
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create a model"):
         create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
 
@@ -110,7 +110,7 @@ def test_describe_model_response_contains_expected_attributes(sagemaker_client):
 
 @mock_sagemaker
 def test_describe_model_throws_exception_for_nonexistent_model(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe a model"):
         sagemaker_client.describe_model(ModelName="nonexistent-model")
 
 
@@ -142,7 +142,7 @@ def test_created_endpoint_config_is_listed_by_list_endpoints_function(sagemaker_
     endpoint_configs_response = sagemaker_client.list_endpoint_configs()
     assert "EndpointConfigs" in endpoint_configs_response
     endpoint_configs = endpoint_configs_response["EndpointConfigs"]
-    assert all(["EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs])
+    assert all("EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs)
     assert endpoint_config_name in [
         endpoint_config["EndpointConfigName"] for endpoint_config in endpoint_configs
     ]
@@ -176,7 +176,7 @@ def test_creating_endpoint_config_with_name_already_in_use_raises_exception(sage
         model_name=model_name,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create an endpoint configuration"):
         create_endpoint_config(
             sagemaker_client=sagemaker_client,
             endpoint_config_name=endpoint_config_name,
@@ -224,7 +224,8 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
         },
     ]
     sagemaker_client.create_endpoint_config(
-        EndpointConfigName=endpoint_config_name, ProductionVariants=production_variants,
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
     )
 
     describe_endpoint_config_response = sagemaker_client.describe_endpoint_config(
@@ -240,7 +241,7 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
 
 @mock_sagemaker
 def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe an endpoint config"):
         sagemaker_client.describe_endpoint_config(EndpointConfigName="nonexistent-config")
 
 
@@ -288,7 +289,7 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
     endpoints_response = sagemaker_client.list_endpoints()
     assert "Endpoints" in endpoints_response
     endpoints = endpoints_response["Endpoints"]
-    assert all(["EndpointName" in endpoint for endpoint in endpoints])
+    assert all("EndpointName" in endpoint for endpoint in endpoints)
     assert endpoint_name in [endpoint["EndpointName"] for endpoint in endpoints]
 
 
@@ -336,7 +337,7 @@ def test_creating_endpoint_with_name_already_in_use_raises_exception(sagemaker_c
         Tags=[{"Key": "Some Key", "Value": "Some Value"}],
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to create an endpoint"):
         sagemaker_client.create_endpoint(
             EndpointConfigName=endpoint_config_name,
             EndpointName=endpoint_name,
@@ -390,12 +391,14 @@ def test_describe_endpoint_response_contains_expected_attributes(sagemaker_clien
         },
     ]
     sagemaker_client.create_endpoint_config(
-        EndpointConfigName=endpoint_config_name, ProductionVariants=production_variants,
+        EndpointConfigName=endpoint_config_name,
+        ProductionVariants=production_variants,
     )
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
     )
 
     describe_endpoint_response = sagemaker_client.describe_endpoint(EndpointName=endpoint_name)
@@ -408,7 +411,7 @@ def test_describe_endpoint_response_contains_expected_attributes(sagemaker_clien
 
 @mock_sagemaker
 def test_describe_endpoint_throws_exception_for_nonexistent_endpoint(sagemaker_client):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to describe an endpoint"):
         sagemaker_client.describe_endpoint(EndpointName="nonexistent-endpoint")
 
 
@@ -426,7 +429,8 @@ def test_endpoint_is_no_longer_listed_after_deletion(sagemaker_client):
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
     sagemaker_client.delete_endpoint(EndpointName=endpoint_name)
@@ -457,7 +461,8 @@ def test_update_endpoint_modifies_config_correctly(sagemaker_client):
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=first_endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=first_endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
     first_describe_endpoint_response = sagemaker_client.describe_endpoint(
@@ -489,10 +494,181 @@ def test_update_endpoint_with_nonexistent_config_throws_exception(sagemaker_clie
 
     endpoint_name = "sample-endpoint"
     sagemaker_client.create_endpoint(
-        EndpointConfigName=endpoint_config_name, EndpointName=endpoint_name,
+        EndpointConfigName=endpoint_config_name,
+        EndpointName=endpoint_name,
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Attempted to update an endpoint"):
         sagemaker_client.update_endpoint(
             EndpointName=endpoint_name, EndpointConfigName="nonexistent-config"
         )
+
+
+@mock_sagemaker
+def test_created_transform_job_is_listed_by_list_transform_jobs_function(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    transform_jobs_response = sagemaker_client.list_transform_jobs()
+    assert "TransformJobSummaries" in transform_jobs_response
+    transform_jobs = transform_jobs_response["TransformJobSummaries"]
+    assert all("TransformJobName" in transform_job for transform_job in transform_jobs)
+    assert job_name in [transform_job["TransformJobName"] for transform_job in transform_jobs]
+
+
+@mock_sagemaker
+def test_create_transform_job_returns_arn_containing_transform_job_name(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    create_transform_job_response = sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    assert "TransformJobArn" in create_transform_job_response
+    assert job_name in create_transform_job_response["TransformJobArn"]
+
+
+@mock_sagemaker
+def test_creating_transform_job_with_name_already_in_use_raises_exception(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    with pytest.raises(ValueError, match="Attempted to create a transform job"):
+        sagemaker_client.create_transform_job(
+            TransformJobName=job_name,
+            ModelName=model_name,
+            TransformInput=transform_input,
+            TransformOutput=transform_output,
+            TransformResources=transform_resources,
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+        )
+
+
+@mock_sagemaker
+def test_all_transform_jobs_are_listed_after_creating_many_transform_jobs(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_names = []
+
+    for i in range(100):
+        job_name = "sample-job-{idx}".format(idx=i)
+        job_names.append(job_name)
+
+        sagemaker_client.create_transform_job(
+            TransformJobName=job_name,
+            ModelName=model_name,
+            TransformInput=transform_input,
+            TransformOutput=transform_output,
+            TransformResources=transform_resources,
+            Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+        )
+
+    listed_transform_jobs = sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
+    listed_transform_job_names = [
+        transform_job["TransformJobName"] for transform_job in listed_transform_jobs
+    ]
+    for job_name in job_names:
+        assert job_name in listed_transform_job_names
+
+
+@mock_sagemaker
+def test_describe_transform_job_response_contains_expected_attributes(sagemaker_client):
+    model_name = "sample-model"
+    create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
+
+    transform_input = {
+        "DataSource": {"S3DataSource": {"S3DataType": "Some Data Type", "S3Uri": "Some Input Uri"}}
+    }
+
+    transform_output = {"S3OutputPath": "Some Output Path"}
+
+    transform_resources = {"InstanceType": "Some Instance Type", "InstanceCount": 1}
+
+    job_name = "sample-job"
+
+    sagemaker_client.create_transform_job(
+        TransformJobName=job_name,
+        ModelName=model_name,
+        TransformInput=transform_input,
+        TransformOutput=transform_output,
+        TransformResources=transform_resources,
+        Tags=[{"Key": "Some Key", "Value": "Some Value"}],
+    )
+
+    describe_transform_job_response = sagemaker_client.describe_transform_job(
+        TransformJobName=job_name
+    )
+    assert "TransformJobName" in describe_transform_job_response
+    assert "CreationTime" in describe_transform_job_response
+    assert "TransformJobArn" in describe_transform_job_response
+    assert "TransformJobStatus" in describe_transform_job_response
+    assert "ModelName" in describe_transform_job_response
+
+
+@mock_sagemaker
+def test_describe_transform_job_throws_exception_for_nonexistent_transform_job(sagemaker_client):
+    with pytest.raises(ValueError, match="Attempted to describe a transform job"):
+        sagemaker_client.describe_transform_job(TransformJobName="nonexistent-job")

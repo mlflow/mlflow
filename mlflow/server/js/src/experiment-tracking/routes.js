@@ -15,10 +15,6 @@ class Routes {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
-  static getRunArtifactRoute(experimentId, runUuid, artifactPath) {
-    return `${this.getRunPageRoute(experimentId, runUuid)}/artifactPath/${artifactPath}`;
-  }
-
   static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
 
   static runPageWithArtifactSelectedRoute =
@@ -28,7 +24,7 @@ class Routes {
    * Get route to the metric plot page
    * @param runUuids - Array of string run IDs to plot
    * @param metricKey - Primary metric key in plot, shown in page breadcrumb
-   * @param experimentId - ID of experiment to link to from page breadcrumb
+   * @param experimentIds - IDs of experiments to link to from page breadcrumb
    * @param plotMetricKeys - Array of string metric keys to plot
    * @param plotLayout - Object containing plot layout information in Plotly format. See
    *   https://plot.ly/javascript/plotlyjs-events/#update-data for an idea of object structure
@@ -53,7 +49,7 @@ class Routes {
   static getMetricPageRoute(
     runUuids,
     metricKey,
-    experimentId,
+    experimentIds,
     plotMetricKeys = null,
     plotLayout = {},
     selectedXAxis = X_AXIS_RELATIVE,
@@ -70,7 +66,7 @@ class Routes {
     const yAxisScale = yAxisLogScale ? 'log' : 'linear';
     return (
       `/metric/${encodeURIComponent(metricKey)}?runs=${JSON.stringify(runUuids)}&` +
-      `experiment=${experimentId}` +
+      `experiments=${JSON.stringify(experimentIds)}` +
       `&plot_metric_keys=${JSON.stringify(finalPlotMetricKeys)}` +
       `&plot_layout=${JSON.stringify(plotLayout)}` +
       `&x_axis=${selectedXAxis}` +
@@ -84,11 +80,19 @@ class Routes {
 
   static metricPageRoute = '/metric/:metricKey';
 
-  static getCompareRunPageRoute(runUuids, experimentId) {
-    return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiment=${experimentId}`;
+  static getCompareRunPageRoute(runUuids, experimentIds) {
+    return `/compare-runs?runs=${JSON.stringify(runUuids)}&experiments=${JSON.stringify(
+      experimentIds,
+    )}`;
   }
 
   static compareRunPageRoute = '/compare-runs';
+
+  static compareExperimentsPageRoute = '/compare-experiments';
+  static compareExperimentsSearchPageRoute = `${Routes.compareExperimentsPageRoute}/:searchString`;
+  static getCompareExperimentsPageRoute(experimentIds) {
+    return `${Routes.compareExperimentsPageRoute}/s?experiments=${JSON.stringify(experimentIds)}`;
+  }
 }
 
 export default Routes;

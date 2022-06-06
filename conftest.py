@@ -5,27 +5,6 @@ import pytest
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--large-only",
-        action="store_true",
-        dest="large_only",
-        default=False,
-        help="Run only tests decorated with 'large' annotation",
-    )
-    parser.addoption(
-        "--large",
-        action="store_true",
-        dest="large",
-        default=False,
-        help="Run tests decorated with 'large' annotation",
-    )
-    parser.addoption(
-        "--release",
-        action="store_true",
-        dest="release",
-        default=False,
-        help="Run tests decorated with 'release' annotation",
-    )
-    parser.addoption(
         "--requires-ssh",
         action="store_true",
         dest="requires_ssh",
@@ -44,19 +23,16 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
-    # Override the markexpr argument to pytest
-    # See https://docs.pytest.org/en/latest/example/markers.html for more details
-    markexpr = []
-    if not config.option.large and not config.option.large_only:
-        markexpr.append("not large")
-    elif config.option.large_only:
-        markexpr.append("large")
-    if not config.option.release:
-        markexpr.append("not release")
-    if not config.option.requires_ssh:
-        markexpr.append("not requires_ssh")
-    if len(markexpr) > 0:
-        setattr(config.option, "markexpr", " and ".join(markexpr))
+    # Register markers to suppress `PytestUnknownMarkWarning`
+    config.addinivalue_line("markers", "requires_ssh")
+    config.addinivalue_line("markers", "notrackingurimock")
+    config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
+
+
+def pytest_runtest_setup(item):
+    markers = [mark.name for mark in item.iter_markers()]
+    if "requires_ssh" in markers and not item.config.getoption("--requires-ssh"):
+        pytest.skip("use `--requires-ssh` to run this test")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -74,22 +50,24 @@ def pytest_ignore_collect(path, config):
             "tests/sagemaker",
             "tests/sklearn",
             "tests/spark",
+            "tests/mleap",
             "tests/tensorflow",
             "tests/azureml",
             "tests/onnx",
-            "tests/keras_autolog",
-            "tests/tensorflow_autolog",
             "tests/gluon",
-            "tests/gluon_autolog",
             "tests/xgboost",
             "tests/lightgbm",
             "tests/catboost",
             "tests/statsmodels",
             "tests/spacy",
-            "tests/spark_autologging",
             "tests/fastai",
             "tests/models",
             "tests/shap",
+            "tests/paddle",
+            "tests/prophet",
+            "tests/pmdarima",
+            "tests/diviner",
+            "tests/test_mlflow_lazily_imports_ml_packages.py",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc
             "tests/tracking/fluent/test_fluent_autolog.py",

@@ -599,6 +599,12 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL
+  parent_run_id <- mlflow_get_active_run_id()
+  if (!is.null(parent_run_id)) {
+    # create a tag containing the parent run ID so that MLflow UI can display
+    # nested runs properly
+    tags[[MLFLOW_TAGS$MLFLOW_PARENT_RUN_ID]] <- parent_run_id
+  }
   list(
     client = client,
     tags = tags,
@@ -649,5 +655,6 @@ MLFLOW_TAGS <- list(
   MLFLOW_USER = "mlflow.user",
   MLFLOW_SOURCE_NAME = "mlflow.source.name",
   MLFLOW_SOURCE_VERSION = "mlflow.source.version",
-  MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+  MLFLOW_SOURCE_TYPE = "mlflow.source.type",
+  MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 )

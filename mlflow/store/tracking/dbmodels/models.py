@@ -299,7 +299,7 @@ class SqlMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
@@ -356,7 +356,7 @@ class SqlLatestMetric(Base):
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
-    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    timestamp = Column(BigInteger, default=lambda: int(time.time() * 1000))
     """
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``latest_metrics`` table.

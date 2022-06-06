@@ -31,17 +31,17 @@ const b = {
 const aParent = { info: { run_id: 'aParent' } };
 const bParent = { info: { run_id: 'bParent' } };
 
-beforeAll(() => {
+beforeEach(() => {
   jest
     .spyOn(MlflowService, 'searchRuns')
-    .mockImplementation(({ success }) => success({ runs: [a, b, aParent] }));
+    .mockImplementation(() => Promise.resolve({ runs: [a, b, aParent] }));
 
   jest
     .spyOn(MlflowService, 'getRun')
-    .mockImplementation(({ data, success }) => success({ run: { info: { run_id: data.run_id } } }));
+    .mockImplementation((data) => Promise.resolve({ run: { info: { run_id: data.run_id } } }));
 });
 
-afterAll(() => {
+afterEach(() => {
   MlflowService.searchRuns.mockRestore();
   MlflowService.getRun.mockRestore();
 });
@@ -72,6 +72,42 @@ describe('fetchMissingParents', () => {
     return fetchMissingParents(res).then((runs) => {
       expect(runs).toEqual({ runs: [a, b, aParent, bParent] });
     });
+  });
+
+  it('should handle deleted parent runs', () => {
+    const mockParentRunDeletedError = {
+      getErrorCode() {
+        return 'RESOURCE_DOES_NOT_EXIST';
+      },
+    };
+
+    jest.spyOn(MlflowService, 'getRun').mockImplementation((data) => {
+      if (data.run_id === 'aParent') {
+        return Promise.resolve({ run: { info: { run_id: data.run_id } } });
+      } else {
+        return Promise.reject(mockParentRunDeletedError);
+      }
+    });
+
+    const res = { runs: [a, b] };
+    return fetchMissingParents(res).then((runs) => {
+      expect(runs).toEqual({ runs: [a, b, aParent] });
+    });
+  });
+
+  it('should throw for unexpected exceptions encountered during run resolution', async () => {
+    const mockUnexpectedGetRunError = {
+      getErrorCode() {
+        return 'INTERNAL_ERROR';
+      },
+    };
+
+    jest
+      .spyOn(MlflowService, 'getRun')
+      .mockImplementation(() => Promise.reject(mockUnexpectedGetRunError));
+
+    const res = { runs: [a, b] };
+    await expect(fetchMissingParents(res)).rejects.toEqual(mockUnexpectedGetRunError);
   });
 });
 

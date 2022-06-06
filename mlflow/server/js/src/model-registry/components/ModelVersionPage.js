@@ -22,6 +22,7 @@ import { getModelPageRoute, modelListPageRoute } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import _ from 'lodash';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class ModelVersionPageImpl extends React.Component {
   static propTypes = {
@@ -180,7 +181,7 @@ export class ModelVersionPageImpl extends React.Component {
     } = this.props;
 
     return (
-      <div className='App-content'>
+      <PageContainer>
         <RequestStateWrapper requestIds={this.state.criticalInitialRequestIds}>
           {(loading, hasError, requests) => {
             if (hasError) {
@@ -217,7 +218,7 @@ export class ModelVersionPageImpl extends React.Component {
             return null;
           }}
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }

@@ -38,11 +38,11 @@ class MlflowException(Exception):
 
     def __init__(self, message, error_code=INTERNAL_ERROR, **kwargs):
         """
-        :param message: The message describing the error that occured. This will be included in the
-                        exception's serialized JSON representation.
-        :param error_code: An appropriate error code for the error that occured; it will be included
-                           in the exception's serialized JSON representation. This should be one of
-                           the codes listed in the `mlflow.protos.databricks_pb2` proto.
+        :param message: The message or exception describing the error that occurred. This will be
+                        included in the exception's serialized JSON representation.
+        :param error_code: An appropriate error code for the error that occurred; it will be
+                           included in the exception's serialized JSON representation. This should
+                           be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
         :param kwargs: Additional key-value pairs to include in the serialized JSON representation
                        of the MlflowException.
         """
@@ -50,6 +50,7 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(error_code)
         except (ValueError, TypeError):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
+        message = str(message)
         self.message = message
         self.json_kwargs = kwargs
         super().__init__(message)
@@ -61,6 +62,18 @@ class MlflowException(Exception):
 
     def get_http_status_code(self):
         return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
+
+    @classmethod
+    def invalid_parameter_value(cls, message, **kwargs):
+        """
+        Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
+
+        :param message: The message describing the error that occurred. This will be included in the
+                        exception's serialized JSON representation.
+        :param kwargs: Additional key-value pairs to include in the serialized JSON representation
+                       of the MlflowException.
+        """
+        return cls(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
 
 
 class RestException(MlflowException):

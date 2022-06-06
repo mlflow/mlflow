@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
-import { Button, Icon } from 'antd';
+import { EditOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import { IconButton } from './IconButton';
 
 describe('IconButton', () => {
@@ -9,7 +10,7 @@ describe('IconButton', () => {
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = { icon: <Icon type='edit' /> };
+    minimalProps = { icon: <EditOutlined /> };
   });
 
   test('should render with minimal props without exploding', () => {

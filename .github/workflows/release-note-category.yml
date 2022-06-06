@@ -8,13 +8,22 @@ on:
       - opened
       - synchronize
       - reopened
-      - edited
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Validate
         uses: actions/github-script@v3
         with:
@@ -24,4 +33,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
             );
-            script({ core, context });
+            script({ core, context, github });

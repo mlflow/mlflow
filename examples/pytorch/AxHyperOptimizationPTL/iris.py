@@ -6,7 +6,11 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning.metrics import Accuracy
+
+try:
+    from torchmetrics import Accuracy
+except ImportError:
+    from pytorch_lightning.metrics import Accuracy
 
 
 class IrisClassification(pl.LightningModule):

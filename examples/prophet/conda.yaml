@@ -1,11 +1,9 @@
-name: tutorial
+name: prophet-example
 channels:
-  - defaults
-  - anaconda
   - conda-forge
 dependencies:
-  - python=3.6
-  - fbprophet<=0.7
+  - python=3.8
   - pip
   - pip:
-    - mlflow>=1.0
+    - prophet>=1.0.1
+

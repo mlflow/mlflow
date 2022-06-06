@@ -30,7 +30,9 @@ def test_entry_point_compute_params():
         assert params == {"name": "friend", "greeting": "hello"}
         assert extra_params == {}
         # Raise exception on missing required parameter
-        with pytest.raises(ExecutionException):
+        with pytest.raises(
+            ExecutionException, match="No value given for missing parameters: 'name'"
+        ):
             entry_point.compute_parameters({}, storage_dir)
 
 
@@ -44,7 +46,9 @@ def test_entry_point_compute_command():
         storage_dir = tmp.path()
         command = entry_point.compute_command({"name": "friend", "excitement": 10}, storage_dir)
         assert command == "python greeter.py hi friend --excitement 10"
-        with pytest.raises(ExecutionException):
+        with pytest.raises(
+            ExecutionException, match="No value given for missing parameters: 'name'"
+        ):
             entry_point.compute_command({}, storage_dir)
         # Test shell escaping
         name_value = "friend; echo 'hi'"
@@ -81,7 +85,7 @@ def test_path_parameter():
 
         # Verify that we raise an exception when passing a non-existent local file to a
         # parameter of type "path"
-        with TempDir() as tmp, pytest.raises(ExecutionException):
+        with TempDir() as tmp, pytest.raises(ExecutionException, match="no such file or directory"):
             dst_dir = tmp.path()
             entry_point.compute_parameters(
                 user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
@@ -116,7 +120,7 @@ def test_uri_parameter():
         )
         assert download_uri_mock.call_count == 0
         # Test that we raise an exception if a local path is passed to a parameter of type URI
-        with pytest.raises(ExecutionException):
+        with pytest.raises(ExecutionException, match="Expected URI for parameter uri"):
             entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
 
 
@@ -130,11 +134,11 @@ def test_params():
     entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
 
     user1 = {}
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="No value given for missing parameters"):
         entry_point._validate_parameters(user1)
 
     user_2 = {"beta": 0.004}
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="No value given for missing parameters"):
         entry_point._validate_parameters(user_2)
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}

@@ -10,7 +10,7 @@ entry_points:
 
 
     command: |
-          python ax_hpo_mnist.py \
+          python ax_hpo_iris.py \
             --max_epochs {max_epochs} \
             --total_trials {total_trials}
 

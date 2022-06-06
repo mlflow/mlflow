@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
+import { Version, HomePageDocsUrl } from '../../common/constants';
 import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
@@ -16,13 +17,26 @@ import {
   modelListPageRoute,
   modelPageRoute,
   modelSubpageRoute,
+  modelSubpageRouteWithName,
   modelVersionPageRoute,
   compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
 import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
-import ModelListPage from '../../model-registry/components/ModelListPage';
+import { ModelListPage } from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
-import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
+
+const isExperimentsActive = (match, location) => {
+  // eslint-disable-next-line prefer-const
+  let isActive = match && !location.pathname.includes('models');
+  return isActive;
+};
+
+let mlflowHashRouting = false;
+
+export function setMLFlowHashRouting() {
+  mlflowHashRouting = true;
+}
 
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
@@ -31,7 +45,10 @@ const classNames = {
 class App extends Component {
   render() {
     return (
-      <Router>
+      <Router
+        basename={mlflowHashRouting ? '/mlflow' : undefined}
+        hashType={mlflowHashRouting ? 'noslash' : undefined}
+      >
         <div style={{ height: '100vh' }}>
           <ErrorModal />
           {process.env.HIDE_HEADER === 'true' ? null : (
@@ -40,13 +57,14 @@ class App extends Component {
                 <Link to={Routes.rootRoute} className='App-mlflow'>
                   <img className='mlflow-logo' alt='MLflow' src={logo} />
                 </Link>
+                <span className={'mlflow-version'}>{Version}</span>
               </div>
               <div className='header-route-links'>
                 <NavLink
                   strict
                   to={Routes.rootRoute}
                   activeStyle={classNames.activeNavLink}
-                  isActive={(match, location) => match && !location.pathname.includes('models')}
+                  isActive={isExperimentsActive}
                   className='header-nav-link'
                 >
                   <div className='experiments'>
@@ -70,7 +88,7 @@ class App extends Component {
                     <span>GitHub</span>
                   </div>
                 </a>
-                <a href={'https://mlflow.org/docs/latest/index.html'}>
+                <a href={HomePageDocsUrl}>
                   <div className='docs'>
                     <span>Docs</span>
                   </div>
@@ -86,12 +104,14 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
               <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
               {/* TODO(Zangr) see if route component can be injected here */}
               <Route exact path={modelListPageRoute} component={ModelListPage} />
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
               <Route exact path={modelPageRoute} component={ModelPage} />
               <Route exact path={modelSubpageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
               <Route
                 exact
                 path={compareModelVersionsPageRoute}

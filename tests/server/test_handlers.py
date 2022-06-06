@@ -113,7 +113,6 @@ def test_get_endpoints():
 
 def test_all_model_registry_endpoints_available():
     endpoints = {handler: method for (path, handler, method) in get_endpoints()}
-    print(endpoints)
 
     # Test that each of the handler is enabled as an endpoint with appropriate method.
     expected_endpoints = {
@@ -214,7 +213,6 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
-@pytest.mark.large
 def test_mlflow_server_with_installed_plugin(tmpdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
@@ -287,7 +285,7 @@ def test_update_registered_model(mock_get_request_message, mock_model_registry_s
     mock_model_registry_store.update_registered_model.return_value = rm2
     resp = _update_registered_model()
     _, args = mock_model_registry_store.update_registered_model.call_args
-    assert args == {"name": name, "description": u"Test model"}
+    assert args == {"name": name, "description": "Test model"}
     assert json.loads(resp.get_data()) == {"registered_model": jsonify(rm2)}
 
 

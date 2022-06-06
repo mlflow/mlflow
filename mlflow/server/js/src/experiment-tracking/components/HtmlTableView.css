@@ -1,5 +1,15 @@
-th {
-  background-color: #fafafa;
+/* Overriding the table styles since antd tables take the full screen by default.
+We would like to change it to auto to automatically grow based on the columns */
+
+.html-table-view table {
+  width: auto;
+  min-width: 400px;
+}
+
+.html-table-view th {
+  width: auto;
+  min-width: 200px;
+  margin-right: 80px;
   font-size: 14px;
   color: #888;
 }

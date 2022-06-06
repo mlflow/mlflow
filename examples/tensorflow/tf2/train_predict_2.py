@@ -7,6 +7,7 @@ import pandas as pd
 import shutil
 import tempfile
 import tensorflow as tf
+from tensorflow import estimator as tf_estimator
 import mlflow.tensorflow
 
 TRAIN_URL = "http://download.tensorflow.org/data/iris_training.csv"
@@ -86,7 +87,7 @@ def main(argv):
         hidden_units = [10, 10]
 
         # Build 2 hidden layer DNN with 10, 10 units respectively.
-        classifier = tf.estimator.DNNClassifier(
+        classifier = tf_estimator.DNNClassifier(
             feature_columns=my_feature_columns,
             hidden_units=hidden_units,
             # The model must choose between 3 classes.
@@ -138,7 +139,7 @@ def main(argv):
             "PetalWidth": tf.Variable([], dtype=tf.float64, name="PetalWidth"),
         }
 
-        receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feat_specifications)
+        receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feat_specifications)
         temp = tempfile.mkdtemp()
         try:
             # The model is automatically logged when export_saved_model() is called.

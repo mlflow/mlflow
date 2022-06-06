@@ -179,7 +179,7 @@ def train(
     :param image_width: Width of the input image in pixels.
     :param image_files: List of image files to be used for training.
     :param labels: List of labels for the image files.
-    :param domain: Dictionary representing the domain of the reponse.
+    :param domain: Dictionary representing the domain of the response.
                    Provides mapping label-name -> label-id.
     :param epochs: Number of epochs to train the model for.
     :param batch_size: Batch size used during training.
@@ -203,7 +203,7 @@ def train(
                 return f.read()
 
         with tf.Graph().as_default() as g:
-            with tf.Session(graph=g).as_default():
+            with tf.compat.v1.Session(graph=g).as_default():
                 dims = input_shape[:2]
                 x = np.array([decode_and_resize_image(_read_image(x), dims) for x in image_files])
                 y = np_utils.to_categorical(np.array(labels), num_classes=len(domain))

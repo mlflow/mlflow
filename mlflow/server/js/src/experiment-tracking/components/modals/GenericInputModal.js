@@ -15,35 +15,42 @@ export class GenericInputModal extends Component {
 
   static propTypes = {
     okText: PropTypes.string,
+    cancelText: PropTypes.string,
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
+    onCancel: PropTypes.func,
+    className: PropTypes.string,
+    footer: PropTypes.node,
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
-    title: PropTypes.string.isRequired,
+    title: PropTypes.node.isRequired,
     // Antd Form
     children: PropTypes.node.isRequired,
   };
 
-  onSubmit = () => {
-    return this.form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isSubmitting: true });
+  formRef = React.createRef();
 
-        // call handleSubmit from parent component, pass form values
-        // handleSubmit is expected to return a promise
-        return this.props
-          .handleSubmit(values)
-          .then(this.resetAndClearModalForm)
-          .catch(this.handleSubmitFailure)
-          .finally(this.onRequestCloseHandler);
-      }
-      return Promise.reject(err);
-    });
+  onSubmit = async () => {
+    this.setState({ isSubmitting: true });
+    try {
+      const values = await this.formRef.current.validateFields();
+
+      // call handleSubmit from parent component, pass form values
+      // handleSubmit is expected to return a promise
+      return await this.props
+        .handleSubmit(values)
+        .then(this.resetAndClearModalForm)
+        .catch(this.handleSubmitFailure)
+        .finally(this.onRequestCloseHandler);
+    } catch (e) {
+      this.setState({ isSubmitting: false });
+      return Promise.reject(e);
+    }
   };
 
   resetAndClearModalForm = () => {
     this.setState({ isSubmitting: false });
-    this.form.resetFields();
+    this.formRef.current.resetFields();
   };
 
   handleSubmitFailure = (e) => {
@@ -58,26 +65,40 @@ export class GenericInputModal extends Component {
     }
   };
 
-  saveFormRef = (form) => {
-    this.form = form;
+  handleCancel = () => {
+    this.onRequestCloseHandler();
+    // Check for optional `onCancel` method prop.
+    if (this.props.onCancel !== undefined) {
+      this.props.onCancel();
+    }
   };
 
   render() {
     const { isSubmitting } = this.state;
-    const { okText, isOpen, children } = this.props;
+    const { okText, cancelText, isOpen, footer, children } = this.props;
 
     // add props (ref) to passed component
-    const displayForm = React.cloneElement(children, { ref: this.saveFormRef });
+    const displayForm = React.Children.map(children, (child) => {
+      // Checking isValidElement is the safe way and avoids a typescript
+      // error too.
+      if (React.isValidElement(child)) {
+        return React.cloneElement(child, { innerRef: this.formRef });
+      }
+      return child;
+    });
 
     return (
       <Modal
+        className={this.props.className}
         title={this.props.title}
         width={540}
         visible={isOpen}
         onOk={this.onSubmit}
         okText={okText}
+        cancelText={cancelText}
         confirmLoading={isSubmitting}
-        onCancel={this.onRequestCloseHandler}
+        onCancel={this.handleCancel}
+        footer={footer}
         centered
       >
         {displayForm}

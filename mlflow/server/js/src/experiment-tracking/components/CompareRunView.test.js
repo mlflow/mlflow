@@ -3,18 +3,20 @@ import { shallow } from 'enzyme';
 import Fixtures from '../utils/test-utils/Fixtures';
 import Utils from '../../common/utils/Utils';
 import { CompareRunView } from './CompareRunView';
+import { createIntl } from 'react-intl';
 
 const getCompareRunViewMock = () => {
   return shallow(
     <CompareRunView
       runInfos={[Fixtures.createRunInfo(), Fixtures.createRunInfo()]}
-      experiment={Fixtures.createExperiment()}
-      experimentId={'0'}
+      experiments={[Fixtures.createExperiment()]}
+      experimentIds={['0']}
       runUuids={['0']}
       metricLists={[]}
       paramLists={[]}
       runNames={['run1']}
       runDisplayNames={['run1DisplayName', 'run2DisplayName']}
+      intl={createIntl({ locale: 'en' })}
     />,
   );
 };

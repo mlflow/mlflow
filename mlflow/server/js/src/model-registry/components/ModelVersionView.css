@@ -20,4 +20,29 @@
 .status-alert.status-alert-error {
     border-left: 2px solid red;
 }
+
+
+.breadcrumb-header-wrapper {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.breadcrumb-header {
+    font-size: 18px;
+    margin-bottom: 24px;
+    font-weight: bold;
+    color: #333;
+    display:flex;
+    align-items: center;
+    margin-right: 10px;
+}
+
+.version-follow-icon {
+    margin-left: auto;
+}
+
+.ant-popover-content {
+    max-width: 500px;
+}
 /* <<< Extract to our own Alert wrapper component */

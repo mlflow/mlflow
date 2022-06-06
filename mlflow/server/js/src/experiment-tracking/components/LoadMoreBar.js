@@ -9,20 +9,26 @@
 */
 
 import React from 'react';
-import { Button, Icon, Tooltip } from 'antd';
+import { SyncOutlined } from '@ant-design/icons';
+import { WithDesignSystemThemeHoc } from '@databricks/design-system';
+import { css } from 'emotion';
+import { Button, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
+import { injectIntl, FormattedMessage } from 'react-intl';
 
-export class LoadMoreBar extends React.PureComponent {
+export class LoadMoreBarImpl extends React.PureComponent {
   static propTypes = {
     style: PropTypes.object,
     loadingMore: PropTypes.bool.isRequired,
     onLoadMore: PropTypes.func.isRequired,
     disableButton: PropTypes.bool,
     nestChildren: PropTypes.bool,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
+    designSystemThemeApi: PropTypes.any.isRequired,
   };
 
   renderButton() {
-    const { disableButton, onLoadMore, nestChildren } = this.props;
+    const { disableButton, onLoadMore, nestChildren, intl, designSystemThemeApi } = this.props;
     const loadMoreButton = (
       <Button
         className='load-more-button'
@@ -33,7 +39,10 @@ export class LoadMoreBar extends React.PureComponent {
         size='small'
         disabled={disableButton}
       >
-        Load more
+        <FormattedMessage
+          defaultMessage='Load more'
+          description='Load more button text to load more experiment runs'
+        />
       </Button>
     );
 
@@ -42,7 +51,11 @@ export class LoadMoreBar extends React.PureComponent {
         <Tooltip
           className='load-more-button-disabled-tooltip'
           placement='bottom'
-          title='No more runs to load.'
+          title={intl.formatMessage({
+            defaultMessage: 'No more runs to load.',
+            description:
+              'Tooltip text for load more button when there are no more experiment runs to load',
+          })}
         >
           {loadMoreButton}
         </Tooltip>
@@ -54,9 +67,19 @@ export class LoadMoreBar extends React.PureComponent {
           <Tooltip
             className='load-more-button-nested-info-tooltip'
             placement='bottom'
-            title='Loaded child runs are nested under their parents.'
+            title={intl.formatMessage({
+              defaultMessage: 'Loaded child runs are nested under their parents.',
+              description:
+                // eslint-disable-next-line max-len
+                'Tooltip text for load more button explaining the runs are nested under their parent experiment run',
+            })}
           >
-            <i className='fas fa-info-circle' style={styles.nestedTooltip} />
+            <i
+              className={`fas fa-info-circle ${css({
+                marginLeft: designSystemThemeApi.theme.spacing.paddingSm,
+                color: designSystemThemeApi.theme.colors.actionPrimaryBackgroundDefault,
+              })}`}
+            />
           </Tooltip>
         </div>
       );
@@ -71,7 +94,7 @@ export class LoadMoreBar extends React.PureComponent {
       <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
           <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
-            <Icon type='sync' spin style={styles.loadingMoreIcon} />
+            <SyncOutlined spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
           this.renderButton()
@@ -99,8 +122,6 @@ const styles = {
     paddingLeft: 16,
     paddingRight: 16,
   },
-  nestedTooltip: {
-    color: '#2374BB', // matches antd primary button colour
-    marginLeft: 8,
-  },
 };
+
+export const LoadMoreBar = WithDesignSystemThemeHoc(injectIntl(LoadMoreBarImpl));

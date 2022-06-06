@@ -1,6 +1,7 @@
 import React from 'react';
-import { shallow } from 'enzyme';
-import { EditableNote } from './EditableNote';
+import { EditableNote, EditableNoteImpl } from './EditableNote';
+import { mountWithIntl } from '../utils/TestUtils';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('EditableNote', () => {
   let wrapper;
@@ -17,7 +18,11 @@ describe('EditableNote', () => {
       onCancel: mockCancel,
     };
     commonProps = { ...minimalProps, showEditor: true };
-    wrapper = shallow(<EditableNote {...minimalProps} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <EditableNote {...minimalProps} />
+      </BrowserRouter>,
+    );
   });
 
   test('should render with minimal props without exploding', () => {
@@ -26,7 +31,11 @@ describe('EditableNote', () => {
   });
 
   test('test renderActions is called and rendered correctly when showEditor is true', () => {
-    wrapper = shallow(<EditableNote {...commonProps} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <EditableNote {...commonProps} />
+      </BrowserRouter>,
+    );
     expect(wrapper.length).toBe(1);
     expect(wrapper.find('.note-view-outer-container').length).toBe(1);
     expect(wrapper.find('.editable-note-actions').length).toBe(1);
@@ -34,7 +43,7 @@ describe('EditableNote', () => {
 
   test('test handleSubmitClick with successful onSubmit', (done) => {
     wrapper.setState({ error: 'should not appear' });
-    const instance = wrapper.instance();
+    const instance = wrapper.find(EditableNoteImpl).instance();
     const promise = instance.handleSubmitClick();
     promise.finally(() => {
       expect(mockSubmit).toHaveBeenCalledTimes(1);
@@ -56,9 +65,13 @@ describe('EditableNote', () => {
       onSubmit: mockSubmit,
       onCancel: mockCancel,
     };
-    wrapper = shallow(<EditableNote {...minimalProps} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <EditableNote {...minimalProps} />
+      </BrowserRouter>,
+    );
 
-    const instance = wrapper.instance();
+    const instance = wrapper.find(EditableNoteImpl).instance();
     const promise = instance.handleSubmitClick();
     promise.finally(() => {
       wrapper.update();

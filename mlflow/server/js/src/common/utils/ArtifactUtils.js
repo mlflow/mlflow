@@ -1,4 +1,4 @@
-import { getRequestHeaders } from '../../setupAjaxHeaders';
+import { getDefaultHeaders, HTTPMethods } from './FetchUtils';
 
 /**
  * Fetches the specified artifact, returning a Promise that resolves with
@@ -8,9 +8,9 @@ import { getRequestHeaders } from '../../setupAjaxHeaders';
 export function getArtifactContent(artifactLocation) {
   return new Promise((resolve, reject) => {
     const getArtifactRequest = new Request(artifactLocation, {
-      method: 'GET',
+      method: HTTPMethods.GET,
       redirect: 'follow',
-      headers: new Headers(getRequestHeaders(document.cookie)),
+      headers: new Headers(getDefaultHeaders(document.cookie)),
     });
     fetch(getArtifactRequest)
       .then((response) => {
@@ -35,9 +35,9 @@ export function getArtifactContent(artifactLocation) {
 export function getArtifactBytesContent(artifactLocation) {
   return new Promise((resolve, reject) => {
     const getArtifactRequest = new Request(artifactLocation, {
-      method: 'GET',
+      method: HTTPMethods.GET,
       redirect: 'follow',
-      headers: new Headers(getRequestHeaders(document.cookie)),
+      headers: new Headers(getDefaultHeaders(document.cookie)),
     });
     fetch(getArtifactRequest)
       .then((response) => {

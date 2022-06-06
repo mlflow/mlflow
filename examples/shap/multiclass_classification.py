@@ -6,11 +6,10 @@ from sklearn.ensemble import RandomForestClassifier
 import shap
 
 import mlflow
-from utils import to_pandas_Xy
 
 
 # prepare training data
-X, y = to_pandas_Xy(load_iris())
+X, y = load_iris(return_X_y=True, as_frame=True)
 
 
 # train a model

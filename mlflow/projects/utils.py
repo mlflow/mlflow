@@ -3,7 +3,7 @@ import os
 import re
 import tempfile
 import urllib.parse
-
+import pathlib
 
 from distutils import dir_util
 
@@ -28,19 +28,21 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_PARENT_RUN_ID,
 )
+from mlflow.utils.rest_utils import augmented_raise_for_status
 
-
-# TODO: this should be restricted to just Git repos and not S3 and stuff like that
-_GIT_URI_REGEX = re.compile(r"^[^/]*:")
+_GIT_URI_REGEX = re.compile(
+    r"^((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
+)
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
 MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
 
-PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_ENV_MANAGER = "ENV_MANAGER"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
+GIT_FETCH_DEPTH = 1
 
 
 _logger = logging.getLogger(__name__)
@@ -49,14 +51,19 @@ _logger = logging.getLogger(__name__)
 def _parse_subdirectory(uri):
     # Parses a uri and returns the uri and subdirectory as separate values.
     # Uses '#' as a delimiter.
+    unquoted_uri = _strip_quotes(uri)
     subdirectory = ""
-    parsed_uri = uri
-    if "#" in uri:
-        subdirectory = uri[uri.find("#") + 1 :]
-        parsed_uri = uri[: uri.find("#")]
+    parsed_uri = unquoted_uri
+    if "#" in unquoted_uri:
+        subdirectory = unquoted_uri[unquoted_uri.find("#") + 1 :]
+        parsed_uri = unquoted_uri[: unquoted_uri.find("#")]
     if subdirectory and "." in subdirectory:
         raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
+
+
+def _strip_quotes(uri):
+    return uri.strip("'\"")
 
 
 def _get_storage_dir(storage_dir):
@@ -92,9 +99,31 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
+def _is_git_repo(path):
+    """Returns True if passed-in path is a valid git repository"""
+    import git
+
+    try:
+        git.Repo(path)
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        return False
+
+
 def _is_local_uri(uri):
-    """Returns True if the passed-in URI should be interpreted as a path on the local filesystem."""
-    return not _GIT_URI_REGEX.match(uri)
+    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
+    if _GIT_URI_REGEX.match(uri):
+        return False
+
+    parsed_uri = urllib.parse.urlparse(uri)
+    drive = pathlib.Path(uri).drive
+
+    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
+        return not _is_git_repo(uri)
+    elif parsed_uri.scheme in ("file", ""):
+        return not _is_git_repo(parsed_uri.path)
+    else:
+        return False
 
 
 def _is_zip_uri(uri):
@@ -154,7 +183,6 @@ def _fetch_project(uri, version=None):
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
-        assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
@@ -169,6 +197,16 @@ def _unzip_repo(zip_file, dst_dir):
         zip_in.extractall(dst_dir)
 
 
+_HEAD_BRANCH_REGEX = re.compile(r"^\s*HEAD branch:\s+(?P<branch>\S+)")
+
+
+def _get_head_branch(remote_show_output):
+    for line in remote_show_output.splitlines():
+        match = _HEAD_BRANCH_REGEX.match(line)
+        if match:
+            return match.group("branch")
+
+
 def _fetch_git_repo(uri, version, dst_dir):
     """
     Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
@@ -177,14 +215,14 @@ def _fetch_git_repo(uri, version, dst_dir):
     helper.
     """
     # We defer importing git until the last moment, because the import requires that the git
-    # executable is availble on the PATH, so we only want to fail if we actually need it.
+    # executable is available on the PATH, so we only want to fail if we actually need it.
     import git
 
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    origin.fetch()
     if version is not None:
         try:
+            origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
             raise ExecutionException(
@@ -193,8 +231,21 @@ def _fetch_git_repo(uri, version, dst_dir):
                 "Error: %s" % (version, uri, e)
             )
     else:
-        repo.create_head("master", origin.refs.master)
-        repo.heads.master.checkout()
+        g = git.cmd.Git(dst_dir)
+        cmd = ["git", "remote", "show", "origin"]
+        output = g.execute(cmd)
+        head_branch = _get_head_branch(output)
+        if head_branch is None:
+            raise ExecutionException(
+                "Failed to find HEAD branch. Output of `{cmd}`:\n{output}".format(
+                    cmd=" ".join(cmd), output=output
+                )
+            )
+        origin.fetch(head_branch, depth=GIT_FETCH_DEPTH)
+        ref = origin.refs[0]
+        _logger.info("Fetched '%s' branch", head_branch)
+        repo.create_head(head_branch, ref)
+        repo.heads[head_branch].checkout()
     repo.submodule_update(init=True, recursive=True)
 
 
@@ -208,7 +259,7 @@ def _fetch_zip_repo(uri):
     # https://github.com/mlflow/mlflow/issues/763.
     response = requests.get(uri)
     try:
-        response.raise_for_status()
+        augmented_raise_for_status(response)
     except requests.HTTPError as error:
         raise ExecutionException("Unable to retrieve ZIP file. Reason: %s" % str(error))
     return BytesIO(response.content)

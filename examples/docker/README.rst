@@ -14,7 +14,7 @@ MLflow Tracking APIs to log the model and its metadata (e.g., hyperparameters an
 for later use and reference. ``train.py`` operates on the Wine Quality Dataset, which is included
 in ``wine-quality.csv``.
 
-Most importantly, the project also includes an ``MLproject`` file, which specifies the Docker 
+Most importantly, the project also includes an ``MLproject`` file, which specifies the Docker
 container environment in which to run the project using the ``docker_env`` field:
 
 .. code-block:: yaml
@@ -22,18 +22,18 @@ container environment in which to run the project using the ``docker_env`` field
   docker_env:
     image:  mlflow-docker-example
 
-Here, ``image`` can be any valid argument to ``docker run``, such as the tag, ID or URL of a Docker 
-image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-form>`_). The above 
+Here, ``image`` can be any valid argument to ``docker run``, such as the tag, ID or URL of a Docker
+image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-form>`_). The above
 example references a locally-stored image (``mlflow-docker-example``) by tag.
 
 Finally, the project includes a ``Dockerfile`` that is used to build the image referenced by the
-``MLproject`` file. The ``Dockerfile`` specifies library dependencies required by the project, such 
+``MLproject`` file. The ``Dockerfile`` specifies library dependencies required by the project, such
 as ``mlflow`` and ``scikit-learn``.
 
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
-First, install MLflow (via ``pip install mlflow``) and install 
+First, install MLflow (via ``pip install mlflow``) and install
 `Docker <https://www.docker.com/get-started>`_.
 
 Then, build the image for the project's Docker container environment. You must use the same image
@@ -45,7 +45,7 @@ name:
 
   docker build -t mlflow-docker-example -f Dockerfile .
 
-Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
+Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``,
 matches the name of the image referenced in the ``MLproject`` file.
 
 Finally, run the example project using ``mlflow run examples/docker -P alpha=0.5``.
@@ -54,11 +54,11 @@ What happens when the project is run?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Running ``mlflow run examples/docker`` builds a new Docker image based on ``mlflow-docker-example``
-that also contains our project code. The resulting image is tagged as 
+that also contains our project code. The resulting image is tagged as
 ``mlflow-docker-example-<git-version>`` where ``<git-version>`` is the git commit ID. After the image is
 built, MLflow executes the default (main) project entry point within the container using ``docker run``.
 
-Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the container during 
-project execution. When running against a local tracking URI, MLflow mounts the host system's 
-tracking directory (e.g., a local ``mlruns`` directory) inside the container so that metrics and 
+Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the container during
+project execution. When running against a local tracking URI, MLflow mounts the host system's
+tracking directory (e.g., a local ``mlruns`` directory) inside the container so that metrics and
 params logged during project execution are accessible afterwards.

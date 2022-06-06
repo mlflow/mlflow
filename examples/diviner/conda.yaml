@@ -1,0 +1,9 @@
+name: diviner-example
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip
+  - pip:
+    - diviner
+    - mlflow>=1.24.1

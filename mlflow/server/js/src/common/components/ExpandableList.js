@@ -31,15 +31,19 @@ class ExpandableList extends Component {
     if (this.props.children.length <= this.props.showLines) {
       return (
         <div className={expandableListClassName}>
-          {this.props.children.map((item) => (
-            <div className='expandable-list-item'>{item}</div>
+          {this.props.children.map((item, index) => (
+            <div className='expandable-list-item' key={index}>
+              {item}
+            </div>
           ))}
         </div>
       );
     } else {
-      const expandedElems = this.props.children
-        .slice(this.props.showLines)
-        .map((item) => <div className='expandable-list-item'>{item}</div>);
+      const expandedElems = this.props.children.slice(this.props.showLines).map((item, index) => (
+        <div className='expandable-list-item' key={index}>
+          {item}
+        </div>
+      ));
       const expandedContent = (
         <div className='expanded-list-elems'>
           {expandedElems}
@@ -55,8 +59,10 @@ class ExpandableList extends Component {
       );
       return (
         <div className={expandableListClassName}>
-          {this.props.children.slice(0, this.props.showLines).map((item) => (
-            <div className='expandable-list-item'>{item}</div>
+          {this.props.children.slice(0, this.props.showLines).map((item, index) => (
+            <div className='expandable-list-item' key={index}>
+              {item}
+            </div>
           ))}
           {this.state.toggled ? expandedContent : showMore}
         </div>

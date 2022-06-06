@@ -26,6 +26,7 @@ The MLflow Python API supports several types of plugins:
   :py:func:`mlflow.start_run` fluent API.
 * **Model Registry Store**: override model registry backend logic, e.g. to log to a third-party storage solution
 * **MLFlow Project backend**: override the local execution backend to execute a project on your own cluster (Databricks, kubernetes, etc.)
+* **MLFlow ModelEvaluator**: Define custom model evaluator, which can be used in :py:func:`mlflow.evaluate` API.
 
 .. contents:: Table of Contents
   :local:
@@ -116,6 +117,8 @@ The example package contains a ``setup.py`` that declares a number of
                 "dummy-backend=mlflow_test_plugin.dummy_backend:PluginDummyProjectBackend",
             # Define a MLflow model deployment plugin for target 'faketarget'
             "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
+            # Define a Mlflow model evaluator with name "dummy_evaluator"
+            "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",
         },
     )
 
@@ -177,9 +180,7 @@ plugin:
      - `DatabricksRequestHeaderProvider <https://github.com/mlflow/mlflow/blob/master/mlflow/tracking/request_header/databricks_request_header_provider.py>`_
    * - Plugins for overriding definitions of Model Registry APIs like ``mlflow.register_model``.
      - mlflow.model_registry_store
-     - .. note:: The Model Registry is in beta (as of MLflow 1.5). Model Registry APIs are not guaranteed to be stable, and Model Registry plugins may break in the future.
-
-       The entry point value (e.g. ``mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
+     - The entry point value (e.g. ``mlflow_test_plugin.sqlalchemy_store:PluginRegistrySqlAlchemyStore``) specifies a custom subclass of
        `mlflow.tracking.model_registry.AbstractStore <https://github.com/mlflow/mlflow/blob/branch-1.5/mlflow/store/model_registry/abstract_store.py#L6>`_
        (e.g., the `PluginRegistrySqlAlchemyStore class <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/resources/mlflow-test-plugin/mlflow_test_plugin/__init__.py#L33>`_
        within the ``mlflow_test_plugin`` module)
@@ -205,6 +206,19 @@ plugin:
        2) The ``run_local`` and ``target_help`` functions, with the ``target`` parameter excluded, as shown
        `here <https://github.com/mlflow/mlflow/blob/master/mlflow/deployments/base.py>`_
      - `PluginDeploymentClient <https://github.com/mlflow/mlflow/blob/master/tests/resources/mlflow-test-plugin/mlflow_test_plugin/fake_deployment_plugin.py>`_.
+   * - Plugins for :ref:`MLflow Model Evaluation <model-evaluation>`
+     - mlflow.model_evaluator
+     - The entry point name (e.g. ``dummy_evaluator``) is the evaluator name which is used in the ``evaluators`` argument of the ``mlflow.evaluate`` API.
+       The entry point value (e.g. ``dummy_evaluator:DummyEvaluator``) must refer to a subclass of ``mlflow.models.evaluation.ModelEvaluator``;
+       the subclass must implement 2 methods:
+       1) ``can_evaluate``: Accepts the keyword-only arguments ``model_type`` and ``evaluator_config``.
+       Returns ``True`` if the evaluator can evaluate the specified model type with the specified evaluator config. Returns ``False`` otherwise.
+       2) ``evaluate``: Computes and logs metrics and artifacts, returning evaluation results as an instance
+       of ``mlflow.models.EvaluationResult``. Accepts the following arguments: ``model`` (a pyfunc model instance),
+       ``model_type`` (identical to the ``model_type`` argument from :py:func:`mlflow.evaluate()`),
+       ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
+       ``run_id`` (the ID of the MLflow Run to which to log results), and ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
+     - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
 
 
 Testing Your Plugin
@@ -219,6 +233,7 @@ reference implementations as an example:
 * `Example ArtifactRepository tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/artifact/test_local_artifact_repo.py>`_
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
+* `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
 
 
 Distributing Your Plugin
@@ -241,11 +256,11 @@ SQL Server Plugin
 The `mlflow-dbstore plugin <https://pypi.org/project/mlflow-dbstore/>`_ allows MLflow to use a relational database as an artifact store.
 As of now, it has only been tested with SQL Server as the artifact store.
 
-You can install MLflow with the SQL Server plugin via: 
+You can install MLflow with the SQL Server plugin via:
 
 .. code-block:: bash
 
-        pip install mlflow[sqlserver] 
+        pip install mlflow[sqlserver]
 
 and then use MLflow as normal. The SQL Server artifact store support will be provided automatically.
 
@@ -260,7 +275,7 @@ The plugin implements all of the MLflow artifact store APIs. To use SQL server a
 
         mlflow.onnx.log_model(onnx, "model")
 
-The first time an artifact is logged in the artifact store, the plugin automatically creates an ``artifacts`` table in the database specified by the database URI and stores the artifact there as a BLOB. 
+The first time an artifact is logged in the artifact store, the plugin automatically creates an ``artifacts`` table in the database specified by the database URI and stores the artifact there as a BLOB.
 Subsequent logged artifacts are stored in the same table.
 
 In the example provided above, the ``log_model`` operation creates three entries in the database table to store the ONNX model, the MLmodel file
@@ -315,6 +330,7 @@ for usage instructions and examples.
 - `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
 - `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
 - `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
+- `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
 
 Project Backend Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~

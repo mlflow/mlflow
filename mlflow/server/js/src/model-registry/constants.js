@@ -1,7 +1,9 @@
 import React from 'react';
-import { Tag } from 'antd';
+import { Tag } from '@databricks/design-system';
 // eslint-disable-next-line
 import * as overrides from './constant-overrides'; // eslint-disable-line import/no-namespace
+import { FormattedMessage } from 'react-intl';
+import { ReadyIcon } from './utils';
 
 export const Stages = {
   NONE: 'None',
@@ -20,22 +22,10 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag key='none'>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: (
-    <Tag key='staging' className='staging-tag'>
-      {StageLabels[Stages.STAGING]}
-    </Tag>
-  ),
-  [Stages.PRODUCTION]: (
-    <Tag key='production' className='production-tag'>
-      {StageLabels[Stages.PRODUCTION]}
-    </Tag>
-  ),
-  [Stages.ARCHIVED]: (
-    <Tag key='archived' color='#eee' style={{ color: '#333' }}>
-      {StageLabels[Stages.ARCHIVED]}
-    </Tag>
-  ),
+  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
+  [Stages.STAGING]: <Tag color='lemon'>{StageLabels[Stages.STAGING]}</Tag>,
+  [Stages.PRODUCTION]: <Tag color='lime'>{StageLabels[Stages.PRODUCTION]}</Tag>,
+  [Stages.ARCHIVED]: <Tag color='charcoal'>{StageLabels[Stages.ARCHIVED]}</Tag>,
 };
 
 export const ActivityTypes = {
@@ -55,17 +45,25 @@ export const ModelVersionStatus = {
 };
 
 export const DefaultModelVersionStatusMessages = {
-  [ModelVersionStatus.READY]: 'Ready.',
+  [ModelVersionStatus.READY]: (
+    <FormattedMessage
+      defaultMessage='Ready.'
+      description='Default status message for model versions that are ready'
+    />
+  ),
 };
 
 export const modelVersionStatusIconTooltips = {
-  [ModelVersionStatus.READY]: 'Ready',
+  [ModelVersionStatus.READY]: (
+    <FormattedMessage
+      defaultMessage='Ready'
+      description='Tooltip text for ready model version status icon in model view page'
+    />
+  ),
 };
 
 export const ModelVersionStatusIcons = {
-  [ModelVersionStatus.READY]: (
-    <i className='far fa-check-circle icon-ready model-version-status-icon' />
-  ),
+  [ModelVersionStatus.READY]: <ReadyIcon />,
 };
 
 export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;
@@ -77,6 +75,8 @@ export const MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER = 75; // request size has 
 export const REGISTERED_MODELS_SEARCH_NAME_FIELD = 'name';
 
 export const REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD = 'timestamp';
+
+export const MODEL_SCHEMA_TENSOR_TYPE = 'tensor';
 
 export const AntdTableSortOrder = {
   ASC: 'ascend',
@@ -90,5 +90,12 @@ export const REGISTERED_MODEL_DELETE_MENU_ITEM_DISABLED_TOOLTIP_TEXT = `You cann
 registered model with versions in active stages ('Staging' or 'Production'). To delete this
 registered model, transition versions in active stages to the 'Archived' stage.`;
 
-export const archiveExistingVersionToolTipText = (currentStage) => `Model versions in the
-'${currentStage}' stage will be moved to the 'Archived' stage.`;
+export const archiveExistingVersionToolTipText = (currentStage) => (
+  <FormattedMessage
+    defaultMessage='Model versions in the `{currentStage}` stage will be moved to the
+       `Archived` stage.'
+    description='Tooltip text for transitioning existing model versions in stage to archived
+       in the model versions page'
+    values={{ currentStage: currentStage }}
+  />
+);

@@ -1,1 +1,2 @@
 src/sdk/*.js
+src/__generated__/web-shared-bundle/**

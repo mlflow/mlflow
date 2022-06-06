@@ -1,28 +1,34 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
-import { Icon } from 'antd';
+import {
+  EditOutlined,
+  LeftSquareFilled,
+  RightSquareFilled,
+  PlusSquareFilled,
+} from '@ant-design/icons';
+import { Tree, Input, Typography } from '@databricks/design-system';
+import { Link } from 'react-router-dom';
 import './ExperimentListView.css';
-import { getExperiments } from '../reducers/Reducers';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
-import { Link } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
-import Utils from '../../common/utils/Utils';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    onClickListExperiments: PropTypes.func.isRequired,
-    // If activeExperimentId is undefined, then the active experiment is the first one.
+    history: PropTypes.object,
     activeExperimentId: PropTypes.string,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
   };
 
+  static defaultProps = {
+    activeExperimentId: '0',
+  };
+
   state = {
-    height: undefined,
+    hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
@@ -31,22 +37,9 @@ export class ExperimentListView extends Component {
     selectedExperimentName: '',
   };
 
-  componentDidMount() {
-    this.resizeListener = () => {
-      this.setState({ height: window.innerHeight });
-    };
-    window.addEventListener('resize', this.resizeListener);
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('resize', this.resizeListener);
-  }
-
   handleSearchInputChange = (event) => {
     this.setState({ searchInput: event.target.value });
   };
-
-  preventDefault = (ev) => ev.preventDefault();
 
   updateSelectedExperiment = (experimentId, experimentName) => {
     this.setState({
@@ -61,22 +54,18 @@ export class ExperimentListView extends Component {
     });
   };
 
-  handleDeleteExperiment = (ev) => {
+  handleDeleteExperiment = (experimentId, experimentName) => () => {
     this.setState({
       showDeleteExperimentModal: true,
     });
-
-    const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(data.experimentid, data.experimentname);
+    this.updateSelectedExperiment(experimentId, experimentName);
   };
 
-  handleRenameExperiment = (ev) => {
+  handleRenameExperiment = (experimentId, experimentName) => () => {
     this.setState({
       showRenameExperimentModal: true,
     });
-
-    const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(data.experimentid, data.experimentname);
+    this.updateSelectedExperiment(experimentId, experimentName);
   };
 
   handleCloseCreateExperimentModal = () => {
@@ -101,13 +90,62 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
+  renderListItem = ({ title, key }) => {
+    const { activeExperimentId } = this.props;
+    const dataTestId =
+      activeExperimentId === key ? 'active-experiment-list-item' : 'experiment-list-item';
+    return (
+      <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
+        <Link
+          to={Routes.getExperimentPageRoute(key)}
+          style={{
+            width: '180px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </Link>
+        <IconButton
+          icon={<EditOutlined />}
+          onClick={this.handleRenameExperiment(key, title)}
+          style={{ marginRight: 5 }}
+          data-test-id='rename-experiment-button'
+        />
+        <IconButton
+          icon={<i className='far fa-trash-alt' />}
+          onClick={this.handleDeleteExperiment(key, title)}
+          // Use a larger margin to avoid overlapping the vertical scrollbar
+          style={{ marginRight: 15 }}
+          data-test-id='delete-experiment-button'
+        />
+      </div>
+    );
+  };
+
   render() {
-    const height = this.state.height || window.innerHeight;
-    // 60 pixels for the height of the top bar.
-    // 100 for the experiments header and some for bottom padding.
-    const experimentListHeight = height - 60 - 100;
-    // get searchInput from state
-    const { searchInput } = this.state;
+    const { searchInput, hidden } = this.state;
+    const { experiments, activeExperimentId } = this.props;
+    const lowerCasedSearchInput = searchInput.toLowerCase();
+    const filteredExperiments = experiments.filter(({ name }) =>
+      name.toLowerCase().includes(lowerCasedSearchInput),
+    );
+    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
+      title: name,
+      key: experiment_id,
+    }));
+
+    if (hidden) {
+      return (
+        <RightSquareFilled
+          onClick={() => this.setState({ hidden: false })}
+          style={{ fontSize: '24px' }}
+          title='Show experiment list'
+        />
+      );
+    }
+
     return (
       <div className='experiment-list-outer-container'>
         <CreateExperimentModal
@@ -117,7 +155,7 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentId={this.props.activeExperimentId}
+          activeExperimentId={activeExperimentId}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -128,74 +166,49 @@ export class ExperimentListView extends Component {
           experimentName={this.state.selectedExperimentName}
         />
         <div>
-          <h1 className='experiments-header'>Experiments</h1>
-          <div className='experiment-list-create-btn-container'>
-            <i
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '8px',
+            }}
+          >
+            <Typography.Title level={2} style={{ margin: 0 }}>
+              Experiments
+            </Typography.Title>
+            <PlusSquareFilled
               onClick={this.handleCreateExperiment}
+              style={{
+                fontSize: '24px',
+                marginLeft: 'auto',
+              }}
               title='New Experiment'
-              className='fas fa-plus fa-border experiment-list-create-btn'
+              data-test-id='create-experiment-button'
             />
-          </div>
-          <div className='collapser-container'>
-            <i
-              onClick={this.props.onClickListExperiments}
+            <LeftSquareFilled
+              onClick={() => this.setState({ hidden: true })}
+              style={{ fontSize: '24px' }}
               title='Hide experiment list'
-              className='collapser fa fa-chevron-left login-icon'
             />
           </div>
-          <input
-            className='experiment-list-search-input'
-            type='text'
+          <Input
             placeholder='Search Experiments'
             aria-label='search experiments'
             value={searchInput}
             onChange={this.handleSearchInputChange}
+            data-test-id='search-experiment-input'
           />
-          <div className='experiment-list-container' style={{ height: experimentListHeight }}>
-            {this.props.experiments
-              // filter experiments based on searchInput
-              .filter((exp) =>
-                exp
-                  .getName()
-                  .toLowerCase()
-                  .includes(searchInput.toLowerCase()),
-              )
-              .map((exp, idx) => {
-                const { name, experiment_id } = exp;
-                const active =
-                  this.props.activeExperimentId !== undefined
-                    ? experiment_id === this.props.activeExperimentId
-                    : idx === 0;
-                const className = `experiment-list-item ${
-                  active ? 'active-experiment-list-item' : ''
-                }`;
-                return (
-                  <div key={experiment_id} title={name} className={`header-container ${className}`}>
-                    <Link
-                      style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
-                      to={Routes.getExperimentPageRoute(experiment_id)}
-                      onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
-                    >
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-                    </Link>
-                    {/* Edit/Rename Experiment Option */}
-                    <IconButton
-                      icon={<Icon type='edit' />}
-                      onClick={this.handleRenameExperiment}
-                      data-experimentid={experiment_id}
-                      data-experimentname={name}
-                      style={{ marginRight: 10 }}
-                    />
-                    {/* Delete Experiment option */}
-                    <IconButton
-                      icon={<i className='far fa-trash-alt' />}
-                      onClick={this.handleDeleteExperiment}
-                      data-experimentid={experiment_id}
-                      data-experimentname={name}
-                    />
-                  </div>
-                );
-              })}
+          <div className='experiment-list-container'>
+            <Tree
+              treeData={treeData}
+              dangerouslySetAntdProps={{
+                selectable: true,
+                multiple: true,
+                selectedKeys: [activeExperimentId],
+                titleRender: this.renderListItem,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -203,10 +216,4 @@ export class ExperimentListView extends Component {
   }
 }
 
-const mapStateToProps = (state) => {
-  const experiments = getExperiments(state);
-  experiments.sort(Utils.compareExperiments);
-  return { experiments };
-};
-
-export default connect(mapStateToProps)(ExperimentListView);
+export default ExperimentListView;

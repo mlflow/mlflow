@@ -36,9 +36,9 @@ def put_block(sas_url, block_id, data, headers):
             _logger.debug("Removed unsupported '%s' header for Put Block operation", name)
 
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, data, headers=request_headers
+        "put", request_url, data=data, headers=request_headers
     ) as response:
-        response.raise_for_status()
+        rest_utils.augmented_raise_for_status(response)
 
 
 def put_block_list(sas_url, block_list, headers):
@@ -64,9 +64,9 @@ def put_block_list(sas_url, block_list, headers):
             _logger.debug("Removed unsupported '%s' header for Put Block List operation", name)
 
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, data, headers=request_headers
+        "put", request_url, data=data, headers=request_headers
     ) as response:
-        response.raise_for_status()
+        rest_utils.augmented_raise_for_status(response)
 
 
 def _append_query_parameters(url, parameters):

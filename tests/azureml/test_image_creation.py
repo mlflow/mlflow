@@ -10,15 +10,12 @@ from unittest.mock import Mock
 import pandas as pd
 import pandas.testing
 import sklearn.datasets as datasets
-import sklearn.linear_model as glm
-from keras.models import Sequential
-from keras.layers import Dense
+from sklearn.linear_model import LogisticRegression
 from click.testing import CliRunner
 
 import mlflow
 import mlflow.azureml
 import mlflow.azureml.cli
-import mlflow.keras
 import mlflow.sklearn
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -28,8 +25,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 0)), reason="Tests require Python 3 to run!"
@@ -77,31 +72,23 @@ def sklearn_data():
 @pytest.fixture(scope="module")
 def sklearn_model(sklearn_data):
     x, y = sklearn_data
-    linear_lr = glm.LogisticRegression()
+    linear_lr = LogisticRegression()
     linear_lr.fit(x, y)
     return linear_lr
 
 
-@pytest.fixture(scope="module")
-def keras_data():
-    iris = datasets.load_iris()
-    data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
-    )
-    y = data["target"]
-    x = data.drop("target", axis=1)
-    return x, y
+class LogisticRegressionPandas(LogisticRegression):
+    def predict(self, *args, **kwargs):  # pylint: disable=arguments-differ
+        # Wrap the output with `pandas.DataFrame`
+        return pd.DataFrame(super().predict(*args, **kwargs))
 
 
 @pytest.fixture(scope="module")
-def keras_model(keras_data):
-    x, y = keras_data
-    model = Sequential()
-    model.add(Dense(3, input_dim=4))
-    model.add(Dense(1))
-    model.compile(loss="mean_squared_error", optimizer="SGD")
-    model.fit(x, y)
-    return model
+def sklearn_pd_model(sklearn_data):
+    x, y = sklearn_data
+    linear_lr = LogisticRegressionPandas()
+    linear_lr.fit(x, y)
+    return linear_lr
 
 
 @pytest.fixture
@@ -109,7 +96,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
     sklearn_model, model_path
@@ -123,7 +109,6 @@ def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
         assert aml_mocks["create_image"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
@@ -137,7 +122,6 @@ def test_build_image_with_relative_model_path_calls_expected_azure_routines(skle
             assert aml_mocks["create_image"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
     artifact_path = "model"
@@ -156,7 +140,6 @@ def test_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
         assert aml_mocks["create_image"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_with_remote_uri_calls_expected_azure_routines(
     sklearn_model, model_path, mock_s3_bucket
@@ -176,7 +159,6 @@ def test_build_image_with_remote_uri_calls_expected_azure_routines(
         assert aml_mocks["create_image"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -188,7 +170,6 @@ def test_synchronous_build_image_awaits_azure_image_creation(sklearn_model, mode
         image.wait_for_creation.assert_called_once()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_asynchronous_build_image_does_not_await_azure_image_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -200,7 +181,6 @@ def test_asynchronous_build_image_does_not_await_azure_image_creation(sklearn_mo
         image.wait_for_creation.assert_not_called()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_registers_model_and_creates_image_with_specified_names(
     sklearn_model, model_path
@@ -225,7 +205,6 @@ def test_build_image_registers_model_and_creates_image_with_specified_names(
         assert create_image_call_kwargs["name"] == image_name
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_generates_model_and_image_names_meeting_azureml_resource_naming_requirements(
     sklearn_model, model_path
@@ -250,7 +229,6 @@ def test_build_image_generates_model_and_image_names_meeting_azureml_resource_na
         assert len(called_image_name) <= aml_resource_name_max_length
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_passes_model_conda_environment_to_azure_image_creation_routine(
     sklearn_model, model_path
@@ -258,7 +236,9 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
     sklearn_conda_env_text = """\
     name: sklearn-env
     dependencies:
-        - scikit-learn
+        - pip:
+          - mlflow
+          - scikit-learn
     """
     with TempDir(chdr=True) as tmp:
         sklearn_conda_env_path = tmp.path("conda.yaml")
@@ -294,7 +274,6 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
                 assert yaml.safe_load(f.read()) == yaml.safe_load(sklearn_conda_env_text)
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(sklearn_model):
     artifact_path = "model"
@@ -333,7 +312,6 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
         )
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_includes_user_specified_tags_in_azure_image_and_model_tags(
     sklearn_model, model_path
@@ -362,7 +340,6 @@ def test_build_image_includes_user_specified_tags_in_azure_image_and_model_tags(
         assert custom_tags.items() <= image_config.tags.items()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_includes_tags_in_azure_deployment_and_model_tags(sklearn_model, model_path):
     custom_tags = {
@@ -389,7 +366,6 @@ def test_deploy_includes_tags_in_azure_deployment_and_model_tags(sklearn_model, 
         assert custom_tags.items() <= deployment_config.tags.items()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_includes_user_specified_description_in_azure_image_and_model_tags(
     sklearn_model, model_path
@@ -415,7 +391,6 @@ def test_build_image_includes_user_specified_description_in_azure_image_and_mode
         assert image_config.description == custom_description
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     sklearn_model, model_path
@@ -426,13 +401,14 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     del model_config.flavors[pyfunc.FLAVOR_NAME]
     model_config.save(model_config_path)
 
-    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(
+        MlflowException, match="does not contain the `python_function` flavor"
+    ) as exc:
         workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_throws_exception_if_model_python_version_is_less_than_three(
     sklearn_model, model_path
@@ -443,13 +419,12 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION] = "2.7.6"
     model_config.save(model_config_path)
 
-    with AzureMLMocks(), pytest.raises(MlflowException) as exc:
+    with AzureMLMocks(), pytest.raises(MlflowException, match="Python 3 and above") as exc:
         workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
     sklearn_model, model_path
@@ -490,7 +465,6 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         assert dockerfile_mlflow_path in image_config.dependencies
 
 
-@pytest.mark.large
 def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     sklearn_model, model_path
 ):
@@ -535,13 +509,12 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         assert get_model_path_call_kwargs["version"] == model_version
 
 
-@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_numpy_arrays(
     sklearn_model, sklearn_data, model_path
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, np.ndarray)
 
@@ -581,13 +554,12 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
 
-@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
-    keras_model, keras_data, model_path
+    sklearn_pd_model, sklearn_data, model_path
 ):
-    mlflow.keras.save_model(keras_model=keras_model, path=model_path)
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
-    pyfunc_outputs = pyfunc_model.predict(keras_data[0])
+    mlflow.sklearn.save_model(sk_model=sklearn_pd_model, path=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
+    pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, pd.DataFrame)
 
     model_mock = Mock()
@@ -622,14 +594,13 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_raw = run(pd.DataFrame(data=keras_data[0]).to_json(orient="split"))
+        output_raw = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
         output_df = pd.DataFrame(output_raw)
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False
         )
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
     sklearn_model, model_path
@@ -657,7 +628,6 @@ def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
         assert aml_mocks["load_workspace"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
@@ -686,7 +656,6 @@ def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(
             assert aml_mocks["load_workspace"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
     artifact_path = "model"
@@ -717,7 +686,6 @@ def test_cli_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_mod
         assert aml_mocks["load_workspace"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_with_remote_uri_calls_expected_azure_routines(
     sklearn_model, model_path, mock_s3_bucket
@@ -751,7 +719,6 @@ def test_cli_build_image_with_remote_uri_calls_expected_azure_routines(
         assert aml_mocks["load_workspace"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_image_and_model_tags(
     sklearn_model, model_path

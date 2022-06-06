@@ -10,7 +10,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionPage, ModelVersionPageImpl } from './ModelVersionPage';
 import Utils from '../../common/utils/Utils';
 import { getModelPageRoute } from '../routes';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 describe('ModelVersionPage', () => {
   let wrapper;
@@ -20,7 +19,10 @@ describe('ModelVersionPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       match: {
         params: {

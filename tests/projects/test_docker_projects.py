@@ -1,7 +1,6 @@
 import os
 
 import pytest
-import posixpath  # pylint: disable=unused-import
 from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
@@ -31,7 +30,6 @@ def _build_uri(base_uri, subdirectory):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.large
 def test_docker_project_execution(
     use_start_run, tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
@@ -75,7 +73,6 @@ def test_docker_project_execution(
     assert "--privileged" in docker_cmd
 
 
-@pytest.mark.large
 def test_docker_project_execution_async_docker_args(
     tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
@@ -106,13 +103,12 @@ def test_docker_project_execution_async_docker_args(
     ],
 )
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
-@pytest.mark.large
 def test_docker_project_tracking_uri_propagation(
     ProfileConfigProvider, tmpdir, tracking_uri, expected_command_segment, docker_example_base_image
 ):  # pylint: disable=unused-argument
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
     # Create and mock local tracking directory
@@ -132,8 +128,8 @@ def test_docker_project_tracking_uri_propagation(
 
 
 def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
-    with pytest.raises(ExecutionException):
-        mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
+    with pytest.raises(ExecutionException, match="When running on Databricks"):
+        mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks", backend_config={})
 
 
 @mock.patch("mlflow.projects.docker._get_git_commit")
@@ -162,7 +158,7 @@ def test_docker_invalid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
     project.name = None
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Project name in MLProject must be specified"):
         mlflow.projects.docker.validate_docker_env(project)
 
 
@@ -196,8 +192,8 @@ def test_docker_mount_local_artifact_uri(
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
 def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     mock_provider = mock.MagicMock()
-    mock_provider.get_config.return_value = DatabricksConfig(
-        "host", "user", "pass", None, insecure=True
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
     )
     ProfileConfigProvider.return_value = mock_provider
 
@@ -253,7 +249,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
 
     if "should_crash" in expected:
         expected.remove("should_crash")
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="This project expects"):
             with mock.patch.dict("os.environ", os_environ):
                 _get_docker_command(image, active_run, None, volumes, environment)
     else:

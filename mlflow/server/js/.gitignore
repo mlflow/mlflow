@@ -1,7 +1,9 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
 
 # dependencies
+/.yarn
 /node_modules
+/yarn-cache-folder
 
 # testing
 /coverage

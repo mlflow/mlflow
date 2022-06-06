@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from mlflow.tracking.registry import StoreRegistry
 
 
@@ -33,6 +35,15 @@ class TrackingStoreRegistry(StoreRegistry):
         """
         from mlflow.tracking._tracking_service import utils
 
-        store_uri = utils._resolve_tracking_uri(store_uri)
-        builder = self.get_store_builder(store_uri)
-        return builder(store_uri=store_uri, artifact_uri=artifact_uri)
+        resolved_store_uri = utils._resolve_tracking_uri(store_uri)
+        return self._get_store_with_resolved_uri(resolved_store_uri, artifact_uri)
+
+    @lru_cache(maxsize=100)
+    def _get_store_with_resolved_uri(self, resolved_store_uri, artifact_uri=None):
+        """
+        Retrieve the store associated with a resolved (non-None) store URI and an artifact URI.
+        Caching is done on resolved URIs because the meaning of an unresolved (None) URI may change
+        depending on external configuration, such as environment variables
+        """
+        builder = self.get_store_builder(resolved_store_uri)
+        return builder(store_uri=resolved_store_uri, artifact_uri=artifact_uri)

@@ -227,4 +227,53 @@ describe('unit tests', () => {
       zaxis: { key: 'm1', isMetric: true },
     });
   });
+
+  test('should render a warning message when X or Y axis does not have enough data points', () => {
+    const props = {
+      ...commonProps,
+      paramLists: [
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 1 },
+        ],
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 2 },
+        ],
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 3 },
+        ],
+      ],
+      metricLists: [
+        [{ key: 'm1', value: 4 }],
+        [{ key: 'm1', value: 5 }],
+        [{ key: 'm1', value: 6 }],
+      ],
+    };
+    wrapper = shallow(<CompareRunContour {...props} />);
+
+    // X axis: p1 | Y axis: p2
+    expect(wrapper.text().includes("The X axis doesn't have enough unique data points")).toBe(true);
+
+    // X axis: p2 | Y axis: p1
+    wrapper.setState({
+      xaxis: { key: 'p2', isMetric: false },
+      yaxis: { key: 'p1', isMetric: false },
+    });
+    expect(wrapper.text().includes("The Y axis doesn't have enough unique data points")).toBe(true);
+
+    // X axis: p1 | Y axis: p1
+    wrapper.setState({ xaxis: { key: 'p1', isMetric: false } });
+    expect(wrapper.text().includes("The X and Y axes don't have enough unique data points")).toBe(
+      true,
+    );
+
+    // X axis: p2 | Y axis: p2
+    wrapper.setState({
+      xaxis: { key: 'p2', isMetric: false },
+      yaxis: { key: 'p2', isMetric: false },
+    });
+    expect(wrapper.text().includes('have enough unique data points')).toBe(false);
+  });
 });

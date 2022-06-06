@@ -1,4 +1,4 @@
-import { Checkbox, Form, Tooltip } from 'antd';
+import { Checkbox, Tooltip, Form } from 'antd';
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -7,42 +7,48 @@ import {
   Stages,
   StageTagComponents,
 } from '../constants';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 export class DirectTransitionFormImpl extends React.Component {
   static propTypes = {
-    form: PropTypes.object,
+    innerRef: PropTypes.object,
     toStage: PropTypes.string,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   render() {
-    const { toStage, form } = this.props;
-    const { getFieldDecorator } = form;
-    const archiveExistingVersionsCheckbox =
-      toStage && ACTIVE_STAGES.includes(toStage) ? (
-        <Form.Item>
-          {getFieldDecorator('archiveExistingVersions', {
-            initialValue: true,
-            valuePropName: 'checked',
-          })(
-            <Checkbox>
-              <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
-                Transition existing {StageTagComponents[toStage]}
-                model versions to {StageTagComponents[Stages.ARCHIVED]}
-              </Tooltip>
-            </Checkbox>,
-          )}
-        </Form.Item>
-      ) : (
-        ''
-      );
+    const { toStage, innerRef } = this.props;
 
     return (
-      <Form className='model-version-update-form'>
+      <Form ref={innerRef} className='model-version-update-form'>
         {/* prettier-ignore */}
-        {archiveExistingVersionsCheckbox}
+        {toStage && ACTIVE_STAGES.includes(toStage) && (
+          <Form.Item
+            name='archiveExistingVersions'
+            initialValue='true'
+            valuePropName='checked'
+            preserve={false}
+          >
+            <Checkbox>
+              <Tooltip title={archiveExistingVersionToolTipText(toStage)}>
+                <FormattedMessage
+                  defaultMessage='Transition existing {currentStage} model versions to
+                    {archivedStage}'
+                  description='Description text for checkbox for archiving existing model versions
+                    in the toStage for model version stage transition'
+                  values={{
+                    currentStage: StageTagComponents[toStage],
+                    archivedStage: StageTagComponents[Stages.ARCHIVED],
+                  }}
+                />
+                &nbsp;
+              </Tooltip>
+            </Checkbox>
+          </Form.Item>
+        )}
       </Form>
     );
   }
 }
 
-export const DirectTransitionForm = Form.create()(DirectTransitionFormImpl);
+export const DirectTransitionForm = injectIntl(DirectTransitionFormImpl);

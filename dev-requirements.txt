@@ -1,7 +1,0 @@
-# Dev/Deployment
-sphinx
-sphinx-autobuild
-sphinx-click
-scikit-learn
-scipy
-kubernetes

@@ -1,4 +1,5 @@
 import os
+from functools import partial
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.rest_store import RestStore
@@ -8,6 +9,8 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
+    _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
+    _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
 )
@@ -119,34 +122,48 @@ def _get_sqlalchemy_store(store_uri):
     return SqlAlchemyStore(store_uri)
 
 
-def _get_rest_store(store_uri, **_):
-    def get_default_host_creds():
-        return rest_utils.MlflowHostCreds(
-            host=store_uri,
-            username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-            password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
-            token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-            ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
-        )
+def get_default_host_creds(store_uri):
+    return rest_utils.MlflowHostCreds(
+        host=store_uri,
+        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
+        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
+        client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
+        server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
+    )
 
-    return RestStore(get_default_host_creds)
+
+def _get_rest_store(store_uri, **_):
+    return RestStore(partial(get_default_host_creds, store_uri))
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(lambda: get_databricks_host_creds(store_uri))
+    return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
-_model_registry_store_registry = ModelRegistryStoreRegistry()
-_model_registry_store_registry.register("databricks", _get_databricks_rest_store)
+# We define the global variable as `None` so that instantiating the store does not lead to circular
+# dependency issues.
+_model_registry_store_registry = None
 
-for scheme in ["http", "https"]:
-    _model_registry_store_registry.register(scheme, _get_rest_store)
 
-for scheme in DATABASE_ENGINES:
-    _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+def _get_store_registry():
+    global _model_registry_store_registry
+    if _model_registry_store_registry is not None:
+        return _model_registry_store_registry
 
-_model_registry_store_registry.register_entrypoints()
+    _model_registry_store_registry = ModelRegistryStoreRegistry()
+    _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
+
+    for scheme in ["http", "https"]:
+        _model_registry_store_registry.register(scheme, _get_rest_store)
+
+    for scheme in DATABASE_ENGINES:
+        _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+
+    _model_registry_store_registry.register_entrypoints()
+    return _model_registry_store_registry
 
 
 def _get_store(store_uri=None):
-    return _model_registry_store_registry.get_store(store_uri)
+    return _get_store_registry().get_store(store_uri)

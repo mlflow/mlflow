@@ -1,11 +1,13 @@
-.collapsible-section {
-  margin-left: -16px;
+.collapsible-section.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  display: flex; /* restrict toggleable area */
+  align-items: center;
+  font-size: 16px;
+  padding-left: 0;
+  padding-right: 0;
 }
 
-.collapsible-section.ant-collapse > .ant-collapse-item > .ant-collapse-header {
-  display: inline-block; /* restrict toggleable area */
-  font-size: 16px;
-  padding-left: 36px;
+.collapsible-section .ant-collapse-content-box {
+  padding-left: 0;
   padding-right: 0;
 }
 

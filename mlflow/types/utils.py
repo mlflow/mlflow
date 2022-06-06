@@ -12,12 +12,10 @@ from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 class TensorsNotSupportedException(MlflowException):
     def __init__(self, msg):
-        super().__init__(
-            "Multidimensional arrays (aka tensors) are not supported. " "{}".format(msg)
-        )
+        super().__init__("Multidimensional arrays (aka tensors) are not supported. {}".format(msg))
 
 
-def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -> tuple:
+def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
     """
     Infer the shape of the inputted data.
 
@@ -30,8 +28,10 @@ def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -
     :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
-    if not isinstance(data, np.ndarray):
-        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data)))
+    from scipy.sparse import csr_matrix, csc_matrix
+
+    if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
+        raise TypeError("Expected numpy.ndarray or csc/csr matrix, got '{}'.".format(type(data)))
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
         try:
@@ -90,6 +90,7 @@ def _infer_schema(data: Any) -> Schema:
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
+      - csc/csr matrix
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -98,6 +99,8 @@ def _infer_schema(data: Any) -> Schema:
 
     :return: Schema
     """
+    from scipy.sparse import csr_matrix, csc_matrix
+
     if isinstance(data, dict):
         res = []
         for name in data.keys():
@@ -122,6 +125,10 @@ def _infer_schema(data: Any) -> Schema:
         schema = Schema(
             [TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))]
         )
+    elif isinstance(data, (csc_matrix, csr_matrix)):
+        schema = Schema(
+            [TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))]
+        )
     elif _is_spark_df(data):
         schema = Schema(
             [
@@ -136,7 +143,7 @@ def _infer_schema(data: Any) -> Schema:
             "but got '{}'".format(type(data))
         )
     if not schema.is_tensor_spec() and any(
-        [t in (DataType.integer, DataType.long) for t in schema.column_types()]
+        t in (DataType.integer, DataType.long) for t in schema.input_types()
     ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
@@ -189,8 +196,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
         return DataType.binary
     elif dtype.kind == "O":
         raise Exception(
-            "Can not infer np.object without looking at the values, call "
-            "_map_numpy_array instead."
+            "Can not infer object without looking at the values, call _map_numpy_array instead."
         )
     elif dtype.kind == "M":
         return DataType.datetime
@@ -203,7 +209,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if len(col.values.shape) > 1:
         raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
 
-    class IsInstanceOrNone(object):
+    class IsInstanceOrNone:
         def __init__(self, *args):
             self.classes = args
             self.seen_instances = 0
@@ -229,7 +235,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
             return DataType.string
         else:
             raise MlflowException(
-                "Unable to map 'np.object' type to MLflow DataType. np.object can"
+                "Unable to map 'object' type to MLflow DataType. object can"
                 "be mapped iff all values have identical data type which is one "
                 "of (string, (bytes or byterray),  int, float)."
             )

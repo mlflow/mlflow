@@ -196,7 +196,7 @@ html_show_sourcelink = False
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
 
-html_add_permalinks = " "
+html_permalinks_icon = " "
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 # html_show_copyright = True
@@ -331,12 +331,19 @@ nitpick_ignore = [
     ("py:class", "matplotlib.figure.Figure"),
     ("py:class", "plotly.graph_objects.Figure"),
     ("py:class", "PIL.Image.Image"),
+    ("py:class", "mlflow.deployments.base.BaseDeploymentClient"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "MlflowInferableDataset"),
+    ("py:class", "scipy.sparse.csr.csr_matrix"),
+    ("py:class", "scipy.sparse.csc.csc_matrix"),
+    ("py:class", "scipy.sparse._csr.csr_matrix"),
+    ("py:class", "scipy.sparse._csc.csc_matrix"),
+    ("py:class", "pathlib.Path"),
 ]
 
 

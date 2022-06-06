@@ -1,10 +1,7 @@
 channels:
-- pytorch
-- defaults
 - conda-forge
 dependencies:
 - python=3.8.2
-- pytorch
 - pip
 - pip:
   - mlflow
@@ -15,4 +12,4 @@ dependencies:
   - sklearn
   - prettytable
   - ipython
-
+  - torch

@@ -8,10 +8,9 @@ examples
 
 dev
 # required for Docker build
-!dev/small-requirements.txt
-!dev/large-requirements.txt
-!dev/lint-requirements.txt
-!dev/extra-ml-requirements.txt
+!requirements/test-requirements.txt
+!requirements/lint-requirements.txt
+!requirements/extra-ml-requirements.txt
 
 tests
 # required for Docker build
@@ -28,5 +27,3 @@ __pycache__
 ~*
 *.swp
 *.pyc
-
-

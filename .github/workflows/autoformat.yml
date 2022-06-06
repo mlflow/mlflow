@@ -1,0 +1,194 @@
+# A workflow to apply autoformatting when a PR is commented with 'autoformat'.
+
+name: Autoformat
+on:
+  issue_comment:
+    types: [created, edited]
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  check-comment:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
+    outputs:
+      matched: ${{ steps.check-comment.outputs.result }}
+      repository: ${{ fromJSON(steps.create-status.outputs.result).repository }}
+      ref: ${{ fromJSON(steps.create-status.outputs.result).ref }}
+      sha: ${{ fromJSON(steps.create-status.outputs.result).sha }}
+      pull_number: ${{ fromJSON(steps.create-status.outputs.result).pull_number }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check comment
+        id: check-comment
+        uses: actions/github-script@v4
+        with:
+          result-encoding: string
+          script: |
+            return context.payload.comment.body.trim() === 'autoformat';
+      - name: Create status
+        id: create-status
+        if: ${{ steps.check-comment.outputs.result == 'true' }}
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const autoformat = require('./.github/workflows/autoformat.js');
+            return await autoformat.createStatus(context, github, core);
+
+  check-diff:
+    runs-on: ubuntu-latest
+    needs: check-comment
+    if: ${{ needs.check-comment.outputs.matched == 'true' }}
+    outputs:
+      py_changed: ${{ steps.check-diff.outputs.py_changed }}
+      ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - run: |
+          pip install requests
+      - name: Check diff
+        id: check-diff
+        run: |
+          repository="${{ github.repository }}"
+          pull_number="${{ needs.check-comment.outputs.pull_number }}"
+          changed_files="$(python dev/list_changed_files.py --repository $repository --pr-num $pull_number)"
+          py_changed=$([[ -z $(echo "$changed_files" | grep '\.py$') ]] && echo "false" || echo "true")
+          ui_changed=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
+          echo "::set-output name=py_changed::$py_changed"
+          echo "::set-output name=ui_changed::$ui_changed"
+
+  python:
+    # Generate a patch to format python files.
+    runs-on: ubuntu-latest
+    needs: [check-comment, check-diff]
+    if: ${{ needs.check-diff.outputs.py_changed == 'true' }}
+    outputs:
+      has_diff: ${{ steps.check-diff.outputs.has_diff }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.ref }}
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements/lint-requirements.txt
+      - name: Run black
+        run: |
+          black .
+      - name: Check diff
+        id: check-diff
+        run: |
+          git diff --output=python.diff
+          has_diff=$([[ -z "$(cat python.diff)" ]] && echo "false" || echo "true")
+          echo "::set-output name=has_diff::$has_diff"
+      - uses: actions/upload-artifact@v3
+        if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
+        with:
+          name: python.${{ github.run_id }}.diff
+          path: python.diff
+          if-no-files-found: error
+          retention-days: 1
+
+  ui:
+    # Generate a patch to format files for MLflow UI.
+    runs-on: ubuntu-latest
+    needs: [check-comment, check-diff]
+    if: ${{ needs.check-diff.outputs.ui_changed == 'true' }}
+    outputs:
+      has_diff: ${{ steps.check-diff.outputs.has_diff }}
+    defaults:
+      run:
+        working-directory: mlflow/server/js
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.ref }}
+      - uses: actions/setup-node@v1
+        with:
+          node-version: "16"
+      - name: Install dependencies
+        run: |
+          yarn install
+      - run: |
+          yarn run lint:fix
+      - run: |
+          yarn run extract-i18n
+      - name: Check diff
+        id: check-diff
+        run: |
+          git diff --output=ui.diff
+          has_diff=$([[ -z "$(cat ui.diff)" ]] && echo "false" || echo "true")
+          echo "::set-output name=has_diff::$has_diff"
+      - uses: actions/upload-artifact@v3
+        if: ${{ steps.check-diff.outputs.has_diff == 'true' }}
+        with:
+          name: ui.${{ github.run_id }}.diff
+          path: mlflow/server/js/ui.diff
+          if-no-files-found: error
+          retention-days: 1
+
+  apply-patches:
+    # Apply the patches and commit changes to the PR branch.
+    runs-on: ubuntu-latest
+    needs: [check-comment, check-diff, python, ui]
+    if: |
+      always() &&
+      (needs.python.result == 'success' && needs.python.outputs.has_diff == 'true') ||
+      (needs.ui.result == 'success' && needs.ui.outputs.has_diff == 'true')
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.check-comment.outputs.repository }}
+          ref: ${{ needs.check-comment.outputs.ref }}
+          # As described in the doc below, if we use `secrets.GITHUB_TOKEN`, a commit created by
+          # this workflow will not trigger other workflows:
+          # https://docs.github.com/en/actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
+          # To make it work, commit changes using the mlflow-automation bot (https://github.com/mlflow-automation).
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+      - uses: actions/download-artifact@v3
+        if: ${{ needs.python.result == 'success' && needs.python.outputs.has_diff == 'true' }}
+        with:
+          name: python.${{ github.run_id }}.diff
+          path: /tmp/patches
+      - uses: actions/download-artifact@v3
+        if: ${{ needs.ui.result == 'success' && needs.ui.outputs.has_diff == 'true' }}
+        with:
+          name: ui.${{ github.run_id }}.diff
+          path: /tmp/patches
+      - name: Apply patches
+        run: |
+          find /tmp/patches -maxdepth 1 -type f -name '*.diff' | xargs git apply --verbose
+          git diff
+      - name: Commit changes
+        run: |
+          git config --global user.name 'mlflow-automation'
+          git config --global user.email 'mlflow-automation@users.noreply.github.com'
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git commit -sam "Autoformat: $run_url"
+          git push
+
+  update-status:
+    runs-on: ubuntu-latest
+    needs: [check-comment, check-diff, python, ui, apply-patches]
+    if: ${{ always() && needs.check-comment.outputs.matched == 'true' }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update status
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const needs = ${{ toJson(needs) }};
+            const sha = '${{ needs.check-comment.outputs.sha }}'
+            const autoformat = require('./.github/workflows/autoformat.js');
+            await autoformat.updateStatus(context, github, sha, needs);

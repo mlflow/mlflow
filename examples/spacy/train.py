@@ -1,14 +1,12 @@
 import random
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import spacy
 from spacy.util import minibatch, compounding
 
 import mlflow.spacy
 
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = LooseVersion(spacy.__version__) >= LooseVersion(
-    "3.0.0"
-)
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
 
 # training data
 TRAIN_DATA = [

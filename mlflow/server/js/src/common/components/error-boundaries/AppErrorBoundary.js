@@ -26,7 +26,8 @@ class AppErrorBoundary extends Component {
           <img className='error-image' alt='Error' src={defaultErrorImg} />
           <h1 className={'center'}>Something went wrong</h1>
           <h4 className={'center'}>
-            If this error persists, please report an issue{' '}
+            If this error persists, please report an issue {/* Reported during ESLint upgrade */}
+            {/* eslint-disable-next-line react/jsx-no-target-blank */}
             <a href={Utils.getSupportPageUrl()} target='_blank'>
               here
             </a>

@@ -12,10 +12,14 @@ import pytorch_lightning as pl
 import torch
 import mlflow.pytorch
 from argparse import ArgumentParser
-from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
+
+try:
+    from torchmetrics.functional import accuracy
+except ImportError:
+    from pytorch_lightning.metrics.functional import accuracy
 
 
 class MNISTDataModule(pl.LightningDataModule):
@@ -36,12 +40,6 @@ class MNISTDataModule(pl.LightningDataModule):
         self.transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
         )
-
-    def prepare_data(self):
-        """
-        Implementation of abstract class
-        """
-        pass
 
     def setup(self, stage=None):
         """
@@ -67,7 +65,7 @@ class MNISTDataModule(pl.LightningDataModule):
         :return: Returns the constructed dataloader
         """
         return DataLoader(
-            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
+            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
         )
 
     def train_dataloader(self):
@@ -122,7 +120,11 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 3)",
         )
         parser.add_argument(
-            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
+            "--lr",
+            type=float,
+            default=0.001,
+            metavar="LR",
+            help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -226,12 +228,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         self.log("avg_test_acc", avg_test_acc)
 
-    def prepare_data(self):
-        """
-        Prepares the data for training and prediction
-        """
-        return {}
-
     def configure_optimizers(self):
         """
         Initializes the optimizer and learning rate scheduler
@@ -241,7 +237,12 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
+                self.optimizer,
+                mode="min",
+                factor=0.2,
+                patience=2,
+                min_lr=1e-6,
+                verbose=True,
             ),
             "monitor": "val_loss",
         }
@@ -264,10 +265,9 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = MNISTDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     model = LightningMNISTClassifier(**dict_args)
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, dm)
-    trainer.test()
+    trainer.test(datamodule=dm)

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class RunContextProvider(object):
+class RunContextProvider:
     """
     Abstract base class for context provider objects specifying custom tags at run-creation time
     (e.g. tags specifying the git repo with which the run is associated).

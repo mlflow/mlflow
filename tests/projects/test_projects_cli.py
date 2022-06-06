@@ -23,8 +23,12 @@ from tests.projects.utils import (
 
 _logger = logging.getLogger(__name__)
 
+skip_if_skinny = pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="MLflow skinny does not have dependencies to run this test",
+)
 
-@pytest.mark.large
+
 @pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
 def test_run_local_params(name):
     excitement_arg = 2
@@ -44,14 +48,13 @@ def test_run_local_params(name):
     )
 
 
-@pytest.mark.large
+@skip_if_skinny
 def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
     invoke_cli_runner(cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"])
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("experiment_name", [b"test-experiment".decode("utf-8"), "test-experiment"])
 def test_run_local_experiment_specification(experiment_name):
     invoke_cli_runner(
@@ -84,13 +87,13 @@ def clean_mlruns_dir():
         shutil.rmtree(dir_path)
 
 
-@pytest.mark.large
+@skip_if_skinny
 def test_run_local_conda_env():
     with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
         conda_env_contents = handle.read()
     expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
     try:
-        process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
+        process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
     except process.ShellCommandException:
         _logger.error(
             "Unable to remove conda environment %s. The environment may not have been present, "
@@ -103,7 +106,6 @@ def test_run_local_conda_env():
     )
 
 
-@pytest.mark.large
 def test_run_local_no_spec():
     # Run an example project that doesn't contain an MLproject file
     expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
@@ -119,7 +121,7 @@ def test_run_local_no_spec():
     )
 
 
-@pytest.mark.large
+@skip_if_skinny
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
@@ -128,12 +130,13 @@ def test_run_git_https():
     invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
 
 
-@pytest.mark.large
-@pytest.mark.requires_ssh
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ, reason="SSH keys are unavailable in GitHub Actions"
+)
 def test_run_git_ssh():
-    # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
-    # keys are unavailable. However it should be run locally whenever logic related to running
-    # Git projects is modified.
+    # Note: this test requires SSH authentication to GitHub, and so is disabled in GitHub Actions,
+    # where SSH keys are unavailable. However it should be run locally whenever logic related to
+    # running Git projects is modified.
     assert SSH_PROJECT_URI.startswith("git@")
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
     invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])

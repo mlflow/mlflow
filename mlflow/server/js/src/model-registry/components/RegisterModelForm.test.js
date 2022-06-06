@@ -9,7 +9,10 @@ describe('RegisterModelForm', () => {
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = {};
+    minimalProps = {
+      modelByName: {},
+      onSearchRegisteredModels: jest.fn(),
+    };
   });
 
   test('should render with minimal props without exploding', () => {
@@ -25,7 +28,7 @@ describe('RegisterModelForm', () => {
       ...minimalProps,
       modelByName,
     };
-    wrapper = shallow(<RegisterModelForm {...props} />).dive();
+    wrapper = shallow(<RegisterModelForm {...props} />);
     expect(wrapper.find('.create-new-model-option').length).toBe(1);
     expect(wrapper.find('[value="Model A"]').length).toBe(1);
   });
@@ -38,7 +41,7 @@ describe('RegisterModelForm', () => {
       ...minimalProps,
       modelByName,
     };
-    wrapper = shallow(<RegisterModelForm {...props} />).dive();
+    wrapper = shallow(<RegisterModelForm {...props} />);
     instance = wrapper.instance();
     instance.setState({ selectedModel: CREATE_NEW_MODEL_OPTION_VALUE });
     expect(wrapper.find('[label="Model Name"]').length).toBe(1);

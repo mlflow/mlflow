@@ -1,6 +1,8 @@
 import os
-import sys
 from functools import partial
+import logging
+from pathlib import Path
+from typing import Union
 
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -28,6 +30,7 @@ _TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
 # see https://requests.readthedocs.io/en/master/api/
 _TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
+_logger = logging.getLogger(__name__)
 _tracking_uri = None
 
 
@@ -38,7 +41,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri: str) -> None:
+def set_tracking_uri(uri: Union[str, Path]) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -52,6 +55,7 @@ def set_tracking_uri(uri: str) -> None:
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+                - A :py:class:`pathlib.Path` instance
 
     .. code-block:: python
         :caption: Example
@@ -67,6 +71,12 @@ def set_tracking_uri(uri: str) -> None:
 
         Current tracking uri: file:///tmp/my_tracking
     """
+    if isinstance(uri, Path):
+        # On Windows with Python3.7 (https://bugs.python.org/issue38671)
+        # .resolve() doesn't return the absolute path if the directory doesn't exist
+        # so we're calling .absolute() first to get the absolute path on Windows,
+        # then .resolve() to clean the path
+        uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
     _tracking_uri = uri
 
@@ -134,7 +144,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return DatabricksRestStore(lambda: get_databricks_host_creds(store_uri))
+    return DatabricksRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 _tracking_store_registry = TrackingStoreRegistry()
@@ -170,10 +180,10 @@ def _get_git_url_if_present(uri):
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print(
-            "Notice: failed to import Git (the git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s" % e,
-            file=sys.stderr,
+        _logger.warning(
+            "Failed to import Git (the git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s",
+            e,
         )
         return uri
     try:

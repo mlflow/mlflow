@@ -1,5 +1,6 @@
 # Mlflow
 mlruns/
+mlartifacts/
 outputs/
 
 # Mac

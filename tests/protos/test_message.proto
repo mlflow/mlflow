@@ -1,0 +1,55 @@
+syntax = "proto2";
+
+package mlflow;
+
+message TestMessage {
+  optional int32 field_int32 = 1;
+  optional int64 field_int64 = 2;
+  optional uint32 field_uint32 = 3;
+  optional uint64 field_uint64 = 4;
+  optional sint32 field_sint32 = 5;
+  optional sint64 field_sint64 = 6;
+  optional fixed32 field_fixed32 = 7;
+  optional fixed64 field_fixed64 = 8;
+  optional sfixed32 field_sfixed32 = 9;
+  optional sfixed64 field_sfixed64 = 10;
+  optional bool field_bool = 11;
+  optional string field_string = 12;
+
+  optional int64 field_with_default1 = 13 [default = 100];
+  optional int64 field_with_default2 = 14 [default = 200];
+
+  repeated int64 field_repeated_int64 = 15;
+
+  enum TestEnum {
+    NONE = 0;
+    ENUM_VALUE1 = 1;
+    ENUM_VALUE2 = 2;
+  }
+  optional TestEnum field_enum = 16;
+
+  message TestInnerMessage {
+    optional int64 field_inner_int64 = 1;
+    repeated int64 field_inner_repeated_int64 = 2;
+    optional string field_inner_string = 3;
+  }
+  repeated TestInnerMessage field_inner_message = 17;
+
+  oneof test_oneof {
+    int64 oneof1 = 18;
+    int64 oneof2 = 19;
+  }
+
+  map<int64, string> field_map1 = 20;
+  map<string, int64> field_map2 = 21;
+  map<int64, int64> field_map3 = 22;
+  map<int64, TestInnerMessage> field_map4 = 23;
+
+  extensions 1000 to 1999;
+}
+
+message ExtensionMessage {
+  extend TestMessage {
+    optional int64 field_extended_int64 = 1001;
+  }
+}

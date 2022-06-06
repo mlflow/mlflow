@@ -1,9 +1,10 @@
 import mlflow
 import shap
 import sklearn
+from sklearn.datasets import load_diabetes
 
 # prepare training data
-X, y = shap.datasets.boston()
+X, y = load_diabetes(return_X_y=True, as_frame=True)
 
 # train a model
 model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)

@@ -16,10 +16,14 @@ from argparse import ArgumentParser
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
+
+try:
+    from torchmetrics.functional import accuracy
+except ImportError:
+    from pytorch_lightning.metrics.functional import accuracy
 
 
 class MNISTDataModule(pl.LightningDataModule):
@@ -65,7 +69,7 @@ class MNISTDataModule(pl.LightningDataModule):
         :return: Returns the constructed dataloader
         """
         return DataLoader(
-            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
+            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
         )
 
     def train_dataloader(self):
@@ -120,7 +124,11 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 3)",
         )
         parser.add_argument(
-            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
+            "--lr",
+            type=float,
+            default=0.001,
+            metavar="LR",
+            help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -224,12 +232,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         self.log("avg_test_acc", avg_test_acc)
 
-    def prepare_data(self):
-        """
-        Prepares the data for training and prediction
-        """
-        return {}
-
     def configure_optimizers(self):
         """
         Initializes the optimizer and learning rate scheduler
@@ -239,7 +241,12 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
+                self.optimizer,
+                mode="min",
+                factor=0.2,
+                patience=2,
+                min_lr=1e-6,
+                verbose=True,
             ),
             "monitor": "val_loss",
         }
@@ -272,14 +279,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-    if "accelerator" in dict_args:
-        if dict_args["accelerator"] == "None":
-            dict_args["accelerator"] = None
+    if "strategy" in dict_args:
+        if dict_args["strategy"] == "None":
+            dict_args["strategy"] = None
 
     model = LightningMNISTClassifier(**dict_args)
 
     dm = MNISTDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     early_stopping = EarlyStopping(
@@ -290,12 +296,12 @@ if __name__ == "__main__":
     )
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
+        dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min"
     )
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
+        args, callbacks=[lr_logger, early_stopping, checkpoint_callback], checkpoint_callback=True
     )
     trainer.fit(model, dm)
-    trainer.test()
+    trainer.test(datamodule=dm)

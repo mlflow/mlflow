@@ -50,17 +50,19 @@ class ShowArtifactHtmlView extends Component {
       );
     } else {
       return (
-        <Iframe
-          url=''
-          src={this.getBlobURL(this.state.html, 'text/html')}
-          width='100%'
-          height='500px'
-          id='html'
-          className='html-iframe'
-          display='block'
-          position='relative'
-          sandbox='allow-scripts'
-        />
+        <div className='artifact-html-view'>
+          <Iframe
+            url=''
+            src={this.getBlobURL(this.state.html, 'text/html')}
+            width='100%'
+            height='100%'
+            id='html'
+            className='html-iframe'
+            display='block'
+            position='relative'
+            sandbox='allow-scripts'
+          />
+        </div>
       );
     }
   }

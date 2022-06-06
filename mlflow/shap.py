@@ -8,8 +8,8 @@ import numpy as np
 
 import mlflow
 import types
+import mlflow.utils.autologging_utils
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.models import Model
@@ -18,9 +18,27 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.utils.environment import (
+    _mlflow_conda_env,
+    _get_pip_deps,
+    _validate_env_arguments,
+    _process_pip_requirements,
+    _process_conda_env,
+    _CONSTRAINTS_FILE_NAME,
+    _CONDA_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
+)
+from mlflow.utils.requirements_utils import _get_package_name
+from mlflow.utils.file_utils import write_to
+from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "shap"
@@ -71,24 +89,29 @@ def get_underlying_model_flavor(model):
     return _UNKNOWN_MODEL_FLAVOR
 
 
+def get_default_pip_requirements():
+    """
+    :return: A list of default pip requirements for MLflow Models produced by this flavor.
+             Calls to :func:`save_explainer()` and :func:`log_explainer()` produce a pip environment
+             that, at minimum, contains these requirements.
+    """
+    import shap
+
+    return ["shap=={}".format(shap.__version__)]
+
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for
              MLflow Models produced by calls to
              :func:`save_explainer()` and :func:`log_explainer()`.
     """
-    import shap
-
-    pip_deps = ["shap=={}".format(shap.__version__)]
-
-    return _mlflow_conda_env(
-        additional_conda_deps=[], additional_pip_deps=pip_deps, additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     """
     return _SHAPWrapper(path)
 
@@ -118,6 +141,12 @@ def _log_matplotlib_figure(fig, out_file, artifact_path=None):
     """
     with _log_artifact_contextmanager(out_file, artifact_path) as tmp_path:
         fig.savefig(tmp_path)
+
+
+def _get_conda_env_for_underlying_model(underlying_model_path):
+    underlying_model_conda_path = os.path.join(underlying_model_path, "conda.yaml")
+    with open(underlying_model_conda_path, "r") as underlying_model_conda_file:
+        return yaml.safe_load(underlying_model_conda_file)
 
 
 @experimental
@@ -183,13 +212,13 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         import numpy as np
         import pandas as pd
-        from sklearn.datasets import load_boston
+        from sklearn.datasets import load_diabetes
         from sklearn.linear_model import LinearRegression
 
         import mlflow
 
         # prepare training data
-        dataset = load_boston()
+        X, y = dataset = load_diabetes(return_X_y=True, as_frame=True)
         X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
         y = dataset.target[:50]
 
@@ -242,32 +271,37 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
-    background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
-    explainer = shap.KernelExplainer(predict_function, background_data)
-    shap_values = explainer.shap_values(features)
+    with mlflow.utils.autologging_utils.disable_autologging():
+        background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
+        explainer = shap.KernelExplainer(predict_function, background_data)
+        shap_values = explainer.shap_values(features)
 
-    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
-    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
-    shap.summary_plot(shap_values, features, plot_type="bar", show=False)
-    fig = plt.gcf()
-    fig.tight_layout()
-    _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
-    plt.close(fig)
+        shap.summary_plot(shap_values, features, plot_type="bar", show=False)
+        fig = plt.gcf()
+        fig.tight_layout()
+        _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
+        plt.close(fig)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_explainer(
     explainer,
     artifact_path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Log an SHAP explainer as an MLflow artifact for the current run.
@@ -280,27 +314,15 @@ def log_explainer(
                                         Currently MLflow serialization is only supported for
                                         models of 'sklearn' or 'pytorch' flavors.
 
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'shap=0.37.0'
-                            ]
-                        }
-    :param registered_model_name: (Experimental) If given, create a model version under
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
+    :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -313,7 +335,7 @@ def log_explainer(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
@@ -321,7 +343,8 @@ def log_explainer(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
 
     Model.log(
@@ -329,23 +352,30 @@ def log_explainer(
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
+        code_paths=code_paths,
         serialize_model_using_mlflow=serialize_model_using_mlflow,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
     )
 
 
 @experimental
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_explainer(
     explainer,
     path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
 ):
     """
     Save a SHAP explainer to a path on the local file system. Produces an MLflow Model
@@ -362,25 +392,12 @@ def save_explainer(
                                          Currently MLflow serialization is only supported for
                                          models of 'sklearn' or 'pytorch' flavors.
 
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decsribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()` environment is added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
-
-                        {
-                            'name': 'mlflow-env',
-                            'channels': ['defaults'],
-                            'dependencies': [
-                                'python=3.6.0',
-                                'shap=0.37.0'
-                            ]
-                        }
-
+    :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -393,20 +410,21 @@ def save_explainer(
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
                         signature = infer_signature(train, predictions)
-    :param input_example: (Experimental) Input example provides one or several instances of valid
+    :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param pip_requirements: {{ pip_requirements }}
+    :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     import shap
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS,
-        )
+    _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -444,29 +462,13 @@ def save_explainer(
         else:
             explainer.save(explainer_output_file_handle)
 
-    conda_env_subpath = "conda.yaml"
-    if conda_env is None:
-        conda_env = get_default_conda_env()
-    elif not isinstance(conda_env, dict):
-        with open(conda_env, "r") as f:
-            conda_env = yaml.safe_load(f)
-
-    # merging the conda environment generated by serializing the underlying model
-    if underlying_model_path is not None:
-        underlying_model_conda_path = os.path.join(underlying_model_path, "conda.yaml")
-        with open(underlying_model_conda_path, "r") as underlying_model_conda_file:
-            underlying_model_conda_env = yaml.safe_load(underlying_model_conda_file)
-        conda_env = _merge_environments(conda_env, underlying_model_conda_env)
-
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
-        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",
         model_path=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
-        env=conda_env_subpath,
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
 
     mlflow_model.add_flavor(
@@ -474,9 +476,48 @@ def save_explainer(
         shap_version=shap.__version__,
         serialized_explainer=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
+        code=code_dir_subpath,
     )
 
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    if conda_env is None:
+        if pip_requirements is None:
+            default_reqs = get_default_pip_requirements()
+            # To ensure `_load_pyfunc` can successfully load the model during the dependency
+            # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path,
+                FLAVOR_NAME,
+                fallback=default_reqs,
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+        else:
+            default_reqs = None
+        conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+            default_reqs,
+            pip_requirements,
+            extra_pip_requirements,
+        )
+    else:
+        conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    if underlying_model_path is not None:
+        underlying_model_conda_env = _get_conda_env_for_underlying_model(underlying_model_path)
+        conda_env = _merge_environments(conda_env, underlying_model_conda_env)
+        pip_requirements = _get_pip_deps(conda_env)
+
+    with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # Save `constraints.txt` if necessary
+    if pip_constraints:
+        write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+    # Save `requirements.txt`
+    write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 # Defining save_model (Required by Model.log) to refer to save_explainer
@@ -499,10 +540,18 @@ def _get_conda_and_pip_dependencies(conda_env):
                 if pip_dependency != "mlflow":
                     pip_deps.append(pip_dependency)
         else:
-            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
+            package_name = _get_package_name(dependency)
+            if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
     return conda_deps, pip_deps
+
+
+def _union_lists(l1, l2):
+    """
+    Returns the union of two lists as a new list.
+    """
+    return l1 + [x for x in l2 if x not in l1]
 
 
 def _merge_environments(shap_environment, model_environment):
@@ -512,21 +561,18 @@ def _merge_environments(shap_environment, model_environment):
     :param shap_environment: SHAP conda environment.
     :param model_environment: Underlying model conda environment.
     """
-
     # merge the channels from the two environments and remove the default conda
     # channels if present since its added later in `_mlflow_conda_env`
-
-    merged_conda_channels = list(
-        set(shap_environment["channels"] + model_environment["channels"])
-        - set(["defaults", "conda-forge"])
+    merged_conda_channels = _union_lists(
+        shap_environment["channels"], model_environment["channels"]
     )
+    merged_conda_channels = [x for x in merged_conda_channels if x != "conda-forge"]
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
     model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)
 
-    merged_conda_deps = list(set(shap_conda_deps + model_conda_deps))
-    merged_pip_deps = list(set(shap_pip_deps + model_pip_deps))
-
+    merged_conda_deps = _union_lists(shap_conda_deps, model_conda_deps)
+    merged_pip_deps = _union_lists(shap_pip_deps, model_pip_deps)
     return _mlflow_conda_env(
         additional_conda_deps=merged_conda_deps,
         additional_pip_deps=merged_pip_deps,
@@ -557,6 +603,7 @@ def load_explainer(model_uri):
 
     explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=explainer_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(explainer_path, flavor_conf)
     explainer_artifacts_path = os.path.join(explainer_path, flavor_conf["serialized_explainer"])
     underlying_model_flavor = flavor_conf["underlying_model_flavor"]
     model = None

@@ -39,7 +39,7 @@ def synchronized(lock):
 # The dictionary registering any post import hooks to be triggered once
 # the target module has been imported. Once a module has been imported
 # and the hooks fired, the list of hooks recorded against the target
-# module will be truncacted but the list left in the dictionary. This
+# module will be truncated but the list left in the dictionary. This
 # acts as a flag to indicate that the module had already been imported.
 
 _post_import_hooks = {}
@@ -288,6 +288,43 @@ class ImportHookFinder:
                 loader = importlib.find_loader(fullname, path)  # pylint: disable=deprecated-method
             if loader:
                 return _ImportHookChainedLoader(loader)
+        finally:
+            del self.in_progress[fullname]
+
+    @synchronized(_post_import_hooks_lock)
+    @synchronized(_import_error_hooks_lock)
+    def find_spec(self, fullname, path, target=None):  # pylint: disable=unused-argument
+        # If the module being imported is not one we have registered
+        # import hooks for, we can return immediately. We will
+        # take no further part in the importing of this module.
+
+        if fullname not in _post_import_hooks and fullname not in _import_error_hooks:
+            return None
+
+        # When we are interested in a specific module, we will call back
+        # into the import system a second time to defer to the import
+        # finder that is supposed to handle the importing of the module.
+        # We set an in progress flag for the target module so that on
+        # the second time through we don't trigger another call back
+        # into the import system and cause a infinite loop.
+
+        if fullname in self.in_progress:
+            return None
+
+        self.in_progress[fullname] = True
+
+        # Now call back into the import system again.
+
+        try:
+            import importlib.util
+
+            spec = importlib.util.find_spec(fullname)
+            # Replace the module spec's loader with a wrapped version that executes import
+            # hooks when the module is loaded
+            spec.loader = _ImportHookChainedLoader(spec.loader)
+            return spec
+        except (ImportError, AttributeError):
+            notify_module_import_error(fullname)
         finally:
             del self.in_progress[fullname]
 

@@ -59,6 +59,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                     synchronous=False,
                 )
                 succeeded = p.wait()
+                mlflow.log_params({"lr": lr, "momentum": momentum})
             if succeeded:
                 training_run = tracking_client.get_run(p.run_id)
                 metrics = training_run.data.metrics

@@ -17,3 +17,36 @@
 .ModelView-run-buttons .btn {
   margin-left: 16px;
 }
+
+.rm-breadcrumb-header {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.rm-header {
+  font-size: 18px;
+  margin-bottom: 24px;
+  font-weight: bold;
+  color: #333;
+  display:flex;
+  align-items: center;
+}
+
+.email-notifications-mark {
+  padding-right: 8px;
+  padding-left: 8px;
+  color: #849298;
+}
+
+.emailNotificationPreferenceDropdownWrapper {
+  margin-bottom: 16px;
+}
+
+.emailNotificationPreferenceDropdownWrapper .StyledDropdown-button span {
+  color: rgba(0,0,0,.65); /* Antd color for text */
+}
+
+.subheading-text {
+  color: rgba(0,0,0,.85); /* Antd color for labels */
+}

@@ -6,7 +6,14 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pytorch_lightning.metrics import Accuracy
+
+# NB: Older versions of PyTorch Lightning define native APIs for metric computation,
+# (e.g., pytorch_lightning.metrics.Accuracy), while newer versions rely on the `torchmetrics`
+# package (e.g. `torchmetrics.Accuracy)
+try:
+    from torchmetrics import Accuracy
+except ImportError:
+    from pytorch_lightning.metrics import Accuracy
 
 
 class IrisClassificationBase(pl.LightningModule):
@@ -41,6 +48,7 @@ class IrisClassification(IrisClassificationBase):
         self.train_acc(torch.argmax(logits, dim=1), y)
         self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
         self.log("loss", loss)
+        self.log("loss_forked", loss, on_epoch=True, on_step=True)
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):

@@ -1,0 +1,11 @@
+name: paddle-example
+channels:
+- defaults
+- conda-forge
+dependencies:
+- python=3.7
+- pip
+- pip:
+  - mlflow
+  - paddlepaddle==2.1.0
+  - cloudpickle==1.6.0

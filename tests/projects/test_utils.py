@@ -1,6 +1,8 @@
+import git
 import os
 import tempfile
 
+import requests
 import pytest
 from unittest import mock
 
@@ -12,10 +14,12 @@ from mlflow.projects.utils import (
     _is_valid_branch_name,
     _is_zip_uri,
     _fetch_project,
+    _fetch_git_repo,
     _parse_subdirectory,
     get_or_create_run,
     fetch_and_validate_project,
     load_project,
+    _GIT_URI_REGEX,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
@@ -23,6 +27,7 @@ from tests.projects.utils import (
     GIT_PROJECT_URI,
     TEST_PROJECT_DIR,
     TEST_PROJECT_NAME,
+    GIT_PROJECT_BRANCH,
 )
 
 
@@ -60,6 +65,12 @@ def test_is_zip_uri():
     assert not _is_zip_uri("C:/moo")
 
 
+def test_is_git_uri():
+    assert _GIT_URI_REGEX.match("https://github.com/mlflow/mlflow-example.git)")
+    assert _GIT_URI_REGEX.match("git@github.com:mlflow/mlflow.git")
+    assert not _GIT_URI_REGEX.match("D:\\mlflow\\mlflow-example")
+
+
 def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
     httpserver.serve_content(open(zipped_repo, "rb").read())
     # The tests are as follows:
@@ -92,14 +103,44 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
     assert os.path.exists(fetched_git_project)
 
 
+@pytest.mark.parametrize(
+    "version,expected_version", [(None, "master"), (GIT_PROJECT_BRANCH, GIT_PROJECT_BRANCH)]
+)
+def test__fetch_git_repo(local_git_repo, local_git_repo_uri, version, expected_version):
+    # Verify that the correct branch is checked out
+    _fetch_git_repo(local_git_repo_uri, version, local_git_repo)
+    repo = git.Repo(local_git_repo)
+    assert repo.active_branch.name == expected_version
+
+
+@pytest.mark.parametrize(
+    "commit",
+    # Fetch the most recent two commits
+    requests.get("https://api.github.com/repos/mlflow/mlflow-example/commits").json()[:2],
+)
+def test_fetch_git_repo_commit(tmp_path, commit):
+    _fetch_git_repo(
+        "https://github.com/mlflow/mlflow-example.git",
+        commit["sha"],
+        tmp_path,
+    )
+    repo = git.Repo(tmp_path)
+    assert repo.commit().hexsha == commit["sha"]
+
+
+def test_fetching_non_existing_version_fails(local_git_repo, local_git_repo_uri):
+    with pytest.raises(ExecutionException, match="Unable to checkout"):
+        _fetch_git_repo(local_git_repo_uri, "non-version", local_git_repo)
+
+
 def test_fetch_project_validations(local_git_repo_uri):
     # Verify that runs fail if given incorrect subdirectories via the `#` character.
     for base_uri in [TEST_PROJECT_DIR, local_git_repo_uri]:
-        with pytest.raises(ExecutionException):
+        with pytest.raises(ExecutionException, match="Could not find subdirectory fake"):
             _fetch_project(uri=_build_uri(base_uri, "fake"))
 
     # Passing `version` raises an exception for local projects
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="Setting a version is only supported"):
         _fetch_project(uri=TEST_PROJECT_DIR, version="version")
 
 
@@ -119,9 +160,15 @@ def test_parse_subdirectory():
     assert parsed_uri == "uri"
     assert parsed_subdirectory == "subdirectory"
 
+    # Make sure the parsing works with quotes.
+    test_uri = "'uri#subdirectory'"
+    parsed_uri, parsed_subdirectory = _parse_subdirectory(test_uri)
+    assert parsed_uri == "uri"
+    assert parsed_subdirectory == "subdirectory"
+
     # Make sure periods are restricted in Git repo subdirectory paths.
     period_fail_uri = GIT_PROJECT_URI + "#.."
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match=r"'\.' is not allowed"):
         _parse_subdirectory(period_fail_uri)
 
 
@@ -146,7 +193,11 @@ def test_fetch_create_and_log(tmpdir):
     }
     entry_point = _project_spec.EntryPoint(entry_point_name, parameters, "run_model.sh")
     mock_fetched_project = _project_spec.Project(
-        None, {entry_point_name: entry_point}, None, "my_project"
+        env_type="local",
+        env_config_path=None,
+        entry_points={entry_point_name: entry_point},
+        docker_env=None,
+        name="my_project",
     )
     experiment_id = mlflow.create_experiment("test_fetch_project")
     expected_dir = tmpdir

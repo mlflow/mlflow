@@ -56,9 +56,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         else:
             self.get_host_creds = _get_host_creds_from_default_store()
 
-    def _databricks_api_request(self, endpoint, **kwargs):
+    def _databricks_api_request(self, endpoint, method, **kwargs):
         host_creds = self.get_host_creds()
-        return http_request_safe(host_creds=host_creds, endpoint=endpoint, **kwargs)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _dbfs_list_api(self, json):
         host_creds = self.get_host_creds()

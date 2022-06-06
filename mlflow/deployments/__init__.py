@@ -1,5 +1,5 @@
 """
-Exposes experimental functionality for deploying MLflow models to custom serving tools.
+Exposes functionality for deploying MLflow models to custom serving tools.
 
 Note: model deployment to AWS Sagemaker and AzureML can currently be performed via the
 :py:mod:`mlflow.sagemaker` and :py:mod:`mlflow.azureml` modules, respectively.

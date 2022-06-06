@@ -24,7 +24,10 @@ from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import (
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.validation import (
     _validate_metric_name,
@@ -34,6 +37,9 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_batch_log_limits,
     _validate_batch_log_data,
+    _validate_list_experiments_max_results,
+    _validate_param_keys_unique,
+    _validate_experiment_name,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -137,6 +143,7 @@ class FileStore(AbstractStore):
                 name=Experiment.DEFAULT_EXPERIMENT_NAME,
                 experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
                 artifact_uri=None,
+                tags=None,
             )
         # Create trash folder if needed
         if not exists(self.trash_folder):
@@ -221,13 +228,33 @@ class FileStore(AbstractStore):
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+    ):
+        """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+        """
+        from mlflow.utils.search_utils import SearchUtils
+        from mlflow.store.entities.paged_list import PagedList
+
+        _validate_list_experiments_max_results(max_results)
         self._check_root_dir()
         rsl = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             rsl += self._get_active_experiments(full_path=False)
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             rsl += self._get_deleted_experiments(full_path=False)
+
         experiments = []
         for exp_id in rsl:
             try:
@@ -243,9 +270,15 @@ class FileStore(AbstractStore):
                     str(rnfe),
                     exc_info=True,
                 )
-        return experiments
+        if max_results is not None:
+            experiments, next_page_token = SearchUtils.paginate(
+                experiments, page_token, max_results
+            )
+            return PagedList(experiments, next_page_token)
+        else:
+            return PagedList(experiments, None)
 
-    def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
+    def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
             self.artifact_root_uri, str(experiment_id)
         )
@@ -257,14 +290,12 @@ class FileStore(AbstractStore):
         # As such, we should not include them in the meta file.
         del experiment_dict["tags"]
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
+        if tags is not None:
+            for tag in tags:
+                self.set_experiment_tag(experiment_id, tag)
         return experiment_id
 
-    def _validate_experiment_name(self, name):
-        """Check the validity of an experiment name."""
-        if name is None or name == "":
-            raise MlflowException(
-                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE
-            )
+    def _validate_experiment_does_not_exist(self, name):
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
             if experiment.lifecycle_stage == LifecycleStage.DELETED:
@@ -281,9 +312,10 @@ class FileStore(AbstractStore):
                     databricks_pb2.RESOURCE_ALREADY_EXISTS,
                 )
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
-        self._validate_experiment_name(name)
+        _validate_experiment_name(name)
+        self._validate_experiment_does_not_exist(name)
         # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [
@@ -292,7 +324,7 @@ class FileStore(AbstractStore):
             if e.experiment_id.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
+        return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
@@ -360,13 +392,14 @@ class FileStore(AbstractStore):
         conflict_experiment = self._get_experiment_path(experiment_id, ViewType.ACTIVE_ONLY)
         if conflict_experiment is not None:
             raise MlflowException(
-                "Cannot restore eperiment with ID %d. "
+                "Cannot restore experiment with ID %d. "
                 "An experiment with same ID already exists." % experiment_id,
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
+        _validate_experiment_name(new_name)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
@@ -375,7 +408,7 @@ class FileStore(AbstractStore):
                 "Experiment '%s' does not exist." % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        self._validate_experiment_name(new_name)
+        self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
@@ -461,7 +494,7 @@ class FileStore(AbstractStore):
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "Could not create run under non-active experiment with ID " "%s." % experiment_id,
+                "Could not create run under non-active experiment with ID %s." % experiment_id,
                 databricks_pb2.INVALID_STATE,
             )
         run_uuid = uuid.uuid4().hex
@@ -682,10 +715,8 @@ class FileStore(AbstractStore):
         run_dirs = list_all(
             experiment_dir,
             filter_func=lambda x: all(
-                [
-                    os.path.basename(os.path.normpath(x)) != reservedFolderName
-                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
-                ]
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
             )
             and os.path.isdir(x),
             full_path=True,
@@ -851,6 +882,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
         _validate_batch_log_limits(metrics, params, tags)
+        _validate_param_keys_unique(params)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         try:

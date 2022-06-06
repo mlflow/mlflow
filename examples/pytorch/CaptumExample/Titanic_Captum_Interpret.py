@@ -53,7 +53,17 @@ def get_titanic():
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     titanic_data = titanic_data.drop(
-        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
+        [
+            "name",
+            "ticket",
+            "cabin",
+            "boat",
+            "body",
+            "home.dest",
+            "sex",
+            "embarked",
+            "pclass",
+        ],
         axis=1,
     )
     return titanic_data
@@ -160,7 +170,9 @@ def train(USE_PRETRAINED_MODEL=False):
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
                 mlflow.log_metric(
-                    "Epoch {} Loss".format(str(epoch + 1)), float(loss.item()), step=epoch,
+                    "Epoch {} Loss".format(str(epoch + 1)),
+                    float(loss.item()),
+                    step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
@@ -230,7 +242,7 @@ def layer_conductance(net, test_input_tensor):
     To use Layer Conductance, we create a LayerConductance object passing in the model as well as the module (layer) whose output we would like to understand.
     In this case, we choose net.sigmoid1, the output of the first hidden layer.
     Now obtain the conductance values for all the test examples by calling attribute on the LayerConductance object.
-    LayerConductance also requires a target index for networks with mutliple outputs, defining the index of the output for which gradients are computed.
+    LayerConductance also requires a target index for networks with multiple outputs, defining the index of the output for which gradients are computed.
     Similar to feature attributions, we provide target = 1, corresponding to survival.
     LayerConductance also utilizes a baseline, but we simply use the default zero baseline as in integrated gradients.
     """
@@ -277,7 +289,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     neuron_cond = NeuronConductance(net, net.sigmoid1)
 
     # We can now obtain the neuron conductance values for all the test examples by calling attribute on the NeuronConductance object.
-    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with mutliple outputs,
+    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with multiple outputs,
     # similar to layer conductance. As before, we provide target = 1, corresponding to survival, and compute neuron conductance for neurons 0 and 10, the significant neurons identified above.
     # The neuron index can be provided either as a tuple or as just an integer if the layer output is 1-dimensional.
 
@@ -314,14 +326,18 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
+        "--lr",
+        type=float,
+        default=0.1,
+        metavar="LR",
+        help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
     with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
-        (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
+        net, train_features, train_labels, test_features, test_labels, feature_names = train()
 
         compute_accuracy(net, train_features, train_labels, title="Train Accuracy")
         test_input_tensor = compute_accuracy(net, test_features, test_labels, title="Test Accuracy")

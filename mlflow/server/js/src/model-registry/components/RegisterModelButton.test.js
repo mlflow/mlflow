@@ -1,10 +1,9 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { mountWithIntl, shallowWithInjectIntl } from '../../common/utils/TestUtils';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
-import { RegisterModelButtonImpl } from './RegisterModelButton';
-import { mockAjax } from '../../common/utils/TestUtils';
+import { RegisterModelButtonWithIntl } from './RegisterModelButton';
 import { getProtoField } from '../utils';
 
 describe('RegisterModelButton', () => {
@@ -14,7 +13,6 @@ describe('RegisterModelButton', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     minimalProps = {
       disabled: false,
       runUuid: 'runUuid',
@@ -35,7 +33,7 @@ describe('RegisterModelButton', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(<RegisterModelButtonImpl {...minimalProps} store={minimalStore} />);
+    wrapper = mountWithIntl(<RegisterModelButtonWithIntl {...minimalProps} store={minimalStore} />);
     expect(wrapper.find('button').length).toBe(1);
   });
 
@@ -52,7 +50,9 @@ describe('RegisterModelButton', () => {
       ...minimalProps,
       searchRegisteredModelsApi,
     };
-    wrapper = shallow(<RegisterModelButtonImpl {...props} store={minimalStore} />);
+    wrapper = shallowWithInjectIntl(
+      <RegisterModelButtonWithIntl {...props} store={minimalStore} />,
+    );
     const instance = wrapper.instance();
     instance.handleSearchRegisteredModels('A');
     expect(props.searchRegisteredModelsApi.mock.calls.length).toBe(1);

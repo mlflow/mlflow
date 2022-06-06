@@ -2,11 +2,11 @@
 on the Reuters newswire topic classification task.
 """
 import numpy as np
-import keras
-from keras.datasets import reuters
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation
-from keras.preprocessing.text import Tokenizer
+from tensorflow import keras
+from tensorflow.keras.datasets import reuters
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Activation
+from tensorflow.keras.preprocessing.text import Tokenizer
 
 # The following import and function call are the only additions to code required
 # to automatically log metrics and parameters to MLflow.
@@ -34,7 +34,7 @@ x_test = tokenizer.sequences_to_matrix(x_test, mode="binary")
 print("x_train shape:", x_train.shape)
 print("x_test shape:", x_test.shape)
 
-print("Convert class vector to binary class matrix " "(for use with categorical_crossentropy)")
+print("Convert class vector to binary class matrix (for use with categorical_crossentropy)")
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 print("y_train shape:", y_train.shape)

@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getUUID } from '../../common/utils/ActionUtils';
 import Utils from '../../common/utils/Utils';
-import { getModelNameFilter } from '../utils/SearchUtils';
+import { appendTagsFilter, getModelNameFilter } from '../utils/SearchUtils';
 import {
   AntdTableSortOrder,
   REGISTERED_MODELS_PER_PAGE,
@@ -14,11 +14,10 @@ import {
 import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 
-class ModelListPage extends React.Component {
+export class ModelListPageImpl extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      searchInput: '',
       orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
       orderByAsc: true,
       currentPage: 1,
@@ -29,7 +28,6 @@ class ModelListPage extends React.Component {
   }
   static propTypes = {
     models: PropTypes.arrayOf(PropTypes.object),
-    endpoints: PropTypes.object,
     searchRegisteredModelsApi: PropTypes.func.isRequired,
     // react-router props
     history: PropTypes.object.isRequired,
@@ -41,17 +39,17 @@ class ModelListPage extends React.Component {
   searchRegisteredModelsApiId = getUUID();
   criticalInitialRequestIds = [this.initialSearchRegisteredModelsApiId];
 
+  getUrlState() {
+    return this.props.location ? Utils.getSearchParamsFromUrl(this.props.location.search) : {};
+  }
+
   componentDidMount() {
-    const urlState = this.props.location
-      ? Utils.getSearchParamsFromUrl(this.props.location.search)
-      : {};
+    const urlState = this.getUrlState();
     const persistedPageTokens = this.getPersistedPageTokens();
     const maxResultsForTokens = this.getPersistedMaxResults();
     // eslint-disable-next-line react/no-did-mount-set-state
     this.setState(
       {
-        searchInput:
-          urlState.searchInput === undefined ? this.state.searchInput : urlState.searchInput,
         orderByKey: urlState.orderByKey === undefined ? this.state.orderByKey : urlState.orderByKey,
         orderByAsc:
           urlState.orderByAsc === undefined
@@ -71,7 +69,7 @@ class ModelListPage extends React.Component {
   }
 
   getPersistedPageTokens() {
-    const store = ModelListPage.getLocalStore(this.modelListPageStoreKey);
+    const store = ModelListPageImpl.getLocalStore(this.modelListPageStoreKey);
     if (store && store.getItem('page_tokens')) {
       return JSON.parse(store.getItem('page_tokens'));
     } else {
@@ -80,14 +78,14 @@ class ModelListPage extends React.Component {
   }
 
   setPersistedPageTokens(page_tokens) {
-    const store = ModelListPage.getLocalStore(this.modelListPageStoreKey);
+    const store = ModelListPageImpl.getLocalStore(this.modelListPageStoreKey);
     if (store) {
       store.setItem('page_tokens', JSON.stringify(page_tokens));
     }
   }
 
   getPersistedMaxResults() {
-    const store = ModelListPage.getLocalStore(this.modelListPageStoreKey);
+    const store = ModelListPageImpl.getLocalStore(this.modelListPageStoreKey);
     if (store && store.getItem('max_results')) {
       return parseInt(store.getItem('max_results'), 10);
     } else {
@@ -96,7 +94,7 @@ class ModelListPage extends React.Component {
   }
 
   setMaxResultsInStore(max_results) {
-    const store = ModelListPage.getLocalStore(this.modelListPageStoreKey);
+    const store = ModelListPageImpl.getLocalStore(this.modelListPageStoreKey);
     store.setItem('max_results', max_results.toString());
   }
 
@@ -110,10 +108,12 @@ class ModelListPage extends React.Component {
 
   // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
-    const { orderByKey, orderByAsc, searchInput } = this.state;
+    const { orderByKey, orderByAsc } = this.state;
+    const urlState = this.getUrlState();
     this.loadPage(
       this.state.currentPage,
-      searchInput,
+      urlState.nameSearchInput,
+      urlState.tagSearchInput,
       orderByKey,
       orderByAsc,
       undefined,
@@ -172,73 +172,136 @@ class ModelListPage extends React.Component {
     );
   };
 
-  handleSearch = (searchInput, callback, errorCallback) => {
-    this.setState({ searchInput });
+  handleSearch = (nameSearchInput, tagSearchInput, callback, errorCallback) => {
     this.resetHistoryState();
     const { orderByKey, orderByAsc } = this.state;
-    this.loadPage(1, searchInput, orderByKey, orderByAsc, callback, errorCallback);
+    this.loadPage(
+      1,
+      nameSearchInput,
+      tagSearchInput,
+      orderByKey,
+      orderByAsc,
+      callback,
+      errorCallback,
+    );
   };
 
-  updateUrlWithSearchFilter(searchInput, orderByKey, orderByAsc, page) {
-    const state = {};
-    if (searchInput) {
-      state['searchInput'] = searchInput;
+  handleClear = (callback, errorCallback) => {
+    this.setState({
+      orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
+      orderByAsc: true,
+    });
+    this.updateUrlWithSearchFilter('', '', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, 1);
+    this.loadPage(1, '', '', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, callback, errorCallback);
+  };
+
+  updateUrlWithSearchFilter = (nameSearchInput, tagSearchInput, orderByKey, orderByAsc, page) => {
+    const urlParams = {};
+    if (nameSearchInput) {
+      urlParams['nameSearchInput'] = nameSearchInput;
+    }
+    if (tagSearchInput) {
+      urlParams['tagSearchInput'] = tagSearchInput;
     }
     if (orderByKey && orderByKey !== REGISTERED_MODELS_SEARCH_NAME_FIELD) {
-      state['orderByKey'] = orderByKey;
+      urlParams['orderByKey'] = orderByKey;
     }
     if (orderByAsc === false) {
-      state['orderByAsc'] = orderByAsc;
+      urlParams['orderByAsc'] = orderByAsc;
     }
     if (page && page !== 1) {
-      state['page'] = page;
+      urlParams['page'] = page;
     }
-    const newUrl = `/models?${Utils.getSearchUrlFromState(state)}`;
+    const newUrl = `/models?${Utils.getSearchUrlFromState(urlParams)}`;
     if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
       this.props.history.push(newUrl);
     }
-  }
+  };
 
   handleMaxResultsChange = (key, callback, errorCallback) => {
     this.setState({ maxResultsSelection: parseInt(key, 10) }, () => {
       this.resetHistoryState();
-      const { searchInput, orderByKey, orderByAsc, maxResultsSelection } = this.state;
+      const urlState = this.getUrlState();
+      const { orderByKey, orderByAsc, maxResultsSelection } = this.state;
       this.setMaxResultsInStore(maxResultsSelection);
-      this.loadPage(1, searchInput, orderByKey, orderByAsc, callback, errorCallback);
+      this.loadPage(
+        1,
+        urlState.nameSearchInput,
+        urlState.tagSearchInput,
+        orderByKey,
+        orderByAsc,
+        callback,
+        errorCallback,
+      );
     });
   };
 
   handleClickNext = (callback, errorCallback) => {
-    const { searchInput, orderByKey, orderByAsc, currentPage } = this.state;
-    this.loadPage(currentPage + 1, searchInput, orderByKey, orderByAsc, callback, errorCallback);
+    const urlState = this.getUrlState();
+    const { orderByKey, orderByAsc, currentPage } = this.state;
+    this.loadPage(
+      currentPage + 1,
+      urlState.nameSearchInput,
+      urlState.tagSearchInput,
+      orderByKey,
+      orderByAsc,
+      callback,
+      errorCallback,
+    );
   };
 
   handleClickPrev = (callback, errorCallback) => {
-    const { searchInput, orderByKey, orderByAsc, currentPage } = this.state;
-    this.loadPage(currentPage - 1, searchInput, orderByKey, orderByAsc, callback, errorCallback);
+    const urlState = this.getUrlState();
+    const { orderByKey, orderByAsc, currentPage } = this.state;
+    this.loadPage(
+      currentPage - 1,
+      urlState.nameSearchInput,
+      urlState.tagSearchInput,
+      orderByKey,
+      orderByAsc,
+      callback,
+      errorCallback,
+    );
   };
 
   handleClickSortableColumn = (orderByKey, sortOrder, callback, errorCallback) => {
     const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
     this.setState({ orderByKey, orderByAsc });
     this.resetHistoryState();
-    const { searchInput } = this.state;
-    this.loadPage(1, searchInput, orderByKey, orderByAsc, callback, errorCallback);
+    const urlState = this.getUrlState();
+    this.loadPage(
+      1,
+      urlState.nameSearchInput,
+      urlState.tagSearchInput,
+      orderByKey,
+      orderByAsc,
+      callback,
+      errorCallback,
+    );
   };
 
   getMaxResultsSelection = () => {
     return this.state.maxResultsSelection;
   };
 
-  loadPage(page, searchInput, orderByKey, orderByAsc, callback, errorCallback, isInitialLoading) {
+  loadPage(
+    page,
+    nameSearchInput = '',
+    tagSearchInput = '',
+    orderByKey,
+    orderByAsc,
+    callback,
+    errorCallback,
+    isInitialLoading,
+  ) {
     const { pageTokens } = this.state;
     this.setState({ loading: true });
-    this.updateUrlWithSearchFilter(searchInput, orderByKey, orderByAsc, page);
+    this.updateUrlWithSearchFilter(nameSearchInput, tagSearchInput, orderByKey, orderByAsc, page);
     this.props
       .searchRegisteredModelsApi(
-        getModelNameFilter(searchInput),
+        appendTagsFilter(getModelNameFilter(nameSearchInput), tagSearchInput),
         this.state.maxResultsSelection,
-        ModelListPage.getOrderByExpr(orderByKey, orderByAsc),
+        ModelListPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],
         isInitialLoading
           ? this.initialSearchRegisteredModelsApiId
@@ -258,29 +321,29 @@ class ModelListPage extends React.Component {
   }
 
   render() {
-    const { searchInput, orderByKey, orderByAsc, currentPage, pageTokens } = this.state;
-    const { models, endpoints } = this.props;
+    const { orderByKey, orderByAsc, currentPage, pageTokens } = this.state;
+    const { models } = this.props;
+    const urlState = this.getUrlState();
     return (
-      <div className='App-content'>
-        <RequestStateWrapper requestIds={[this.criticalInitialRequestIds]}>
-          <ModelListView
-            models={models}
-            loading={this.state.loading}
-            endpoints={endpoints}
-            searchInput={searchInput}
-            orderByKey={orderByKey}
-            orderByAsc={orderByAsc}
-            currentPage={currentPage}
-            nextPageToken={pageTokens[currentPage + 1]}
-            onSearch={this.handleSearch}
-            onClickNext={this.handleClickNext}
-            onClickPrev={this.handleClickPrev}
-            onClickSortableColumn={this.handleClickSortableColumn}
-            onSetMaxResult={this.handleMaxResultsChange}
-            getMaxResultValue={this.getMaxResultsSelection}
-          />
-        </RequestStateWrapper>
-      </div>
+      <RequestStateWrapper requestIds={[this.criticalInitialRequestIds]}>
+        <ModelListView
+          models={models}
+          loading={this.state.loading}
+          nameSearchInput={urlState.nameSearchInput}
+          tagSearchInput={urlState.tagSearchInput}
+          orderByKey={orderByKey}
+          orderByAsc={orderByAsc}
+          currentPage={currentPage}
+          nextPageToken={pageTokens[currentPage + 1]}
+          onSearch={this.handleSearch}
+          onClear={this.handleClear}
+          onClickNext={this.handleClickNext}
+          onClickPrev={this.handleClickPrev}
+          onClickSortableColumn={this.handleClickSortableColumn}
+          onSetMaxResult={this.handleMaxResultsChange}
+          getMaxResultValue={this.getMaxResultsSelection}
+        />
+      </RequestStateWrapper>
     );
   }
 }
@@ -296,4 +359,4 @@ const mapDispatchToProps = {
   searchRegisteredModelsApi,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(ModelListPage);
+export const ModelListPage = connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl);

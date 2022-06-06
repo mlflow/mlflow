@@ -4,7 +4,7 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../../common/utils/Utils';
-import Plot from 'react-plotly.js';
+import { LazyPlot } from './LazyPlot';
 
 const metricsForLine = [
   {
@@ -372,8 +372,8 @@ describe('unit tests', () => {
           name: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
-          y: ['NaN', 400],
-          text: ['NaN', '400.00000'],
+          y: [NaN, 400],
+          text: [NaN, '400.00000'],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -385,8 +385,8 @@ describe('unit tests', () => {
           name: 'metric_2',
           runId: 'runUuid3',
           x: [0],
-          y: ['NaN'],
-          text: ['NaN'],
+          y: [NaN],
+          text: [NaN],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -398,8 +398,8 @@ describe('unit tests', () => {
           name: 'metric_3',
           runId: 'runUuid3',
           x: [0, 1],
-          y: ['NaN', 'NaN'],
-          text: ['NaN', 'NaN'],
+          y: [NaN, NaN],
+          text: [NaN, NaN],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -496,8 +496,8 @@ describe('unit tests', () => {
           name: 'metric_1',
           runId: 'runUuid2',
           x: [0, 1],
-          y: ['NaN', 400],
-          text: ['NaN', '400.00000'],
+          y: [NaN, 400],
+          text: [NaN, '400.00000'],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -509,8 +509,8 @@ describe('unit tests', () => {
           name: 'metric_2',
           runId: 'runUuid3',
           x: [0],
-          y: ['NaN'],
-          text: ['NaN'],
+          y: [NaN],
+          text: [NaN],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -522,8 +522,8 @@ describe('unit tests', () => {
           name: 'metric_3',
           runId: 'runUuid3',
           x: [0, 1],
-          y: ['NaN', 'NaN'],
-          text: ['NaN', 'NaN'],
+          y: [NaN, NaN],
+          text: [NaN, NaN],
           type: 'scattergl',
           visible: true,
           mode: 'markers',
@@ -606,7 +606,7 @@ describe('unit tests', () => {
 
   test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
-    const plot = wrapper.find(Plot);
+    const plot = wrapper.find(LazyPlot);
     expect(plot.props().config.displaylogo).toBe(false);
     expect(plot.props().config.modeBarButtonsToRemove).toContain('sendDataToCloud');
   });

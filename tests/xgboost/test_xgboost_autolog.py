@@ -1,6 +1,8 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 import json
+import functools
+import pickle
 import pytest
 import numpy as np
 import pandas as pd
@@ -8,13 +10,15 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from unittest import mock
 
 import mlflow
 import mlflow.xgboost
+from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.utils.autologging_utils import BatchMetricsLogger
-from unittest.mock import patch
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
@@ -29,7 +33,7 @@ def get_model_conf(artifact_uri, model_subpath="model"):
     return Model.load(model_conf_path)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def bst_params():
     return {
         "objective": "multi:softprob",
@@ -38,7 +42,7 @@ def bst_params():
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def dtrain():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
@@ -46,14 +50,12 @@ def dtrain():
     return xgb.DMatrix(X, y)
 
 
-@pytest.mark.large
 def test_xgb_autolog_ends_auto_created_run(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
     mlflow.xgboost.autolog()
     with mlflow.start_run() as run:
@@ -62,7 +64,6 @@ def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_default_params(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
@@ -75,7 +76,13 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
         #   https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
         # In < 1.3.0, it's False:
         #   https://xgboost.readthedocs.io/en/release_1.2.0/python/python_api.html#xgboost.train
-        "maximize": None if LooseVersion(xgb.__version__) >= LooseVersion("1.3.0") else False,
+        # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+        #       https://github.com/dmlc/xgboost/issues/6984
+        "maximize": (
+            None
+            if Version(xgb.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0")
+            else False
+        ),
         "early_stopping_rounds": None,
         "verbose_eval": True,
     }
@@ -100,7 +107,6 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
         assert param not in params
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
     mlflow.xgboost.autolog()
     expected_params = {
@@ -133,7 +139,61 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
         assert param not in params
 
 
-@pytest.mark.large
+def test_xgb_autolog_atsign_metrics():
+    mlflow.xgboost.autolog()
+    xgb_metrics = ["ndcg@2", "map@3-", "error@0.4"]
+    expected_metrics = {"train-ndcg_at_2", "train-map_at_3-", "train-error_at_0.4"}
+
+    params = {"objective": "rank:pairwise", "eval_metric": xgb_metrics}
+    dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+    xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+    run = get_latest_run()
+    assert set(run.data.metrics) == expected_metrics
+
+
+@pytest.mark.parametrize("xgb_metric", ["ndcg@2", "error"])
+def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
+    mlflow.xgboost.autolog()
+
+    with mock.patch("mlflow.xgboost._autolog._logger.info") as mock_info_log:
+        params = {"objective": "rank:pairwise", "eval_metric": [xgb_metric, "map"]}
+        dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+        xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+
+    if "@" in xgb_metric:
+        mock_info_log.assert_called_once()
+        (
+            first_pos_arg,
+            second_pos_arg,
+        ) = mock_info_log.call_args[0]
+        assert "metric names have been sanitized" in first_pos_arg
+        assert xgb_metric.replace("@", "_at_") in second_pos_arg
+        assert "map" not in second_pos_arg
+    else:
+        mock_info_log.assert_not_called()
+
+
+def test_xgb_autolog_sklearn():
+
+    mlflow.xgboost.autolog()
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(run.info.run_id)
+    assert run.data.metrics.items() <= params.items()
+    artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
+    assert artifacts >= set(["feature_importance_weight.png", "feature_importance_weight.json"])
+    loaded_model = mlflow.xgboost.load_model(model_uri)
+    np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
+
+
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -150,7 +210,6 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     assert metric_history == evals_result["train"]["mlogloss"]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -167,7 +226,6 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
         assert metric_history == evals_result[eval_name]["mlogloss"]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -186,7 +244,6 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
         assert metric_history == evals_result["train"][metric_name]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -207,7 +264,6 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_history == evals_result[eval_name][metric_name]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -243,50 +299,6 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
             assert metric_history == evals_result[eval_name][metric_name] + [best_metrics]
 
 
-@pytest.mark.large
-def test_xgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, dtrain):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to ensure that expected metrics are being logged.
-    original = BatchMetricsLogger.record_metrics
-
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(self, metrics, step=None):
-            patched_metrics_data.extend(metrics.items())
-            original(self, metrics, step)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-
-        mlflow.xgboost.autolog()
-        evals_result = {}
-        params = {**bst_params, "eval_metric": ["merror", "mlogloss"]}
-        evals = [(dtrain, "train"), (dtrain, "valid")]
-        model = xgb.train(
-            params,
-            dtrain,
-            num_boost_round=20,
-            early_stopping_rounds=5,
-            evals=evals,
-            evals_result=evals_result,
-        )
-
-    patched_metrics_data = dict(patched_metrics_data)
-    run = get_latest_run()
-    original_metrics = run.data.metrics
-
-    for metric_name in original_metrics:
-        assert metric_name in patched_metrics_data
-        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
-
-    assert int(patched_metrics_data["best_iteration"]) == model.best_iteration
-    assert int(original_metrics["best_iteration"]) == model.best_iteration
-
-
-@pytest.mark.large
 def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     mlflow.xgboost.autolog()
     model = xgb.train(bst_params, dtrain)
@@ -310,7 +322,6 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     assert loaded_imp == model.get_score(importance_type=importance_type)
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     importance_types = ["weight", "total_gain"]
     mlflow.xgboost.autolog(importance_types=importance_types)
@@ -335,14 +346,45 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
         assert loaded_imp == model.get_score(importance_type=imp_type)
 
 
-@pytest.mark.large
+@pytest.mark.skipif(
+    Version(xgb.__version__) <= Version("1.4.2"),
+    reason=(
+        "In XGBoost <= 1.4.2, linear boosters do not support `get_score()` for importance value"
+        " creation."
+    ),
+)
+def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
+    mlflow.xgboost.autolog()
+
+    bst_params = {"objective": "multi:softprob", "num_class": 3, "booster": "gblinear"}
+    model = xgb.train(bst_params, dtrain)
+
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    importance_type = "weight"
+    plot_name = "feature_importance_{}.png".format(importance_type)
+    assert plot_name in artifacts
+
+    json_name = "feature_importance_{}.json".format(importance_type)
+    assert json_name in artifacts
+
+    json_path = os.path.join(artifacts_dir, json_name)
+    with open(json_path, "r") as f:
+        loaded_imp = json.load(f)
+
+    assert loaded_imp == model.get_score(importance_type=importance_type)
+
+
 def test_no_figure_is_opened_after_logging(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
     assert mpl.pyplot.get_fignums() == []
 
 
-@pytest.mark.large
 def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
     mlflow.xgboost.autolog()
     model = xgb.train(bst_params, dtrain)
@@ -353,7 +395,13 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
     np.testing.assert_array_almost_equal(model.predict(dtrain), loaded_model.predict(dtrain))
 
 
-@pytest.mark.large
+@pytest.mark.skipif(
+    Version(xgb.__version__) > Version("1.4.2"),
+    reason=(
+        "In XGBoost <= 1.4.2, linear boosters do not support `get_score()` for importance value"
+        " creation. In XGBoost > 1.4.2, all boosters support `get_score()`."
+    ),
+)
 def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     # the gblinear booster does not support calling get_score on it,
     #   where get_score is used to create the importance values plot.
@@ -365,11 +413,10 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     #   importance values on a model with a linear booster.
     model = xgb.train(bst_params, dtrain)
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="Feature importance is not defined"):
         model.get_score(importance_type="weight")
 
 
-@pytest.mark.large
 def test_xgb_autolog_gets_input_example(bst_params):
     mlflow.xgboost.autolog(log_input_examples=True)
 
@@ -396,7 +443,6 @@ def test_xgb_autolog_gets_input_example(bst_params):
     pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     mlflow.xgboost.autolog(log_model_signatures=True)
 
@@ -439,7 +485,6 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     ]
 
 
-@pytest.mark.large
 def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
@@ -457,7 +502,6 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
     assert model.get_score(importance_type="weight") == {}
 
 
-@pytest.mark.large
 def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_params, tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
@@ -490,7 +534,6 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     assert "signature" not in data
 
 
-@pytest.mark.large
 def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     mlflow.xgboost.autolog()
 
@@ -507,7 +550,6 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     xgb.DMatrix(save_path)  # deserialization also should not throw
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_model_signatures):
@@ -526,7 +568,6 @@ def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     iris = datasets.load_iris()
@@ -552,3 +593,47 @@ def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     mlflow.xgboost.autolog()
     xgb.DMatrix(None)
+
+
+def test_callback_func_is_pickable():
+    cb = picklable_exception_safe_function(
+        functools.partial(autolog_callback, BatchMetricsLogger(run_id="1234"), eval_results={})
+    )
+    pickle.dumps(cb)
+
+
+@pytest.mark.skipif(
+    not IS_TRAINING_CALLBACK_SUPPORTED,
+    reason="`xgboost.callback.TrainingCallback` is not supported",
+)
+def test_callback_class_is_pickable():
+    from mlflow.xgboost._autolog import AutologCallback
+
+    cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
+    pickle.dumps(cb)
+
+
+def test_sklearn_api_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+def test_xgb_api_autolog_registering_model(bst_params, dtrain):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        xgb.train(bst_params, dtrain)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

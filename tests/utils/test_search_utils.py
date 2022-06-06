@@ -1,6 +1,7 @@
 import base64
 import json
 import pytest
+import re
 
 from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
@@ -80,6 +81,10 @@ from mlflow.utils.search_utils import SearchUtils
             [{"type": "attribute", "comparator": "=", "key": "artifact_uri", "value": "1/23/4"}],
         ),
         (
+            "attribute.start_time >= 1234",
+            [{"type": "attribute", "comparator": ">=", "key": "start_time", "value": "1234"}],
+        ),
+        (
             "run.status = 'RUNNING'",
             [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
         ),
@@ -123,7 +128,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
         ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
         ("attribute.start != 1", "Invalid attribute key"),
-        ("attribute.start_time != 1", "Invalid attribute key"),
         ("attribute.end_time != 1", "Invalid attribute key"),
         ("attribute.run_id != 1", "Invalid attribute key"),
         ("attribute.run_uuid != 1", "Invalid attribute key"),
@@ -136,9 +140,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ],
 )
 def test_error_filter(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -154,9 +157,8 @@ def test_error_filter(filter_string, error_message):
     ],
 )
 def test_error_comparison_clauses(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -175,9 +177,8 @@ def test_error_comparison_clauses(filter_string, error_message):
     ],
 )
 def test_bad_quotes(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -193,9 +194,8 @@ def test_bad_quotes(filter_string, error_message):
     ],
 )
 def test_invalid_clauses(filter_string, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_search_filter(filter_string)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -205,6 +205,7 @@ def test_invalid_clauses(filter_string, error_message):
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
+        ("attributes", ["LIKE", "ILIKE"], "start_time", 1234),
     ],
 )
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
@@ -225,9 +226,8 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         bad_filter = "{entity_type}.{key} {comparator} {value}".format(
             entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
         )
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException, match="Invalid comparator"):
             SearchUtils.filter([run], bad_filter)
-        assert "Invalid comparator" in str(e.value.message)
 
 
 @pytest.mark.parametrize(
@@ -299,6 +299,28 @@ def test_correct_filtering(filter_string, matching_runs):
     ]
     filtered_runs = SearchUtils.filter(runs, filter_string)
     assert set(filtered_runs) == set([runs[i] for i in matching_runs])
+
+
+def test_filter_runs_by_start_time():
+    runs = [
+        Run(
+            run_info=RunInfo(
+                run_uuid=run_id,
+                run_id=run_id,
+                experiment_id=0,
+                user_id="user-id",
+                status=RunStatus.to_string(RunStatus.FINISHED),
+                start_time=idx,
+                end_time=1,
+                lifecycle_stage=LifecycleStage.ACTIVE,
+            ),
+            run_data=RunData(),
+        )
+        for idx, run_id in enumerate(["a", "b", "c"])
+    ]
+    assert SearchUtils.filter(runs, "attribute.start_time >= 0") == runs
+    assert SearchUtils.filter(runs, "attribute.start_time > 1") == runs[2:]
+    assert SearchUtils.filter(runs, "attribute.start_time = 2") == runs[2:]
 
 
 @pytest.mark.parametrize(
@@ -382,8 +404,8 @@ def test_correct_sorting(order_bys, matching_runs):
     assert sorted_run_indices == matching_runs
 
 
-def test_order_by_metric_with_nans_and_infs():
-    metric_vals_str = ["nan", "inf", "-inf", "-1000", "0", "1000"]
+def test_order_by_metric_with_nans_infs_nones():
+    metric_vals_str = ["nan", "inf", "-inf", "-1000", "0", "1000", "None"]
     runs = [
         Run(
             run_info=RunInfo(
@@ -396,16 +418,16 @@ def test_order_by_metric_with_nans_and_infs():
                 end_time=1,
                 lifecycle_stage=LifecycleStage.ACTIVE,
             ),
-            run_data=RunData(metrics=[Metric("x", float(x), 1, 0)]),
+            run_data=RunData(metrics=[Metric("x", None if x == "None" else float(x), 1, 0)]),
         )
         for x in metric_vals_str
     ]
     sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])]
     sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])]
     # asc
-    assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
+    assert ["-inf", "-1000", "0", "1000", "inf", "nan", "None"] == sorted_runs_asc
     # desc
-    assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
+    assert ["inf", "1000", "0", "-1000", "-inf", "nan", "None"] == sorted_runs_desc
 
 
 @pytest.mark.parametrize(
@@ -426,9 +448,8 @@ def test_order_by_metric_with_nans_and_infs():
     ],
 )
 def test_invalid_order_by_search_runs(order_by, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.parse_order_by_for_search_runs(order_by)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -462,9 +483,8 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
     ],
 )
 def test_invalid_order_by_search_registered_models(order_by, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=re.escape(error_message)):
         SearchUtils.parse_order_by_for_search_registered_models(order_by)
-    assert error_message in e.value.message
 
 
 @pytest.mark.parametrize(
@@ -555,6 +575,5 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     ],
 )
 def test_invalid_page_tokens(page_token, error_message):
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException, match=error_message):
         SearchUtils.paginate([], page_token, 1)
-    assert error_message in e.value.message

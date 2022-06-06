@@ -1,4 +1,8 @@
-import { truncateToFirstLineWithMaxLength } from './StringUtils';
+import {
+  truncateToFirstLineWithMaxLength,
+  capitalizeFirstChar,
+  middleTruncateStr,
+} from './StringUtils';
 
 describe('truncateToFirstLineWithMaxLength', () => {
   test('should truncate to first line if it exists', () => {
@@ -19,5 +23,36 @@ describe('truncateToFirstLineWithMaxLength', () => {
   test('should not truncate if only 1 line that is shorter than maxLength', () => {
     const str = 'A short line';
     expect(truncateToFirstLineWithMaxLength(str, 32)).toEqual(str);
+  });
+});
+
+describe('capitalizeFirstChar', () => {
+  test('should capitalize first char and lower case all other chars', () => {
+    const str = 'i WaNt THis tO oNlY cAPItaLize FirSt ChaR.';
+    expect(capitalizeFirstChar(str)).toEqual('I want this to only capitalize first char.');
+  });
+
+  test('should not work for str with length less than 1', () => {
+    const str = '';
+    expect(capitalizeFirstChar(str)).toEqual(str);
+  });
+
+  test('should not work for objects that are not string', () => {
+    const number = 2;
+    const array = ['not', 'work'];
+    const object = { key: 'value' };
+    expect(capitalizeFirstChar(null)).toEqual(null);
+    expect(capitalizeFirstChar(number)).toEqual(number);
+    expect(capitalizeFirstChar(array)).toEqual(array);
+    expect(capitalizeFirstChar(object)).toEqual(object);
+  });
+});
+
+describe('middleTruncateStr', () => {
+  test('test middleTruncateStr', () => {
+    expect(middleTruncateStr('abc', 10)).toEqual('abc');
+    expect(middleTruncateStr('abcdefghij', 10)).toEqual('abcdefghij');
+    expect(middleTruncateStr('abcdefghijk', 10)).toEqual('abc...hijk');
+    expect(middleTruncateStr('abcdefghijkl', 10)).toEqual('abc...ijkl');
   });
 });

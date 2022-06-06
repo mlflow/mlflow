@@ -8,6 +8,7 @@ from unittest import mock
 import os
 import sys
 import pytest
+import logging
 import shutil
 import tempfile
 
@@ -23,6 +24,8 @@ from tests.tracking.integration_test_utils import _await_server_down_or_die, _in
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_sqlite_uri():
@@ -65,8 +68,8 @@ def server_urls():
     """
     yield
     for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
-        print("Terminating server at %s..." % (server_url))
-        print("type = ", type(process))
+        _logger.info(f"Terminating server at {server_url}...")
+        _logger.info(f"type = {type(process)}")
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(SUITE_ROOT_DIR)
@@ -225,7 +228,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
     # update with no args is an error
-    with pytest.raises(MlflowException):
+    with pytest.raises(
+        MlflowException, match="Attempting to update registered model with no new field values"
+    ):
         mlflow_client.update_registered_model(name=name, description=None)
 
     # update name
@@ -233,7 +238,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     start_time_2 = now()
     mlflow_client.rename_registered_model(name=name, new_name=new_name)
     end_time_2 = now()
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Registered Model with name=UpdateRMTest not found"):
         mlflow_client.get_registered_model(name)
     registered_model_detailed_2 = mlflow_client.get_registered_model(new_name)
     assert registered_model_detailed_2.name == new_name
@@ -277,7 +282,9 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
     # old named models are not accessible
     for old_name in [previous_name, name, new_name]:
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException, match=r"Registered Model with name=UpdateRMTest( \d)? not found"
+        ):
             mlflow_client.get_registered_model(old_name)
 
 
@@ -294,17 +301,17 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
     # cannot create a model with same name
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Registered Model .+ already exists"):
         mlflow_client.create_registered_model(name)
 
     mlflow_client.delete_registered_model(name)
 
     # cannot get a deleted model
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Registered Model .+ not found"):
         mlflow_client.get_registered_model(name)
 
     # cannot update a deleted model
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Registered Model .+ not found"):
         mlflow_client.rename_registered_model(name=name, new_name="something else")
 
     # list does not include deleted model
@@ -381,9 +388,10 @@ def test_get_model_version(mlflow_client, backend_store_uri):
     assert model_version.name == name
     assert model_version.version == "1"
 
-    with pytest.raises(MlflowException) as ex:
+    with pytest.raises(
+        MlflowException, match="INVALID_PARAMETER_VALUE: Model version must be an integer"
+    ):
         mlflow_client.get_model_version(name=name, version="something not correct")
-    assert "INVALID_PARAMETER_VALUE: Model version must be an integer" in str(ex.value)
 
 
 def test_update_model_version_flow(mlflow_client, backend_store_uri):
@@ -484,8 +492,8 @@ def test_latest_models(mlflow_client, backend_store_uri):
     assert {"None": "7"} == get_latest(["None"])
     assert {"Staging": "6"} == get_latest(["Staging"])
     assert {"None": "7", "Staging": "6"} == get_latest(["None", "Staging"])
-    assert {"Production": "4", "Staging": "6"} == get_latest(None)
-    assert {"Production": "4", "Staging": "6"} == get_latest([])
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest(None)
+    assert {"Production": "4", "Staging": "6", "Archived": "3", "None": "7"} == get_latest([])
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):
@@ -538,13 +546,13 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, rmd3.last_updated_timestamp)
 
     # cannot get a deleted model version
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Model Version .+ not found"):
         mlflow_client.delete_model_version(name, "1")
 
     # cannot update a deleted model version
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Model Version .+ not found"):
         mlflow_client.update_model_version(name=name, version=1, description="Test model")
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match=r"Model Version .+ not found"):
         mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
 
     mlflow_client.delete_model_version(name, 3)

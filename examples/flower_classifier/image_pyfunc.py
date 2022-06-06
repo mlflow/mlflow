@@ -32,7 +32,7 @@ def decode_and_resize_image(raw_bytes, size):
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
 
-class KerasImageClassifierPyfunc(object):
+class KerasImageClassifierPyfunc:
     """
     Image classification model with embedded pre-processing.
 
@@ -79,7 +79,7 @@ class KerasImageClassifierPyfunc(object):
         probs = self._predict_images(images)
         m, n = probs.shape
         label_idx = np.argmax(probs, axis=1)
-        labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)
+        labels = np.array([self._domain[i] for i in label_idx], dtype=str).reshape(m, 1)
         output_data = np.concatenate((labels, label_idx.reshape(m, 1), probs), axis=1)
         res = pd.DataFrame(columns=self._column_names, data=output_data)
         res.index = input.index
@@ -163,14 +163,13 @@ def _load_pyfunc(path):
 conda_env_template = """
 name: flower_classifier
 channels:
-  - defaults
-  - anaconda
+  - conda-forge
 dependencies:
   - python=={python_version}
-  - keras=={keras_version}
-  - {tf_name}=={tf_version}
   - pip=={pip_version}  
-  - pillow=={pillow_version}
   - pip:
     - mlflow>=1.6
+    - pillow=={pillow_version}
+    - keras=={keras_version}
+    - {tf_name}=={tf_version}
 """

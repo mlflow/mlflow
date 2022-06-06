@@ -72,7 +72,7 @@ if __name__ == "__main__":
         parameters = {
             "this is a pretty long parameter name": "NA10921-test_file_2018-08-10.txt",
         }
-        metrics = {"grower": [i ** 1.2 for i in range(10)]}
+        metrics = {"grower": [i**1.2 for i in range(10)]}
         log_params(parameters)
         log_metrics(metrics)
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 "parameters": str(rand()),
                 "in": str(rand()),
                 "this": str(rand()),
-                "experiement": str(rand()),
+                "experiment": str(rand()),
                 "run": str(rand()),
                 "because": str(rand()),
                 "we": str(rand()),
@@ -120,7 +120,7 @@ if __name__ == "__main__":
                 "parameters": [rand()],
                 "in": [rand()],
                 "this": [rand()],
-                "experiement": [rand()],
+                "experiment": [rand()],
                 "run": [rand()],
                 "because": [rand()],
                 "we": [rand()],

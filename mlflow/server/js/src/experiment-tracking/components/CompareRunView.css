@@ -1,10 +1,23 @@
-.compare-table th.row-header {
-  min-width: 120px;
+.sticky-header {
+  position: sticky;
+  position: -webkit-sticky;
+  left: 0;
+}
+
+.compare-run-table {
+  display: block;
+  overflow: auto;
+  width: 100%;
 }
 
 .compare-table th.inter-title {
   padding: 20px 0 0;
   background: transparent;
+}
+
+.compare-table .head-value {
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 
 .compare-table td.data-value,
@@ -19,7 +32,38 @@
   overflow-x: auto;
 }
 
-.compare-table tr.row-changed th, .compare-table tr.row-changed td{
+.compare-table .diff-row .data-value {
   background-color: rgba(249, 237, 190, 0.5) ;
   color: #555;
+}
+
+.compare-table .diff-row .head-value {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
+
+.compare-table .diff-row:hover {
+  background-color: rgba(249, 237, 190, 1.0) ;
+  color: #555;
+}
+
+/* Overrides to make it look more like antd */
+.compare-table {
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 20px;
+}
+.compare-table th,
+.compare-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #e8e8e8;
+}
+.compare-table th {
+  color: rgba(0,0,0,.85);
+  font-weight: 500;
+  background-color:rgb(250, 250, 250);
+  text-align: left;
+}
+.compare-table > tbody > tr:hover:not(.diff-row) > td:not(.highlight-data) {
+  background-color: rgb(250, 250, 250);
 }

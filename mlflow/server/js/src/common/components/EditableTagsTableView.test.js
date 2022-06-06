@@ -1,6 +1,7 @@
 import React from 'react';
-import { shallow } from 'enzyme';
-import { EditableTagsTableView } from './EditableTagsTableView';
+import { EditableTagsTableView, EditableTagsTableViewImpl } from './EditableTagsTableView';
+import { mountWithIntl } from '../utils/TestUtils';
+import { BrowserRouter } from 'react-router-dom';
 
 describe('unit tests', () => {
   let wrapper;
@@ -19,13 +20,21 @@ describe('unit tests', () => {
   };
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<EditableTagsTableView {...minimalProps} />);
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <EditableTagsTableView {...minimalProps} />
+      </BrowserRouter>,
+    );
     expect(wrapper.length).toBe(1);
   });
 
   test('should validate tag name properly', () => {
-    wrapper = shallow(<EditableTagsTableView {...minimalProps} />);
-    instance = wrapper.instance();
+    wrapper = mountWithIntl(
+      <BrowserRouter>
+        <EditableTagsTableView {...minimalProps} />
+      </BrowserRouter>,
+    );
+    instance = wrapper.find(EditableTagsTableViewImpl).instance();
     const validationCallback = jest.fn();
     instance.tagNameValidator(undefined, 'tag1', validationCallback);
     expect(validationCallback).toBeCalledWith('Tag "tag1" already exists.');

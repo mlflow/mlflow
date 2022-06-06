@@ -286,6 +286,27 @@ public class MlflowClient implements Serializable {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /**
+   * Create a new experiment. This method allows providing all possible
+   * fields of CreateExperiment, and can be invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateExperiment;
+   *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
+   *   request.setName(name);
+   *   request.setArtifactLocation(artifactLocation);
+   *   request.addTags(experimentTag);
+   *   createExperiment(request.build());
+   *   </pre>
+   *
+   * @return ID of the experiment created by the server.
+   */
+  public String createExperiment(CreateExperiment request) {
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/create", ijson);
+    return mapper.toCreateExperimentResponse(ojson).getExperimentId();
+  }
+
   /** Mark an experiment and associated runs, params, metrics, etc. for deletion. */
   public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
@@ -412,10 +433,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
@@ -425,10 +442,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
@@ -651,10 +664,6 @@ public class MlflowClient implements Serializable {
   // ********************
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the latest model version for each stage.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -679,10 +688,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the latest model version for each stage requested.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -712,10 +717,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
@@ -733,10 +734,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Returns a directory containing all artifacts within the given registered model
    * version. The method will download the model version artifacts to the local file system. Note
    * that this method will not work if the `download_uri` refers to a single file (and not a
@@ -760,10 +757,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: experimental ::
-   *
-   * this api may change or be removed in a future release without warning.
-   *
    * Returns a directory containing all artifacts within the latest registered
    * model version in the given stage. The method will download the model version artifacts
    * to the local file system.

@@ -6,24 +6,17 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-SAGEMAKER_OUT=$(mktemp)
-if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-  echo "Sagemaker container build succeeded.";
-  # output the last few lines for the timing information (defaults to 10 lines)
-else
-  echo "Sagemaker container build failed, output:";
-  cat $SAGEMAKER_OUT;
-fi
+for env_manager in conda virtualenv; do
+  SAGEMAKER_OUT=$(mktemp)
+  if mlflow sagemaker build-and-push-container --no-push --mlflow-home . --env-manager $env_manager > $SAGEMAKER_OUT 2>&1; then
+    echo "Sagemaker container build with $env_manager succeeded.";
+    # output the last few lines for the timing information (defaults to 10 lines)
+  else
+    echo "Sagemaker container build with $env_manager failed, output:";
+    cat $SAGEMAKER_OUT;
+  fi
+done
 
-pytest --verbose tests/sagemaker --large
-pytest --verbose tests/sagemaker/mock --large
-
-# Added here due to dependency on sagemaker
-# TODO: split out sagemaker tests and move other spark tests to run-python-flavor-tests.sh
-pytest --verbose tests/spark --large  --ignore tests/spark/test_mleap_model_export.py
-
-# MLeap doesn't support spark 3.x (https://github.com/combust/mleap#mleapspark-version)
-pip install pyspark==2.4.5
-pytest --verbose tests/spark/test_mleap_model_export.py --large
+pytest tests/sagemaker
 
 test $err = 0
