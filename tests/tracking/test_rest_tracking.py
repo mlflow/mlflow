@@ -454,8 +454,10 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
     )
 
 
-def test_log_param_with_empty_value(mlflow_client, tracking_server_uri):
-    experiment_id = mlflow_client.create_experiment("test_log_param_with_empty_value")
+def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_param_with_empty_string_as_value.__name__
+    )
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
