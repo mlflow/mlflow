@@ -462,6 +462,23 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
     )
 
 
+def test_log_param_with_empty_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment("params validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/log-parameter",
+        {
+            "run_id": run_id,
+            "key": "param",
+            "value": "",
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_set_tag_validation(mlflow_client, tracking_server_uri):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)
