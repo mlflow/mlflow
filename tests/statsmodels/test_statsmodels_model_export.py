@@ -25,8 +25,6 @@ from tests.helper_functions import (
     _is_available_on_pypi,
     _compare_logged_code_paths,
 )
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-
 from tests.statsmodels.model_fixtures import (
     ols_model,
     arma_model,

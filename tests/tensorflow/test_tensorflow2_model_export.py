@@ -41,7 +41,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     PROTOBUF_REQUIREMENT,
 )
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
