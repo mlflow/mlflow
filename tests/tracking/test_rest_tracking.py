@@ -452,14 +452,6 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
         },
         "Invalid value 31 for parameter 'key' supplied",
     )
-    assert_bad_request(
-        {
-            "run_id": run_id,
-            "key": "param",
-            # Missing value
-        },
-        "Missing value for required parameter 'value'",
-    )
 
 
 def test_log_param_with_empty_value(mlflow_client, tracking_server_uri):
