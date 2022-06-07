@@ -6,6 +6,7 @@ import math
 import os
 from argparse import ArgumentParser
 
+import logging
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -424,8 +425,6 @@ if __name__ == "__main__":
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
-    mlflow.pytorch.autolog()
-
     args = parser.parse_args()
     dict_args = vars(args)
 
@@ -454,6 +453,24 @@ if __name__ == "__main__":
         callbacks=[lr_logger, early_stopping, checkpoint_callback],
         enable_checkpointing=True,
     )
+
+    # It is safe to use `mlflow.pytorch.autolog` in DDP training, as below condition invokes
+    # autolog with only rank 0 gpu.
+
+    # For CPU Training
+    if dict_args["gpus"] is None or int(dict_args["gpus"]) == 0:
+        mlflow.pytorch.autolog()
+    elif int(dict_args["gpus"]) >= 1 and trainer.global_rank == 0:
+        # In case of multi gpu training, the training script is invoked multiple times,
+        # The following condition is needed to avoid multiple copies of mlflow runs.
+        # When one or more gpus are used for training, it is enough to save
+        # the model and its parameters using rank 0 gpu.
+        mlflow.pytorch.autolog()
+    else:
+        # This condition is met only for multi-gpu training when the global rank is non zero.
+        # Since the parameters are already logged using global rank 0 gpu, it is safe to ignore
+        # this condition.
+        logging.info("Active run exists.. ")
 
     trainer.fit(model, dm)
     trainer.test(model, datamodule=dm)
