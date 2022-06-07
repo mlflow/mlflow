@@ -267,11 +267,18 @@ def log_model(
 
 
 def _init_model(model_type):
-    from catboost import CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor
+    from catboost import CatBoost, CatBoostClassifier, CatBoostRegressor
 
     model_types = {
-        c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor]
+        c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]
     }
+
+    try:
+        from catboost import CatBoostRanker
+
+        model_types["CatBoostRanker"] = CatBoostRanker
+    except ImportError:
+        pass
 
     if model_type not in model_types:
         raise TypeError(
