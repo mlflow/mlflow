@@ -96,7 +96,7 @@ def test_init_model(model_type):
     Version(cb.__version__) < Version("0.26.0"),
     reason="catboost < 0.26.0 does not support CatBoostRanker",
 )
-def test_log_catboost_ranker(tmpdir):
+def test_log_catboost_ranker():
     """
     This is a separate test for the CatBoostRanker model.
     It is separate since the ranking task requires a group_id column which makes the code different.
@@ -112,11 +112,7 @@ def test_log_catboost_ranker(tmpdir):
     model.fit(X, y, group_id=dummy_group_id)
 
     with mlflow.start_run():
-        artifact_path = "model"
-        conda_env = os.path.join(tmpdir.strpath, "conda_env.yaml")
-        _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
-
-        model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
+        model_info = mlflow.catboost.log_model(model, "model")
         loaded_model = mlflow.catboost.load_model(model_info.model_uri)
         assert isinstance(loaded_model, cb.CatBoostRanker)
         np.testing.assert_array_almost_equal(model.predict(X), loaded_model.predict(X))
