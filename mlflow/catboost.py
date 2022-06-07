@@ -276,7 +276,7 @@ def _init_model(model_type):
     try:
         from catboost import CatBoostRanker
 
-        model_types["CatBoostRanker"] = CatBoostRanker
+        model_types[CatBoostRanker.__name__] = CatBoostRanker
     except ImportError:
         pass
 
