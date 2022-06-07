@@ -1,8 +1,6 @@
 import pytest
 import os
 
-from unittest import mock
-
 
 class Scipy:
     class sparse:
@@ -27,19 +25,3 @@ def test_autolog_without_scipy():
 
     mlflow.autolog()
     mlflow.models.utils._Example(dict())
-
-    with mock.patch.multiple(
-        "mlflow.models.utils",
-        HAS_SCIPY=True,
-    ):
-        mlflow.models.utils.csc_matrix = Scipy.sparse.csc_matrix
-        mlflow.models.utils.csr_matrix = Scipy.sparse.csr_matrix
-
-        csc = mock.MagicMock(spec=Scipy.sparse.csc_matrix)
-        csc.data = np.array([1, 2, 3])
-        csc.indices = np.array([1, 2, 3])
-        csc.indptr = mock.MagicMock()
-        csc.indptr.tolist = lambda: [1, 2, 3]
-        csc.shape = (3, 3)
-        ex = mlflow.models.utils._Example(csc)
-        assert ex.info['type'] == 'sparse_matrix_csc'
