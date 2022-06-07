@@ -91,8 +91,8 @@ def save_model(
     """
     Save a CatBoost model to a path on the local file system.
 
-    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
-                     or `CatBoostRegressor`_) to be saved.
+    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -210,8 +210,8 @@ def log_model(
     """
     Log a CatBoost model as an MLflow artifact for the current run.
 
-    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
-                     or `CatBoostRegressor`_) to be saved.
+    :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -269,7 +269,14 @@ def log_model(
 def _init_model(model_type):
     from catboost import CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor
 
-    model_types = {c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor]}
+    model_types = {
+        c.__name__: c for c in [
+            CatBoost,
+            CatBoostClassifier,
+            CatBoostRanker,
+            CatBoostRegressor
+        ]
+    }
 
     if model_type not in model_types:
         raise TypeError(

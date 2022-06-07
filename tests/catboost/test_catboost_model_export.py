@@ -1,11 +1,11 @@
 from collections import namedtuple
 from unittest import mock
+from packaging import Version
 import os
 import pytest
 import yaml
 
 import catboost as cb
-from packaging import Version
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
@@ -108,12 +108,14 @@ def test_log_catboost_ranker(tmpdir):
     # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
     # if the code is running correctly
 
+    X, y = get_iris()
+
     indices = np.arange(len(X))
 
     dummy_group_id = np.zeros(len(X))
     dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
     dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
-    dummy_group_id = dummy_group_ids.astype("int64")
+    dummy_group_id = dummy_group_id.astype("int64")
     dummy_group_id.sort()
 
     model.fit(X, y, group_id=dummy_group_id)
