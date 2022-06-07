@@ -1,5 +1,6 @@
 from collections import namedtuple
 from unittest import mock
+from packaging.version import Version
 import os
 import pytest
 import yaml
@@ -89,6 +90,32 @@ def custom_env(tmpdir):
 def test_init_model(model_type):
     model = mlflow.catboost._init_model(model_type)
     assert model.__class__.__name__ == model_type
+
+
+@pytest.mark.skipif(
+    Version(cb.__version__) < Version("0.26.0"),
+    reason="catboost < 0.26.0 does not support CatBoostRanker",
+)
+def test_log_catboost_ranker():
+    """
+    This is a separate test for the CatBoostRanker model.
+    It is separate since the ranking task requires a group_id column which makes the code different.
+    """
+    # the ranking task requires setting a group_id
+    # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset,
+    # but is ok for testing if the code is running correctly
+    X, y = get_iris()
+    dummy_group_id = np.arange(len(X)) % 3
+    dummy_group_id.sort()
+
+    model = cb.CatBoostRanker(**MODEL_PARAMS, subsample=1.0)
+    model.fit(X, y, group_id=dummy_group_id)
+
+    with mlflow.start_run():
+        model_info = mlflow.catboost.log_model(model, "model")
+        loaded_model = mlflow.catboost.load_model(model_info.model_uri)
+        assert isinstance(loaded_model, cb.CatBoostRanker)
+        np.testing.assert_array_almost_equal(model.predict(X), loaded_model.predict(X))
 
 
 def test_init_model_throws_for_invalid_model_type():
