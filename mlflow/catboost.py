@@ -269,9 +269,7 @@ def log_model(
 def _init_model(model_type):
     from catboost import CatBoost, CatBoostClassifier, CatBoostRegressor
 
-    model_types = {
-        c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]
-    }
+    model_types = {c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]}
 
     try:
         from catboost import CatBoostRanker

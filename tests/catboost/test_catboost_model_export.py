@@ -99,14 +99,14 @@ def test_init_model(model_type):
 def test_log_catboost_ranker(tmpdir):
     """
     This is a separate test for the CatBoostRanker model.
-    It is separate since the ranking task requires a group_id column which makes the code different .
+    It is separate since the ranking task requires a group_id column which makes the code different.
     """
     model = mlflow.catboost._init_model("CatBoostRanker")
     assert model.__class__.__name__ == "CatBoostRanker"
 
     # the ranking task requires setting a group_id
-    # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
-    # if the code is running correctly
+    # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset,
+    # but is ok for testing if the code is running correctly
 
     X, y = get_iris()
 
