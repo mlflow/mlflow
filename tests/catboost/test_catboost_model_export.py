@@ -94,7 +94,7 @@ def test_init_model(model_type):
 
 @pytest.mark.skip(
     Version(cb.__version__) < Version("0.26.0"),
-    reason="catboost < 0.26.0 does not support CatBoostRanker"
+    reason="catboost < 0.26.0 does not support CatBoostRanker",
 )
 def test_log_catboost_ranker(tmpdir):
     """

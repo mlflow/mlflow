@@ -270,12 +270,7 @@ def _init_model(model_type):
     from catboost import CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor
 
     model_types = {
-        c.__name__: c for c in [
-            CatBoost,
-            CatBoostClassifier,
-            CatBoostRanker,
-            CatBoostRegressor
-        ]
+        c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRanker, CatBoostRegressor]
     }
 
     if model_type not in model_types:
