@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 import catboost as cb
+from packaging import Version
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
@@ -56,30 +57,13 @@ MODEL_PARAMS = {"allow_writing_files": False, "iterations": 10}
     params=[
         cb.CatBoost(MODEL_PARAMS),
         cb.CatBoostClassifier(**MODEL_PARAMS),
-        cb.CatBoostRanker(**MODEL_PARAMS),
         cb.CatBoostRegressor(**MODEL_PARAMS),
     ],
-    ids=["CatBoost", "CatBoostClassifier", "CatBoostRanker", "CatBoostRegressor"],
+    ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"],
 )
 def cb_model(request):
     model = request.param
     X, y = get_iris()
-
-    if isinstance(model, cb.CatBoostRanker):
-        # the ranking task requires setting a group_id
-        # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
-        # if the code is running correctly
-
-        indices = np.arange(len(X))
-
-        dummy_group_id = np.zeros(len(X))
-        dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
-        dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
-        dummy_group_id = dummy_group_ids.astype("int64")
-        dummy_group_id.sort()
-
-        return ModelWithData(model=model.fit(X, y, group_id=dummy_group_id), inference_dataframe=X)
-
     return ModelWithData(model=model.fit(X, y), inference_dataframe=X)
 
 
@@ -102,10 +86,59 @@ def custom_env(tmpdir):
     return conda_env_path
 
 
-@pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRanker", "CatBoostRegressor"])
+@pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
 def test_init_model(model_type):
     model = mlflow.catboost._init_model(model_type)
     assert model.__class__.__name__ == model_type
+
+
+@pytest.mark.skip(
+    Version(cb.__version__) < Version("0.26.0"),
+    reason="catboost < 0.26.0 does not support CatBoostRanker"
+)
+def test_log_catboost_ranker(tmpdir):
+    """
+    This is a separate test for the CatBoostRanker model.
+    It is separate since the ranking task requires a group_id column which makes the code different .
+    """
+    model = mlflow.catboost._init_model("CatBoostRanker")
+    assert model.__class__.__name__ == "CatBoostRanker"
+
+    # the ranking task requires setting a group_id
+    # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset, but is ok for testing
+    # if the code is running correctly
+
+    indices = np.arange(len(X))
+
+    dummy_group_id = np.zeros(len(X))
+    dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
+    dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
+    dummy_group_id = dummy_group_ids.astype("int64")
+    dummy_group_id.sort()
+
+    model.fit(X, y, group_id=dummy_group_id)
+
+    with mlflow.start_run():
+        artifact_path = "model"
+        conda_env = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
+
+        model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
+        model_uri = "runs:/{}/{}".format(mlflow.active_run().info.run_id, artifact_path)
+        assert model_info.model_uri == model_uri
+
+        loaded_model = mlflow.catboost.load_model(model_uri)
+        np.testing.assert_array_almost_equal(
+            model.predict(X, group_id=dummy_group_id),
+            loaded_model.predict(X, group_id=dummy_group_id),
+        )
+
+        local_path = _download_artifact_from_uri(model_uri)
+        model_config = Model.load(os.path.join(local_path, "MLmodel"))
+        assert pyfunc.FLAVOR_NAME in model_config.flavors
+        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+        assert os.path.exists(os.path.join(local_path, env_path))
 
 
 def test_init_model_throws_for_invalid_model_type():
