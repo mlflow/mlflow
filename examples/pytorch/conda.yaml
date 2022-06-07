@@ -9,4 +9,3 @@ dependencies:
     - torchvision==0.9.1
     - mlflow>=1.0
     - tensorboardX
-    - protobuf<=3.20.1 #Remove once PTL supports latest protobuf - https://github.com/PyTorchLightning/pytorch-lightning/issues/13212
