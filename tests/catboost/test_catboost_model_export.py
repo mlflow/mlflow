@@ -101,23 +101,14 @@ def test_log_catboost_ranker(tmpdir):
     This is a separate test for the CatBoostRanker model.
     It is separate since the ranking task requires a group_id column which makes the code different.
     """
-    model = mlflow.catboost._init_model("CatBoostRanker")
-    assert model.__class__.__name__ == "CatBoostRanker"
-
     # the ranking task requires setting a group_id
     # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset,
     # but is ok for testing if the code is running correctly
-
     X, y = get_iris()
-
-    indices = np.arange(len(X))
-
-    dummy_group_id = np.zeros(len(X))
-    dummy_group_id[indices % 2 == 0] = 1  # fill every 2nd value with 1
-    dummy_group_id[indices % 3 == 0] = 2  # fill every 3rd value with 2
-    dummy_group_id = dummy_group_id.astype("int64")
+    dummy_group_id = np.arange(len(X)) % 3
     dummy_group_id.sort()
 
+    model = cb.CatBoostRanker(**MODEL_PARAMS, subsample=1.0)
     model.fit(X, y, group_id=dummy_group_id)
 
     with mlflow.start_run():
@@ -126,21 +117,9 @@ def test_log_catboost_ranker(tmpdir):
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
         model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
-        model_uri = "runs:/{}/{}".format(mlflow.active_run().info.run_id, artifact_path)
-        assert model_info.model_uri == model_uri
-
-        loaded_model = mlflow.catboost.load_model(model_uri)
-        np.testing.assert_array_almost_equal(
-            model.predict(X, group_id=dummy_group_id),
-            loaded_model.predict(X, group_id=dummy_group_id),
-        )
-
-        local_path = _download_artifact_from_uri(model_uri)
-        model_config = Model.load(os.path.join(local_path, "MLmodel"))
-        assert pyfunc.FLAVOR_NAME in model_config.flavors
-        assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-        env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-        assert os.path.exists(os.path.join(local_path, env_path))
+        loaded_model = mlflow.catboost.load_model(model_info.model_uri)
+        assert isinstance(loaded_model, cb.CatBoostRanker)
+        np.testing.assert_array_almost_equal(model.predict(X), loaded_model.predict(X))
 
 
 def test_init_model_throws_for_invalid_model_type():
