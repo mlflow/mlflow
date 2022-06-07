@@ -12,9 +12,7 @@ import tensorflow as tf
 def test_reraised_value_errors():
     multi_item_tf_tensor = tf.random.uniform([2, 2], dtype=tf.float32)
 
-    with pytest.raises(
-        MlflowException, match=r"Expected metric value to contain a single element"
-    ) as e:
+    with pytest.raises(MlflowException, match=r"Failed to convert metric value to float") as e:
         convert_metric_value_to_float_if_possible(multi_item_tf_tensor)
 
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

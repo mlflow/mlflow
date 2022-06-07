@@ -10,9 +10,9 @@ def _is_module_imported(module_name: str) -> bool:
 def _try_get_item(x):
     try:
         return x.item()
-    except ValueError:
+    except Exception as e:
         raise MlflowException(
-            f"Expected metric value to contain a single element, got shape {x.shape} instead",
+            f"Failed to convert metric value to float: {e}",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -83,9 +83,9 @@ def convert_metric_value_to_float_if_tensorflow_tensor(x):
     if isinstance(x, tf.Tensor):
         try:
             return float(x)
-        except TypeError:
+        except Exception as e:
             raise MlflowException(
-                f"Expected metric value to contain a single element, got shape {x.shape} instead",
+                f"Failed to convert metric value to float: {repr(e)}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

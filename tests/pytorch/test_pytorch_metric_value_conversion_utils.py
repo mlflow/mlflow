@@ -12,9 +12,7 @@ import torch
 def test_reraised_value_errors():
     multi_item_torch_tensor = torch.rand((2, 2))
 
-    with pytest.raises(
-        MlflowException, match=r"Expected metric value to contain a single element"
-    ) as e:
+    with pytest.raises(MlflowException, match=r"Failed to convert metric value to float") as e:
         convert_metric_value_to_float_if_possible(multi_item_torch_tensor)
 
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
