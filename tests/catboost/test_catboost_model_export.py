@@ -1,6 +1,6 @@
 from collections import namedtuple
 from unittest import mock
-from packaging import Version
+from packaging.version import Version
 import os
 import pytest
 import yaml
