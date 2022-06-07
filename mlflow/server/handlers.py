@@ -72,7 +72,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
-    DeleteArtifact
+    DeleteArtifact,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1481,10 +1481,10 @@ def _list_artifacts_mlflow_artifacts():
 @_disable_unless_serve_artifacts
 def _delete_artifact_mflflow_artifacts(artifact_path):
     """
-    A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in `path`
-    (a relative path from the root artifact directory).
+    A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
+    `path` (a relative path from the root artifact directory).
     """
-    request_message = _get_request_message(DeleteArtifact())
+    _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)
     response_message = DeleteArtifact.Response()
