@@ -92,7 +92,7 @@ def test_init_model(model_type):
     assert model.__class__.__name__ == model_type
 
 
-@pytest.mark.skip(
+@pytest.mark.skipif(
     Version(cb.__version__) < Version("0.26.0"),
     reason="catboost < 0.26.0 does not support CatBoostRanker",
 )
