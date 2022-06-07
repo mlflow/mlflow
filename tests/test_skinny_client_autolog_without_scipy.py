@@ -2,13 +2,6 @@ import pytest
 import os
 
 
-class Scipy:
-    class sparse:
-        class csc_matrix:
-            pass
-
-        class csr_matrix:
-            pass
 
 
 @pytest.mark.skipif(
@@ -16,7 +9,6 @@ class Scipy:
 )
 def test_autolog_without_scipy():
     import mlflow
-    import numpy as np
 
     with pytest.raises(ImportError, match="scipy"):
         import scipy  # pylint: disable=unused-import
