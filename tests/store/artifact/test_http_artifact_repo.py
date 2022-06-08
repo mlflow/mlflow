@@ -287,7 +287,7 @@ def test_default_host_creds():
         assert repo._host_creds == expected_host_creds
 
 
-@pytest.mark.parametrize("remote_file_path", ["", "a.txt", "dir/b.txt"])
+@pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.txt", None])
 def test_delete_artifacts(http_artifact_repo, remote_file_path):
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
@@ -296,7 +296,7 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
         http_artifact_repo.delete_artifacts(remote_file_path)
         mock_get.assert_called_once_with(
             http_artifact_repo._host_creds,
-            posixpath.join("/", remote_file_path),
+            posixpath.join("/", remote_file_path if remote_file_path else ""),
             "DELETE",
             stream=True,
             timeout=mock.ANY,

@@ -67,10 +67,7 @@ class HttpArtifactRepository(ArtifactRepository):
             for chunk in resp.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
 
-    def delete_artifacts(self, artifact_path=""):
-        endpoint = posixpath.join("/", artifact_path)
+    def delete_artifacts(self, artifact_path=None):
+        endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
         resp = http_request(self._host_creds, endpoint, "DELETE", stream=True, timeout=10)
         augmented_raise_for_status(resp)
-        if resp.status_code == 200:
-            return True
-        return False
