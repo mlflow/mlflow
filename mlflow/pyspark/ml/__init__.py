@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import time
 from pkg_resources import resource_filename
+import requests
 import weakref
 
 import mlflow
@@ -40,12 +41,19 @@ AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 def _read_log_model_allowlist_from_file(allowlist_file):
     allowlist = set()
-    with open(allowlist_file) as f:
-        for line in f:
-            stripped = line.strip()
-            is_blankline_or_comment = stripped == "" or stripped.startswith("#")
-            if not is_blankline_or_comment:
-                allowlist.add(stripped)
+    try:
+        response = requests.get(allowlist_file)
+        if 200 <= response.status_code <= 299:
+            f = response.iter_lines(decode_unicode=True)
+        else:
+            response.raise_for_status()
+    except Exception:
+        f = open(allowlist_file)
+    for line in f:
+        stripped = line.strip()
+        is_blankline_or_comment = stripped == "" or stripped.startswith("#")
+        if not is_blankline_or_comment:
+            allowlist.add(stripped)
     return allowlist
 
 
