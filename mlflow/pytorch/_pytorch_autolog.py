@@ -370,6 +370,7 @@ def patched_fit(original, self, *args, **kwargs):
         _log_early_stop_metrics(early_stop_callback, client, run_id)
 
     if Version(pl.__version__) < Version("1.4.0"):
+        # pylint: disable-next=unexpected-keyword-arg
         summary = str(ModelSummary(self.model, mode="full"))
     else:
         summary = str(ModelSummary(self.model, max_depth=-1))
