@@ -4,45 +4,55 @@ and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import contextlib
-import logging
 import json
+import logging
 import os
 import posixpath
 import sys
 import tempfile
-import yaml
-from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
-from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.entities.model_registry import RegisteredModel, ModelVersion
+import yaml
+
+from mlflow.entities import (
+    Experiment,
+    FileInfo,
+    Metric,
+    Param,
+    Run,
+    RunInfo,
+    RunTag,
+    ViewType,
+)
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking._model_registry.client import ModelRegistryClient
-from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking._model_registry import utils as registry_utils
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.databricks_utils import (
+    get_workspace_info_from_databricks_secrets,
+    get_workspace_info_from_dbutils,
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
     is_in_databricks_notebook,
-    get_workspace_info_from_dbutils,
-    get_workspace_info_from_databricks_secrets,
 )
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.uri import construct_run_url, is_databricks_uri
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
-    import plotly  # pylint: disable=unused-import
     import numpy  # pylint: disable=unused-import
     import PIL  # pylint: disable=unused-import
+    import plotly  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -1157,7 +1167,13 @@ class MlflowClient:
             if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
                 figure.savefig(tmp_path)
             elif "plotly" in sys.modules and _is_plotly_figure(figure):
-                figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+                file_extension = artifact_file.split('.')[-1]
+                if file_extension == 'html':
+                    figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+                elif file_extension in ['png', 'jpeg', 'webp', 'svg', 'pdf']:
+                    figure.write_image(tmp_path)
+                else:
+                    raise TypeError("Unsupported figure extension for plotly")
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
