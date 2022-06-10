@@ -186,6 +186,16 @@ def _update_conda_file_with_wheels(conda_env_path, pip_requirements_path):
     Updates the list pip packages in the conda.yaml file to the list of wheels in the wheels
     directory.
 
+    {
+        "name": "env",
+        "channels": [...],
+        "dependencies": [
+            ...,
+            "pip",
+            {"pip": [...]},  <- Overwrite this with list of wheels
+        ],
+    }
+
     :param conda_env_path: Path to conda.yaml file in the model directory
     :param pip_requirements_path: Path to requirements.txt in the model directory
     """
