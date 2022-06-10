@@ -72,6 +72,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
+    DeleteArtifact,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1476,6 +1477,22 @@ def _list_artifacts_mlflow_artifacts():
     return response
 
 
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _delete_artifact_mflflow_artifacts(artifact_path):
+    """
+    A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
+    `path` (a relative path from the root artifact directory).
+    """
+    _get_request_message(DeleteArtifact())
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_repo.delete_artifacts(artifact_path)
+    response_message = DeleteArtifact.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -1570,4 +1587,5 @@ HANDLERS = {
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
+    DeleteArtifact: _delete_artifact_mflflow_artifacts,
 }
