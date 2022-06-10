@@ -66,3 +66,8 @@ class HttpArtifactRepository(ArtifactRepository):
             chunk_size = 1024 * 1024  # 1 MB
             for chunk in resp.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
+
+    def delete_artifacts(self, artifact_path=None):
+        endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
+        resp = http_request(self._host_creds, endpoint, "DELETE", stream=True, timeout=10)
+        augmented_raise_for_status(resp)

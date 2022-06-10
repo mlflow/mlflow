@@ -54,6 +54,18 @@ service MlflowArtifactsService {
       rpc_doc_title: "List Artifacts",
     };
   }
+
+  rpc deleteArtifact (DeleteArtifact) returns (DeleteArtifact.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Artifacts",
+    };
+  }
 }
 
 message DownloadArtifact {
@@ -72,6 +84,10 @@ message ListArtifacts {
     // File location and metadata for artifacts.
     repeated FileInfo files = 1;
   }
+}
+
+message DeleteArtifact {
+  message Response {}
 }
 
 message FileInfo {
