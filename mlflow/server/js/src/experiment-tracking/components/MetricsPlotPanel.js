@@ -6,6 +6,8 @@ import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
+import { Button } from '../../shared/building_blocks/Button';
+import { injectIntl, FormattedMessage } from 'react-intl';
 import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
@@ -19,6 +21,7 @@ import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { saveAs } from "file-saver"
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -436,6 +439,40 @@ export class MetricsPlotPanel extends React.Component {
     };
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
+  
+  convertJsonToCsv = () => {
+    const metrics = this.getMetrics();
+    //const parsedJson = JSON.parse(metrics);
+    //console.log("Parsed JSON: " + parsedJson)
+    const selectedMetricKeys = this.getUrlState().selectedMetricKeys;
+    console.log("selected metrics: " + selectedMetricKeys);
+    const heading = Object.keys(metrics[0].history[0]).join(",") + "\n"
+    const metricValues = selectedMetricKeys.map(
+      (metricKey) => {
+        return metrics
+          .filter((metric) => metric.metricKey === metricKey)
+          .map((metric) => {
+            return metric.history
+              .map((metricValue) => {
+                return Object.values(metricValue);
+              }).join("\n");
+          });
+      }).join("\n");
+
+    /*const body = metrics.metricKey
+      .map((metric) => {
+        metric.map((j) => Object.values(j).join(",")).join("\n");
+    })*/
+    return `${heading}${metricValues}`;
+  };
+
+  onDownloadCsv = () => {
+    const csv = this.convertJsonToCsv();
+    console.log("CSV: " + csv)
+    const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+    console.log("Blob: " + blob)
+    saveAs(blob, 'metrics.csv');
+  };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
   // Plotly plot data element
@@ -620,6 +657,14 @@ export class MetricsPlotPanel extends React.Component {
               onLegendClick={this.handleLegendClick}
               onLegendDoubleClick={this.handleLegendDoubleClick}
             />
+            <Button className='csv-button' onClick={this.onDownloadCsv}>
+              <FormattedMessage
+                defaultMessage='Download CSV'
+                // eslint-disable-next-line max-len
+                description='String for the download csv button to download experiments offline in a CSV format'
+              />
+              <i className='fas fa-download' />
+            </Button>
             <MetricsSummaryTable
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}
@@ -674,6 +719,10 @@ const mapStateToProps = (state, ownProps) => {
     completedRunUuids,
   };
 };
+
+//latestMetricsByRunUuid[runUuid]
+
+
 
 const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
