@@ -33,6 +33,11 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_ENTITIES_PER_BATCH,
+)
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
@@ -300,13 +305,41 @@ class RestStore(AbstractStore):
             return None
 
     def log_batch(self, run_id, metrics, params, tags):
+        def send_long_list(run_id, data, entity_name, limit):
+            batch_data = {"metrics": [], "params": [], "tags": [], "run_id": run_id}
+            if len(data) > limit:
+                for start_index in range(0, len(data), limit):
+                    batch_data[entity_name] = data[start_index : start_index + limit]
+                    req_body = message_to_json(LogBatch(**batch_data))
+                    self._call_endpoint(LogBatch, req_body)
+            else:
+                batch_data[entity_name] = data
+                req_body = message_to_json(LogBatch(**batch_data))
+                self._call_endpoint(LogBatch, req_body)
+
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
-        req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
-        )
-        self._call_endpoint(LogBatch, req_body)
+
+        num_metrics = len(metric_protos)
+        num_params = len(param_protos)
+        num_tags = len(tag_protos)
+
+        total_length = num_metrics + num_params + num_tags
+        if (
+            total_length <= MAX_ENTITIES_PER_BATCH
+            and num_metrics <= MAX_METRICS_PER_BATCH
+            and num_params <= MAX_PARAMS_TAGS_PER_BATCH
+            and num_tags <= MAX_PARAMS_TAGS_PER_BATCH
+        ):
+            req_body = message_to_json(
+                LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
+            )
+            self._call_endpoint(LogBatch, req_body)
+        else:
+            send_long_list(run_id, metric_protos, "metrics", MAX_METRICS_PER_BATCH)
+            send_long_list(run_id, param_protos, "params", MAX_PARAMS_TAGS_PER_BATCH)
+            send_long_list(run_id, tag_protos, "tags", MAX_PARAMS_TAGS_PER_BATCH)
 
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
