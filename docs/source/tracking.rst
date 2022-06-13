@@ -860,7 +860,7 @@ Artifact Stores
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+default location to store artifacts for all runs in this experiment. Additionally, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 
