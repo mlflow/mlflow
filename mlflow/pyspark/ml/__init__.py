@@ -2,8 +2,9 @@ from collections import defaultdict, namedtuple, OrderedDict
 import logging
 import numpy as np
 import time
+import os
 from pkg_resources import resource_filename
-import requests
+from urllib.parse import urlparse
 import weakref
 
 import mlflow
@@ -24,6 +25,11 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
+from mlflow.utils.rest_utils import (
+    augmented_raise_for_status,
+    http_request,
+    MlflowHostCreds,
+)
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
@@ -40,20 +46,33 @@ AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 
 def _read_log_model_allowlist_from_file(allowlist_file):
+    def _parse_allowlist_file(file, allowlist):
+        for line in file:
+            stripped = line.strip()
+            is_blankline_or_comment = stripped == "" or stripped.startswith("#")
+            if not is_blankline_or_comment:
+                allowlist.add(stripped)
+
     allowlist = set()
-    try:
-        response = requests.get(allowlist_file)
-        if 200 <= response.status_code <= 299:
-            f = response.iter_lines(decode_unicode=True)
-        else:
-            response.raise_for_status()
-    except Exception:
-        f = open(allowlist_file)
-    for line in f:
-        stripped = line.strip()
-        is_blankline_or_comment = stripped == "" or stripped.startswith("#")
-        if not is_blankline_or_comment:
-            allowlist.add(stripped)
+    url_parsed = urlparse(allowlist_file)
+    IS_LOCAL_FILE = False
+    if url_parsed.scheme in ("file", ""):
+        if not os.path.exists(url_parsed.path):
+            raise TypeError("Wrong log_model_allowlist file setting: {}".format(allowlist_file))
+        IS_LOCAL_FILE = True
+
+    if IS_LOCAL_FILE:
+        with open(allowlist_file) as f:
+            _parse_allowlist_file(f, allowlist)
+    else:
+        host_creds = MlflowHostCreds(
+            host=url_parsed.scheme + "://" + url_parsed.hostname,
+            username=url_parsed.username,
+            password=url_parsed.password,
+        )
+        response = http_request(host_creds=host_creds, endpoint=url_parsed.path, method="GET")
+        augmented_raise_for_status(response)
+        _parse_allowlist_file(response.iter_lines(decode_unicode=True), allowlist)
     return allowlist
 
 
