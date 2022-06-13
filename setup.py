@@ -128,7 +128,11 @@ class MinPythonVersion(distutils.cmd.Command):
 
 
 def build_mlflow_ui():
-    if os.getenv("MLFLOW_BUILD_UI", "false") == "true":
+    js_dir = Path(__file__).parent.resolve().joinpath("mlflow", "server", "js")
+    build_dir = js_dir.joinpath("build")
+    if os.getenv("MLFLOW_BUILD_UI", "false") == "true" and (
+        not build_dir.exists() or next(build_dir.iterdir(), None) is None
+    ):
         if shutil.which("yarn") is None:
             url = "https://classic.yarnpkg.com/lang/en/docs/install"
             raise Exception(
@@ -140,7 +144,6 @@ set -ex
 yarn install
 yarn build
 """
-        js_dir = Path(__file__).parent.resolve().joinpath("mlflow", "server", "js")
         subprocess.run(["bash", "-c", cmd], check=True, cwd=js_dir)
 
 
