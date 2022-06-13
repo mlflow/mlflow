@@ -135,6 +135,9 @@ def _update_model_file(mlflow_model, original_model_file_path):
 
     # TODO: Do we not want to add the path here?
     # Add wheels to artifacts in the MLModel file
+    if "artifacts" not in model_file["flavors"]["python_function"]:
+        model_file["flavors"]["python_function"]["artifacts"] = {}
+
     model_file["flavors"]["python_function"]["artifacts"]["wheels"] = True
 
     with open(original_model_file_path, "w") as out:
