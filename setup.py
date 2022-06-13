@@ -1,6 +1,9 @@
 import os
 import logging
 import distutils
+import subprocess
+import shutil
+from pathlib import Path
 
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
@@ -124,6 +127,24 @@ class MinPythonVersion(distutils.cmd.Command):
         print(MINIMUM_SUPPORTED_PYTHON_VERSION)
 
 
+def build_mlflow_ui():
+    if os.getenv("MLFLOW_BUILD_UI", "false") == "true":
+        if shutil.which("yarn") is None:
+            url = "https://classic.yarnpkg.com/lang/en/docs/install"
+            raise Exception(
+                f"Yarn is required to build MLflow UI. See {url} for installation instructions."
+            )
+        print("Building MLflow UI. This may take a few minutes.")
+        cmd = """
+set -ex
+yarn install
+yarn build
+"""
+        js_dir = Path(__file__).parent.resolve().joinpath("mlflow", "server", "js")
+        subprocess.run(["bash", "-c", cmd], check=True, cwd=js_dir)
+
+
+build_mlflow_ui()
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
