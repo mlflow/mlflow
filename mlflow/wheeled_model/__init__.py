@@ -59,6 +59,7 @@ def log_model(artifact_path, model_uri, registered_model_name):
 
 # TODO: Verify the arguments with Arjun
 # TODO: Question: Are we not allowing users to save then log?
+# TODO: Note: I am updating the model file even when we just save it, I add the 'wheel flag'
 def save_model(path, model_uri, mlflow_model=None):
     """
     Saves model registered at `model_uri` to `path` along with all the required wheels.
@@ -91,7 +92,7 @@ def save_model(path, model_uri, mlflow_model=None):
     _download_artifact_from_uri(model_uri, output_path=path)
 
     if not os.path.exists(wheels_dir):
-        os.mkdir(wheels_dir)
+        os.makedirs(wheels_dir)
     else:
         raise MlflowException(
             message=("Model with model_uri: {} already has wheels packaged.".format(model_uri)),
