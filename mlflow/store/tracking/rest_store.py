@@ -28,7 +28,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.autologging_utils import chunk_list
+from mlflow.utils import chunk_list
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
