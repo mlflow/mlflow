@@ -30,7 +30,7 @@ const mountComponent = (props) => {
 };
 
 test('If searchInput is set to "Test" then first shown element in experiment list has the title "Test"', () => {
-  const wrapper = mountComponent({ experiments: Fixtures.experiments });
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   wrapper
     .find('input[data-test-id="search-experiment-input"]')
     .first()
@@ -44,7 +44,7 @@ test('If searchInput is set to "Test" then first shown element in experiment lis
 });
 
 test('If searchInput is set to "Test" and default experiment is active then no active element is shown in the experiment list', () => {
-  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentId: '0' });
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   wrapper
     .find('input[data-test-id="search-experiment-input"]')
     .first()
@@ -53,7 +53,7 @@ test('If searchInput is set to "Test" and default experiment is active then no a
 });
 
 test('If button to create experiment is pressed then open CreateExperimentModal', () => {
-  const wrapper = mountComponent({ experiments: Fixtures.experiments });
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   wrapper
     .find('[data-test-id="create-experiment-button"]')
     .first()
@@ -62,7 +62,7 @@ test('If button to create experiment is pressed then open CreateExperimentModal'
 });
 
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
-  const wrapper = mountComponent({ experiments: Fixtures.experiments });
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   wrapper
     .find('[data-test-id="delete-experiment-button"]')
     .first()
@@ -71,7 +71,7 @@ test('If button to delete experiment is pressed then open DeleteExperimentModal'
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {
-  const wrapper = mountComponent({ experiments: Fixtures.experiments });
+  const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
   wrapper
     .find('[data-test-id="rename-experiment-button"]')
     .first()
@@ -96,20 +96,10 @@ test('If activeExperimentIds is defined then choose all the corresponding experi
   expect(selected.at(1).text()).toEqual('Third');
 });
 
-test('If activeExperimentIds is undefined then choose the first experiment', () => {
-  const localExperiments = [
-    Fixtures.createExperiment(),
-    Fixtures.createExperiment({ experiment_id: '1', name: 'Test' }),
-    Fixtures.createExperiment({ experiment_id: '2', name: 'Second' }),
-    Fixtures.createExperiment({ experiment_id: '3', name: 'Third' }),
-  ];
+test('should render when both experiments and activeExperimentIds are empty', () => {
   const wrapper = mountComponent({
-    experiments: localExperiments,
+    experiments: [],
+    activeExperimentIds: [],
   });
-  expect(
-    wrapper
-      .find('[data-test-id="active-experiment-list-item"]')
-      .first()
-      .text(),
-  ).toContain('Default');
+  expect(wrapper.length).toBe(1);
 });

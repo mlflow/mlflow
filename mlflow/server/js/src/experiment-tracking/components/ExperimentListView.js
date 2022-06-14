@@ -18,13 +18,9 @@ import { IconButton } from '../../common/components/IconButton';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    activeExperimentIds: PropTypes.arrayOf(PropTypes.string),
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
     history: PropTypes.object.isRequired,
-  };
-
-  static defaultProps = {
-    activeExperimentIds: ['0'],
   };
 
   state = {
@@ -100,7 +96,7 @@ export class ExperimentListView extends Component {
 
   renderListItem = ({ title, key }) => {
     const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds?.includes(key) ?? false;
+    const isActive = activeExperimentIds.includes(key);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
       <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>

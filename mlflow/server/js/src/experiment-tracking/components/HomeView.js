@@ -56,7 +56,7 @@ class HomeView extends Component {
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
           <Spacer />
-          <ExperimentListView activeExperimentIds={experimentIds} experiments={experiments} />
+          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
         </div>
         <PageContainer>
           {hasExperiments ? (
