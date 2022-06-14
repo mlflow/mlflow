@@ -366,7 +366,7 @@ def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
 
     train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train))
     train_ds = train_ds.batch(50)
-    train_ds = train_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+    train_ds = train_ds.cache().prefetch(buffer_size=5)
     assert not hasattr(train_ds, "_batch_size")
 
     model = tf.keras.Sequential()
