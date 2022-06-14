@@ -72,7 +72,7 @@ def test_log_figure_raises_error_for_unsupported_file_extension():
 
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
 
-    with mlflow.start_run(), pytest.raises(TypeError, match=f"Unsupported file extension for plotly figure: /figure"):
+    with mlflow.start_run(), pytest.raises(TypeError, match=f"Unsupported file extension for plotly figure: "):
         mlflow.log_figure(fig, artifact_file)
 
 
