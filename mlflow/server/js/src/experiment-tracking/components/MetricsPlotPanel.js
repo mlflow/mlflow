@@ -442,8 +442,6 @@ export class MetricsPlotPanel extends React.Component {
   
   convertJsonToCsv = () => {
     const metrics = this.getMetrics();
-    //const parsedJson = JSON.parse(metrics);
-    //console.log("Parsed JSON: " + parsedJson)
     const selectedMetricKeys = this.getUrlState().selectedMetricKeys;
     console.log("selected metrics: " + selectedMetricKeys);
     const heading = Object.keys(metrics[0].history[0]).join(",") + "\n"
@@ -459,10 +457,6 @@ export class MetricsPlotPanel extends React.Component {
           });
       }).join("\n");
 
-    /*const body = metrics.metricKey
-      .map((metric) => {
-        metric.map((j) => Object.values(j).join(",")).join("\n");
-    })*/
     return `${heading}${metricValues}`;
   };
 
@@ -471,7 +465,8 @@ export class MetricsPlotPanel extends React.Component {
     console.log("CSV: " + csv)
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     console.log("Blob: " + blob)
-    saveAs(blob, 'metrics.csv');
+    const selectedRunUuid = this.props.runUuids[0]
+    saveAs(blob, 'metrics_run_' + selectedRunUuid + '.csv');
   };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
@@ -719,8 +714,6 @@ const mapStateToProps = (state, ownProps) => {
     completedRunUuids,
   };
 };
-
-//latestMetricsByRunUuid[runUuid]
 
 
 
