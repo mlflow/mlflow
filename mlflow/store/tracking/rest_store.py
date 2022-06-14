@@ -1,3 +1,4 @@
+from itertools import zip_longest
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -27,6 +28,7 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils.autologging_utils import chunk_list
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -305,41 +307,32 @@ class RestStore(AbstractStore):
             return None
 
     def log_batch(self, run_id, metrics, params, tags):
-        def send_long_list(run_id, data, entity_name, limit):
-            batch_data = {"metrics": [], "params": [], "tags": [], "run_id": run_id}
-            if len(data) > limit:
-                for start_index in range(0, len(data), limit):
-                    batch_data[entity_name] = data[start_index : start_index + limit]
-                    req_body = message_to_json(LogBatch(**batch_data))
-                    self._call_endpoint(LogBatch, req_body)
-            else:
-                batch_data[entity_name] = data
-                req_body = message_to_json(LogBatch(**batch_data))
-                self._call_endpoint(LogBatch, req_body)
-
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
 
-        num_metrics = len(metric_protos)
-        num_params = len(param_protos)
-        num_tags = len(tag_protos)
+        param_batches = chunk_list(param_protos, MAX_PARAMS_TAGS_PER_BATCH)
+        tag_batches = chunk_list(tag_protos, MAX_PARAMS_TAGS_PER_BATCH)
 
-        total_length = num_metrics + num_params + num_tags
-        if (
-            total_length <= MAX_ENTITIES_PER_BATCH
-            and num_metrics <= MAX_METRICS_PER_BATCH
-            and num_params <= MAX_PARAMS_TAGS_PER_BATCH
-            and num_tags <= MAX_PARAMS_TAGS_PER_BATCH
-        ):
+        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
+            metrics_batch_size = min(
+                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
+                MAX_METRICS_PER_BATCH,
+            )
+            metrics_batch_size = max(metrics_batch_size, 0)
+            metrics_batch = metric_protos[:metrics_batch_size]
+            metric_protos = metric_protos[metrics_batch_size:]
+
             req_body = message_to_json(
-                LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
+                LogBatch(metrics=metrics_batch, params=params_batch, tags=tags_batch, run_id=run_id)
             )
             self._call_endpoint(LogBatch, req_body)
-        else:
-            send_long_list(run_id, metric_protos, "metrics", MAX_METRICS_PER_BATCH)
-            send_long_list(run_id, param_protos, "params", MAX_PARAMS_TAGS_PER_BATCH)
-            send_long_list(run_id, tag_protos, "tags", MAX_PARAMS_TAGS_PER_BATCH)
+
+        for metrics_batch in chunk_list(metric_protos, chunk_size=MAX_METRICS_PER_BATCH):
+            req_body = message_to_json(
+                LogBatch(metrics=metrics_batch, params=[], tags=[], run_id=run_id)
+            )
+            self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
