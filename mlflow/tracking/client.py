@@ -1163,7 +1163,7 @@ class MlflowClient:
                 elif file_extension in ['.png', '.jpeg', '.webp', '.svg', '.pdf']:
                     figure.write_image(tmp_path)
                 else:
-                    raise TypeError(f"Unsupported file extension for plotly figure: {file_extension}")
+                    raise TypeError(f"Unsupported file extension for plotly figure: '{file_extension}'")
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
