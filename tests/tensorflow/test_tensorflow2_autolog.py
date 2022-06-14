@@ -370,13 +370,19 @@ def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
     assert not hasattr(train_ds, "_batch_size")
 
     model = tf.keras.Sequential()
-    model.add(tf.keras.Input(100, ))
-    model.add(tf.keras.layers.Dense(256, activation='relu'))
-    model.add(tf.keras.layers.Dropout(rate=.4))
-    model.add(tf.keras.layers.Dense(10, activation='sigmoid'))
-    model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-                  optimizer='Adam',
-                  metrics=['accuracy'])
+    model.add(
+        tf.keras.Input(
+            100,
+        )
+    )
+    model.add(tf.keras.layers.Dense(256, activation="relu"))
+    model.add(tf.keras.layers.Dropout(rate=0.4))
+    model.add(tf.keras.layers.Dense(10, activation="sigmoid"))
+    model.compile(
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+        optimizer="Adam",
+        metrics=["accuracy"],
+    )
 
     mlflow.tensorflow.autolog()
     model.fit(train_ds, epochs=100)

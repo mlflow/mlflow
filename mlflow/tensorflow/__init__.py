@@ -1048,7 +1048,9 @@ def autolog(
             batch_size = None
             try:
                 training_data = kwargs["x"] if "x" in kwargs else args[0]
-                if isinstance(training_data, tensorflow.data.Dataset) and hasattr(training_data, "_batch_size"):
+                if isinstance(training_data, tensorflow.data.Dataset) and hasattr(
+                    training_data, "_batch_size"
+                ):
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tensorflow.keras.utils.Sequence):
                     first_batch_inputs, _ = training_data[0]
@@ -1070,7 +1072,7 @@ def autolog(
                 _logger.warning(
                     "Encountered unexpected error while inferring batch size from training"
                     " dataset: %s",
-                    e
+                    e,
                 )
 
             if batch_size is not None:
