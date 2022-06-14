@@ -611,6 +611,11 @@ export class ExperimentPage extends Component {
   };
 
   render() {
+    const { experiments } = this.props;
+
+    if (experiments.length === 0) {
+      return null;
+    }
     return (
       <div className='ExperimentPage runs-table-flex-container' style={{ height: '100%' }}>
         <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
@@ -626,7 +631,7 @@ export class ExperimentPage extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const experiments = ownProps.experimentIds.map((id) => getExperiment(id, state));
+  const experiments = ownProps.experimentIds.flatMap((id) => getExperiment(id, state) || []);
   return { experiments };
 };
 

@@ -2,6 +2,7 @@ import { combineReducers } from 'redux';
 import {
   CLOSE_ERROR_MODAL,
   GET_EXPERIMENT_API,
+  DELETE_EXPERIMENT_API,
   GET_RUN_API,
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API,
@@ -72,6 +73,10 @@ export const experimentsById = (state = {}, action) => {
         ...state,
         [experiment.experiment_id]: mergedExperiment,
       };
+    }
+    case fulfilled(DELETE_EXPERIMENT_API): {
+      const { experiment_id } = action.payload;
+      return _.omit(state, experiment_id);
     }
     default:
       return state;

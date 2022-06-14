@@ -733,6 +733,8 @@ message DeleteExperiment {
   optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
+    // Unique identifier for the experiment.
+    optional string experiment_id = 1;
   }
 }
 

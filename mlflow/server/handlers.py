@@ -603,7 +603,7 @@ def _delete_experiment():
         DeleteExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     _get_tracking_store().delete_experiment(request_message.experiment_id)
-    response_message = DeleteExperiment.Response()
+    response_message = DeleteExperiment.Response(experiment_id=request_message.experiment_id)
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
