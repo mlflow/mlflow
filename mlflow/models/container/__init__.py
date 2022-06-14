@@ -121,7 +121,7 @@ def _install_pyfunc_deps(
                 path = env_activate_cmd.split(" ")[-1]
                 os.symlink(path, "/opt/activate")
                 activate_cmd = [env_activate_cmd]
-    
+
     # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
     server_deps = ["gunicorn[gevent]"]
