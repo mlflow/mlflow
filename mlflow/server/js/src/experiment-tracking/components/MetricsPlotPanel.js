@@ -652,7 +652,12 @@ export class MetricsPlotPanel extends React.Component {
               onLegendClick={this.handleLegendClick}
               onLegendDoubleClick={this.handleLegendDoubleClick}
             />
-            <Button className='csv-button' onClick={this.onDownloadCsv}>
+            <MetricsSummaryTable
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              metricKeys={selectedMetricKeys}
+            />
+            <Button className='csv-button-metrics' onClick={this.onDownloadCsv}>
               <FormattedMessage
                 defaultMessage='Download CSV'
                 // eslint-disable-next-line max-len
@@ -660,11 +665,6 @@ export class MetricsPlotPanel extends React.Component {
               />
               <i className='fas fa-download' />
             </Button>
-            <MetricsSummaryTable
-              runUuids={runUuids}
-              runDisplayNames={runDisplayNames}
-              metricKeys={selectedMetricKeys}
-            />
           </RequestStateWrapper>
         </div>
       </div>
