@@ -91,7 +91,9 @@ export class ExperimentListView extends Component {
   };
 
   handleCheck = (checkedKeys) => {
-    if (checkedKeys.length !== 0) {
+    if (checkedKeys.length == 1) {
+      this.props.history.push(Routes.getExperimentPageRoute(checkedKeys[0]));
+    } else if (checkedKeys.length > 1) {
       this.props.history.push(Routes.getCompareExperimentsPageRoute(checkedKeys));
     }
   };
