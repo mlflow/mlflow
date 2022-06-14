@@ -33,11 +33,12 @@ export class DeleteExperimentModalImpl extends Component {
             // send it to root
             this.props.history.push(Routes.rootRoute);
           } else {
-            this.props.history.push(
-              Routes.getCompareExperimentsPageRoute(
-                activeExperimentIds.filter((eid) => eid !== experimentId),
-              ),
-            );
+            const experimentIds = activeExperimentIds.filter((eid) => eid !== experimentId);
+            const route =
+              experimentIds.length === 1
+                ? Routes.getExperimentPageRoute(experimentIds[0])
+                : Routes.getCompareExperimentsPageRoute(experimentIds);
+            this.props.history.push(route);
           }
         }
       })
