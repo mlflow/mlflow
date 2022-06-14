@@ -360,6 +360,30 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
+def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
+    X_train = np.random.rand(100, 100)
+    y_train = np.random.randint(0, 10, 100)
+
+    train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+    train_ds = train_ds.batch(50)
+    train_ds = train_ds.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+    assert not hasattr(train_ds, "_batch_size")
+
+    model = tf.keras.Sequential()
+    model.add(tf.keras.Input(100, ))
+    model.add(tf.keras.layers.Dense(256, activation='relu'))
+    model.add(tf.keras.layers.Dropout(rate=.4))
+    model.add(tf.keras.layers.Dense(10, activation='sigmoid'))
+    model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+                  optimizer='Adam',
+                  metrics=['accuracy'])
+
+    mlflow.tensorflow.autolog()
+    model.fit(train_ds, epochs=100)
+
+    assert mlflow.last_active_run().data.params["batch_size"] == "None"
+
+
 def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
     every_n_iter = 5
     num_training_epochs = 17
