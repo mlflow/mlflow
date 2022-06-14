@@ -63,16 +63,16 @@ def test_log_figure_plotly_image(extension):
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]     
         
-
-def test_log_figure_raises_error_for_unsupported_file_extension():
+@pytest.mark.parametrize("extension", ['', '.py'])
+def test_log_figure_raises_error_for_unsupported_file_extension(extension):
     from plotly import graph_objects as go
 
-    filename = "figure"
+    filename = f"figure{extension}"
     artifact_file = posixpath.join(".", filename)
 
     fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
 
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported file extension for plotly figure: ''"):
+    with mlflow.start_run(), pytest.raises(TypeError, match=f"Unsupported file extension for plotly figure: '{extension}'"):
         mlflow.log_figure(fig, artifact_file)
 
 
