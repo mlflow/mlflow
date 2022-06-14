@@ -3,9 +3,10 @@ The `wheeled_model` flavor serves as a convenience interface enabling users to
 re-log registered models back to MLflow or the model registry with all the wheels
 required by the model bundled in.
 """
-
 import os
+from datetime import datetime
 import yaml
+import logging
 import mlflow
 from mlflow.pyfunc.model import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -17,6 +18,8 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _overwrite_pip_deps,
 )
+
+_logger = logging.getLogger(__name__)
 
 _ARTIFACTS_FOLDER_NAME = "artifacts"
 _WHEELS_FOLDER_NAME = "wheels"
@@ -49,7 +52,7 @@ def log_model(artifact_path, model_uri, registered_model_name):
                                   also creating a registered model if one with the given name does
                                   not exist.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.wheeled_model,
         registered_model_name=registered_model_name,
@@ -60,7 +63,8 @@ def log_model(artifact_path, model_uri, registered_model_name):
 # TODO: Verify the arguments with Arjun
 # TODO: Question: Are we not allowing users to save then log?
 # TODO: Note: I am updating the model file even when we just save it, I add the 'wheel flag'
-def save_model(path, model_uri, mlflow_model=None):
+# TODO: I updated the save model API, I don't want users passing in their own mlflow_model
+def save_model(path, model_uri, **kwargs):
     """
     Saves model registered at `model_uri` to `path` along with all the required wheels.
 
@@ -78,9 +82,11 @@ def save_model(path, model_uri, mlflow_model=None):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
-    :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
-                         **python_function** flavor.
     """
+    mlflow_model = kwargs.pop("mlflow_model", None)
+    if len(kwargs) > 0:
+        raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
+
     wheels_dir = os.path.join(path, _ARTIFACTS_FOLDER_NAME, _WHEELS_FOLDER_NAME)
     pip_requirements_path = os.path.join(path, _REQUIREMENTS_FILE_NAME)
     conda_env_path = os.path.join(path, _CONDA_ENV_FILE_NAME)
@@ -91,29 +97,46 @@ def save_model(path, model_uri, mlflow_model=None):
 
     _download_artifact_from_uri(model_uri, output_path=path)
 
-    if not os.path.exists(wheels_dir):
-        os.makedirs(wheels_dir)
+    # Check if the model file has `wheels` set to True
+    try:
+        with open(model_file_path) as f:
+            model_file = yaml.safe_load(f)
+        has_wheels = model_file["flavors"]["python_function"]["artifacts"]["wheels"]
+    except KeyError:
+        has_wheels = False
+
+    if has_wheels:
+        _logger.warning("This model already has packaged wheels. New wheels will not be packaged.")
     else:
-        raise MlflowException(
-            message=("Model with model_uri: {} already has wheels packaged.".format(model_uri)),
-            error_code=RESOURCE_ALREADY_EXISTS,
+        # Download the wheels required by packages in requirements.txt
+        _download_wheels(dst_path=wheels_dir, pip_requirements_path=pip_requirements_path)
+
+        # Update requirements.txt with wheels
+        _overwrite_pip_requirements_with_wheels(
+            wheels_dir=wheels_dir, pip_requirements_path=pip_requirements_path
         )
 
-    # Download the wheels required by packages in requirements.txt
-    _download_wheels(dst_path=wheels_dir, pip_requirements_path=pip_requirements_path)
-
-    # Update requirements.txt with wheels
-    _overwrite_pip_requirements_with_wheels(
-        wheels_dir=wheels_dir, pip_requirements_path=pip_requirements_path
-    )
-
-    # Update conda.yaml file with wheels
-    _update_conda_file_with_wheels(
-        conda_env_path=conda_env_path, pip_requirements_path=pip_requirements_path
-    )
+        # Update conda.yaml file with wheels
+        _update_conda_file_with_wheels(
+            conda_env_path=conda_env_path, pip_requirements_path=pip_requirements_path
+        )
 
     # Update MLModel File
     _update_model_file(mlflow_model=mlflow_model, original_model_file_path=model_file_path)
+
+    """
+    If mlflow_model == None, then just declare a new one. This occurs when the users explicitly uses save_model()
+    If mlflow_model != None, it created and passed in to save_model() in Model.log().
+    """
+    if not mlflow_model:
+        # Loading the MLmodel file into a new Model() object.
+        mlflow_model = Model.load(path=model_file_path)
+    else:
+        # Copy all the attributes from the updated model file to the original mlflow object
+        # created in Model.log()
+        mlflow_model.__dict__ = Model.load(path=model_file_path).__dict__.copy()
+
+    return mlflow_model
 
 
 def _update_model_file(mlflow_model, original_model_file_path):
@@ -130,8 +153,23 @@ def _update_model_file(mlflow_model, original_model_file_path):
 
     # Update model_file with the run and utc_time_create of the newly logged model
     if mlflow_model:
+        """
+        When the user uses log_model(), Model.log() inherently creates a new a run_id and mlflow_model
+        with the time that it was created. This is used to update the run_id and utc_time_created in the 
+        MLmodel file.
+        """
         model_file["run_id"] = mlflow_model.run_id
         model_file["utc_time_created"] = mlflow_model.utc_time_created
+    else:
+        """
+        When the user uses save_model(), mlflow_model the value of mlflow_model == None.
+        In this case we delete the run_id from the original MLmodel file since this save
+        was not a part of any run and the older run_id is irrelevant.
+        """
+        del model_file["run_id"]
+
+        # utc_time_created in the model file updated to current time
+        model_file["utc_time_created"] = datetime.utcnow()
 
     # TODO: Do we not want to add the path here?
     # Add wheels to artifacts in the MLModel file
@@ -162,6 +200,9 @@ def _download_wheels(dst_path, pip_requirements_path):
     :param dst_path: Path to the directory where the wheels are to be downloaded
     :param pip_requirements_path: Path to requirements.txt in the model directory
     """
+    if not os.path.exists(dst_path):
+        os.makedirs(dst_path)
+
     download_command = (
         f"python -m pip wheel --only-binary=:all: --wheel-dir={dst_path} -r {pip_requirements_path}"
     )
