@@ -25,7 +25,6 @@ _WHEELS_FOLDER_NAME = "wheels"
 FLAVOR_NAME = "wheeled_model"
 
 
-# TODO: Is it okay if this function doesn't return anything?
 # TODO: Verify the arguments with Arjun
 def log_model(artifact_path, model_uri, registered_model_name):
     """
@@ -59,8 +58,6 @@ def log_model(artifact_path, model_uri, registered_model_name):
 
 
 # TODO: Verify the arguments with Arjun
-# TODO: Question: Are we not allowing users to save then log?
-# TODO: Note: I am updating the model file even when we just save it, I add the 'wheel flag'
 # TODO: I updated the save model API, I don't want users passing in their own mlflow_model
 def save_model(path, model_uri, **kwargs):
     """
