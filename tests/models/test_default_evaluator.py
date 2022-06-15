@@ -20,7 +20,8 @@ from mlflow.models.evaluation.artifacts import (
 from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_global_metrics,
     _infer_model_type_by_labels,
-    _extract_raw_model_and_predict_fn,
+    _extract_raw_model,
+    _extract_predict_fn,
     _get_regressor_metrics,
     _get_binary_sum_up_label_pred_prob,
     _get_classifier_per_class_metrics,
@@ -123,7 +124,8 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -178,7 +180,8 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -274,7 +277,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, _ = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -381,18 +385,24 @@ def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
-def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
+def test_extract_raw_model_and_predict_fn(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
+):
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-    (
-        model_loader_module,
-        raw_model,
-        predict_fn,
-        predict_proba_fn,
-    ) = _extract_raw_model_and_predict_fn(model)
+
+    model_loader_module, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    assert predict_fn == raw_model.predict
-    assert predict_proba_fn == raw_model.predict_proba
+    assert np.allclose(
+        predict_fn(breast_cancer_dataset.features_data),
+        raw_model.predict(breast_cancer_dataset.features_data),
+    )
+    assert np.allclose(
+        predict_proba_fn(breast_cancer_dataset.features_data),
+        raw_model.predict_proba(breast_cancer_dataset.features_data),
+    )
 
 
 def test_get_regressor_metrics():
@@ -800,7 +810,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     )
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, _ = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
