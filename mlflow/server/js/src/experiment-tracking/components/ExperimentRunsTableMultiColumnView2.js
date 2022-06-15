@@ -357,7 +357,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const referenceTime = new Date();
     // Round reference time down to the nearest second, to avoid unnecessary re-renders
     referenceTime.setMilliseconds(0);
-    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
+    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds, level }) => {
       const tags = tagsList[idx];
       const params = paramsList[idx];
       const metrics = metricsList[idx].map(({ key, value }) => ({
@@ -387,6 +387,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         hasExpander,
         expanderOpen,
         childrenIds,
+        level
       };
 
       const models = {
@@ -624,6 +625,7 @@ function DateCellRenderer(props) {
     hasExpander,
     expanderOpen,
     childrenIds,
+    level
   } = props.value;
   const { onExpand } = props;
   return (
@@ -636,12 +638,13 @@ function DateCellRenderer(props) {
           key={'Expander-' + runUuid}
           style={{ paddingRight: 8, display: 'inline' }}
         >
+          <span style={{ paddingLeft: 18 * level }} />
           <i
             className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
           />
         </div>
       ) : (
-        <span style={{ paddingLeft: 18 }} />
+        <span style={{ paddingLeft: level == 0 ? 18 : (18 + 3) * level}} />
       )}
       <Link
         to={Routes.getRunPageRoute(experimentId, runUuid)}

@@ -606,9 +606,9 @@ export default class ExperimentViewUtil {
     // Map of parentRunIds to list of children runs (idx)
     const parentIdToChildren = {};
     treeNodes.forEach((t, idx) => {
-      const root = t.findRoot();
-      if (root !== undefined && root.value !== t.value) {
-        const old = parentIdToChildren[root.value];
+      const parent = t.parent;
+      if (parent !== undefined && parent.value !== t.value) {
+        const old = parentIdToChildren[parent.value];
         let newList;
         if (old) {
           old.push(idx);
@@ -616,15 +616,16 @@ export default class ExperimentViewUtil {
         } else {
           newList = [idx];
         }
-        parentIdToChildren[root.value] = newList;
+        parentIdToChildren[parent.value] = newList;
       }
     });
 
     const parentRows = _.flatMap([...Array(runInfos.length).keys()], (idx) => {
-      if (treeNodes[idx].isCycle() || !treeNodes[idx].isRoot()) return [];
+      if (treeNodes[idx].isCycle() ||  (!parentIdToChildren[treeNodes[idx].value] && !treeNodes[idx].isRoot()) ) return [];
       const runId = runInfos[idx].run_uuid;
       let hasExpander = false;
       let childrenIds = undefined;
+      let level = treeNodes[idx].findLevel();
       if (parentIdToChildren[runId]) {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx) => runInfos[cIdx].run_uuid);
@@ -637,23 +638,39 @@ export default class ExperimentViewUtil {
           expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
           childrenIds,
           runId,
+          level: level
         },
       ];
     });
+    console.log("parent rows")
+    console.log(parentRows)
     const mergedRows = [];
+    const visited = new Set();
     parentRows.forEach((r) => {
-      const { runId } = r;
-      mergedRows.push(r);
-      const childrenIdxs = parentIdToChildren[runId];
-      if (childrenIdxs) {
-        if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
-          const childrenRows = childrenIdxs.map((idx) => {
-            return { idx, isParent: false, hasExpander: false };
-          });
-          mergedRows.push(...childrenRows);
+      if(r.level == 0 ){
+        function dfs(idx, curr_level){
+          if(!visited.has(idx)){
+            let row = parentRows.find(o => o.idx == idx)
+            if(!row){
+              row = { idx, isParent: false, hasExpander: false, level: curr_level};
+            }
+            mergedRows.push(row)
+            visited.add(idx)
+            const childrenIdxs = parentIdToChildren[row.runId];
+            if(childrenIdxs){
+              if (ExperimentViewUtil.isExpanderOpen(runsExpanded, row.runId)) {
+                childrenIdxs.forEach(idx => {
+                  dfs(idx, curr_level+1)
+                });
+              }
+            }
+          }
         }
+        dfs(r.idx, r.level)
       }
     });
+    console.log("merged rows")
+    console.log(mergedRows)
     return mergedRows.slice(0);
   }
 
@@ -892,5 +909,20 @@ export class TreeNode {
   }
   isCycle() {
     return this.findRoot() === undefined;
+  }
+  findLevel() {
+    const visited = new Set([this.value]);
+    let current = this;
+    let level = 0;
+
+    while (current.parent !== undefined) {
+      if (visited.has(current.parent.value)) {
+        return undefined;
+      }
+      visited.add(current.value);
+      level++;
+      current = current.parent;
+    }
+    return level;
   }
 }
