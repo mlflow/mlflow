@@ -5,6 +5,7 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import contextlib
 import logging
+from itertools import zip_longest
 import json
 import os
 import posixpath
@@ -28,6 +29,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -37,6 +39,11 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_ENTITIES_PER_BATCH,
+)
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -915,7 +922,24 @@ class MlflowClient:
             tags: {'t': 't'}
             status: FINISHED
         """
-        self._tracking_client.log_batch(run_id, metrics, params, tags)
+        param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
+        tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
+
+        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
+            metrics_batch_size = min(
+                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
+                MAX_METRICS_PER_BATCH,
+            )
+            metrics_batch_size = max(metrics_batch_size, 0)
+            metrics_batch = metrics[:metrics_batch_size]
+            metrics = metrics[metrics_batch_size:]
+
+            self._tracking_client.log_batch(
+                run_id, metrics_batch, params=params_batch, tags=tags_batch
+            )
+
+        for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
+            self._tracking_client.log_batch(run_id, metrics_batch)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """
