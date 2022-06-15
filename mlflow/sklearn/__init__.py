@@ -1227,7 +1227,6 @@ def _autolog(
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
-        _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
         _get_X_y_and_sample_weight,
@@ -1251,14 +1250,6 @@ def _autolog(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    if not _is_supported_version():
-        warnings.warn(
-            "Autologging utilities may not work properly on scikit-learn < {} ".format(
-                _MIN_SKLEARN_VERSION
-            )
-            + "(current version: {})".format(sklearn.__version__),
-            stacklevel=2,
-        )
 
     def fit_mlflow_xgboost_and_lightgbm(original, self, *args, **kwargs):
         """
