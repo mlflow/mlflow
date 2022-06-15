@@ -177,8 +177,9 @@ describe('ExperimentViewUtil', () => {
         idx: 1,
         isParent: true,
         runId: 2,
+        level: 0
       },
-      { hasExpander: false, idx: 0, isParent: false },
+      { hasExpander: false, idx: 0, isParent: false, level: 1},
     ]);
 
     expect(
@@ -494,8 +495,9 @@ describe('ExperimentViewUtil', () => {
         idx: 0,
         isParent: true,
         runId: 'run-id1',
+        level: 0
       },
-      { hasExpander: false, idx: 1, isParent: false },
+      { hasExpander: false, idx: 1, isParent: false, level: 1},
     ];
 
     expect(
