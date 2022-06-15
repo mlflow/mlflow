@@ -37,6 +37,20 @@ RUN python /tmp/get-pip.py
 RUN pip install virtualenv
 """
 
+if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
+    MAVEN_PROXY = (
+        " -DproxySet=true -Dhttp.proxyHost={http_proxy_host} "
+        "-Dhttp.proxyPort={http_proxy_port} -Dhttps.proxyHost={https_proxy_host} "
+        "-Dhttps.proxyPort={https_proxy_port} -Dhttps.nonProxyHosts=repo.maven.apache.org"
+    ).format(
+        http_proxy_host=os.environ["http_proxy"].split("//")[1].split(":")[0],
+        http_proxy_port=os.environ["http_proxy"].rsplit(":", maxsplit=1)[1],
+        https_proxy_host=os.environ["https_proxy"].split("//")[1].split(":")[0],
+        https_proxy_port=os.environ["https_proxy"].rsplit(":", maxsplit=1)[1],
+    )
+else:
+    MAVEN_PROXY = ""  # No Proxy
+
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
@@ -89,26 +103,27 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
             "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            "mvn --batch-mode package -DskipTests && "
+            "mvn --batch-mode package -DskipTests {maven_proxy} && "
             "mkdir -p /opt/java/jars && "
             "mv /opt/mlflow/mlflow/java/scoring/target/"
             "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        ).format(mlflow_dir=mlflow_dir)
+        ).format(mlflow_dir=mlflow_dir, maven_proxy=MAVEN_PROXY)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            " -DoutputDirectory=/opt/java\n"
+            " -DoutputDirectory=/opt/java {maven_proxy}\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars\n"
+            " -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
             "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
             "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-        ).format(version=mlflow.version.VERSION)
+            "--batch-mode dependency:copy-dependencies "
+            "-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
+        ).format(version=mlflow.version.VERSION, maven_proxy=MAVEN_PROXY)
 
 
 def _build_image(
