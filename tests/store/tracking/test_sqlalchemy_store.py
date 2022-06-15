@@ -255,6 +255,56 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
 
+    def test_delete_experiment_with_runs(self):
+        # Create run with experiment
+        run = self._run_factory()
+        all_experiments = self.store.list_experiments()
+        len_of_experiments = 2  # default + current experiment, hence 2 experiments
+        self.assertEqual(len(all_experiments), len_of_experiments)
+
+        exp_id = run.info.experiment_id  # Find experiment id
+        run_id = run.info.run_id  # Find run id
+
+        self.store.delete_experiment(exp_id)
+
+        updated_exp = self.store.get_experiment(exp_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        updated_run = self.store.get_run(run_id)
+        self.assertEqual(updated_run.info.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        self.assertEqual(len(self.store.list_experiments()), len_of_experiments - 1)
+
+    def test_restore_experiment_with_runs(self):
+        # Create run with experiment
+        run = self._run_factory()
+        all_experiments = self.store.list_experiments()
+        len_of_experiments = 2  # default + current experiment, hence 2 experiments
+        self.assertEqual(len(all_experiments), len_of_experiments)
+
+        exp_id = run.info.experiment_id  # Find experiment id
+        run_id = run.info.run_id  # Find run id
+
+        self.store.delete_experiment(exp_id)
+
+        updated_exp = self.store.get_experiment(exp_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        updated_run = self.store.get_run(run_id)
+        self.assertEqual(updated_run.info.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        self.assertEqual(len(self.store.list_experiments()), len_of_experiments - 1)
+
+        self.store.restore_experiment(exp_id)
+
+        updated_exp = self.store.get_experiment(exp_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+
+        updated_run = self.store.get_run(run_id)
+        self.assertEqual(updated_run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+
+        self.assertEqual(len(all_experiments), len_of_experiments)
+
     def test_get_experiment(self):
         name = "goku"
         experiment_id = self._experiment_factory(name)
