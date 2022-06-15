@@ -11,8 +11,6 @@ import mlflow
 from mlflow.pyfunc.model import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
@@ -124,10 +122,10 @@ def save_model(path, model_uri, **kwargs):
     # Update MLModel File
     _update_model_file(mlflow_model=mlflow_model, original_model_file_path=model_file_path)
 
-    """
-    If mlflow_model == None, then just declare a new one. This occurs when the users explicitly uses save_model()
-    If mlflow_model != None, it created and passed in to save_model() in Model.log().
-    """
+    # If mlflow_model == None, then just declare a new one.
+    # This occurs when the users explicitly uses save_model()
+    # If mlflow_model != None, it created and passed in to save_model() in Model.log().
+
     if not mlflow_model:
         # Loading the MLmodel file into a new Model() object.
         mlflow_model = Model.load(path=model_file_path)
@@ -153,19 +151,16 @@ def _update_model_file(mlflow_model, original_model_file_path):
 
     # Update model_file with the run and utc_time_create of the newly logged model
     if mlflow_model:
-        """
-        When the user uses log_model(), Model.log() inherently creates a new a run_id and mlflow_model
-        with the time that it was created. This is used to update the run_id and utc_time_created in the 
-        MLmodel file.
-        """
+
+        # When the user uses log_model(), Model.log() inherently creates a new a run_id and
+        # mlflow_model with the time that it was created. This is used to update the run_id
+        # and utc_time_created in the MLmodel file.
         model_file["run_id"] = mlflow_model.run_id
         model_file["utc_time_created"] = mlflow_model.utc_time_created
     else:
-        """
-        When the user uses save_model(), mlflow_model the value of mlflow_model == None.
-        In this case we delete the run_id from the original MLmodel file since this save
-        was not a part of any run and the older run_id is irrelevant.
-        """
+        # When the user uses save_model(), mlflow_model the value of mlflow_model == None.
+        # In this case we delete the run_id from the original MLmodel file since this save
+        # was not a part of any run and the older run_id is irrelevant.
         del model_file["run_id"]
 
         # utc_time_created in the model file updated to current time
