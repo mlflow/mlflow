@@ -760,7 +760,7 @@ machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
-* Experiment-based run listing and comparison
+* Experiment-based run listing and comparison (including run comparison across multiple experiments)
 * Searching for runs by parameter or metric value
 * Visualizing run metrics
 * Downloading run results
