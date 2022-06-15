@@ -153,7 +153,7 @@ def test_overwrite_pip_requirements_with_wheels(tmp_path):
 
         assert wheels_list == pip_requirements_contents
 
-    # Test case: <add description> (Default case)
+    # Test case: `wheels_dir` contains the required wheels (Default case)
     _, _, _, pip_requirements_path, wheels_dir = create_random_model_env(
         tmp_path, build_wheels=True
     )
@@ -173,7 +173,7 @@ def test_overwrite_pip_requirements_with_wheels(tmp_path):
 
 
 def test_update_model_file(tmp_path):
-    # Test case: mlflow_model is not None (this occurs when we are logging the model)
+    # Test case: mlflow_model is not None (this occurs the model is logged)
     _, model_file_path, _, _, _ = create_random_model_env(tmp_path, build_wheels=True)
     run_id = random_int()
     mlflow_model = Model(artifact_path=None, run_id=run_id)
@@ -181,8 +181,12 @@ def test_update_model_file(tmp_path):
     with open(model_file_path) as f:
         original_model_file = yaml.safe_load(f)
 
-    # Build wheels should not exist in the original model_file (sanity check)
+    # `wheels` should not exist in the original model_file (sanity check)
     assert "wheels" not in original_model_file["flavors"]["python_function"]["artifacts"]
+    # The `run_id` and `utc_time_created` in the mlflow_model should be different from the
+    # `run_id` and  `utc_time_created` in the original model file (sanity check)
+    assert original_model_file["run_id"] != mlflow_model.run_id
+    assert original_model_file["utc_time_created"] != mlflow_model.utc_time_created
 
     _update_model_file(mlflow_model, model_file_path)
 
@@ -191,27 +195,36 @@ def test_update_model_file(tmp_path):
 
     assert model_file["run_id"] == mlflow_model.run_id
     assert model_file["utc_time_created"] == mlflow_model.utc_time_created
+    # TODO: Update this if we change this section of the model file
+    # The key `wheels` should be in under artifacts in MLModel file and should be set to True
+    assert "wheels" in model_file["flavors"]["python_function"]["artifacts"]
     assert model_file["flavors"]["python_function"]["artifacts"]["wheels"]
 
-    # Test case: mlflow_model is None (this occurs when we just save the model locally)
+    # Test case: mlflow_model is None (this occurs when the model is saved locally)
     _, model_file_path, _, _, _ = create_random_model_env(tmp_path, build_wheels=True)
     mlflow_model = None
 
     with open(model_file_path) as f:
         original_model_file = yaml.safe_load(f)
 
-    # Build wheels should not exist in the original model_file (sanity check)
+    # `wheels` should not exist in the original model_file (sanity check)
     assert "wheels" not in original_model_file["flavors"]["python_function"]["artifacts"]
+    # `run_id` should exist in the original model_file (sanity check)
+    assert "run_id" in original_model_file
 
     _update_model_file(mlflow_model, model_file_path)
 
     with open(model_file_path) as f:
         model_file = yaml.safe_load(f)
 
-    # There should be no change in run_id and utc_time_created
-    assert model_file["run_id"] == original_model_file["run_id"]
-    assert model_file["utc_time_created"] == original_model_file["utc_time_created"]
+    # `run_id` should be deleted from the model_file
+    assert "run_id" not in model_file
+    # `utc_time_created` should be updated to the current time
+    assert model_file["utc_time_created"] != original_model_file["utc_time_created"]
+    # TODO: Update this if we change this section of the model file
+    # The key `wheels` should be in under artifacts in MLModel file and should be set to True
     assert "wheels" in model_file["flavors"]["python_function"]["artifacts"]
+    assert model_file["flavors"]["python_function"]["artifacts"]["wheels"]
 
 
 def test_update_conda_file_with_wheels(tmp_path):
@@ -253,3 +266,11 @@ def test_update_conda_file_with_wheels(tmp_path):
     wheels_requirements_list.sort()
 
     assert conda_wheels_requirements_list == wheels_requirements_list
+
+
+# TODO: Add test to check if the correct mlflow model is being returned by log model
+# TODO: Add test to check if the correct mlflow model is being returned by save model
+# TODO: Add end-to-end test for log_model()
+# TODO: Add end-to-end test for save_model()
+# TODO: Add test to check if wheels are not overridden when they already exist during log_model()
+# TODO: Add test to check if wheels are not overridden when they already exist during save_model()
