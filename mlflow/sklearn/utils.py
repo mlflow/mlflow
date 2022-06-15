@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 # The earliest version we're guaranteed to support. Autologging utilities may not work properly
 # on scikit-learn older than this version.
-_MIN_SKLEARN_VERSION = "0.20.3"
+_MIN_SKLEARN_VERSION = "0.22.1"
 
 # The prefix to note that all calculated metrics and artifacts are solely based on training datasets
 _TRAINING_PREFIX = "training_"
