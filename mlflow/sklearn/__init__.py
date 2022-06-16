@@ -1227,7 +1227,6 @@ def _autolog(
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _TRAINING_PREFIX,
-        _is_supported_version,
         _get_X_y_and_sample_weight,
         _gen_xgboost_sklearn_estimators_to_patch,
         _gen_lightgbm_sklearn_estimators_to_patch,
