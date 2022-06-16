@@ -4,6 +4,7 @@ from sklearn import datasets, neighbors
 import yaml
 import mlflow
 import os
+from unittest import mock
 from mlflow import wheeled_model
 from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -160,7 +161,7 @@ def test_model_log_load(sklearn_knn_model):
     assert wheels_list == pip_requirements_list
 
 
-def test_model_save_model(tmp_path, sklearn_knn_model):
+def test_model_save_load(tmp_path, sklearn_knn_model):
     model_name = f"wheels-test-{random_int()}"
     model_uri = f"models:/{model_name}/1"
 
@@ -260,3 +261,89 @@ def test_model_save_model(tmp_path, sklearn_knn_model):
 
     wheels_list.sort()
     assert wheels_list == pip_requirements_list
+
+
+def test_logging_wheeled_model(sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+    model_uri = f"models:/{model_name}/1"
+    wheeled_model_uri = f"models:/{model_name}/2"
+
+    # Log a model
+    sklearn_artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model,
+            artifact_path=sklearn_artifact_path,
+            registered_model_name=model_name,
+        )
+
+    # Re-log with wheels
+    wheeled_artifact_path = "model"
+    with mlflow.start_run():
+        wheeled_model.log_model(
+            artifact_path=wheeled_artifact_path,
+            registered_model_name=model_name,
+            model_uri=model_uri,
+        )
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.wheeled_model._logger.warning") as warn_mock:
+        warn_mock.side_effect = custom_warn
+
+        # Log wheeled model
+        double_wheeled_artifact_path = "model"
+        with mlflow.start_run():
+            wheeled_model.log_model(
+                artifact_path=double_wheeled_artifact_path,
+                registered_model_name=model_name,
+                model_uri=wheeled_model_uri,
+            )
+
+    assert (
+        "This model already has packaged wheels. New wheels will not be packaged." in log_messages
+    )
+
+
+def test_saving_wheeled_model(tmp_path, sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+    model_uri = f"models:/{model_name}/1"
+    wheeled_model_uri = f"models:/{model_name}/2"
+
+    # Log a model
+    sklearn_artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model,
+            artifact_path=sklearn_artifact_path,
+            registered_model_name=model_name,
+        )
+
+    # Re-log with wheels
+    wheeled_artifact_path = "model"
+    with mlflow.start_run():
+        wheeled_model.log_model(
+            artifact_path=wheeled_artifact_path,
+            registered_model_name=model_name,
+            model_uri=model_uri,
+        )
+
+    log_messages = []
+
+    def custom_warn(message_text, *args, **kwargs):
+        log_messages.append(message_text % args % kwargs)
+
+    with mock.patch("mlflow.wheeled_model._logger.warning") as warn_mock:
+        warn_mock.side_effect = custom_warn
+
+        # Save wheeled model
+        double_wheeled_model_path = os.path.join(tmp_path, "model")
+        with mlflow.start_run():
+            wheeled_model.save_model(path=double_wheeled_model_path, model_uri=wheeled_model_uri)
+
+    assert (
+        "This model already has packaged wheels. New wheels will not be packaged." in log_messages
+    )
