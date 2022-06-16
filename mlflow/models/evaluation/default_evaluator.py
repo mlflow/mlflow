@@ -16,6 +16,7 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
@@ -824,7 +825,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if isinstance(raw_artifact, str):
                     f.write(raw_artifact)
                 else:
-                    json.dump(raw_artifact, f)
+                    json.dump(raw_artifact, f, cls=NumpyEncoder)
         elif inferred_type is CsvEvaluationArtifact:
             raw_artifact.to_csv(artifact_file_local_path, index=False)
         elif inferred_type is NumpyEvaluationArtifact:
