@@ -17,7 +17,6 @@ import logging
 import numpy as np
 import pickle
 import yaml
-import warnings
 import weakref
 from collections import defaultdict, OrderedDict
 from packaging.version import Version
@@ -1249,7 +1248,6 @@ def _autolog(
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
-
 
     def fit_mlflow_xgboost_and_lightgbm(original, self, *args, **kwargs):
         """
