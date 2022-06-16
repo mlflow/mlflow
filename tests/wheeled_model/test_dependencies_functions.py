@@ -197,8 +197,10 @@ def test_update_model_file(tmp_path):
     assert model_file["utc_time_created"] == mlflow_model.utc_time_created
     # TODO: Update this if we change this section of the model file
     # The key `wheels` should be in under artifacts in MLModel file and should be set to True
-    assert "wheels" in model_file["flavors"]["python_function"]["artifacts"]
-    assert model_file["flavors"]["python_function"]["artifacts"]["wheels"]
+    assert (
+        "wheels" in model_file["flavors"]["python_function"]["artifacts"]
+        and model_file["flavors"]["python_function"]["artifacts"]["wheels"]
+    )
 
     # Test case: mlflow_model is None (this occurs when the model is saved locally)
     _, model_file_path, _, _, _ = create_random_model_env(tmp_path, build_wheels=True)
@@ -223,8 +225,10 @@ def test_update_model_file(tmp_path):
     assert model_file["utc_time_created"] != original_model_file["utc_time_created"]
     # TODO: Update this if we change this section of the model file
     # The key `wheels` should be in under artifacts in MLModel file and should be set to True
-    assert "wheels" in model_file["flavors"]["python_function"]["artifacts"]
-    assert model_file["flavors"]["python_function"]["artifacts"]["wheels"]
+    assert (
+        "wheels" in model_file["flavors"]["python_function"]["artifacts"]
+        and model_file["flavors"]["python_function"]["artifacts"]["wheels"]
+    )
 
 
 def test_update_conda_file_with_wheels(tmp_path):
@@ -268,9 +272,5 @@ def test_update_conda_file_with_wheels(tmp_path):
     assert conda_wheels_requirements_list == wheels_requirements_list
 
 
-# TODO: Add test to check if the correct mlflow model is being returned by log model
-# TODO: Add test to check if the correct mlflow model is being returned by save model
-# TODO: Add end-to-end test for log_model()
-# TODO: Add end-to-end test for save_model()
 # TODO: Add test to check if wheels are not overridden when they already exist during log_model()
 # TODO: Add test to check if wheels are not overridden when they already exist during save_model()
