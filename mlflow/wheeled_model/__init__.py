@@ -26,7 +26,7 @@ FLAVOR_NAME = "wheeled_model"
 
 
 # TODO: Verify the arguments with Arjun
-def log_model(artifact_path, model_uri, registered_model_name):
+def log_model(artifact_path, model_uri, registered_model_name=None):
     """
     This re-logs / re-registers the model with `model_uri` to mlflow / model registry with all
     required wheels.
@@ -82,15 +82,15 @@ def save_model(path, model_uri, **kwargs):
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
 
-    wheels_dir = os.path.join(path, _ARTIFACTS_FOLDER_NAME, _WHEELS_FOLDER_NAME)
-    pip_requirements_path = os.path.join(path, _REQUIREMENTS_FILE_NAME)
-    conda_env_path = os.path.join(path, _CONDA_ENV_FILE_NAME)
-    model_file_path = os.path.join(path, MLMODEL_FILE_NAME)
-
     if not os.path.exists(path):
         os.makedirs(path)
 
-    _download_artifact_from_uri(model_uri, output_path=path)
+    local_path = _download_artifact_from_uri(model_uri, output_path=path)
+
+    wheels_dir = os.path.join(local_path, _ARTIFACTS_FOLDER_NAME, _WHEELS_FOLDER_NAME)
+    pip_requirements_path = os.path.join(local_path, _REQUIREMENTS_FILE_NAME)
+    conda_env_path = os.path.join(local_path, _CONDA_ENV_FILE_NAME)
+    model_file_path = os.path.join(local_path, MLMODEL_FILE_NAME)
 
     # Check if the model file has `wheels` set to True
     try:
