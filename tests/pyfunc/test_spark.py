@@ -267,7 +267,7 @@ def test_spark_udf_autofills_no_arguments(spark):
                 columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(AnalysisException, match=r"cannot resolve 'a' given input columns"):
+        with pytest.raises(AnalysisException, match=r"Column 'a' does not exist"):
             bad_data.withColumn("res", udf())
 
     nameless_signature = ModelSignature(
