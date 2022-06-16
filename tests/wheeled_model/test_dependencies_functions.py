@@ -270,7 +270,3 @@ def test_update_conda_file_with_wheels(tmp_path):
     wheels_requirements_list.sort()
 
     assert conda_wheels_requirements_list == wheels_requirements_list
-
-
-# TODO: Add test to check if wheels are not overridden when they already exist during log_model()
-# TODO: Add test to check if wheels are not overridden when they already exist during save_model()
