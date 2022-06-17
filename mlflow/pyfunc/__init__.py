@@ -1268,7 +1268,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 else:
                     row_batch_args = input_batch
 
-                yield _predict_row_batch(batch_predict_fn, row_batch_args)
+                if len(row_batch_args[0]) > 0:
+                    yield _predict_row_batch(batch_predict_fn, row_batch_args)
         finally:
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)
