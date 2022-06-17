@@ -4,6 +4,7 @@ from sklearn import datasets, neighbors
 import yaml
 import mlflow
 import os
+import re
 from unittest import mock
 from mlflow import wheeled_model
 from mlflow.models import Model
@@ -393,3 +394,32 @@ def test_save_model_with_non_model_uri(tmp_path, sklearn_knn_model):
         wheeled_model_path = os.path.join(tmp_path, "model")
         with mlflow.start_run():
             wheeled_model.save_model(path=wheeled_model_path, model_uri=model_uri)
+
+
+def test_save_model_with_extra_kwargs(tmp_path, sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+    model_uri = f"models:/{model_name}/1"
+
+    # Log a model
+    sklearn_artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model,
+            artifact_path=sklearn_artifact_path,
+            registered_model_name=model_name,
+        )
+
+    # Add additional kwargs while saving with wheels
+    extra_kwargs = {"extra_kwarg": None}
+    match = "save_model() got unexpected keyword arguments: {}".format(extra_kwargs)
+    with pytest.raises(TypeError, match=re.escape(match)):
+        wheeled_model_path = os.path.join(tmp_path, "model")
+        with mlflow.start_run():
+            wheeled_model.save_model(
+                path=wheeled_model_path, model_uri=model_uri, mlflow_model=Model(), extra_kwarg=None
+            )
+
+    with pytest.raises(TypeError, match=re.escape(match)):
+        wheeled_model_path = os.path.join(tmp_path, "model")
+        with mlflow.start_run():
+            wheeled_model.save_model(path=wheeled_model_path, model_uri=model_uri, extra_kwarg=None)

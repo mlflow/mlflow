@@ -130,7 +130,6 @@ def _update_model_file(mlflow_model, original_model_file_path):
 
     # Update model_file with the run and utc_time_create of the newly logged model
     if mlflow_model:
-
         # When the user uses log_model(), Model.log() inherently creates a new a run_id and
         # mlflow_model with the time that it was created. This is used to update the run_id
         # and utc_time_created in the MLmodel file.
