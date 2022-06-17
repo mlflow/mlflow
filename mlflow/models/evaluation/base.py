@@ -617,7 +617,7 @@ def _evaluate(
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     model_uuid = model.metadata.model_uuid
     dataset._log_dataset_tag(client, run_id, model_uuid)
 

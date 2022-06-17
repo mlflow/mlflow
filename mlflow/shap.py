@@ -231,7 +231,7 @@ def log_explanation(predict_function, features, artifact_path=None):
             mlflow.shap.log_explanation(model.predict, X)
 
         # list artifacts
-        client = mlflow.tracking.MlflowClient()
+        client = mlflow.MlflowClient()
         artifact_path = "model_explanations_shap"
         artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
         print("# artifacts:")
