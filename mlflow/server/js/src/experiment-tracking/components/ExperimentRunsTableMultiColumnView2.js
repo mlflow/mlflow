@@ -644,7 +644,7 @@ function DateCellRenderer(props) {
           />
         </div>
       ) : (
-        <span style={{ paddingLeft: level == 0 ? 18 : (18 + 3) * level}} />
+        <span style={{ paddingLeft: level == 0 ? 4 : (18 + 4) * level}} />
       )}
       <Link
         to={Routes.getRunPageRoute(experimentId, runUuid)}
