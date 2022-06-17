@@ -20,7 +20,7 @@ from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.models import Model
 
 import mlflow.pyfunc
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,

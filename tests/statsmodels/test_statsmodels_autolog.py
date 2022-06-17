@@ -25,7 +25,7 @@ from tests.statsmodels.test_statsmodels_model_export import _get_dates_from_df
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -169,7 +169,7 @@ def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
     run = get_latest_run()
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
     assert ("model" in artifact_paths) == log_models
 

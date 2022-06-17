@@ -43,7 +43,7 @@ def test_docker_project_execution(
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = mlflow.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
