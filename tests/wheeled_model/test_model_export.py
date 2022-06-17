@@ -147,7 +147,6 @@ def test_model_log_load(sklearn_knn_model):
 
     pip_requirements_list.sort()
     conda_pip_requirements_list.sort()
-
     assert pip_requirements_list == conda_pip_requirements_list
 
     # Check if requirements.txt and wheels directory are consistent

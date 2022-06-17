@@ -3,6 +3,7 @@ The `wheeled_model` flavor serves as a convenience interface enabling users to
 re-log registered models back to MLflow or the model registry with all the wheels
 required by the model bundled in.
 """
+
 import os
 from datetime import datetime
 import yaml
@@ -103,7 +104,7 @@ def save_model(path, model_uri, **kwargs):
 
     # If mlflow_model == None, then just declare a new one.
     # This occurs when the users explicitly uses save_model()
-    # If mlflow_model != None, it created and passed in to save_model() in Model.log().
+    # If mlflow_model != None, it was created and passed in to save_model() in Model.log().
 
     if not mlflow_model:
         # Loading the MLmodel file into a new Model() object.

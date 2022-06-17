@@ -47,7 +47,6 @@ def create_random_pip_requirements_file(model_path):
 def create_wheels_directory(model_path):
     wheels_dir = os.path.join(model_path, _ARTIFACTS_FOLDER_NAME, _WHEELS_FOLDER_NAME)
     os.makedirs(wheels_dir)
-
     return wheels_dir
 
 
