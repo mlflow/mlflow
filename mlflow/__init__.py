@@ -152,6 +152,7 @@ create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
 log_params = mlflow.tracking.fluent.log_params
 log_metrics = mlflow.tracking.fluent.log_metrics
+set_experiment_tags = mlflow.tracking.fluent.set_experiment_tags
 set_tags = mlflow.tracking.fluent.set_tags
 delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
