@@ -11,6 +11,7 @@ import mlflow
 from mlflow.pyfunc.model import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
@@ -32,19 +33,8 @@ def log_model(artifact_path, model_uri, registered_model_name=None):
     required wheels.
 
     :param artifact_path: The run-relative artifact path to which to log the Python model.
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``sgit3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-                      - ``mlflow-artifacts:/path/to/model``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+    :param model_uri: URI referring to the MLmodel directory. Only ``models:/`` URIs are
+                      currently supported
     :param registered_model_name: If given, create a model version under ``registered_model_name``,
                                   also creating a registered model if one with the given name does
                                   not exist.
@@ -64,19 +54,8 @@ def save_model(path, model_uri, **kwargs):
     Saves model registered at `model_uri` to `path` along with all the required wheels.
 
     :param path: The path to which to save the packaged model.
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-                      - ``mlflow-artifacts:/path/to/model``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+    :param model_uri: URI referring to the MLmodel directory. Only ``models:/`` URIs are
+                  currently supported
     """
     mlflow_model = kwargs.pop("mlflow_model", None)
     if len(kwargs) > 0:
@@ -84,6 +63,9 @@ def save_model(path, model_uri, **kwargs):
 
     if not os.path.exists(path):
         os.makedirs(path)
+
+    # Check to see that model_uri is of the form `models:/`
+    _, _, _ = _parse_model_uri(model_uri)
 
     local_path = _download_artifact_from_uri(model_uri, output_path=path)
 

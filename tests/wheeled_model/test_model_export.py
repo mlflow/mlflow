@@ -7,8 +7,10 @@ import os
 from unittest import mock
 from mlflow import wheeled_model
 from mlflow.models import Model
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _is_pip_deps
+from mlflow.store.artifact.utils.models import _improper_model_uri_msg
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
@@ -347,3 +349,47 @@ def test_saving_wheeled_model(tmp_path, sklearn_knn_model):
     assert (
         "This model already has packaged wheels. New wheels will not be packaged." in log_messages
     )
+
+
+def test_log_model_with_non_model_uri(sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+
+    # Log a model
+    sklearn_artifact_path = "model"
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model,
+            artifact_path=sklearn_artifact_path,
+            registered_model_name=model_name,
+        )
+        model_uri = model_info.model_uri
+
+    # Re-log with wheels
+    with pytest.raises(MlflowException, match=_improper_model_uri_msg(model_uri)):
+        wheeled_artifact_path = "model"
+        with mlflow.start_run():
+            wheeled_model.log_model(
+                artifact_path=wheeled_artifact_path,
+                registered_model_name=model_name,
+                model_uri=model_uri,
+            )
+
+
+def test_save_model_with_non_model_uri(tmp_path, sklearn_knn_model):
+    model_name = f"wheels-test-{random_int()}"
+
+    # Log a model
+    sklearn_artifact_path = "model"
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            sk_model=sklearn_knn_model,
+            artifact_path=sklearn_artifact_path,
+            registered_model_name=model_name,
+        )
+        model_uri = model_info.model_uri
+
+    # Save with wheels
+    with pytest.raises(MlflowException, match=_improper_model_uri_msg(model_uri)):
+        wheeled_model_path = os.path.join(tmp_path, "model")
+        with mlflow.start_run():
+            wheeled_model.save_model(path=wheeled_model_path, model_uri=model_uri)
