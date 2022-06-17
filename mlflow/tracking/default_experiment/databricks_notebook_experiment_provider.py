@@ -1,6 +1,6 @@
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
-from mlflow import MlflowClient
+from mlflow.tracking import MlflowClient
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils
 from mlflow.utils.mlflow_tags import (
