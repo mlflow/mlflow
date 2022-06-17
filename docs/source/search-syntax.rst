@@ -142,7 +142,7 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Use the :py:func:`mlflow.tracking.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
+Use the :py:func:`mlflow.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
 search programmatically. You can specify the list of columns to order by
 (for example, "metrics.rmse") in the ``order_by`` column. The column can contain an
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by

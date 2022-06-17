@@ -36,7 +36,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
     val_metric = "val_{}".format(metric)
     test_metric = "test_{}".format(metric)
     np.random.seed(seed)
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = mlflow.MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf

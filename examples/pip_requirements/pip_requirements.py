@@ -17,7 +17,7 @@ def read_lines(path):
 
 
 def get_pip_requirements(run_id, artifact_path, return_constraints=False):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     req_path = client.download_artifacts(run_id, f"{artifact_path}/requirements.txt")
     reqs = read_lines(req_path)
 

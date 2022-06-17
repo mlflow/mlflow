@@ -34,10 +34,11 @@ def main():
     # Log artifacts
     run_id1 = log_artifacts()
     # Download artifacts
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     print("Downloading artifacts")
-    pprint(os.listdir(client.download_artifacts(run_id1, "")))
-    pprint(os.listdir(client.download_artifacts(run_id1, "dir")))
+    pprint(os.listdir(client.download_artifacts(run.info.run_id, "")))
+    pprint(os.listdir(client.download_artifacts(run.info.run_id, "dir")))
+
     # List artifacts
     print("Listing artifacts")
     pprint(client.list_artifacts(run_id1))
