@@ -690,7 +690,7 @@ class _AutologgingMetricsManager:
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
-        client = mlflow.tracking.MlflowClient()
+        client = mlflow.MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             evaluator_call_list = []

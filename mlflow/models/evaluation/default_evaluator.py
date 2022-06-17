@@ -976,7 +976,7 @@ class DefaultEvaluator(ModelEvaluator):
         import matplotlib
 
         with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
-            self.client = mlflow.tracking.MlflowClient()
+            self.client = mlflow.MlflowClient()
 
             self.temp_dir = temp_dir
             self.model = model
