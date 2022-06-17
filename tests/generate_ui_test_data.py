@@ -9,7 +9,7 @@ import random
 import string
 from random import random as rand
 
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 def log_metrics(metrics):

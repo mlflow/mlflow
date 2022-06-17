@@ -22,7 +22,7 @@ def yield_artifacts(run_id, path=None):
     """
     Yields all artifacts in the specified run.
     """
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     for item in client.list_artifacts(run_id, path):
         if item.is_dir:
             yield from yield_artifacts(run_id, item.path)

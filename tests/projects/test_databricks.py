@@ -15,7 +15,7 @@ from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils import file_utils
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.mlflow_tags import (
@@ -232,7 +232,7 @@ def test_run_databricks_validations(
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
-        mlflow_service = mlflow.tracking.MlflowClient()
+        mlflow_service = mlflow.MlflowClient()
         assert (
             len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0
         )

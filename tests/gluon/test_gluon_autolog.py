@@ -65,7 +65,7 @@ def get_gluon_random_data_run(log_models=True):
         est = get_estimator(model, trainer)
 
         est.fit(data, epochs=3, val_data=validation)
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     return client.get_run(run.info.run_id)
 
 
@@ -123,7 +123,7 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
 
 
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     artifacts = client.list_artifacts(gluon_random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert "model" in artifacts
@@ -135,7 +135,7 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
 @pytest.mark.parametrize("log_models", [True, False])
 def test_gluon_autolog_log_models_configuration(log_models):
     random_data_run = get_gluon_random_data_run(log_models)
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     artifacts = client.list_artifacts(random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert ("model" in artifacts) == log_models

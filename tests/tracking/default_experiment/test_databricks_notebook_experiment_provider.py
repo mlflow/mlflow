@@ -2,7 +2,7 @@ from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
     DatabricksRepoNotebookExperimentProvider,

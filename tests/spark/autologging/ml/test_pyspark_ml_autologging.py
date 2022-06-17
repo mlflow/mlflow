@@ -136,7 +136,7 @@ def get_expected_class_tags(estimator):
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     data = client.get_run(run_id).data
     # Ignore tags mlflow logs by default (e.g. "mlflow.user")
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
@@ -541,7 +541,7 @@ def test_param_search_estimator(  # pylint: disable=unused-argument
         "search_results.csv",
     ]
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     child_runs = client.search_runs(
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
@@ -926,7 +926,7 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
 
 def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
     artifacts_dir = pathlib.Path(run.info.artifact_uri.replace("file://", ""))
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
     ml_model_filename = "MLmodel"
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()

@@ -45,5 +45,5 @@ def test_set_run_status_to_killed():
     """
     with mlflow.start_run() as run:
         pass
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     client.set_terminated(run_id=run.info.run_id, status="KILLED")
