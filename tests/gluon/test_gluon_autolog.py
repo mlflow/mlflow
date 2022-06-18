@@ -11,7 +11,6 @@ from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
-from mlflow.tracking.client import MlflowClient
 from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
@@ -213,5 +212,5 @@ def test_autolog_registering_model():
     with mlflow.start_run():
         est.fit(data, epochs=3)
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name

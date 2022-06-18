@@ -9,7 +9,7 @@ from unittest import mock
 
 import mlflow
 from mlflow.utils import gorilla
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     log_fn_args_as_params,

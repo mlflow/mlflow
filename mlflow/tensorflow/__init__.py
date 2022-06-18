@@ -30,7 +30,6 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils import is_iterator
 from mlflow.utils.annotations import keyword_only
@@ -909,7 +908,7 @@ def autolog(
                             signature=signature,
                             **save_model_kwargs,
                         )
-                        client = MlflowClient()
+                        client = mlflow.MlflowClient()
                         client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
 
                     try:

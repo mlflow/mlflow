@@ -7,7 +7,6 @@ import weakref
 
 import mlflow
 from mlflow.entities import Metric, Param
-from mlflow.tracking import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
     _truncate_dict,
@@ -351,7 +350,7 @@ def _get_instance_param_map(instance, uid_to_indexed_name_map):
 def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
     from itertools import zip_longest
 
-    client = MlflowClient()
+    client = mlflow.MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
@@ -419,7 +418,7 @@ def _log_parameter_search_results_as_artifact(param_maps, metrics_dict, run_id):
     with TempDir() as t:
         results_path = t.path("search_results.csv")
         results_df.to_csv(results_path, index=False)
-        MlflowClient().log_artifact(run_id, results_path)
+        mlflow.MlflowClient().log_artifact(run_id, results_path)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
