@@ -13,6 +13,8 @@ from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
 )
 
+import mlflow.tracking
+
 
 class ModelsArtifactRepository(ArtifactRepository):
     """
@@ -59,12 +61,11 @@ class ModelsArtifactRepository(ArtifactRepository):
     def get_underlying_uri(uri):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
-        from mlflow import MlflowClient
 
         databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
-        client = MlflowClient(registry_uri=databricks_profile_uri)
+        client = mlflow.tracking.MlflowClient(registry_uri=databricks_profile_uri)
         (name, version) = get_model_name_and_version(client, uri)
         download_uri = client.get_model_version_download_uri(name, version)
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)

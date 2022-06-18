@@ -7,7 +7,7 @@ import weakref
 
 import mlflow
 from mlflow.entities import Metric, Param
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
     _truncate_dict,
