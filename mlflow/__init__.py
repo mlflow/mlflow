@@ -43,6 +43,7 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 import mlflow.projects as projects
 import mlflow.tracking as tracking
 import mlflow.models
+import mlflow.artifacts
 
 # model flavors
 _model_flavors_supported = []

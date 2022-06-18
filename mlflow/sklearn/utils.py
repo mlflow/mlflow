@@ -7,7 +7,7 @@ import numpy as np
 import time
 import warnings
 
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.arguments_utils import _get_arg_names

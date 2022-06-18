@@ -45,12 +45,11 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
-        from mlflow import MlflowClient
 
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
-        client = MlflowClient(registry_uri=self.databricks_profile_uri)
+        client = mlflow.tracking.MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
 
     def _call_endpoint(self, json, endpoint):
