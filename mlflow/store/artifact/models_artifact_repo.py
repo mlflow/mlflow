@@ -13,7 +13,6 @@ from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
 )
 
-import mlflow.tracking
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -65,7 +64,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
-        client = mlflow.tracking.MlflowClient(registry_uri=databricks_profile_uri)
+        client = mlflow.MlflowClient(registry_uri=databricks_profile_uri)
         (name, version) = get_model_name_and_version(client, uri)
         download_uri = client.get_model_version_download_uri(name, version)
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)

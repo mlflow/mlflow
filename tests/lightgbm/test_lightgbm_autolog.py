@@ -16,7 +16,7 @@ import mlflow.lightgbm
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 

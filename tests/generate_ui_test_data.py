@@ -9,7 +9,6 @@ import random
 import string
 from random import random as rand
 
-from mlflow import MlflowClient
 
 
 def log_metrics(metrics):
@@ -35,7 +34,7 @@ if __name__ == "__main__":
         action="store_true",
     )
     args = parser.parse_args()
-    client = MlflowClient()
+    client = mlflow.MlflowClient()
     # Simple run
     for l1, alpha in itertools.product([0, 0.25, 0.5, 0.75, 1], [0, 0.5, 1]):
         with mlflow.start_run(run_name="ipython"):

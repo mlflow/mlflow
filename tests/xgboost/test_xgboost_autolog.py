@@ -17,7 +17,7 @@ import mlflow.xgboost
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")

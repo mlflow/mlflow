@@ -5,7 +5,6 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.keras
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
@@ -408,5 +407,5 @@ def test_autolog_registering_model(random_train_data, random_one_hot_labels):
     with mlflow.start_run():
         model.fit(data, labels, epochs=10)
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
