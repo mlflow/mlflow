@@ -384,5 +384,5 @@ def test_autolog_registering_model():
     with mlflow.start_run():
         trainer.fit(model, dm)
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
