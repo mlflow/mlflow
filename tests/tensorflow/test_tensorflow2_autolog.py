@@ -22,7 +22,6 @@ import mlflow.tensorflow
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     BatchMetricsLogger,
@@ -1295,7 +1294,7 @@ def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_
         model = create_tf_keras_model()
         model.fit(random_train_data, random_one_hot_labels, epochs=10)
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
 
 

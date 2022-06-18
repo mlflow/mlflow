@@ -18,7 +18,6 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
-from mlflow.tracking.client import MlflowClient
 
 import pyspark
 from pyspark.ml import Pipeline
@@ -920,7 +919,7 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
         lr = LinearRegression()
         lr.fit(dataset_binomial)
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
 
 

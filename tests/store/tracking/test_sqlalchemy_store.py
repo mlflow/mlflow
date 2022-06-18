@@ -1941,7 +1941,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
           import json
           import mlflow
-          from mlflow.tracking.client import MlflowClient
+          from mlflow import MlflowClient
 
           mlflow.set_tracking_uri(
               "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")

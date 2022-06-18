@@ -4,7 +4,6 @@ import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
 import mlflow.statsmodels
-from mlflow.tracking.client import MlflowClient
 from tests.statsmodels.model_fixtures import (
     arma_model,
     ols_model,
@@ -218,5 +217,5 @@ def test_autolog_registering_model():
     with mlflow.start_run():
         ols_model()
 
-        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        registered_model = mlflow.MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name

@@ -8,8 +8,7 @@ from unittest import mock
 from click.testing import CliRunner
 import pytest
 
-from mlflow import cli
-from mlflow.tracking.client import MlflowClient
+from mlflow import cli, MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
