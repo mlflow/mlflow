@@ -8,7 +8,6 @@ from py4j.java_gateway import CallbackServerParameters
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
@@ -90,7 +89,7 @@ def _set_run_tag_async(run_id, path, version, data_format):
 
 
 def _set_run_tag(run_id, path, version, data_format):
-    client = MlflowClient()
+    client = mlflow.MlflowClient()
     table_info_string = _get_table_info_string(path, version, data_format)
     existing_run = client.get_run(run_id)
     existing_tag = existing_run.data.tags.get(_SPARK_TABLE_INFO_TAG_NAME)

@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional, Union
 
 from mlflow.entities import Param, RunTag, Metric
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import MlflowClient
 from mlflow.utils import chunk_list, _truncate_dict
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,

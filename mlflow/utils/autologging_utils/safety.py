@@ -11,7 +11,6 @@ import typing
 import mlflow
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import _logger
@@ -768,7 +767,7 @@ def _validate_autologging_run(autologging_integration, run_id):
         - The run has an autologging tag whose value is the name of the autologging integration
         - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
     """
-    client = MlflowClient()
+    client = mlflow.MlflowClient()
     run = client.get_run(run_id)
     autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)
     assert autologging_tag_value == autologging_integration, (

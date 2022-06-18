@@ -7,7 +7,6 @@ import contextlib
 
 import mlflow
 from mlflow.entities import Metric
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 # Define the module-level logger for autologging utilities before importing utilities defined in
@@ -201,7 +200,7 @@ class BatchMetricsLogger:
 
     def __init__(self, run_id=None, tracking_uri=None):
         self.run_id = run_id
-        self.client = MlflowClient(tracking_uri)
+        self.client = mlflow.MlflowClient(tracking_uri)
 
         # data is an array of Metric objects
         self.data = []
