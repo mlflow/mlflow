@@ -431,18 +431,6 @@ def get_store_mock():
     with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock
 
-def test_set_experiment_tags():
-    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
-    with start_run() as active_run:
-        test_experiment = active_run.info.experiment_id
-        current_experiment = tracking.MlflowClient().get_experiment(test_experiment)
-        assert len(current_experiment.tags) == 0
-        mlflow.set_experiment_tags(exact_expected_tags)
-    finished_experiment = tracking.MlflowClient().get_experiment(test_experiment)
-    # Validate tags
-    assert len(finished_experiment.tags) == len(exact_expected_tags)
-    for tag_key, tag_value in finished_experiment.tags.items():
-        assert str(exact_expected_tags[tag_key]) == tag_value
 
 def test_set_tags():
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}

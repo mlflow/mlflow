@@ -1050,3 +1050,35 @@ def test_last_active_run_returns_most_recently_ended_active_run():
     assert last_active_run.info.run_id == run_id
     assert last_active_run.data.metrics == {"a": 1.0}
     assert last_active_run.data.params == {"b": "2"}
+
+
+def test_set_experiment_tag():
+    test_tags = {"new_test_tag_1": "abc", "new_test_tag_2": 5, "new/nested/tag": "cbd"}
+    tag_counter = 0
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(current_experiment.tags) == 0
+        for tag_key, tag_value in test_tags.items():
+            mlflow.set_experiment_tag(tag_key, tag_value)
+            tag_counter += 1
+            current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+            assert tag_counter == len(current_experiment.tags)
+        finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(finished_experiment.tags) == len(test_tags)
+        for tag_key, tag_value in test_tags.items():
+            assert str(test_tags[tag_key] == tag_value)
+
+
+def test_set_experiment_tags():
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(current_experiment.tags) == 0
+        mlflow.set_experiment_tags(exact_expected_tags)
+    finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+    # Validate tags
+    assert len(finished_experiment.tags) == len(exact_expected_tags)
+    for tag_key, tag_value in finished_experiment.tags.items():
+        assert str(exact_expected_tags[tag_key]) == tag_value
