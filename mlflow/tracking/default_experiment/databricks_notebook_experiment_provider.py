@@ -1,6 +1,6 @@
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
-from mlflow.tracking import MlflowClient
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils
 from mlflow.utils.mlflow_tags import (
@@ -39,7 +39,9 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
         # If no corresponding experiment exist, it will create a new one and return
         # the newly created experiment ID.
         try:
-            experiment_id = MlflowClient().create_experiment(source_notebook_name, None, tags)
+            experiment_id = mlflow.MlflowClient().create_experiment(
+                source_notebook_name, None, tags
+            )
         except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(
                 databricks_pb2.INVALID_PARAMETER_VALUE

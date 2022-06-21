@@ -1,7 +1,7 @@
 import logging
+import mlflow
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_TYPE_INFO,
     MLFLOW_EXPERIMENT_SOURCE_TYPE,
@@ -34,7 +34,7 @@ class DatabricksJobExperimentProvider(DefaultExperimentProvider):
         # return the corresponding experiment if one exists for the job.
         # If no corresponding experiment exist, it will create a new one and return
         # the newly created experiment
-        experiment_id = MlflowClient().create_experiment(
+        experiment_id = mlflow.MlflowClient().create_experiment(
             databricks_utils.get_experiment_name_from_job_id(job_id), None, tags
         )
         _logger.debug(

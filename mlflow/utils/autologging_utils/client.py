@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional, Union
 
 from mlflow.entities import Param, RunTag, Metric
 from mlflow.exceptions import MlflowException
-from mlflow.tracking import MlflowClient
+import mlflow
 from mlflow.utils import chunk_list, _truncate_dict
 from mlflow.utils.validation import (
     MAX_ENTITIES_PER_BATCH,
@@ -97,7 +97,7 @@ class MlflowAutologgingQueueingClient:
     """
 
     def __init__(self, tracking_uri=None):
-        self._client = MlflowClient(tracking_uri)
+        self._client = mlflow.MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
 
     def __enter__(self):
