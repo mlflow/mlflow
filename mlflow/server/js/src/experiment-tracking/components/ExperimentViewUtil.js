@@ -660,7 +660,6 @@ export default class ExperimentViewUtil {
       dfs(idx,0)
 
     })
-    console.log(mergedRows);
     return mergedRows.slice(0);
   }
 
