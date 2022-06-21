@@ -660,6 +660,7 @@ export default class ExperimentViewUtil {
       dfs(idx,0)
 
     })
+    console.log(mergedRows);
     return mergedRows.slice(0);
   }
 
@@ -898,20 +899,5 @@ export class TreeNode {
   }
   isCycle() {
     return this.findRoot() === undefined;
-  }
-  findLevel() {
-    const visited = new Set([this.value]);
-    let current = this;
-    let level = 0;
-
-    while (current.parent !== undefined) {
-      if (visited.has(current.parent.value)) {
-        return undefined;
-      }
-      visited.add(current.value);
-      level++;
-      current = current.parent;
-    }
-    return level;
   }
 }
