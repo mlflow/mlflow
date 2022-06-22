@@ -13,7 +13,7 @@ from mlflow import (
     active_run,
     get_tracking_uri,
     log_artifact,
-    MlflowClient
+    MlflowClient,
 )
 
 if __name__ == "__main__":
