@@ -9,9 +9,9 @@ from contextlib import contextmanager
 import typing
 
 import mlflow
-from mlflow.tracking.client import MlflowClient
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import _logger
