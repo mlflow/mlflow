@@ -38,7 +38,6 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
 
-
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
     import plotly  # pylint: disable=unused-import

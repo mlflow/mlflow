@@ -35,6 +35,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
     _validate_experiment_id,
+    _validate_batch_log_limits,
     _validate_batch_log_data,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
@@ -880,6 +881,7 @@ class FileStore(AbstractStore):
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
+        _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)

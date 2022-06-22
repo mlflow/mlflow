@@ -42,6 +42,7 @@ from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
+    _validate_batch_log_limits,
     _validate_batch_log_data,
     _validate_run_id,
     _validate_metric,
@@ -1065,6 +1066,7 @@ class SqlAlchemyStore(AbstractStore):
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
         _validate_batch_log_data(metrics, params, tags)
+        _validate_batch_log_limits(metrics, params, tags)
         _validate_param_keys_unique(params)
 
         with self.ManagedSessionMaker() as session:
