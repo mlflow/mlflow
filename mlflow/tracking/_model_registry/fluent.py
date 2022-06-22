@@ -1,4 +1,5 @@
 import mlflow
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
@@ -53,7 +54,7 @@ def register_model(
         Name: RandomForestRegressionModel
         Version: 1
     """
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     try:
         create_model_response = client.create_registered_model(name)
         eprint("Successfully registered model '%s'." % create_model_response.name)

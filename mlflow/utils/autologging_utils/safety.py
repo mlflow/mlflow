@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import typing
 
 import mlflow
+from mlflow.tracking.client import MlflowClient
 import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.utils import gorilla
@@ -767,7 +768,7 @@ def _validate_autologging_run(autologging_integration, run_id):
         - The run has an autologging tag whose value is the name of the autologging integration
         - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
     """
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run_id)
     autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)
     assert autologging_tag_value == autologging_integration, (

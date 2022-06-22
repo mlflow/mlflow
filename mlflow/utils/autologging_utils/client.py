@@ -29,6 +29,7 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
 )
 
+from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ class MlflowAutologgingQueueingClient:
     """
 
     def __init__(self, tracking_uri=None):
-        self._client = mlflow.MlflowClient(tracking_uri)
+        self._client = MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
 
     def __enter__(self):

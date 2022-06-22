@@ -1,4 +1,5 @@
 import mlflow
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
@@ -39,7 +40,7 @@ class DatabricksRepoNotebookExperimentProvider(DefaultExperimentProvider):
         # If no corresponding experiment exist, it will create a new one and return
         # the newly created experiment ID.
         try:
-            experiment_id = mlflow.MlflowClient().create_experiment(
+            experiment_id = MlflowClient().create_experiment(
                 source_notebook_name, None, tags
             )
         except MlflowException as e:

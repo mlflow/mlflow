@@ -14,7 +14,6 @@ from mlflow.utils.uri import (
 )
 
 
-
 class ModelsArtifactRepository(ArtifactRepository):
     """
     Handles artifacts associated with a model version in the model registry via URIs of the form:

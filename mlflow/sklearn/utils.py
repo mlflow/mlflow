@@ -8,6 +8,7 @@ import time
 import warnings
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.arguments_utils import _get_arg_names
@@ -542,7 +543,7 @@ def _log_specialized_estimator_content(
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
-            mlflow.MlflowClient().log_artifacts(run_id, tmp_dir.path())
+            MlflowClient().log_artifacts(run_id, tmp_dir.path())
 
     return metrics
 
@@ -659,7 +660,7 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
     with TempDir() as t:
         results_path = t.path("cv_results.csv")
         cv_results_df.to_csv(results_path, index=False)
-        mlflow.MlflowClient().log_artifact(run_id, results_path)
+        MlflowClient().log_artifact(run_id, results_path)
 
 
 # Log how many child runs will be created vs omitted based on `max_tuning_runs`.

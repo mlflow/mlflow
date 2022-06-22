@@ -22,7 +22,7 @@ from collections import defaultdict, OrderedDict
 from packaging.version import Version
 
 import mlflow
-from mlflow import pyfunc
+from mlflow import pyfunc, MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -848,7 +848,7 @@ class _AutologgingMetricsManager:
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
-        client = mlflow.MlflowClient()
+        client = MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             call_commands_list = []
@@ -1093,9 +1093,10 @@ def autolog(
         import numpy as np
         from sklearn.linear_model import LinearRegression
         import mlflow
+        from mlflow import MlflowClient
 
         def fetch_logged_data(run_id):
-            client = mlflow.MlflowClient()
+            client = MlflowClient()
             data = client.get_run(run_id).data
             tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
