@@ -23,7 +23,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,

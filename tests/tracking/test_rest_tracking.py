@@ -452,14 +452,25 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
         },
         "Invalid value 31 for parameter 'key' supplied",
     )
-    assert_bad_request(
+
+
+def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_param_with_empty_string_as_value.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/log-parameter",
         {
             "run_id": run_id,
             "key": "param",
-            # Missing value
+            "value": "",
         },
-        "Missing value for required parameter 'value'",
     )
+    assert response.status_code == 200
 
 
 def test_set_tag_validation(mlflow_client, tracking_server_uri):

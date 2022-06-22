@@ -41,7 +41,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     PROTOBUF_REQUIREMENT,
 )
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
@@ -783,7 +782,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         mlflow_model = mlflow.pyfunc.load_model(model_uri)
         feed_dict = {"feature1": tf.constant([[2.0]])}
         predictions = mlflow_model.predict(feed_dict)
-        assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
+        assert np.allclose(predictions["dense"], model.predict(feed_dict))
 
     load_and_predict()
 

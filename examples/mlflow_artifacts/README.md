@@ -16,6 +16,7 @@ First, launch the tracking server with the artifacts service via `mlflow server`
 ```sh
 # Launch a tracking server with the artifacts service
 $ mlflow server \
+    --backend-store-uri=mlruns \
     --serve-artifacts \
     --artifacts-destination ./mlartifacts \
     --default-artifact-root http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/experiments \
@@ -63,6 +64,12 @@ mlartifacts
                     └── b.txt
 
 5 directories, 2 files
+```
+
+To delete the logged artifacts, run the following command:
+
+```bash
+mlflow gc --backend-store-uri=mlruns --run-ids <run_id>
 ```
 
 ### Clean up

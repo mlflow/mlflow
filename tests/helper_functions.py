@@ -293,23 +293,6 @@ def set_boto_credentials(monkeypatch):
     monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
 
 
-@pytest.fixture
-def mock_s3_bucket():
-    """
-    Creates a mock S3 bucket using moto
-
-    :return: The name of the mock bucket
-    """
-    import boto3
-    import moto
-
-    with moto.mock_s3():
-        bucket_name = "mock-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield bucket_name
-
-
 class safe_edit_yaml:
     def __init__(self, root, file_name, edit_func):
         self._root = root
@@ -331,7 +314,7 @@ def create_mock_response(status_code, text):
 
     :param: status_code int HTTP status code
     :param: text message from the response
-    :reutrn: mock HTTP Response
+    :return: mock HTTP Response
     """
     response = mock.MagicMock()
     response.status_code = status_code

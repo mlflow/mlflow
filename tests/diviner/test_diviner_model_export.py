@@ -23,7 +23,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 import mlflow.diviner
 from mlflow import pyfunc
 
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,

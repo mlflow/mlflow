@@ -405,12 +405,31 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
+            runs = self._list_run_infos(session, experiment_id)
+            for run in runs:
+                self._mark_run_deleted(session, run)
             self._save_to_db(objs=experiment, session=session)
+
+    def _mark_run_deleted(self, session, run):
+        self._check_run_is_active(run)
+        run.lifecycle_stage = LifecycleStage.DELETED
+        self._save_to_db(objs=run, session=session)
+
+    def _mark_run_active(self, session, run):
+        run.lifecycle_stage = LifecycleStage.ACTIVE
+        self._save_to_db(objs=run, session=session)
+
+    def _list_run_infos(self, session, experiment_id):
+        runs = session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
+        return runs
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
+            runs = self._list_run_infos(session, experiment_id)
+            for run in runs:
+                self._mark_run_active(session, run)
             self._save_to_db(objs=experiment, session=session)
 
     def rename_experiment(self, experiment_id, new_name):

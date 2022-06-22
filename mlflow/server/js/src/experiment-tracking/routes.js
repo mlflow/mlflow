@@ -91,7 +91,9 @@ class Routes {
   static compareExperimentsPageRoute = '/compare-experiments';
   static compareExperimentsSearchPageRoute = `${Routes.compareExperimentsPageRoute}/:searchString`;
   static getCompareExperimentsPageRoute(experimentIds) {
-    return `${Routes.compareExperimentsPageRoute}/s?experiments=${JSON.stringify(experimentIds)}`;
+    return `${Routes.compareExperimentsPageRoute}/s?experiments=${JSON.stringify(
+      experimentIds.slice().sort(),
+    )}`;
   }
 }
 

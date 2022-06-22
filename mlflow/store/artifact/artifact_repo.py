@@ -34,9 +34,7 @@ class ArtifactRepository:
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
-        num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
-        num_artifact_workers = min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
-        self.thread_pool = ThreadPoolExecutor(max_workers=num_artifact_workers)
+        self.thread_pool = ThreadPoolExecutor(max_workers=self.max_workers)
 
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
@@ -293,6 +291,12 @@ class ArtifactRepository:
         :param artifact_path: Path of the artifact to delete
         """
         pass
+
+    @property
+    def max_workers(self) -> int:
+        """Compute the number of workers to use for multi-threading."""
+        num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
+        return min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
 
 
 def verify_artifact_path(artifact_path):

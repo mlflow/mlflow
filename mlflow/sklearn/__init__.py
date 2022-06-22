@@ -17,7 +17,6 @@ import logging
 import numpy as np
 import pickle
 import yaml
-import warnings
 import weakref
 from collections import defaultdict, OrderedDict
 from packaging.version import Version
@@ -567,7 +566,7 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    _add_code_from_conf_to_system_path(local_model_path, FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     return _load_model_from_local_file(
@@ -1227,9 +1226,7 @@ def _autolog(
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
-        _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
-        _is_supported_version,
         _get_X_y_and_sample_weight,
         _gen_xgboost_sklearn_estimators_to_patch,
         _gen_lightgbm_sklearn_estimators_to_patch,
@@ -1249,15 +1246,6 @@ def _autolog(
                 "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
             ),
             error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    if not _is_supported_version():
-        warnings.warn(
-            "Autologging utilities may not work properly on scikit-learn < {} ".format(
-                _MIN_SKLEARN_VERSION
-            )
-            + "(current version: {})".format(sklearn.__version__),
-            stacklevel=2,
         )
 
     def fit_mlflow_xgboost_and_lightgbm(original, self, *args, **kwargs):

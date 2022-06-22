@@ -14,10 +14,6 @@ from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
-# The earliest version we're guaranteed to support. Autologging utilities may not work properly
-# on scikit-learn older than this version.
-_MIN_SKLEARN_VERSION = "0.20.3"
-
 # The prefix to note that all calculated metrics and artifacts are solely based on training datasets
 _TRAINING_PREFIX = "training_"
 
@@ -789,12 +785,6 @@ def _create_child_runs_for_parameter_search(
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
-
-
-def _is_supported_version():
-    import sklearn
-
-    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version
