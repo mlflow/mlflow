@@ -9,7 +9,7 @@ import databricks_cli
 import pytest
 
 import mlflow
-from mlflow import cli
+from mlflow import cli, MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -232,7 +232,7 @@ def test_run_databricks_validations(
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
-        mlflow_service = mlflow.MlflowClient()
+        mlflow_service = MlflowClient()
         assert (
             len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0
         )

@@ -12,6 +12,7 @@ import pytest
 from unittest import mock
 
 import mlflow
+from mlflow import MlflowClient
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow.entities import (
@@ -326,7 +327,7 @@ def test_list_experiments(view_type, tmpdir):
 
     if view_type == ViewType.DELETED_ONLY:
         # Delete the default experiment
-        mlflow.MlflowClient(sqlite_uri).delete_experiment("0")
+        MlflowClient(sqlite_uri).delete_experiment("0")
 
     # This is a bit hacky but much faster than creating experiments one by one with
     # `mlflow.create_experiment`

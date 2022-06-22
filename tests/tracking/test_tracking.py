@@ -13,7 +13,7 @@ import pytest
 from unittest import mock
 
 import mlflow
-from mlflow import tracking
+from mlflow import tracking, MlflowClient
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
@@ -277,7 +277,7 @@ def test_metric_timestamp():
         mlflow.log_metric("name_1", 30)
         run_id = active_run.info.run_uuid
     # Check that metric timestamps are between run start and finish
-    client = mlflow.MlflowClient()
+    client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
     finished_run = client.get_run(run_id)
     assert len(history) == 2
@@ -305,7 +305,7 @@ def test_log_batch():
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+        MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
     client = tracking.MlflowClient()
     finished_run = client.get_run(run_id)
     # Validate metrics

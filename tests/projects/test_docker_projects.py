@@ -6,6 +6,7 @@ from unittest import mock
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities import ViewType
 from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.projects import ExecutionException
@@ -43,7 +44,7 @@ def test_docker_project_execution(
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.MlflowClient()
+    mlflow_service = MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
