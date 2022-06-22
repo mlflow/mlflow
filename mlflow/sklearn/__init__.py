@@ -925,6 +925,7 @@ def autolog(
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
+    pos_label=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1182,6 +1183,10 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param pos_label: If given, used as the positive label to compute binary classification metrics such as
+                      precision, recall, f1, etc. This parameter should only be set for binary classification model
+                      - if used on multi-label model, the evaluation will fail;
+                      - if used for regression model, the parameter will be ignored.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1195,6 +1200,7 @@ def autolog(
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
         serialization_format=serialization_format,
+        pos_label=pos_label,
     )
 
 
@@ -1210,6 +1216,7 @@ def _autolog(
     max_tuning_runs=5,
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    pos_label=None,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1365,6 +1372,7 @@ def _autolog(
             X=X,
             y_true=y_true,
             sample_weight=sample_weight,
+            pos_label=pos_label,
         )
         if y_true is None and not logged_metrics:
             _logger.warning(
