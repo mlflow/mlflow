@@ -713,8 +713,6 @@ const mapStateToProps = (state, ownProps) => {
   };
 };
 
-
-
 const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));
