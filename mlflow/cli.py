@@ -9,6 +9,7 @@ from click import UsageError
 import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
+import mlflow.pipelines.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
@@ -18,7 +19,6 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
@@ -467,7 +467,6 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-@experimental
 def gc(backend_store_uri, run_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
@@ -501,6 +500,7 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+cli.add_command(mlflow.pipelines.cli.commands)
 
 try:
     # pylint: disable=unused-import

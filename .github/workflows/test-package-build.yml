@@ -38,6 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
+      - uses: actions/setup-node@v1
+        with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python

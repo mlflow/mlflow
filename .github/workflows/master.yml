@@ -46,6 +46,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
@@ -76,6 +77,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
+    - uses: ./.github/actions/setup-python
+      with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
@@ -96,6 +100,7 @@ jobs:
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
@@ -120,6 +125,7 @@ jobs:
       run: |
         # Establish SSH to localhost for test_sftp_artifact_repo.py
         ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+
         cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
         ssh-keyscan -H localhost >> ~/.ssh/known_hosts
         ssh $(whoami)@localhost exit
@@ -134,6 +140,7 @@ jobs:
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Build
       run: |
         ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -154,6 +161,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - uses: ./.github/actions/setup-python
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
@@ -180,6 +190,7 @@ jobs:
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Test building Docker image
       working-directory: dev
       env:
@@ -204,6 +215,7 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
       - name: Increase available disk space
         run: |
           # Increase available disk space by removing unnecessary tool chains:
@@ -234,6 +246,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
@@ -252,6 +267,78 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
+  pipelines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      # - name: Set up mlflow-pipelines-example-private submodule deploy key
+      #   env:
+      #     SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      #   run: |
+      #       ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+      #       ssh-add - <<< "${{ secrets.REPO_PRIVATE_SSH_KEY }}"
+      # - name: Initialize submodules
+      #   env:
+      #     SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+      #   run: |
+      #     git submodule update --init
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.7"
+      - name: Install dependencies
+        env:
+          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_LARGE_PYTHON_DEPS: false
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install -e .[pipelines]
+          pip install pyspark
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/pipelines
+
+  pipelines-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.7"
+      # - name: Initialize submodules
+      #   run: |
+      #     # Start Windows SSH agent and add private deploy key for
+      #     # mlflow-pipelines-example-private submodule
+      #     eval `ssh-agent.exe`
+      #     ssh-add - <<< "${{ secrets.REPO_PRIVATE_SSH_KEY }}"
+      #     # Add github.com to known hosts
+      #     mkdir -p ~/.ssh
+      #     ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+      #     # Initialize submodules
+      #     git submodule update --init
+      - name: Install python dependencies
+        run: |
+          pip install -r requirements/test-requirements.txt
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
+          pip install -e .[extras]
+          pip install -e .[pipelines]
+          pip install pyspark
+      - name: Download Hadoop winutils for Spark
+        run: |
+          git clone https://github.com/cdarlint/winutils
+      - name: Run tests
+        run: |
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export PATH=$PATH:$HADOOP_HOME/bin
+          # Run pipelines tests
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/pipelines
+
   pyfunc:
     runs-on: ubuntu-latest
     steps:
@@ -259,6 +346,7 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
@@ -281,6 +369,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
@@ -304,6 +393,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
+      - uses: actions/setup-python@v3
+        with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
@@ -320,4 +412,4 @@ jobs:
           pip install pyspark
       - name: Run python tests
         run: |
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/pipelines

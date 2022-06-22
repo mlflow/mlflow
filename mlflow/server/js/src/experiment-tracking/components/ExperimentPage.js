@@ -34,6 +34,8 @@ import {
   MAX_DETECT_NEW_RUNS_RESULTS,
   PAGINATION_DEFAULT_STATE,
   POLL_INTERVAL,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 } from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
@@ -127,6 +129,7 @@ export class ExperimentPage extends Component {
 
   componentDidMount() {
     this.updateCompareExperimentsState();
+    this.sortByPrimaryMetric();
     this.loadData();
     this.pollTimer = setInterval(() => this.pollInfo(), POLL_INTERVAL);
   }
@@ -134,6 +137,7 @@ export class ExperimentPage extends Component {
   componentDidUpdate(prevProps, prevState) {
     if (!_.isEqual(this.props.experimentIds, prevProps.experimentIds)) {
       this.updateCompareExperimentsState();
+      this.sortByPrimaryMetric();
     }
     this.maybeReloadData(prevProps, prevState);
   }
@@ -195,6 +199,27 @@ export class ExperimentPage extends Component {
   generateGetExperimentRequestIds() {
     // On OSS, we need to call `getExperimentApi` for each experiment ID
     return this.props.experimentIds.map((_experimentId) => getUUID());
+  }
+
+  sortByPrimaryMetric() {
+    const { tags } = this.props.experiments[0];
+    const primaryMericTag = tags.find(({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME);
+    const greaterIsBetterTag = tags.find(
+      ({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+    );
+
+    if (primaryMericTag && greaterIsBetterTag) {
+      const sortKey = `metrics.\`${primaryMericTag.value}\``;
+      const orderByAsc = !(greaterIsBetterTag.value === 'True');
+      this.setState((prevState) => ({
+        ...prevState,
+        persistedState: {
+          ...prevState.persistedState,
+          orderByKey: sortKey,
+          orderByAsc: orderByAsc,
+        },
+      }));
+    }
   }
 
   loadData() {
