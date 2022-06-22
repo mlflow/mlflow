@@ -17,7 +17,7 @@ import numpy as np
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
