@@ -1,7 +1,5 @@
 import copy
 import pytest
-
-import mlflow
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag

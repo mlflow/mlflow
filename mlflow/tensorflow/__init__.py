@@ -24,7 +24,8 @@ import numpy as np
 
 import mlflow
 import mlflow.keras
-from mlflow import pyfunc, MlflowClient
+from mlflow import pyfunc
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE

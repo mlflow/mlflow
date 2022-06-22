@@ -18,7 +18,6 @@ from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, Vi
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (

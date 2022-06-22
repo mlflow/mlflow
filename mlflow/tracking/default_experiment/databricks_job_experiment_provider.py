@@ -1,5 +1,4 @@
 import logging
-import mlflow
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.default_experiment.abstract_context import DefaultExperimentProvider
 from mlflow.utils import databricks_utils

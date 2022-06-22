@@ -6,7 +6,7 @@ from pkg_resources import resource_filename
 import weakref
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
 from mlflow.utils import (
     _chunk_dict,

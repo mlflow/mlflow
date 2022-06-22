@@ -1,4 +1,3 @@
-import mlflow
 from mlflow import MlflowClient
 from mlflow.models.evaluation import (
     ModelEvaluator,

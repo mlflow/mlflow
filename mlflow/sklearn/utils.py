@@ -7,7 +7,6 @@ import numpy as np
 import time
 import warnings
 
-import mlflow
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID

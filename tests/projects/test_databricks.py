@@ -15,7 +15,6 @@ from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
-from mlflow import MlflowClient
 from mlflow.utils import file_utils
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.mlflow_tags import (

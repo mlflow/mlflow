@@ -1,4 +1,3 @@
-import mlflow
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2

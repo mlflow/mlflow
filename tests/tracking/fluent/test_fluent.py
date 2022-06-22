@@ -31,7 +31,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.dbmodels.models import SqlExperiment
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow import MlflowClient
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
