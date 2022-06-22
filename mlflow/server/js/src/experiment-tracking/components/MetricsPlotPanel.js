@@ -463,7 +463,6 @@ export class MetricsPlotPanel extends React.Component {
   onDownloadCsv = () => {
     const csv = this.convertJsonToCsv();
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
-    console.log("Blob: " + blob)
     const selectedRunUuid = this.props.runUuids[0]
     saveAs(blob, 'metrics_run_' + selectedRunUuid + '.csv');
   };
