@@ -605,9 +605,9 @@ export default class ExperimentViewUtil {
     });
     // Map of parentRunIds to list of children runs (idx)
     const parentIdToChildren = {};
-    let rootsIdxs = [];
+    const rootsIdxs = [];
     treeNodes.forEach((t, idx) => {
-      const parent = t.parent;
+      const { parent } = t;
       if (parent !== undefined && parent.value !== t.value) {
         const old = parentIdToChildren[parent.value];
         let newList;
@@ -618,48 +618,47 @@ export default class ExperimentViewUtil {
           newList = [idx];
         }
         parentIdToChildren[parent.value] = newList;
-      }else{
-        rootsIdxs.push(idx)
+      } else {
+        rootsIdxs.push(idx);
       }
     });
 
     const mergedRows = [];
     const visited = new Set();
     rootsIdxs.forEach((idx) => {
-      function dfs(idx, curr_level){
-        if(!visited.has(idx)){
+      function dfs(idx, curr_level) {
+        if (!visited.has(idx)) {
           const runId = runInfos[idx].run_uuid;
-          let row = undefined
+          let row = undefined;
           if (parentIdToChildren[runId]) {
-            row =  {
+            row = {
               idx,
               isParent: true,
               hasExpander: true,
               expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
               childrenIds: parentIdToChildren[runId].map((cIdx) => runInfos[cIdx].run_uuid),
               runId,
-              level: curr_level
-            }
-          }else{
-            row = { idx, isParent: false, hasExpander: false, level: curr_level};
+              level: curr_level,
+            };
+          } else {
+            row = { idx, isParent: false, hasExpander: false, level: curr_level };
           }
-          
-          mergedRows.push(row)
-          visited.add(idx)
+
+          mergedRows.push(row);
+          visited.add(idx);
 
           const childrenIdxs = parentIdToChildren[row.runId];
-          if(childrenIdxs){
+          if (childrenIdxs) {
             if (ExperimentViewUtil.isExpanderOpen(runsExpanded, row.runId)) {
-              childrenIdxs.forEach(idx => {
-                dfs(idx, curr_level+1)
+              childrenIdxs.forEach((index) => {
+                dfs(index, curr_level + 1);
               });
             }
           }
         }
       }
-      dfs(idx,0)
-
-    })
+      dfs(idx, 0);
+    });
     return mergedRows.slice(0);
   }
 

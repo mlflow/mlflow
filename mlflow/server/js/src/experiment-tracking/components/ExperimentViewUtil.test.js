@@ -177,9 +177,9 @@ describe('ExperimentViewUtil', () => {
         idx: 1,
         isParent: true,
         runId: 2,
-        level: 0
+        level: 0,
       },
-      { hasExpander: false, idx: 0, isParent: false, level: 1},
+      { hasExpander: false, idx: 0, isParent: false, level: 1 },
     ]);
 
     expect(
@@ -498,7 +498,7 @@ describe('ExperimentViewUtil', () => {
         idx: 0,
         isParent: true,
         runId: 'run-id1',
-        level: 0
+        level: 0,
       },
       {
         childrenIds: ['run-id3'],
@@ -507,9 +507,9 @@ describe('ExperimentViewUtil', () => {
         idx: 1,
         isParent: true,
         runId: 'run-id2',
-        level: 1
+        level: 1,
       },
-      { hasExpander: false, idx: 2, isParent: false, level: 2},
+      { hasExpander: false, idx: 2, isParent: false, level: 2 },
     ];
 
     expect(
