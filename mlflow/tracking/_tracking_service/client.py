@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
+from itertools import zip_longest
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
@@ -19,9 +20,15 @@ from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, Experime
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_ENTITIES_PER_BATCH,
+)
 from collections import OrderedDict
 
 
@@ -292,7 +299,25 @@ class TrackingServiceClient:
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
-        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+        param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
+        tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
+
+        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
+            metrics_batch_size = min(
+                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
+                MAX_METRICS_PER_BATCH,
+            )
+            metrics_batch_size = max(metrics_batch_size, 0)
+            metrics_batch = metrics[:metrics_batch_size]
+            metrics = metrics[metrics_batch_size:]
+
+            self.store.log_batch(
+                run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
+            )
+
+        for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
+            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
