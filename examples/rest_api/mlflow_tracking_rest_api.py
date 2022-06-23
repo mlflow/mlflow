@@ -59,7 +59,13 @@ class MLflowTrackingRestApi:
     def log_metric(self, metric):
         """Log a metric dict for the given run."""
         url = self.base_url + "/runs/log-metric"
-        payload = {"run_id": self.run_id, "key": metric["key"], "value": metric["value"], "timestamp": metric["timestamp"], "step": metric["step"]}
+        payload = {
+            "run_id": self.run_id,
+            "key": metric["key"],
+            "value": metric["value"],
+            "timestamp": metric["timestamp"],
+            "step": metric["step"],
+        }
         r = requests.post(url, json=payload)
         return r.status_code
 
