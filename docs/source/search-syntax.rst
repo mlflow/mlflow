@@ -159,7 +159,7 @@ For example, if you'd like to identify the best `active` run from experiment ID 
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   run = MlflowClient().search_runs(
@@ -176,7 +176,7 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.`prediction accuracy` >= 0.945"
@@ -186,7 +186,7 @@ To search all known experiments for any MLflow runs created using the Inception 
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
