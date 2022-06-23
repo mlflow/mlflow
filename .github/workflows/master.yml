@@ -307,7 +307,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
-          pytest -p no:faulthandler tests/pipelines
+          pytest tests/pipelines
 
   pyfunc:
     runs-on: ubuntu-latest
