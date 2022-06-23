@@ -505,6 +505,30 @@ def log_param(key: str, value: Any) -> None:
     MlflowClient().log_param(run_id, key, value)
 
 
+def set_experiment_tag(key: str, value: Any) -> None:
+    """
+    Set a tag on the current experiment. Value is converted to a string.
+
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+    :param value: Tag value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000, but some
+                  may support larger values.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+           mlflow.set_experiment_tag("release.version", "2.2.0")
+    """
+    experiment_id = _get_experiment_id()
+    MlflowClient().set_experiment_tag(experiment_id, key, value)
+
+
 def set_tag(key: str, value: Any) -> None:
     """
     Set a tag under the current run. If no run is active, this method will create a
@@ -637,6 +661,29 @@ def log_params(params: Dict[str, Any]) -> None:
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def set_experiment_tags(tags: Dict[str, Any]) -> None:
+    """
+    Set tags for the current active experiment.
+
+    :param tags: Dictionary containing tag names and corresponding values.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        tags = {"engineering": "ML Platform",
+                "release.candidate": "RC1",
+                "release.version": "2.2.0"}
+
+        # Set a batch of tags
+        with mlflow.start_run():
+            mlflow.set_experiment_tags(tags)
+    """
+    for key, value in tags.items():
+        set_experiment_tag(key, value)
 
 
 def set_tags(tags: Dict[str, Any]) -> None:

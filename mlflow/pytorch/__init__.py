@@ -964,8 +964,10 @@ def autolog(
 
             def training_step(self, batch, batch_nb):
                 x, y = batch
-                loss = F.cross_entropy(self(x), y)
-                acc = accuracy(loss, y)
+                logits = self(x)
+                loss = F.cross_entropy(logits, y)
+                pred = logits.argmax(dim=1)
+                acc = accuracy(pred, y)
 
                 # Use the current of PyTorch logger
                 self.log("train_loss", loss, on_epoch=True)
