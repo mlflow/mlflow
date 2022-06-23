@@ -54,7 +54,7 @@ def set_up_transform_step(pipeline_root: Path):
     return transform_step, transform_step_output_dir
 
 
-def test_transform_step_writes_onehot_encoded_dataframe(tmp_pipeline_root_path):
+def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl (tmp_pipeline_root_path):
     with mock.patch.dict(
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
     ):
@@ -64,13 +64,4 @@ def test_transform_step_writes_onehot_encoded_dataframe(tmp_pipeline_root_path):
     assert os.path.exists(transform_step_output_dir / "transformed_training_data.parquet")
     transformed = pd.read_parquet(transform_step_output_dir / "transformed_training_data.parquet")
     assert len(transformed.columns) == 3
-
-
-def test_transform_steps_writes_transformer_pkl(tmp_pipeline_root_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
-    ):
-        transform_step, transform_step_output_dir = set_up_transform_step(tmp_pipeline_root_path)
-        transform_step._run(str(transform_step_output_dir))
-
-    assert (transform_step_output_dir / "transformer.pkl").exists()
+    assert os.path.exists(transform_step_output_dir / "transformer.pkl")
