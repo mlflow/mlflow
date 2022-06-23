@@ -1992,3 +1992,23 @@ def test_autolog_registering_model():
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def test_autolog_pos_label_used_for_training_metric():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    import sklearn.ensemble
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    mlflow.start_run()
+    model = fit_model(model, X, y, "fit")
+
+    run_id = mlflow.active_run().info.run_id
+    _, training_metrics, _, _ = get_run_data(run_id)
+    expected_training_metrics = mlflow.sklearn.eval_and_log_metrics(
+            model=model, X=X, y_true=y, prefix="training_", pos_label=1
+    )
+    assert training_metrics == expected_training_metrics
+
+    mlflow.end_run()
