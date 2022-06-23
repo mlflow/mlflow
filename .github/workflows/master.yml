@@ -78,8 +78,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: ./.github/actions/setup-python
-      with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
@@ -163,8 +161,6 @@ jobs:
     - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: ./.github/actions/setup-python
-      with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
@@ -247,8 +243,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: ./.github/actions/setup-python
-        with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
@@ -273,20 +267,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      # - name: Set up mlflow-pipelines-example-private submodule deploy key
-      #   env:
-      #     SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-      #   run: |
-      #       ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-      #       ssh-add - <<< "${{ secrets.REPO_PRIVATE_SSH_KEY }}"
-      # - name: Initialize submodules
-      #   env:
-      #     SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-      #   run: |
-      #     git submodule update --init
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - name: Install dependencies
         env:
           INSTALL_SMALL_PYTHON_DEPS: true
@@ -294,7 +275,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .[pipelines]
-          pip install pyspark
+          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
+          pip install 'pyspark<3.3'
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -306,27 +288,15 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
-      # - name: Initialize submodules
-      #   run: |
-      #     # Start Windows SSH agent and add private deploy key for
-      #     # mlflow-pipelines-example-private submodule
-      #     eval `ssh-agent.exe`
-      #     ssh-add - <<< "${{ secrets.REPO_PRIVATE_SSH_KEY }}"
-      #     # Add github.com to known hosts
-      #     mkdir -p ~/.ssh
-      #     ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
-      #     # Initialize submodules
-      #     git submodule update --init
+      - uses: ./.github/actions/setup-python
       - name: Install python dependencies
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
           pip install -e .[pipelines]
-          pip install pyspark
+          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
+          pip install 'pyspark<3.3'
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
@@ -337,7 +307,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
-          pytest tests/pipelines
+          pytest -p no:faulthandler tests/pipelines
 
   pyfunc:
     runs-on: ubuntu-latest
@@ -394,8 +364,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: actions/setup-python@v3
-        with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python

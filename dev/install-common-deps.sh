@@ -21,9 +21,9 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
-  pip install . --upgrade --use-deprecated=legacy-resolver
+  pip install . --upgrade
 else
-  pip install .[extras] --upgrade --use-deprecated=legacy-resolver
+  pip install .[extras] --upgrade
 fi
 export MLFLOW_HOME=$(pwd)
 
@@ -40,7 +40,7 @@ if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
     tmp_dir=$(mktemp -d)
     pip download --no-deps --dest $tmp_dir --no-cache-dir prophet
     tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
-    pip install -r $(find $tmp_dir -name requirements.txt) --use-deprecated=legacy-resolver
+    pip install -r $(find $tmp_dir -name requirements.txt)
     rm -rf $tmp_dir
   fi
 
@@ -48,7 +48,7 @@ if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
 fi
 
 if [[ ! -z $req_files ]]; then
-  retry-with-backoff pip install $req_files --use-deprecated=legacy-resolver
+  retry-with-backoff pip install $req_files
 fi
 
 # Install `mlflow-test-plugin` without dependencies

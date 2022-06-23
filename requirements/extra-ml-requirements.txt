@@ -36,6 +36,8 @@ onnxruntime
 tf2onnx
 # Required by mlflow.spark
 pyspark
+# Required by mlflow.shap
+shap
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
