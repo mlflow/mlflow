@@ -2,6 +2,7 @@ import entrypoints
 import warnings
 import logging
 
+from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.default_experiment.databricks_notebook_experiment_provider import (
     DatabricksNotebookExperimentProvider,
     DatabricksRepoNotebookExperimentProvider,
@@ -70,7 +71,7 @@ def get_experiment_id():
     :return: An experiment_id.
     """
 
-    experiment_id = "0"
+    experiment_id = DEFAULT_EXPERIMENT_ID
     for provider in _default_experiment_provider_registry:
         try:
             if provider.in_context():
