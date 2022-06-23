@@ -441,21 +441,15 @@ export class MetricsPlotPanel extends React.Component {
   };
   
   convertJsonToCsv = () => {
-    const metrics = this.getMetrics();
-    const selectedMetricKeys = this.getUrlState().selectedMetricKeys;
-    console.log("selected metrics: " + selectedMetricKeys);
-    const heading = Object.keys(metrics[0].history[0]).join(",") + "\n"
-    const metricValues = selectedMetricKeys.map(
-      (metricKey) => {
-        return metrics
-          .filter((metric) => metric.metricKey === metricKey)
-          .map((metric) => {
-            return metric.history
-              .map((metricValue) => {
-                return Object.values(metricValue);
-              }).join("\n");
-          });
-      }).join("\n");
+    const metrics = this.props.metricsWithRunInfoAndHistory
+    const heading = ["run_id"].concat(Object.keys(metrics[0].history[0])).join(",").concat("\n");
+    const metricValues = metrics.map(
+      (metric) => {
+        return metric.history
+          .map((point) => {
+              return [metric.runUuid, Object.values(point)].join(",");
+            }).join("\n");
+          }).join("\n");
 
     return `${heading}${metricValues}`;
   };
@@ -464,7 +458,7 @@ export class MetricsPlotPanel extends React.Component {
     const csv = this.convertJsonToCsv();
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     const selectedRunUuid = this.props.runUuids[0]
-    saveAs(blob, 'metrics_run_' + selectedRunUuid + '.csv');
+    saveAs(blob, 'metric_values' + '.csv');
   };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
