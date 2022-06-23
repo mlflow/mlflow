@@ -37,6 +37,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 
@@ -139,6 +141,16 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
     return experiment
+
+
+def _set_experiment_primary_metric(
+    experiment_id: str, primary_metric: str, greater_is_better: bool
+):
+    client = MlflowClient()
+    client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
+    client.set_experiment_tag(
+        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER, str(greater_is_better)
+    )
 
 
 class ActiveRun(Run):  # pylint: disable=W0223

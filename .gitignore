@@ -2,6 +2,7 @@
 mlruns/
 mlartifacts/
 outputs/
+mlruns.db
 
 # Mac
 .DS_Store

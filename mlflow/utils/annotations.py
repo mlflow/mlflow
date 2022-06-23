@@ -1,20 +1,32 @@
+import inspect
 import warnings
 from functools import wraps
+from typing import Any, Union
 
 
-def experimental(func):
+def experimental(api_or_type: Union[callable, str]):
     """
-    Decorator for marking APIs experimental in the docstring.
+    Decorator / decorator creator for marking APIs experimental in the docstring.
 
-    :param func: A function to mark
-    :returns Decorated function.
+    :param api: An API to mark, or an API typestring for which to generate a decorator.
+    :return: Decorated API (if a ``api_or_type`` is an API) or a function that decorates
+             the specified API type (if ``api_or_type`` is a typestring).
     """
+    if isinstance(api_or_type, str):
+        return lambda api: _experimental(api=api, api_type=api_or_type)
+    elif inspect.isclass(api_or_type):
+        return _experimental(api=api_or_type, api_type="class")
+    else:
+        return _experimental(api=api_or_type, api_type="method")
+
+
+def _experimental(api: Any, api_type: str):
     notice = (
-        "    .. Note:: Experimental: This method may change or "
+        f"    .. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
-    func.__doc__ = notice + func.__doc__
-    return func
+    api.__doc__ = notice + api.__doc__
+    return api
 
 
 def deprecated(alternative=None, since=None, impact=None):

@@ -27,6 +27,8 @@ import {
   MODEL_VERSION_FILTER,
   PAGINATION_DEFAULT_STATE,
   POLL_INTERVAL,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 } from '../constants';
 import Fixtures from '../utils/test-utils/Fixtures';
 
@@ -355,7 +357,6 @@ test('should set state to default values on promise rejection when loading more'
 });
 
 test('should set state to default values on promise rejection onSearch', () => {
-  searchRunsApi = jest.fn(() => Promise.reject(new Error('searchRuns rejected')));
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
   return Promise.resolve(instance.onSearch({})).then(() => {
@@ -1328,5 +1329,33 @@ describe('handleDiffSwitchChange', () => {
     expect(instance.state.persistedState.diffSwitchSelected).toEqual(false);
     expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(2);
     expect(snapshotComponentStateSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('sortByPrimaryMetric', () => {
+  test('sortByPrimaryMetric sets state correctly', () => {
+    const wrapper = getExperimentPageMock({
+      experiments: [
+        Fixtures.createExperiment({
+          experiment_id: EXPERIMENT_ID,
+          tags: [
+            {
+              key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+              value: 'metric1',
+            },
+            {
+              key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+              value: 'True',
+            },
+          ],
+        }),
+      ],
+    });
+    const instance = wrapper.instance();
+
+    return Promise.resolve(instance.sortByPrimaryMetric()).then(() => {
+      expect(instance.state.persistedState.orderByKey).toEqual('metrics.`metric1`');
+      expect(instance.state.persistedState.orderByAsc).toEqual(false);
+    });
   });
 });

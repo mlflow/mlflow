@@ -59,3 +59,8 @@ MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.
 LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch
 LEGACY_MLFLOW_GIT_REPO_URL = "mlflow.gitRepoURL"  # Replaced with mlflow.source.git.repoURL
+
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
+    "mlflow.experiment.primaryMetric.greaterIsBetter"
+)

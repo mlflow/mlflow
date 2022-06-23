@@ -44,6 +44,7 @@ import mlflow.projects as projects
 import mlflow.tracking as tracking
 import mlflow.models
 import mlflow.artifacts
+import mlflow.pipelines
 
 # model flavors
 _model_flavors_supported = []

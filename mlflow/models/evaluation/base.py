@@ -133,7 +133,7 @@ class EvaluationResult:
             json.dump(artifacts_metadata, fp)
 
         artifacts_dir = os.path.join(path, "artifacts")
-        os.mkdir(artifacts_dir)
+        os.makedirs(artifacts_dir, exist_ok=True)
 
         for artifact in self.artifacts.values():
             filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
