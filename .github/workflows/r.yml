@@ -30,6 +30,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: actions/setup-java@v3
