@@ -1748,7 +1748,7 @@ Remarks:
 Remarks:
   * In above example, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster (AKS) 
  service that has been registered and created in Azure Machine Learning (AML).
-  * The full specification of this configuration file can be checked at `Managed online deployment schema (v2) <https://review.docs.microsoft.com/en-us/azure/machine-learning/reference-yaml-deployment-managed-online>`_.
+  * The full specification of this configuration file can be viewed at `Managed online deployment schema (v2) <https://review.docs.microsoft.com/en-us/azure/machine-learning/reference-yaml-deployment-managed-online>`_.
 
 The following examples show how to create a deployment in ACI. Please, ensure you have `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ installed before continuing.
 
