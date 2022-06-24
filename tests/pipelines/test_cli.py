@@ -19,22 +19,33 @@ def clean_up_pipeline():
     try:
         yield
     finally:
-        CliRunner().invoke(pipelines_cli.clean)
+        CliRunner().invoke(pipelines_cli.clean, env={_PIPELINE_PROFILE_ENV_VAR: "local"})
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
 @pytest.mark.parametrize("step", _STEP_NAMES)
 def test_pipelines_cli_step_works(step):
-    CliRunner().invoke(cli=pipelines_cli.run, args=f"--step {step}")
-    CliRunner().invoke(cli=pipelines_cli.inspect, args=f"--step {step}")
-    CliRunner().invoke(cli=pipelines_cli.clean, args=f"--step {step}")
+    for command in [pipelines_cli.clean, pipelines_cli.inspect, pipelines_cli.run]:
+        assert (
+            CliRunner()
+            .invoke(command, args=f"--step {step}", env={_PIPELINE_PROFILE_ENV_VAR: "local"})
+            .exit_code
+            == 0
+        )
+        assert CliRunner().invoke(command, args=f"--step {step} --profile=local").exit_code == 0
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
 def test_pipelines_cli_flow_completes_successfully():
-    CliRunner().invoke(pipelines_cli.clean)
-    CliRunner().invoke(pipelines_cli.run)
-    CliRunner().invoke(pipelines_cli.inspect)
+    for command in [pipelines_cli.clean, pipelines_cli.inspect, pipelines_cli.run]:
+        assert CliRunner().invoke(command, env={_PIPELINE_PROFILE_ENV_VAR: "local"}).exit_code == 0
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
+def test_pipelines_cli_fails_without_profile():
+    for command in [pipelines_cli.clean, pipelines_cli.inspect, pipelines_cli.run]:
+        assert CliRunner().invoke(command, env={_PIPELINE_PROFILE_ENV_VAR: ""}).exit_code != 0
+        assert CliRunner().invoke(command).exit_code != 0
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")

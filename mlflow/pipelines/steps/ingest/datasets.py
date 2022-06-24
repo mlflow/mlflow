@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Union
 import importlib
 import logging
 import os
@@ -11,6 +13,11 @@ from urllib.parse import urlparse
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.store.artifact.artifact_repo import (
+    _NUM_DEFAULT_CPUS,
+    _NUM_MAX_THREADS_PER_CPU,
+    _NUM_MAX_THREADS,
+)
 from mlflow.utils.file_utils import (
     TempDir,
     get_local_path_or_none,
@@ -120,18 +127,32 @@ class _LocationBasedDataset(_Dataset):
     Base class representing an ingestable dataset with a configurable `location` attribute.
     """
 
-    def __init__(self, location: str, dataset_format: str, pipeline_root: str):
+    def __init__(
+        self,
+        location: Union[str, List[str]],
+        dataset_format: str,
+        pipeline_root: str,
+    ):
         """
         :param location: The location of the dataset
-                         (e.g. '/tmp/myfile.parquet', './mypath', 's3://mybucket/mypath', ...).
+                         (one dataset as a string or list of multiple datasets)
+                         (e.g. '/tmp/myfile.parquet', './mypath', 's3://mybucket/mypath',
+                         or YAML list:
+                            location:
+                                - http://www.myserver.com/dataset/df1.csv
+                                - http://www.myserver.com/dataset/df1.csv
+                        )
+
         :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
         :param pipeline_root: The absolute path of the associated pipeline root directory on the
                               local filesystem.
         """
         super().__init__(dataset_format=dataset_format)
-        self.location = _LocationBasedDataset._sanitize_local_dataset_location_if_necessary(
-            dataset_location=location,
-            pipeline_root=pipeline_root,
+        self.location = (
+            _LocationBasedDataset._sanitize_local_dataset_multiple_locations_if_necessary(
+                dataset_location=location,
+                pipeline_root=pipeline_root,
+            )
         )
 
     @abstractmethod
@@ -145,6 +166,26 @@ class _LocationBasedDataset(_Dataset):
             pipeline_root=pipeline_root,
             dataset_format=cls._get_required_config(dataset_config=dataset_config, key="format"),
         )
+
+    @staticmethod
+    def _sanitize_local_dataset_multiple_locations_if_necessary(
+        dataset_location: Union[str, List[str]], pipeline_root: str
+    ) -> List[str]:
+        if isinstance(dataset_location, str):
+            return [
+                _LocationBasedDataset._sanitize_local_dataset_location_if_necessary(
+                    dataset_location, pipeline_root
+                )
+            ]
+        elif isinstance(dataset_location, list):
+            return [
+                _LocationBasedDataset._sanitize_local_dataset_location_if_necessary(
+                    locaton, pipeline_root
+                )
+                for locaton in dataset_location
+            ]
+        else:
+            raise MlflowException(f"Unsupported location type: {type(dataset_location)}")
 
     @staticmethod
     def _sanitize_local_dataset_location_if_necessary(
@@ -234,7 +275,50 @@ class _DownloadThenConvertDataset(_LocationBasedDataset):
             )
 
     @staticmethod
-    def _download_dataset(dataset_location: str, dst_path: str):
+    def _download_dataset(dataset_location: List[str], dst_path: str):
+        dest_locations = _DownloadThenConvertDataset._download_all_datasets_in_parallel(
+            dataset_location, dst_path
+        )
+        if len(dest_locations) == 1:
+            return dest_locations[0]
+        else:
+            res_path = pathlib.Path(dest_locations[0])
+            if res_path.is_dir():
+                return str(res_path)
+            else:
+                return str(res_path.parent)
+
+    @staticmethod
+    def _download_all_datasets_in_parallel(dataset_location, dst_path):
+        num_cpus = os.cpu_count() or _NUM_DEFAULT_CPUS
+        with ThreadPoolExecutor(
+            max_workers=min(num_cpus * _NUM_MAX_THREADS_PER_CPU, _NUM_MAX_THREADS)
+        ) as executor:
+            futures = []
+            for location in dataset_location:
+                future = executor.submit(
+                    _DownloadThenConvertDataset._download_one_dataset,
+                    dataset_location=location,
+                    dst_path=dst_path,
+                )
+                futures.append(future)
+
+            dest_locations = []
+            failed_downloads = []
+            for future in as_completed(futures):
+                try:
+                    dest_locations.append(future.result())
+                except Exception as e:
+                    failed_downloads.append(repr(e))
+            if len(failed_downloads) > 0:
+                raise MlflowException(
+                    "During downloading of the datasets a number "
+                    + f"of errors have occurred: {failed_downloads}"
+                )
+            return dest_locations
+
+    @staticmethod
+    def _download_one_dataset(dataset_location: str, dst_path: str):
         parsed_location_uri = urlparse(dataset_location)
         if parsed_location_uri.scheme in ["http", "https"]:
             dst_file_name = posixpath.basename(parsed_location_uri.path)
@@ -273,6 +357,7 @@ class _PandasConvertibleDataset(_DownloadThenConvertDataset):
 
         aggregated_dataframe = None
         for data_file_path in dataset_file_paths:
+            _path = pathlib.Path(data_file_path)
             data_file_as_dataframe = self._load_file_as_pandas_dataframe(
                 local_data_file_path=data_file_path,
             )
@@ -321,7 +406,11 @@ class CustomDataset(_PandasConvertibleDataset):
     """
 
     def __init__(
-        self, location: str, dataset_format: str, custom_loader_method: str, pipeline_root: str
+        self,
+        location: str,
+        dataset_format: str,
+        custom_loader_method: str,
+        pipeline_root: str,
     ):
         """
         :param location: The location of the dataset
@@ -334,7 +423,9 @@ class CustomDataset(_PandasConvertibleDataset):
                               local filesystem.
         """
         super().__init__(
-            location=location, dataset_format=dataset_format, pipeline_root=pipeline_root
+            location=location,
+            dataset_format=dataset_format,
+            pipeline_root=pipeline_root,
         )
         self.pipeline_root = pipeline_root
         (

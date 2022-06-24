@@ -40,6 +40,13 @@ def test_create_pipeline_and_clean_works():
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.parametrize("empty_profile", [None, ""])
+def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
+    with pytest.raises(MlflowException, match="A profile name must be provided"):
+        _ = Pipeline(profile=empty_profile)
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
 @pytest.mark.parametrize("custom_execution_directory", [None, "custom"])
 def test_pipelines_execution_directory_is_managed_as_expected(
     custom_execution_directory, enter_pipeline_example_directory, tmp_path
@@ -205,14 +212,15 @@ def test_pipeline_get_artifacts():
     assert isinstance(pipeline.get_artifact("run"), Run)
     assert isinstance(pipeline.get_artifact("registered_model_version"), ModelVersion)
 
-    with pytest.raises(MlflowException, match="The artifact abcde is not supported."):
+    with pytest.raises(MlflowException, match="The artifact with name 'abcde' is not supported."):
         pipeline.get_artifact("abcde")
 
     pipeline.clean()
     with mock.patch("mlflow.pipelines.regression.v1.pipeline._logger.warning") as mock_warning:
         pipeline.get_artifact("ingested_data")
         mock_warning.assert_called_once_with(
-            "ingested_data is not found. Re-run the ingest step to generate."
+            "The artifact with name 'ingested_data' was not found."
+            " Re-run the 'ingest' step to generate it."
         )
 
 

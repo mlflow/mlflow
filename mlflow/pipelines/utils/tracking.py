@@ -231,4 +231,4 @@ def log_code_snapshot(
                 tmp_path = tmpdir.joinpath(file_path.relative_to(pipeline_root))
                 tmp_path.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copyfile(file_path, tmp_path)
-        MlflowClient().log_artifacts(run_id, tmpdir, artifact_path=artifact_path)
+        MlflowClient().log_artifacts(run_id, str(tmpdir), artifact_path=artifact_path)
