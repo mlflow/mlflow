@@ -2002,17 +2002,14 @@ def test_autolog_pos_label_used_for_training_metric():
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
     X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
 
-    mlflow.start_run()
-    model = fit_model(model, X, y, "fit")
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        _, training_metrics, _, _ = get_run_data(run.info.run_id)
+        expected_training_metrics = mlflow.sklearn.eval_and_log_metrics(
+            model=model, X=X, y_true=y, prefix="training_", pos_label=1
+        )
 
-    run_id = mlflow.active_run().info.run_id
-    _, training_metrics, _, _ = get_run_data(run_id)
-    expected_training_metrics = mlflow.sklearn.eval_and_log_metrics(
-        model=model, X=X, y_true=y, prefix="training_", pos_label=1
-    )
     assert training_metrics == expected_training_metrics
-
-    mlflow.end_run()
 
 
 def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():

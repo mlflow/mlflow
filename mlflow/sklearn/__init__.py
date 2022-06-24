@@ -1184,11 +1184,10 @@ def autolog(
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
     :param pos_label: If given, used as the positive label to compute binary classification
-                      training metrics such as precision, recall, f1, etc. This parameter
-                      should only be set for binary classification model
-                      - if used on multi-label model, the training metrics calculation will fail
-                        and the training metrics won't be logged.
-                      - if used for regression model, the parameter will be ignored.
+                      training metrics such as precision, recall, f1, etc. This parameter should
+                      only be set for binary classification model. If used for multi-label model,
+                      the training metrics calculation will fail and the training metrics won't
+                      be logged. If used for regression model, the parameter will be ignored.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
