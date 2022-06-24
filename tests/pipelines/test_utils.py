@@ -119,6 +119,6 @@ def test_get_pipeline_config_throws_clear_error_for_invalid_profile():
 
     with pytest.raises(
         MlflowException,
-        match="Failed to read pipeline configuration.*verify.*syntactically correct"
+        match="Failed to read pipeline configuration.*verify.*syntactically correct",
     ):
         get_pipeline_config(profile="badcontent")
