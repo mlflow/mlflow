@@ -1683,7 +1683,11 @@ The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ c
 The resulting deployment accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
+<<<<<<< HEAD
 * Tensor input format as JSON-serialized lists (for tensors) and dictionary of lists (for named tensors).
+=======
+* Tensor input format as JSON-serialized lists (tensors) and dictionary of lists (named tensors).
+>>>>>>> docs: updating documentation for azureml
 
 .. note:: 
   Regardless of the format, the input data should be indicated in a JSON payload within the key `input_data`. Notice that this payload is different from the one used for instance when models are served using `mlflow models serve`.
