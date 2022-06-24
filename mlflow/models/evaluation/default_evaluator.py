@@ -1034,10 +1034,12 @@ class DefaultEvaluator(ModelEvaluator):
                 else:
                     raise ValueError(f"Unsupported model type {model_type}")
 
-    @property 
+    @property
     def X(self):
-        return pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names, copy=True)
+        return pd.DataFrame(
+            self.dataset.features_data, columns=self.dataset.feature_names, copy=True
+        )
 
-    @property 
+    @property
     def y(self):
         return self.dataset.labels_data.copy()
