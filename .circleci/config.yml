@@ -85,7 +85,8 @@ jobs:
           name: Run example
           working_directory: examples/pipelines/sklearn_regression
           command: |
-            mlflow pipelines run --profile='local'
+            export MLFLOW_PIPELINES_PROFILE=local
+            mlp run
       - store_artifacts:
           path: ~/.mlflow/pipelines
 
