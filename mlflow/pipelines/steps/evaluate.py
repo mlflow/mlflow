@@ -1,7 +1,6 @@
 import logging
 import operator
 import os
-import pandas as pd
 from pathlib import Path
 from typing import Dict, Any
 from collections import namedtuple
@@ -107,6 +106,8 @@ class EvaluateStep(BaseStep):
         return summary
 
     def _run(self, output_directory):
+        import pandas as pd
+
         self._validate_validation_criteria()
 
         test_df_path = get_step_output_path(
@@ -208,6 +209,7 @@ class EvaluateStep(BaseStep):
         :param validation_results: a list of `MetricValidationResult` instances
         :param output_directory: output directory used by the evaluate step.
         """
+        import pandas as pd
         from mlflow.pipelines.cards import BaseCard
 
         # Build card

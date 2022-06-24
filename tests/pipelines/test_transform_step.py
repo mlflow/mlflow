@@ -44,7 +44,7 @@ def set_up_transform_step(pipeline_root: Path):
           tracking_uri: {tracking_uri}
         steps:
           transform:
-            transform_method: sklearn.preprocessing.StandardScaler
+            transformer_method: sklearn.preprocessing.StandardScaler
         """.format(
             tracking_uri=mlflow.get_tracking_uri()
         )

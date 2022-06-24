@@ -10,6 +10,10 @@ from typing import Dict, List
 
 _logger = logging.getLogger(__name__)
 
+_MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
+_MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
+_MAX_PROFILE_COL_SIZE = 1000000  # 1M Cols
+
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
     """Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
@@ -75,3 +79,34 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         if os.path.exists(html_file_path) and shutil.which("open") is not None:
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
             subprocess.run(["open", html_file_path], check=True)
+
+
+def get_pandas_data_profile(data_frame, title: str):
+    """Returns a data profiling object over input data frame.
+
+    :param data_frame: DataFrame, contains data to be profiled.
+    :param title: String, the title of the data profile.
+    :return: a data profiling object such as Pandas profiling ProfileReport.
+    """
+    from pandas_profiling import ProfileReport
+
+    if len(data_frame) == 0:
+        return ProfileReport(
+            data_frame,
+            title=title,
+            minimal=True,
+            progress_bar=False,
+        )
+
+    max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
+    max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
+    max_rows = min(max(max_cells // max_cols, 1), _MAX_PROFILE_ROW_SIZE)
+    truncated_df = data_frame.drop(columns=data_frame.columns[max_cols:]).sample(
+        n=max_rows, ignore_index=True, random_state=42
+    )
+    return ProfileReport(
+        truncated_df,
+        title=title,
+        minimal=True,
+        progress_bar=False,
+    )
