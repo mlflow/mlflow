@@ -247,7 +247,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             tab.add_markdown("EXE_DURATION", f"**Run duration (s)**: {execution_duration:.3g}")
             tab.add_markdown(
                 "LAST_UPDATE_TIME",
-                f"**Last updated:**: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}",
+                f"**Last updated:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}",
             )
         self.step_card.save(path=output_directory)
         self.step_card.save_as_html(path=output_directory)
