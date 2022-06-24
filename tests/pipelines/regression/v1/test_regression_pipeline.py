@@ -36,7 +36,10 @@ def test_create_pipeline_fails_with_invalid_input(
     pipeline_root_path = os.path.join(
         os.path.dirname(enter_pipeline_example_directory), pipeline_name
     )
-    with pytest.raises(MlflowException, match=r"(Failed to find|does not exist)"):
+    with pytest.raises(
+        MlflowException,
+        match=r"(Failed to find|Did not find the YAML configuration)",
+    ):
         RegressionPipeline(pipeline_root_path=pipeline_root_path, profile=profile)
 
 

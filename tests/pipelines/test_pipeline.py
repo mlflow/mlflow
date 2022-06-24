@@ -29,7 +29,10 @@ _STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate"]
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_create_pipeline_fails_with_invalid_profile():
-    with pytest.raises(MlflowException, match=r".*(Failed to find|does not exist).*"):
+    with pytest.raises(
+        MlflowException,
+        match=r"(Failed to find|Did not find the YAML configuration)",
+    ):
         Pipeline(profile="local123")
 
 
