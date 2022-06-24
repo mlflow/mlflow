@@ -35,12 +35,7 @@ test('If searchInput is set to "Test" then first shown element in experiment lis
     .find('input[data-test-id="search-experiment-input"]')
     .first()
     .simulate('change', { target: { value: 'Test' } });
-  expect(
-    wrapper
-      .find('[data-test-id="experiment-list-item"]')
-      .first()
-      .text(),
-  ).toContain('Test');
+  expect(wrapper.find('[data-test-id="experiment-list-item"]').first().text()).toContain('Test');
 });
 
 test('If searchInput is set to "Test" and default experiment is active then no active element is shown in the experiment list', () => {

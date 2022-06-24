@@ -170,19 +170,15 @@ export class ModelVersionPageImpl extends React.Component {
   }
 
   render() {
-    const {
-      modelName,
-      version,
-      modelVersion,
-      runInfo,
-      runDisplayName,
-      history,
-      schema,
-    } = this.props;
+    const { modelName, version, modelVersion, runInfo, runDisplayName, history, schema } =
+      this.props;
 
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={this.state.criticalInitialRequestIds}>
+        <RequestStateWrapper
+          requestIds={this.state.criticalInitialRequestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);

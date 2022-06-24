@@ -68,6 +68,11 @@ beforeEach(() => {
       search: '',
     },
   };
+
+  /* eslint-disable no-restricted-globals */
+  top.settings = {
+    autoMLEnabled: true,
+  };
 });
 
 afterAll(() => {
@@ -488,6 +493,7 @@ test('handleGettingRuns chain functions should not change response', () => {
   expect(instance.updateNextPageToken(response)).toEqual(response);
   expect(instance.updateNumRunsFromLatestSearch(response)).toEqual(response);
   expect(instance.fetchModelVersionsForRuns(response)).toEqual(response);
+  expect(instance.updateCachedStartDate(response)).toEqual(response);
 });
 
 describe('updateNextPageToken', () => {
@@ -507,6 +513,68 @@ describe('updateNextPageToken', () => {
     instance.updateNextPageToken({});
     expect(instance.state.nextPageToken).toBe(null);
     expect(instance.state.loadingMore).toBe(false);
+  });
+});
+
+describe('updateCachedStartDate', () => {
+  it('should set cachedStartTime when there is next page token', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+
+    const responseWithToken = { value: { next_page_token: 'token' } };
+    const startDateFilter = 'attributes.start_time >= 100';
+
+    instance.updateCachedStartDate(responseWithToken, startDateFilter);
+    expect(instance.state.cachedStartTime).toBe(startDateFilter);
+  });
+
+  it('should set cachedStartTime to null when no next page token has been received', () => {
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+
+    const responseWithToken = { value: { next_page_token: null } };
+    const startDateFilter = 'attributes.start_time >= 100';
+
+    instance.updateCachedStartDate(responseWithToken, startDateFilter);
+    expect(instance.state.cachedStartTime).toBe(null);
+  });
+});
+
+describe('using cached startTime when requesting subsequent pages', () => {
+  it('should use cached start time when fetching next page', async () => {
+    let startTimeFilter;
+    const wrapper = getExperimentPageMock();
+    const instance = wrapper.instance();
+    instance.setState({
+      persistedState: new ExperimentPagePersistedState({
+        startTime: 'LAST_24_HOURS',
+      }).toJSON(),
+    });
+
+    const mockFirstRequestFn = jest.fn().mockImplementation(({ filter }) => {
+      startTimeFilter = filter;
+      return Promise.resolve({ value: { next_page_token: 'TOKEN' } });
+    });
+
+    await instance.handleGettingRuns(mockFirstRequestFn, instance.searchRunsApi);
+
+    expect(mockFirstRequestFn).toBeCalledWith(
+      expect.objectContaining({
+        filter: expect.stringContaining('attributes.start_time'),
+      }),
+    );
+
+    jest.advanceTimersByTime(5000);
+
+    const mockNextPageRequestFn = jest.fn().mockResolvedValue({});
+
+    await instance.handleGettingRuns(mockNextPageRequestFn, instance.searchRunsApi);
+
+    expect(mockNextPageRequestFn).toBeCalledWith(
+      expect.objectContaining({
+        filter: startTimeFilter,
+      }),
+    );
   });
 });
 
@@ -579,6 +647,7 @@ describe('handleGettingRuns', () => {
   it('should call updateNextPageToken, updateNumRunsFromLatestSearch, fetchModelVersionsForRuns', () => {
     const wrapper = getExperimentPageMock();
     const instance = wrapper.instance();
+    instance.updateCachedStartDate = jest.fn();
     instance.updateNextPageToken = jest.fn();
     instance.updateNumRunsFromLatestSearch = jest.fn();
     instance.fetchModelVersionsForRuns = jest.fn();
@@ -586,6 +655,7 @@ describe('handleGettingRuns', () => {
     return Promise.resolve(
       instance.handleGettingRuns(() => Promise.resolve(), instance.searchRunsApi),
     ).then(() => {
+      expect(instance.updateCachedStartDate).toHaveBeenCalled();
       expect(instance.updateNextPageToken).toHaveBeenCalled();
       expect(instance.updateNumRunsFromLatestSearch).toHaveBeenCalled();
       expect(instance.fetchModelVersionsForRuns).toHaveBeenCalled();
@@ -1032,14 +1102,8 @@ describe('updateUrlWithViewState', () => {
       }).toJSON(),
     });
 
-    const {
-      searchInput,
-      orderByKey,
-      orderByAsc,
-      startTime,
-      showMultiColumns,
-      diffSwitchSelected,
-    } = defaultParameters;
+    const { searchInput, orderByKey, orderByAsc, startTime, showMultiColumns, diffSwitchSelected } =
+      defaultParameters;
 
     instance.updateUrlWithViewState();
 

@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getUUID } from '../../common/utils/ActionUtils';
 import Utils from '../../common/utils/Utils';
-import { appendTagsFilter, getModelNameFilter } from '../utils/SearchUtils';
+import { getCombinedSearchFilter, constructSearchInputFromURLState } from '../utils/SearchUtils';
 import {
   AntdTableSortOrder,
   REGISTERED_MODELS_PER_PAGE,
@@ -24,6 +24,7 @@ export class ModelListPageImpl extends React.Component {
       maxResultsSelection: REGISTERED_MODELS_PER_PAGE,
       pageTokens: {},
       loading: false,
+      searchInput: constructSearchInputFromURLState(this.getUrlState()),
     };
   }
   static propTypes = {
@@ -108,18 +109,7 @@ export class ModelListPageImpl extends React.Component {
 
   // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
-    const { orderByKey, orderByAsc } = this.state;
-    const urlState = this.getUrlState();
-    this.loadPage(
-      this.state.currentPage,
-      urlState.nameSearchInput,
-      urlState.tagSearchInput,
-      orderByKey,
-      orderByAsc,
-      undefined,
-      undefined,
-      isInitialLoading,
-    );
+    this.loadPage(this.state.currentPage, undefined, undefined, isInitialLoading);
   }
 
   resetHistoryState() {
@@ -172,36 +162,34 @@ export class ModelListPageImpl extends React.Component {
     );
   };
 
-  handleSearch = (nameSearchInput, tagSearchInput, callback, errorCallback) => {
+  handleSearch = (callback, errorCallback) => {
     this.resetHistoryState();
-    const { orderByKey, orderByAsc } = this.state;
-    this.loadPage(
-      1,
-      nameSearchInput,
-      tagSearchInput,
-      orderByKey,
-      orderByAsc,
-      callback,
-      errorCallback,
-    );
+    this.loadPage(1, callback, errorCallback);
   };
 
   handleClear = (callback, errorCallback) => {
-    this.setState({
-      orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
-      orderByAsc: true,
-    });
-    this.updateUrlWithSearchFilter('', '', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, 1);
-    this.loadPage(1, '', '', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, callback, errorCallback);
+    this.setState(
+      {
+        orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
+        orderByAsc: true,
+        searchInput: '',
+        // eslint-disable-nextline
+      },
+      () => {
+        this.updateUrlWithSearchFilter('', REGISTERED_MODELS_SEARCH_NAME_FIELD, true, 1);
+        this.loadPage(1, callback, errorCallback);
+      },
+    );
   };
 
-  updateUrlWithSearchFilter = (nameSearchInput, tagSearchInput, orderByKey, orderByAsc, page) => {
+  handleSearchInputChange = (searchInput) => {
+    this.setState({ searchInput: searchInput });
+  };
+
+  updateUrlWithSearchFilter = (searchInput, orderByKey, orderByAsc, page) => {
     const urlParams = {};
-    if (nameSearchInput) {
-      urlParams['nameSearchInput'] = nameSearchInput;
-    }
-    if (tagSearchInput) {
-      urlParams['tagSearchInput'] = tagSearchInput;
+    if (searchInput) {
+      urlParams['searchInput'] = searchInput;
     }
     if (orderByKey && orderByKey !== REGISTERED_MODELS_SEARCH_NAME_FIELD) {
       urlParams['orderByKey'] = orderByKey;
@@ -221,85 +209,50 @@ export class ModelListPageImpl extends React.Component {
   handleMaxResultsChange = (key, callback, errorCallback) => {
     this.setState({ maxResultsSelection: parseInt(key, 10) }, () => {
       this.resetHistoryState();
-      const urlState = this.getUrlState();
-      const { orderByKey, orderByAsc, maxResultsSelection } = this.state;
+      const { maxResultsSelection } = this.state;
       this.setMaxResultsInStore(maxResultsSelection);
-      this.loadPage(
-        1,
-        urlState.nameSearchInput,
-        urlState.tagSearchInput,
-        orderByKey,
-        orderByAsc,
-        callback,
-        errorCallback,
-      );
+      this.loadPage(1, callback, errorCallback);
     });
   };
 
   handleClickNext = (callback, errorCallback) => {
-    const urlState = this.getUrlState();
-    const { orderByKey, orderByAsc, currentPage } = this.state;
-    this.loadPage(
-      currentPage + 1,
-      urlState.nameSearchInput,
-      urlState.tagSearchInput,
-      orderByKey,
-      orderByAsc,
-      callback,
-      errorCallback,
-    );
+    const { currentPage } = this.state;
+    this.loadPage(currentPage + 1, callback, errorCallback);
   };
 
   handleClickPrev = (callback, errorCallback) => {
-    const urlState = this.getUrlState();
-    const { orderByKey, orderByAsc, currentPage } = this.state;
-    this.loadPage(
-      currentPage - 1,
-      urlState.nameSearchInput,
-      urlState.tagSearchInput,
-      orderByKey,
-      orderByAsc,
-      callback,
-      errorCallback,
-    );
+    const { currentPage } = this.state;
+    this.loadPage(currentPage - 1, callback, errorCallback);
   };
 
   handleClickSortableColumn = (orderByKey, sortOrder, callback, errorCallback) => {
     const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
-    this.setState({ orderByKey, orderByAsc });
-    this.resetHistoryState();
-    const urlState = this.getUrlState();
-    this.loadPage(
-      1,
-      urlState.nameSearchInput,
-      urlState.tagSearchInput,
-      orderByKey,
-      orderByAsc,
-      callback,
-      errorCallback,
-    );
+    this.setState({ orderByKey, orderByAsc }, () => {
+      this.resetHistoryState();
+      this.loadPage(1, callback, errorCallback);
+    });
   };
 
   getMaxResultsSelection = () => {
     return this.state.maxResultsSelection;
   };
 
-  loadPage(
-    page,
-    nameSearchInput = '',
-    tagSearchInput = '',
-    orderByKey,
-    orderByAsc,
-    callback,
-    errorCallback,
-    isInitialLoading,
-  ) {
-    const { pageTokens } = this.state;
+  loadPage(page, callback, errorCallback, isInitialLoading) {
+    const {
+      searchInput,
+      pageTokens,
+      orderByKey,
+      orderByAsc,
+      // eslint-disable-nextline
+    } = this.state;
     this.setState({ loading: true });
-    this.updateUrlWithSearchFilter(nameSearchInput, tagSearchInput, orderByKey, orderByAsc, page);
+    this.updateUrlWithSearchFilter(searchInput, orderByKey, orderByAsc, page);
     this.props
       .searchRegisteredModelsApi(
-        appendTagsFilter(getModelNameFilter(nameSearchInput), tagSearchInput),
+        getCombinedSearchFilter(
+          searchInput,
+          // eslint-disable-nextline
+        ),
         this.state.maxResultsSelection,
         ModelListPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],
@@ -321,21 +274,30 @@ export class ModelListPageImpl extends React.Component {
   }
 
   render() {
-    const { orderByKey, orderByAsc, currentPage, pageTokens } = this.state;
+    const {
+      orderByKey,
+      orderByAsc,
+      currentPage,
+      pageTokens,
+      searchInput,
+      // eslint-disable-nextline
+    } = this.state;
     const { models } = this.props;
-    const urlState = this.getUrlState();
     return (
-      <RequestStateWrapper requestIds={[this.criticalInitialRequestIds]}>
+      <RequestStateWrapper
+        requestIds={[this.criticalInitialRequestIds]}
+        // eslint-disable-next-line no-trailing-spaces
+      >
         <ModelListView
           models={models}
           loading={this.state.loading}
-          nameSearchInput={urlState.nameSearchInput}
-          tagSearchInput={urlState.tagSearchInput}
+          searchInput={searchInput}
           orderByKey={orderByKey}
           orderByAsc={orderByAsc}
           currentPage={currentPage}
           nextPageToken={pageTokens[currentPage + 1]}
           onSearch={this.handleSearch}
+          onSearchInputChange={this.handleSearchInputChange}
           onClear={this.handleClear}
           onClickNext={this.handleClickNext}
           onClickPrev={this.handleClickPrev}

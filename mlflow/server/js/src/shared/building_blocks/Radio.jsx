@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Radio as AntdRadio } from './antd/Radio';
-import { css } from 'emotion';
 
 /**
  * Render a radio button group around ANTD. Styled according to
@@ -27,7 +26,7 @@ export class Radio extends React.Component {
   render() {
     const { items, defaultValue } = this.props;
     return (
-      <div className={css(styles.radioGroup)}>
+      <div css={styles.radioGroup}>
         <AntdRadio.Group defaultValue={defaultValue} buttonStyle={'solid'} size='large'>
           {items.map(({ value, itemContent, onClick, dataTestId }, i) => (
             <AntdRadio.Button value={value} onClick={onClick} key={i}>
@@ -45,7 +44,7 @@ const styles = {
     '--text-selected-background-color': 'auto',
     ' .ant-radio-button-wrapper': {
       boxSizing: 'border-box',
-      fontSize: '14px',
+      fontSize: '13px',
     },
     /* eslint-disable max-len */
     ' .ant-radio-group-solid .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled)': {

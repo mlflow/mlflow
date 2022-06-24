@@ -8,7 +8,6 @@ import {
 } from '@ant-design/icons';
 import { Tree, Input, Typography } from '@databricks/design-system';
 import { Link, withRouter } from 'react-router-dom';
-import './ExperimentListView.css';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
@@ -131,16 +130,7 @@ export class ExperimentListView extends Component {
   };
 
   render() {
-    const { searchInput, hidden } = this.state;
-    const { experiments, activeExperimentIds } = this.props;
-    const lowerCasedSearchInput = searchInput.toLowerCase();
-    const filteredExperiments = experiments.filter(({ name }) =>
-      name.toLowerCase().includes(lowerCasedSearchInput),
-    );
-    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
-      title: name,
-      key: experiment_id,
-    }));
+    const { hidden } = this.state;
     if (hidden) {
       return (
         <RightSquareFilled
@@ -151,8 +141,19 @@ export class ExperimentListView extends Component {
       );
     }
 
+    const { searchInput } = this.state;
+    const { experiments, activeExperimentIds } = this.props;
+    const lowerCasedSearchInput = searchInput.toLowerCase();
+    const filteredExperiments = experiments.filter(({ name }) =>
+      name.toLowerCase().includes(lowerCasedSearchInput),
+    );
+    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
+      title: name,
+      key: experiment_id,
+    }));
+
     return (
-      <div className='experiment-list-outer-container'>
+      <div css={classNames.experimentListOuterContainer}>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
@@ -204,7 +205,7 @@ export class ExperimentListView extends Component {
             onChange={this.handleSearchInputChange}
             data-test-id='search-experiment-input'
           />
-          <div className='experiment-list-container'>
+          <div css={classNames.experimentListContainer}>
             <Tree
               treeData={treeData}
               dangerouslySetAntdProps={{
@@ -223,5 +224,28 @@ export class ExperimentListView extends Component {
     );
   }
 }
+
+const classNames = {
+  experimentListOuterContainer: {
+    boxSizing: 'border-box',
+    marginLeft: '64px',
+    width: '220px',
+  },
+  experimentListContainer: {
+    overflowY: 'scroll',
+    overflowX: 'hidden',
+    width: ' 100%',
+    height: '90vh',
+    marginTop: '8px',
+    // Remove an empty space (transparent switcher) in the tree node to align the experiment name
+    // to the left.
+    '.du-bois-light-tree-switcher': {
+      display: 'none',
+    },
+    '.du-bois-light-tree-checkbox': {
+      marginLeft: "4px"
+    }
+  },
+};
 
 export default withRouter(ExperimentListView);

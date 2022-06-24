@@ -32,29 +32,20 @@ describe('TrimmedText', () => {
     );
     expect(wrapper.find('[data-test-id="trimmed-text-button"]').length).toEqual(1);
     expect(wrapper.text().includes('01234...')).toBe(true);
-    expect(
-      wrapper
-        .find('[data-test-id="trimmed-text-button"]')
-        .children(0)
-        .text(),
-    ).toEqual('expand');
+    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
+      'expand',
+    );
     wrapper.find('[data-test-id="trimmed-text-button"]').simulate('click');
     wrapper.update();
     expect(wrapper.text().includes('0123456789')).toBe(true);
-    expect(
-      wrapper
-        .find('[data-test-id="trimmed-text-button"]')
-        .children(0)
-        .text(),
-    ).toEqual('collapse');
+    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
+      'collapse',
+    );
     wrapper.find('[data-test-id="trimmed-text-button"]').simulate('click');
     wrapper.update();
     expect(wrapper.text().includes('01234...')).toBe(true);
-    expect(
-      wrapper
-        .find('[data-test-id="trimmed-text-button"]')
-        .children(0)
-        .text(),
-    ).toEqual('expand');
+    expect(wrapper.find('[data-test-id="trimmed-text-button"]').children(0).text()).toEqual(
+      'expand',
+    );
   });
 });

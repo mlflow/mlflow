@@ -102,24 +102,9 @@ describe('ModelView', () => {
       </Provider>,
     );
     expect(wrapper.find('td.model-version').length).toBe(3);
-    expect(
-      wrapper
-        .find('td.model-version')
-        .at(0)
-        .text(),
-    ).toBe('Version 3');
-    expect(
-      wrapper
-        .find('td.model-version')
-        .at(1)
-        .text(),
-    ).toBe('Version 2');
-    expect(
-      wrapper
-        .find('td.model-version')
-        .at(2)
-        .text(),
-    ).toBe('Version 1');
+    expect(wrapper.find('td.model-version').at(0).text()).toBe('Version 3');
+    expect(wrapper.find('td.model-version').at(1).text()).toBe('Version 2');
+    expect(wrapper.find('td.model-version').at(2).text()).toBe('Version 1');
   });
 
   test('should render model version table with activeStageOnly when "Active" button is on', () => {
@@ -184,12 +169,9 @@ describe('ModelView', () => {
     );
 
     expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().length).toBe(1);
-    expect(
-      wrapper
-        .find('[data-test-id="compareButton"]')
-        .hostNodes()
-        .props().disabled,
-    ).toEqual(true);
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
+      true,
+    );
 
     wrapper
       .find(ModelViewImpl)
@@ -198,32 +180,20 @@ describe('ModelView', () => {
         runsSelected: { run_id_1: 'version_1' },
       });
     wrapper.update();
-    expect(
-      wrapper
-        .find('[data-test-id="compareButton"]')
-        .hostNodes()
-        .props().disabled,
-    ).toEqual(true);
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
+      true,
+    );
 
     const twoRunsSelected = { run_id_1: 'version_1', run_id_2: 'version_2' };
-    wrapper
-      .find(ModelViewImpl)
-      .instance()
-      .setState({
-        runsSelected: twoRunsSelected,
-      });
+    wrapper.find(ModelViewImpl).instance().setState({
+      runsSelected: twoRunsSelected,
+    });
     wrapper.update();
-    expect(
-      wrapper
-        .find('[data-test-id="compareButton"]')
-        .hostNodes()
-        .props().disabled,
-    ).toEqual(false);
+    expect(wrapper.find('[data-test-id="compareButton"]').hostNodes().props().disabled).toEqual(
+      false,
+    );
 
-    wrapper
-      .find('[data-test-id="compareButton"]')
-      .hostNodes()
-      .simulate('click');
+    wrapper.find('[data-test-id="compareButton"]').hostNodes().simulate('click');
     expect(historyMock).toHaveBeenCalledWith(
       getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
     );
@@ -251,18 +221,12 @@ describe('ModelView', () => {
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(2);
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(0)
-        .text(),
-    ).toBe('Created Time');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(1)
-        .text(),
-    ).toBe('Last Modified');
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+      'Created Time',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
+      'Last Modified',
+    );
   });
 
   test('creator description rendered if user_id is available', () => {
@@ -283,30 +247,18 @@ describe('ModelView', () => {
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(3);
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(0)
-        .text(),
-    ).toBe('Created Time');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(1)
-        .text(),
-    ).toBe('Last Modified');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(2)
-        .text(),
-    ).toBe('Creator');
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+      'Created Time',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
+      'Last Modified',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(2).text()).toBe(
+      'Creator',
+    );
 
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-content')
-        .at(2)
-        .text(),
-    ).toBe(user_id);
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-content').at(2).text()).toBe(
+      user_id,
+    );
   });
 });
