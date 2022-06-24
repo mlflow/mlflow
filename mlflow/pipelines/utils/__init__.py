@@ -4,6 +4,7 @@ import pathlib
 from typing import Dict, Any
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import read_yaml, render_and_merge_yaml
 
@@ -46,13 +47,31 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     """
     pipeline_root_path = pipeline_root_path or get_pipeline_root_path()
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
-    if profile:
-        profile_file_name = os.path.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
-        return render_and_merge_yaml(
-            pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_file_name
-        )
-    else:
-        return read_yaml(pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    try:
+        if profile:
+            profile_file_path = os.path.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
+            if not os.path.exists(profile_file_path):
+                raise MlflowException(
+                    "Did not find the YAML configuration file for the specified profile"
+                   f" '{profile}' at expected path '{profile_file_path}'.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return render_and_merge_yaml(
+                pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_file_path
+            )
+        else:
+            return read_yaml(pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    except MlflowException:
+        raise
+    except Exception as e:
+        raise MlflowException(
+            "Failed to read pipeline configuration. Please verify that the `pipeline.yaml`"
+            " configuration file and the YAML configuration file for the selected profile are"
+            " syntactically correct and that the specified profile provides all required values"
+            " for template substitutions defined in `pipeline.yaml`.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
 
 
 def get_pipeline_root_path() -> str:
