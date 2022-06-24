@@ -2013,3 +2013,18 @@ def test_autolog_pos_label_used_for_training_metric():
     assert training_metrics == expected_training_metrics
 
     mlflow.end_run()
+
+
+def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    model = sklearn.svm.SVC()
+    X, y = get_iris()
+
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        model.fit(X, y)
+        mock_warning.called_once_with(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
+            "Metric error: Target is multiclass but average='binary'. Please choose another "
+            "average setting, one of [None, 'micro', 'macro', 'weighted']."
+        )
