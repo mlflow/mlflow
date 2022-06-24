@@ -94,12 +94,12 @@ def _extract_raw_model(model):
 
 
 def _extract_predict_fn(model, raw_model):
-    og_predict_fn = model.predict
-    og_predict_proba_fn = None
+    predict_fn = model.predict
+    predict_proba_fn = None
 
     if raw_model is not None:
-        og_predict_fn = raw_model.predict
-        og_predict_proba_fn = getattr(raw_model, "predict_proba", None)
+        predict_fn = raw_model.predict
+        predict_proba_fn = getattr(raw_model, "predict_proba", None)
 
         try:
             import xgboost
@@ -107,26 +107,11 @@ def _extract_predict_fn(model, raw_model):
             if isinstance(raw_model, xgboost.XGBModel):
                 # Because shap evaluation will pass evaluation data in ndarray format
                 # (without feature names), if set validate_features=True it will raise error.
-                og_predict_fn = partial(og_predict_fn, validate_features=False)
-                if og_predict_proba_fn is not None:
-                    og_predict_proba_fn = partial(og_predict_proba_fn, validate_features=False)
+                predict_fn = partial(predict_fn, validate_features=False)
+                if predict_proba_fn is not None:
+                    predict_proba_fn = partial(predict_proba_fn, validate_features=False)
         except ImportError:
             pass
-
-    # Wrap the original predict_fn / predict_proba_fn, add `input_df.copy()`
-    # preprocessing because some model might modify the input dataframe
-    # (e.g., appending new columns, or modify column values).
-
-    def predict_fn(input_df):
-        return og_predict_fn(input_df.copy())
-
-    if og_predict_proba_fn is not None:
-
-        def predict_proba_fn(input_df):
-            return og_predict_proba_fn(input_df.copy())
-
-    else:
-        predict_proba_fn = og_predict_proba_fn
 
     return predict_fn, predict_proba_fn
 
@@ -1028,8 +1013,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_proba_fn = predict_proba_fn
 
             # Normalize the features_data as a pandas dataframe and store it in `self.X`
-            self.X = pd.DataFrame(dataset.features_data, columns=dataset.feature_names)
-            self.y = dataset.labels_data
+
             self.metrics = dict()
             self.artifacts = {}
 
@@ -1049,3 +1033,11 @@ class DefaultEvaluator(ModelEvaluator):
                     return self._evaluate_regressor()
                 else:
                     raise ValueError(f"Unsupported model type {model_type}")
+
+    @property 
+    def X(self):
+        return pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names, copy=True)
+
+    @property 
+    def y(self):
+        return self.dataset.labels_data.copy()
