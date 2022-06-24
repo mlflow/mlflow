@@ -265,12 +265,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         if is_in_databricks_runtime():
             try:
+                from IPython.utils.io import capture_output
                 from dbruntime.spark_connection import (
                     initialize_spark_connection,
                     is_pinn_mode_enabled,
                 )
 
-                spark_handles, entry_point = initialize_spark_connection(is_pinn_mode_enabled())
+                with capture_output():
+                    spark_handles, entry_point = initialize_spark_connection(is_pinn_mode_enabled())
             except Exception as e:
                 _logger.warning(
                     "Encountered unexpected failure while initializing Spark connection. Spark"
