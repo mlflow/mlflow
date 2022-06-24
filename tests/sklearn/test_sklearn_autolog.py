@@ -26,7 +26,6 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _is_supported_version,
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
@@ -170,16 +169,6 @@ def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs
         _log_child_runs_info(max_tuning_runs, total_runs)
         mock_info.assert_called_once()
         mock_info.called_once_with(output_statement)
-
-
-@pytest.mark.skipif(
-    _is_supported_version(), reason="This test fails on supported versions of sklearn"
-)
-def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
-    with pytest.warns(
-        UserWarning, match="Autologging utilities may not work properly on scikit-learn"
-    ):
-        mlflow.sklearn.autolog()
 
 
 def test_autolog_does_not_terminate_active_run():

@@ -1,7 +1,7 @@
 .experiment-list-outer-container {
   box-sizing: border-box;
   margin-left: 64px;
-  width: 220px;
+  width: 260px;
 }
 
 .experiment-list-container {
@@ -14,4 +14,8 @@
 
 .du-bois-light-tree-switcher {
   display: none;
+}
+
+.du-bois-light-tree-checkbox {
+  margin-left: 4px;
 }

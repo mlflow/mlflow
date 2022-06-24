@@ -1046,25 +1046,35 @@ def autolog(
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             batch_size = None
-            training_data = kwargs["x"] if "x" in kwargs else args[0]
-            if isinstance(training_data, tensorflow.data.Dataset):
-                batch_size = training_data._batch_size.numpy()
-            elif isinstance(training_data, tensorflow.keras.utils.Sequence):
-                first_batch_inputs, _ = training_data[0]
-                batch_size = len(first_batch_inputs)
-            elif is_iterator(training_data):
-                peek = next(training_data)
-                batch_size = len(peek[0])
+            try:
+                training_data = kwargs["x"] if "x" in kwargs else args[0]
+                if isinstance(training_data, tensorflow.data.Dataset) and hasattr(
+                    training_data, "_batch_size"
+                ):
+                    batch_size = training_data._batch_size.numpy()
+                elif isinstance(training_data, tensorflow.keras.utils.Sequence):
+                    first_batch_inputs, _ = training_data[0]
+                    batch_size = len(first_batch_inputs)
+                elif is_iterator(training_data):
+                    peek = next(training_data)
+                    batch_size = len(peek[0])
 
-                def __restore_generator(prev_generator):
-                    yield peek
-                    yield from prev_generator
+                    def __restore_generator(prev_generator):
+                        yield peek
+                        yield from prev_generator
 
-                restored_generator = __restore_generator(training_data)
-                if "x" in kwargs:
-                    kwargs["x"] = restored_generator
-                else:
-                    args = (restored_generator,) + args[1:]
+                    restored_generator = __restore_generator(training_data)
+                    if "x" in kwargs:
+                        kwargs["x"] = restored_generator
+                    else:
+                        args = (restored_generator,) + args[1:]
+            except Exception as e:
+                _logger.warning(
+                    "Encountered unexpected error while inferring batch size from training"
+                    " dataset: %s",
+                    e,
+                )
+
             if batch_size is not None:
                 mlflow.log_param("batch_size", batch_size)
                 unlogged_params.append("batch_size")

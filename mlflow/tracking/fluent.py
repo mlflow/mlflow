@@ -37,6 +37,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 
@@ -139,6 +141,16 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
     return experiment
+
+
+def _set_experiment_primary_metric(
+    experiment_id: str, primary_metric: str, greater_is_better: bool
+):
+    client = MlflowClient()
+    client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
+    client.set_experiment_tag(
+        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER, str(greater_is_better)
+    )
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -505,6 +517,30 @@ def log_param(key: str, value: Any) -> None:
     MlflowClient().log_param(run_id, key, value)
 
 
+def set_experiment_tag(key: str, value: Any) -> None:
+    """
+    Set a tag on the current experiment. Value is converted to a string.
+
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+    :param value: Tag value (string, but will be string-ified if not).
+                  All backend stores will support values up to length 5000, but some
+                  may support larger values.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+           mlflow.set_experiment_tag("release.version", "2.2.0")
+    """
+    experiment_id = _get_experiment_id()
+    MlflowClient().set_experiment_tag(experiment_id, key, value)
+
+
 def set_tag(key: str, value: Any) -> None:
     """
     Set a tag under the current run. If no run is active, this method will create a
@@ -637,6 +673,29 @@ def log_params(params: Dict[str, Any]) -> None:
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def set_experiment_tags(tags: Dict[str, Any]) -> None:
+    """
+    Set tags for the current active experiment.
+
+    :param tags: Dictionary containing tag names and corresponding values.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        tags = {"engineering": "ML Platform",
+                "release.candidate": "RC1",
+                "release.version": "2.2.0"}
+
+        # Set a batch of tags
+        with mlflow.start_run():
+            mlflow.set_experiment_tags(tags)
+    """
+    for key, value in tags.items():
+        set_experiment_tag(key, value)
 
 
 def set_tags(tags: Dict[str, Any]) -> None:

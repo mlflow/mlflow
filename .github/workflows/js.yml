@@ -35,6 +35,8 @@ jobs:
         working-directory: mlflow/server/js
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v1
         with:
           node-version: '16'

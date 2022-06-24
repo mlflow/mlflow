@@ -48,6 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v3
@@ -101,6 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - name: Get Java version

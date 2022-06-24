@@ -11,6 +11,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
 import struct
 import sys
@@ -119,7 +120,7 @@ class EvaluationResult:
         """Write the evaluation results to the specified local filesystem path"""
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "metrics.json"), "w") as fp:
-            json.dump(self.metrics, fp)
+            json.dump(self.metrics, fp, cls=NumpyEncoder)
 
         artifacts_metadata = {
             artifact_name: {
@@ -132,7 +133,7 @@ class EvaluationResult:
             json.dump(artifacts_metadata, fp)
 
         artifacts_dir = os.path.join(path, "artifacts")
-        os.mkdir(artifacts_dir)
+        os.makedirs(artifacts_dir, exist_ok=True)
 
         for artifact in self.artifacts.values():
             filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
