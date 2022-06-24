@@ -70,6 +70,8 @@ body:
           required: false
         - label: "`area/models`: MLmodel format, model serialization/deserialization, flavors"
           required: false
+        - label: "`area/pipelines`: Pipelines, Pipeline APIs, Pipeline configs, Pipeline Templates"
+          required: false
         - label: "`area/projects`: MLproject format, project running backends"
           required: false
         - label: "`area/scoring`: MLflow Model server, model deployment tools, Spark UDFs"
