@@ -99,7 +99,7 @@ def test_get_pipeline_config_supports_empty_profile():
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_get_pipeline_config_throws_for_nonexistent_profile():
-    with pytest.raises(MlflowException, match="Yaml file.*badprofile.*does not exist"):
+    with pytest.raises(MlflowException, match="Did not find the YAML configuration.*badprofile"):
         get_pipeline_config(profile="badprofile")
 
 
@@ -110,3 +110,15 @@ def test_get_default_profile_works():
     ) as patched_is_in_databricks_runtime:
         assert get_default_profile() == "databricks"
         patched_is_in_databricks_runtime.assert_called_once()
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_get_pipeline_config_throws_clear_error_for_invalid_profile():
+    with open("profiles/badcontent.yaml", "w") as f:
+        f.write(r"\BAD")
+
+    with pytest.raises(
+        MlflowException,
+        match="Failed to read pipeline configuration.*verify.*syntactically correct",
+    ):
+        get_pipeline_config(profile="badcontent")
