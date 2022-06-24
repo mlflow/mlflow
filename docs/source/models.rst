@@ -1733,7 +1733,8 @@ Remarks:
     }
 
 Remarks:
-  * In above exmaple, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster registered/created in Azure Machine Learning.
+  * In the above example, ``aks-mlflow`` is the name of an Azure Kubernetes Cluster (AKS) 
+ that has been registered and created in the Azure Machine Learning (AML) service.
   * The full specification of this configuration file can be viewed at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_.
 
 .. rubric:: Configuration example for an Managed Endpoint deployment
