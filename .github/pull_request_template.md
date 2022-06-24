@@ -51,6 +51,7 @@ Components
 - [ ] `area/examples`: Example code
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/pipelines`: Pipelines, Pipeline APIs, Pipeline configs, Pipeline Templates
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
 - [ ] `area/server-infra`: MLflow Tracking server backend
