@@ -2020,7 +2020,8 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
 
     with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(X, y)
-        mock_warning.called_once_with(
+        assert mock_warning.call_count == 3  # for precision, recall and f1_score
+        mock_warning.assert_any_call(
             "precision_score failed. The metric training_precision_score will not be recorded. "
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
