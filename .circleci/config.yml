@@ -74,6 +74,10 @@ jobs:
     steps:
       - checkout
       - run:
+          name: Pull submodule
+          command: |
+            git submodule update --init --recursive
+      - run:
           name: Install dependencies
           command: |
             pip install -e '.[pipelines]'
