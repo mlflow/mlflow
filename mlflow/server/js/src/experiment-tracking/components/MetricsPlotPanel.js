@@ -7,7 +7,7 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
 import { Button } from '../../shared/building_blocks/Button';
-import { injectIntl, FormattedMessage } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
@@ -21,7 +21,7 @@ import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { saveAs } from "file-saver"
+import { saveAs } from 'file-saver';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -30,6 +30,17 @@ export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
 // A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
 // prior to this threshold. The metrics plot doesn't automatically update hanging runs.
 export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
+
+export const convertMetricsToCsv = (metrics) => {
+  const header = ['run_id', ...Object.keys(metrics[0].history[0])];
+  const rows = metrics.flatMap(({ runUuid, history }) =>
+    history.map((metric) => [runUuid, ...Object.values(metric)]),
+  );
+  return [header]
+    .concat(rows)
+    .map((row) => row.join(','))
+    .join('\n');
+};
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
@@ -439,26 +450,11 @@ export class MetricsPlotPanel extends React.Component {
     };
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
-  
-  convertJsonToCsv = () => {
-    const metrics = this.props.metricsWithRunInfoAndHistory
-    const heading = ["run_id"].concat(Object.keys(metrics[0].history[0])).join(",").concat("\n");
-    const metricValues = metrics.map(
-      (metric) => {
-        return metric.history
-          .map((point) => {
-              return [metric.runUuid, Object.values(point)].join(",");
-            }).join("\n");
-          }).join("\n");
-
-    return `${heading}${metricValues}`;
-  };
 
   onDownloadCsv = () => {
-    const csv = this.convertJsonToCsv();
+    const csv = convertMetricsToCsv(this.props.metricsWithRunInfoAndHistory);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
-    const selectedRunUuid = this.props.runUuids[0]
-    saveAs(blob, 'metric_values' + '.csv');
+    saveAs(blob, 'metrics.csv');
   };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
