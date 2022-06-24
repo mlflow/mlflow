@@ -1,3 +1,4 @@
+import functools
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
@@ -427,6 +428,10 @@ def _compute_df_mode_or_mean(df):
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
+def _shap_predict_fn(x, predict_fn, feature_names):
+    return predict_fn(pd.DataFrame(x, columns=feature_names))
+
+
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
@@ -576,11 +581,17 @@ class DefaultEvaluator(ModelEvaluator):
         # The `shap_predict_fn` calls model's predict function, we need to restore the input
         # dataframe with original column names, because some model prediction routine uses
         # the column name.
-        shap_predict_fn = lambda x: self.predict_fn(pd.DataFrame(x, columns=self.feature_names))
+
+        shap_predict_fn = functools.partial(
+            _shap_predict_fn, predict_fn=self.predict_fn, feature_names=self.feature_names
+        )
 
         try:
             if algorithm:
                 if algorithm == "kernel":
+                    # We need to lazily import shap, so lazily import `_PatchedKernelExplainer`
+                    from ._shap_patch import _PatchedKernelExplainer
+
                     kernel_link = self.evaluator_config.get(
                         "explainability_kernel_link", "identity"
                     )
@@ -592,18 +603,7 @@ class DefaultEvaluator(ModelEvaluator):
                     background_X = shap.sample(X_df, sample_rows, random_state=3)
                     background_X = background_X.fillna(mode_or_mean_dict)
 
-                    # `shap.KernelExplainer.not_equal` method fails on some special types such as
-                    # timestamp, this breaks the kernel explainer routine.
-                    # `PatchedKernelExplainer` fixes this issue.
-                    class PatchedKernelExplainer(shap.KernelExplainer):
-                        @staticmethod
-                        def not_equal(_i, _j):
-                            try:
-                                return shap.KernelExplainer.not_equal(_i, _j)
-                            except Exception:
-                                return int(_i != _j)
-
-                    explainer = PatchedKernelExplainer(
+                    explainer = _PatchedKernelExplainer(
                         shap_predict_fn, background_X, link=kernel_link
                     )
                 else:

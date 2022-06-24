@@ -4,15 +4,13 @@ import os
 import sys
 
 import cloudpickle
-import pandas as pd
 
 import mlflow
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
-from mlflow.models.signature import infer_signature
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_merged_eval_metrics
+from mlflow.pipelines.utils.step import get_merged_eval_metrics, get_pandas_data_profile
 from mlflow.pipelines.utils.tracking import (
     get_pipeline_tracking_config,
     apply_pipeline_tracking_config,
@@ -21,7 +19,6 @@ from mlflow.pipelines.utils.tracking import (
     log_code_snapshot,
 )
 from mlflow.projects.utils import get_databricks_env_vars
-from mlflow.types import ColSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -31,16 +28,18 @@ class TrainStep(BaseStep):
         super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
-        self.train_module_name, self.train_method_name = self.step_config["train_method"].rsplit(
-            ".", 1
-        )
+        self.train_module_name, self.estimator_method_name = self.step_config[
+            "estimator_method"
+        ].rsplit(".", 1)
         self.primary_metric = (self.step_config.get("metrics") or {}).get(
             "primary", "root_mean_squared_error"
         )
 
     def _run(self, output_directory):
-        from sklearn.pipeline import make_pipeline
+        import pandas as pd
         import shutil
+        from sklearn.pipeline import make_pipeline
+        from mlflow.models.signature import infer_signature
 
         apply_pipeline_tracking_config(self.tracking_config)
 
@@ -81,8 +80,10 @@ class TrainStep(BaseStep):
         )
 
         sys.path.append(self.pipeline_root)
-        train_fn = getattr(importlib.import_module(self.train_module_name), self.train_method_name)
-        estimator = train_fn()
+        estimator_fn = getattr(
+            importlib.import_module(self.train_module_name), self.estimator_method_name
+        )
+        estimator = estimator_fn()
         mlflow.autolog(log_models=False)
 
         with mlflow.start_run() as run:
@@ -182,7 +183,7 @@ class TrainStep(BaseStep):
         model_uri,
         worst_examples_df,
     ):
-        from pandas_profiling import ProfileReport
+        import pandas as pd
         from sklearn.utils import estimator_html_repr
         from sklearn import set_config
 
@@ -211,11 +212,9 @@ class TrainStep(BaseStep):
         ).add_html("METRICS", metric_table_html)
 
         # Tab 1: Prediction and error data profile.
-        pred_and_error_df_profile = ProfileReport(
+        pred_and_error_df_profile = get_pandas_data_profile(
             pred_and_error_df.reset_index(drop=True),
-            title="Predictions and Errors (Validation Dataset)",
-            minimal=True,
-            progress_bar=False,
+            "Predictions and Errors (Validation Dataset)",
         )
         card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
             "PROFILE", pred_and_error_df_profile
@@ -227,6 +226,8 @@ class TrainStep(BaseStep):
 
         # Tab 3: Inferred model (transformer + estimator) schema.
         def render_schema(inputs, title):
+            from mlflow.types import ColSpec
+
             table = BaseCard.render_table(
                 (
                     {

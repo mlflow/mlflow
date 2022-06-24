@@ -18,8 +18,6 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 CARD_PICKLE_NAME = "card.pkl"
 CARD_HTML_NAME = "card.html"
 
-# TODO: Make card save / load including card_resources directory
-_CARD_RESOURCE_DIR_NAME = f"{CARD_HTML_NAME}.resources"
 _PP_VARIABLE_LINK_REGEX = re.compile(r'<a\s+href="?(?P<href>#pp_var_[-0-9]+)"?\s*>')
 
 
