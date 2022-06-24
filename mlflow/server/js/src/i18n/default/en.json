@@ -511,6 +511,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
   },
+  "KwMekr": {
+    "defaultMessage": "Download CSV",
+    "description": "String for the download csv button to download metrics from this run offline in a CSV format"
+  },
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
