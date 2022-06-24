@@ -180,6 +180,7 @@ setup(
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+        mlp=mlflow.pipelines.cli:commands
     """,
     cmdclass={
         "dependencies": ListDependencies,
