@@ -30,6 +30,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomMetric,
 )
+from mlflow.utils.file_utils import TempDir
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.datasets import load_iris
@@ -328,6 +329,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
 
 def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
+
     data, target_col = get_pipeline_model_dataset()
     with mlflow.start_run() as run:
         evaluate(
@@ -344,7 +347,13 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
         "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
         "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
         "shap_summary_plot_on_data_pipeline_model_dataset.png",
+        "explainer_on_data_pipeline_model_dataset",
     }.issubset(run_data.artifacts)
+
+    explainer = mlflow.shap.load_explainer(
+        f"runs:/{run.info.run_id}/explainer_on_data_pipeline_model_dataset"
+    )
+    assert isinstance(explainer, _PatchedKernelExplainer)
 
 
 def test_compute_df_mode_or_mean():
