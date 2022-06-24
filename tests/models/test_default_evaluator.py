@@ -30,7 +30,6 @@ from mlflow.models.evaluation.default_evaluator import (
     _compute_df_mode_or_mean,
     _CustomMetric,
 )
-from mlflow.utils.file_utils import TempDir
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.datasets import load_iris
