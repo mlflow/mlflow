@@ -8,6 +8,7 @@ from typing import Dict, Any
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 
 
@@ -111,26 +112,18 @@ class SplitStep(BaseStep):
         self.split_ratios = split_ratios
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
-        from pandas_profiling import ProfileReport
-
         # Build profiles for input dataset, and train / validation / test splits
-        train_profile = ProfileReport(
+        train_profile = get_pandas_data_profile(
             train_df.reset_index(drop=True),
-            title="Profile of Train Dataset",
-            minimal=True,
-            progress_bar=False,
+            "Profile of Train Dataset",
         )
-        validation_profile = ProfileReport(
+        validation_profile = get_pandas_data_profile(
             validation_df.reset_index(drop=True),
-            title="Profile of Validation Dataset",
-            minimal=True,
-            progress_bar=False,
+            "Profile of Validation Dataset",
         )
-        test_profile = ProfileReport(
+        test_profile = get_pandas_data_profile(
             test_df.reset_index(drop=True),
-            title="Profile of Test Dataset",
-            minimal=True,
-            progress_bar=False,
+            "Profile of Test Dataset",
         )
 
         # Build card

@@ -1,4 +1,5 @@
 import os
+import pathlib
 import time
 from datetime import datetime
 from unittest import mock
@@ -93,8 +94,15 @@ def test_ingests_parquet_successfully(use_relative_path, multiple_files, pandas_
 
 @pytest.mark.parametrize("use_relative_path", [False, True])
 @pytest.mark.parametrize("multiple_files", [False, True])
+@pytest.mark.parametrize("explicit_file_list", [False, True])
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_ingests_csv_successfully(use_relative_path, multiple_files, pandas_df, tmp_path):
+def test_ingests_csv_successfully(
+    use_relative_path,
+    multiple_files,
+    explicit_file_list,
+    pandas_df,
+    tmp_path,
+):
     if multiple_files:
         dataset_path = tmp_path / "dataset"
         dataset_path.mkdir()
@@ -107,13 +115,18 @@ def test_ingests_csv_successfully(use_relative_path, multiple_files, pandas_df, 
         pandas_df.to_csv(dataset_path)
 
     if use_relative_path:
-        dataset_path = os.path.relpath(dataset_path)
+        dataset_path = pathlib.Path(os.path.relpath(dataset_path))
+
+    if explicit_file_list and multiple_files:
+        dataset_path = [f'{dataset_path / "df1.csv"}', f'{dataset_path / "df2.csv"}']
+    else:
+        dataset_path = str(dataset_path)
 
     IngestStep.from_pipeline_config(
         pipeline_config={
             "data": {
                 "format": "csv",
-                "location": str(dataset_path),
+                "location": dataset_path,
                 "custom_loader_method": "steps.ingest.load_file_as_dataframe",
             }
         },
@@ -122,6 +135,29 @@ def test_ingests_csv_successfully(use_relative_path, multiple_files, pandas_df, 
 
     reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
     pd.testing.assert_frame_equal(reloaded_df, pandas_df)
+
+
+def custom_load_wine_csv(file_path, file_format):  # pylint: disable=unused-argument
+    return pd.read_csv(file_path, sep=";")
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path):
+    IngestStep.from_pipeline_config(
+        pipeline_config={
+            "data": {
+                "format": "csv",
+                "location": [
+                    "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv",
+                    "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv",
+                ],
+                "custom_loader_method": "tests.pipelines.test_ingest_step.custom_load_wine_csv",
+            }
+        },
+        pipeline_root=os.getcwd(),
+    ).run(output_directory=tmp_path)
+    reloaded_df = pd.read_parquet(str(tmp_path / "dataset.parquet"))
+    assert reloaded_df.count()[0] == 6497
 
 
 def custom_load_file_as_dataframe(file_path, file_format):  # pylint: disable=unused-argument

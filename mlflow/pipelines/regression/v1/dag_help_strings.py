@@ -26,9 +26,9 @@ steps:
     split_ratios: {{SPLIT_RATIOS|default([0.75, 0.125, 0.125])}}
     post_split_method: steps.split.process_splits
   transform:
-    transform_method: steps.transform.transformer_fn
+    transformer_method: steps.transform.transformer_fn
   train:
-    train_method: steps.train.estimator_fn
+    estimator_method: steps.train.estimator_fn
   evaluate:
     validation_criteria:
       - metric: root_mean_squared_error
@@ -129,16 +129,16 @@ TEST_DATA = format_help_string(
 )
 
 TRANSFORM_STEP = format_help_string(
-    """The 'transform' step uses the training dataset produced by 'split' to fit a transformer with the architecture defined in `steps/transform.py` (and referred to by the 'transform_method' attribute of the 'transform' step definition in pipeline.yaml). The transformer is then applied to the training dataset and the validation dataset, producing transformed datasets that are used by the subsequent 'train' step for estimator training and model performance evaluation. An example pipeline.yaml 'transform' step definition is shown below.
+    """The 'transform' step uses the training dataset produced by 'split' to fit a transformer with the transformation operations defined in `steps/transform.py` (and referred to by the 'transformer_method' attribute of the 'transform' step definition in pipeline.yaml). The transformer is then applied to the training dataset and the validation dataset, producing transformed datasets that are used by subsequent steps for estimator training and model performance evaluation. An example pipeline.yaml 'transform' step definition is shown below.
 
 steps:
   transform:
-    transform_method: steps.transform.transformer_fn
+    transformer_method: steps.transform.transformer_fn
 """
 )
 
 TRANSFORM_USER_CODE = format_help_string(
-    """\"\"\"\nsteps/transform.py defines customizable logic for transforming input data during model inference. Transformations are specified via the via the `transformer_fn` function, an example of which is displayed below (note that a different function name or module can be specified via the 'transform_method' attribute of the 'transform' step definition in pipeline.yaml).\n\"\"\"\n
+    """\"\"\"\nsteps/transform.py defines customizable logic for transforming input data during model inference. Transformations are specified via the via the `transformer_fn` function, an example of which is displayed below (note that a different function name or module can be specified via the 'transformer_method' attribute of the 'transform' step definition in pipeline.yaml).\n\"\"\"\n
 def transformer_fn():
     \"\"\"
     Returns an *unfitted* transformer that defines ``fit()`` and ``transform()`` methods. The transformer's input and output signatures should be compatible with scikit-learn transformers.
@@ -172,11 +172,11 @@ TRANSFORMED_TRAINING_AND_VALIDATION_DATA = format_help_string(
 )
 
 TRAIN_STEP = format_help_string(
-    """The 'train' step uses the transformed training dataset produced by 'transform' to fit an estimator with the architecture defined in `steps/train.py` (and referred to by the 'train_method' attribute of the 'train' step definition in pipeline.yaml). The estimator is then joined with the fitted transformer output from the 'transform' step to create a model pipeline. Finally, this model pipeline is evaluated against the transformed training and validation datasets to produce performance metrics; custom metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. The model pipeline and its associated parameters, performance metrics, and lineage information are logged to MLflow Tracking, producing an MLflow Run. An example pipeline.yaml 'train' step definition is shown below, as well as an example custom metric definition.
+    """The 'train' step uses the transformed training dataset produced by 'transform' to fit an estimator with the type and parameters defined in `steps/train.py` (and referred to by the 'estimator_method' attribute of the 'train' step definition in pipeline.yaml). The estimator is then joined with the fitted transformer output from the 'transform' step to create a model pipeline. Finally, this model pipeline is evaluated against the transformed training and validation datasets to produce performance metrics; custom metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. The model pipeline and its associated parameters, performance metrics, and lineage information are logged to MLflow Tracking, producing an MLflow Run. An example pipeline.yaml 'train' step definition is shown below, as well as an example custom metric definition.
 
 steps:
   train:
-    train_method: steps.train.estimator_fn
+    estimator_method: steps.train.estimator_fn
 
 metrics:
   custom:
@@ -187,7 +187,7 @@ metrics:
 )
 
 TRAIN_USER_CODE = format_help_string(
-    """\"\"\"\nsteps/train.py defines customizable logic for specifying your estimator's architecture and parameters that will be used during training. Estimator architectures and parameters are specified via the `estimator_fn` function, an example of which is displayed below (note that a different function name or module can be specified via the 'train_method' attribute of the 'train' step definition in pipeline.yaml).\n\"\"\"\n
+    """\"\"\"\nsteps/train.py defines customizable logic for specifying your estimator's type and parameters that will be used during training. The estimator type and its parameters are specified via the `estimator_fn` function, an example of which is displayed below (note that a different function name or module can be specified via the 'estimator_method' attribute of the 'train' step definition in pipeline.yaml).\n\"\"\"\n
 def estimator_fn():
     \"\"\"
     Returns an *unfitted* estimator that defines ``fit()`` and ``predict()`` methods. The estimator's input and output signatures should be compatible with scikit-learn estimators.
@@ -248,7 +248,7 @@ def weighted_mean_squared_error(
 )
 
 EVALUATE_STEP = format_help_string(
-    """The 'evaluate' step evaluates the model pipeline produced by the 'train' step on the test dataset output from the 'split step', producing performance metrics and model explanations. Performance metrics are compared against configured thresholds to compute a 'model_validation_status', which indicates whether or not a model is good enough to be registered to the MLflow Model Registry by the subsequent 'register' step. Custom performance metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. Model performance thresholds are defined in the 'validation' section of the 'evaluate' step definition in pipeline.yaml. Model performance metrics and explanations are logged to MLflow Tracking using the same MLflow Run produced by the 'train' step. An example pipeline.yaml 'evaluate' step definition is shown below, as well as an example custom metric definition.
+    """The 'evaluate' step evaluates the model pipeline produced by the 'train' step on the test dataset output from the 'split' step, producing performance metrics and model explanations. Performance metrics are compared against configured thresholds to compute a 'model_validation_status', which indicates whether or not a model is good enough to be registered to the MLflow Model Registry by the subsequent 'register' step. Custom performance metrics are computed according to definitions in `steps/custom_metrics.py` and the 'function' attributes of entries in the 'custom' subsection of the 'metrics' section in pipeline.yaml. Model performance thresholds are defined in the 'validation' section of the 'evaluate' step definition in pipeline.yaml. Model performance metrics and explanations are logged to MLflow Tracking using the same MLflow Run produced by the 'train' step. An example pipeline.yaml 'evaluate' step definition is shown below, as well as an example custom metric definition.
 
 evaluate:
   validation_criteria:
