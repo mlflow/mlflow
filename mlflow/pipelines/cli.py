@@ -6,6 +6,7 @@ from mlflow.utils.annotations import experimental
 
 _CLI_ARG_PIPELINE_PROFILE = click.option(
     "--profile",
+    "-p",
     envvar=_PIPELINE_PROFILE_ENV_VAR,
     type=click.STRING,
     default=None,
@@ -29,6 +30,7 @@ def commands():
 @commands.command(short_help="Run the full pipeline or a particular pipeline step.")
 @click.option(
     "--step",
+    "-s",
     type=click.STRING,
     default=None,
     required=False,
@@ -52,6 +54,7 @@ def run(step, profile):
 )
 @click.option(
     "--step",
+    "-s",
     type=click.STRING,
     default=None,
     required=False,
@@ -75,6 +78,7 @@ def clean(step, profile):
 )
 @click.option(
     "--step",
+    "-s",
     type=click.STRING,
     default=None,
     required=False,
