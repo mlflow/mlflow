@@ -332,12 +332,19 @@ profile customizations are supported:
       mlflow pipelines run --profile shared-workspace
 
 
-
-
 Reproducible workflow tracking
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--- INSERT TRACKING UI SCREENSHOT HERE --
+.. figure:: _static/images/tracking_ui_for_pipeline.png
+  :scale: 40
+
+  -- CAPTION --
+
+MLflow Pipelines integrates with MLflow Tracking to provide a comprehensive, reproducible record
+of pipeline runs. For example, each complete execution of the :ref:`MLflow Regression Pipeline
+<regression-pipeline-overview>`, creates a new MLflow Run that records dataset profiles, the
+trained model, model parameters, model performance metrics across training, validation, & test
+datasets, model explanations, and more.
 
 .. _pipeline-templates:
 
