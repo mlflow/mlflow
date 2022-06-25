@@ -508,7 +508,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if algorithm != "kernel":
-            feature_dtypes = list(self.X.copy_to_avoid_mutation().dtypes)
+            feature_dtypes = list(self.X.get_original().dtypes)
             for feature_dtype in feature_dtypes:
                 if not np.issubdtype(feature_dtype, np.number):
                     _logger.warning(
@@ -1047,9 +1047,9 @@ class DefaultEvaluator(ModelEvaluator):
 
     class _MutationGuardedData:
         """
-        Wrapper around a data object that only provides copies of the data object, guarding against
-        accidental reuse of the data object after it is mutated, e.g. during inference with
-        scikit-learn models.
+        Wrapper around a data object that requires explicit API calls to obtain either a copy
+        of the data object, or, in cases where the caller can guaranteed that the object will not
+        be mutated, the original data object.
         """
 
         def __init__(self, data):
@@ -1061,7 +1061,8 @@ class DefaultEvaluator(ModelEvaluator):
         def copy_to_avoid_mutation(self):
             """
             Obtain a copy of the data. This method should be called every time the data needs
-            to be accessed, guarding against accidental reuse after mutation.
+            to be used in a context where it may be subsequently mutated, guarding against
+            accidental reuse after mutation.
 
             :return: A copy of the data object.
             """
@@ -1069,3 +1070,12 @@ class DefaultEvaluator(ModelEvaluator):
                 return self._data.copy(deep=True)
             else:
                 return copy.deepcopy(self._data)
+
+        def get_original(self):
+            """
+            Obtain the original data object. This method should only be called if the caller
+            can guarantee that it will not mutate the data during subsequent operations.
+
+            :return: The original data object.
+            """
+            return self._data
