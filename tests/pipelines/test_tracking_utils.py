@@ -41,7 +41,7 @@ def test_get_pipeline_tracking_config_returns_expected_config(
     )
     default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-    profile_contents = {"experiment": {}}
+    profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
     if tracking_uri is not None:
         profile_contents["experiment"]["tracking_uri"] = tracking_uri
     if artifact_location is not None:
@@ -90,7 +90,7 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
         default_tracking_uri = "databricks"
         default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-        profile_contents = {"experiment": {}}
+        profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
         if tracking_uri is not None:
             profile_contents["experiment"]["tracking_uri"] = tracking_uri
         if artifact_location is not None:

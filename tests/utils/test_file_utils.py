@@ -4,6 +4,8 @@ import filecmp
 import hashlib
 import os
 import shutil
+
+import jinja2.exceptions
 import pytest
 import tarfile
 import stat
@@ -125,6 +127,18 @@ def test_render_and_merge_yaml_raise_on_non_existent_yamls(tmpdir):
         file_utils.render_and_merge_yaml("invalid_path", template_yaml_file, context_yaml_file)
     with pytest.raises(MissingConfigException, match="does not exist"):
         file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, "invalid_name")
+
+
+def test_render_and_merge_yaml_raise_on_not_found_key(tmpdir):
+    template_yaml_file = random_file("yaml")
+    with open(tmpdir / template_yaml_file, "w") as f:
+        f.write("""test_1: {{ TEST_VAR_1 }}""")
+
+    context_yaml_file = random_file("yaml")
+    file_utils.write_yaml(str(tmpdir), context_yaml_file, {})
+
+    with pytest.raises(jinja2.exceptions.UndefinedError, match="'TEST_VAR_1' is undefined"):
+        file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
 
 
 def test_yaml_write_sorting(tmpdir):
