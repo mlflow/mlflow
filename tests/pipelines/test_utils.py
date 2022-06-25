@@ -89,14 +89,6 @@ def test_get_pipeline_config_throws_for_invalid_pipeline_directory(tmp_path):
         get_pipeline_config(pipeline_root_path=tmp_path)
 
 
-@pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_get_pipeline_config_supports_empty_profile():
-    with open("profiles/empty.yaml", "w"):
-        pass
-
-    get_pipeline_config(profile="empty")
-
-
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_get_pipeline_config_throws_for_nonexistent_profile():
     with pytest.raises(MlflowException, match="Did not find the YAML configuration.*badprofile"):

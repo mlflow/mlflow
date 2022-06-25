@@ -41,7 +41,7 @@ def test_get_pipeline_tracking_config_returns_expected_config(
     )
     default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-    profile_contents = {"experiment": {}}
+    profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
     if tracking_uri is not None:
         profile_contents["experiment"]["tracking_uri"] = tracking_uri
     if artifact_location is not None:
@@ -90,7 +90,7 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
         default_tracking_uri = "databricks"
         default_experiment_name = "sklearn_regression"  # equivalent to pipeline name
 
-        profile_contents = {"experiment": {}}
+        profile_contents = {"experiment": {}, "INGEST_DATA_LOCATION": None}
         if tracking_uri is not None:
             profile_contents["experiment"]["tracking_uri"] = tracking_uri
         if artifact_location is not None:
@@ -100,7 +100,7 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
         if experiment_id is not None:
             profile_contents["experiment"]["id"] = experiment_id
 
-        profile_path = pathlib.Path.cwd() / "profiles" / "testprofile.yaml"
+        profile_path = os.path.join(pathlib.Path.cwd(), "profiles/test_profile.yaml")
         with open(profile_path, "w") as f:
             yaml.safe_dump(profile_contents, f)
 
