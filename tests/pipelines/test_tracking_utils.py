@@ -100,7 +100,7 @@ def test_get_pipeline_tracking_config_returns_expected_config_on_databricks(
         if experiment_id is not None:
             profile_contents["experiment"]["id"] = experiment_id
 
-        profile_path = os.path.join(pathlib.Path.cwd(), "profiles/test_profile.yaml")
+        profile_path = pathlib.Path.cwd() / "profiles" / "testprofile.yaml"
         with open(profile_path, "w") as f:
             yaml.safe_dump(profile_contents, f)
 
