@@ -335,16 +335,20 @@ profile customizations are supported:
 Reproducible workflow tracking
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: _static/images/tracking_ui_for_pipeline.png
-  :scale: 40
+|pipelines_tracking_artifacts_img| |pipelines_tracking_metrics_img|
 
-  -- CAPTION --
+.. |pipelines_tracking_artifacts_img| image:: _static/images/tracking_artifact_ui_for_pipeline.png
+   :width: 55%
 
-MLflow Pipelines integrates with MLflow Tracking to provide a comprehensive, reproducible record
-of pipeline runs. For example, each complete execution of the :ref:`MLflow Regression Pipeline
-<regression-pipeline-overview>`, creates a new MLflow Run that records dataset profiles, the
-trained model, model parameters, model performance metrics across training, validation, & test
-datasets, model explanations, and more.
+.. |pipelines_tracking_metrics_img| image:: _static/images/tracking_metrics_ui_for_pipeline.png
+   :width: 44%
+
+MLflow Pipelines integrates with :ref:`MLflow Tracking <tracking>` to provide a comprehensive,
+reproducible record of pipeline runs. For example, each complete execution of the
+:ref:`MLflow Regression Pipeline <regression-pipeline-overview>`, creates a new
+:ref:`MLflow Run <tracking-concepts>` that records dataset profiles, the trained model, model
+parameters, model performance metrics across training, validation, & test datasets, model
+explanations, and more.
 
 .. _pipeline-templates:
 
