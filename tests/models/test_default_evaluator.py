@@ -1131,7 +1131,9 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
     # Define a transformer that modifies input data by adding an extra feature column
     add_feature_transformer = FunctionTransformer(add_feature, validate=False)
-    model_pipeline = Pipeline(steps=[("add_feature", add_feature_transformer), ("predict", LogisticRegression())])
+    model_pipeline = Pipeline(
+        steps=[("add_feature", add_feature_transformer), ("predict", LogisticRegression())]
+    )
     model_pipeline.fit(X, y)
 
     with mlflow.start_run() as run:

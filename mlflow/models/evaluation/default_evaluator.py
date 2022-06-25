@@ -552,7 +552,9 @@ class DefaultEvaluator(ModelEvaluator):
 
         # For some shap explainer, the plot will use the DataFrame column names instead of
         # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.copy_in_case_of_mutation().rename(columns=truncated_feature_name_map, copy=False)
+        X_df = self.X.copy_in_case_of_mutation().rename(
+            columns=truncated_feature_name_map, copy=False
+        )
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -677,7 +679,9 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
             try:
-                score = self.raw_model.score(self.X.copy_in_case_of_mutation(), self.y.copy_in_case_of_mutation())
+                score = self.raw_model.score(
+                    self.X.copy_in_case_of_mutation(), self.y.copy_in_case_of_mutation()
+                )
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
@@ -687,7 +691,9 @@ class DefaultEvaluator(ModelEvaluator):
                 _logger.debug("", exc_info=True)
 
     def _log_binary_classifier(self):
-        self.metrics.update(_get_classifier_per_class_metrics(self.y.copy_in_case_of_mutation(), self.y_pred))
+        self.metrics.update(
+            _get_classifier_per_class_metrics(self.y.copy_in_case_of_mutation(), self.y_pred)
+        )
 
         if self.y_probs is not None:
             roc_curve = _gen_classifier_curve(
@@ -925,7 +931,11 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.metrics.update(
             _get_classifier_global_metrics(
-                self.is_binomial, self.y.copy_in_case_of_mutation(), self.y_pred, self.y_probs, self.label_list
+                self.is_binomial,
+                self.y.copy_in_case_of_mutation(),
+                self.y_pred,
+                self.y_probs,
+                self.label_list,
             )
         )
         self._evaluate_sklearn_model_score_if_scorable()
@@ -1047,9 +1057,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         The labels (`y`) portion of the dataset, guarded against accidental mutations.
         """
-        return DefaultEvaluator._MutationGuardedData(
-            self.dataset.labels_data
-        )
+        return DefaultEvaluator._MutationGuardedData(self.dataset.labels_data)
 
     class _MutationGuardedData:
         """
