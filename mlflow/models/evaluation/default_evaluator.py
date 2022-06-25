@@ -491,7 +491,8 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        if not (np.issubdtype(self.y.dtype, np.number) or self.y.dtype == np.bool_):
+        labels_dtype = self.y.copy_in_case_of_mutation().dtype
+        if not (np.issubdtype(labels_dtype, np.number) or labels_dtype == np.bool_):
             # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
@@ -507,9 +508,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if algorithm != "kernel":
-            feature_dtypes = (
-                list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
-            )
+            feature_dtypes = list(self.X.copy_in_case_of_mutation().dtypes)
             for feature_dtype in feature_dtypes:
                 if not np.issubdtype(feature_dtype, np.number):
                     _logger.warning(
@@ -553,7 +552,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         # For some shap explainer, the plot will use the DataFrame column names instead of
         # using feature_names argument value. So rename the dataframe column names.
-        X_df = self.X.rename(columns=truncated_feature_name_map, copy=False)
+        X_df = self.X.copy_in_case_of_mutation().rename(columns=truncated_feature_name_map, copy=False)
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -678,7 +677,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
             try:
-                score = self.raw_model.score(self.X, self.y)
+                score = self.raw_model.score(self.X.copy_in_case_of_mutation(), self.y.copy_in_case_of_mutation())
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
@@ -688,12 +687,12 @@ class DefaultEvaluator(ModelEvaluator):
                 _logger.debug("", exc_info=True)
 
     def _log_binary_classifier(self):
-        self.metrics.update(_get_classifier_per_class_metrics(self.y, self.y_pred))
+        self.metrics.update(_get_classifier_per_class_metrics(self.y.copy_in_case_of_mutation(), self.y_pred))
 
         if self.y_probs is not None:
             roc_curve = _gen_classifier_curve(
                 is_binomial=True,
-                y=self.y,
+                y=self.y.copy_in_case_of_mutation(),
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="roc",
@@ -707,7 +706,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             pr_curve = _gen_classifier_curve(
                 is_binomial=True,
-                y=self.y,
+                y=self.y.copy_in_case_of_mutation(),
                 y_probs=self.y_prob,
                 labels=self.label_list,
                 curve_type="pr",
@@ -721,7 +720,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_multiclass_classifier(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
-            self.y, self.y_pred, self.label_list
+            self.y.copy_in_case_of_mutation(), self.y_pred, self.label_list
         )
 
         log_roc_pr_curve = False
@@ -741,7 +740,7 @@ class DefaultEvaluator(ModelEvaluator):
         if log_roc_pr_curve:
             roc_curve = _gen_classifier_curve(
                 is_binomial=False,
-                y=self.y,
+                y=self.y.copy_in_case_of_mutation(),
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="roc",
@@ -755,7 +754,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             pr_curve = _gen_classifier_curve(
                 is_binomial=False,
-                y=self.y,
+                y=self.y.copy_in_case_of_mutation(),
                 y_probs=self.y_probs,
                 labels=self.label_list,
                 curve_type="pr",
@@ -851,7 +850,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
         builtin_metrics = copy.deepcopy(self.metrics)
         eval_df = pd.DataFrame(
-            {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
+            {"prediction": copy.deepcopy(self.y_pred), "target": self.y.copy_in_case_of_mutation()}
         )
         for index, custom_metric in enumerate(self.custom_metrics):
             with tempfile.TemporaryDirectory() as artifacts_dir:
@@ -891,10 +890,10 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_classifier(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
-        self.label_list = np.unique(self.y)
+        self.label_list = np.unique(self.y.copy_in_case_of_mutation())
         self.num_classes = len(self.label_list)
 
-        self.y_pred = self.predict_fn(self.X)
+        self.y_pred = self.predict_fn(self.X.copy_in_case_of_mutation())
         self.is_binomial = self.num_classes <= 2
 
         if self.is_binomial:
@@ -915,7 +914,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if self.predict_proba_fn is not None:
-            self.y_probs = self.predict_proba_fn(self.X)
+            self.y_probs = self.predict_proba_fn(self.X.copy_in_case_of_mutation())
             if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
@@ -926,7 +925,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.metrics.update(
             _get_classifier_global_metrics(
-                self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
+                self.is_binomial, self.y.copy_in_case_of_mutation(), self.y_pred, self.y_probs, self.label_list
             )
         )
         self._evaluate_sklearn_model_score_if_scorable()
@@ -938,13 +937,13 @@ class DefaultEvaluator(ModelEvaluator):
 
         if self.is_binomial and self.y_probs is not None:
             self._log_image_artifact(
-                lambda: plot_lift_curve(self.y, self.y_probs),
+                lambda: plot_lift_curve(self.y.copy_in_case_of_mutation(), self.y_probs),
                 "lift_curve_plot",
             )
 
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
-            self.y, self.y_pred, labels=self.label_list, normalize="true"
+            self.y.copy_in_case_of_mutation(), self.y_pred, labels=self.label_list, normalize="true"
         )
 
         def plot_confusion_matrix():
@@ -972,8 +971,8 @@ class DefaultEvaluator(ModelEvaluator):
         return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
-        self.y_pred = self.model.predict(self.X)
-        self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
+        self.y_pred = self.model.predict(self.X.copy_in_case_of_mutation())
+        self.metrics.update(_get_regressor_metrics(self.y.copy_in_case_of_mutation(), self.y_pred))
         self._evaluate_sklearn_model_score_if_scorable()
 
         return self._log_and_return_evaluation_result()
@@ -1017,7 +1016,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics = dict()
             self.artifacts = {}
 
-            inferred_model_type = _infer_model_type_by_labels(self.y)
+            inferred_model_type = _infer_model_type_by_labels(self.y.copy_in_case_of_mutation())
 
             if inferred_model_type is not None and model_type != inferred_model_type:
                 _logger.warning(
@@ -1036,10 +1035,43 @@ class DefaultEvaluator(ModelEvaluator):
 
     @property
     def X(self):
-        return pd.DataFrame(
-            self.dataset.features_data, columns=self.dataset.feature_names, copy=True
+        """
+        The features (`X`) portion of the dataset, guarded against accidental mutations.
+        """
+        return DefaultEvaluator._MutationGuardedData(
+            pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
         )
 
     @property
     def y(self):
-        return self.dataset.labels_data.copy()
+        """
+        The labels (`y`) portion of the dataset, guarded against accidental mutations.
+        """
+        return DefaultEvaluator._MutationGuardedData(
+            self.dataset.labels_data
+        )
+
+    class _MutationGuardedData:
+        """
+        Wrapper around a data object that only provides copies of the data object, guarding against
+        accidental reuse of the data object after it is mutated, e.g. during inference with
+        scikit-learn models
+        """
+
+        def __init__(self, data):
+            """
+            :param data: A data object, such as a Pandas DataFrame, numPy array, or list.
+            """
+            self._data = data
+
+        def copy_in_case_of_mutation(self):
+            """
+            Obtain a copy of the data. This method should be called every time the data needs
+            to be accessed, guarding against accidental reuse after mutation.
+
+            :return: A copy of the data object.
+            """
+            if isinstance(self._data, pd.DataFrame):
+                return self._data.copy(deep=True)
+            else:
+                return copy.deepcopy(self._data)
