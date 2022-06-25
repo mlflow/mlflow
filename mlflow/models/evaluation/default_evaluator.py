@@ -1063,7 +1063,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Wrapper around a data object that only provides copies of the data object, guarding against
         accidental reuse of the data object after it is mutated, e.g. during inference with
-        scikit-learn models
+        scikit-learn models.
         """
 
         def __init__(self, data):
