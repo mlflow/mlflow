@@ -491,8 +491,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        labels_dtype = self.y.dtype
-        if not (np.issubdtype(labels_dtype, np.number) or labels_dtype == np.bool_):
+        if not (np.issubdtype(self.y.dtype, np.number) or self.y.dtype == np.bool_):
             # Note: python bool type inherits number type but np.bool_ does not inherit np.number.
             _logger.warning(
                 "Skip logging model explainability insights because it requires all label "
