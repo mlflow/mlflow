@@ -182,7 +182,7 @@ The main components of the pipeline repository layout, which are common across a
     :caption: Shown below is an example |pipeline.yaml| configuration file adapted from the
               |MLflow Regression Pipeline repository|. ``pipeline.yaml`` is the main
               configuration file for a pipeline containing aggregated configurations for
-              all Pipeline :ref:`Steps <steps-key-concept>; :ref:`Profile
+              all :ref:`Pipeline Steps <steps-key-concept>`; :ref:`Profile
               <profiles-key-concept>`-based substitutions and overrides are supported using
               |Jinja2| templating syntax.
 
