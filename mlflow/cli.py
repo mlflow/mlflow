@@ -276,7 +276,13 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli_args.PORT
 @cli_args.HOST
 def ui(
-    backend_store_uri, registry_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+    backend_store_uri,
+    registry_store_uri,
+    default_artifact_root,
+    serve_artifacts,
+    artifacts_destination,
+    port,
+    host,
 ):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production

@@ -256,7 +256,9 @@ def _get_model_registry_store(registry_store_uri=None):
     return _model_registry_store
 
 
-def initialize_backend_stores(backend_store_uri=None, registry_store_uri=None, default_artifact_root=None):
+def initialize_backend_stores(
+    backend_store_uri=None, registry_store_uri=None, default_artifact_root=None
+):
     _get_tracking_store(backend_store_uri, default_artifact_root)
     try:
         _get_model_registry_store(registry_store_uri)
