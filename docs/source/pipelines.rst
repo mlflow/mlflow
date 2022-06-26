@@ -228,8 +228,43 @@ production workspaces.
 
 A profile is a collection of customizations for the configurations defined in the pipeline's main
 :ref:`pipeline.yaml <pipeline-repositories-key-concept>` file. Profiles are defined as YAML files
-within the pipeline repository's :ref:`profiles directory <profiles-directory>`. The following
-profile customizations are supported:
+within the pipeline repository's :ref:`profiles directory <profiles-directory>`. When running a
+pipeline or inspecting its results, the desired profile is specified as an API or CLI argument.
+
+.. code-section::
+
+    .. code-block:: python
+      :caption: Example API and CLI workflows for running pipelines with different profile
+                customizations
+
+      import os
+      from mlflow.pipelines import Pipeline
+
+      os.chdir("~/mlp-regression-template")
+      # Run the regression pipeline to train and evaluate the performance of an ElasticNet regressor
+      regression_pipeline_local_elasticnet = Pipeline(profile="local-elasticnet")
+      regression_pipeline_local_elasticnet.run()
+      # Run the pipeline again to train and evaluate the performance of an SGD regressor
+      regression_pipeline_local_sgd = Pipeline(profile="local-sgd")
+      regression_pipeline_local_sgd.run()
+      # After finding the best model type and updating the 'shared-workspace' profile accordingly,
+      # run the pipeline again to retrain the best model in a workspace where teammates can view it
+      regression_pipeline_shared = Pipeline(profile="shared-workspace")
+      regression_pipeline_shared.run()
+
+    .. code-block:: sh
+
+      git clone https://github.com/mlflow/mlp-regression-template
+      cd mlp-regression-template
+      # Run the regression pipeline to train and evaluate the performance of an ElasticNet regressor
+      mlflow pipelines run --profile local-elasticnet
+      # Run the pipeline again to train and evaluate the performance of an SGD regressor
+      mlflow pipelines run --profile local-sgd
+      # After finding the best model type and updating the 'shared-workspace' profile accordingly,
+      # run the pipeline again to retrain the best model in a workspace where teammates can view it
+      mlflow pipelines run --profile shared-workspace
+
+The following profile customizations are supported:
 
     - overrides
         - If the ``pipeline.yaml`` configuration file defines a |Jinja2|-templated attribute with
@@ -295,45 +330,13 @@ profile customizations are supported:
 
 
     .. warning::
-        If the ``pipeline.yaml`` defines a non-substitutable and non-overrideable attribute,
+        If the ``pipeline.yaml`` configuration file defines an attribute that cannot be overridden
+        or substituted (i.e. because its value is not specified using |Jinja2| templating syntax),
         a profile must not define it. Defining such an attribute in a profile produces an error.
 
-.. code-section::
 
-    .. code-block:: python
-      :caption: Example API and CLI workflows for running pipelines with different profile
-                customizations
-
-      import os
-      from mlflow.pipelines import Pipeline
-
-      os.chdir("~/mlp-regression-template")
-      # Run the regression pipeline to train and evaluate the performance of an ElasticNet regressor
-      regression_pipeline_local_elasticnet = Pipeline(profile="local-elasticnet")
-      regression_pipeline_local_elasticnet.run()
-      # Run the pipeline again to train and evaluate the performance of an SGD regressor
-      regression_pipeline_local_sgd = Pipeline(profile="local-sgd")
-      regression_pipeline_local_sgd.run()
-      # After finding the best model type and updating the 'shared-workspace' profile accordingly,
-      # run the pipeline again to retrain the best model in a workspace where teammates can view it
-      regression_pipeline_shared = Pipeline(profile="shared-workspace")
-      regression_pipeline_shared.run()
-
-    .. code-block:: sh
-
-      git clone https://github.com/mlflow/mlp-regression-template
-      cd mlp-regression-template
-      # Run the regression pipeline to train and evaluate the performance of an ElasticNet regressor
-      mlflow pipelines run --profile local-elasticnet
-      # Run the pipeline again to train and evaluate the performance of an SGD regressor
-      mlflow pipelines run --profile local-sgd
-      # After finding the best model type and updating the 'shared-workspace' profile accordingly,
-      # run the pipeline again to retrain the best model in a workspace where teammates can view it
-      mlflow pipelines run --profile shared-workspace
-
-
-Reproducible workflow tracking
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Reproducible Runs
+~~~~~~~~~~~~~~~~~~
 
 |pipelines_tracking_artifacts_img| |pipelines_tracking_metrics_img|
 
@@ -345,10 +348,13 @@ Reproducible workflow tracking
 
 MLflow Pipelines integrates with :ref:`MLflow Tracking <tracking>` to provide a comprehensive,
 reproducible record of pipeline runs. For example, each complete execution of the
-:ref:`MLflow Regression Pipeline <regression-pipeline-overview>`, creates a new
+:ref:`MLflow Regression Pipeline <regression-pipeline-overview>` creates a new
 :ref:`MLflow Run <tracking-concepts>` that records dataset profiles, the trained model, model
 parameters, model performance metrics across training, validation, & test datasets, model
 explanations, and more.
+
+Additionally, because MLflow Pipelines are structured as git repositories, it is easy to track code
+and configuration changes during development and collaboratively review them with team members.
 
 .. _pipeline-templates:
 
