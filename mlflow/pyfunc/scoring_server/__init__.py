@@ -76,6 +76,8 @@ CONTENT_TYPE_RAW_JSON = "raw-json"
 FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIENTED, CONTENT_TYPE_RAW_JSON]
 
 PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
+FASTAPI_THREAD_LIMIT_ENV_KEY          = "FASTAPI_THREAD_LIMIT"
+PRELOAD_GUNICORN_APP_ENV_KEY          = "PRELOAD_GUNICORN_APP"
 
 _logger = logging.getLogger(__name__)
 
@@ -239,6 +241,16 @@ def init(model: PyFuncModel):
     fast_app.include_router(APIRouter())
     input_schema = model.metadata.get_input_schema()
 
+    @fast_app.on_event("startup")
+    def startup():
+        print("Starting FastAPI app")
+        fast_app_thread_limit  = int(os.getenv(FASTAPI_THREAD_LIMIT_ENV_KEY, 0))
+        if fast_app_thread_limit > 0:
+            from anyio.lowlevel import RunVar
+            from anyio import CapacityLimiter
+            RunVar("_default_thread_limiter").set(CapacityLimiter(fast_app_thread_limit))
+            print(f"FastAPI thread limiter set to {fast_app_thread_limit} threads")
+
     @fast_app.get("/ping")
     def ping():  # pylint: disable=unused-variable
         """
@@ -389,6 +401,10 @@ def get_cmd(
         command = (
             "gunicorn mlflow.pyfunc.scoring_server.wsgi:app --worker-class uvicorn.workers.UvicornWorker"
         )
+
+        if int(os.getenv(PRELOAD_GUNICORN_APP_ENV_KEY, False)):
+            command += " --preload"
+
     else:
         args = []
         if host:
