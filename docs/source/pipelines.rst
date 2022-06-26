@@ -112,7 +112,7 @@ for running pipelines and inspecting their results.
       regression_pipeline.run()
       # Inspect the model training results
       regression_pipeline.inspect(step="train")
-      # Load the trained model pipeline
+      # Load the trained model 
       regression_model_pipeline: PyFuncModel = regression_pipeline.get_artifact("model")
 
     .. code-block:: sh
@@ -357,6 +357,66 @@ explanations, and more.
 Additionally, because MLflow Pipelines are structured as git repositories, it is easy to track code
 and configuration changes during development and collaboratively review them with team members.
 
+Usage
+-----
+
+The general workflow for using MLflow Pipelines is as follows:
+
+1. Clone a :ref:`Pipeline Template <pipeline-templates>` git repository corresponding to the ML
+   problem that you want to solve or the MLOps task that you want to perform. View the template's
+   README file for information about the :ref:`Pipeline Steps <steps-key-concept>` that it defines
+   and the results that it produces.
+
+    .. code-block:: sh
+      :caption: An example of cloning the |MLflow Regression Pipeline repository|
+
+      git clone https://github.com/mlflow/mlp-regression-template
+
+    .. note::
+      On Databricks, we recommend cloning the :ref:`Pipeline Template <pipeline-templates>` git
+      repository using |Databricks Repos|.
+
+      .. image:: _static/images/pipelines_databricks_repo_ui.png
+        :width: 50%
+
+2. Run the pipeline and inspect its results.
+
+    .. code-section::
+
+        .. code-block:: python
+          :caption: Example API and CLI workflows for running the :ref:`Regression Pipeline
+                    <mlflow-regression-pipeline>` and inspecting results. Note that pipelines
+                    must be run from within their corresponding git repositories.
+
+          import os
+          from mlflow.pipelines import Pipeline
+          from mlflow.pyfunc import PyFuncModel
+
+          os.chdir("~/mlp-regression-template")
+          regression_pipeline = Pipeline(profile="local")
+          # Run the full pipeline
+          regression_pipeline.run()
+          # Inspect the model training results
+          regression_pipeline.inspect(step="train")
+          # Load the trained model
+          regression_model_pipeline: PyFuncModel = regression_pipeline.get_artifact("model")
+
+        .. code-block:: sh
+
+          git clone https://github.com/mlflow/mlp-regression-template
+          cd mlp-regression-template
+          # Run the full pipeline
+          mlflow pipelines run --profile local
+          # Inspect the resulting trained model
+          mlflow pipelines inspect --step train --profile local
+          # Inspect the resulting model performance evaluations
+          mlflow pipelines inspect --step evaluate --profile local
+
+    .. note::
+      :ref:`Pipeline Templates <pipeline-templates>` also include notebooks 
+      On Databricks, we recommend cloning the :ref:`Pipeline Template <pipeline-templates>` git
+      repository using |Databricks Repos|.
+
 .. _pipeline-templates:
 
 Pipeline Templates
@@ -405,3 +465,4 @@ the :ref:`Regression Pipeline API documentation <mlflow-regression-pipeline>`, a
 .. |databricks profile| replace:: `profiles/databricks.yaml profile <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/databricks.yaml>`__
 .. |customizes the dataset used for local model development| replace:: `customizes the dataset used for local model development <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L7>`__
 .. |specifies a local MLflow Tracking store for logging model content| replace:: `specifies a local MLflow Tracking store for logging model content <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L1-L4>`__
+.. |Databricks Repos| replace:: `Databricks Repos <https://docs.databricks.com/repos/index.html>`__
