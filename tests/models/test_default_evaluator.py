@@ -32,6 +32,8 @@ from mlflow.models.evaluation.default_evaluator import (
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 from sklearn.datasets import load_iris
 
 from tempfile import TemporaryDirectory
@@ -1115,3 +1117,49 @@ def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, dia
         ],
         evaluators="default",
     )
+
+
+def test_evaluation_works_with_model_pipelines_that_modify_input_data():
+    iris = load_iris()
+    X = pd.DataFrame(iris.data, columns=["0", "1", "2", "3"])
+    y = pd.Series(iris.target)
+
+    def add_feature(df):
+        df["newfeature"] = 1
+        return df
+
+    # Define a transformer that modifies input data by adding an extra feature column
+    add_feature_transformer = FunctionTransformer(add_feature, validate=False)
+    model_pipeline = Pipeline(
+        steps=[("add_feature", add_feature_transformer), ("predict", LogisticRegression())]
+    )
+    model_pipeline.fit(X, y)
+
+    with mlflow.start_run() as run:
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, "model").model_uri
+
+        evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
+        evaluation_data["labels"] = load_iris().target
+
+        evaluate(
+            pipeline_model_uri,
+            evaluation_data,
+            dataset_name="iris",
+            model_type="regressor",
+            targets="labels",
+            evaluators="default",
+            evaluator_config={
+                "log_model_explainability": True,
+                # Use the kernel explainability algorithm, which fails if there is a mismatch
+                # between the number of features in the input dataset and the number of features
+                # expected by the model
+                "explainability_algorithm": "kernel",
+            },
+        )
+
+        _, _, _, artifacts = get_run_data(run.info.run_id)
+        assert set(artifacts) >= {
+            "shap_beeswarm_plot_on_data_iris.png",
+            "shap_feature_importance_plot_on_data_iris.png",
+            "shap_summary_plot_on_data_iris.png",
+        }
