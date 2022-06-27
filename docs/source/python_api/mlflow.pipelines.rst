@@ -1,3 +1,5 @@
+.. _pipelines-apis:
+
 mlflow.pipelines
 ================
 

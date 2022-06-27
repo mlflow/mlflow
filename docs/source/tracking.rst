@@ -12,6 +12,8 @@ MLflow Tracking lets you log and query experiments using :ref:`Python <python-ap
   :local:
   :depth: 2
 
+.. _tracking-concepts:
+
 Concepts
 ========
 
