@@ -9,6 +9,7 @@ from distutils import dir_util
 
 import mlflow.utils
 from mlflow.utils import databricks_utils
+from mlflow.utils.git_utils import get_git_repo_url 
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
@@ -70,22 +71,6 @@ def _get_storage_dir(storage_dir):
     if storage_dir is not None and not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
     return tempfile.mkdtemp(dir=storage_dir)
-
-
-def _get_git_repo_url(work_dir):
-    from git import Repo
-    from git.exc import GitCommandError, InvalidGitRepositoryError
-
-    try:
-        repo = Repo(work_dir, search_parent_directories=True)
-        remote_urls = [remote.url for remote in repo.remotes]
-        if len(remote_urls) == 0:
-            return None
-    except GitCommandError:
-        return None
-    except InvalidGitRepositoryError:
-        return None
-    return remote_urls[0]
 
 
 def _expand_uri(uri):
@@ -300,7 +285,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
-    repo_url = _get_git_repo_url(work_dir)
+    repo_url = get_git_repo_url(work_dir)
     if repo_url is not None:
         tags[MLFLOW_GIT_REPO_URL] = repo_url
         tags[LEGACY_MLFLOW_GIT_REPO_URL] = repo_url
