@@ -224,12 +224,13 @@ class TrainStep(BaseStep):
             + sorted(list(set(metric_names) - set(custom_metric_names) - {primary_metric_name}))
         )
 
+        top_model_index_values = ["Best", "2nd Best"]
         leader_board_df = (
             pd.DataFrame.from_records(
-                [latest_model_item, leader_board_items[0], leader_board_items[1]],
+                [latest_model_item, *leader_board_items[:2]],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
-            .set_axis(["Latest", "Best", "2nd Best"], axis="index")
+            .set_axis(["Latest"] + top_model_index_values[:2], axis="index")
             .transpose()
         )
 
