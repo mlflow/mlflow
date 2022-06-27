@@ -380,18 +380,14 @@ class Utils {
    */
   static renderSource(tags, queryParams, runUuid) {
     const sourceName = Utils.getSourceName(tags);
-    const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);
-    if (sourceType === 'PROJECT') {
-      const url = Utils.getGitRepoUrl(sourceName);
-      if (url) {
-        res = (
-          <a target='_top' href={url}>
-            {res}
-          </a>
-        );
-      }
-      return res;
+    const gitRepoUrlOrNull = Utils.getGitRepoUrl(sourceName);
+    if (gitRepoUrlOrNull) {
+      res = (
+        <a target='_top' href={gitRepoUrlOrNull}>
+          {res}
+        </a>
+      );
     }
     return res;
   }
