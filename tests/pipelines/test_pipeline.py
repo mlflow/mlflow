@@ -18,7 +18,6 @@ from mlflow.tracking.context.registry import resolve_tags
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME,
-    MLFLOW_GIT_BRANCH,
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
     LEGACY_MLFLOW_GIT_REPO_URL,
@@ -169,7 +168,6 @@ def test_pipelines_run_sets_mlflow_git_tags():
         MLFLOW_SOURCE_NAME,
         MLFLOW_GIT_COMMIT,
         MLFLOW_GIT_REPO_URL,
-        MLFLOW_GIT_BRANCH,
         LEGACY_MLFLOW_GIT_REPO_URL,
     } < run_tags.keys()
     assert run_tags[MLFLOW_SOURCE_NAME] == run_tags[MLFLOW_GIT_REPO_URL]
