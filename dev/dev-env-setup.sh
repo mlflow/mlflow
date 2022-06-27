@@ -221,12 +221,6 @@ echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/b
 echo "Installing pip dependencies for development environment."
 
 if [[ -n "$full" ]]; then
-  # Install required dependencies for Prophet
-  tmp_dir=$(mktemp -d)
-  pip download $(quiet_command) --no-deps --dest "$tmp_dir" --no-cache-dir prophet
-  tar -zxvf "$tmp_dir"/*.tar.gz -C "$tmp_dir"
-  pip install $(quiet_command) -r "$(find "$tmp_dir" -name requirements.txt)"
-  rm -rf "$tmp_dir"
   # Install dev requirements and test plugin
   pip install $(quiet_command) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
   # Install current checked out version of MLflow (local)
