@@ -45,6 +45,7 @@ class TrainStep(BaseStep):
         self.primary_metric = (self.step_config.get("metrics") or {}).get(
             "primary", "root_mean_squared_error"
         )
+        self.metric_greater_is_better = _get_metric_greater_is_better(step_config)
 
     def _run(self, output_directory):
         import pandas as pd
@@ -175,16 +176,22 @@ class TrainStep(BaseStep):
 
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
+
+        primary_metric_order = \
+            "DESC" if self.metric_greater_is_better[self.primary_metric] else "ASC"
         search_result = mlflow_client.search_runs(
             experiment_ids=exp_id,
             run_view_type=ViewType.ALL,
             max_results=10000,
-            order_by=["attribute.start_time DESC", f"metrics.{self.primary_metric}"],
+            order_by=[
+                "attribute.start_time DESC",
+                f"metrics.{self.primary_metric} {primary_metric_order}"
+            ],
         )
 
         primary_metric_name = _get_primary_metric(self.step_config)
         custom_metric_names = [cm["name"] for cm in _get_custom_metrics(self.step_config)]
-        metric_greater_is_better = _get_metric_greater_is_better(self.step_config)
+        metric_greater_is_better = self.metric_greater_is_better
         metric_names = metric_greater_is_better.keys()
 
         metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
@@ -224,13 +231,14 @@ class TrainStep(BaseStep):
             + sorted(list(set(metric_names) - set(custom_metric_names) - {primary_metric_name}))
         )
 
-        top_model_index_values = ["Best", "2nd Best"]
+        top_leader_board_items = leader_board_items[:2]
+        top_leader_board_item_index_values = ["Best", "2nd Best"][:len(top_leader_board_items)]
         leader_board_df = (
             pd.DataFrame.from_records(
-                [latest_model_item, *leader_board_items[:2]],
+                [latest_model_item, *top_leader_board_items],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
-            .set_axis(["Latest"] + top_model_index_values[:2], axis="index")
+            .set_axis(["Latest"] + top_leader_board_item_index_values, axis="index")
             .transpose()
         )
 
