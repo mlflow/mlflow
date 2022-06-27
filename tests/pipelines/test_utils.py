@@ -105,6 +105,16 @@ def test_get_default_profile_works():
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
+@pytest.mark.parametrize("get_config_from_subdirectory", [False, True])
+def test_get_pipeline_config_succeeds_for_valid_profile(get_config_from_subdirectory):
+    if get_config_from_subdirectory:
+        with chdir("notebooks"):
+            get_pipeline_config(profile="local")
+    else:
+        get_pipeline_config(profile="local")
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_get_pipeline_config_throws_clear_error_for_invalid_profile():
     with open("profiles/badcontent.yaml", "w") as f:
         f.write(r"\BAD")
