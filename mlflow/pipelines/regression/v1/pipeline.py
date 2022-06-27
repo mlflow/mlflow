@@ -38,28 +38,28 @@ The pipeline steps are defined as follows:
         to develop a model and measure its performance.
 
    - **transform**
-      - The **transform** step uses the training dataset produced by **split** to fit
+      - The **transform** step uses the training dataset created by **split** to fit
         a transformer that performs the transformations defined in |steps/transform.py|. The
-        transformer is then applied to the training dataset and the validation dataset, producing
+        transformer is then applied to the training dataset and the validation dataset, creating 
         transformed datasets that are used by subsequent steps for estimator training and model
         performance evaluation.
 
    .. _mlflow-regression-pipeline-train-step:
 
    - **train**
-      - The **train** step uses the transformed training dataset produced by the **transform**
+      - The **train** step uses the transformed training dataset output from the **transform**
         step to fit an estimator with the type and parameters defined in |steps/train.py|. The
         estimator is then joined with the fitted transformer output from the **transform** step
         to create a model pipeline. Finally, this model pipeline is evaluated against the
-        transformed training and validation datasets to produce performance metrics; custom
+        transformed training and validation datasets to compute performance metrics; custom
         metrics are computed according to definitions in |steps/custom_metrics.py| and the
         |'metrics' section of pipeline.yaml|. The model pipeline and its associated parameters,
         performance metrics, and lineage information are logged to MLflow Tracking, producing
         an MLflow Run.
 
    - **evaluate**
-      - The **evaluate** step evaluates the model pipeline produced by the **train** step on
-        the test dataset output from the **split** step, producing performance metrics and
+      - The **evaluate** step evaluates the model pipeline created by the **train** step on
+        the test dataset output from the **split** step, computing performance metrics and
         model explanations. Performance metrics are compared against configured thresholds to
         compute a ``model_validation_status``, which indicates whether or not a model is good
         enough to be registered to the MLflow Model Registry by the subsequent **register**
@@ -67,13 +67,13 @@ The pipeline steps are defined as follows:
         |steps/custom_metrics.py| and the |'metrics' section of pipeline.yaml|. Model
         performance thresholds are defined in the
         |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml|. Model
-        performance metrics and explanations are logged to MLflow Tracking using the same MLflow
-        Run produced by the **train** step.
+        performance metrics and explanations are logged to the same MLflow Tracking Run used by
+        the **train** step.
 
    - **register**
       - The **register** step checks the ``model_validation_status`` output of the preceding
         **evaluate** step and, if model validation was successful
-        (as indicated by the ``'VALIDATED'`` status), registers the model pipeline produced by
+        (as indicated by the ``'VALIDATED'`` status), registers the model pipeline created by
         the **train** step to the MLflow Model Registry. If the ``model_validation_status`` does
         not indicate that the model passed validation checks (i.e. its value is ``'REJECTED'``),
         the model pipeline is not registered to the MLflow Model Registry.
@@ -290,22 +290,22 @@ class RegressionPipeline(_BasePipeline):
                        performance evaluation & tuning, and a test dataset for model performance
                        evaluation.
 
-                     - ``"transform"``: uses the training dataset produced by the **split** step to
+                     - ``"transform"``: uses the training dataset created by the **split** step to
                        fit a transformer that performs the transformations defined in the
                        pipeline's ``steps/transform.py`` file. Then, applies the transformer to the
-                       training dataset and the validation dataset, producing transformed datasets
+                       training dataset and the validation dataset, creating transformed datasets
                        that are used by subsequent steps for estimator training and model
                        performance evaluation.
 
-                     - ``"train"``: uses the transformed training dataset produced by the
+                     - ``"train"``: uses the transformed training dataset output from the
                        **transform** step to fit an estimator with the type and parameters defined
                        in in the pipeline's ``steps/train.py`` file. Then, joins the estimator with
                        the fitted transformer output from the **transform** step to create a model
                        pipeline. Finally, evaluates the model pipeline against the transformed
-                       training and validation datasets to produce performance metrics.
+                       training and validation datasets to compute performance metrics.
 
-                     - ``"evaluate"``: evaluates the model pipeline produced by the **train** step
-                       on the validation and test dataset outputs from the **split** step, producing
+                     - ``"evaluate"``: evaluates the model pipeline created by the **train** step
+                       on the validation and test dataset outputs from the **split** step, computing 
                        performance metrics and model explanations. Then, compares performance
                        metrics against thresholds configured in the pipeline's ``pipeline.yaml``
                        configuration file to compute a ``model_validation_status``, which indicates
@@ -315,7 +315,7 @@ class RegressionPipeline(_BasePipeline):
                      - ``"register"``: checks the ``model_validation_status`` output of the
                        preceding **evaluate** step and, if model validation was successful (as
                        indicated by the ``'VALIDATED'`` status), registers the model pipeline
-                       produced by the **train** step to the MLflow Model Registry.
+                       created by the **train** step to the MLflow Model Registry.
 
         .. code-block:: python
             :caption: Example
