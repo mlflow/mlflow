@@ -93,7 +93,7 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
             with open("outputs/test.txt", "w") as f:
                 f.write("hello world!")
             log_artifacts("outputs")
-            
+
     .. code-block:: R
 
         library(mlflow)
@@ -117,11 +117,11 @@ By default, wherever you run your program, the tracking API writes data into fil
 ``./mlruns`` directory. You can then run MLflow's Tracking UI:
 
 .. code-section::
-  
+
     .. code-block:: python
 
         mlflow ui
-        
+
     .. code-block:: R
 
         mlflow_ui()
@@ -151,7 +151,7 @@ either a local directory or a GitHub URI:
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
-projects log their Tracking API data in the local ``mlruns`` directory so you can see these 
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these
 runs using ``mlflow ui``.
 
 .. note::
