@@ -122,7 +122,7 @@ for running pipelines and inspecting their results.
       cd mlp-regression-template
       # Run the full pipeline
       mlflow pipelines run --profile local
-      # Inspect the resulting trained model
+      # Inspect the model training results
       mlflow pipelines inspect --step train --profile local
       # Inspect the resulting model performance evaluations
       mlflow pipelines inspect --step evaluate --profile local
@@ -387,9 +387,9 @@ The general workflow for using MLflow Pipelines is as follows:
       :scale: 25
 
       An example step card produced by running the **evaluate** step of the
-      :ref:`Regression Pipeline <mlflow-regression-pipeline>`. The step card results indicate
-      that the trained model passed all performance validations and is ready for registration
-      with the :ref:`MLflow Model Registry <registry>`.
+      :ref:`MLflow Regression Pipeline <mlflow-regression-pipeline>`. The step card results
+      indicate that the trained model passed all performance validations and is ready for
+      registration with the :ref:`MLflow Model Registry <registry>`.
 
     |
 
@@ -419,14 +419,14 @@ The general workflow for using MLflow Pipelines is as follows:
           cd mlp-regression-template
           # Run the full pipeline
           mlflow pipelines run --profile local
-          # Inspect the resulting trained model
+          # Inspect the model training results
           mlflow pipelines inspect --step train --profile local
           # Inspect the resulting model performance evaluations
           mlflow pipelines inspect --step evaluate --profile local
 
     .. note::
       Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
-      |Jupyter Notebook| for running the pipeline and inspecting its results.
+      and a |Jupyter Notebook| for running the pipeline and inspecting its results.
 
       Example pipeline run from the |Databricks Notebook| included in the
       |MLflow Regression Pipeline repository|:
@@ -459,8 +459,8 @@ The general workflow for using MLflow Pipelines is as follows:
         # Clone the MLflow Regression Pipeline repository
         git clone https://github.com/mlflow/mlp-regression-template
         # Enter the MLflow Regression Pipeline repository directory and configure dbx within it
-        dbx configure
         cd mlp-regression-template
+        dbx configure
         # Use dbx to enable syncing from the repository directory to Databricks Repos
         dbx sync repo -d mlp-regression-template
         # Iteratively make changes to files in the repository directory and observe that they
