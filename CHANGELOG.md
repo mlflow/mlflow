@@ -1,5 +1,44 @@
 # CHANGELOG
 
+## 1.27.0 (2022-06-27)
+
+MLflow 1.27.0 includes several major features and improvements:
+
+Features:
+
+- Track git repository URL when creating MLflow Runs from MLflow Pipelines (#6146, @dbczumar)
+- Automatically split large metrics, tags, or params into smaller chunks to avoid request limit error (#6052, @nzw0301)
+- Deletion of an experiment to mark runs associated with that experiment to be deleted (#6064, @AdityaIyengar27)
+- Enable multi-experiment run comparison (#5971, @r3stl355)
+- add CatBoostRanker support (#6032, @danielgafni)
+- Tracking: Better support for ndarrays and tensors (#5756, @ntakouris)
+- Add Shap kernel explainer support for DefaultEvaluator (#5920, @WeichenXu123)
+- Fix two models one code name #5923 (#5926, @BFAnas)
+- Make `DefaultEvaluator` log sklearn model score if model is scorable (#5903, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix with tests (#6143, @dbczumar)
+- Fix default evaluator behavior for regression models that mutate input datasets (#6141, @dbczumar)
+- Make pyfunc.spark_udf support empty partition (#6063, @WeichenXu123)
+- Cherry-pick: Fix some shap evaluation issues (#6044, @WeichenXu123)
+- Fix TensorFlow autologging failures on TF datasets lacking batch size metadata (#6061, @dbczumar)
+- Closes issue 6045: referenced before assignment (#6046, @bneijt)
+- Fix sklearn flavor load model with code path (#6037, @WeichenXu123)
+- Allow logging a param with an empty string as a value (#6031, @harupy)
+- Ad-hoc connection pool for SFTPArtifactRepository (#5840, @rsundqvist)
+- [fix]: pin sqlalchemy (#6024, @sniafas)
+- Fix getting run UUID using unexisting pascalCased property name (#6014, @hctpbl)
+- Added more robust `_GIT_URI_REGEX` (#6000, @dkapur17)
+- fix-sklearn-autolog-without-matplotlib (#5995, @fa9r)
+- Use HEAD branch when running a git project (#5889, @harupy)
+- Overview docs for MLflow Pipelines (#6145, @dbczumar)
+- add CatBoostRanker support (#6032, @danielgafni)
+- Improve readability (#5959, @ryanrussell)
+- Add doc for DefaultEvaluator logging sklearn model score metric (#5935, @WeichenXu123)
+
+Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, #6115, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
+
 ## 1.26.1 (2022-05-27)
 
 MLflow 1.26.1 is a patch release containing the following bug fixes:
