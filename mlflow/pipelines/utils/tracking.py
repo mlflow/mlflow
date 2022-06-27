@@ -228,7 +228,6 @@ def get_run_tags_env_vars(pipeline_root_path: str) -> Dict[str, str]:
     if git_branch:
         git_tags[MLFLOW_GIT_BRANCH] = git_branch
 
-    print("GIT TAGS", git_tags)
     return {MLFLOW_RUN_CONTEXT_ENV_VAR: json.dumps({**run_context_tags, **git_tags})}
 
 
