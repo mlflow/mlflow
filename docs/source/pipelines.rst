@@ -377,11 +377,21 @@ The general workflow for using MLflow Pipelines is as follows:
       repository using |Databricks Repos|.
 
       .. image:: _static/images/pipelines_databricks_repo_ui.png
-        :width: 55%
+        :width: 60%
 
 2. Run the pipeline and inspect its results. When a pipeline run completes, MLflow Pipelines
    creates and displays an interactive **Step Card** displaying the results of the last executed
-   :ref:`step <steps-key-concept>`
+   :ref:`step <steps-key-concept>`.
+
+    .. figure:: _static/images/pipelines_evaluate_step_card.png
+      :scale: 25
+
+      An example step card produced by running the **evaluate** step of the
+      :ref:`Regression Pipeline <mlflow-regression-pipeline>`. The step card results indicate
+      that the trained model passed all performance validations and is ready for registration
+      with the :ref:`MLflow Model Registry <registry>`.
+
+    |
 
     .. code-section::
 
