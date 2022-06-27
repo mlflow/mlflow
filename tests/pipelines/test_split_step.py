@@ -6,7 +6,12 @@ import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils.execution import _MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR
-from mlflow.pipelines.steps.split import _get_split_df, _make_elem_hashable, SplitStep
+from mlflow.pipelines.steps.split import (
+    _get_split_df,
+    _hash_pandas_dataframe,
+    _make_elem_hashable,
+    SplitStep,
+)
 from unittest import mock
 
 
@@ -42,9 +47,9 @@ def test_split_step_run(tmp_path):
     output_validation_df = pd.read_parquet(str(split_output_dir / "validation.parquet"))
     output_test_df = pd.read_parquet(str(split_output_dir / "test.parquet"))
 
-    assert np.isclose(len(output_train_df) / num_good_rows, split_ratios[0], rtol=0.1)
-    assert np.isclose(len(output_validation_df) / num_good_rows, split_ratios[1], rtol=0.1)
-    assert np.isclose(len(output_test_df) / num_good_rows, split_ratios[2], rtol=0.1)
+    assert len(output_train_df) == 551
+    assert len(output_validation_df) == 266
+    assert len(output_test_df) == 83
 
     merged_output_df = pd.concat([output_train_df, output_validation_df, output_test_df])
     assert merged_output_df.columns.tolist() == ["a", "b", "y"]
@@ -63,6 +68,33 @@ def test_make_elem_hashable():
     assert _make_elem_hashable({"a": [2, 3]}) == (("a", (2, 3)),)
     assert _make_elem_hashable(np.array([2, 3])) == ((2,), (2, 3))
     assert _make_elem_hashable(np.array([[2, 3, 4], [5, 6, 7]])) == ((2, 3), (2, 3, 4, 5, 6, 7))
+
+
+def test_hash_pandas_dataframe_deterministic():
+    pdf = pd.DataFrame(
+        {
+            "f1": [2, 3],
+            "f2": [2.5, 3.5],
+            "f3": [[6, 7], [8, 9]],
+            "f4": [np.array([12, 13]), np.array([14, 15])],
+            "f5": [np.array([12.5, 13.5]), np.array([14.5, 15.5])],
+            "f6": [np.array([[22], [23]]), np.array([[24], [25]])],
+            "f7": ["abc", "def"],
+            "f8": [b"ghi", b"jkl"],
+            "f9": [{"a1": 32, "b1": 33}, {"a2": 34, "b2": 35}],
+            "f10": [{"a3": [42, 43]}, {"a4": [44, 45]}],
+            "f11": pd.Series(["a5", "a6"], dtype="category"),
+            "f13": [pd.Timestamp("2017-01-01T12"), pd.Timestamp("2017-02-01T11")],
+            "f14": [True, False],
+            "f15": [pd.Period("2000-01-02", freq="D"), pd.Period("2001-01-02", freq="M")],
+            "f16": [pd.Interval(22.5, 23.5), pd.Interval(24.5, 25.5)],
+        }
+    )
+    result = _hash_pandas_dataframe(pdf)
+    assert result.tolist() == [
+        2331111997514652279,
+        12302536142759575339,
+    ]
 
 
 def test_get_split_df():
