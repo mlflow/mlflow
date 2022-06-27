@@ -2681,7 +2681,9 @@ class MlflowClient:
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
+    def set_model_version_tag(
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+    ) -> None:
         """
         Set a tag for the model version.
 
@@ -2738,7 +2740,7 @@ class MlflowClient:
             Version: 1
             Tags: {'t': '1'}
         """
-        self._get_registry_client().set_model_version_tag(name, version, key, value)
+        self._get_registry_client().set_model_version_tag(name, version, key, value, stage)
 
     def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
         """

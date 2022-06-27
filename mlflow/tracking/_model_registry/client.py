@@ -306,7 +306,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_stages(name, version)
 
-    def set_model_version_tag(self, name, version, key, value):
+    def set_model_version_tag(self, name, version=None, key=None, value=None, stage=None):
         """
         Set a tag for the model version.
 
@@ -316,6 +316,9 @@ class ModelRegistryClient:
         :param value: Tag value to log.
         :return: None
         """
+        if not version and stage:
+            model_versions = self.get_latest_versions(name, [stage])
+            version = model_versions[0].version if model_versions else None
         self.store.set_model_version_tag(name, version, ModelVersionTag(key, str(value)))
 
     def delete_model_version_tag(self, name, version, key):

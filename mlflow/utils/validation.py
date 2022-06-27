@@ -386,3 +386,8 @@ def _validate_db_type_string(db_type):
     if db_type not in DATABASE_ENGINES:
         error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+
+def _validate_version_or_stage(version, stage):
+    if not (version or stage):
+        raise MlflowException("version or stage should be set")
