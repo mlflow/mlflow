@@ -67,7 +67,7 @@ def get_git_branch(path: str) -> Optional[str]:
             e,
         )
         return None
-    
+
     try:
         if os.path.isfile(path):
             path = os.path.dirname(path)
