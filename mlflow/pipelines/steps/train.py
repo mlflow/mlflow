@@ -177,15 +177,16 @@ class TrainStep(BaseStep):
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
 
-        primary_metric_order = \
+        primary_metric_order = (
             "DESC" if self.metric_greater_is_better[self.primary_metric] else "ASC"
+        )
         search_result = mlflow_client.search_runs(
             experiment_ids=exp_id,
             run_view_type=ViewType.ALL,
             max_results=10000,
             order_by=[
                 "attribute.start_time DESC",
-                f"metrics.{self.primary_metric} {primary_metric_order}"
+                f"metrics.{self.primary_metric} {primary_metric_order}",
             ],
         )
 
@@ -232,7 +233,7 @@ class TrainStep(BaseStep):
         )
 
         top_leader_board_items = leader_board_items[:2]
-        top_leader_board_item_index_values = ["Best", "2nd Best"][:len(top_leader_board_items)]
+        top_leader_board_item_index_values = ["Best", "2nd Best"][: len(top_leader_board_items)]
         leader_board_df = (
             pd.DataFrame.from_records(
                 [latest_model_item, *top_leader_board_items],
