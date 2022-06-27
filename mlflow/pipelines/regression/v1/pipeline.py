@@ -305,7 +305,7 @@ class RegressionPipeline(_BasePipeline):
                        training and validation datasets to compute performance metrics.
 
                      - ``"evaluate"``: evaluates the model pipeline created by the **train** step
-                       on the validation and test dataset outputs from the **split** step, computing 
+                       on the validation and test dataset outputs from the **split** step, computing
                        performance metrics and model explanations. Then, compares performance
                        metrics against thresholds configured in the pipeline's ``pipeline.yaml``
                        configuration file to compute a ``model_validation_status``, which indicates
