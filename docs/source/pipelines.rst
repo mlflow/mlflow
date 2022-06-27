@@ -472,7 +472,7 @@ The general workflow for using MLflow Pipelines is as follows:
    steps are only executed if their inputs, code, or configurations have changed, or if such
    changes have occurred in dependent steps. Once you are satisfied with the results of
    your changes, commit them to a branch of the :ref:`Pipeline Repository
-   <pipeline-repositories-key-concept>` in order to ensure reproducibility and share or review the
+   <pipeline-repositories-key-concept>` in order to ensure reproducibility, and share or review the
    changes with your team.
 
     .. note::
