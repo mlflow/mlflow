@@ -16,11 +16,12 @@ types, such as regression & classification, and MLOps tasks, such as batch scori
 structured as git repositories with YAML-based configuration files and Python code, offering
 developers a declarative approach to ML application development that reduces boilerplate.
 
-MLflow Pipelines also implements a cache-aware executor for pipeline steps, ensuring that steps
-are only executed when associated :py:ref:`code or configurations
-<pipeline-repositories-key-concept>` have changed. This enables data scientists, ML engineers, and
-DevOps teams to iterate very quickly within their domains of expertise. MLflow offers APIs and a
-CLI for executing pipelines and inspecting their results.
+MLflow Pipelines also implements a cache-aware executor for :ref:`Pipeline Steps
+<steps-key-concept>`, ensuring that steps are only executed when associated :py:ref:`code or
+configurations <pipeline-repositories-key-concept>` have changed. This enables data scientists,
+ML engineers, and DevOps teams to iterate very quickly within their domains of expertise. MLflow
+offers :ref:`APIs <pipelines-apis>` and a :ref:`CLI <cli>` for executing pipelines and inspecting
+their results.
 
 Installation
 ------------
@@ -33,8 +34,8 @@ from PyPI as follows:
   pip install mlflow[pipelines]
 
 .. note::
-  You can install MLflow Pipelines from a Databricks notebook by running
-  ``%pip install mlflow[pipelines]`` or install MLflow Pipelines on a Databricks cluster
+  You can install MLflow Pipelines from a Databricks Notebook by running
+  ``%pip install mlflow[pipelines]`` or install MLflow Pipelines on a Databricks Cluster
   by following the instructions at
   https://docs.databricks.com/libraries/cluster-libraries.html#install-a-library-on-a-cluster.
 
@@ -90,7 +91,7 @@ or perform an MLOps task, such as developing an accurate regression model for da
 particular domain or distributing a model to perform scalable batch inference. Pipelines
 structure their code, configurations, and tests as git repositories with a standardized
 directory hierarchy, as discussed in :ref:`Pipeline Repositories
-<pipeline-repositories-key-concept>`. MLflow Pipelines includes pre-defined pipeline repositories
+<pipeline-repositories-key-concept>`. MLflow Pipelines includes predefined pipeline repositories
 for common ML problems and MLOps tasks called :ref:`Pipeline Templates <pipeline-templates>`.
 MLflow Pipelines also provides :py:class:`APIs <mlflow.pipelines.Pipeline>` and a :ref:`CLI <cli>`
 for running pipelines and inspecting their results.
@@ -98,7 +99,7 @@ for running pipelines and inspecting their results.
 .. code-section::
 
     .. code-block:: python
-      :caption: Example API and CLI workflows for running the :ref:`Regression Pipeline
+      :caption: Example API and CLI workflows for running the :ref:`MLflow Regression Pipeline
                 <mlflow-regression-pipeline>` and inspecting results. Note that pipelines
                 must be run from within their corresponding git repositories.
 
@@ -182,9 +183,8 @@ The main components of the pipeline repository layout, which are common across a
     :caption: Shown below is an example |pipeline.yaml| configuration file adapted from the
               |MLflow Regression Pipeline repository|. ``pipeline.yaml`` is the main
               configuration file for a pipeline containing aggregated configurations for
-              all :ref:`Pipeline Steps <steps-key-concept>`; :ref:`Profile
-              <profiles-key-concept>`-based substitutions and overrides are supported using
-              |Jinja2| templating syntax.
+              all pipeline steps; :ref:`Profile <profiles-key-concept>`-based substitutions and
+              overrides are supported using |Jinja2| templating syntax.
 
     template: "regression/v1"
     data:
@@ -312,7 +312,7 @@ The following profile customizations are supported:
 
             DATASET_INFO:
                 location: ./data/taxi-small.parquet
-                format: ./data/taxi-small.parquet
+                format: parquet
 
     - additions
         - If the ``pipeline.yaml`` configuration file does not define a particular attribute, a
@@ -380,7 +380,7 @@ The general workflow for using MLflow Pipelines is as follows:
         :width: 60%
 
 2. Run the pipeline and inspect its results. When a pipeline run completes, MLflow Pipelines
-   creates and displays an interactive **Step Card** displaying the results of the last executed
+   creates and displays an interactive **Step Card** with the results of the last executed
    :ref:`step <steps-key-concept>`.
 
     .. figure:: _static/images/pipelines_evaluate_step_card.png
@@ -490,7 +490,7 @@ The general workflow for using MLflow Pipelines is as follows:
 Pipeline Templates
 ------------------
 
-MLflow Pipelines provides extensible templates that deliver pre-defined solutions for common
+MLflow Pipelines provides extensible templates that deliver predefined solutions for common
 ML problems and MLOps tasks. Each template is a fully-functional pipeline that can be easily
 modified to fit your use cases. MLflow Pipelines currently offers the following extensible templates
 for developing end-to-end machine learning applications:
