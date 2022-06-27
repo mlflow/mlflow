@@ -20,6 +20,12 @@ The pipeline steps are defined as follows:
         |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
 
+        .. note::
+            If you make changes to the dataset referenced by the **ingest** step (e.g. by adding
+            new records or columns), you must manually re-run the **ingest** step in order to
+            use the updated dataset in the pipeline. The **ingest** step does *not* automatically
+            detect changes in the dataset.
+
    .. _mlflow-regression-pipeline-split-step:
 
    - **split**
