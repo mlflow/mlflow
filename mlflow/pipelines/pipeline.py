@@ -201,7 +201,7 @@ class Pipeline:
         from mlflow.pipelines import Pipeline
 
         os.chdir("~/mlp-regression-template")
-        regression_pipeline = Pipeline()
+        regression_pipeline = Pipeline(profile="local")
         regression_pipeline.run(step="train")
     """
 
@@ -229,7 +229,7 @@ class Pipeline:
             from mlflow.pipelines import Pipeline
 
             os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline()
+            regression_pipeline = Pipeline(profile="local")
             regression_pipeline.run(step="train")
         """
         if not profile:
