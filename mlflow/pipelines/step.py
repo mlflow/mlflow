@@ -319,29 +319,6 @@ class BaseStep(metaclass=abc.ABCMeta):
                 local_card_path,
             )
 
-    def _get_custom_metrics(self):
-        return (self.step_config.get("metrics") or {}).get("custom")
-
-    def _get_custom_metric_greater_is_better(self):
-        custom_metrics = self._get_custom_metrics()
-        return (
-            {cm["name"]: cm["greater_is_better"] for cm in custom_metrics} if custom_metrics else {}
-        )
-
-    def _load_custom_metric_functions(self):
-        custom_metrics = self._get_custom_metrics()
-        if not custom_metrics:
-            return None
-        try:
-            sys.path.append(self.pipeline_root)
-            custom_metrics_mod = importlib.import_module("steps.custom_metrics")
-            return [getattr(custom_metrics_mod, cm["function"]) for cm in custom_metrics]
-        except Exception as e:
-            raise MlflowException(
-                message="Failed to load custom metric functions",
-                error_code=BAD_REQUEST,
-            ) from e
-
     @staticmethod
     def _generate_worst_examples_dataframe(
         dataframe,

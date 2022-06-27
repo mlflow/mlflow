@@ -2,6 +2,8 @@ import importlib
 import logging
 import os
 import sys
+from collections import namedtuple
+import datetime
 
 import cloudpickle
 
@@ -10,6 +12,12 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.metrics import (
+    _get_primary_metric,
+    _get_custom_metrics,
+    _get_metric_greater_is_better,
+    _load_custom_metric_functions,
+)
 from mlflow.pipelines.utils.step import get_merged_eval_metrics, get_pandas_data_profile
 from mlflow.pipelines.utils.tracking import (
     get_pipeline_tracking_config,
@@ -19,6 +27,9 @@ from mlflow.pipelines.utils.tracking import (
     log_code_snapshot,
 )
 from mlflow.projects.utils import get_databricks_env_vars
+from mlflow.tracking import MlflowClient
+from mlflow.tracking.fluent import _get_experiment_id
+
 
 _logger = logging.getLogger(__name__)
 
@@ -137,7 +148,9 @@ class TrainStep(BaseStep):
                     model_type="regressor",
                     evaluators="default",
                     dataset_name=dataset_name,
-                    custom_metrics=self._load_custom_metric_functions(),
+                    custom_metrics=_load_custom_metric_functions(
+                        self.pipeline_root, self.step_config
+                    ),
                     evaluator_config={
                         "log_model_explainability": False,
                     },
@@ -158,6 +171,68 @@ class TrainStep(BaseStep):
             raw_validation_df, prediction_result, self.target_col
         )
 
+        from mlflow.entities import ViewType
+
+        mlflow_client = MlflowClient()
+        exp_id = _get_experiment_id()
+        search_result = mlflow_client.search_runs(
+            experiment_ids=exp_id,
+            run_view_type=ViewType.ALL,
+            max_results=10000,
+            order_by=["attribute.start_time DESC", f"metrics.{self.primary_metric}"],
+        )
+
+        primary_metric_name = _get_primary_metric(self.step_config)
+        custom_metric_names = [cm["name"] for cm in _get_custom_metrics(self.step_config)]
+        metric_greater_is_better = _get_metric_greater_is_better(self.step_config)
+        metric_names = metric_greater_is_better.keys()
+
+        metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
+
+        leader_board_items = []
+        for old_run in search_result:
+            if all(metric_key in old_run.data.metrics for metric_key in metric_keys):
+                metric_values = {
+                    metric_name: "{:.6g}".format(old_run.data.metrics[metric_key])
+                    for metric_name, metric_key in zip(metric_names, metric_keys)
+                }
+                leader_board_items.append(
+                    {
+                        "Run ID": old_run.info.run_id,
+                        "Run Time": datetime.datetime.fromtimestamp(
+                            old_run.info.start_time // 1000
+                        ),
+                        **metric_values,
+                    }
+                )
+
+        leader_board_items.sort(
+            key=lambda x: x[primary_metric_name],
+            reverse=metric_greater_is_better[primary_metric_name],
+        )
+        for i, leader_board_item in enumerate(leader_board_items):
+            leader_board_item["Model Rank"] = f"{i + 1} / {len(leader_board_items)}"
+        latest_model_index = list(map(lambda x: x["Run ID"], leader_board_items)).index(
+            run.info.run_id
+        )
+        latest_model_item = leader_board_items[latest_model_index]
+
+        # metric columns order: primary metric, then custom metrics, then builtin metrics.
+        metric_columns = (
+            [primary_metric_name]
+            + sorted(list(set(custom_metric_names) - {primary_metric_name}))
+            + sorted(list(set(metric_names) - set(custom_metric_names) - {primary_metric_name}))
+        )
+
+        leader_board_df = (
+            pd.DataFrame.from_records(
+                [latest_model_item, leader_board_items[0], leader_board_items[1]],
+                columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
+            )
+            .set_axis(["Latest", "Best", "2nd Best"], axis="index")
+            .transpose()
+        )
+
         card = self._build_step_card(
             eval_metrics=eval_metrics,
             pred_and_error_df=pred_and_error_df,
@@ -166,6 +241,7 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
+            leader_board_df=leader_board_df,
         )
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
@@ -182,6 +258,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
+        leader_board_df,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -257,7 +334,14 @@ class TrainStep(BaseStep):
             ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
         )
 
-        # Tab 5: Run summary.
+        # Tab 5: Leaderboard
+        (
+            card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
+                "LEADERBOARD_TABLE", BaseCard.render_table(leader_board_df, hide_index=False)
+            )
+        )
+
+        # Tab 6: Run summary.
         (
             card.add_tab(
                 "Run Summary",
