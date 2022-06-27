@@ -9,11 +9,11 @@ from distutils import dir_util
 
 import mlflow.utils
 from mlflow.utils import databricks_utils
+from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow import tracking
-from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.mlflow_tags import (
@@ -70,22 +70,6 @@ def _get_storage_dir(storage_dir):
     if storage_dir is not None and not os.path.exists(storage_dir):
         os.makedirs(storage_dir)
     return tempfile.mkdtemp(dir=storage_dir)
-
-
-def _get_git_repo_url(work_dir):
-    from git import Repo
-    from git.exc import GitCommandError, InvalidGitRepositoryError
-
-    try:
-        repo = Repo(work_dir, search_parent_directories=True)
-        remote_urls = [remote.url for remote in repo.remotes]
-        if len(remote_urls) == 0:
-            return None
-    except GitCommandError:
-        return None
-    except InvalidGitRepositoryError:
-        return None
-    return remote_urls[0]
 
 
 def _expand_uri(uri):
@@ -282,7 +266,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
         source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
-    source_version = _get_git_commit(work_dir)
+    source_version = get_git_commit(work_dir)
     existing_run = fluent.active_run()
     if existing_run:
         parent_run_id = existing_run.info.run_id
@@ -300,7 +284,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
-    repo_url = _get_git_repo_url(work_dir)
+    repo_url = get_git_repo_url(work_dir)
     if repo_url is not None:
         tags[MLFLOW_GIT_REPO_URL] = repo_url
         tags[LEGACY_MLFLOW_GIT_REPO_URL] = repo_url
