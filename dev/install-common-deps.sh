@@ -35,15 +35,6 @@ else
   req_files+=" -r requirements/test-requirements.txt"
 fi
 if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
-  # Install prophet's dependencies beforehand, otherwise pip would fail to build a wheel for prophet
-  if [[ -z "$(pip cache list prophet --format abspath)" ]]; then
-    tmp_dir=$(mktemp -d)
-    pip download --no-deps --dest $tmp_dir --no-cache-dir prophet
-    tar -zxvf $tmp_dir/*.tar.gz -C $tmp_dir
-    pip install -r $(find $tmp_dir -name requirements.txt)
-    rm -rf $tmp_dir
-  fi
-
   req_files+=" -r requirements/extra-ml-requirements.txt"
 fi
 
