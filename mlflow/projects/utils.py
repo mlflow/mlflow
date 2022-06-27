@@ -9,7 +9,7 @@ from distutils import dir_util
 
 import mlflow.utils
 from mlflow.utils import databricks_utils
-from mlflow.utils.git_utils import get_git_repo_url 
+from mlflow.utils.git_utils import get_git_repo_url
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
