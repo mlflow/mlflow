@@ -471,8 +471,9 @@ The general workflow for using MLflow Pipelines is as follows:
    intelligently caches results from each :ref:`Pipeline Step <steps-key-concept>`, ensuring that
    steps are only executed if their inputs, code, or configurations have changed, or if such
    changes have occurred in dependent steps. Once you are satisfied with the performance of
-   your changes, commit them to the :ref:`Pipeline Repository <pipeline-repositories-key-concept>`
-   to ensure reproducibility and to share or review the changes with your team.
+   your changes, commit them to a branch of the :ref:`Pipeline Repository
+   <pipeline-repositories-key-concept>` in order to ensure reproducibility and share or review the
+   changes with your team.
 
     .. note::
       Before testing changes in a staging or production environment, it is recommended that you
