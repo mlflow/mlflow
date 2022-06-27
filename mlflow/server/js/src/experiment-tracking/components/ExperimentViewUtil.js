@@ -625,7 +625,7 @@ export default class ExperimentViewUtil {
 
     const mergedRows = [];
     const visited = new Set();
-    rootsIdxs.forEach((idx) => {
+    rootsIdxs.forEach((index) => {
       function dfs(idx, curr_level) {
         if (!visited.has(idx)) {
           const runId = runInfos[idx].run_uuid;
@@ -650,14 +650,14 @@ export default class ExperimentViewUtil {
           const childrenIdxs = parentIdToChildren[row.runId];
           if (childrenIdxs) {
             if (ExperimentViewUtil.isExpanderOpen(runsExpanded, row.runId)) {
-              childrenIdxs.forEach((index) => {
-                dfs(index, curr_level + 1);
+              childrenIdxs.forEach((dIdx) => {
+                dfs(dIdx, curr_level + 1);
               });
             }
           }
         }
       }
-      dfs(idx, 0);
+      dfs(index, 0);
     });
     return mergedRows.slice(0);
   }
