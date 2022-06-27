@@ -377,9 +377,11 @@ The general workflow for using MLflow Pipelines is as follows:
       repository using |Databricks Repos|.
 
       .. image:: _static/images/pipelines_databricks_repo_ui.png
-        :width: 50%
+        :width: 55%
 
-2. Run the pipeline and inspect its results.
+2. Run the pipeline and inspect its results. When a pipeline run completes, MLflow Pipelines
+   creates and displays an interactive **Step Card** displaying the results of the last executed
+   :ref:`step <steps-key-concept>`
 
     .. code-section::
 
@@ -413,9 +415,15 @@ The general workflow for using MLflow Pipelines is as follows:
           mlflow pipelines inspect --step evaluate --profile local
 
     .. note::
-      :ref:`Pipeline Templates <pipeline-templates>` also include notebooks 
-      On Databricks, we recommend cloning the :ref:`Pipeline Template <pipeline-templates>` git
-      repository using |Databricks Repos|.
+      Each :ref:`Pipeline Template <pipeline-templates>` also includes a |Databricks Notebook|
+      |Jupyter Notebook| for running the pipeline and inspecting its results.
+
+      Example pipeline run from the |Databricks Notebook| included in the
+      |MLflow Regression Pipeline repository|:
+
+      .. figure:: _static/images/pipelines_databricks_notebook_ui.png
+        :scale: 25
+
 
 .. _pipeline-templates:
 
@@ -466,3 +474,5 @@ the :ref:`Regression Pipeline API documentation <mlflow-regression-pipeline>`, a
 .. |customizes the dataset used for local model development| replace:: `customizes the dataset used for local model development <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L7>`__
 .. |specifies a local MLflow Tracking store for logging model content| replace:: `specifies a local MLflow Tracking store for logging model content <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L1-L4>`__
 .. |Databricks Repos| replace:: `Databricks Repos <https://docs.databricks.com/repos/index.html>`__
+.. |Databricks Notebook| replace:: `Databricks Notebook <https://github.com/mlflow/mlp-regression-template/blob/main/notebooks/databricks.py>`__
+.. |Jupyter Notebook| replace:: `Jupyter Notebook <https://github.com/mlflow/mlp-regression-template/blob/main/notebooks/jupyter.ipynb>`__
