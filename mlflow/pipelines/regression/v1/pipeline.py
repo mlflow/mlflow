@@ -6,7 +6,7 @@ It is designed for developing models using scikit-learn and frameworks that inte
 scikit-learn, such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
 template repository is available at https://github.com/mlflow/mlp-regression-template, and the
 :py:class:`RegressionPipeline API Documentation <RegressionPipeline>` provides instructions for
-executing the pipeline and inspecting its results. 
+executing the pipeline and inspecting its results.
 
 The pipeline contains the following sequential steps:
 
@@ -40,7 +40,7 @@ The pipeline steps are defined as follows:
    - **transform**
       - The **transform** step uses the training dataset created by **split** to fit
         a transformer that performs the transformations defined in |steps/transform.py|. The
-        transformer is then applied to the training dataset and the validation dataset, creating 
+        transformer is then applied to the training dataset and the validation dataset, creating
         transformed datasets that are used by subsequent steps for estimator training and model
         performance evaluation.
 
@@ -87,11 +87,11 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
-.. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L35-L38>`__
-.. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L51-L53>`__
-.. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L15-L32>`__
-.. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L54-L58>`__
-.. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L43-L50>`__
+.. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/pipeline.yaml#L36-L40>`__
+.. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/pipeline.yaml#L57-L63>`__
+.. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/pipeline.yaml#L15-L32>`__
+.. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/pipeline.yaml#L64-L73>`__
+.. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/pipeline.yaml#L47-L56>`__
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/split.py>`__
 .. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/train.py>`__
