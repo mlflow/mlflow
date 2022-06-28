@@ -243,8 +243,8 @@ const classNames = {
       display: 'none',
     },
     '.du-bois-light-tree-checkbox': {
-      marginLeft: "4px"
-    }
+      marginLeft: '4px',
+    },
   },
 };
 
