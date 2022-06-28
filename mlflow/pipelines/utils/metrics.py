@@ -1,6 +1,8 @@
 import logging
 import importlib
 import sys
+from typing import List, Dict
+
 from mlflow.exceptions import MlflowException, BAD_REQUEST
 
 _logger = logging.getLogger(__name__)
@@ -16,8 +18,13 @@ _BUILTIN_METRIC_TO_GREATER_IS_BETTER = {
 }
 
 
-def _get_custom_metrics(step_config):
-    return (step_config.get("metrics") or {}).get("custom")
+def _get_custom_metrics(step_config: Dict) -> List[Dict]:
+    """
+    :param: Configuration dictionary for the train or evaluate step.
+    :return: A list of custom metrics defined in the specified configuration dictionary,
+             or an empty list of the configuration dictionary does not define any custom metrics.
+    """
+    return (step_config.get("metrics") or {}).get("custom", [])
 
 
 def _load_custom_metric_functions(pipeline_root, step_config):

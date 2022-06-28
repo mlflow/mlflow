@@ -9,6 +9,7 @@ from sklearn.datasets import load_diabetes
 import mlflow
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
+from mlflow.pipelines.utils.metrics import _load_custom_metric_functions
 from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.exceptions import MlflowException
@@ -218,7 +219,7 @@ def one(eval_df, builtin_metrics):
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._load_custom_metric_functions()
+        _load_custom_metric_functions(tmp_pipeline_root_path, evaluate_step.step_config)
     assert isinstance(exc.value.__cause__, AttributeError)
     assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
@@ -252,7 +253,7 @@ metrics:
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        evaluate_step._load_custom_metric_functions()
+        _load_custom_metric_functions(tmp_pipeline_root_path, evaluate_step.step_config)
     assert isinstance(exc.value.__cause__, ModuleNotFoundError)
     assert "No module named 'steps.custom_metrics'" in str(exc.value.__cause__)
 
@@ -321,10 +322,10 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
 
-    with mock.patch("mlflow.pipelines.steps.evaluate._logger.warning") as mock_warning:
+    with mock.patch("mlflow.pipelines.utils.metrics._logger.warning") as mock_warning:
         evaluate_step._run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
-            "Custom metrics overrode the following built-in metrics: %s",
+            "Custom metrics override the following built-in metrics: %s",
             ["mean_absolute_error", "root_mean_squared_error"],
         )
     logged_metrics = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics

@@ -2,12 +2,12 @@ import importlib
 import logging
 import os
 import sys
-from collections import namedtuple
 import datetime
 
 import cloudpickle
 
 import mlflow
+from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
@@ -42,9 +42,7 @@ class TrainStep(BaseStep):
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
         ].rsplit(".", 1)
-        self.primary_metric = (self.step_config.get("metrics") or {}).get(
-            "primary", "root_mean_squared_error"
-        )
+        self.primary_metric = _get_primary_metric(self.step_config)
         self.metric_greater_is_better = _get_metric_greater_is_better(step_config)
 
     def _run(self, output_directory):
@@ -172,8 +170,6 @@ class TrainStep(BaseStep):
             raw_validation_df, prediction_result, self.target_col
         )
 
-        from mlflow.entities import ViewType
-
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
 
@@ -184,12 +180,11 @@ class TrainStep(BaseStep):
         search_max_results = 100
         search_result = mlflow_client.search_runs(
             experiment_ids=exp_id,
-            run_view_type=ViewType.ALL,
+            run_view_type=ViewType.ACTIVE_ONLY,
             max_results=search_max_results,
             order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
         )
 
-        primary_metric_name = _get_primary_metric(self.step_config)
         custom_metric_names = [cm["name"] for cm in _get_custom_metrics(self.step_config)]
         metric_names = self.metric_greater_is_better.keys()
         metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
@@ -248,7 +243,7 @@ class TrainStep(BaseStep):
 
         # metric columns order: primary metric, custom metrics, builtin metrics.
         def sorter(m):
-            if m == primary_metric_name:
+            if m == self.primary_metric:
                 return 0, m
             elif m in custom_metric_names:
                 return 1, m
