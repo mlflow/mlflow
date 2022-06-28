@@ -9,6 +9,7 @@ import weakref
 
 import mlflow
 from mlflow.entities import Metric, Param
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
@@ -46,24 +47,22 @@ AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 
 def _read_log_model_allowlist_from_file(allowlist_file):
-    def _parse_allowlist_file(file, allowlist):
-        for line in file:
+    def _parse_allowlist_file(line_iter):
+        allowlist = set()
+        for line in line_iter:
             stripped = line.strip()
             is_blankline_or_comment = stripped == "" or stripped.startswith("#")
             if not is_blankline_or_comment:
                 allowlist.add(stripped)
+        return allowlist
 
-    allowlist = set()
     url_parsed = urlparse(allowlist_file)
-    IS_LOCAL_FILE = False
     if url_parsed.scheme in ("file", ""):
         if not os.path.exists(url_parsed.path):
-            raise TypeError("Wrong log_model_allowlist file setting: {}".format(allowlist_file))
-        IS_LOCAL_FILE = True
+            raise MlflowException.invalid_parameter_value(f"{allowlist_file} does not exist")
 
-    if IS_LOCAL_FILE:
         with open(allowlist_file) as f:
-            _parse_allowlist_file(f, allowlist)
+            return _parse_allowlist_file(f)
     else:
         host_creds = MlflowHostCreds(
             host=url_parsed.scheme + "://" + url_parsed.hostname,
@@ -72,8 +71,7 @@ def _read_log_model_allowlist_from_file(allowlist_file):
         )
         response = http_request(host_creds=host_creds, endpoint=url_parsed.path, method="GET")
         augmented_raise_for_status(response)
-        _parse_allowlist_file(response.iter_lines(decode_unicode=True), allowlist)
-    return allowlist
+        return _parse_allowlist_file(response.iter_lines(decode_unicode=True))
 
 
 def _read_log_model_allowlist():
