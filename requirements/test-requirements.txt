@@ -16,3 +16,4 @@ pillow
 matplotlib
 shap>=0.40
 plotly
+kaleido

@@ -12,6 +12,8 @@ MLflow Tracking lets you log and query experiments using :ref:`Python <python-ap
   :local:
   :depth: 2
 
+.. _tracking-concepts:
+
 Concepts
 ========
 
@@ -760,7 +762,7 @@ machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
-* Experiment-based run listing and comparison
+* Experiment-based run listing and comparison (including run comparison across multiple experiments)
 * Searching for runs by parameter or metric value
 * Visualizing run metrics
 * Downloading run results
@@ -860,7 +862,7 @@ Artifact Stores
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+default location to store artifacts for all runs in this experiment. Additionally, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 

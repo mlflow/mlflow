@@ -1,3 +1,4 @@
+import functools
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
@@ -16,6 +17,7 @@ from mlflow.models.evaluation.artifacts import (
     _infer_artifact_type_and_ext,
     JsonEvaluationArtifact,
 )
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
@@ -71,24 +73,31 @@ def _infer_model_type_by_labels(labels):
         return None  # Unknown
 
 
-def _extract_raw_model_and_predict_fn(model):
+def _extract_raw_model(model):
+    """
+    Return a tuple of (model_loader_module, raw_model)
+    """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    predict_fn = model.predict
-    predict_proba_fn = None
-
     try:
         if model_loader_module == "mlflow.sklearn":
             raw_model = model._model_impl
         else:
             raw_model = None
     except Exception as e:
-        raw_model = None
         _logger.warning(
             f"Raw model resolution fails unexpectedly on PyFuncModel {model!r}, "
             f"error message is {e}"
         )
+        raw_model = None
 
-    if raw_model:
+    return model_loader_module, raw_model
+
+
+def _extract_predict_fn(model, raw_model):
+    predict_fn = model.predict
+    predict_proba_fn = None
+
+    if raw_model is not None:
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
 
@@ -104,7 +113,7 @@ def _extract_raw_model_and_predict_fn(model):
         except ImportError:
             pass
 
-    return model_loader_module, raw_model, predict_fn, predict_proba_fn
+    return predict_fn, predict_proba_fn
 
 
 def _gen_log_key(key, dataset_name):
@@ -404,6 +413,10 @@ def _compute_df_mode_or_mean(df):
 _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
+def _shap_predict_fn(x, predict_fn, feature_names):
+    return predict_fn(pd.DataFrame(x, columns=feature_names))
+
+
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
@@ -494,9 +507,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if algorithm != "kernel":
-            feature_dtypes = (
-                list(self.X.dtypes) if isinstance(self.X, pd.DataFrame) else [self.X.dtype]
-            )
+            feature_dtypes = list(self.X.get_original().dtypes)
             for feature_dtype in feature_dtypes:
                 if not np.issubdtype(feature_dtype, np.number):
                     _logger.warning(
@@ -538,13 +549,11 @@ class DefaultEvaluator(ModelEvaluator):
             f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
         }
 
-        if isinstance(self.X, pd.DataFrame):
-            # For some shap explainer, the plot will use the DataFrame column names instead of
-            # using feature_names argument value. So rename the dataframe column names.
-            X_df = self.X.rename(columns=truncated_feature_name_map, copy=False)
-        else:
-            # If X is numpy array, convert to pandas dataframe.
-            X_df = pd.DataFrame(self.X, columns=truncated_feature_names)
+        # For some shap explainer, the plot will use the DataFrame column names instead of
+        # using feature_names argument value. So rename the dataframe column names.
+        X_df = self.X.copy_to_avoid_mutation().rename(
+            columns=truncated_feature_name_map, copy=False
+        )
 
         sampled_X = shap.sample(X_df, sample_rows, random_state=0)
 
@@ -554,13 +563,20 @@ class DefaultEvaluator(ModelEvaluator):
         # shap explainer might call provided `predict_fn` with a `numpy.ndarray` type
         # argument, this might break some model inference, so convert the argument into
         # a pandas dataframe.
-        shap_predict_fn = lambda x: self.predict_fn(
-            pd.DataFrame(x, columns=truncated_feature_names)
+        # The `shap_predict_fn` calls model's predict function, we need to restore the input
+        # dataframe with original column names, because some model prediction routine uses
+        # the column name.
+
+        shap_predict_fn = functools.partial(
+            _shap_predict_fn, predict_fn=self.predict_fn, feature_names=self.feature_names
         )
 
         try:
             if algorithm:
                 if algorithm == "kernel":
+                    # We need to lazily import shap, so lazily import `_PatchedKernelExplainer`
+                    from ._shap_patch import _PatchedKernelExplainer
+
                     kernel_link = self.evaluator_config.get(
                         "explainability_kernel_link", "identity"
                     )
@@ -571,7 +587,8 @@ class DefaultEvaluator(ModelEvaluator):
                         )
                     background_X = shap.sample(X_df, sample_rows, random_state=3)
                     background_X = background_X.fillna(mode_or_mean_dict)
-                    explainer = shap.KernelExplainer(
+
+                    explainer = _PatchedKernelExplainer(
                         shap_predict_fn, background_X, link=kernel_link
                     )
                 else:
@@ -661,7 +678,7 @@ class DefaultEvaluator(ModelEvaluator):
     def _evaluate_sklearn_model_score_if_scorable(self):
         if self.model_loader_module == "mlflow.sklearn":
             try:
-                score = self.raw_model.score(self.X, self.y)
+                score = self.raw_model.score(self.X.copy_to_avoid_mutation(), self.y)
                 self.metrics["score"] = score
             except Exception as e:
                 _logger.warning(
@@ -793,7 +810,7 @@ class DefaultEvaluator(ModelEvaluator):
                 if isinstance(raw_artifact, str):
                     f.write(raw_artifact)
                 else:
-                    json.dump(raw_artifact, f)
+                    json.dump(raw_artifact, f, cls=NumpyEncoder)
         elif inferred_type is CsvEvaluationArtifact:
             raw_artifact.to_csv(artifact_file_local_path, index=False)
         elif inferred_type is NumpyEvaluationArtifact:
@@ -833,9 +850,7 @@ class DefaultEvaluator(ModelEvaluator):
         if self.custom_metrics is None:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
-        eval_df = pd.DataFrame(
-            {"prediction": copy.deepcopy(self.y_pred), "target": copy.deepcopy(self.y)}
-        )
+        eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
         for index, custom_metric in enumerate(self.custom_metrics):
             with tempfile.TemporaryDirectory() as artifacts_dir:
                 custom_metric_tuple = _CustomMetric(
@@ -877,7 +892,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.label_list = np.unique(self.y)
         self.num_classes = len(self.label_list)
 
-        self.y_pred = self.predict_fn(self.X)
+        self.y_pred = self.predict_fn(self.X.copy_to_avoid_mutation())
         self.is_binomial = self.num_classes <= 2
 
         if self.is_binomial:
@@ -898,7 +913,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         if self.predict_proba_fn is not None:
-            self.y_probs = self.predict_proba_fn(self.X)
+            self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
             if self.is_binomial:
                 self.y_prob = self.y_probs[:, 1]
             else:
@@ -909,7 +924,11 @@ class DefaultEvaluator(ModelEvaluator):
 
         self.metrics.update(
             _get_classifier_global_metrics(
-                self.is_binomial, self.y, self.y_pred, self.y_probs, self.label_list
+                self.is_binomial,
+                self.y,
+                self.y_pred,
+                self.y_probs,
+                self.label_list,
             )
         )
         self._evaluate_sklearn_model_score_if_scorable()
@@ -955,7 +974,7 @@ class DefaultEvaluator(ModelEvaluator):
         return self._log_and_return_evaluation_result()
 
     def _evaluate_regressor(self):
-        self.y_pred = self.model.predict(self.X)
+        self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
         self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
         self._evaluate_sklearn_model_score_if_scorable()
 
@@ -987,18 +1006,14 @@ class DefaultEvaluator(ModelEvaluator):
             self.feature_names = dataset.feature_names
             self.custom_metrics = custom_metrics
 
-            (
-                model_loader_module,
-                raw_model,
-                predict_fn,
-                predict_proba_fn,
-            ) = _extract_raw_model_and_predict_fn(model)
+            model_loader_module, raw_model = _extract_raw_model(model)
+            predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+
             self.model_loader_module = model_loader_module
             self.raw_model = raw_model
             self.predict_fn = predict_fn
             self.predict_proba_fn = predict_proba_fn
 
-            self.X = dataset.features_data
             self.y = dataset.labels_data
             self.metrics = dict()
             self.artifacts = {}
@@ -1019,3 +1034,47 @@ class DefaultEvaluator(ModelEvaluator):
                     return self._evaluate_regressor()
                 else:
                     raise ValueError(f"Unsupported model type {model_type}")
+
+    @property
+    def X(self) -> pd.DataFrame:
+        """
+        The features (`X`) portion of the dataset, guarded against accidental mutations.
+        """
+        return DefaultEvaluator._MutationGuardedData(
+            pd.DataFrame(self.dataset.features_data, columns=self.dataset.feature_names)
+        )
+
+    class _MutationGuardedData:
+        """
+        Wrapper around a data object that requires explicit API calls to obtain either a copy
+        of the data object, or, in cases where the caller can guaranteed that the object will not
+        be mutated, the original data object.
+        """
+
+        def __init__(self, data):
+            """
+            :param data: A data object, such as a Pandas DataFrame, numPy array, or list.
+            """
+            self._data = data
+
+        def copy_to_avoid_mutation(self):
+            """
+            Obtain a copy of the data. This method should be called every time the data needs
+            to be used in a context where it may be subsequently mutated, guarding against
+            accidental reuse after mutation.
+
+            :return: A copy of the data object.
+            """
+            if isinstance(self._data, pd.DataFrame):
+                return self._data.copy(deep=True)
+            else:
+                return copy.deepcopy(self._data)
+
+        def get_original(self):
+            """
+            Obtain the original data object. This method should only be called if the caller
+            can guarantee that it will not mutate the data during subsequent operations.
+
+            :return: The original data object.
+            """
+            return self._data

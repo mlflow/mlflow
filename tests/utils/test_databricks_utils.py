@@ -11,6 +11,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
     is_databricks_default_tracking_uri,
+    is_running_in_ipython_environment,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
 from tests.helper_functions import mock_method_chain
@@ -322,3 +323,15 @@ def get_context():
         assert databricks_utils.is_in_cluster()
         mock_get_context.assert_called_once()
         mock_spark_session.assert_not_called()
+
+
+@pytest.mark.parametrize("get_ipython", [True, None])
+def test_is_running_in_ipython_environment_works(get_ipython):
+    mod_name = "IPython"
+    if mod_name in sys.modules:
+        ipython_mod = sys.modules.pop(mod_name)
+        assert not is_running_in_ipython_environment()
+        sys.modules["IPython"] = ipython_mod
+
+        with mock.patch("IPython.get_ipython", return_value=get_ipython):
+            assert is_running_in_ipython_environment() == (get_ipython is not None)

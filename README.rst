@@ -59,7 +59,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1b7gbsopj-ckYE002CMSDR4_Bioztv8g
 
 Installing
 ----------
