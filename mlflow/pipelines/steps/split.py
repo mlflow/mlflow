@@ -66,14 +66,18 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
     return train_df, validation_df, test_df
 
 
-def _create_hash_buckets(input_df):
+def _hash_pandas_dataframe(input_df):
     from pandas.util import hash_pandas_object
 
+    return hash_pandas_object(input_df.applymap(_make_elem_hashable))
+
+
+def _create_hash_buckets(input_df):
     # Create hash bucket used for splitting dataset
     # Note: use `hash_pandas_object` instead of python builtin hash because it is stable
     # across different process runs / different python versions
     start_time = time.time()
-    hash_buckets = hash_pandas_object(input_df.applymap(_make_elem_hashable)).map(
+    hash_buckets = _hash_pandas_dataframe(input_df).map(
         lambda x: (x % _SPLIT_HASH_BUCKET_NUM) / _SPLIT_HASH_BUCKET_NUM
     )
     execution_duration = time.time() - start_time
