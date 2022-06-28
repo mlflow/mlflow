@@ -10,7 +10,7 @@ application development and productionization. MLflow Pipelines makes it easy fo
 follow best practices for creating production-ready ML deliverables, allowing them to focus on developing
 excellent models. MLflow Pipelines also enables ML engineers and DevOps teams to seamlessly deploy
 models to production and incorporate them into applications. To get started with MLflow Pipelines,
-check out the docs at https://mlflow.org/docs/latest/pipelines.html.
+check out the docs at https://mlflow.org/docs/latest/pipelines.html. (#6115)
 
 - [UI] Introduce UI support for searching and comparing runs across multiple Experiments (#5971, @r3stl355)
 
@@ -40,7 +40,7 @@ Bug fixes and documentation updates:
 - [Projects] Address a failure that arose when running a Project that does not have a ``master`` branch (#5889, @harupy)
 - [Docs] Correct several typos throughout the MLflow docs (#5959, @ryanrussell)
 
-Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, #6115, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6146, #6145, #6143, #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
+Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6146, #6145, #6143, #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
 
 ## 1.26.1 (2022-05-27)
 
