@@ -4,40 +4,43 @@
 
 MLflow 1.27.0 includes several major features and improvements:
 
-Features:
+- With MLflow 1.27.0, we are excited to announce the release of **MLflow Pipelines**, an opinionated
+framework for structuring MLOps workflows that simplifies and standardizes machine learning application
+development and productionization. MLflow Pipelines makes it easy for data scientists to follow best
+practices for creating production-ready ML deliverables, allowing them to focus on utilizing their
+expert knowledge to develop excellent models. MLflow Pipelines also enables ML engineers and DevOps
+teams to seamlessly deploy these models to production and incorporate them into applications. To learn
+how to get started with MLflow Pipelines, check out the docs at https://mlflow.org/docs/latest/pipelines.html.
 
-- Track git repository URL when creating MLflow Runs from MLflow Pipelines (#6146, @dbczumar)
-- Automatically split large metrics, tags, or params into smaller chunks to avoid request limit error (#6052, @nzw0301)
-- Deletion of an experiment to mark runs associated with that experiment to be deleted (#6064, @AdityaIyengar27)
-- Enable multi-experiment run comparison (#5971, @r3stl355)
-- add CatBoostRanker support (#6032, @danielgafni)
-- Tracking: Better support for ndarrays and tensors (#5756, @ntakouris)
-- Add Shap kernel explainer support for DefaultEvaluator (#5920, @WeichenXu123)
-- Fix two models one code name #5923 (#5926, @BFAnas)
-- Make `DefaultEvaluator` log sklearn model score if model is scorable (#5903, @WeichenXu123)
+- [UI] Introduce UI support for searching and comparing runs across multiple experiments (#5971, @r3stl355)
+
+More features:
+
+- [Tracking] When using batch logging APIs, automatically split large sets of metrics, tags, and params into multiple requests (#6052, @nzw0301)
+- [Tracking] When an Experiment is deleted, SQL-based backends also move the associate Runs to the "deleted" lifecycle stage (#6064, @AdityaIyengar27)
+- [Tracking] Add support for logging single-element ``ndarray`` and tensor instances as metrics via the ``mlflow.log_metric()`` API (#5756, @ntakouris)
+- [Models] Add support for ``CatBoostRanker`` models to the ``mlflow.catboost`` flavor (#6032, @danielgafni)
+- [Models] Integrate SHAP ``KernelExplainer`` with ``mlflow.evaluate()``, enabling model explanations on categorical data (#6044, #5920, @WeichenXu123)
+- [Models] Extend ``mlflow.evaluate()`` to automatically log the ``score()`` outputs of scikit-learn models as metrics (#5935, #5903, @WeichenXu123)
 
 Bug fixes and documentation updates:
 
-- Fix with tests (#6143, @dbczumar)
-- Fix default evaluator behavior for regression models that mutate input datasets (#6141, @dbczumar)
-- Make pyfunc.spark_udf support empty partition (#6063, @WeichenXu123)
-- Cherry-pick: Fix some shap evaluation issues (#6044, @WeichenXu123)
-- Fix TensorFlow autologging failures on TF datasets lacking batch size metadata (#6061, @dbczumar)
-- Closes issue 6045: referenced before assignment (#6046, @bneijt)
-- Fix sklearn flavor load model with code path (#6037, @WeichenXu123)
-- Allow logging a param with an empty string as a value (#6031, @harupy)
-- Ad-hoc connection pool for SFTPArtifactRepository (#5840, @rsundqvist)
-- [fix]: pin sqlalchemy (#6024, @sniafas)
-- Fix getting run UUID using unexisting pascalCased property name (#6014, @hctpbl)
-- Added more robust `_GIT_URI_REGEX` (#6000, @dkapur17)
-- fix-sklearn-autolog-without-matplotlib (#5995, @fa9r)
-- Use HEAD branch when running a git project (#5889, @harupy)
-- Overview docs for MLflow Pipelines (#6145, @dbczumar)
-- add CatBoostRanker support (#6032, @danielgafni)
-- Improve readability (#5959, @ryanrussell)
-- Add doc for DefaultEvaluator logging sklearn model score metric (#5935, @WeichenXu123)
+- [UI] Fix broken model links in the Runs table on the MLflow Experiment Page (#6014, @hctpbl)
+- [Tracking/Installation] Require ``sqlalchemy>=1.4.0`` upon MLflow installation, which is necessary for usage of SQL-based MLflow Tracking backends (#6024, @sniafas)
+- [Tracking] Fix a regression that caused ``mlflow server`` to reject ``LogParam`` API requests containing empty string values (#6031, @harupy)
+- [Tracking] Fix a failure in scikit-learn autologging that occurred when ``matplotlib`` was not installed on the host system (#5995, @fa9r)
+- [Tracking] Fix a failure in TensorFlow autologging that occurred when training models ``tf.data.Dataset`` inputs (#6061, @dbczumar)
+- [Artifacts] Address artifact download failures from SFTP locations that occurred due to mismanaged concurrency (#5840, @rsundqvist)
+- [Models] Fix a bug where MLflow Models did not restore bundled code properly if multiple models used the same code module name (#5926, @BFAnas)
+- [Models] Address an issue where ``mlflow.sklearn.model()`` did not properly restore bundled model code (#6037, @WeichenXu123)
+- [Models] Fix a bug in ``mlflow.evaluate()`` that caused input data objects to be mutated when evaluating certain scikit-learn models (#6141, @dbczumar)
+- [Models] Fix a failure in ``mlflow.pyfunc.spark_udf`` that occurred when the UDF was invoked on an empty RDD partition (#6063, @WeichenXu123)
+- [Models] Fix a failure in ``mlflow models build-docker`` that occurred when ``env-manager=local`` was specified (#6046, @bneijt)
+- [Projects] Improve robustness of git repository check that occurs prior to MLflow Project execution (#6000, @dkapur17)
+- [Projects] Address a failure that arose when running a Project that does not have a ``master`` branch (#5889, @harupy)
+- [Docs] Correct several typos throughout the MLflow docs (#5959, @ryanrussell)
 
-Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, #6115, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
+Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, #6115, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6146, #6145, #6143, #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
 
 ## 1.26.1 (2022-05-27)
 
