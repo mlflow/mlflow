@@ -30,6 +30,7 @@ export class CompareRunView extends Component {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     paramLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
+    tagLists: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // Array of user-specified run names. Elements may be falsy (e.g. empty string or undefined) if
     // a run was never given a name.
     runNames: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -260,6 +261,34 @@ export class CompareRunView extends Component {
       <table
         className='table compare-table compare-run-table'
         style={{ maxHeight: '300px' }}
+        onScroll={this.onCompareRunTableScrollHandler}
+      >
+        <tbody>{dataRows}</tbody>
+      </table>
+    );
+  }  
+
+  renderTagTable(colWidth) {
+    const dataRows = this.renderDataRows(
+      this.props.tagLists,
+      colWidth,
+      this.state.onlyShowParamDiff,
+      true,
+    );
+    if (dataRows.length === 0) {
+      return (
+        <h2>
+          <FormattedMessage
+            defaultMessage='No tags to display.'
+            description='Text shown when there are no tags to display'
+          />
+        </h2>
+      );
+    }
+    return (
+      <table
+        className='table compare-table compare-run-table'
+        style={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
@@ -510,6 +539,22 @@ export class CompareRunView extends Component {
           <br />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
+        <CollapsibleSection
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Tags',
+            description:
+              'Row group title for tags of runs on the experiment compare runs page',
+          })}
+        >
+          <Switch
+            checkedChildren='Show diff only'
+            unCheckedChildren='Show diff only'
+            onChange={(checked, e) => this.setState({ onlyShowParamDiff: checked })}
+          />
+          <br />
+          <br />
+          {this.renderTagTable(colWidth)}
+        </CollapsibleSection>
       </div>
     );
   }
@@ -583,6 +628,7 @@ const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const metricLists = [];
   const paramLists = [];
+  const tagLists = [];
   const runNames = [];
   const runDisplayNames = [];
   const { experimentIds, runUuids } = ownProps;
@@ -592,6 +638,7 @@ const mapStateToProps = (state, ownProps) => {
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
     const runTags = getRunTags(runUuid, state);
+    tagLists.push(Object.values(runTags));
     runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
     runNames.push(Utils.getRunName(runTags));
   });
@@ -600,6 +647,7 @@ const mapStateToProps = (state, ownProps) => {
     runInfos,
     metricLists,
     paramLists,
+    tagLists,
     runNames,
     runDisplayNames,
     comparedExperimentIds,
