@@ -479,12 +479,12 @@ describe('test mlModelArtifactByModelVersion', () => {
       payload: {},
     };
     expect(mlModelArtifactByModelVersion(state, action)).toEqual({
-      model_A: { '1': {} },
+      model_A: { 1: {} },
     });
   });
 
   test('when adding a version to current state', () => {
-    const state = { model_A: { '1': {} } };
+    const state = { model_A: { 1: {} } };
     const action = {
       type: fulfilled(PARSE_MLMODEL_FILE),
       meta: { modelName: 'model_A', version: 2 },
@@ -492,29 +492,29 @@ describe('test mlModelArtifactByModelVersion', () => {
     };
     expect(mlModelArtifactByModelVersion(state, action)).toEqual({
       model_A: {
-        '1': {},
-        '2': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+        1: {},
+        2: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
       },
     });
   });
 
   test('when adding a new model to current state', () => {
-    const state = { model_A: { '1': {} } };
+    const state = { model_A: { 1: {} } };
     const action = {
       type: fulfilled(PARSE_MLMODEL_FILE),
       meta: { modelName: 'model_B', version: 1 },
       payload: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
     };
     expect(mlModelArtifactByModelVersion(state, action)).toEqual({
-      model_A: { '1': {} },
+      model_A: { 1: {} },
       model_B: {
-        '1': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+        1: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
       },
     });
   });
 
   test('when adding a model version that already exist in store', () => {
-    const state = { model_A: { '1': {} } };
+    const state = { model_A: { 1: {} } };
     const action = {
       type: fulfilled(PARSE_MLMODEL_FILE),
       meta: { modelName: 'model_A', version: 1 },
@@ -522,7 +522,7 @@ describe('test mlModelArtifactByModelVersion', () => {
     };
     expect(mlModelArtifactByModelVersion(state, action)).toEqual({
       model_A: {
-        '1': { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
+        1: { artifact_path: 'xxx', run_id: 'xxx', signature: 'xxx' },
       },
     });
   });

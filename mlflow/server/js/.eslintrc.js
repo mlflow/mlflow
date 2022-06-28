@@ -226,7 +226,19 @@ module.exports = {
     'no-prototype-builtins': 0,
     'no-redeclare': 2,
     'no-regex-spaces': 2,
-    'no-restricted-imports': 2,
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: 'emotion',
+            message:
+              // eslint-disable-next-line max-len
+              "Importing emotion is obsolete - please use css={...} prop in JSX elements now. For class names, you can import { ClassNames } from '@emotion/react' package.",
+          },
+        ],
+      },
+    ],
     'no-restricted-modules': 2,
     'no-restricted-syntax': 0,
     'no-return-assign': 0,
@@ -439,6 +451,69 @@ module.exports = {
     ],
   },
   overrides: [
+    {
+      // We're enabling '@typescript-eslint/parser' and its rules only for the *.ts(x) files
+      files: ['*.ts', '*.tsx'],
+      extends: [
+        'react-app',
+        'prettier',
+        'plugin:jsx-a11y/recommended',
+        'plugin:@typescript-eslint/recommended',
+      ],
+      plugins: ['prettier', 'react', '@typescript-eslint', '@emotion'],
+      parser: '@typescript-eslint/parser',
+
+      rules: {
+        // Do not require functions (especially react components) to have explicit returns
+        '@typescript-eslint/explicit-function-return-type': 'off',
+        // Do not require to type every import from a JS file to speed up development
+        '@typescript-eslint/no-explicit-any': 'off',
+        // Do not complain about useless contructors in declaration files
+        'no-useless-constructor': 'off',
+        '@typescript-eslint/no-empty-function': 'off',
+        '@typescript-eslint/no-useless-constructor': 'error',
+        // Many API fields and generated types use camelcase
+        '@typescript-eslint/naming-convention': 'off',
+
+        // TODO(thielium): This should be re-enabled (REDASH-796)
+        '@typescript-eslint/explicit-module-boundary-types': 'off',
+
+        // ts-migrate introduces a lot of ts-expect-error. turning into warning until we finalize the migration
+        '@typescript-eslint/ban-ts-comment': 'warn',
+
+        // Please leave this rule as the last item in the array, as it's quite large
+        '@typescript-eslint/ban-types': [
+          'error',
+          {
+            types: {
+              Function: {
+                message:
+                  'The `Function` type accepts any function-like value. It provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape.',
+                fixWith: '(...args: unknown[]) => unknown',
+              },
+              '{}': {
+                message:
+                  '`{}` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
+                fixWith: 'Record<string, never>',
+              },
+              Object: {
+                message:
+                  '`Object` actually means "any non-nullish value".\n- If you want a type meaning "any object", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning "any value", you probably want `unknown` instead.\n- If you want a type meaning "empty object", you probably want `Record<string, never>` instead.',
+                fixWith: 'Record<string, unknown>',
+              },
+              object: {
+                message:
+                  "Don't use `object` as a type. The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys.",
+                fixWith: 'Record<string, unknown>',
+              },
+            },
+          },
+        ],
+        // By using "auto" JSX runtime in TS, we have react automatically injected and
+        // adding "React" manually results in TS(6133) error
+        'react/react-in-jsx-scope': 'off',
+      },
+    },
     {
       files: ['*.test.js', '*-test.js', '*-test.jsx', 'test/**'],
       plugins: ['chai-expect', 'chai-friendly'],

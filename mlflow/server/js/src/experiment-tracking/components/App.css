@@ -1,9 +1,8 @@
 body {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 textarea {
-  font-size: 14px;
   padding: 5px 10px;
   border-radius: 4px;
   border: 1px solid #ccc;
@@ -14,7 +13,6 @@ textarea {
 }
 
 button, .btn {
-  font-size: 14px;
   background-color: #f5f5f5;
   border-color: #cccccc;
 }
@@ -122,21 +120,21 @@ h3 {
 }
 
 label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: normal;
   color: #333;
   margin: 0;
 }
 
 span.metadata {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: normal;
   white-space: nowrap;
   margin-right: 100px;
 }
 
 span.metadata-header {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: normal;
   color: #888;
   margin-right: 4px;

@@ -1,10 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { I18nUtils } from './i18n/I18nUtils';
-import { init, MLFlowRoot } from './app';
+import { MLFlowRoot } from './app';
 
 I18nUtils.initI18n().then(() => {
-  init();
   ReactDOM.render(<MLFlowRoot />, document.getElementById('root'));
 });
 

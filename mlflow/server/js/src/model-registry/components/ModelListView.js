@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Table, Input, Alert, Form } from 'antd';
+import { Table, Alert } from 'antd';
 import { Link } from 'react-router-dom';
 import './ModelListView.css';
 import { getModelPageRoute, getModelVersionPageRoute } from '../routes';
@@ -15,26 +15,25 @@ import {
   REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD,
 } from '../constants';
 import {
+  ExperimentSearchSyntaxDocUrl,
   ModelRegistryDocUrl,
   ModelRegistryOnboardingString,
   onboarding,
 } from '../../common/constants';
+import { QuestionCircleFilled } from '@ant-design/icons';
 import { SimplePagination } from '../../common/components/SimplePagination';
 import { Spinner } from '../../common/components/Spinner';
 import { CreateModelButton } from './CreateModelButton';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
-import { css } from 'emotion';
 import { CollapsibleTagsCell } from '../../common/components/CollapsibleTagsCell';
 import { RegisteredModelTag } from '../sdk/ModelRegistryMessages';
-import filterIcon from '../../common/static/filter-icon.svg';
-import { CSSTransition } from 'react-transition-group';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FlexBar } from '../../shared/building_blocks/FlexBar';
-import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { PageContainer } from '../../common/components/PageContainer';
+import { Button, Popover } from '@databricks/design-system';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -55,16 +54,12 @@ export class ModelListViewImpl extends React.Component {
       lastNavigationActionWasClickPrev: false,
       maxResultsSelection: REGISTERED_MODELS_PER_PAGE,
       showOnboardingHelper: this.showOnboardingHelper(),
-      showFilters: false,
-      nameSearchInput: props.nameSearchInput,
-      tagSearchInput: props.tagSearchInput,
     };
   }
 
   static propTypes = {
     models: PropTypes.array.isRequired,
-    nameSearchInput: PropTypes.string.isRequired,
-    tagSearchInput: PropTypes.string.isRequired,
+    searchInput: PropTypes.string.isRequired,
     orderByKey: PropTypes.string.isRequired,
     orderByAsc: PropTypes.bool.isRequired,
     currentPage: PropTypes.number.isRequired,
@@ -73,6 +68,7 @@ export class ModelListViewImpl extends React.Component {
     nextPageToken: PropTypes.string,
     loading: PropTypes.bool,
     onSearch: PropTypes.func.isRequired,
+    onSearchInputChange: PropTypes.func.isRequired,
     onClear: PropTypes.func.isRequired,
     onClickNext: PropTypes.func.isRequired,
     onClickPrev: PropTypes.func.isRequired,
@@ -84,8 +80,7 @@ export class ModelListViewImpl extends React.Component {
 
   static defaultProps = {
     models: [],
-    nameSearchInput: '',
-    tagSearchInput: '',
+    searchInput: '',
   };
 
   showOnboardingHelper() {
@@ -230,12 +225,7 @@ export class ModelListViewImpl extends React.Component {
   handleSearch = (event) => {
     event.preventDefault();
     this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onSearch(
-      this.state.nameSearchInput,
-      this.state.tagSearchInput,
-      this.setLoadingFalse,
-      this.setLoadingFalse,
-    );
+    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse);
   };
 
   static getSortFieldName = (column) => {
@@ -286,7 +276,7 @@ export class ModelListViewImpl extends React.Component {
 
     return this.state.showOnboardingHelper ? (
       <Alert
-        className={styles.alert}
+        css={styles.alert}
         message={content}
         type='info'
         showIcon
@@ -297,10 +287,10 @@ export class ModelListViewImpl extends React.Component {
   }
 
   getEmptyTextComponent() {
-    const { nameSearchInput, tagSearchInput } = this.props;
+    const { searchInput } = this.props;
     const { lastNavigationActionWasClickPrev } = this.state;
     // Handle the case when emptiness is caused by search filter
-    if (nameSearchInput || tagSearchInput) {
+    if (searchInput) {
       if (lastNavigationActionWasClickPrev) {
         return (
           'No models found for the page. Please refresh the page as the underlying data may ' +
@@ -344,21 +334,38 @@ export class ModelListViewImpl extends React.Component {
     this.props.onSetMaxResult(key, this.setLoadingFalse, this.setLoadingFalse);
   };
 
-  handleFilterToggle = () => {
-    this.setState((previousState) => ({ showFilters: !previousState.showFilters }));
-  };
-
-  handleNameSearchInput = (event) => {
-    this.setState({ nameSearchInput: event.target.value });
-  };
-
-  handleTagSearchInput = (event) => {
-    this.setState({ tagSearchInput: event.target.value });
+  handleSearchInput = (event) => {
+    this.props.onSearchInputChange(event.target.value);
   };
 
   handleClear = () => {
-    this.setState({ nameSearchInput: '', tagSearchInput: '' });
     this.props.onClear(this.setLoadingFalse, this.setLoadingFalse);
+  };
+
+  searchInputHelpTooltipContent = () => {
+    return (
+      <div className='search-input-tooltip-content'>
+        <FormattedMessage
+          // eslint-disable-next-line max-len
+          defaultMessage='To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}'
+          description='Tooltip string to explain how to search models from the model registry table'
+          values={{
+            newline: <br />,
+            link: (chunks) => (
+              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
+                {chunks}
+              </a>
+            ),
+            examples: (
+              <ul>
+                <li>tags.key = "value"</li>
+                <li>name ilike "%my_model_name%" and tags.key = "value"</li>
+              </ul>
+            ),
+          }}
+        />
+      </div>
+    );
   };
 
   render() {
@@ -381,70 +388,51 @@ export class ModelListViewImpl extends React.Component {
           <></>
         </PageHeader>
         {this.renderOnboardingContent()}
-        <FlexBar
-          left={
-            <Spacer size='small' direction='horizontal'>
-              <span className={`${styles.createModelButtonWrapper}`}>
-                <CreateModelButton />
-              </span>
-            </Spacer>
-          }
-          right={
-            <Spacer direction='horizontal' size='small'>
-              <div className={styles.nameSearchBox}>
-                <SearchBox
-                  onChange={this.handleNameSearchInput}
-                  value={this.state.nameSearchInput}
-                  onSearch={this.handleSearch}
-                  onPressEnter={this.handleSearch}
-                  placeholder={this.props.intl.formatMessage({
-                    defaultMessage: 'Search by model name',
-                    description: 'Placeholder text inside model search bar',
-                  })}
-                />
-              </div>
-              <Button dataTestId='filter-button' onClick={this.handleFilterToggle}>
-                <img className='filterIcon' src={filterIcon} alt='Filter' />
-                <FormattedMessage
-                  defaultMessage='Filter'
-                  description='String for the filter button to filter model registry table
-                   for models'
-                />
-              </Button>
-              <Button dataTestId='clear-button' onClick={this.handleClear}>
-                <FormattedMessage
-                  defaultMessage='Clear'
-                  description='String for the clear button to clear the text for searching models'
-                />
-              </Button>
-            </Spacer>
-          }
-        />
-        <div className='ModelListView-filter-dropdown'>
-          <CSSTransition
-            in={this.state.showFilters}
-            timeout={300}
-            classNames='lifecycleButtons'
-            unmountOnExit
-          >
-            <FlexBar
-              left={<div />}
-              right={
-                <Form.Item className={styles.tagLabelWrapper} label='Tags' labelCol={{ span: 24 }}>
-                  <Input
-                    name='tags-search'
-                    data-testid='ModelListView-tagSearchBox'
-                    aria-label='Search Tags'
-                    type='text'
-                    placeholder={`Search tags: tags.key='value'`}
-                    value={this.state.tagSearchInput}
-                    onChange={this.handleTagSearchInput}
-                    onPressEnter={this.handleSearch}
-                  />
-                </Form.Item>
-              }
-            />
-          </CSSTransition>
+        <div css={styles.searchFlexBar}>
+          <FlexBar
+            left={
+              <Spacer size='small' direction='horizontal'>
+                <span css={styles.createModelButtonWrapper}>
+                  <CreateModelButton />
+                </span>
+              </Spacer>
+            }
+            right={
+              <Spacer direction='horizontal' size='small'>
+                <Spacer direction='horizontal' size='large'>
+                  <Popover
+                    overlayClassName='search-input-tooltip'
+                    content={this.searchInputHelpTooltipContent}
+                    placement='bottom'
+                  >
+                    <QuestionCircleFilled />
+                  </Popover>
+                </Spacer>
+
+                <Spacer direction='horizontal' size='large'>
+                  <div css={styles.nameSearchBox}>
+                    <SearchBox
+                      onChange={this.handleSearchInput}
+                      value={this.props.searchInput}
+                      onSearch={this.handleSearch}
+                      onPressEnter={this.handleSearch}
+                      placeholder={this.props.intl.formatMessage({
+                        defaultMessage: 'Search by model names or tags',
+                        description: 'Placeholder text inside model search bar',
+                      })}
+                    />
+                  </div>
+                  <Button dataTestId='clear-button' onClick={this.handleClear}>
+                    <FormattedMessage
+                      defaultMessage='Clear'
+                      // eslint-disable-next-line max-len
+                      description='String for the clear button to clear the text for searching models'
+                    />
+                  </Button>
+                </Spacer>
+              </Spacer>
+            }
+          />
         </div>
         <Table
           size='middle'
@@ -481,27 +469,30 @@ export class ModelListViewImpl extends React.Component {
 export const ModelListView = injectIntl(ModelListViewImpl);
 
 const styles = {
-  tagLabelWrapper: css({
-    paddingBottom: '0',
-    paddingTop: '16px',
-    width: '614px',
-  }),
-  createModelButtonWrapper: css({
+  createModelButtonWrapper: {
     marginLeft: 'auto',
     order: 2,
     height: '40px',
     width: '120px',
-  }),
-  nameSearchBox: css({
+  },
+  nameSearchBox: {
     width: '446px',
-  }),
+  },
+  searchFlexBar: {
+    marginBottom: '24px',
+  },
   // TODO: Convert this into Dubois Alert
-  alert: css({
+  alert: {
     marginBottom: 16,
     padding: 16,
     background: '#edfafe' /* Gray-background */,
     border: '1px solid #eeeeee',
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
     borderRadius: 4,
-  }),
+  },
+  questionMark: {
+    marginLeft: 4,
+    cursor: 'pointer',
+    color: '#888',
+  },
 };
