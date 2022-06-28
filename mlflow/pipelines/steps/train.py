@@ -229,7 +229,10 @@ class TrainStep(BaseStep):
             ):
                 break
 
-        latest_model_item["Model Rank"] = i + 1
+        if i < len(leaderboard_items):
+            latest_model_item["Model Rank"] = f"{i + 1}"
+        else:
+            latest_model_item["Model Rank"] = f"> {i + 1}"
 
         # metric columns order: primary metric, then custom metrics, then builtin metrics.
         # metric columns order: primary metric, then custom metrics, then builtin metrics.
