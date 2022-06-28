@@ -91,7 +91,6 @@ export const fetchEndpointRaw = ({
 }) => {
   const url = getAjaxUrl(relativeUrl);
 
-  // END-EDGE
   // if custom headers has duplicate fields with default Headers,
   // values in the custom headers options will always override.
   const headers = {
