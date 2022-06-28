@@ -140,6 +140,7 @@ example provides an overview of the pipeline repository structure.  It is adapte
 ::
 
   ├── pipeline.yaml
+  ├── requirements.txt
   ├── steps
   │   ├── ingest.py
   │   ├── split.py
@@ -161,6 +162,10 @@ The main components of the pipeline repository layout, which are common across a
       attributes and behavior of each pipeline step, such as the input dataset to use for training
       a model or the performance criteria for promoting a model to production. For reference,
       see the |pipeline.yaml| configuration file from the |MLflow Regression Pipeline repository|.
+
+    - ``requirements.txt``: A :ref:`pip requirements file
+      <https://pip.pypa.io/en/stable/reference/requirements-file-format>` specifying packages
+      that must be installed in order to run the pipeline.
 
     - ``steps``: A directory containing Python code modules used by the pipeline steps. For example,
       the |MLflow Regression Pipeline repository| defines the estimator type and parameters to use
