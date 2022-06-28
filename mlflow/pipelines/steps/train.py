@@ -213,6 +213,16 @@ class TrainStep(BaseStep):
         top_leaderboard_items = leaderboard_items[:2]
         for i, top_leaderboard_item in enumerate(top_leaderboard_items):
             top_leaderboard_item["Model Rank"] = f"{i + 1}"
+
+        if (
+            len(top_leaderboard_items) == 2
+            and top_leaderboard_items[0][self.primary_metric]
+            == top_leaderboard_items[1][self.primary_metric]
+        ):
+            # If top1 and top2 model primary metrics are equal,
+            # then their rank are both 1.
+            top_leaderboard_items[1]["Model Rank"] = "1"
+
         top_leaderboard_item_index_values = ["Best", "2nd Best"][: len(top_leaderboard_items)]
 
         latest_model_item = {
