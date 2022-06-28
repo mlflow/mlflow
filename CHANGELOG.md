@@ -4,10 +4,10 @@
 
 MLflow 1.27.0 includes several major features and improvements:
 
-- With MLflow 1.27.0, we are excited to announce the release of **MLflow Pipelines**, an opinionated
-framework for structuring MLOps workflows that simplifies and standardizes machine learning application
-development and productionization. MLflow Pipelines makes it easy for data scientists to follow best
-practices for creating production-ready ML deliverables, allowing them to focus on developing
+- [**Pipelines**] With MLflow 1.27.0, we are excited to announce the release of **MLflow Pipelines**, an
+opinionated framework for structuring MLOps workflows that simplifies and standardizes machine learning
+application development and productionization. MLflow Pipelines makes it easy for data scientists to
+follow best practices for creating production-ready ML deliverables, allowing them to focus on developing
 excellent models. MLflow Pipelines also enables ML engineers and DevOps teams to seamlessly deploy
 models to production and incorporate them into applications. To get started with MLflow Pipelines,
 check out the docs at https://mlflow.org/docs/latest/pipelines.html.
