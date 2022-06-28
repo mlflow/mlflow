@@ -246,10 +246,20 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
+    expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
+    if os.getenv("http_proxy") is not None:
+        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
@@ -293,10 +303,20 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
+    expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
+    if os.getenv("http_proxy") is not None:
+        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
@@ -337,10 +357,20 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
+    expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
+    if os.getenv("http_proxy") is not None:
+        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
@@ -386,10 +416,20 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
+    expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
+    if os.getenv("http_proxy") is not None:
+        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
