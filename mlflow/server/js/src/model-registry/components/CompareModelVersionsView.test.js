@@ -34,12 +34,12 @@ describe('unconnected tests', () => {
 
     minimalStore = mockStore({
       entities: {
-        runInfosByUuid: { '123': RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
+        runInfosByUuid: { 123: RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
         latestMetricsByRunUuid: {
-          '123': [{ key: 'test_metric', value: 0.0 }],
+          123: [{ key: 'test_metric', value: 0.0 }],
         },
-        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
-        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        paramsByRunUuid: { 123: [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { 123: [{ key: 'test_tag', value: 'test.user' }] },
         mlModelArtifactByModelVersion: {},
       },
       apis: {},
@@ -118,12 +118,12 @@ describe('connected tests', () => {
 
     minimalStore = mockStore({
       entities: {
-        runInfosByUuid: { '123': RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
+        runInfosByUuid: { 123: RunInfo.fromJs({ dummy_key: 'dummy_value' }) },
         latestMetricsByRunUuid: {
-          '123': [{ key: 'test_metric', value: 0.0 }],
+          123: [{ key: 'test_metric', value: 0.0 }],
         },
-        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
-        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        paramsByRunUuid: { 123: [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { 123: [{ key: 'test_tag', value: 'test.user' }] },
         mlModelArtifactByModelVersion: {},
       },
       apis: {},
@@ -132,7 +132,7 @@ describe('connected tests', () => {
     commonStore = mockStore({
       entities: {
         runInfosByUuid: {
-          '123': RunInfo.fromJs({
+          123: RunInfo.fromJs({
             run_uuid: '123',
             experiment_id: '0',
             user_id: 'test.user',
@@ -144,13 +144,13 @@ describe('connected tests', () => {
           }),
         },
         latestMetricsByRunUuid: {
-          '123': [{ key: 'test_metric', value: 0.0, timestamp: '321', step: '42' }],
+          123: [{ key: 'test_metric', value: 0.0, timestamp: '321', step: '42' }],
         },
-        paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
-        tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        paramsByRunUuid: { 123: [{ key: 'test_param', value: '0.0' }] },
+        tagsByRunUuid: { 123: [{ key: 'test_tag', value: 'test.user' }] },
         mlModelArtifactByModelVersion: {
           test: {
-            '1': {
+            1: {
               signature: {
                 inputs:
                   '[{"name": "sepal length (cm)", "type": "double"}, ' +

@@ -142,12 +142,9 @@ describe('ExperimentViewUtil', () => {
     const modelName = 'model1';
     const model_versions = [{ name: modelName, version: 2 }];
     const linkedModelDiv = shallow(ExperimentViewUtil.getLinkedModelCell(model_versions));
-    expect(
-      linkedModelDiv
-        .find('.model-version-link')
-        .at(0)
-        .props().href,
-    ).toContain(getModelVersionPageRoute(model_versions[0].name, model_versions[0].version));
+    expect(linkedModelDiv.find('.model-version-link').at(0).props().href).toContain(
+      getModelVersionPageRoute(model_versions[0].name, model_versions[0].version),
+    );
   });
 
   test('should not nest children if nestChildren is false', () => {

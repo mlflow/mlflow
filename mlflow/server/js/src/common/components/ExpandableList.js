@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
 
 class ExpandableList extends Component {
   state = {
@@ -30,7 +29,7 @@ class ExpandableList extends Component {
   render() {
     if (this.props.children.length <= this.props.showLines) {
       return (
-        <div className={expandableListClassName}>
+        <div css={expandableListClassName}>
           {this.props.children.map((item, index) => (
             <div className='expandable-list-item' key={index}>
               {item}
@@ -58,7 +57,7 @@ class ExpandableList extends Component {
         </div>
       );
       return (
-        <div className={expandableListClassName}>
+        <div css={expandableListClassName}>
           {this.props.children.slice(0, this.props.showLines).map((item, index) => (
             <div className='expandable-list-item' key={index}>
               {item}
@@ -71,11 +70,11 @@ class ExpandableList extends Component {
   }
 }
 
-const expandableListClassName = css({
+const expandableListClassName = {
   '.expander-text': {
     textDecoration: 'underline',
     cursor: 'pointer',
   },
-});
+};
 
 export default ExpandableList;
