@@ -12,7 +12,7 @@ excellent models. MLflow Pipelines also enables ML engineers and DevOps teams to
 models to production and incorporate them into applications. To get started with MLflow Pipelines,
 check out the docs at https://mlflow.org/docs/latest/pipelines.html.
 
-- [UI] Introduce UI support for searching and comparing runs across multiple experiments (#5971, @r3stl355)
+- [UI] Introduce UI support for searching and comparing runs across multiple Experiments (#5971, @r3stl355)
 
 More features:
 
@@ -20,7 +20,7 @@ More features:
 - [Tracking] When an Experiment is deleted, SQL-based backends also move the associate Runs to the "deleted" lifecycle stage (#6064, @AdityaIyengar27)
 - [Tracking] Add support for logging single-element ``ndarray`` and tensor instances as metrics via the ``mlflow.log_metric()`` API (#5756, @ntakouris)
 - [Models] Add support for ``CatBoostRanker`` models to the ``mlflow.catboost`` flavor (#6032, @danielgafni)
-- [Models] Integrate SHAP ``KernelExplainer`` with ``mlflow.evaluate()``, enabling model explanations on categorical data (#6044, #5920, @WeichenXu123)
+- [Models] Integrate SHAP's ``KernelExplainer`` with ``mlflow.evaluate()``, enabling model explanations on categorical data (#6044, #5920, @WeichenXu123)
 - [Models] Extend ``mlflow.evaluate()`` to automatically log the ``score()`` outputs of scikit-learn models as metrics (#5935, #5903, @WeichenXu123)
 
 Bug fixes and documentation updates:
@@ -29,14 +29,14 @@ Bug fixes and documentation updates:
 - [Tracking/Installation] Require ``sqlalchemy>=1.4.0`` upon MLflow installation, which is necessary for usage of SQL-based MLflow Tracking backends (#6024, @sniafas)
 - [Tracking] Fix a regression that caused ``mlflow server`` to reject ``LogParam`` API requests containing empty string values (#6031, @harupy)
 - [Tracking] Fix a failure in scikit-learn autologging that occurred when ``matplotlib`` was not installed on the host system (#5995, @fa9r)
-- [Tracking] Fix a failure in TensorFlow autologging that occurred when training models ``tf.data.Dataset`` inputs (#6061, @dbczumar)
+- [Tracking] Fix a failure in TensorFlow autologging that occurred when training models on ``tf.data.Dataset`` inputs (#6061, @dbczumar)
 - [Artifacts] Address artifact download failures from SFTP locations that occurred due to mismanaged concurrency (#5840, @rsundqvist)
-- [Models] Fix a bug where MLflow Models did not restore bundled code properly if multiple models used the same code module name (#5926, @BFAnas)
+- [Models] Fix a bug where MLflow Models did not restore bundled code properly if multiple models use the same code module name (#5926, @BFAnas)
 - [Models] Address an issue where ``mlflow.sklearn.model()`` did not properly restore bundled model code (#6037, @WeichenXu123)
 - [Models] Fix a bug in ``mlflow.evaluate()`` that caused input data objects to be mutated when evaluating certain scikit-learn models (#6141, @dbczumar)
 - [Models] Fix a failure in ``mlflow.pyfunc.spark_udf`` that occurred when the UDF was invoked on an empty RDD partition (#6063, @WeichenXu123)
 - [Models] Fix a failure in ``mlflow models build-docker`` that occurred when ``env-manager=local`` was specified (#6046, @bneijt)
-- [Projects] Improve robustness of git repository check that occurs prior to MLflow Project execution (#6000, @dkapur17)
+- [Projects] Improve robustness of the git repository check that occurs prior to MLflow Project execution (#6000, @dkapur17)
 - [Projects] Address a failure that arose when running a Project that does not have a ``master`` branch (#5889, @harupy)
 - [Docs] Correct several typos throughout the MLflow docs (#5959, @ryanrussell)
 
