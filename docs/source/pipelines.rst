@@ -163,8 +163,8 @@ The main components of the pipeline repository layout, which are common across a
       a model or the performance criteria for promoting a model to production. For reference,
       see the |pipeline.yaml| configuration file from the |MLflow Regression Pipeline repository|.
 
-    - ``requirements.txt``: A :ref:`pip requirements file
-      <https://pip.pypa.io/en/stable/reference/requirements-file-format>` specifying packages
+    - ``requirements.txt``: A `pip requirements file
+      <https://pip.pypa.io/en/stable/reference/requirements-file-format>`_ specifying packages
       that must be installed in order to run the pipeline.
 
     - ``steps``: A directory containing Python code modules used by the pipeline steps. For example,
