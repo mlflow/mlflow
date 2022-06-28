@@ -211,8 +211,9 @@ class TrainStep(BaseStep):
                 )
 
         top_leaderboard_items = leaderboard_items[:2]
-        for i, top_leaderboard_item in enumerate(top_leaderboard_items):
-            top_leaderboard_item["Model Rank"] = f"{i + 1}"
+        top_leaderboard_items = [
+            {"Model Rank": i + 1, **t} for i, t in enumerate(top_leaderboard_items)
+        ]
 
         if (
             len(top_leaderboard_items) == 2
@@ -231,21 +232,21 @@ class TrainStep(BaseStep):
             **eval_metrics["validation"],
         }
 
+        leaderboard_items_contains_latest_model = False
         for i, leaderboard_item in enumerate(leaderboard_items):
             latest_value = latest_model_item[self.primary_metric]
             historical_value = leaderboard_item[self.primary_metric]
             if (primary_metric_greater_is_better and latest_value >= historical_value) or (
                 not primary_metric_greater_is_better and latest_value <= historical_value
             ):
+                leaderboard_items_contains_latest_model = True
                 break
 
-        if i < len(leaderboard_items):
-            latest_model_item["Model Rank"] = f"{i + 1}"
-        else:
-            latest_model_item["Model Rank"] = f"> {i + 1}"
+        latest_model_item["Model Rank"] = (
+            f"{i + 1}" if leaderboard_items_contains_latest_model else f"> {i + 1}"
+        )
 
-        # metric columns order: primary metric, then custom metrics, then builtin metrics.
-        # metric columns order: primary metric, then custom metrics, then builtin metrics.
+        # metric columns order: primary metric, custom metrics, builtin metrics.
         def sorter(m):
             if m == primary_metric_name:
                 return 0, m
