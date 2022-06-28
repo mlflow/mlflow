@@ -177,69 +177,82 @@ class TrainStep(BaseStep):
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
 
-        primary_metric_order = (
-            "DESC" if self.metric_greater_is_better[self.primary_metric] else "ASC"
-        )
+        primary_metric_greater_is_better = self.metric_greater_is_better[self.primary_metric]
+
+        primary_metric_order = "DESC" if primary_metric_greater_is_better else "ASC"
+
+        search_max_results = 100
         search_result = mlflow_client.search_runs(
             experiment_ids=exp_id,
             run_view_type=ViewType.ALL,
-            max_results=10000,
-            order_by=[
-                "attribute.start_time DESC",
-                f"metrics.{self.primary_metric} {primary_metric_order}",
-            ],
+            max_results=search_max_results,
+            order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
         )
 
         primary_metric_name = _get_primary_metric(self.step_config)
         custom_metric_names = [cm["name"] for cm in _get_custom_metrics(self.step_config)]
-        metric_greater_is_better = self.metric_greater_is_better
-        metric_names = metric_greater_is_better.keys()
-
+        metric_names = self.metric_greater_is_better.keys()
         metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
 
-        leader_board_items = []
+        leaderboard_items = []
         for old_run in search_result:
             if all(metric_key in old_run.data.metrics for metric_key in metric_keys):
-                metric_values = {
-                    metric_name: "{:.6g}".format(old_run.data.metrics[metric_key])
-                    for metric_name, metric_key in zip(metric_names, metric_keys)
-                }
-                leader_board_items.append(
+                leaderboard_items.append(
                     {
                         "Run ID": old_run.info.run_id,
                         "Run Time": datetime.datetime.fromtimestamp(
                             old_run.info.start_time // 1000
                         ),
-                        **metric_values,
+                        **{
+                            metric_name: old_run.data.metrics[metric_key]
+                            for metric_name, metric_key in zip(metric_names, metric_keys)
+                        },
                     }
                 )
 
-        leader_board_items.sort(
-            key=lambda x: x[primary_metric_name],
-            reverse=metric_greater_is_better[primary_metric_name],
-        )
-        for i, leader_board_item in enumerate(leader_board_items):
-            leader_board_item["Model Rank"] = f"{i + 1} / {len(leader_board_items)}"
-        latest_model_index = list(map(lambda x: x["Run ID"], leader_board_items)).index(
-            run.info.run_id
-        )
-        latest_model_item = leader_board_items[latest_model_index]
+        top_leaderboard_items = leaderboard_items[:2]
+        for i, top_leaderboard_item in enumerate(top_leaderboard_items):
+            top_leaderboard_item["Model Rank"] = f"{i + 1}"
+        top_leaderboard_item_index_values = ["Best", "2nd Best"][: len(top_leaderboard_items)]
+
+        latest_model_item = {
+            "Run ID": run.info.run_id,
+            "Run Time": datetime.datetime.fromtimestamp(run.info.start_time // 1000),
+            **eval_metrics["validation"],
+        }
+
+        for i, leaderboard_item in enumerate(leaderboard_items):
+            latest_value = latest_model_item[self.primary_metric]
+            historical_value = leaderboard_item[self.primary_metric]
+            if (primary_metric_greater_is_better and latest_value >= historical_value) or (
+                not primary_metric_greater_is_better and latest_value <= historical_value
+            ):
+                break
+
+        latest_model_item["Model Rank"] = i + 1
 
         # metric columns order: primary metric, then custom metrics, then builtin metrics.
-        metric_columns = (
-            [primary_metric_name]
-            + sorted(list(set(custom_metric_names) - {primary_metric_name}))
-            + sorted(list(set(metric_names) - set(custom_metric_names) - {primary_metric_name}))
-        )
+        # metric columns order: primary metric, then custom metrics, then builtin metrics.
+        def sorter(m):
+            if m == primary_metric_name:
+                return 0, m
+            elif m in custom_metric_names:
+                return 1, m
+            else:
+                return 2, m
 
-        top_leader_board_items = leader_board_items[:2]
-        top_leader_board_item_index_values = ["Best", "2nd Best"][: len(top_leader_board_items)]
-        leader_board_df = (
+        metric_columns = sorted(metric_names, key=sorter)
+
+        leaderboard_df = (
             pd.DataFrame.from_records(
-                [latest_model_item, *top_leader_board_items],
+                [latest_model_item, *top_leaderboard_items],
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
-            .set_axis(["Latest"] + top_leader_board_item_index_values, axis="index")
+            .apply(
+                lambda s: s.map(lambda x: "{:.6g}".format(x)) if s.name in metric_names else s,
+                axis=0,
+            )
+            .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
 
@@ -251,7 +264,7 @@ class TrainStep(BaseStep):
             run_id=run.info.run_id,
             model_uri=model_info.model_uri,
             worst_examples_df=worst_examples_df,
-            leader_board_df=leader_board_df,
+            leaderboard_df=leaderboard_df,
         )
         card.save_as_html(output_directory)
         for step_name in ("ingest", "split", "transform", "train"):
@@ -268,7 +281,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
-        leader_board_df,
+        leaderboard_df,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -347,7 +360,7 @@ class TrainStep(BaseStep):
         # Tab 5: Leaderboard
         (
             card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
-                "LEADERBOARD_TABLE", BaseCard.render_table(leader_board_df, hide_index=False)
+                "LEADERBOARD_TABLE", BaseCard.render_table(leaderboard_df, hide_index=False)
             )
         )
 
