@@ -1,7 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ConfirmModal } from './ConfirmModal';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 
 describe('ConfirmModal', () => {
   let wrapper;

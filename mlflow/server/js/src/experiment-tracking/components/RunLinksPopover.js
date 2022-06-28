@@ -1,10 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Popover } from 'antd';
 import Routes from '../routes';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
+import { Popover } from '@databricks/design-system';
 
 export class RunLinksPopover extends React.Component {
   static propTypes = {

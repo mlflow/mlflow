@@ -91,10 +91,6 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
-  "2AmV5N": {
-    "defaultMessage": "Search by model name",
-    "description": "Placeholder text inside model search bar"
-  },
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -487,10 +483,6 @@
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
   },
-  "Ibw+mW": {
-    "defaultMessage": "Filter",
-    "description": "String for the filter button to filter model registry table\n                   for models"
-  },
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
@@ -695,10 +687,6 @@
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
   },
-  "WomXZ4": {
-    "defaultMessage": "Failed to load chart.",
-    "description": "Error message when the plotly javascript library fails to load."
-  },
   "WqtISN": {
     "defaultMessage": "Job Output",
     "description": "Label for displaying the output logs for the experiment run job"
@@ -782,6 +770,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aGxvDa": {
+    "defaultMessage": "To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}",
+    "description": "Tooltip string to explain how to search models from the model registry table"
   },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
@@ -983,6 +975,10 @@
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
   },
+  "kjxsOJ": {
+    "defaultMessage": "Search by model names or tags",
+    "description": "Placeholder text inside model search bar"
+  },
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
@@ -1038,6 +1034,10 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "nam2iP": {
+    "defaultMessage": "This view is deprecated and will be removed in a future release.",
+    "description": "Deprecation of compact view"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",

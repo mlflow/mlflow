@@ -72,12 +72,7 @@ describe('ShowArtifactTextView', () => {
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(
-        wrapper
-          .find(SyntaxHighlighter)
-          .first()
-          .props().language,
-      ).toBe('py');
+      expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('py');
       done();
     });
   });
@@ -90,12 +85,7 @@ describe('ShowArtifactTextView', () => {
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(
-        wrapper
-          .find(SyntaxHighlighter)
-          .first()
-          .props().language,
-      ).toBe('yaml');
+      expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('yaml');
       done();
     });
   });
@@ -108,12 +98,7 @@ describe('ShowArtifactTextView', () => {
     wrapper = shallow(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(
-        wrapper
-          .find(SyntaxHighlighter)
-          .first()
-          .props().language,
-      ).toBe('yaml');
+      expect(wrapper.find(SyntaxHighlighter).first().props().language).toBe('yaml');
       done();
     });
   });

@@ -1,12 +1,11 @@
 import React from 'react';
-import { css } from 'emotion';
 import { PageWrapper, Spacer } from '@databricks/design-system';
 
 export function PageContainer(props) {
   return (
     <PageWrapper>
       <Spacer />
-      <div {...props} className={css(styles.container)} />
+      <div {...props} css={styles.container} />
     </PageWrapper>
   );
 }

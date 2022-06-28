@@ -3,7 +3,6 @@ import { CaretRightOutlined } from '@ant-design/icons';
 import { Collapse } from 'antd';
 import { SectionErrorBoundary } from './error-boundaries/SectionErrorBoundary';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
 
 export function CollapsibleSection(props) {
   const { title, forceOpen, showServerError, defaultCollapsed, onChange } = props;
@@ -13,7 +12,8 @@ export function CollapsibleSection(props) {
   const defaultActiveKey = defaultCollapsed ? null : ['1'];
   return (
     <Collapse
-      className={`collapsible-section ${classNames.wrapper}`}
+      className='collapsible-section'
+      css={classNames.wrapper}
       bordered={false}
       {...activeKeyProp}
       defaultActiveKey={defaultActiveKey}
@@ -30,11 +30,11 @@ export function CollapsibleSection(props) {
 }
 
 const classNames = {
-  wrapper: css({
+  wrapper: {
     '.collapsible-panel': {
       position: 'relative',
     },
-  }),
+  },
 };
 
 CollapsibleSection.propTypes = {
