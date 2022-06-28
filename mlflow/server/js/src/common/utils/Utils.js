@@ -907,7 +907,7 @@ class Utils {
     });
   }
 
-  static logErrorAndNotifyUser(e, passErrorToParentFrame = false, exceptionService = 'mlflow') {
+  static logErrorAndNotifyUser(e, passErrorToParentFrame = false) {
     console.error(e);
     if (typeof e === 'string') {
       message.error(e);

@@ -68,11 +68,6 @@ beforeEach(() => {
       search: '',
     },
   };
-
-  /* eslint-disable no-restricted-globals */
-  top.settings = {
-    autoMLEnabled: true,
-  };
 });
 
 afterAll(() => {
