@@ -8,7 +8,8 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import set_registry_uri, MlflowClient
+from mlflow.tracking import set_registry_uri
+from mlflow import MlflowClient
 from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )

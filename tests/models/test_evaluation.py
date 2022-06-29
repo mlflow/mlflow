@@ -1,4 +1,5 @@
 import mlflow
+from mlflow import MlflowClient
 from collections import namedtuple
 
 from mlflow.models.evaluation import (
@@ -77,7 +78,7 @@ RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     data = client.get_run(run_id).data
     tags = {k: v for k, v in data.tags.items()}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
@@ -85,7 +86,7 @@ def get_run_data(run_id):
 
 
 def get_raw_tag(run_id, tag_name):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     data = client.get_run(run_id).data
     return data.tags[tag_name]
 
@@ -586,7 +587,7 @@ def test_dataset_from_spark_df(spark_session):
 def test_log_dataset_tag(iris_dataset, iris_pandas_df_dataset):
     model_uuid = uuid.uuid4().hex
     with mlflow.start_run() as run:
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         iris_dataset._log_dataset_tag(client, run.info.run_id, model_uuid=model_uuid)
         _, _, tags, _ = get_run_data(run.info.run_id)
 

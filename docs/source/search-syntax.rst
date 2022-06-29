@@ -142,7 +142,7 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Use the :py:func:`mlflow.tracking.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
+Use the :py:func:`mlflow.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
 search programmatically. You can specify the list of columns to order by
 (for example, "metrics.rmse") in the ``order_by`` column. The column can contain an
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by
@@ -159,7 +159,7 @@ For example, if you'd like to identify the best `active` run from experiment ID 
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   run = MlflowClient().search_runs(
@@ -176,7 +176,7 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.`prediction accuracy` >= 0.945"
@@ -186,7 +186,7 @@ To search all known experiments for any MLflow runs created using the Inception 
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
