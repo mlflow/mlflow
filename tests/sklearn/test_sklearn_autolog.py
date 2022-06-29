@@ -604,7 +604,10 @@ def test_only_score_contains_sample_weight():
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
     mlflow.sklearn.autolog()
 
-    with pytest.raises(ValueError, match="Penalty term must be positive"):
+    with pytest.raises(
+        ValueError,
+        match=r"(Penalty term must be positive|The 'C' parameter of LinearSVC must be a float)",
+    ):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
     latest_run = mlflow.search_runs().iloc[0]
@@ -616,7 +619,10 @@ def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
 
-    with pytest.raises(ValueError, match="Penalty term must be positive"):
+    with pytest.raises(
+        ValueError,
+        match=r"(Penalty term must be positive|The 'C' parameter of LinearSVC must be a float)",
+    ):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
     assert mlflow.active_run() is not None
