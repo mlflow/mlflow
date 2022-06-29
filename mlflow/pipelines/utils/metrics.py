@@ -31,7 +31,9 @@ class PipelineMetric:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        return cls(name=metric_name, greater_is_better=greater_is_better, custom_function=custom_function)
+        return cls(
+            name=metric_name, greater_is_better=greater_is_better, custom_function=custom_function
+        )
 
 
 BUILTIN_PIPELINE_METRICS = [
@@ -64,14 +66,15 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     return custom_metrics
 
 
-def _load_custom_metric_functions(pipeline_root: str, metrics: List[PipelineMetric]) -> List[callable]:
+def _load_custom_metric_functions(
+    pipeline_root: str, metrics: List[PipelineMetric]
+) -> List[callable]:
     custom_metric_function_names = [
-        metric.custom_function for metric in metrics
-        if metric.custom_function is not None
+        metric.custom_function for metric in metrics if metric.custom_function is not None
     ]
     if not custom_metric_function_names:
         return None
-    
+
     try:
         sys.path.append(pipeline_root)
         custom_metrics_mod = importlib.import_module("steps.custom_metrics")

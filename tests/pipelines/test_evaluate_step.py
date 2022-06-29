@@ -96,7 +96,9 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step._run(str(evaluate_step_output_dir))
 
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    logged_metrics = (
+        mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    )
     logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "weighted_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
@@ -129,7 +131,9 @@ steps:
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step._run(str(evaluate_step_output_dir))
 
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    logged_metrics = (
+        mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    )
     logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "mean_squared_error" in logged_metrics
     assert "root_mean_squared_error" in logged_metrics
@@ -298,13 +302,17 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
 
     with mock.patch("mlflow.pipelines.utils.metrics._logger.warning") as mock_warning:
-        evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+        evaluate_step = EvaluateStep.from_pipeline_config(
+            pipeline_config, str(tmp_pipeline_root_path)
+        )
         evaluate_step._run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
             "Custom metrics override the following built-in metrics: %s",
             ["mean_absolute_error", "root_mean_squared_error"],
         )
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    logged_metrics = (
+        mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
+    )
     for dataset in ["validation", "test"]:
         assert f"root_mean_squared_error_on_data_{dataset}" in logged_metrics
         assert logged_metrics[f"root_mean_squared_error_on_data_{dataset}"] == 1

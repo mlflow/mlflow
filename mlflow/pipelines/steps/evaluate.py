@@ -44,14 +44,10 @@ class EvaluateStep(BaseStep):
         self.target_col = self.step_config.get("target_col")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
-        self.evaluation_metrics = {
-            metric.name: metric
-            for metric in BUILTIN_PIPELINE_METRICS 
-        }
-        self.evaluation_metrics.update({
-            metric.name: metric
-            for metric in _get_custom_metrics(self.step_config)
-        })
+        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
+        self.evaluation_metrics.update(
+            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
+        )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -134,7 +130,9 @@ class EvaluateStep(BaseStep):
         apply_pipeline_tracking_config(self.tracking_config)
         exp_id = _get_experiment_id()
 
-        primary_metric_greater_is_better = self.evaluation_metrics[self.primary_metric].greater_is_better
+        primary_metric_greater_is_better = self.evaluation_metrics[
+            self.primary_metric
+        ].greater_is_better
 
         _set_experiment_primary_metric(
             exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better

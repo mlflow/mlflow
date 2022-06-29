@@ -43,14 +43,10 @@ class TrainStep(BaseStep):
             "estimator_method"
         ].rsplit(".", 1)
         self.primary_metric = _get_primary_metric(self.step_config)
-        self.evaluation_metrics = {
-            metric.name: metric
-            for metric in BUILTIN_PIPELINE_METRICS 
-        }
-        self.evaluation_metrics.update({
-            metric.name: metric
-            for metric in _get_custom_metrics(self.step_config)
-        })
+        self.evaluation_metrics = {metric.name: metric for metric in BUILTIN_PIPELINE_METRICS}
+        self.evaluation_metrics.update(
+            {metric.name: metric for metric in _get_custom_metrics(self.step_config)}
+        )
         if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
             raise MlflowException(
                 f"The primary metric {self.primary_metric} is a custom metric, but its"
@@ -211,7 +207,9 @@ class TrainStep(BaseStep):
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
 
-        primary_metric_greater_is_better = self.evaluation_metrics[self.primary_metric].greater_is_better
+        primary_metric_greater_is_better = self.evaluation_metrics[
+            self.primary_metric
+        ].greater_is_better
         primary_metric_order = "DESC" if primary_metric_greater_is_better else "ASC"
 
         search_max_results = 100
@@ -242,7 +240,7 @@ class TrainStep(BaseStep):
                 )
 
         top_leaderboard_items = [
-                {"Model Rank": i + 1, **t} for i, t in enumerate(leaderboard_items[:2])
+            {"Model Rank": i + 1, **t} for i, t in enumerate(leaderboard_items[:2])
         ]
 
         if (
@@ -271,7 +269,7 @@ class TrainStep(BaseStep):
                 latest_model_rank = str(i + 1)
                 break
         else:
-            latest_model_rank = f"> {len(leaderboard_items)}" 
+            latest_model_rank = f"> {len(leaderboard_items)}"
 
         latest_model_item["Model Rank"] = latest_model_position_on_leaderboard
 
@@ -292,14 +290,15 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: "{:.6g}".format(x)) if s.name in metric_names else s,  # pylint: disable=unnecessary-lambda
+                lambda s: s.map(lambda x: "{:.6g}".format(x))
+                if s.name in metric_names
+                else s,  # pylint: disable=unnecessary-lambda
                 axis=0,
             )
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
         return leaderboard_df
-
 
     def _build_step_card(
         self,
