@@ -104,7 +104,9 @@ class LocalArtifactRepository(ArtifactRepository):
         shutil.copyfile(remote_file_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        artifact_path = (
+        artifact_path = local_file_uri_to_path(
             os.path.join(self._artifact_dir, artifact_path) if artifact_path else self._artifact_dir
         )
-        shutil.rmtree(local_file_uri_to_path(artifact_path))
+        
+        if os.path.exists(artifact_path):
+            shutil.rmtree(artifact_path)
