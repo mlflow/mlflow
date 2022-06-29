@@ -176,8 +176,9 @@ class TrainStep(BaseStep):
                 "error": prediction_result - target_data,
             }
         )
+        train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
         worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-            raw_validation_df, prediction_result, self.target_col
+            raw_train_df, train_predictions, self.target_col
         )
         leaderboard_df = None
         try:
@@ -379,7 +380,7 @@ class TrainStep(BaseStep):
         # Tab 4: Examples with Largest Prediction Error
         (
             card.add_tab(
-                "Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
+                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
             ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
         )
 
