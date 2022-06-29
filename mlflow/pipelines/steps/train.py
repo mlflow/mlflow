@@ -266,12 +266,10 @@ class TrainStep(BaseStep):
             if (primary_metric_greater_is_better and latest_value >= historical_value) or (
                 not primary_metric_greater_is_better and latest_value <= historical_value
             ):
-                latest_model_rank = str(i + 1)
+                latest_model_item["Model Rank"] = str(i + 1)
                 break
         else:
-            latest_model_rank = f"> {len(leaderboard_items)}"
-
-        latest_model_item["Model Rank"] = latest_model_position_on_leaderboard
+            latest_model_item["Model Rank"] = f"> {len(leaderboard_items)}"
 
         # metric columns order: primary metric, custom metrics, builtin metrics.
         def sorter(m):
