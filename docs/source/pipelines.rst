@@ -140,6 +140,7 @@ example provides an overview of the pipeline repository structure.  It is adapte
 ::
 
   ├── pipeline.yaml
+  ├── requirements.txt
   ├── steps
   │   ├── ingest.py
   │   ├── split.py
@@ -161,6 +162,10 @@ The main components of the pipeline repository layout, which are common across a
       attributes and behavior of each pipeline step, such as the input dataset to use for training
       a model or the performance criteria for promoting a model to production. For reference,
       see the |pipeline.yaml| configuration file from the |MLflow Regression Pipeline repository|.
+
+    - ``requirements.txt``: A `pip requirements file
+      <https://pip.pypa.io/en/stable/reference/requirements-file-format>`_ specifying packages
+      that must be installed in order to run the pipeline.
 
     - ``steps``: A directory containing Python code modules used by the pipeline steps. For example,
       the |MLflow Regression Pipeline repository| defines the estimator type and parameters to use
@@ -533,8 +538,8 @@ the :ref:`Regression Pipeline API documentation <mlflow-regression-pipeline>`, a
 .. |Jinja2| replace:: `Jinja2 <https://jinja.palletsprojects.com>`__
 .. |local profile| replace:: `profiles/local.yaml profile <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/local.yaml>`__
 .. |databricks profile| replace:: `profiles/databricks.yaml profile <https://github.com/mlflow/mlp-regression-template/blob/main/profiles/databricks.yaml>`__
-.. |customizes the dataset used for local model development| replace:: `customizes the dataset used for local model development <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L7>`__
-.. |specifies a local MLflow Tracking store for logging model content| replace:: `specifies a local MLflow Tracking store for logging model content <https://github.com/mlflow/mlp-regression-template/blob/1f6e1b28acac23cc47621138ab2b1e4aed1654a1/profiles/local.yaml#L1-L4>`__
+.. |customizes the dataset used for local model development| replace:: `customizes the dataset used for local model development <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/profiles/local.yaml#L8>`__
+.. |specifies a local MLflow Tracking store for logging model content| replace:: `specifies a local MLflow Tracking store for logging model content <https://github.com/mlflow/mlp-regression-template/blob/2751a606827259cac4508a97986fbdbc56de9ff2/profiles/local.yaml#L1-L4>`__
 .. |Databricks Repos| replace:: `Databricks Repos <https://docs.databricks.com/repos/index.html>`__
 .. |Databricks Notebook| replace:: `Databricks Notebook <https://github.com/mlflow/mlp-regression-template/blob/main/notebooks/databricks.py>`__
 .. |Jupyter Notebook| replace:: `Jupyter Notebook <https://github.com/mlflow/mlp-regression-template/blob/main/notebooks/jupyter.ipynb>`__
