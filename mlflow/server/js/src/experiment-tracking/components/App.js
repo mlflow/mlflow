@@ -1,35 +1,33 @@
 import React, { Component } from 'react';
-import './App.css';
-import logo from '../../common/static/home-logo.png';
-import { Version, HomePageDocsUrl } from '../../common/constants';
-import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
-import { RunPage } from './RunPage';
-import Routes from '../routes';
-import { MetricPage } from './MetricPage';
-import CompareRunPage from './CompareRunPage';
-import AppErrorBoundary from '../../common/components/error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
-import { HomePage } from './HomePage';
+import { HashRouter as Router, Link, NavLink, Route, Switch } from 'react-router-dom';
+import AppErrorBoundary from '../../common/components/error-boundaries/AppErrorBoundary';
+import { HomePageDocsUrl, Version } from '../../common/constants';
+import logo from '../../common/static/home-logo.png';
 import ErrorModal from '../../experiment-tracking/components/modals/ErrorModal';
-import { PageNotFoundView } from './PageNotFoundView';
-import { Switch } from 'react-router';
+import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
+import { ModelListPage } from '../../model-registry/components/ModelListPage';
+import { ModelPage } from '../../model-registry/components/ModelPage';
+import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
 import {
+  compareModelVersionsPageRoute,
   modelListPageRoute,
   modelPageRoute,
   modelSubpageRoute,
   modelSubpageRouteWithName,
   modelVersionPageRoute,
-  compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
-import { ModelVersionPage } from '../../model-registry/components/ModelVersionPage';
-import { ModelListPage } from '../../model-registry/components/ModelListPage';
-import { ModelPage } from '../../model-registry/components/ModelPage';
-import { CompareModelVersionsPage } from '../../model-registry/components/CompareModelVersionsPage';
+import Routes from '../routes';
+import './App.css';
+import CompareRunPage from './CompareRunPage';
+import { HomePage } from './HomePage';
+import { MetricPage } from './MetricPage';
+import { PageNotFoundView } from './PageNotFoundView';
+import { RunPage } from './RunPage';
 
 const isExperimentsActive = (match, location) => {
   // eslint-disable-next-line prefer-const
-  let isActive = match && !location.pathname.includes('models');
-  return isActive;
+  return match && !location.pathname.includes('models');
 };
 
 let mlflowHashRouting = false;
@@ -41,6 +39,9 @@ export function setMLFlowHashRouting() {
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
 };
+
+// eslint-disable-next-line no-unused-vars
+const InteractionTracker = ({ children }) => children;
 
 class App extends Component {
   render() {
@@ -96,29 +97,31 @@ class App extends Component {
               </div>
             </header>
           )}
-          <AppErrorBoundary>
-            <Switch>
-              <Route exact path={Routes.rootRoute} component={HomePage} />
-              <Route exact path={Routes.experimentPageRoute} component={HomePage} />
-              <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
-              <Route exact path={Routes.runPageRoute} component={RunPage} />
-              <Route exact path={Routes.metricPageRoute} component={MetricPage} />
-              <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
-              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
-              <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
-              {/* TODO(Zangr) see if route component can be injected here */}
-              <Route exact path={modelListPageRoute} component={ModelListPage} />
-              <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
-              <Route exact path={modelPageRoute} component={ModelPage} />
-              <Route exact path={modelSubpageRoute} component={ModelPage} />
-              <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
-              <Route
-                exact
-                path={compareModelVersionsPageRoute}
-                component={CompareModelVersionsPage}
-              />
-              <Route component={PageNotFoundView} />
-            </Switch>
+          <AppErrorBoundary service='mlflow'>
+            <InteractionTracker>
+              <Switch>
+                <Route exact path={Routes.rootRoute} component={HomePage} />
+                <Route exact path={Routes.experimentPageRoute} component={HomePage} />
+                <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
+                <Route exact path={Routes.runPageRoute} component={RunPage} />
+                <Route exact path={Routes.metricPageRoute} component={MetricPage} />
+                <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+                <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
+                <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
+                {/* TODO(Zangr) see if route component can be injected here */}
+                <Route exact path={modelListPageRoute} component={ModelListPage} />
+                <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
+                <Route exact path={modelPageRoute} component={ModelPage} />
+                <Route exact path={modelSubpageRoute} component={ModelPage} />
+                <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
+                <Route
+                  exact
+                  path={compareModelVersionsPageRoute}
+                  component={CompareModelVersionsPage}
+                />
+                <Route component={PageNotFoundView} />
+              </Switch>
+            </InteractionTracker>
           </AppErrorBoundary>
         </div>
       </Router>

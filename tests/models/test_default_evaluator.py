@@ -20,16 +20,20 @@ from mlflow.models.evaluation.artifacts import (
 from mlflow.models.evaluation.default_evaluator import (
     _get_classifier_global_metrics,
     _infer_model_type_by_labels,
-    _extract_raw_model_and_predict_fn,
+    _extract_raw_model,
+    _extract_predict_fn,
     _get_regressor_metrics,
     _get_binary_sum_up_label_pred_prob,
     _get_classifier_per_class_metrics,
     _gen_classifier_curve,
     _evaluate_custom_metric,
+    _compute_df_mode_or_mean,
     _CustomMetric,
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 from sklearn.datasets import load_iris
 
 from tempfile import TemporaryDirectory
@@ -49,6 +53,8 @@ from tests.models.test_evaluation import (
     spark_linear_regressor_model_uri,
     diabetes_spark_dataset,
     svm_model_uri,
+    pipeline_model_uri,
+    get_pipeline_model_dataset,
 )
 from mlflow.models.utils import plot_lines
 
@@ -105,6 +111,21 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     }
 
 
+def test_regressor_evaluation_with_int_targets(
+    linear_regressor_model_uri, diabetes_dataset, tmp_path
+):
+    with mlflow.start_run():
+        result = evaluate(
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_dataset._constructor_args["targets"].astype(np.int64),
+            dataset_name=diabetes_dataset.name,
+            evaluators="default",
+        )
+        result.save(tmp_path)
+
+
 def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mlflow.start_run() as run:
         result = evaluate(
@@ -120,7 +141,8 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -175,7 +197,8 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    _, _, predict_fn, predict_proba_fn = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -271,7 +294,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, _ = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -305,26 +329,105 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
+def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
+
+    data, target_col = get_pipeline_model_dataset()
+    with mlflow.start_run() as run:
+        evaluate(
+            pipeline_model_uri,
+            data[0::3],
+            model_type="classifier",
+            targets=target_col,
+            dataset_name="pipeline_model_dataset",
+            evaluators="default",
+            evaluator_config={"explainability_algorithm": "kernel"},
+        )
+    run_data = get_run_data(run.info.run_id)
+    assert {
+        "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
+        "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
+        "shap_summary_plot_on_data_pipeline_model_dataset.png",
+        "explainer_on_data_pipeline_model_dataset",
+    }.issubset(run_data.artifacts)
+
+    explainer = mlflow.shap.load_explainer(
+        f"runs:/{run.info.run_id}/explainer_on_data_pipeline_model_dataset"
+    )
+    assert isinstance(explainer, _PatchedKernelExplainer)
+
+
+def test_compute_df_mode_or_mean():
+    df = pd.DataFrame(
+        {
+            "a": [2.0, 2.0, 5.0],
+            "b": [3, 3, 5],
+            "c": [2.0, 2.0, 6.5],
+            "d": [True, False, True],
+            "e": ["abc", "b", "abc"],
+            "f": [1.5, 2.5, np.nan],
+            "g": ["ab", "ab", None],
+            "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
+        }
+    )
+    result = _compute_df_mode_or_mean(df)
+    assert result == {
+        "a": 2,
+        "b": 3,
+        "c": 3.5,
+        "d": True,
+        "e": "abc",
+        "f": 2.0,
+        "g": "ab",
+        "h": 2.0,
+    }
+
+    # Test on dataframe that all columns are continuous.
+    df2 = pd.DataFrame(
+        {
+            "c": [2.0, 2.0, 6.5],
+            "f": [1.5, 2.5, np.nan],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
+
+    # Test on dataframe that all columns are not continuous.
+    df2 = pd.DataFrame(
+        {
+            "d": [True, False, True],
+            "g": ["ab", "ab", None],
+        }
+    )
+    assert _compute_df_mode_or_mean(df2) == {"d": True, "g": "ab"}
+
+
 def test_infer_model_type_by_labels():
     assert _infer_model_type_by_labels(["a", "b"]) == "classifier"
+    assert _infer_model_type_by_labels([True, False]) == "classifier"
     assert _infer_model_type_by_labels([1, 2.5]) == "regressor"
-    assert _infer_model_type_by_labels(list(range(2000))) == "regressor"
-    assert _infer_model_type_by_labels([1, 2, 3]) == "classifier"
-    assert _infer_model_type_by_labels(list(range(30))) is None
+    assert _infer_model_type_by_labels(pd.Series(["a", "b"], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels(pd.Series([1.5, 2.5], dtype="category")) == "classifier"
+    assert _infer_model_type_by_labels([1, 2, 3]) is None
 
 
-def test_extract_raw_model_and_predict_fn(binary_logistic_regressor_model_uri):
+def test_extract_raw_model_and_predict_fn(
+    binary_logistic_regressor_model_uri, breast_cancer_dataset
+):
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-    (
-        model_loader_module,
-        raw_model,
-        predict_fn,
-        predict_proba_fn,
-    ) = _extract_raw_model_and_predict_fn(model)
+
+    model_loader_module, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    assert predict_fn == raw_model.predict
-    assert predict_proba_fn == raw_model.predict_proba
+    assert np.allclose(
+        predict_fn(breast_cancer_dataset.features_data),
+        raw_model.predict(breast_cancer_dataset.features_data),
+    )
+    assert np.allclose(
+        predict_proba_fn(breast_cancer_dataset.features_data),
+        raw_model.predict_proba(breast_cancer_dataset.features_data),
+    )
 
 
 def test_get_regressor_metrics():
@@ -732,7 +835,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     )
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-    _, _, predict_fn, _ = _extract_raw_model_and_predict_fn(model)
+
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, _ = _extract_predict_fn(model, raw_model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -889,7 +994,11 @@ def test_custom_metric_logs_artifacts_from_objects(
     def example_custom_metric(_, __):
         return {}, {
             "test_image_artifact": fig,
-            "test_json_artifact": [1, 2, 3],
+            "test_json_artifact": {
+                "list": [1, 2, 3],
+                "numpy_int": np.int64(0),
+                "numpy_float": np.float64(0.5),
+            },
             "test_npy_artifact": np.array([1, 2, 3, 4, 5]),
             "test_csv_artifact": pd.DataFrame({"a": [1, 2, 3]}),
             "test_json_text_artifact": '{"a": [1, 2, 3], "c": 3.4}',
@@ -909,7 +1018,11 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact_on_data_breast_cancer_dataset.json" in artifacts
     assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
-    assert result.artifacts["test_json_artifact"].content == [1, 2, 3]
+    assert result.artifacts["test_json_artifact"].content == {
+        "list": [1, 2, 3],
+        "numpy_int": 0,
+        "numpy_float": 0.5,
+    }
 
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
@@ -981,3 +1094,72 @@ def test_autologging_is_disabled_during_evaluate(model):
         assert duplicate_metrics == []
     finally:
         mlflow.sklearn.autolog(disable=True)
+
+
+def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, diabetes_dataset):
+    evaluate(
+        linear_regressor_model_uri,
+        diabetes_dataset._constructor_args["data"],
+        model_type="regressor",
+        targets=diabetes_dataset._constructor_args["targets"],
+        dataset_name=diabetes_dataset.name,
+        feature_names=[
+            "f1",
+            "f2",
+            "f3longnamelongnamelongname",
+            "f4",
+            "f5",
+            "f6",
+            "f7longlonglonglong",
+            "f8",
+            "f9",
+            "f10",
+        ],
+        evaluators="default",
+    )
+
+
+def test_evaluation_works_with_model_pipelines_that_modify_input_data():
+    iris = load_iris()
+    X = pd.DataFrame(iris.data, columns=["0", "1", "2", "3"])
+    y = pd.Series(iris.target)
+
+    def add_feature(df):
+        df["newfeature"] = 1
+        return df
+
+    # Define a transformer that modifies input data by adding an extra feature column
+    add_feature_transformer = FunctionTransformer(add_feature, validate=False)
+    model_pipeline = Pipeline(
+        steps=[("add_feature", add_feature_transformer), ("predict", LogisticRegression())]
+    )
+    model_pipeline.fit(X, y)
+
+    with mlflow.start_run() as run:
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, "model").model_uri
+
+        evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
+        evaluation_data["labels"] = load_iris().target
+
+        evaluate(
+            pipeline_model_uri,
+            evaluation_data,
+            dataset_name="iris",
+            model_type="regressor",
+            targets="labels",
+            evaluators="default",
+            evaluator_config={
+                "log_model_explainability": True,
+                # Use the kernel explainability algorithm, which fails if there is a mismatch
+                # between the number of features in the input dataset and the number of features
+                # expected by the model
+                "explainability_algorithm": "kernel",
+            },
+        )
+
+        _, _, _, artifacts = get_run_data(run.info.run_id)
+        assert set(artifacts) >= {
+            "shap_beeswarm_plot_on_data_iris.png",
+            "shap_feature_importance_plot_on_data_iris.png",
+            "shap_summary_plot_on_data_iris.png",
+        }

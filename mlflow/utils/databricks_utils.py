@@ -1,7 +1,7 @@
-import os
-import logging
-import subprocess
 import functools
+import logging
+import os
+import subprocess
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -473,3 +473,12 @@ def get_git_repo_status():
         return _get_command_context().mlflowGitRepoStatus().get()
     except Exception:
         return _get_extra_context("mlflowGitStatus")
+
+
+def is_running_in_ipython_environment():
+    try:
+        from IPython import get_ipython
+
+        return get_ipython() is not None
+    except (ImportError, ModuleNotFoundError):
+        return False

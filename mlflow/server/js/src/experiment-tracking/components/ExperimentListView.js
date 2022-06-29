@@ -7,8 +7,7 @@ import {
   PlusSquareFilled,
 } from '@ant-design/icons';
 import { Tree, Input, Typography } from '@databricks/design-system';
-import { Link } from 'react-router-dom';
-import './ExperimentListView.css';
+import { Link, withRouter } from 'react-router-dom';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
@@ -18,13 +17,9 @@ import { IconButton } from '../../common/components/IconButton';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    history: PropTypes.object,
-    activeExperimentId: PropTypes.string,
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
-  };
-
-  static defaultProps = {
-    activeExperimentId: '0',
+    history: PropTypes.object.isRequired,
   };
 
   state = {
@@ -90,10 +85,20 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
+  handleCheck = (checkedKeys) => {
+    if (checkedKeys.length > 0) {
+      const route =
+        checkedKeys.length === 1
+          ? Routes.getExperimentPageRoute(checkedKeys[0])
+          : Routes.getCompareExperimentsPageRoute(checkedKeys);
+      this.props.history.push(route);
+    }
+  };
+
   renderListItem = ({ title, key }) => {
-    const { activeExperimentId } = this.props;
-    const dataTestId =
-      activeExperimentId === key ? 'active-experiment-list-item' : 'experiment-list-item';
+    const { activeExperimentIds } = this.props;
+    const isActive = activeExperimentIds.includes(key);
+    const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
       <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
         <Link
@@ -125,17 +130,7 @@ export class ExperimentListView extends Component {
   };
 
   render() {
-    const { searchInput, hidden } = this.state;
-    const { experiments, activeExperimentId } = this.props;
-    const lowerCasedSearchInput = searchInput.toLowerCase();
-    const filteredExperiments = experiments.filter(({ name }) =>
-      name.toLowerCase().includes(lowerCasedSearchInput),
-    );
-    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
-      title: name,
-      key: experiment_id,
-    }));
-
+    const { hidden } = this.state;
     if (hidden) {
       return (
         <RightSquareFilled
@@ -146,8 +141,19 @@ export class ExperimentListView extends Component {
       );
     }
 
+    const { searchInput } = this.state;
+    const { experiments, activeExperimentIds } = this.props;
+    const lowerCasedSearchInput = searchInput.toLowerCase();
+    const filteredExperiments = experiments.filter(({ name }) =>
+      name.toLowerCase().includes(lowerCasedSearchInput),
+    );
+    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
+      title: name,
+      key: experiment_id,
+    }));
+
     return (
-      <div className='experiment-list-outer-container'>
+      <div css={classNames.experimentListOuterContainer}>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
@@ -155,7 +161,7 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentId={activeExperimentId}
+          activeExperimentIds={activeExperimentIds}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -199,13 +205,16 @@ export class ExperimentListView extends Component {
             onChange={this.handleSearchInputChange}
             data-test-id='search-experiment-input'
           />
-          <div className='experiment-list-container'>
+          <div css={classNames.experimentListContainer}>
             <Tree
               treeData={treeData}
               dangerouslySetAntdProps={{
                 selectable: true,
+                checkable: true,
                 multiple: true,
-                selectedKeys: [activeExperimentId],
+                selectedKeys: activeExperimentIds,
+                checkedKeys: activeExperimentIds,
+                onCheck: this.handleCheck,
                 titleRender: this.renderListItem,
               }}
             />
@@ -216,4 +225,27 @@ export class ExperimentListView extends Component {
   }
 }
 
-export default ExperimentListView;
+const classNames = {
+  experimentListOuterContainer: {
+    boxSizing: 'border-box',
+    marginLeft: '64px',
+    width: '220px',
+  },
+  experimentListContainer: {
+    overflowY: 'scroll',
+    overflowX: 'hidden',
+    width: ' 100%',
+    height: '90vh',
+    marginTop: '8px',
+    // Remove an empty space (transparent switcher) in the tree node to align the experiment name
+    // to the left.
+    '.du-bois-light-tree-switcher': {
+      display: 'none',
+    },
+    '.du-bois-light-tree-checkbox': {
+      marginLeft: '4px',
+    },
+  },
+};
+
+export default withRouter(ExperimentListView);

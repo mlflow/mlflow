@@ -48,6 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python@v3
@@ -101,6 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - name: Get Java version
@@ -139,7 +141,7 @@ jobs:
           date=$(date -u "+%Y%m%d")
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
         with:

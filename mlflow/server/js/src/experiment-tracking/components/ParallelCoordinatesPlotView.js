@@ -35,9 +35,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const { paramDimensions, metricDimensions, metricKeys } = this.props;
     const lastMetricKey = this.findLastKeyFromState(metricKeys);
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
-    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
-      lastMetricDimension,
-    );
+    const colorScaleConfigs =
+      ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
     // This make sure axis order consistency across renders.
     const orderedDimensions = ParallelCoordinatesPlotView.getDimensionsOrderedBySequence(
       [...paramDimensions, ...metricDimensions],

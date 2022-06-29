@@ -11,6 +11,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
 import struct
 import sys
@@ -119,7 +120,7 @@ class EvaluationResult:
         """Write the evaluation results to the specified local filesystem path"""
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "metrics.json"), "w") as fp:
-            json.dump(self.metrics, fp)
+            json.dump(self.metrics, fp, cls=NumpyEncoder)
 
         artifacts_metadata = {
             artifact_name: {
@@ -132,7 +133,7 @@ class EvaluationResult:
             json.dump(artifacts_metadata, fp)
 
         artifacts_dir = os.path.join(path, "artifacts")
-        os.mkdir(artifacts_dir)
+        os.makedirs(artifacts_dir, exist_ok=True)
 
         for artifact in self.artifacts.values():
             filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
@@ -590,7 +591,7 @@ _last_failed_evaluator = None
 
 def _get_last_failed_evaluator():
     """
-    Return the evaluator name of the last failed evaluator when calling `evalaute`.
+    Return the evaluator name of the last failed evaluator when calling `evaluate`.
     This can be used to check which evaluator fail when `evaluate` API fail.
     """
     return _last_failed_evaluator
@@ -722,11 +723,14 @@ def evaluate(
         - **log_model_explainability**: A boolean value specifying whether or not to log model
           explainability insights, default value is True.
         - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
-          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition'.
+          explainability. Supported algorithm includes: 'exact', 'permutation', 'partition',
+          'kernel'.
           If not set, ``shap.Explainer`` is used with the "auto" algorithm, which chooses the best
           Explainer based on the model.
         - **explainability_nsamples**: The number of sample rows to use for computing model
           explainability insights. Default value is 2000.
+        - **explainability_kernel_link**: The kernel link function used by shap kernal explainer.
+          Available values are "identity" and "logit". Default value is "identity".
         - **max_classes_for_multiclass_roc_pr**:
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is

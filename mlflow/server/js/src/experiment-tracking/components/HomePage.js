@@ -42,7 +42,10 @@ export class HomePageImpl extends Component {
     return process.env.HIDE_EXPERIMENT_LIST === 'true' ? (
       homeView
     ) : (
-      <RequestStateWrapper requestIds={[this.state.listExperimentsRequestId]}>
+      <RequestStateWrapper
+        requestIds={[this.state.listExperimentsRequestId]}
+        // eslint-disable-next-line no-trailing-spaces
+      >
         {homeView}
       </RequestStateWrapper>
     );

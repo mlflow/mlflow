@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import Utils from '../../utils/Utils';
-import { css } from 'emotion';
 
 export class SectionErrorBoundary extends React.Component {
   static propTypes = {
@@ -27,7 +26,7 @@ export class SectionErrorBoundary extends React.Component {
       return (
         <div>
           <p>
-            <i className={`fa fa-exclamation-triangle icon-fail ${classNames.wrapper}`} />
+            <i className='fa fa-exclamation-triangle icon-fail' css={classNames.wrapper} />
             <span> Something went wrong with this section. </span>
             <span>If this error persists, please report an issue </span>
             {/* Reported during ESLint upgrade */}
@@ -46,7 +45,7 @@ export class SectionErrorBoundary extends React.Component {
 }
 
 const classNames = {
-  wrapper: css({
+  wrapper: {
     marginLeft: -2, // to align the failure icon with the collapsable section caret toggle
-  }),
+  },
 };

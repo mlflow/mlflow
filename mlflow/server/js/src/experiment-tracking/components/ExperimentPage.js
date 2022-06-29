@@ -34,6 +34,8 @@ import {
   MAX_DETECT_NEW_RUNS_RESULTS,
   PAGINATION_DEFAULT_STATE,
   POLL_INTERVAL,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+  MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 } from '../constants';
 
 export const isNewRun = (lastRunsRefreshTime, run) => {
@@ -53,6 +55,7 @@ export class ExperimentPage extends Component {
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+
     loadMoreRunsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
@@ -101,6 +104,10 @@ export class ExperimentPage extends Component {
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       lastRunsRefreshTime: Date.now(),
+      // After getting the first page of runs, we're caching its "start time" filter value
+      // so it will be the same regardless of user's ticking clock,
+      // making sure that the value will be the same as in the next page token filter
+      cachedStartTime: null,
       numberOfNewRuns: 0,
       // Last experiment, if any, displayed by this instance of ExperimentPage
       lastExperimentIds: undefined,
@@ -127,6 +134,7 @@ export class ExperimentPage extends Component {
 
   componentDidMount() {
     this.updateCompareExperimentsState();
+    this.sortByPrimaryMetric();
     this.loadData();
     this.pollTimer = setInterval(() => this.pollInfo(), POLL_INTERVAL);
   }
@@ -134,6 +142,7 @@ export class ExperimentPage extends Component {
   componentDidUpdate(prevProps, prevState) {
     if (!_.isEqual(this.props.experimentIds, prevProps.experimentIds)) {
       this.updateCompareExperimentsState();
+      this.sortByPrimaryMetric();
     }
     this.maybeReloadData(prevProps, prevState);
   }
@@ -197,6 +206,27 @@ export class ExperimentPage extends Component {
     return this.props.experimentIds.map((_experimentId) => getUUID());
   }
 
+  sortByPrimaryMetric() {
+    const { tags } = this.props.experiments[0];
+    const primaryMericTag = tags.find(({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME);
+    const greaterIsBetterTag = tags.find(
+      ({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+    );
+
+    if (primaryMericTag && greaterIsBetterTag) {
+      const sortKey = `metrics.\`${primaryMericTag.value}\``;
+      const orderByAsc = !(greaterIsBetterTag.value === 'True');
+      this.setState((prevState) => ({
+        ...prevState,
+        persistedState: {
+          ...prevState.persistedState,
+          orderByKey: sortKey,
+          orderByAsc: orderByAsc,
+        },
+      }));
+    }
+  }
+
   loadData() {
     const { experimentIds } = this.props;
     experimentIds.map((experimentId, index) =>
@@ -253,6 +283,17 @@ export class ExperimentPage extends Component {
     return response;
   };
 
+  updateCachedStartDate = (response = {}, startDate) => {
+    const { value } = response;
+
+    if (value && value.next_page_token) {
+      this.setState({ cachedStartTime: startDate });
+    } else {
+      this.setState({ cachedStartTime: null });
+    }
+    return response;
+  };
+
   fetchModelVersionsForRuns = (response = {}) => {
     const { value } = response;
     if (value) {
@@ -281,6 +322,12 @@ export class ExperimentPage extends Component {
 
   getStartTimeExpr() {
     const startTimeColumnOffset = ExperimentPage.StartTimeColumnOffset;
+    const { cachedStartTime } = this.state;
+
+    if (cachedStartTime) {
+      return cachedStartTime;
+    }
+
     const { startTime } = this.state.persistedState;
     const offset = startTimeColumnOffset[startTime];
     if (!startTime || !offset || startTime === 'ALL') {
@@ -315,9 +362,14 @@ export class ExperimentPage extends Component {
       shouldFetchParents,
       id: requestId,
     })
-      .then(this.updateNextPageToken)
-      .then(this.updateNumRunsFromLatestSearch)
-      .then(this.fetchModelVersionsForRuns)
+      .then((response) => {
+        // We're not chaining those functions with .then()s because
+        // it breaks React's state udpates batching mechanism
+        this.updateNextPageToken(response);
+        this.updateNumRunsFromLatestSearch(response);
+        this.updateCachedStartDate(response, startTime);
+        this.fetchModelVersionsForRuns(response);
+      })
       .catch((e) => {
         Utils.logGenericUserFriendlyError(e, this.props.intl);
         this.setState({ ...PAGINATION_DEFAULT_STATE });
@@ -613,7 +665,11 @@ export class ExperimentPage extends Component {
   render() {
     return (
       <div className='ExperimentPage runs-table-flex-container' style={{ height: '100%' }}>
-        <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
+        <RequestStateWrapper
+          shouldOptimisticallyRender
+          requestIds={this.getRequestIds()}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           {this.renderExperimentView}
         </RequestStateWrapper>
       </div>

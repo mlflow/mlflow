@@ -14,10 +14,6 @@ from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
 
-# The earliest version we're guaranteed to support. Autologging utilities may not work properly
-# on scikit-learn older than this version.
-_MIN_SKLEARN_VERSION = "0.20.3"
-
 # The prefix to note that all calculated metrics and artifacts are solely based on training datasets
 _TRAINING_PREFIX = "training_"
 
@@ -158,7 +154,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
     (3) f1_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
     By default, when `pos_label` is not specified (passed in as `None`), we set `average`
-    to `weighted` to compute the weighted score of theese metrics.
+    to `weighted` to compute the weighted score of these metrics.
     When the `pos_label` is specified (not `None`), we set `average` to `binary`.
 
     For (4) accuracy score:
@@ -486,7 +482,6 @@ def _log_specialized_estimator_content(
     autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
 ):
     import sklearn
-    import matplotlib
 
     metrics = dict()
 
@@ -522,21 +517,28 @@ def _log_specialized_estimator_content(
                 + str(e)
             )
             _logger.warning(msg)
-            return
+            return metrics
+
+        try:
+            import matplotlib
+            import matplotlib.pyplot as plt
+        except ImportError as ie:
+            _logger.warning(
+                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+            )
+            return metrics
 
         _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
-
-        with TempDir() as tmp_dir, matplotlib.rc_context(_matplotlib_config):
+        with TempDir() as tmp_dir:
             for artifact in artifacts:
                 try:
-                    display = artifact.function(**artifact.arguments)
-                    display.ax_.set_title(artifact.title)
-                    artifact_path = "{}.png".format(artifact.name)
-                    filepath = tmp_dir.path(artifact_path)
-                    display.figure_.savefig(fname=filepath, format="png")
-                    import matplotlib.pyplot as plt
-
-                    plt.close(display.figure_)
+                    with matplotlib.rc_context(_matplotlib_config):
+                        display = artifact.function(**artifact.arguments)
+                        display.ax_.set_title(artifact.title)
+                        artifact_path = "{}.png".format(artifact.name)
+                        filepath = tmp_dir.path(artifact_path)
+                        display.figure_.savefig(fname=filepath, format="png")
+                        plt.close(display.figure_)
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
@@ -783,12 +785,6 @@ def _create_child_runs_for_parameter_search(
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
-
-
-def _is_supported_version():
-    import sklearn
-
-    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version

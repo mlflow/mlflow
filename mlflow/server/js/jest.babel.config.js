@@ -4,7 +4,12 @@
 
 module.exports = {
   presets: [
-    "react-app",
+    [
+      require.resolve('babel-preset-react-app'),
+      {
+        runtime: 'automatic',
+      },
+    ],
   ],
   plugins: [
     [
@@ -16,4 +21,3 @@ module.exports = {
     ],
   ],
 };
-

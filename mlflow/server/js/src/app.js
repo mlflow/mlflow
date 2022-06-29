@@ -4,24 +4,19 @@ import './index.css';
 import '@databricks/design-system/dist/index.css';
 import App from './experiment-tracking/components/App';
 import { Provider } from 'react-redux';
-import { DesignSystemProvider } from '@databricks/design-system';
 import store from './store';
-import { injectGlobal } from 'emotion';
-import { accessibilityOverrides } from './common/styles/accessibility-overrides';
 import { I18nUtils } from './i18n/I18nUtils';
-
-export function init() {
-  injectGlobal({ ...accessibilityOverrides });
-}
+import { DesignSystemContainer } from './common/components/DesignSystemContainer';
 
 export function MLFlowRoot() {
   const { locale, messages } = I18nUtils.getIntlProviderParams();
+
   return (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <DesignSystemProvider>
+        <DesignSystemContainer isCompact>
           <App />
-        </DesignSystemProvider>
+        </DesignSystemContainer>
       </Provider>
     </IntlProvider>
   );

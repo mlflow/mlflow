@@ -1,6 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
-import { Menu, Dropdown } from 'antd';
+import { Menu } from 'antd';
+import { Dropdown } from '@databricks/design-system';
 import classNames from 'classnames';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import Utils from '../../common/utils/Utils';

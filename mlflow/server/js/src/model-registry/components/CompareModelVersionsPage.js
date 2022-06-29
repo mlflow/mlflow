@@ -14,7 +14,6 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
 import _ from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
-
 // TODO: Write integration tests for this component
 export class CompareModelVersionsPageImpl extends Component {
   static propTypes = {

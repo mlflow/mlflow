@@ -26,7 +26,6 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _is_supported_version,
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
@@ -170,16 +169,6 @@ def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs
         _log_child_runs_info(max_tuning_runs, total_runs)
         mock_info.assert_called_once()
         mock_info.called_once_with(output_statement)
-
-
-@pytest.mark.skipif(
-    _is_supported_version(), reason="This test fails on supported versions of sklearn"
-)
-def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
-    with pytest.warns(
-        UserWarning, match="Autologging utilities may not work properly on scikit-learn"
-    ):
-        mlflow.sklearn.autolog()
 
 
 def test_autolog_does_not_terminate_active_run():
@@ -2003,3 +1992,37 @@ def test_autolog_registering_model():
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def test_autolog_pos_label_used_for_training_metric():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    import sklearn.ensemble
+
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        _, training_metrics, _, _ = get_run_data(run.info.run_id)
+        expected_training_metrics = mlflow.sklearn.eval_and_log_metrics(
+            model=model, X=X, y_true=y, prefix="training_", pos_label=1
+        )
+
+    assert training_metrics == expected_training_metrics
+
+
+def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    model = sklearn.svm.SVC()
+    X, y = get_iris()
+
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        model.fit(X, y)
+        assert mock_warning.call_count == 3  # for precision, recall and f1_score
+        mock_warning.assert_any_call(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
+            "Metric error: Target is multiclass but average='binary'. Please choose another "
+            "average setting, one of [None, 'micro', 'macro', 'weighted']."
+        )

@@ -10,6 +10,7 @@ from collections import namedtuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationArtifact
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
 class ImageEvaluationArtifact(EvaluationArtifact):
@@ -20,10 +21,8 @@ class ImageEvaluationArtifact(EvaluationArtifact):
         from PIL.Image import open as open_image
 
         self._content = open_image(local_artifact_path)
+        self._content.load()  # Load image and close the file descriptor.
         return self._content
-
-    def __del__(self):
-        self._content.close()
 
 
 class CsvEvaluationArtifact(EvaluationArtifact):
@@ -173,7 +172,7 @@ def _infer_artifact_type_and_ext(artifact_name, raw_artifact, custom_metric_tupl
     # Given as other python object, we first attempt to infer as JsonEvaluationArtifact. If that
     # fails, we store it as PickleEvaluationArtifact
     try:
-        json.dumps(raw_artifact)
+        json.dumps(raw_artifact, cls=NumpyEncoder)
         return _InferredArtifactProperties(
             from_path=False, type=JsonEvaluationArtifact, ext=".json"
         )

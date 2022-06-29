@@ -13,7 +13,14 @@ Please reference any related feature requests, issues, or PRs here. For example,
 
 ## How is this patch tested?
 
-(Details)
+<!--
+If you're unsure about what to test, where to add tests, or how to run tests, please feel free to ask. We'd be happy to help.
+-->
+- [ ] I have written tests (not required for typo or doc fix) and confirmed the proposed feature/bug-fix/change works.
+
+<!--
+Please describe how you confirmed the proposed feature/bug-fix/change works here. For example, if you fixed an MLflow client API, you could attach the code that didn't work prior to the fix but works now, or if you added a new feature on MLflow UI, you could attach a video that demonstrates the feature.
+-->
 
 ## Does this PR change the documentation?
 
@@ -44,6 +51,7 @@ Components
 - [ ] `area/examples`: Example code
 - [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
+- [ ] `area/pipelines`: Pipelines, Pipeline APIs, Pipeline configs, Pipeline Templates
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: MLflow Model server, model deployment tools, Spark UDFs
 - [ ] `area/server-infra`: MLflow Tracking server backend

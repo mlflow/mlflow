@@ -21,7 +21,7 @@ describe('DeleteExperimentModal', () => {
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
-      activeExperimentId: '0',
+      activeExperimentIds: ['0'],
       experimentId: '0',
       experimentName: 'myFirstExperiment',
       deleteExperimentApi: (experimentId, deleteExperimentRequestId) => {
@@ -40,10 +40,19 @@ describe('DeleteExperimentModal', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('handleSubmit redirects user to root page if active experiment is current experiment', (done) => {
+  test('handleSubmit redirects user to root page if current experiment is the only active experiment', (done) => {
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('/');
+      done();
+    });
+  });
+
+  test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', (done) => {
+    const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
+    instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
+    instance.handleSubmit().then(() => {
+      expect(location.search).toEqual('/compare-experiments/s?experiments=["1","2"]');
       done();
     });
   });
@@ -63,7 +72,7 @@ describe('DeleteExperimentModal', () => {
 
   test('handleSubmit does not perform redirection if deleted experiment is not active experiment', (done) => {
     wrapper = shallow(
-      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentId: undefined }} />,
+      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />,
     );
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {

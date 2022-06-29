@@ -13,6 +13,8 @@ CatBoost (native) format
     https://catboost.ai/docs/concepts/python-reference_catboost_save_model.html
 .. _CatBoostClassifier:
     https://catboost.ai/docs/concepts/python-reference_catboostclassifier.html
+.. _CatBoostRanker:
+    https://catboost.ai/docs/concepts/python-reference_catboostranker.html
 .. _CatBoostRegressor:
     https://catboost.ai/docs/concepts/python-reference_catboostregressor.html
 """
@@ -90,7 +92,7 @@ def save_model(
     Save a CatBoost model to a path on the local file system.
 
     :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                     or `CatBoostRegressor`_) to be saved.
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -209,7 +211,7 @@ def log_model(
     Log a CatBoost model as an MLflow artifact for the current run.
 
     :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                     or `CatBoostRegressor`_) to be saved.
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -269,6 +271,13 @@ def _init_model(model_type):
 
     model_types = {c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]}
 
+    try:
+        from catboost import CatBoostRanker
+
+        model_types[CatBoostRanker.__name__] = CatBoostRanker
+    except ImportError:
+        pass
+
     if model_type not in model_types:
         raise TypeError(
             "Invalid model type: '{}'. Must be one of {}".format(
@@ -317,7 +326,7 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+    :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
              or `CatBoostRegressor`_)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)

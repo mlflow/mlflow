@@ -30,6 +30,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: actions/setup-java@v3
@@ -49,7 +50,7 @@ jobs:
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of

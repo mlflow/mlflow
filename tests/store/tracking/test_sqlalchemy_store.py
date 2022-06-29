@@ -255,6 +255,38 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
 
+    def test_delete_restore_experiment_with_runs(self):
+
+        experiment_id = self._experiment_factory("test exp")
+        run1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
+        run2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
+        run_ids = [run1, run2]
+
+        self.store.delete_experiment(experiment_id)
+
+        updated_exp = self.store.get_experiment(experiment_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+        deleted_run_list = self.store.list_run_infos(experiment_id, ViewType.DELETED_ONLY)
+
+        self.assertEqual(len(deleted_run_list), 2)
+        for deleted_run in deleted_run_list:
+            self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
+            self.assertTrue(deleted_run.experiment_id in experiment_id)
+            self.assertTrue(deleted_run.run_id in run_ids)
+
+        self.store.restore_experiment(experiment_id)
+
+        updated_exp = self.store.get_experiment(experiment_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+
+        restored_run_list = self.store.list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)
+        self.assertEqual(len(restored_run_list), 2)
+        for restored_run in restored_run_list:
+            self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            self.assertTrue(restored_run.experiment_id in experiment_id)
+            self.assertTrue(restored_run.run_id in run_ids)
+
     def test_get_experiment(self):
         name = "goku"
         experiment_id = self._experiment_factory(name)

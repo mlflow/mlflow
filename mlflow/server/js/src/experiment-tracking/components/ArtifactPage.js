@@ -45,7 +45,7 @@ export class ArtifactPageImpl extends Component {
     );
   };
 
-  state = { activeNodeIsDirectory: false };
+  state = { activeNodeIsDirectory: false, errorThrown: false };
 
   searchRequestId = getUUID();
 
@@ -55,14 +55,22 @@ export class ArtifactPageImpl extends Component {
       : [],
   );
 
-  pollModelVersionsForCurrentRun = () => {
+  pollModelVersionsForCurrentRun = async () => {
     const { apis, runUuid } = this.props;
     const { activeNodeIsDirectory } = this.state;
     const searchRequest = apis[this.searchRequestId];
     if (activeNodeIsDirectory && !(searchRequest && searchRequest.active)) {
-      this.props
-        .searchModelVersionsApi({ run_id: runUuid }, this.searchRequestId)
-        .catch(console.error);
+      try {
+        // searchModelVersionsApi may be sync or async so we're not using <promise>.catch() syntax
+        await this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchRequestId);
+      } catch (error) {
+        // We're not reporting errors more than once when polling
+        // in order to avoid flooding logs
+        if (!this.state.errorThrown) {
+          Utils.logErrorAndNotifyUser(error);
+          this.setState({ errorThrown: true });
+        }
+      }
     }
   };
 
@@ -96,6 +104,14 @@ export class ArtifactPageImpl extends Component {
       this.pollIntervalId = setInterval(this.pollModelVersionsForCurrentRun, POLL_INTERVAL);
     }
     this.pollArtifactsForCurrentRun();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.runUuid !== this.props.runUuid) {
+      this.setState({
+        errorThrown: false,
+      });
+    }
   }
 
   componentWillUnmount() {
@@ -140,7 +156,10 @@ export class ArtifactPageImpl extends Component {
 
   render() {
     return (
-      <RequestStateWrapper requestIds={this.listArtifactRequestIds}>
+      <RequestStateWrapper
+        requestIds={this.listArtifactRequestIds}
+        // eslint-disable-next-line no-trailing-spaces
+      >
         {this.renderArtifactView}
       </RequestStateWrapper>
     );
