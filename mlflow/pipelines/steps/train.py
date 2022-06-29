@@ -254,7 +254,7 @@ class TrainStep(BaseStep):
         # Tab 4: Examples with Largest Prediction Error
         (
             card.add_tab(
-                "Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
+                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
             ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
         )
 
