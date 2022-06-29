@@ -11,8 +11,9 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
+    BUILTIN_PIPELINE_METRICS,
+    _get_custom_metrics,
     _get_primary_metric,
-    _get_metric_greater_is_better,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics
@@ -39,10 +40,24 @@ MetricValidationResult = namedtuple(
 class EvaluateStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str) -> None:
         super().__init__(step_config, pipeline_root)
-        self.tracking_config = TrackingConfig.from_dict(step_config)
+        self.tracking_config = TrackingConfig.from_dict(self.step_config)
         self.target_col = self.step_config.get("target_col")
         self.model_validation_status = "UNKNOWN"
         self.primary_metric = _get_primary_metric(self.step_config)
+        self.evaluation_metrics = {
+            metric.name: metric
+            for metric in BUILTIN_PIPELINE_METRICS 
+        }
+        self.evaluation_metrics.update({
+            metric.name: metric
+            for metric in _get_custom_metrics(self.step_config)
+        })
+        if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
+            raise MlflowException(
+                f"The primary metric {self.primary_metric} is a custom metric, but its"
+                " corresponding custom metric configuration is missing from `pipeline.yaml`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     def _validate_validation_criteria(self):
         """
@@ -51,8 +66,7 @@ class EvaluateStep(BaseStep):
         val_metrics = set(vc["metric"] for vc in self.step_config.get("validation_criteria", []))
         if not val_metrics:
             return
-        defined_metrics = _get_metric_greater_is_better(self.step_config).keys()
-        undefined_metrics = val_metrics.difference(defined_metrics)
+        undefined_metrics = val_metrics.difference(self.evaluation_metrics.keys())
         if undefined_metrics:
             raise MlflowException(
                 f"Validation criteria contain undefined metrics: {sorted(undefined_metrics)}",
@@ -63,7 +77,6 @@ class EvaluateStep(BaseStep):
         """
         return a list of `MetricValidationResult` tuple instances.
         """
-        metric_to_greater_is_better = _get_metric_greater_is_better(self.step_config)
         summary = []
         for val_criterion in validation_criteria:
             metric_name = val_criterion["metric"]
@@ -71,7 +84,7 @@ class EvaluateStep(BaseStep):
             if metric_val is None:
                 summary[metric_name] = False
                 continue
-            greater_is_better = metric_to_greater_is_better[metric_name]
+            greater_is_better = self.evaluation_metrics[metric_name].greater_is_better
             comp_func = operator.ge if greater_is_better else operator.le
             threshold = val_criterion["threshold"]
             validated = comp_func(metric_val, threshold)
@@ -121,13 +134,7 @@ class EvaluateStep(BaseStep):
         apply_pipeline_tracking_config(self.tracking_config)
         exp_id = _get_experiment_id()
 
-        metric_greater_is_better = _get_metric_greater_is_better(self.step_config)
-        if self.primary_metric not in metric_greater_is_better:
-            raise RuntimeError(
-                f"The primary metric {self.primary_metric} is a custom metric, "
-                "you need to add the custom metric config in `pipeline.yaml` file."
-            )
-        primary_metric_greater_is_better = metric_greater_is_better[self.primary_metric]
+        primary_metric_greater_is_better = self.evaluation_metrics[self.primary_metric].greater_is_better
 
         _set_experiment_primary_metric(
             exp_id, f"{self.primary_metric}_on_data_test", primary_metric_greater_is_better
@@ -152,7 +159,7 @@ class EvaluateStep(BaseStep):
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
                         self.pipeline_root,
-                        self.step_config,
+                        self.evaluation_metrics.values(),
                     ),
                     evaluator_config=evaluator_config,
                 )

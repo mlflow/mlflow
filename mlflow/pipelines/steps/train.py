@@ -13,9 +13,9 @@ from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
+    BUILTIN_PIPELINE_METRICS,
     _get_primary_metric,
     _get_custom_metrics,
-    _get_metric_greater_is_better,
     _load_custom_metric_functions,
 )
 from mlflow.pipelines.utils.step import get_merged_eval_metrics, get_pandas_data_profile
@@ -43,7 +43,20 @@ class TrainStep(BaseStep):
             "estimator_method"
         ].rsplit(".", 1)
         self.primary_metric = _get_primary_metric(self.step_config)
-        self.metric_greater_is_better = _get_metric_greater_is_better(step_config)
+        self.evaluation_metrics = {
+            metric.name: metric
+            for metric in BUILTIN_PIPELINE_METRICS 
+        }
+        self.evaluation_metrics.update({
+            metric.name: metric
+            for metric in _get_custom_metrics(self.step_config)
+        })
+        if self.primary_metric is not None and self.primary_metric not in self.evaluation_metrics:
+            raise MlflowException(
+                f"The primary metric {self.primary_metric} is a custom metric, but its"
+                " corresponding custom metric configuration is missing from `pipeline.yaml`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     def _run(self, output_directory):
         import pandas as pd
@@ -148,7 +161,8 @@ class TrainStep(BaseStep):
                     evaluators="default",
                     dataset_name=dataset_name,
                     custom_metrics=_load_custom_metric_functions(
-                        self.pipeline_root, self.step_config
+                        self.pipeline_root,
+                        self.evaluation_metrics.values(),
                     ),
                     evaluator_config={
                         "log_model_explainability": False,
@@ -169,12 +183,35 @@ class TrainStep(BaseStep):
         worst_examples_df = BaseStep._generate_worst_examples_dataframe(
             raw_validation_df, prediction_result, self.target_col
         )
+        leaderboard_df = None
+        try:
+            leaderboard_df = self._get_leaderboard_df(run, eval_metrics)
+        except Exception as e:
+            _logger.warning("Failed to build model leaderboard due to unexpected failure: %s", e)
+
+        card = self._build_step_card(
+            eval_metrics=eval_metrics,
+            pred_and_error_df=pred_and_error_df,
+            model=model,
+            model_schema=model_schema,
+            run_id=run.info.run_id,
+            model_uri=model_info.model_uri,
+            worst_examples_df=worst_examples_df,
+            leaderboard_df=leaderboard_df,
+        )
+        card.save_as_html(output_directory)
+        for step_name in ("ingest", "split", "transform", "train"):
+            self._log_step_card(run.info.run_id, step_name)
+
+        return card
+
+    def _get_leaderboard_df(self, run, eval_metrics):
+        import pandas as pd
 
         mlflow_client = MlflowClient()
         exp_id = _get_experiment_id()
 
-        primary_metric_greater_is_better = self.metric_greater_is_better[self.primary_metric]
-
+        primary_metric_greater_is_better = self.evaluation_metrics[self.primary_metric].greater_is_better
         primary_metric_order = "DESC" if primary_metric_greater_is_better else "ASC"
 
         search_max_results = 100
@@ -185,8 +222,7 @@ class TrainStep(BaseStep):
             order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
         )
 
-        custom_metric_names = [cm["name"] for cm in _get_custom_metrics(self.step_config)]
-        metric_names = self.metric_greater_is_better.keys()
+        metric_names = self.evaluation_metrics.keys()
         metric_keys = [f"{metric_name}_on_data_validation" for metric_name in metric_names]
 
         leaderboard_items = []
@@ -205,9 +241,8 @@ class TrainStep(BaseStep):
                     }
                 )
 
-        top_leaderboard_items = leaderboard_items[:2]
         top_leaderboard_items = [
-            {"Model Rank": i + 1, **t} for i, t in enumerate(top_leaderboard_items)
+                {"Model Rank": i + 1, **t} for i, t in enumerate(leaderboard_items[:2])
         ]
 
         if (
@@ -227,25 +262,24 @@ class TrainStep(BaseStep):
             **eval_metrics["validation"],
         }
 
-        leaderboard_items_contains_latest_model = False
         for i, leaderboard_item in enumerate(leaderboard_items):
             latest_value = latest_model_item[self.primary_metric]
             historical_value = leaderboard_item[self.primary_metric]
             if (primary_metric_greater_is_better and latest_value >= historical_value) or (
                 not primary_metric_greater_is_better and latest_value <= historical_value
             ):
-                leaderboard_items_contains_latest_model = True
+                latest_model_rank = str(i + 1)
                 break
+        else:
+            latest_model_rank = f"> {len(leaderboard_items)}" 
 
-        latest_model_item["Model Rank"] = (
-            f"{i + 1}" if leaderboard_items_contains_latest_model else f"> {i + 1}"
-        )
+        latest_model_item["Model Rank"] = latest_model_position_on_leaderboard
 
         # metric columns order: primary metric, custom metrics, builtin metrics.
         def sorter(m):
             if m == self.primary_metric:
                 return 0, m
-            elif m in custom_metric_names:
+            elif m.custom_function:
                 return 1, m
             else:
                 return 2, m
@@ -258,28 +292,14 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: "{:.6g}".format(x)) if s.name in metric_names else s,
+                lambda s: s.map(lambda x: "{:.6g}".format(x)) if s.name in metric_names else s,  # pylint: disable=unnecessary-lambda
                 axis=0,
             )
             .set_axis(["Latest"] + top_leaderboard_item_index_values, axis="index")
             .transpose()
         )
+        return leaderboard_df
 
-        card = self._build_step_card(
-            eval_metrics=eval_metrics,
-            pred_and_error_df=pred_and_error_df,
-            model=model,
-            model_schema=model_schema,
-            run_id=run.info.run_id,
-            model_uri=model_info.model_uri,
-            worst_examples_df=worst_examples_df,
-            leaderboard_df=leaderboard_df,
-        )
-        card.save_as_html(output_directory)
-        for step_name in ("ingest", "split", "transform", "train"):
-            self._log_step_card(run.info.run_id, step_name)
-
-        return card
 
     def _build_step_card(
         self,
@@ -290,7 +310,7 @@ class TrainStep(BaseStep):
         run_id,
         model_uri,
         worst_examples_df,
-        leaderboard_df,
+        leaderboard_df=None,
     ):
         import pandas as pd
         from sklearn.utils import estimator_html_repr
@@ -367,11 +387,12 @@ class TrainStep(BaseStep):
         )
 
         # Tab 5: Leaderboard
-        (
-            card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
-                "LEADERBOARD_TABLE", BaseCard.render_table(leaderboard_df, hide_index=False)
+        if leaderboard_df is not None:
+            (
+                card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
+                    "LEADERBOARD_TABLE", BaseCard.render_table(leaderboard_df, hide_index=False)
+                )
             )
-        )
 
         # Tab 6: Run summary.
         (

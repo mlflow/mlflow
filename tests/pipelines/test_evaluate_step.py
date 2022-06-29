@@ -9,7 +9,6 @@ from sklearn.datasets import load_diabetes
 import mlflow
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.utils.metrics import _load_custom_metric_functions
 from mlflow.pipelines.steps.split import _OUTPUT_TEST_FILE_NAME, _OUTPUT_VALIDATION_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.exceptions import MlflowException
@@ -23,11 +22,8 @@ from tests.pipelines.helper_functions import (
 )  # pylint: enable=unused-import
 
 
-@pytest.mark.usefixtures("clear_custom_metrics_module_cache")
-@pytest.mark.parametrize("mae_threshold", [-1, 1_000_000])
-def test_evaluate_step_run(
-    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path, mae_threshold: int
-):
+@pytest.fixture(autouse=True)
+def evaluation_inputs(tmp_pipeline_exec_path):
     split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
     X, y = load_diabetes(as_frame=True, return_X_y=True)
@@ -45,6 +41,12 @@ def test_evaluate_step_run(
         shutil.rmtree(output_model_path)
     mlflow.sklearn.save_model(model, output_model_path)
 
+
+@pytest.mark.usefixtures("clear_custom_metrics_module_cache")
+@pytest.mark.parametrize("mae_threshold", [-1, 1_000_000])
+def test_evaluate_step_run(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path, mae_threshold: int
+):
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
@@ -94,7 +96,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step._run(str(evaluate_step_output_dir))
 
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "weighted_mean_squared_error" in logged_metrics
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
@@ -105,23 +107,6 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 def test_no_validation_criteria(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
-    split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
-    split_step_output_dir.mkdir(parents=True)
-    X, y = load_diabetes(as_frame=True, return_X_y=True)
-    validation_df = X.assign(y=y).sample(n=50, random_state=9)
-    validation_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_VALIDATION_FILE_NAME))
-    test_df = X.assign(y=y).sample(n=100, random_state=42)
-    test_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_TEST_FILE_NAME))
-
-    run_id, model = train_and_log_model()
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
-    train_step_output_dir.mkdir(parents=True)
-    train_step_output_dir.joinpath("run_id").write_text(run_id)
-    output_model_path = train_step_output_dir.joinpath("model")
-    if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-        shutil.rmtree(output_model_path)
-    mlflow.sklearn.save_model(model, output_model_path)
-
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
@@ -144,7 +129,7 @@ steps:
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     evaluate_step._run(str(evaluate_step_output_dir))
 
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     logged_metrics = {k.replace("_on_data_test", ""): v for k, v in logged_metrics.items()}
     assert "mean_squared_error" in logged_metrics
     assert "root_mean_squared_error" in logged_metrics
@@ -186,7 +171,9 @@ steps:
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
-def test_custom_metric_function_does_not_exist(tmp_pipeline_root_path: Path):
+def test_custom_metric_function_does_not_exist(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+):
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(
         """
@@ -218,14 +205,18 @@ def one(eval_df, builtin_metrics):
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        _load_custom_metric_functions(tmp_pipeline_root_path, evaluate_step.step_config)
+        evaluate_step._run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, AttributeError)
     assert "weighted_mean_squared_error" in str(exc.value.__cause__)
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache", "tmp_pipeline_exec_path")
-def test_custom_metrics_module_does_not_exist(tmp_pipeline_root_path: Path):
+def test_custom_metrics_module_does_not_exist(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+):
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(
         """
@@ -252,8 +243,10 @@ metrics:
 
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
     evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir.mkdir(parents=True)
     with pytest.raises(MlflowException, match="Failed to load custom metric functions") as exc:
-        _load_custom_metric_functions(tmp_pipeline_root_path, evaluate_step.step_config)
+        evaluate_step._run(str(evaluate_step_output_dir))
     assert isinstance(exc.value.__cause__, ModuleNotFoundError)
     assert "No module named 'steps.custom_metrics'" in str(exc.value.__cause__)
 
@@ -262,23 +255,6 @@ metrics:
 def test_custom_metrics_override_builtin_metrics(
     tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
 ):
-    split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
-    split_step_output_dir.mkdir(parents=True)
-    X, y = load_diabetes(as_frame=True, return_X_y=True)
-    validation_df = X.assign(y=y).sample(n=50, random_state=9)
-    validation_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_VALIDATION_FILE_NAME))
-    test_df = X.assign(y=y).sample(n=100, random_state=42)
-    test_df.to_parquet(split_step_output_dir.joinpath(_OUTPUT_TEST_FILE_NAME))
-
-    run_id, model = train_and_log_model()
-    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
-    train_step_output_dir.mkdir(parents=True)
-    train_step_output_dir.joinpath("run_id").write_text(run_id)
-    output_model_path = train_step_output_dir.joinpath("model")
-    if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
-        shutil.rmtree(output_model_path)
-    mlflow.sklearn.save_model(model, output_model_path)
-
     evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
     evaluate_step_output_dir.mkdir(parents=True)
 
@@ -320,15 +296,15 @@ def root_mean_squared_error(eval_df, builtin_metrics):
 """
     )
     pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
-    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
 
     with mock.patch("mlflow.pipelines.utils.metrics._logger.warning") as mock_warning:
+        evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
         evaluate_step._run(str(evaluate_step_output_dir))
         mock_warning.assert_called_once_with(
             "Custom metrics override the following built-in metrics: %s",
             ["mean_absolute_error", "root_mean_squared_error"],
         )
-    logged_metrics = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+    logged_metrics = mlflow.tracking.MlflowClient().get_run(mlflow.last_active_run().info.run_id).data.metrics
     for dataset in ["validation", "test"]:
         assert f"root_mean_squared_error_on_data_{dataset}" in logged_metrics
         assert logged_metrics[f"root_mean_squared_error_on_data_{dataset}"] == 1
