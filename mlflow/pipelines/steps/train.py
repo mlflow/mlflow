@@ -275,7 +275,7 @@ class TrainStep(BaseStep):
         def sorter(m):
             if m == self.primary_metric:
                 return 0, m
-            elif m.custom_function:
+            elif self.evaluation_metrics[m].custom_function is not None:
                 return 1, m
             else:
                 return 2, m
