@@ -83,6 +83,11 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     Get docker build commands for installing MLflow given a Docker context dir and optional source
     directory
     """
+    MLFLOW_MVN_HTTP_PROXY_HOST = os.environ.get("MLFLOW_MVN_HTTP_PROXY_HOST", "")
+    MLFLOW_MVN_HTTP_PROXY_PORT = os.environ.get("MLFLOW_MVN_HTTP_PROXY_PORT", "")
+    MLFLOW_MVN_HTTPS_PROXY_HOST = os.environ.get("MLFLOW_MVN_HTTPS_PROXY_HOST", "")
+    MLFLOW_MVN_HTTPS_PROXY_PORT = os.environ.get("MLFLOW_MVN_HTTPS_PROXY_PORT", "")
+    MLFLOW_MVN_NO_PROXY_HOSTS = os.environ.get("MLFLOW_MVN_NO_PROXY_HOSTS", "")
     if mlflow_home:
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
         return (
@@ -100,15 +105,34 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
+            " -Dhttp.proxyHost={MLFLOW_MVN_HTTP_PROXY_HOST}"
+            " -Dhttp.proxyPort={MLFLOW_MVN_HTTP_PROXY_PORT}"
+            " -Dhttps.proxyHost={MLFLOW_MVN_HTTPS_PROXY_HOST}"
+            " -Dhttps.proxyPort={MLFLOW_MVN_HTTPS_PROXY_PORT}"
+            " -Dhttps.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS}"
+            " -Dhttp.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS}"
             " -DoutputDirectory=/opt/java\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
+            " -Dhttp.proxyHost={MLFLOW_MVN_HTTP_PROXY_HOST}"
+            " -Dhttp.proxyPort={MLFLOW_MVN_HTTP_PROXY_PORT}"
+            " -Dhttps.proxyHost={MLFLOW_MVN_HTTPS_PROXY_HOST}"
+            " -Dhttps.proxyPort={MLFLOW_MVN_HTTPS_PROXY_PORT}"
+            " -Dhttps.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS}"
+            " -Dhttp.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS}"
             " -DoutputDirectory=/opt/java/jars\n"
             "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
             "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-        ).format(version=mlflow.version.VERSION)
+            "--batch-mode dependency:copy-dependencies -Dhttp.proxyHost={MLFLOW_MVN_HTTP_PROXY_HOST} -Dhttp.proxyPort={MLFLOW_MVN_HTTP_PROXY_PORT} -Dhttps.proxyHost={MLFLOW_MVN_HTTPS_PROXY_HOST} -Dhttps.proxyPort={MLFLOW_MVN_HTTPS_PROXY_PORT} -Dhttps.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS} -Dhttp.nonProxyHosts={MLFLOW_MVN_NO_PROXY_HOSTS} -DoutputDirectory=/opt/java/jars\n"
+        ).format(
+            version=mlflow.version.VERSION, 
+            MLFLOW_MVN_HTTP_PROXY_HOST=MLFLOW_MVN_HTTP_PROXY_HOST,
+            MLFLOW_MVN_HTTP_PROXY_PORT=MLFLOW_MVN_HTTP_PROXY_PORT,
+            MLFLOW_MVN_HTTPS_PROXY_HOST=MLFLOW_MVN_HTTPS_PROXY_HOST,
+            MLFLOW_MVN_HTTPS_PROXY_PORT=MLFLOW_MVN_HTTPS_PROXY_PORT,
+            MLFLOW_MVN_NO_PROXY_HOSTS=MLFLOW_MVN_NO_PROXY_HOSTS
+        )
 
 
 def _build_image(
