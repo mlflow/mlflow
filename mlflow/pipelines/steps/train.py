@@ -288,7 +288,7 @@ class TrainStep(BaseStep):
                 columns=["Model Rank", *metric_columns, "Run Time", "Run ID"],
             )
             .apply(
-                lambda s: s.map(lambda x: "{:.6g}".format(x))
+                lambda s: s.map(lambda x: "{:.6g}".format(x))  # pylint: disable=unnecessary-lambda
                 if s.name in metric_names
                 else s,  # pylint: disable=unnecessary-lambda
                 axis=0,
