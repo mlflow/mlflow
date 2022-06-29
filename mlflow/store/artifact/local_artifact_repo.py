@@ -107,4 +107,7 @@ class LocalArtifactRepository(ArtifactRepository):
         artifact_path = (
             os.path.join(self._artifact_dir, artifact_path) if artifact_path else self._artifact_dir
         )
-        shutil.rmtree(local_file_uri_to_path(artifact_path))
+        try:
+            shutil.rmtree(local_file_uri_to_path(artifact_path))
+        except OSError as err:
+            print("{}. Failed to permanently delete artifacts. Continuing with gc ...".format(err))
