@@ -164,6 +164,7 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
 
+
 @pytest.mark.parametrize("create_artifacts_in_run", [True, False])
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
@@ -177,6 +178,7 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
 
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
+
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     store = file_store[0]

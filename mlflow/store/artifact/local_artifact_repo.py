@@ -107,6 +107,6 @@ class LocalArtifactRepository(ArtifactRepository):
         artifact_path = local_file_uri_to_path(
             os.path.join(self._artifact_dir, artifact_path) if artifact_path else self._artifact_dir
         )
-        
+
         if os.path.exists(artifact_path):
             shutil.rmtree(artifact_path)
