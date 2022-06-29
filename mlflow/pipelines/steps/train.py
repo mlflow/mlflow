@@ -217,7 +217,7 @@ class TrainStep(BaseStep):
             experiment_ids=exp_id,
             run_view_type=ViewType.ACTIVE_ONLY,
             max_results=search_max_results,
-            order_by=[f"metrics.{self.primary_metric} {primary_metric_order}"],
+            order_by=[f"metrics.{self.primary_metric}_on_data_validation {primary_metric_order}"],
         )
 
         metric_names = self.evaluation_metrics.keys()
