@@ -289,13 +289,43 @@ class Utils {
   };
 
   /**
+   * Makes sure that the URL begins with correct scheme according
+   * to RFC3986 [https://datatracker.ietf.org/doc/html/rfc3986#section-3.1]
+   * It does not support slash-less schemes (e.g. news:abc, urn:anc).
+   * @param url URL string like "my-mlflow-server.com/#/experiments/9" or
+   *        "https://my-mlflow-server.com/#/experiments/9"
+   * @param defaultScheme scheme to add if missing in the provided URL, defaults to "https"
+   * @returns {string} the URL string with ensured default scheme
+   */
+  static ensureUrlScheme(url, defaultScheme = 'https') {
+    // Falsy values should yield itself
+    if (!url) return url;
+
+    // Scheme-less URL with colon and dashes
+    if (url.match(/^:\/\//i)) {
+      return `${defaultScheme}${url}`;
+    }
+
+    // URL without scheme, colon nor dashes
+    if (!url.match(/^[a-z1-9+-.]+:\/\//i)) {
+      return `${defaultScheme}://${url}`;
+    }
+
+    // Pass-through for "correct" entries
+    return url;
+  }
+
+  /**
    * Returns a copy of the provided URL with its query parameters set to `queryParams`.
    * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
    * @param queryParams Optional query parameter string like "?param=12345". Query params provided
    *        via this string will override existing query param values in `url`
    */
   static setQueryParams(url, queryParams) {
-    const urlObj = new URL(url);
+    // Using new URL() is the preferred way of constructing the URL object,
+    // however according to [https://url.spec.whatwg.org/#constructors] it requires
+    // providing the protocol. We're gracefully ensuring that the scheme exists here.
+    const urlObj = new URL(Utils.ensureUrlScheme(url));
     urlObj.search = queryParams || '';
     return urlObj.toString();
   }
@@ -380,18 +410,14 @@ class Utils {
    */
   static renderSource(tags, queryParams, runUuid) {
     const sourceName = Utils.getSourceName(tags);
-    const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);
-    if (sourceType === 'PROJECT') {
-      const url = Utils.getGitRepoUrl(sourceName);
-      if (url) {
-        res = (
-          <a target='_top' href={url}>
-            {res}
-          </a>
-        );
-      }
-      return res;
+    const gitRepoUrlOrNull = Utils.getGitRepoUrl(sourceName);
+    if (gitRepoUrlOrNull) {
+      res = (
+        <a target='_top' href={gitRepoUrlOrNull}>
+          {res}
+        </a>
+      );
     }
     return res;
   }
@@ -613,10 +639,22 @@ class Utils {
     const sourceVersion = Utils.getSourceVersion(tags);
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
-    return Utils.renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion);
+    // prettier-ignore
+    return Utils.renderSourceVersion(
+      sourceVersion,
+      sourceName,
+      sourceType,
+      shortVersion,
+    );
   }
 
-  static renderSourceVersion(sourceVersion, sourceName, sourceType, shortVersion = true) {
+  // prettier-ignore
+  static renderSourceVersion(
+    sourceVersion,
+    sourceName,
+    sourceType,
+    shortVersion = true,
+  ) {
     if (sourceVersion) {
       const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
       if (sourceType === 'PROJECT') {
@@ -716,11 +754,24 @@ class Utils {
   }
 
   static getSearchParamsFromUrl(search) {
-    const params = qs.parse(search, { ignoreQueryPrefix: true });
-    const str = JSON.stringify(params, function replaceUndefinedAndBools(key, value) {
-      return value === undefined ? '' : value === 'true' ? true : value === 'false' ? false : value;
+    return qs.parse(search, {
+      ignoreQueryPrefix: true,
+      comma: true,
+      arrayLimit: 500,
+      decoder(str, defaultDecoder, charset, type) {
+        if (type === 'value') {
+          if (str === 'true') {
+            return true;
+          } else if (str === 'false') {
+            return false;
+          } else if (str === undefined) {
+            return '';
+          }
+          return defaultDecoder(str);
+        }
+        return defaultDecoder(str);
+      },
     });
-    return params ? JSON.parse(str) : [];
   }
 
   static getSearchUrlFromState(state) {
@@ -732,7 +783,7 @@ class Utils {
         replaced[key] = state[key];
       }
     }
-    return qs.stringify(replaced);
+    return qs.stringify(replaced, { arrayFormat: 'comma', encodeValuesOnly: true });
   }
 
   static compareByTimestamp(history1, history2) {
@@ -856,13 +907,15 @@ class Utils {
     });
   }
 
-  static logErrorAndNotifyUser(e) {
+  static logErrorAndNotifyUser(e, passErrorToParentFrame = false) {
     console.error(e);
     if (typeof e === 'string') {
       message.error(e);
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
       message.error(e.renderHttpError());
+      // eslint-disable-next-line no-empty
+    } else {
     }
   }
 

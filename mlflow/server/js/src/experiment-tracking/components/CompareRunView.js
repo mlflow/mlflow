@@ -153,12 +153,8 @@ export class CompareRunView extends Component {
   }
 
   getExperimentLink() {
-    const {
-      comparedExperimentIds,
-      hasComparedExperimentsBefore,
-      experimentIds,
-      experiments,
-    } = this.props;
+    const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } =
+      this.props;
 
     if (hasComparedExperimentsBefore) {
       return this.getCompareExperimentsPageLink(comparedExperimentIds);

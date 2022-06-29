@@ -66,7 +66,8 @@ export const experimentsById = (state = {}, action) => {
       // into the existing record. We're replacing it only if no experiment
       // with this ID exists in the state.
       const mergedExperiment =
-        state[experiment.experiment_id]?.mergeDeep(experiment) || Experiment.fromJs(experiment);
+        state[experiment.experiment_id]?.mergeDeep(Experiment.fromJs(experiment)) ||
+        Experiment.fromJs(experiment);
 
       return {
         ...state,
@@ -134,6 +135,9 @@ export const modelVersionsByRunUuid = (state = {}, action) => {
         }
       }
       newState = { ...newState, ...updatedState };
+      if (_.isEqual(state, newState)) {
+        return state;
+      }
       return newState;
     }
     default:
@@ -411,16 +415,25 @@ export const getApis = (requestIds, state) => {
 
 export const apis = (state = {}, action) => {
   if (isPendingApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: true },
     };
   } else if (isFulfilledApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, data: action.payload },
     };
   } else if (isRejectedApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, error: action.payload },

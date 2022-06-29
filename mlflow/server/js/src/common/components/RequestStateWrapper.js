@@ -66,19 +66,25 @@ export class RequestStateWrapper extends Component {
     };
   }
 
-  render() {
+  getRenderedContent() {
     const { children, requests, customSpinner } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
+
     if (typeof children === 'function') {
       return children(!shouldRender, shouldRenderError, requests);
     } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
       if (shouldRenderError) {
         triggerError(requests);
       }
+
       return children;
     }
 
     return customSpinner || <Spinner />;
+  }
+
+  render() {
+    return this.getRenderedContent();
   }
 }
 

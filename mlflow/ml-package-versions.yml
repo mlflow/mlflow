@@ -9,13 +9,13 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.1.1"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.1.0"
+    maximum: "1.1.1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
     run: |
@@ -47,7 +47,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.6.3"
+    maximum: "1.6.4"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -67,7 +67,7 @@ tensorflow:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.1"
     requirements:
       "< 2.6.0": ["protobuf<4.0.0"]
       # Requirements to run tests for keras
@@ -83,7 +83,7 @@ tensorflow:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.1"
     requirements:
       "< 2.6.0": ["protobuf<4.0.0"]
       "== dev": ["scikit-learn"]
@@ -100,7 +100,7 @@ keras:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
       "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
@@ -112,7 +112,7 @@ keras:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
@@ -180,7 +180,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.0.5"
+    maximum: "1.0.6"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -194,7 +194,7 @@ gluon:
 
   models:
     minimum: "1.5.1"
-    maximum: "1.9.0"
+    maximum: "1.9.1"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -204,7 +204,7 @@ gluon:
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.9.0"
+    maximum: "1.9.1"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py
@@ -215,7 +215,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.6.3"
+    maximum: "2.7.3"
     requirements:
       ">= 0.0.0": [torch, torchvision]
     run: |
@@ -223,7 +223,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.6.3"
+    maximum: "2.7.3"
     requirements:
       ">= 0.0.0": [torch, torchvision]
     run: |
@@ -253,7 +253,7 @@ onnx:
 
   models:
     minimum: "1.5.0"
-    maximum: "1.11.0"
+    maximum: "1.12.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
     run: |
@@ -267,7 +267,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.8": ["flask<2.1.0"]
@@ -311,7 +311,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -331,7 +331,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.2.1"
+    maximum: "3.3.0"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -383,7 +383,7 @@ prophet:
 
   models:
     minimum: "1.0.1"
-    maximum: "1.0.1"
+    maximum: "1.1"
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 

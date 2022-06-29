@@ -11,6 +11,7 @@ class AppErrorBoundary extends Component {
   }
 
   static propTypes = {
+    service: PropTypes.string,
     children: PropTypes.node,
   };
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "^16.13.1"
+    "node": "^16.15.0"
   },
   "dependencies": {
     "@ag-grid-community/client-side-row-model": "^27.2.1",
@@ -12,10 +12,9 @@
     "@ant-design/icons": "^4.0.0",
     "@babel/eslint-parser": "^7.16.3",
     "@craco/craco": "7.0.0-alpha.0",
-    "@databricks/design-system": "^1.0.0",
-    "@emotion/cache": "^11.7.1",
-    "@emotion/react": "^11.7.1",
-    "@typescript-eslint/eslint-plugin": "^4.31.0",
+    "@databricks/design-system": "^1.3.1",
+    "@emotion/cache": "^11.4.0",
+    "@emotion/react": "^11.4.0",
     "antd": "^4.16.8",
     "babel-jest": "^27.5.1",
     "buffer": "^6.0.3",
@@ -25,8 +24,7 @@
     "cronstrue": "^1.94.0",
     "dateformat": "3.0.3",
     "define-property": "^2.0.2",
-    "emotion": "^10.0.27",
-    "eslint": "^7.23.0",
+    "eslint": "^8.17.0",
     "eslint-config-airbnb-base": "~12.0.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-config-react-app": "^6.0.0",
@@ -34,18 +32,18 @@
     "eslint-import-resolver-webpack": "0.8.4",
     "eslint-loader": "2.1.1",
     "eslint-plugin-chai-expect": "1.1.1",
-    "eslint-plugin-chai-friendly": "0.4.0",
-    "eslint-plugin-cypress": "^2.11.2",
-    "eslint-plugin-flowtype": "^5.4.0",
-    "eslint-plugin-formatjs": "^2.15.2",
-    "eslint-plugin-import": "^2.22.1",
-    "eslint-plugin-jsx-a11y": "^6.4.1",
+    "eslint-plugin-chai-friendly": "^0.7.2",
+    "eslint-plugin-cypress": "^2.12.1",
+    "eslint-plugin-flowtype": "^8.0.3",
+    "eslint-plugin-formatjs": "^3.1.5",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jsx-a11y": "^6.5.1",
     "eslint-plugin-mocha": "^5.2.1",
     "eslint-plugin-node": "5.2.1",
-    "eslint-plugin-prettier": "^3.3.1",
+    "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-promise": "3.6.0",
-    "eslint-plugin-react": "^7.23.1",
-    "eslint-plugin-react-hooks": "^4.2.0",
+    "eslint-plugin-react": "^7.30.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-standard": "3.0.1",
     "file-saver": "1.3.8",
     "html-entities": "1.2.1",
@@ -58,7 +56,7 @@
     "moment": "^2.24.0",
     "plotly.js": "1.50.0",
     "prop-types": "^15.7.2",
-    "qs": "6.5.2",
+    "qs": "6.10.5",
     "react": "17.0.2",
     "react-dom": "17.0.2",
     "react-iframe": "1.8.0",
@@ -73,6 +71,7 @@
     "react-syntax-highlighter": "^12.2.1",
     "react-transition-group": "^4.4.1",
     "react-treebeard": "2.1.0",
+    "react-vega": "^7.5.1",
     "react-virtualized": "9.21.0",
     "redux": "^4.1.1",
     "redux-promise-middleware": "5.0.0",
@@ -80,9 +79,14 @@
     "sanitize-html": "^1.18.5",
     "showdown": "^1.8.6",
     "stylis": "^4.0.10",
-    "url": "^0.11.0"
+    "url": "^0.11.0",
+    "vega": "^5.22.1",
+    "vega-lite": "^5.2.0"
   },
   "devDependencies": {
+    "@emotion/babel-plugin": "^11.3.0",
+    "@emotion/babel-preset-css-prop": "^11.2.0",
+    "@emotion/eslint-plugin": "^11.7.0",
     "@formatjs/cli": "^4.2.15",
     "@storybook/addon-actions": "^6.4.9",
     "@storybook/addon-docs": "^6.4.9",
@@ -93,6 +97,8 @@
     "@storybook/node-logger": "^6.4.9",
     "@storybook/preset-create-react-app": "^4.1.0",
     "@storybook/react": "^6.4.9",
+    "@typescript-eslint/eslint-plugin": "^5.21.0",
+    "@typescript-eslint/parser": "^5.21.0",
     "@wojtekmaj/enzyme-adapter-react-17": "^0.6.3",
     "argparse": "^2.0.1",
     "babel-plugin-formatjs": "^10.2.14",
@@ -101,8 +107,9 @@
     "enzyme-adapter-react-16.3": "^1.7.4",
     "jest-canvas-mock": "^2.2.0",
     "jest-localstorage-mock": "^2.3.0",
-    "prettier": "^1.19.1",
+    "prettier": "^2.6.2",
     "redux-mock-store": "^1.5.3",
+    "typescript": "^4.7.2",
     "webpack": "^5.69.0"
   },
   "scripts": {
@@ -131,6 +138,11 @@
   "browserslist": [
     "defaults"
   ],
+  "jest": {
+    "moduleNameMapper": {
+      "@databricks/web-shared-bundle/(.*)$": "<rootDir>/src/__generated__/web-shared-bundle/dist/$1"
+    }
+  },
   "babel": {
     "env": {
       "test": {

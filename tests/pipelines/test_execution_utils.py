@@ -84,7 +84,7 @@ def test_pipeline(
             "target_col": "C",
             "steps": {
                 "transform": {
-                    "transform_method": "steps.transform.transform_fn",
+                    "transformer_method": "steps.transform.transform_fn",
                 },
             },
         },

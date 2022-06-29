@@ -5,7 +5,6 @@ import {
   useDesignSystemTheme,
   WarningFillIcon,
 } from '@databricks/design-system';
-import { css } from 'emotion';
 import { PropTypes } from 'prop-types';
 /**
  * Get a unique key for a model version object.
@@ -19,12 +18,12 @@ export const getProtoField = (fieldName) => `${fieldName}`;
 
 export function ReadyIcon() {
   const { theme } = useDesignSystemTheme();
-  return <CheckCircleBorderIcon className={css({ color: theme.colors.textValidationSuccess })} />;
+  return <CheckCircleBorderIcon css={{ color: theme.colors.textValidationSuccess }} />;
 }
 
 export function FailedIcon() {
   const { theme } = useDesignSystemTheme();
-  return <WarningFillIcon className={css({ color: theme.colors.textValidationDanger })} />;
+  return <WarningFillIcon css={{ color: theme.colors.textValidationDanger }} />;
 }
 
 export function CircleIcon({ type }) {
@@ -45,7 +44,7 @@ export function CircleIcon({ type }) {
       break;
     }
   }
-  return <DuboisCircleIcon className={css({ color, fontSize: 16 })} />;
+  return <DuboisCircleIcon css={{ color, fontSize: 16 }} />;
 }
 CircleIcon.propTypes = {
   type: PropTypes.oneOf(['FAILED', 'PENDING', 'READY']).isRequired,

@@ -71,12 +71,8 @@ export class MetricViewImpl extends Component {
   }
 
   getExperimentPageLink() {
-    const {
-      comparedExperimentIds,
-      hasComparedExperimentsBefore,
-      experimentIds,
-      experiments,
-    } = this.props;
+    const { comparedExperimentIds, hasComparedExperimentsBefore, experimentIds, experiments } =
+      this.props;
 
     if (hasComparedExperimentsBefore) {
       const text = this.getCompareExperimentsPageLinkText(comparedExperimentIds.length);

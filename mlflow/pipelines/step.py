@@ -2,12 +2,10 @@ import abc
 import json
 import logging
 import os
-import sys
 import time
 import traceback
 
 import yaml
-import importlib
 
 from enum import Enum
 from typing import TypeVar, Dict, Any
@@ -17,7 +15,6 @@ from mlflow.pipelines.utils.step import display_html
 from mlflow.tracking import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.exceptions import MlflowException, BAD_REQUEST
 
 _logger = logging.getLogger(__name__)
 
@@ -247,7 +244,7 @@ class BaseStep(metaclass=abc.ABCMeta):
             tab.add_markdown("EXE_DURATION", f"**Run duration (s)**: {execution_duration:.3g}")
             tab.add_markdown(
                 "LAST_UPDATE_TIME",
-                f"**Last updated:**: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}",
+                f"**Last updated:** {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}",
             )
         self.step_card.save(path=output_directory)
         self.step_card.save_as_html(path=output_directory)
@@ -265,12 +262,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         if is_in_databricks_runtime():
             try:
+                from IPython.utils.io import capture_output
                 from dbruntime.spark_connection import (
                     initialize_spark_connection,
                     is_pinn_mode_enabled,
                 )
 
-                spark_handles, entry_point = initialize_spark_connection(is_pinn_mode_enabled())
+                with capture_output():
+                    spark_handles, entry_point = initialize_spark_connection(is_pinn_mode_enabled())
             except Exception as e:
                 _logger.warning(
                     "Encountered unexpected failure while initializing Spark connection. Spark"
@@ -316,29 +315,6 @@ class BaseStep(metaclass=abc.ABCMeta):
                 run_id,
                 local_card_path,
             )
-
-    def _get_custom_metrics(self):
-        return (self.step_config.get("metrics") or {}).get("custom")
-
-    def _get_custom_metric_greater_is_better(self):
-        custom_metrics = self._get_custom_metrics()
-        return (
-            {cm["name"]: cm["greater_is_better"] for cm in custom_metrics} if custom_metrics else {}
-        )
-
-    def _load_custom_metric_functions(self):
-        custom_metrics = self._get_custom_metrics()
-        if not custom_metrics:
-            return None
-        try:
-            sys.path.append(self.pipeline_root)
-            custom_metrics_mod = importlib.import_module("steps.custom_metrics")
-            return [getattr(custom_metrics_mod, cm["function"]) for cm in custom_metrics]
-        except Exception as e:
-            raise MlflowException(
-                message="Failed to load custom metric functions",
-                error_code=BAD_REQUEST,
-            ) from e
 
     @staticmethod
     def _generate_worst_examples_dataframe(

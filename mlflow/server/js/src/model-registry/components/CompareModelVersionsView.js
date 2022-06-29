@@ -14,7 +14,6 @@ import Utils from '../../common/utils/Utils';
 import { Tabs, Switch } from 'antd';
 import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
 import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
-import { css } from 'emotion';
 import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
 import { FormattedMessage } from 'react-intl';
@@ -27,10 +26,10 @@ function CenteredText(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      className={css({
+      css={{
         textAlign: 'center',
         color: theme.colors.textSecondary,
-      })}
+      }}
       {...props}
     />
   );
@@ -40,7 +39,8 @@ function CompareTable(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className={`compare-table table ${css({
+      className='compare-table table'
+      css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
           padding: 0,
@@ -48,7 +48,7 @@ function CompareTable(props) {
         'td.highlight-data': {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
-      })}`}
+      }}
       {...props}
     />
   );
@@ -58,7 +58,7 @@ function CollapseButton(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <button
-      className={css({
+      css={{
         textAlign: 'left',
         display: 'flex',
         alignItems: 'center',
@@ -66,7 +66,7 @@ function CollapseButton(props) {
         backgroundColor: theme.colors.white,
         paddingLeft: 0,
         cursor: 'pointer',
-      })}
+      }}
       {...props}
     />
   );
@@ -152,9 +152,11 @@ export class CompareModelVersionsViewImpl extends Component {
 
     return (
       <div
-        className={`CompareModelVersionsView
-        ${compareModelVersionsViewClassName}
-        ${classNames.wrapper(runInfos.length)}`}
+        className='CompareModelVersionsView'
+        css={{
+          ...styles.compareModelVersionsView,
+          ...styles.wrapper(runInfos.length),
+        }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
@@ -715,86 +717,85 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const DEFAULT_COLUMN_WIDTH = 200;
-const classNames = {
-  wrapper: (numRuns) =>
-    css({
-      '.compare-table': {
-        // 1 extra unit for header column
-        minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-      },
-    }),
-};
 
-const compareModelVersionsViewClassName = css({
-  'button:focus': {
-    outline: 'none',
-    boxShadow: 'none',
+const styles = {
+  wrapper: (numRuns) => ({
+    '.compare-table': {
+      // 1 extra unit for header column
+      minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
+    },
+  }),
+  compareModelVersionsView: {
+    'button:focus': {
+      outline: 'none',
+      boxShadow: 'none',
+    },
+    'td.block-content th.block-content': {
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      tableLayout: 'fixed',
+      boxSizing: 'content-box',
+    },
+    'th.schema-table-header': {
+      height: 28,
+      padding: 0,
+    },
+    'tr.table-row': {
+      display: 'table',
+      width: '100%',
+      tableLayout: 'fixed',
+    },
+    'tr.hidden-row': {
+      display: 'none',
+    },
+    'tbody.scrollable-table': {
+      width: '100%',
+      display: 'block',
+      border: 'none',
+      maxHeight: 400,
+      overflowY: 'auto',
+    },
+    'tbody.schema-scrollable-table': {
+      maxHeight: 200,
+    },
+    '.switch-button-container': {
+      display: 'flex',
+      paddingTop: 16,
+      paddingBottom: 16,
+    },
+    'button.schema-collapse-button': {
+      textAlign: 'left',
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+    },
+    '.collapse-button': {
+      textAlign: 'left',
+      display: 'flex',
+      alignItems: 'center',
+      border: 'none',
+      backgroundColor: 'white',
+      paddingLeft: 0,
+    },
+    '.cell-content': {
+      maxWidth: '200px',
+      minWidth: '100px',
+    },
+    '.padding-left-text': {
+      paddingLeft: 8,
+    },
+    '.padding-right-text': {
+      paddingRight: 16,
+    },
+    '.toggle-switch': {
+      marginTop: 2,
+    },
+    '.header': {
+      paddingLeft: 8,
+      fontSize: 16,
+    },
   },
-  'td.block-content th.block-content': {
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
-    tableLayout: 'fixed',
-    boxSizing: 'content-box',
-  },
-  'th.schema-table-header': {
-    height: 28,
-    padding: 0,
-  },
-  'tr.table-row': {
-    display: 'table',
-    width: '100%',
-    tableLayout: 'fixed',
-  },
-  'tr.hidden-row': {
-    display: 'none',
-  },
-  'tbody.scrollable-table': {
-    width: '100%',
-    display: 'block',
-    border: 'none',
-    maxHeight: 400,
-    overflowY: 'auto',
-  },
-  'tbody.schema-scrollable-table': {
-    maxHeight: 200,
-  },
-  '.switch-button-container': {
-    display: 'flex',
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  'button.schema-collapse-button': {
-    textAlign: 'left',
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    border: 'none',
-  },
-  '.collapse-button': {
-    textAlign: 'left',
-    display: 'flex',
-    alignItems: 'center',
-    border: 'none',
-    backgroundColor: 'white',
-    paddingLeft: 0,
-  },
-  '.cell-content': {
-    maxWidth: '200px',
-    minWidth: '100px',
-  },
-  '.padding-left-text': {
-    paddingLeft: 8,
-  },
-  '.padding-right-text': {
-    paddingRight: 16,
-  },
-  '.toggle-switch': {
-    marginTop: 2,
-  },
-  '.header': {
-    paddingLeft: 8,
-    fontSize: 16,
-  },
-});
+};
 
 export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);

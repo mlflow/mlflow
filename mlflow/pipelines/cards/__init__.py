@@ -18,8 +18,6 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 CARD_PICKLE_NAME = "card.pkl"
 CARD_HTML_NAME = "card.html"
 
-# TODO: Make card save / load including card_resources directory
-_CARD_RESOURCE_DIR_NAME = f"{CARD_HTML_NAME}.resources"
 _PP_VARIABLE_LINK_REGEX = re.compile(r'<a\s+href="?(?P<href>#pp_var_[-0-9]+)"?\s*>')
 
 
@@ -233,7 +231,7 @@ class BaseCard:
             return pickle.load(f)
 
     @staticmethod
-    def render_table(table, columns=None):
+    def render_table(table, columns=None, hide_index=True):
         """
         Renders a table-like object as an HTML table.
 
@@ -241,6 +239,7 @@ class BaseCard:
         :param columns: Column names to use. If `table` doesn't have column names, this argument
             provides names for the columns. Otherwise, only the specified columns will be included
             in the output HTML table.
+        :param hide_index: Hide index column when rendering.
         """
         import pandas as pd
         from pandas.io.formats.style import Styler
@@ -262,11 +261,14 @@ class BaseCard:
                 }
             ]
         )
-        return (
-            styler.hide(axis="index").to_html()
-            if pandas_version >= Version("1.4.0")
-            else styler.hide_index().render()
-        )
+        if hide_index:
+            return (
+                styler.hide(axis="index").to_html()
+                if pandas_version >= Version("1.4.0")
+                else styler.hide_index().render()
+            )
+        else:
+            return styler.to_html() if pandas_version >= Version("1.4.0") else styler.render()
 
 
 class FailureCard(BaseCard):
