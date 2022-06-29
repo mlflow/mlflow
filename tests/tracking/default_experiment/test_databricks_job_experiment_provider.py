@@ -10,7 +10,7 @@ from mlflow.tracking.default_experiment.databricks_job_experiment_provider impor
     DatabricksJobExperimentProvider,
 )
 from tests.helper_functions import multi_context
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 def test_databricks_job_default_experiment_in_context():

@@ -19,7 +19,7 @@ import mlflow
 import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
@@ -36,7 +36,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
     val_metric = "val_{}".format(metric)
     test_metric = "test_{}".format(metric)
     np.random.seed(seed)
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf

@@ -127,7 +127,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             with mlflow.start_run() as run:
                 mlflow.log_param("p", 0)
@@ -161,7 +161,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_metric_info(history):
                 for m in history:
@@ -238,7 +238,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run with a tag under the default experiment (whose id is '0').
             tags = {"engineering": "ML Platform"}
@@ -291,7 +291,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_run_infos(run_infos):
@@ -356,7 +356,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_experiment_info(experiments):
@@ -406,7 +406,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             exp_id = client.create_experiment("Experiment")
@@ -439,7 +439,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Case-sensitive name
             client = MlflowClient()
@@ -480,7 +480,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
@@ -515,7 +515,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive
             client = MlflowClient()
@@ -546,7 +546,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
@@ -590,7 +590,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
@@ -652,7 +652,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -705,7 +705,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -753,7 +753,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create an experiment and set its tag
             client = MlflowClient()
@@ -789,7 +789,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
@@ -828,7 +828,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
@@ -881,7 +881,7 @@ class MlflowClient:
 
             import time
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import Metric, Param, RunTag
 
             def print_run_info(r):
@@ -927,7 +927,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
             with open("features.txt", 'w') as f:
@@ -1031,7 +1031,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
@@ -1064,7 +1064,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
@@ -1335,7 +1335,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
              def print_artifact_info(artifact):
                 print("artifact: {}".format(artifact.path))
@@ -1393,7 +1393,7 @@ class MlflowClient:
 
             import os
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
             with open("features.txt", 'w') as f:
@@ -1432,7 +1432,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -1473,7 +1473,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -1503,7 +1503,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -1559,7 +1559,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_run_info(runs):
@@ -1640,7 +1640,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
@@ -1678,7 +1678,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
@@ -1777,7 +1777,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_models_info(r_models):
                 print("--")
@@ -1837,7 +1837,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(models):
                 for m in models:
@@ -1900,7 +1900,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
 
@@ -1959,7 +1959,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(rm):
                 print("--")
@@ -2002,7 +2002,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_models_info(mv):
@@ -2068,7 +2068,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(rm):
                 print("--")
@@ -2114,7 +2114,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_models_info(r_models):
                 print("--")
@@ -2185,7 +2185,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2301,7 +2301,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2371,7 +2371,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2433,7 +2433,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_models_info(mv):
@@ -2511,7 +2511,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             # Create two runs Log MLflow entities
@@ -2566,7 +2566,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2609,7 +2609,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
 
@@ -2650,7 +2650,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2695,7 +2695,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2753,7 +2753,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
