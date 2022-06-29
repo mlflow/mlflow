@@ -45,7 +45,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
-        from mlflow.tracking import MlflowClient
+        from mlflow.tracking.client import MlflowClient
 
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()

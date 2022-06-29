@@ -10,6 +10,7 @@ import os
 
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.utils import mlflow_tags
 from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
@@ -23,7 +24,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
     successfully and have at least the parameters provided.
     """
     experiment_id = experiment_id if experiment_id is not None else _get_experiment_id()
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     all_run_infos = reversed(client.list_run_infos(experiment_id))
     for run_info in all_run_infos:
         full_run = client.get_run(run_info.run_id)
@@ -71,7 +72,7 @@ def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
         return existing_run
     print("Launching new run for entrypoint=%s and parameters=%s" % (entrypoint, parameters))
     submitted_run = mlflow.run(".", entrypoint, parameters=parameters)
-    return mlflow.tracking.MlflowClient().get_run(submitted_run.run_id)
+    return MlflowClient().get_run(submitted_run.run_id)
 
 
 @click.command()

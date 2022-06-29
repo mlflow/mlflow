@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import torch
 from iris import IrisClassification, IrisClassificationWithoutValidation
 import mlflow
+from mlflow import MlflowClient
 import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -11,7 +12,6 @@ from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
-from mlflow.tracking.client import MlflowClient
 
 NUM_EPOCHS = 20
 
@@ -24,7 +24,7 @@ def pytorch_model():
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
 
@@ -37,7 +37,7 @@ def pytorch_model_without_validation():
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
 
@@ -51,7 +51,7 @@ def pytorch_model_with_steps_logged(request):
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run, log_every_n_epoch, log_every_n_step
 
@@ -64,10 +64,10 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model, dm)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 
@@ -89,7 +89,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     # Checking if metrics are logged.
     # When autolog is configured with the default configuration to not log on steps,
     # then all metrics are logged per epoch, including step based metrics.
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_key in [
         "loss",
         "train_acc",
@@ -108,7 +108,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     assert data.params["optimizer_name"] == "Adam"
 
     # Testing model_summary.txt is saved
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
@@ -118,7 +118,7 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
     trainer, run = pytorch_model_without_validation
     assert not trainer.enable_validation
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_key in ["loss", "train_acc"]:
         assert metric_key in run.data.metrics
         metric_history = client.get_metric_history(run.info.run_id, metric_key)
@@ -139,7 +139,7 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
     num_logged_steps = trainer.global_step // log_every_n_step
     num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for (metric_key, expected_len) in [
         ("train_acc", num_logged_epochs),
         ("loss", num_logged_steps),
@@ -217,7 +217,7 @@ def pytorch_model_with_callback(patience):
         )
         trainer.fit(model, dm)
 
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
     return trainer, run
@@ -226,7 +226,7 @@ def pytorch_model_with_callback(patience):
 @pytest.mark.parametrize("patience", [3])
 def test_pytorch_early_stop_artifacts_logged(pytorch_model_with_callback):
     _, run = pytorch_model_with_callback
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "restored_model_checkpoint" in artifacts
@@ -236,7 +236,7 @@ def test_pytorch_early_stop_artifacts_logged(pytorch_model_with_callback):
 def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callback):
     _, run = pytorch_model_with_callback
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
@@ -270,10 +270,10 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
         )
         trainer.fit(model, dm)
 
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("restored_model_checkpoint" in artifacts) == log_models
 
@@ -292,7 +292,7 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
     val_loss_metric_history = client.get_metric_history(run.info.run_id, "val_loss")
     assert trainer.max_epochs == NUM_EPOCHS
@@ -310,7 +310,7 @@ def pytorch_model_tests():
     with mlflow.start_run() as run:
         trainer.fit(model, datamodule=dm)
         trainer.test(datamodule=dm)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
     return trainer, run
 
@@ -350,11 +350,11 @@ def test_pytorch_autologging_supports_data_parallel_execution():
         trainer.fit(model, datamodule=dm)
         trainer.test(datamodule=dm)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
 
     # Checking if metrics are logged
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
         assert metric_key in run.data.metrics
 
@@ -367,7 +367,7 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     assert data.params["optimizer_name"] == "Adam"
 
     # Testing model_summary.txt is saved
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert "model" in artifacts
