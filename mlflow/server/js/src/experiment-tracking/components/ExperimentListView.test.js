@@ -35,12 +35,7 @@ test('If searchInput is set to "Test" then first shown element in experiment lis
     .find('input[data-test-id="search-experiment-input"]')
     .first()
     .simulate('change', { target: { value: 'Test' } });
-  expect(
-    wrapper
-      .find('[data-test-id="experiment-list-item"]')
-      .first()
-      .text(),
-  ).toContain('Test');
+  expect(wrapper.find('[data-test-id="experiment-list-item"]').first().text()).toContain('Test');
 });
 
 test('If searchInput is set to "Test" and default experiment is active then no active element is shown in the experiment list', () => {
@@ -54,28 +49,19 @@ test('If searchInput is set to "Test" and default experiment is active then no a
 
 test('If button to create experiment is pressed then open CreateExperimentModal', () => {
   const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  wrapper
-    .find('[data-test-id="create-experiment-button"]')
-    .first()
-    .simulate('click');
+  wrapper.find('[data-test-id="create-experiment-button"]').first().simulate('click');
   expect(wrapper.find(CreateExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If button to delete experiment is pressed then open DeleteExperimentModal', () => {
   const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  wrapper
-    .find('[data-test-id="delete-experiment-button"]')
-    .first()
-    .simulate('click');
+  wrapper.find('[data-test-id="delete-experiment-button"]').first().simulate('click');
   expect(wrapper.find(DeleteExperimentModal).prop('isOpen')).toEqual(true);
 });
 
 test('If button to edit experiment is pressed then open RenameExperimentModal', () => {
   const wrapper = mountComponent({ experiments: Fixtures.experiments, activeExperimentIds: ['0'] });
-  wrapper
-    .find('[data-test-id="rename-experiment-button"]')
-    .first()
-    .simulate('click');
+  wrapper.find('[data-test-id="rename-experiment-button"]').first().simulate('click');
   expect(wrapper.find(RenameExperimentModal).prop('isOpen')).toEqual(true);
 });
 

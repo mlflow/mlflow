@@ -16,6 +16,14 @@ from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.tracking.fluent import set_experiment as fluent_set_experiment, _get_experiment_id
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
+from mlflow.utils.git_utils import get_git_repo_url, get_git_commit, get_git_branch
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_GIT_BRANCH,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_REPO_URL,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -195,15 +203,32 @@ def apply_pipeline_tracking_config(tracking_config: TrackingConfig):
     )
 
 
-def get_run_tags_env_vars() -> Dict[str, str]:
+def get_run_tags_env_vars(pipeline_root_path: str) -> Dict[str, str]:
     """
     Returns environment variables that should be set during step execution to ensure that MLflow
     Run Tags from the current context are applied to any MLflow Runs that are created during
     pipeline execution.
 
+    :param pipeline_root_path: The absolute path of the pipeline root directory on the local
+                               filesystem.
     :return: A dictionary of environment variable names and values.
     """
-    return {MLFLOW_RUN_CONTEXT_ENV_VAR: json.dumps(resolve_tags())}
+    run_context_tags = resolve_tags()
+
+    git_tags = {}
+    git_repo_url = get_git_repo_url(path=pipeline_root_path)
+    if git_repo_url:
+        git_tags[MLFLOW_SOURCE_NAME] = git_repo_url
+        git_tags[MLFLOW_GIT_REPO_URL] = git_repo_url
+        git_tags[LEGACY_MLFLOW_GIT_REPO_URL] = git_repo_url
+    git_commit = get_git_commit(path=pipeline_root_path)
+    if git_commit:
+        git_tags[MLFLOW_GIT_COMMIT] = git_commit
+    git_branch = get_git_branch(path=pipeline_root_path)
+    if git_branch:
+        git_tags[MLFLOW_GIT_BRANCH] = git_branch
+
+    return {MLFLOW_RUN_CONTEXT_ENV_VAR: json.dumps({**run_context_tags, **git_tags})}
 
 
 def log_code_snapshot(

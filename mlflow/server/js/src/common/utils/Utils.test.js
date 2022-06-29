@@ -326,6 +326,54 @@ test('setQueryParams', () => {
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
   );
+  expect(Utils.setQueryParams('https://localhost/foo?param=val', '?param=newval')).toEqual(
+    'https://localhost/foo?param=newval',
+  );
+  expect(Utils.setQueryParams('localhost/foo?param=val', '?param=newval')).toEqual(
+    'https://localhost/foo?param=newval',
+  );
+});
+
+test('ensureUrlScheme', () => {
+  expect(Utils.ensureUrlScheme('http://localhost/xyz/abc?o=123')).toEqual(
+    'http://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('HTTPS://localhost/xyz/abc?o=123')).toEqual(
+    'HTTPS://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123', 'http')).toEqual(
+    'http://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('user:pass@localhost/xyz/abc?o=123')).toEqual(
+    'https://user:pass@localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://user:pass@localhost/xyz/abc?o=123')).toEqual(
+    'https://user:pass@localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123', 'http')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'https')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'ws')).toEqual(
+    'ws://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('wss://localhost/xyz/abc?o=123')).toEqual(
+    'wss://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('scheme-with+symbols.123x://localhost/xyz/abc?o=123')).toEqual(
+    'scheme-with+symbols.123x://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('legal-schema://abc')).toEqual('legal-schema://abc');
+  expect(Utils.ensureUrlScheme('illegal_schema://abc')).toEqual('https://illegal_schema://abc');
+  expect(Utils.ensureUrlScheme(undefined)).toEqual(undefined);
 });
 
 test('addQueryParams', () => {
@@ -458,6 +506,17 @@ test('getSearchParamsFromUrl', () => {
   const url2 = '?';
   const url3 = '?searchInput=some-Input';
   const url4 = '?boolVal1=true&boolVal2=false';
+  // old style for arrays
+  const url5 =
+    'categorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=1&categorizedUncheckedKeys%5Bmetrics%5D%5B1%5D=%F0%9F%99%82';
+  const url6 = 'categorizedUncheckedKeys[metrics]=1,%F0%9F%99%82'; // new style for arrays
+  const url7 = 'a[b][]=c'; // single item array
+  const url8 = 'a[]='; // empty array
+  const bigArray = [...Array(501).keys()].map((x) => x.toString());
+  const bigArrayParams = 'arr=' + bigArray.join(',');
+  const bigArrayParamsOldStyle = bigArray.map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
+  const tooBigArrayParams = [...Array(502).keys()].map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
+  const uncheckedKeysObj = { categorizedUncheckedKeys: { metrics: ['1', '🙂'] } };
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
     searchInput: '',
   });
@@ -470,6 +529,13 @@ test('getSearchParamsFromUrl', () => {
     boolVal1: true,
     boolVal2: false,
   });
+  expect(Utils.getSearchParamsFromUrl(url5)).toEqual(uncheckedKeysObj);
+  expect(Utils.getSearchParamsFromUrl(url6)).toEqual(uncheckedKeysObj);
+  expect(Utils.getSearchParamsFromUrl(url7)).toEqual({ a: { b: ['c'] } });
+  expect(Utils.getSearchParamsFromUrl(url8)).toEqual({ a: [''] });
+  expect(Utils.getSearchParamsFromUrl(bigArrayParams)).toEqual({ arr: bigArray });
+  expect(Utils.getSearchParamsFromUrl(bigArrayParamsOldStyle)).toEqual({ arr: bigArray });
+  expect(Array.isArray(Utils.getSearchParamsFromUrl(tooBigArrayParams).arr)).toBe(false);
 });
 
 test('getSearchUrlFromState', () => {
@@ -477,12 +543,20 @@ test('getSearchUrlFromState', () => {
   const st1 = { a: 'example' };
   const st2 = { b: 'bbbbbb' };
   const st3 = { param: 'params', metrics: undefined, searchInput: 'someExpression' };
+  const st4 = { categorizedUncheckedKeys: { metrics: ['1', '2'] } };
+  const st5 = { a: [undefined] }; // array with undefined item
+  const st6 = { a: ['b'] }; // array with one item
+  const st7 = { a: ['🙂'] }; // array with emoji
   expect(Utils.getSearchUrlFromState(st0)).toEqual('');
   expect(Utils.getSearchUrlFromState(st1)).toEqual('a=example');
   expect(Utils.getSearchUrlFromState(st2)).toEqual('b=bbbbbb');
   expect(Utils.getSearchUrlFromState(st3)).toEqual(
     'param=params&metrics=&searchInput=someExpression',
   );
+  expect(Utils.getSearchUrlFromState(st4)).toEqual('categorizedUncheckedKeys[metrics]=1,2');
+  expect(Utils.getSearchUrlFromState(st5)).toEqual('a[]=');
+  expect(Utils.getSearchUrlFromState(st6)).toEqual('a[]=b');
+  expect(Utils.getSearchUrlFromState(st7)).toEqual('a[]=%F0%9F%99%82');
 });
 
 test('compareExperiments', () => {

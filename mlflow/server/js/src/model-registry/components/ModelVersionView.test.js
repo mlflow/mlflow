@@ -104,10 +104,7 @@ describe('ModelVersionView', () => {
           </BrowserRouter>
         </Provider>,
       );
-      wrapper
-        .find("[data-test-id='overflow-menu-trigger']")
-        .at(0)
-        .simulate('click');
+      wrapper.find("[data-test-id='overflow-menu-trigger']").at(0).simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
@@ -138,10 +135,7 @@ describe('ModelVersionView', () => {
           </BrowserRouter>
         </Provider>,
       );
-      wrapper
-        .find('button[data-test-id="overflow-menu-trigger"]')
-        .at(0)
-        .simulate('click');
+      wrapper.find('button[data-test-id="overflow-menu-trigger"]').at(0).simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
@@ -257,30 +251,18 @@ describe('ModelVersionView', () => {
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(4);
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(0)
-        .text(),
-    ).toBe('Registered At');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(1)
-        .text(),
-    ).toBe('Stage');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(2)
-        .text(),
-    ).toBe('Last Modified');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(3)
-        .text(),
-    ).toBe('Source Run');
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+      'Registered At',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
+      'Stage',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(2).text()).toBe(
+      'Last Modified',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(3).text()).toBe(
+      'Source Run',
+    );
   });
 
   test('creator description rendered if user_id is available', () => {
@@ -293,35 +275,20 @@ describe('ModelVersionView', () => {
     );
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(5);
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(0)
-        .text(),
-    ).toBe('Registered At');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(1)
-        .text(),
-    ).toBe('Creator');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(2)
-        .text(),
-    ).toBe('Stage');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(3)
-        .text(),
-    ).toBe('Last Modified');
-    expect(
-      wrapper
-        .find('.metadata-list span.ant-descriptions-item-label')
-        .at(4)
-        .text(),
-    ).toBe('Source Run');
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
+      'Registered At',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(1).text()).toBe(
+      'Creator',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(2).text()).toBe(
+      'Stage',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(3).text()).toBe(
+      'Last Modified',
+    );
+    expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(4).text()).toBe(
+      'Source Run',
+    );
   });
 });
