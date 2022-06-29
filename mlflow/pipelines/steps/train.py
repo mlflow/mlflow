@@ -154,8 +154,9 @@ class TrainStep(BaseStep):
                 "error": prediction_result - target_data,
             }
         )
+        train_predictions = model.predict(raw_train_df.drop(self.target_col, axis=1))
         worst_examples_df = BaseStep._generate_worst_examples_dataframe(
-            raw_validation_df, prediction_result, self.target_col
+            raw_train_df, train_predictions, self.target_col
         )
 
         card = self._build_step_card(
