@@ -648,8 +648,8 @@ export class MetricsPlotPanel extends React.Component {
             <Button
               css={{
                 marginLeft: '25px',
-                textAlign: justify,
-                textAlignLast: left,
+                textAlign: 'justify',
+                textAlignLast: 'left',
               }}
               onClick={this.onDownloadCsv}
             >
