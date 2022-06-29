@@ -645,7 +645,14 @@ export class MetricsPlotPanel extends React.Component {
               runDisplayNames={runDisplayNames}
               metricKeys={selectedMetricKeys}
             />
-            <Button className='csv-button-metrics' onClick={this.onDownloadCsv}>
+            <Button
+              css={{
+                marginLeft: '25px',
+                textAlign: justify,
+                textAlignLast: left,
+              }}
+              onClick={this.onDownloadCsv}
+            >
               <FormattedMessage
                 defaultMessage='Download CSV'
                 // eslint-disable-next-line max-len

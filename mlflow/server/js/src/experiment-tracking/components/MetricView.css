@@ -54,12 +54,6 @@
   margin: 20px 20px 20px 60px;
 }
 
-.metrics-plot-container .csv-button-metrics {
-  margin-left: 25px;
-  text-align: justify;
-  text-align-last: left;
-}
-
 .metrics-plot-container .metrics-summary .html-table-view {
   margin-bottom: 25px;
   /* Shrink to fit, so that scroll bars are aligned with the edge of the table */
