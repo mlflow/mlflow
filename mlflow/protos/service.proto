@@ -723,11 +723,12 @@ message SearchExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
-  // Maximum number of experiments desired. Max threshold is 3000.
-  // NOTE: the frontend will initially always override this parameter to 3000,
-  // but we include it so that we can adjust the number of max results fetched
-  // via static feature flag in the MLflow service as needed for stability purposes
-  optional int64 max_results = 1  [default = 100];
+  // Maximum number of experiments desired.
+  // Servers may select a desired default `max_results` value. All servers are
+  // guaranteed to support a `max_results` threshold of at least 1,000 but may
+  // support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
+  optional int64 max_results = 1;
 
   // Token indicating the page of experiments to fetch
   optional string page_token = 2;
