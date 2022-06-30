@@ -1678,7 +1678,7 @@ Deploy a ``python_function`` model on Azure Machine Learning
 The MLflow plugin `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ can deploy models to Azure ML for real-time inference with Azure Kubernetes Service (AKS), Azure Container Instances (ACI) and Azure Machine Learning Managed Inference.
 
 .. note:: 
-  Azure Machine Learning supports the deployment of MLflow models for batch-inference. However, this deployment target is not supported using the `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_. Please use any of the `other supported deployment methods <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_.
+  Azure Machine Learning supports the deployment of MLflow models for batch inference. However, the `azureml-mlflow <https://pypi.org/project/azureml-mlflow/>`_ library does not provide batch inference functionality. If you wish to perform batch inference, please see https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models> for more information.
 
 The resulting deployment accepts the following data formats as input:
 
