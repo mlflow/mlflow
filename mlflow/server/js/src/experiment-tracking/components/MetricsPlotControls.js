@@ -5,6 +5,7 @@ import { Radio, Switch, TreeSelect, Tooltip, Progress } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
+import { Button } from '../../shared/building_blocks/Button';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 
@@ -33,6 +34,7 @@ export class MetricsPlotControlsImpl extends React.Component {
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
     numRuns: PropTypes.number.isRequired,
     numCompletedRuns: PropTypes.number.isRequired,
+    handleDownloadCsv: PropTypes.func.isRequired,
   };
 
   handleMetricsSelectFilterChange = (text, option) =>
@@ -211,6 +213,22 @@ export class MetricsPlotControlsImpl extends React.Component {
             defaultChecked={yAxisLogScale}
             onChange={this.props.handleYAxisLogScaleChange}
           />
+        </div>
+        <div className='inline-control'>
+          <Button
+            css={{
+              textAlign: 'justify',
+              textAlignLast: 'left',
+            }}
+            onClick={this.props.handleDownloadCsv}
+          >
+            <FormattedMessage
+              defaultMessage='Download CSV'
+              // eslint-disable-next-line max-len
+              description='String for the download csv button to download metrics from this run offline in a CSV format'
+            />
+            <i className='fas fa-download' />
+          </Button>
         </div>
       </div>
     );
