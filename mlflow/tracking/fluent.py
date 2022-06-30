@@ -1041,6 +1041,44 @@ def list_experiments(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
+def search_experiments(
+    view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: Optional[int] = None,
+    filter_string: Optional[str] = None,
+    order_by: Optional[List[str]] = None,
+) -> List[Experiment]:
+    """
+    Search for experiments that match the specified search criteria.
+
+    :param view_type: Qualify requested type of experiments.
+    :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                        passed, all experiments will be returned for the File and SQL backends.
+                        For the REST backend, the server will pick a maximum number of results
+                        to return.
+    :param filter_string: Filter query string, defaults to searching for all experiments.
+    :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                     matching search results.
+    :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+             :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+             for the next page can be obtained via the ``token`` attribute of the object.
+    """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_experiments(
+            view_type=view_type,
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return _paginate(
+        pagination_wrapper_func,
+        SEARCH_MAX_RESULTS_DEFAULT,
+        max_results,
+    )
+
+
 def create_experiment(
     name: str,
     artifact_location: Optional[str] = None,

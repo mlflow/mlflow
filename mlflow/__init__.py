@@ -147,6 +147,7 @@ set_registry_uri = tracking.set_registry_uri
 get_experiment = mlflow.tracking.fluent.get_experiment
 get_experiment_by_name = mlflow.tracking.fluent.get_experiment_by_name
 list_experiments = mlflow.tracking.fluent.list_experiments
+search_experiments = mlflow.tracking.fluent.search_experiments
 get_tracking_uri = tracking.get_tracking_uri
 get_registry_uri = tracking.get_registry_uri
 create_experiment = mlflow.tracking.fluent.create_experiment

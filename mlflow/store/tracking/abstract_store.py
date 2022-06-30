@@ -37,6 +37,34 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        """
+        Search for experiments that match the specified search criteria.
+
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned for the File and SQL backends.
+                            For the REST backend, the server will pick a maximum number of results
+                            to return.
+        :param filter_string: Filter query string, defaults to searching for all experiments.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+        """
+        pass
+
+    @abstractmethod
     def create_experiment(self, name, artifact_location, tags):
         """
         Create a new experiment.

@@ -4,6 +4,7 @@ import random
 import time
 import uuid
 import threading
+from functools import reduce
 
 import math
 import sqlalchemy
@@ -38,7 +39,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
@@ -337,6 +338,116 @@ class SqlAlchemyStore(AbstractStore):
         return self._list_experiments(
             view_type=view_type, max_results=max_results, page_token=page_token, eager=True
         )
+
+    def _search_experiments(
+        self,
+        view_type,  # pylint: disable=unused-argument
+        max_results,
+        filter_string,
+        order_by,
+        page_token,
+    ):
+        def compute_next_token(current_size):
+            next_token = None
+            if max_results == current_size:
+                final_offset = offset + max_results
+                next_token = SearchExperimentsUtils.create_page_token(final_offset)
+
+            return next_token
+
+        if max_results and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at "
+                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                INVALID_PARAMETER_VALUE,
+            )
+        with self.ManagedSessionMaker() as session:
+            parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
+            attribute_filters = []
+            tag_filters = []
+            for f in parsed_filters:
+                typ = f["type"]
+                key = f["key"]
+                comparator = f["comparator"]
+                value = f["value"]
+                if typ == "attribute":
+                    attr = getattr(SqlExperiment, key)
+                    if comparator in ("LIKE", "ILIKE"):
+                        f = SearchUtils.get_sql_filter_ops(attr, comparator, self._get_dialect())(
+                            value
+                        )
+                    elif comparator == "=":
+                        f = attr == value
+                    elif comparator == "!=":
+                        f = attr != value
+                    else:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparator for attribute: {comparator}"
+                        )
+                    attribute_filters.append(f)
+                elif typ == "tag":
+                    if comparator == "=":
+                        f = (
+                            select(SqlExperimentTag)
+                            .filter(SqlExperimentTag.key == key, SqlExperimentTag.value == value)
+                            .subquery()
+                        )
+                    elif comparator == "!=":
+                        f = (
+                            select(SqlExperimentTag)
+                            .filter(SqlExperimentTag.key == key, SqlExperimentTag.value != value)
+                            .subquery()
+                        )
+                    else:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid comparator for tag: {comparator}"
+                        )
+                    tag_filters.append(f)
+                else:
+                    raise MlflowException.invalid_parameter_value(f"Invalid token type: {typ}")
+
+            order_by_clauses = []
+            for (typ, key, ascending) in map(
+                SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+            ):
+                if typ == "attribute":
+                    attr = getattr(SqlExperiment, key)
+                    order_by_clauses.append(attr.asc() if ascending else attr.desc())
+                else:
+                    raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {typ}")
+            # Add a tie-breaker
+            if order_by_clauses:
+                order_by_clauses.append(SqlExperiment.experiment_id.desc())
+
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+            lifecycle_stags = set(LifecycleStage.view_type_to_stages(view_type))
+
+            stmt = (
+                reduce(lambda s, f: s.join(f), tag_filters, select(SqlExperiment))
+                .options(*self._get_eager_experiment_query_options())
+                .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
+                .order_by(*order_by_clauses)
+                .offset(offset)
+                .limit(max_results)
+            )
+            queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
+            experiments = [e.to_mlflow_entity() for e in queried_experiments]
+            next_page_token = compute_next_token(len(experiments))
+
+        return experiments, next_page_token
+
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        experiments, next_page_token = self._search_experiments(
+            view_type, max_results, filter_string, order_by, page_token
+        )
+        return PagedList(experiments, next_page_token)
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
