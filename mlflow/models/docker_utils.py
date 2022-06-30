@@ -41,23 +41,25 @@ RUN pip install virtualenv
 if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
 
     # Expects proxies as PROTOCOL://HOSTNAME:PORT
-    _http_proxy = urlparse(os.environ["http_proxy"])
-    assert _http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
-    assert isinstance(_http_proxy.port, int), f"Invalid Proxy Port: {_http_proxy.port}"
+    parsed_http_proxy = urlparse(os.environ["http_proxy"])
+    assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
+    assert isinstance(parsed_http_proxy.port, int), f"Invalid Proxy Port: {parsed_http_proxy.port}"
 
-    _https_proxy = urlparse(os.environ["https_proxy"])
-    assert _https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
-    assert isinstance(_https_proxy.port, int), f"Invalid Proxy Port: {_https_proxy.port}"
+    parsed_https_proxy = urlparse(os.environ["https_proxy"])
+    assert parsed_https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
+    assert isinstance(
+        parsed_https_proxy.port, int
+    ), f"Invalid Proxy Port: {parsed_https_proxy.port}"
 
     MAVEN_PROXY = (
         " -DproxySet=true -Dhttp.proxyHost={http_proxy_host} "
         "-Dhttp.proxyPort={http_proxy_port} -Dhttps.proxyHost={https_proxy_host} "
         "-Dhttps.proxyPort={https_proxy_port} -Dhttps.nonProxyHosts=repo.maven.apache.org"
     ).format(
-        http_proxy_host=_http_proxy.hostname,
-        http_proxy_port=_http_proxy.port,
-        https_proxy_host=_https_proxy.hostname,
-        https_proxy_port=_https_proxy.port,
+        http_proxy_host=parsed_http_proxy.hostname,
+        http_proxy_port=parsed_http_proxy.port,
+        https_proxy_host=parsed_https_proxy.hostname,
+        https_proxy_port=parsed_https_proxy.port,
     )
 else:
     MAVEN_PROXY = ""  # No Proxy
