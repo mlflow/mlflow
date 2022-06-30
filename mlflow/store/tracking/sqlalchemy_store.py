@@ -363,67 +363,16 @@ class SqlAlchemyStore(AbstractStore):
             )
         with self.ManagedSessionMaker() as session:
             parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
-            attribute_filters = []
-            tag_filters = []
-            for f in parsed_filters:
-                typ = f["type"]
-                key = f["key"]
-                comparator = f["comparator"]
-                value = f["value"]
-                if typ == "attribute":
-                    attr = getattr(SqlExperiment, key)
-                    if comparator in ("LIKE", "ILIKE"):
-                        f = SearchUtils.get_sql_filter_ops(attr, comparator, self._get_dialect())(
-                            value
-                        )
-                    elif comparator == "=":
-                        f = attr == value
-                    elif comparator == "!=":
-                        f = attr != value
-                    else:
-                        raise MlflowException.invalid_parameter_value(
-                            f"Invalid comparator for attribute: {comparator}"
-                        )
-                    attribute_filters.append(f)
-                elif typ == "tag":
-                    if comparator == "=":
-                        f = (
-                            select(SqlExperimentTag)
-                            .filter(SqlExperimentTag.key == key, SqlExperimentTag.value == value)
-                            .subquery()
-                        )
-                    elif comparator == "!=":
-                        f = (
-                            select(SqlExperimentTag)
-                            .filter(SqlExperimentTag.key == key, SqlExperimentTag.value != value)
-                            .subquery()
-                        )
-                    else:
-                        raise MlflowException.invalid_parameter_value(
-                            f"Invalid comparator for tag: {comparator}"
-                        )
-                    tag_filters.append(f)
-                else:
-                    raise MlflowException.invalid_parameter_value(f"Invalid token type: {typ}")
+            attribute_filters, non_attribute_filters = _get_search_experiments_filter_clauses(
+                parsed_filters, self._get_dialect()
+            )
 
-            order_by_clauses = []
-            for (typ, key, ascending) in map(
-                SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
-            ):
-                if typ == "attribute":
-                    attr = getattr(SqlExperiment, key)
-                    order_by_clauses.append(attr.asc() if ascending else attr.desc())
-                else:
-                    raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {typ}")
-            # Add a tie-breaker
-            if order_by_clauses:
-                order_by_clauses.append(SqlExperiment.experiment_id.desc())
-
+            order_by_clauses = _get_search_experiments_order_by_clauses(order_by)
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             lifecycle_stags = set(LifecycleStage.view_type_to_stages(view_type))
 
             stmt = (
-                reduce(lambda s, f: s.join(f), tag_filters, select(SqlExperiment))
+                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
                 .options(*self._get_eager_experiment_query_options())
                 .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
                 .order_by(*order_by_clauses)
@@ -1382,3 +1331,61 @@ def _get_orderby_clauses(order_by_list, session):
         clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
     return select_clauses, clauses, ordering_joins
+
+
+def _get_search_experiments_filter_clauses(parsed_filters, dialect):
+    attribute_filters = []
+    non_attribute_filters = []
+    for f in parsed_filters:
+        typ = f["type"]
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+        if typ == "attribute":
+            attr = getattr(SqlExperiment, key)
+            if comparator in ("LIKE", "ILIKE"):
+                f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
+            elif comparator == "=":
+                f = attr == value
+            elif comparator == "!=":
+                f = attr != value
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for attribute: {comparator}"
+                )
+            attribute_filters.append(f)
+        elif typ == "tag":
+            if comparator == "=":
+                f = (
+                    select(SqlExperimentTag)
+                    .filter(SqlExperimentTag.key == key, SqlExperimentTag.value == value)
+                    .subquery()
+                )
+            elif comparator == "!=":
+                f = (
+                    select(SqlExperimentTag)
+                    .filter(SqlExperimentTag.key == key, SqlExperimentTag.value != value)
+                    .subquery()
+                )
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for tag: {comparator}"
+                )
+            non_attribute_filters.append(f)
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {typ}")
+
+    return attribute_filters, non_attribute_filters
+
+
+def _get_search_experiments_order_by_clauses(order_by):
+    order_by_clauses = []
+    for (typ, key, ascending) in map(
+        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+    ):
+        if typ == "attribute":
+            attr = getattr(SqlExperiment, key)
+            order_by_clauses.append(attr.asc() if ascending else attr.desc())
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {typ}")
+    return order_by_clauses + [SqlExperiment.experiment_id.desc()]  # Add a tie-breaker
