@@ -57,19 +57,24 @@ def _read_log_model_allowlist_from_file(allowlist_file):
         return allowlist
 
     url_parsed = urlparse(allowlist_file)
-    if url_parsed.scheme in ("file", ""):
-        if not os.path.exists(url_parsed.path):
+    scheme = url_parsed.scheme
+    path = url_parsed.path
+    if os.name == "nt" and not url_parsed.hostname:
+        path = scheme + "://" + path
+        scheme = ""
+    if scheme in ("file", ""):
+        if not os.path.exists(path):
             raise MlflowException.invalid_parameter_value(f"{allowlist_file} does not exist")
 
         with open(allowlist_file) as f:
             return _parse_allowlist_file(f)
     else:
         host_creds = MlflowHostCreds(
-            host=url_parsed.scheme + "://" + url_parsed.hostname or "",
+            host=scheme + "://" + (url_parsed.hostname or ""),
             username=url_parsed.username,
             password=url_parsed.password,
         )
-        response = http_request(host_creds=host_creds, endpoint=url_parsed.path, method="GET")
+        response = http_request(host_creds=host_creds, endpoint=path, method="GET")
         augmented_raise_for_status(response)
         return _parse_allowlist_file(response.iter_lines(decode_unicode=True))
 
