@@ -289,15 +289,13 @@ class RestStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST
             ):
                 return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(
-                databricks_pb2.REQUEST_LIMIT_EXCEEDED
-            ):
-                raise e
-            # Fall back to using ListExperiments-based implementation.
-            for experiment in self.list_experiments(ViewType.ALL):
-                if experiment.name == experiment_name:
-                    return experiment
-            return None
+            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                # Fall back to using ListExperiments-based implementation.
+                for experiment in self.list_experiments(ViewType.ALL):
+                    if experiment.name == experiment_name:
+                        return experiment
+                return None
+            raise e
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
