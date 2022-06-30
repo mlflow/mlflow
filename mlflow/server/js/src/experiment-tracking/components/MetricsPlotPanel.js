@@ -451,7 +451,7 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
-  onDownloadCsv = () => {
+  handleDownloadCsv = () => {
     const csv = convertMetricsToCsv(this.props.metricsWithRunInfoAndHistory);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, 'metrics.csv');
@@ -602,6 +602,7 @@ export class MetricsPlotPanel extends React.Component {
           initialLineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
+          handleDownloadCsv={this.handleDownloadCsv}
         />
         <div className='metrics-plot-data'>
           <RequestStateWrapper
@@ -645,21 +646,6 @@ export class MetricsPlotPanel extends React.Component {
               runDisplayNames={runDisplayNames}
               metricKeys={selectedMetricKeys}
             />
-            <Button
-              css={{
-                marginLeft: '25px',
-                textAlign: 'justify',
-                textAlignLast: 'left',
-              }}
-              onClick={this.onDownloadCsv}
-            >
-              <FormattedMessage
-                defaultMessage='Download CSV'
-                // eslint-disable-next-line max-len
-                description='String for the download csv button to download metrics from this run offline in a CSV format'
-              />
-              <i className='fas fa-download' />
-            </Button>
           </RequestStateWrapper>
         </div>
       </div>
