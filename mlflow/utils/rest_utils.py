@@ -14,7 +14,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import get_error_code, MlflowException, RestException
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -188,7 +188,10 @@ def verify_rest_response(response, endpoint):
                 endpoint,
                 response.status_code,
             )
-            raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+            raise MlflowException(
+                "%s. Response body: '%s'" % (base_msg, response.text),
+                error_code=get_error_code(response.status_code),
+            )
 
     # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
     # response
