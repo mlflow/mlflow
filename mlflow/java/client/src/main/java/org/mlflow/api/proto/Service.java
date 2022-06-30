@@ -481,6 +481,120 @@ public final class Service {
     // @@protoc_insertion_point(enum_scope:mlflow.RunStatus)
   }
 
+  /**
+   * Protobuf enum {@code mlflow.ExperimentAction}
+   */
+  public enum ExperimentAction
+      implements com.google.protobuf.ProtocolMessageEnum {
+    /**
+     * <code>NO_ACTION = 0;</code>
+     */
+    NO_ACTION(0),
+    /**
+     * <code>MODIFIY_PERMISSION = 1;</code>
+     */
+    MODIFIY_PERMISSION(1),
+    /**
+     * <code>DELETE = 2;</code>
+     */
+    DELETE(2),
+    /**
+     * <code>RENAME = 3;</code>
+     */
+    RENAME(3),
+    ;
+
+    /**
+     * <code>NO_ACTION = 0;</code>
+     */
+    public static final int NO_ACTION_VALUE = 0;
+    /**
+     * <code>MODIFIY_PERMISSION = 1;</code>
+     */
+    public static final int MODIFIY_PERMISSION_VALUE = 1;
+    /**
+     * <code>DELETE = 2;</code>
+     */
+    public static final int DELETE_VALUE = 2;
+    /**
+     * <code>RENAME = 3;</code>
+     */
+    public static final int RENAME_VALUE = 3;
+
+
+    public final int getNumber() {
+      return value;
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     * @deprecated Use {@link #forNumber(int)} instead.
+     */
+    @java.lang.Deprecated
+    public static ExperimentAction valueOf(int value) {
+      return forNumber(value);
+    }
+
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
+    public static ExperimentAction forNumber(int value) {
+      switch (value) {
+        case 0: return NO_ACTION;
+        case 1: return MODIFIY_PERMISSION;
+        case 2: return DELETE;
+        case 3: return RENAME;
+        default: return null;
+      }
+    }
+
+    public static com.google.protobuf.Internal.EnumLiteMap<ExperimentAction>
+        internalGetValueMap() {
+      return internalValueMap;
+    }
+    private static final com.google.protobuf.Internal.EnumLiteMap<
+        ExperimentAction> internalValueMap =
+          new com.google.protobuf.Internal.EnumLiteMap<ExperimentAction>() {
+            public ExperimentAction findValueByNumber(int number) {
+              return ExperimentAction.forNumber(number);
+            }
+          };
+
+    public final com.google.protobuf.Descriptors.EnumValueDescriptor
+        getValueDescriptor() {
+      return getDescriptor().getValues().get(ordinal());
+    }
+    public final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptorForType() {
+      return getDescriptor();
+    }
+    public static final com.google.protobuf.Descriptors.EnumDescriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.getDescriptor().getEnumTypes().get(3);
+    }
+
+    private static final ExperimentAction[] VALUES = values();
+
+    public static ExperimentAction valueOf(
+        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+      if (desc.getType() != getDescriptor()) {
+        throw new java.lang.IllegalArgumentException(
+          "EnumValueDescriptor is not for this type.");
+      }
+      return VALUES[desc.getIndex()];
+    }
+
+    private final int value;
+
+    private ExperimentAction(int value) {
+      this.value = value;
+    }
+
+    // @@protoc_insertion_point(enum_scope:mlflow.ExperimentAction)
+  }
+
   public interface MetricOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.Metric)
       com.google.protobuf.MessageOrBuilder {
@@ -15686,6 +15800,7257 @@ public final class Service {
 
     @java.lang.Override
     public org.mlflow.api.proto.Service.ListExperiments getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface SearchExperimentsOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SearchExperiments)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Qualifier for type of experiments to be returned.
+     * If unspecified, return only active experiments.
+     * </pre>
+     *
+     * <code>optional .mlflow.ViewType view_type = 1;</code>
+     * @return Whether the viewType field is set.
+     */
+    boolean hasViewType();
+    /**
+     * <pre>
+     * Qualifier for type of experiments to be returned.
+     * If unspecified, return only active experiments.
+     * </pre>
+     *
+     * <code>optional .mlflow.ViewType view_type = 1;</code>
+     * @return The viewType.
+     */
+    org.mlflow.api.proto.Service.ViewType getViewType();
+
+    /**
+     * <pre>
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2;</code>
+     * @return Whether the maxResults field is set.
+     */
+    boolean hasMaxResults();
+    /**
+     * <pre>
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2;</code>
+     * @return The maxResults.
+     */
+    long getMaxResults();
+
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return Whether the filter field is set.
+     */
+    boolean hasFilter();
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return The filter.
+     */
+    java.lang.String getFilter();
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return The bytes for filter.
+     */
+    com.google.protobuf.ByteString
+        getFilterBytes();
+
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @return A list containing the orderBy.
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @return The count of orderBy.
+     */
+    int getOrderByCount();
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
+  }
+  /**
+   * Protobuf type {@code mlflow.SearchExperiments}
+   */
+  public static final class SearchExperiments extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.SearchExperiments)
+      SearchExperimentsOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use SearchExperiments.newBuilder() to construct.
+    private SearchExperiments(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private SearchExperiments() {
+      viewType_ = 1;
+      pageToken_ = "";
+      filter_ = "";
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new SearchExperiments();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SearchExperiments(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Service.ViewType value = org.mlflow.api.proto.Service.ViewType.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(1, rawValue);
+              } else {
+                bitField0_ |= 0x00000001;
+                viewType_ = rawValue;
+              }
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              maxResults_ = input.readInt64();
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              pageToken_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              filter_ = bs;
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000010) != 0)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000010;
+              }
+              orderBy_.add(bs);
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000010) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.SearchExperiments.class, org.mlflow.api.proto.Service.SearchExperiments.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SearchExperiments.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      java.util.List<org.mlflow.api.proto.Service.Experiment> 
+          getExperimentsList();
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      org.mlflow.api.proto.Service.Experiment getExperiments(int index);
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      int getExperimentsCount();
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+          getExperimentsOrBuilderList();
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchExperiments.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SearchExperiments.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        experiments_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+                  experiments_ = new java.util.ArrayList<org.mlflow.api.proto.Service.Experiment>();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                experiments_.add(
+                    input.readMessage(org.mlflow.api.proto.Service.Experiment.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
+            experiments_ = java.util.Collections.unmodifiableList(experiments_);
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SearchExperiments.Response.class, org.mlflow.api.proto.Service.SearchExperiments.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int EXPERIMENTS_FIELD_NUMBER = 1;
+      private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_;
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<org.mlflow.api.proto.Service.Experiment> getExperimentsList() {
+        return experiments_;
+      }
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      @java.lang.Override
+      public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+          getExperimentsOrBuilderList() {
+        return experiments_;
+      }
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      @java.lang.Override
+      public int getExperimentsCount() {
+        return experiments_.size();
+      }
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.Experiment getExperiments(int index) {
+        return experiments_.get(index);
+      }
+      /**
+       * <pre>
+       * All experiments.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+          int index) {
+        return experiments_.get(index);
+      }
+
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 2;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      @java.lang.Override
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The nextPageToken.
+       */
+      @java.lang.Override
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to request next page of experiments for the same query.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 2;</code>
+       * @return The bytes for nextPageToken.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < experiments_.size(); i++) {
+          output.writeMessage(1, experiments_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 2, nextPageToken_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        for (int i = 0; i < experiments_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, experiments_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, nextPageToken_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.SearchExperiments.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.SearchExperiments.Response other = (org.mlflow.api.proto.Service.SearchExperiments.Response) obj;
+
+        if (!getExperimentsList()
+            .equals(other.getExperimentsList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
+        if (hasNextPageToken()) {
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getExperimentsCount() > 0) {
+          hash = (37 * hash) + EXPERIMENTS_FIELD_NUMBER;
+          hash = (53 * hash) + getExperimentsList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.SearchExperiments.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.SearchExperiments.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SearchExperiments.Response)
+          org.mlflow.api.proto.Service.SearchExperiments.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.SearchExperiments.Response.class, org.mlflow.api.proto.Service.SearchExperiments.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.SearchExperiments.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getExperimentsFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (experimentsBuilder_ == null) {
+            experiments_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            experimentsBuilder_.clear();
+          }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000002);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperiments.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.SearchExperiments.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperiments.Response build() {
+          org.mlflow.api.proto.Service.SearchExperiments.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperiments.Response buildPartial() {
+          org.mlflow.api.proto.Service.SearchExperiments.Response result = new org.mlflow.api.proto.Service.SearchExperiments.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (experimentsBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0)) {
+              experiments_ = java.util.Collections.unmodifiableList(experiments_);
+              bitField0_ = (bitField0_ & ~0x00000001);
+            }
+            result.experiments_ = experiments_;
+          } else {
+            result.experiments_ = experimentsBuilder_.build();
+          }
+          if (((from_bitField0_ & 0x00000002) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.SearchExperiments.Response) {
+            return mergeFrom((org.mlflow.api.proto.Service.SearchExperiments.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.SearchExperiments.Response other) {
+          if (other == org.mlflow.api.proto.Service.SearchExperiments.Response.getDefaultInstance()) return this;
+          if (experimentsBuilder_ == null) {
+            if (!other.experiments_.isEmpty()) {
+              if (experiments_.isEmpty()) {
+                experiments_ = other.experiments_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+              } else {
+                ensureExperimentsIsMutable();
+                experiments_.addAll(other.experiments_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.experiments_.isEmpty()) {
+              if (experimentsBuilder_.isEmpty()) {
+                experimentsBuilder_.dispose();
+                experimentsBuilder_ = null;
+                experiments_ = other.experiments_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+                experimentsBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getExperimentsFieldBuilder() : null;
+              } else {
+                experimentsBuilder_.addAllMessages(other.experiments_);
+              }
+            }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000002;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.SearchExperiments.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.SearchExperiments.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_ =
+          java.util.Collections.emptyList();
+        private void ensureExperimentsIsMutable() {
+          if (!((bitField0_ & 0x00000001) != 0)) {
+            experiments_ = new java.util.ArrayList<org.mlflow.api.proto.Service.Experiment>(experiments_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentsBuilder_;
+
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.Service.Experiment> getExperimentsList() {
+          if (experimentsBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(experiments_);
+          } else {
+            return experimentsBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public int getExperimentsCount() {
+          if (experimentsBuilder_ == null) {
+            return experiments_.size();
+          } else {
+            return experimentsBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment getExperiments(int index) {
+          if (experimentsBuilder_ == null) {
+            return experiments_.get(index);
+          } else {
+            return experimentsBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder setExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.set(index, value);
+            onChanged();
+          } else {
+            experimentsBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder setExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder addExperiments(org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.add(value);
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder addExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.add(index, value);
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder addExperiments(
+            org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.add(builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder addExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder addAllExperiments(
+            java.lang.Iterable<? extends org.mlflow.api.proto.Service.Experiment> values) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, experiments_);
+            onChanged();
+          } else {
+            experimentsBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder clearExperiments() {
+          if (experimentsBuilder_ == null) {
+            experiments_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+            onChanged();
+          } else {
+            experimentsBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public Builder removeExperiments(int index) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.remove(index);
+            onChanged();
+          } else {
+            experimentsBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment.Builder getExperimentsBuilder(
+            int index) {
+          return getExperimentsFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+            int index) {
+          if (experimentsBuilder_ == null) {
+            return experiments_.get(index);  } else {
+            return experimentsBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+             getExperimentsOrBuilderList() {
+          if (experimentsBuilder_ != null) {
+            return experimentsBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(experiments_);
+          }
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment.Builder addExperimentsBuilder() {
+          return getExperimentsFieldBuilder().addBuilder(
+              org.mlflow.api.proto.Service.Experiment.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public org.mlflow.api.proto.Service.Experiment.Builder addExperimentsBuilder(
+            int index) {
+          return getExperimentsFieldBuilder().addBuilder(
+              index, org.mlflow.api.proto.Service.Experiment.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * All experiments.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.Service.Experiment.Builder> 
+             getExperimentsBuilderList() {
+          return getExperimentsFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+            getExperimentsFieldBuilder() {
+          if (experimentsBuilder_ == null) {
+            experimentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder>(
+                    experiments_,
+                    ((bitField0_ & 0x00000001) != 0),
+                    getParentForChildren(),
+                    isClean());
+            experiments_ = null;
+          }
+          return experimentsBuilder_;
+        }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return Whether the nextPageToken field is set.
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000002) != 0);
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The nextPageToken.
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return The bytes for nextPageToken.
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000002);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Pagination token to request next page of experiments for the same query.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 2;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SearchExperiments.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SearchExperiments.Response)
+      private static final org.mlflow.api.proto.Service.SearchExperiments.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchExperiments.Response();
+      }
+
+      public static org.mlflow.api.proto.Service.SearchExperiments.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperiments.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int VIEW_TYPE_FIELD_NUMBER = 1;
+    private int viewType_;
+    /**
+     * <pre>
+     * Qualifier for type of experiments to be returned.
+     * If unspecified, return only active experiments.
+     * </pre>
+     *
+     * <code>optional .mlflow.ViewType view_type = 1;</code>
+     * @return Whether the viewType field is set.
+     */
+    @java.lang.Override public boolean hasViewType() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Qualifier for type of experiments to be returned.
+     * If unspecified, return only active experiments.
+     * </pre>
+     *
+     * <code>optional .mlflow.ViewType view_type = 1;</code>
+     * @return The viewType.
+     */
+    @java.lang.Override public org.mlflow.api.proto.Service.ViewType getViewType() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.Service.ViewType result = org.mlflow.api.proto.Service.ViewType.valueOf(viewType_);
+      return result == null ? org.mlflow.api.proto.Service.ViewType.ACTIVE_ONLY : result;
+    }
+
+    public static final int MAX_RESULTS_FIELD_NUMBER = 2;
+    private long maxResults_;
+    /**
+     * <pre>
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2;</code>
+     * @return Whether the maxResults field is set.
+     */
+    @java.lang.Override
+    public boolean hasMaxResults() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
+     * </pre>
+     *
+     * <code>optional int64 max_results = 2;</code>
+     * @return The maxResults.
+     */
+    @java.lang.Override
+    public long getMaxResults() {
+      return maxResults_;
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 3;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return Whether the pageToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The pageToken.
+     */
+    @java.lang.Override
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Pagination token to go to the next page based on a previous query.
+     * </pre>
+     *
+     * <code>optional string page_token = 3;</code>
+     * @return The bytes for pageToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int FILTER_FIELD_NUMBER = 4;
+    private volatile java.lang.Object filter_;
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return Whether the filter field is set.
+     */
+    @java.lang.Override
+    public boolean hasFilter() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return The filter.
+     */
+    @java.lang.Override
+    public java.lang.String getFilter() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          filter_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string filter = 4;</code>
+     * @return The bytes for filter.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getFilterBytes() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        filter_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int ORDER_BY_FIELD_NUMBER = 5;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @return A list containing the orderBy.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @return The count of orderBy.
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <code>repeated string order_by = 5;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeEnum(1, viewType_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeInt64(2, maxResults_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, pageToken_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, filter_);
+      }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, orderBy_.getRaw(i));
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(1, viewType_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(2, maxResults_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, pageToken_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, filter_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.SearchExperiments)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.SearchExperiments other = (org.mlflow.api.proto.Service.SearchExperiments) obj;
+
+      if (hasViewType() != other.hasViewType()) return false;
+      if (hasViewType()) {
+        if (viewType_ != other.viewType_) return false;
+      }
+      if (hasMaxResults() != other.hasMaxResults()) return false;
+      if (hasMaxResults()) {
+        if (getMaxResults()
+            != other.getMaxResults()) return false;
+      }
+      if (hasPageToken() != other.hasPageToken()) return false;
+      if (hasPageToken()) {
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
+      }
+      if (hasFilter() != other.hasFilter()) return false;
+      if (hasFilter()) {
+        if (!getFilter()
+            .equals(other.getFilter())) return false;
+      }
+      if (!getOrderByList()
+          .equals(other.getOrderByList())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasViewType()) {
+        hash = (37 * hash) + VIEW_TYPE_FIELD_NUMBER;
+        hash = (53 * hash) + viewType_;
+      }
+      if (hasMaxResults()) {
+        hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getMaxResults());
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasFilter()) {
+        hash = (37 * hash) + FILTER_FIELD_NUMBER;
+        hash = (53 * hash) + getFilter().hashCode();
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperiments parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.SearchExperiments prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchExperiments}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.SearchExperiments)
+        org.mlflow.api.proto.Service.SearchExperimentsOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SearchExperiments.class, org.mlflow.api.proto.Service.SearchExperiments.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.SearchExperiments.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        viewType_ = 1;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        maxResults_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        filter_ = "";
+        bitField0_ = (bitField0_ & ~0x00000008);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperiments_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperiments getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.SearchExperiments.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperiments build() {
+        org.mlflow.api.proto.Service.SearchExperiments result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperiments buildPartial() {
+        org.mlflow.api.proto.Service.SearchExperiments result = new org.mlflow.api.proto.Service.SearchExperiments(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.viewType_ = viewType_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.maxResults_ = maxResults_;
+          to_bitField0_ |= 0x00000002;
+        }
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.filter_ = filter_;
+        if (((bitField0_ & 0x00000010) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.orderBy_ = orderBy_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.SearchExperiments) {
+          return mergeFrom((org.mlflow.api.proto.Service.SearchExperiments)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.SearchExperiments other) {
+        if (other == org.mlflow.api.proto.Service.SearchExperiments.getDefaultInstance()) return this;
+        if (other.hasViewType()) {
+          setViewType(other.getViewType());
+        }
+        if (other.hasMaxResults()) {
+          setMaxResults(other.getMaxResults());
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000004;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        if (other.hasFilter()) {
+          bitField0_ |= 0x00000008;
+          filter_ = other.filter_;
+          onChanged();
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.SearchExperiments parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.SearchExperiments) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private int viewType_ = 1;
+      /**
+       * <pre>
+       * Qualifier for type of experiments to be returned.
+       * If unspecified, return only active experiments.
+       * </pre>
+       *
+       * <code>optional .mlflow.ViewType view_type = 1;</code>
+       * @return Whether the viewType field is set.
+       */
+      @java.lang.Override public boolean hasViewType() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Qualifier for type of experiments to be returned.
+       * If unspecified, return only active experiments.
+       * </pre>
+       *
+       * <code>optional .mlflow.ViewType view_type = 1;</code>
+       * @return The viewType.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ViewType getViewType() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.Service.ViewType result = org.mlflow.api.proto.Service.ViewType.valueOf(viewType_);
+        return result == null ? org.mlflow.api.proto.Service.ViewType.ACTIVE_ONLY : result;
+      }
+      /**
+       * <pre>
+       * Qualifier for type of experiments to be returned.
+       * If unspecified, return only active experiments.
+       * </pre>
+       *
+       * <code>optional .mlflow.ViewType view_type = 1;</code>
+       * @param value The viewType to set.
+       * @return This builder for chaining.
+       */
+      public Builder setViewType(org.mlflow.api.proto.Service.ViewType value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000001;
+        viewType_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Qualifier for type of experiments to be returned.
+       * If unspecified, return only active experiments.
+       * </pre>
+       *
+       * <code>optional .mlflow.ViewType view_type = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearViewType() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        viewType_ = 1;
+        onChanged();
+        return this;
+      }
+
+      private long maxResults_ ;
+      /**
+       * <pre>
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2;</code>
+       * @return Whether the maxResults field is set.
+       */
+      @java.lang.Override
+      public boolean hasMaxResults() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2;</code>
+       * @return The maxResults.
+       */
+      @java.lang.Override
+      public long getMaxResults() {
+        return maxResults_;
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2;</code>
+       * @param value The maxResults to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMaxResults(long value) {
+        bitField0_ |= 0x00000002;
+        maxResults_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
+       * </pre>
+       *
+       * <code>optional int64 max_results = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearMaxResults() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        maxResults_ = 0L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return Whether the pageToken field is set.
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The pageToken.
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return The bytes for pageToken.
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Pagination token to go to the next page based on a previous query.
+       * </pre>
+       *
+       * <code>optional string page_token = 3;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object filter_ = "";
+      /**
+       * <code>optional string filter = 4;</code>
+       * @return Whether the filter field is set.
+       */
+      public boolean hasFilter() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <code>optional string filter = 4;</code>
+       * @return The filter.
+       */
+      public java.lang.String getFilter() {
+        java.lang.Object ref = filter_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            filter_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string filter = 4;</code>
+       * @return The bytes for filter.
+       */
+      public com.google.protobuf.ByteString
+          getFilterBytes() {
+        java.lang.Object ref = filter_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          filter_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string filter = 4;</code>
+       * @param value The filter to set.
+       * @return This builder for chaining.
+       */
+      public Builder setFilter(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string filter = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearFilter() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        filter_ = getDefaultInstance().getFilter();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string filter = 4;</code>
+       * @param value The bytes for filter to set.
+       * @return This builder for chaining.
+       */
+      public Builder setFilterBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000008;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000010) != 0)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000010;
+         }
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @return A list containing the orderBy.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @return The count of orderBy.
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param index The index of the element to return.
+       * @return The orderBy at the given index.
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the orderBy at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param index The index to set the value at.
+       * @param value The orderBy to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param value The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param values The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>repeated string order_by = 5;</code>
+       * @param value The bytes of the orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.SearchExperiments)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.SearchExperiments)
+    private static final org.mlflow.api.proto.Service.SearchExperiments DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchExperiments();
+    }
+
+    public static org.mlflow.api.proto.Service.SearchExperiments getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SearchExperiments>
+        PARSER = new com.google.protobuf.AbstractParser<SearchExperiments>() {
+      @java.lang.Override
+      public SearchExperiments parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new SearchExperiments(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<SearchExperiments> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<SearchExperiments> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.SearchExperiments getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface SearchExperimentsDatabricksOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SearchExperimentsDatabricks)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Maximum number of experiments desired. Max threshold is 3000.
+     * NOTE: the frontend will initially always override this parameter to 3000,
+     * but we include it so that we can adjust the number of max results fetched
+     * via static feature flag in the MLflow service as needed for stability purposes
+     * </pre>
+     *
+     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * @return Whether the maxResults field is set.
+     */
+    boolean hasMaxResults();
+    /**
+     * <pre>
+     * Maximum number of experiments desired. Max threshold is 3000.
+     * NOTE: the frontend will initially always override this parameter to 3000,
+     * but we include it so that we can adjust the number of max results fetched
+     * via static feature flag in the MLflow service as needed for stability purposes
+     * </pre>
+     *
+     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * @return The maxResults.
+     */
+    long getMaxResults();
+
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return Whether the pageToken field is set.
+     */
+    boolean hasPageToken();
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return The pageToken.
+     */
+    java.lang.String getPageToken();
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return The bytes for pageToken.
+     */
+    com.google.protobuf.ByteString
+        getPageTokenBytes();
+
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return Whether the filter field is set.
+     */
+    boolean hasFilter();
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return The filter.
+     */
+    java.lang.String getFilter();
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return The bytes for filter.
+     */
+    com.google.protobuf.ByteString
+        getFilterBytes();
+
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @return A list containing the orderBy.
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @return The count of orderBy.
+     */
+    int getOrderByCount();
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
+  }
+  /**
+   * Protobuf type {@code mlflow.SearchExperimentsDatabricks}
+   */
+  public static final class SearchExperimentsDatabricks extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.SearchExperimentsDatabricks)
+      SearchExperimentsDatabricksOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use SearchExperimentsDatabricks.newBuilder() to construct.
+    private SearchExperimentsDatabricks(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private SearchExperimentsDatabricks() {
+      maxResults_ = 100L;
+      pageToken_ = "";
+      filter_ = "";
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new SearchExperimentsDatabricks();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SearchExperimentsDatabricks(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 8: {
+              bitField0_ |= 0x00000001;
+              maxResults_ = input.readInt64();
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              pageToken_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              filter_ = bs;
+              break;
+            }
+            case 34: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000008;
+              }
+              orderBy_.add(bs);
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000008) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.SearchExperimentsDatabricks.class, org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SearchExperimentsDatabricks.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Deprecated java.util.List<org.mlflow.api.proto.Service.Experiment> 
+          getExperimentsList();
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Deprecated org.mlflow.api.proto.Service.Experiment getExperiments(int index);
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Deprecated int getExperimentsCount();
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Deprecated java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+          getExperimentsOrBuilderList();
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Deprecated org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks> 
+          getExperimentsDatabricksList();
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      org.mlflow.api.proto.Service.ExperimentDatabricks getExperimentsDatabricks(int index);
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      int getExperimentsDatabricksCount();
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      java.util.List<? extends org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder> 
+          getExperimentsDatabricksOrBuilderList();
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder getExperimentsDatabricksOrBuilder(
+          int index);
+
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      boolean hasNextPageToken();
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
+       */
+      java.lang.String getNextPageToken();
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
+       */
+      com.google.protobuf.ByteString
+          getNextPageTokenBytes();
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchExperimentsDatabricks.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SearchExperimentsDatabricks.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+        experiments_ = java.util.Collections.emptyList();
+        experimentsDatabricks_ = java.util.Collections.emptyList();
+        nextPageToken_ = "";
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
+                  experiments_ = new java.util.ArrayList<org.mlflow.api.proto.Service.Experiment>();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                experiments_.add(
+                    input.readMessage(org.mlflow.api.proto.Service.Experiment.PARSER, extensionRegistry));
+                break;
+              }
+              case 18: {
+                if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                  experimentsDatabricks_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ExperimentDatabricks>();
+                  mutable_bitField0_ |= 0x00000002;
+                }
+                experimentsDatabricks_.add(
+                    input.readMessage(org.mlflow.api.proto.Service.ExperimentDatabricks.PARSER, extensionRegistry));
+                break;
+              }
+              case 26: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                bitField0_ |= 0x00000001;
+                nextPageToken_ = bs;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
+            experiments_ = java.util.Collections.unmodifiableList(experiments_);
+          }
+          if (((mutable_bitField0_ & 0x00000002) != 0)) {
+            experimentsDatabricks_ = java.util.Collections.unmodifiableList(experimentsDatabricks_);
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.class, org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int EXPERIMENTS_FIELD_NUMBER = 1;
+      private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_;
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Override
+      @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.Experiment> getExperimentsList() {
+        return experiments_;
+      }
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Override
+      @java.lang.Deprecated public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+          getExperimentsOrBuilderList() {
+        return experiments_;
+      }
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Override
+      @java.lang.Deprecated public int getExperimentsCount() {
+        return experiments_.size();
+      }
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Override
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.Experiment getExperiments(int index) {
+        return experiments_.get(index);
+      }
+      /**
+       * <pre>
+       * Experiments that match the search criteria
+       * DEPRECATED: Please use experiments_databricks instead.
+       * </pre>
+       *
+       * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+       */
+      @java.lang.Override
+      @java.lang.Deprecated public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+          int index) {
+        return experiments_.get(index);
+      }
+
+      public static final int EXPERIMENTS_DATABRICKS_FIELD_NUMBER = 2;
+      private java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks> experimentsDatabricks_;
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      @java.lang.Override
+      public java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks> getExperimentsDatabricksList() {
+        return experimentsDatabricks_;
+      }
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      @java.lang.Override
+      public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder> 
+          getExperimentsDatabricksOrBuilderList() {
+        return experimentsDatabricks_;
+      }
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      @java.lang.Override
+      public int getExperimentsDatabricksCount() {
+        return experimentsDatabricks_.size();
+      }
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks getExperimentsDatabricks(int index) {
+        return experimentsDatabricks_.get(index);
+      }
+      /**
+       * <pre>
+       * Internal Experiments that match the search criteria.
+       * These experiments have additional edge fields,
+       * such as actions allowed to perform on the experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder getExperimentsDatabricksOrBuilder(
+          int index) {
+        return experimentsDatabricks_.get(index);
+      }
+
+      public static final int NEXT_PAGE_TOKEN_FIELD_NUMBER = 3;
+      private volatile java.lang.Object nextPageToken_;
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return Whether the nextPageToken field is set.
+       */
+      @java.lang.Override
+      public boolean hasNextPageToken() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return The nextPageToken.
+       */
+      @java.lang.Override
+      public java.lang.String getNextPageToken() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            nextPageToken_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Token that can be used to retrieve the next page of experiments.
+       * An empty token means that no more experiments are available for retrieval.
+       * </pre>
+       *
+       * <code>optional string next_page_token = 3;</code>
+       * @return The bytes for nextPageToken.
+       */
+      @java.lang.Override
+      public com.google.protobuf.ByteString
+          getNextPageTokenBytes() {
+        java.lang.Object ref = nextPageToken_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          nextPageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < experiments_.size(); i++) {
+          output.writeMessage(1, experiments_.get(i));
+        }
+        for (int i = 0; i < experimentsDatabricks_.size(); i++) {
+          output.writeMessage(2, experimentsDatabricks_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 3, nextPageToken_);
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        for (int i = 0; i < experiments_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, experiments_.get(i));
+        }
+        for (int i = 0; i < experimentsDatabricks_.size(); i++) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(2, experimentsDatabricks_.get(i));
+        }
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, nextPageToken_);
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response other = (org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response) obj;
+
+        if (!getExperimentsList()
+            .equals(other.getExperimentsList())) return false;
+        if (!getExperimentsDatabricksList()
+            .equals(other.getExperimentsDatabricksList())) return false;
+        if (hasNextPageToken() != other.hasNextPageToken()) return false;
+        if (hasNextPageToken()) {
+          if (!getNextPageToken()
+              .equals(other.getNextPageToken())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getExperimentsCount() > 0) {
+          hash = (37 * hash) + EXPERIMENTS_FIELD_NUMBER;
+          hash = (53 * hash) + getExperimentsList().hashCode();
+        }
+        if (getExperimentsDatabricksCount() > 0) {
+          hash = (37 * hash) + EXPERIMENTS_DATABRICKS_FIELD_NUMBER;
+          hash = (53 * hash) + getExperimentsDatabricksList().hashCode();
+        }
+        if (hasNextPageToken()) {
+          hash = (37 * hash) + NEXT_PAGE_TOKEN_FIELD_NUMBER;
+          hash = (53 * hash) + getNextPageToken().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.SearchExperimentsDatabricks.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SearchExperimentsDatabricks.Response)
+          org.mlflow.api.proto.Service.SearchExperimentsDatabricks.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.class, org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getExperimentsFieldBuilder();
+            getExperimentsDatabricksFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (experimentsBuilder_ == null) {
+            experiments_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          } else {
+            experimentsBuilder_.clear();
+          }
+          if (experimentsDatabricksBuilder_ == null) {
+            experimentsDatabricks_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            experimentsDatabricksBuilder_.clear();
+          }
+          nextPageToken_ = "";
+          bitField0_ = (bitField0_ & ~0x00000004);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response build() {
+          org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response buildPartial() {
+          org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response result = new org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (experimentsBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0)) {
+              experiments_ = java.util.Collections.unmodifiableList(experiments_);
+              bitField0_ = (bitField0_ & ~0x00000001);
+            }
+            result.experiments_ = experiments_;
+          } else {
+            result.experiments_ = experimentsBuilder_.build();
+          }
+          if (experimentsDatabricksBuilder_ == null) {
+            if (((bitField0_ & 0x00000002) != 0)) {
+              experimentsDatabricks_ = java.util.Collections.unmodifiableList(experimentsDatabricks_);
+              bitField0_ = (bitField0_ & ~0x00000002);
+            }
+            result.experimentsDatabricks_ = experimentsDatabricks_;
+          } else {
+            result.experimentsDatabricks_ = experimentsDatabricksBuilder_.build();
+          }
+          if (((from_bitField0_ & 0x00000004) != 0)) {
+            to_bitField0_ |= 0x00000001;
+          }
+          result.nextPageToken_ = nextPageToken_;
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response) {
+            return mergeFrom((org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response other) {
+          if (other == org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response.getDefaultInstance()) return this;
+          if (experimentsBuilder_ == null) {
+            if (!other.experiments_.isEmpty()) {
+              if (experiments_.isEmpty()) {
+                experiments_ = other.experiments_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+              } else {
+                ensureExperimentsIsMutable();
+                experiments_.addAll(other.experiments_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.experiments_.isEmpty()) {
+              if (experimentsBuilder_.isEmpty()) {
+                experimentsBuilder_.dispose();
+                experimentsBuilder_ = null;
+                experiments_ = other.experiments_;
+                bitField0_ = (bitField0_ & ~0x00000001);
+                experimentsBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getExperimentsFieldBuilder() : null;
+              } else {
+                experimentsBuilder_.addAllMessages(other.experiments_);
+              }
+            }
+          }
+          if (experimentsDatabricksBuilder_ == null) {
+            if (!other.experimentsDatabricks_.isEmpty()) {
+              if (experimentsDatabricks_.isEmpty()) {
+                experimentsDatabricks_ = other.experimentsDatabricks_;
+                bitField0_ = (bitField0_ & ~0x00000002);
+              } else {
+                ensureExperimentsDatabricksIsMutable();
+                experimentsDatabricks_.addAll(other.experimentsDatabricks_);
+              }
+              onChanged();
+            }
+          } else {
+            if (!other.experimentsDatabricks_.isEmpty()) {
+              if (experimentsDatabricksBuilder_.isEmpty()) {
+                experimentsDatabricksBuilder_.dispose();
+                experimentsDatabricksBuilder_ = null;
+                experimentsDatabricks_ = other.experimentsDatabricks_;
+                bitField0_ = (bitField0_ & ~0x00000002);
+                experimentsDatabricksBuilder_ = 
+                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                     getExperimentsDatabricksFieldBuilder() : null;
+              } else {
+                experimentsDatabricksBuilder_.addAllMessages(other.experimentsDatabricks_);
+              }
+            }
+          }
+          if (other.hasNextPageToken()) {
+            bitField0_ |= 0x00000004;
+            nextPageToken_ = other.nextPageToken_;
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_ =
+          java.util.Collections.emptyList();
+        private void ensureExperimentsIsMutable() {
+          if (!((bitField0_ & 0x00000001) != 0)) {
+            experiments_ = new java.util.ArrayList<org.mlflow.api.proto.Service.Experiment>(experiments_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentsBuilder_;
+
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.Experiment> getExperimentsList() {
+          if (experimentsBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(experiments_);
+          } else {
+            return experimentsBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public int getExperimentsCount() {
+          if (experimentsBuilder_ == null) {
+            return experiments_.size();
+          } else {
+            return experimentsBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.Experiment getExperiments(int index) {
+          if (experimentsBuilder_ == null) {
+            return experiments_.get(index);
+          } else {
+            return experimentsBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder setExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.set(index, value);
+            onChanged();
+          } else {
+            experimentsBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder setExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder addExperiments(org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.add(value);
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder addExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment value) {
+          if (experimentsBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsIsMutable();
+            experiments_.add(index, value);
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder addExperiments(
+            org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.add(builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder addExperiments(
+            int index, org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder addAllExperiments(
+            java.lang.Iterable<? extends org.mlflow.api.proto.Service.Experiment> values) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, experiments_);
+            onChanged();
+          } else {
+            experimentsBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder clearExperiments() {
+          if (experimentsBuilder_ == null) {
+            experiments_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000001);
+            onChanged();
+          } else {
+            experimentsBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public Builder removeExperiments(int index) {
+          if (experimentsBuilder_ == null) {
+            ensureExperimentsIsMutable();
+            experiments_.remove(index);
+            onChanged();
+          } else {
+            experimentsBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.Experiment.Builder getExperimentsBuilder(
+            int index) {
+          return getExperimentsFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentsOrBuilder(
+            int index) {
+          if (experimentsBuilder_ == null) {
+            return experiments_.get(index);  } else {
+            return experimentsBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+             getExperimentsOrBuilderList() {
+          if (experimentsBuilder_ != null) {
+            return experimentsBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(experiments_);
+          }
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.Experiment.Builder addExperimentsBuilder() {
+          return getExperimentsFieldBuilder().addBuilder(
+              org.mlflow.api.proto.Service.Experiment.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public org.mlflow.api.proto.Service.Experiment.Builder addExperimentsBuilder(
+            int index) {
+          return getExperimentsFieldBuilder().addBuilder(
+              index, org.mlflow.api.proto.Service.Experiment.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Experiments that match the search criteria
+         * DEPRECATED: Please use experiments_databricks instead.
+         * </pre>
+         *
+         * <code>repeated .mlflow.Experiment experiments = 1 [deprecated = true];</code>
+         */
+        @java.lang.Deprecated public java.util.List<org.mlflow.api.proto.Service.Experiment.Builder> 
+             getExperimentsBuilderList() {
+          return getExperimentsFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+            getExperimentsFieldBuilder() {
+          if (experimentsBuilder_ == null) {
+            experimentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder>(
+                    experiments_,
+                    ((bitField0_ & 0x00000001) != 0),
+                    getParentForChildren(),
+                    isClean());
+            experiments_ = null;
+          }
+          return experimentsBuilder_;
+        }
+
+        private java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks> experimentsDatabricks_ =
+          java.util.Collections.emptyList();
+        private void ensureExperimentsDatabricksIsMutable() {
+          if (!((bitField0_ & 0x00000002) != 0)) {
+            experimentsDatabricks_ = new java.util.ArrayList<org.mlflow.api.proto.Service.ExperimentDatabricks>(experimentsDatabricks_);
+            bitField0_ |= 0x00000002;
+           }
+        }
+
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.ExperimentDatabricks, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder, org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder> experimentsDatabricksBuilder_;
+
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks> getExperimentsDatabricksList() {
+          if (experimentsDatabricksBuilder_ == null) {
+            return java.util.Collections.unmodifiableList(experimentsDatabricks_);
+          } else {
+            return experimentsDatabricksBuilder_.getMessageList();
+          }
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public int getExperimentsDatabricksCount() {
+          if (experimentsDatabricksBuilder_ == null) {
+            return experimentsDatabricks_.size();
+          } else {
+            return experimentsDatabricksBuilder_.getCount();
+          }
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentDatabricks getExperimentsDatabricks(int index) {
+          if (experimentsDatabricksBuilder_ == null) {
+            return experimentsDatabricks_.get(index);
+          } else {
+            return experimentsDatabricksBuilder_.getMessage(index);
+          }
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder setExperimentsDatabricks(
+            int index, org.mlflow.api.proto.Service.ExperimentDatabricks value) {
+          if (experimentsDatabricksBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.set(index, value);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.setMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder setExperimentsDatabricks(
+            int index, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder builderForValue) {
+          if (experimentsDatabricksBuilder_ == null) {
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.set(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.setMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder addExperimentsDatabricks(org.mlflow.api.proto.Service.ExperimentDatabricks value) {
+          if (experimentsDatabricksBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.add(value);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.addMessage(value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder addExperimentsDatabricks(
+            int index, org.mlflow.api.proto.Service.ExperimentDatabricks value) {
+          if (experimentsDatabricksBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.add(index, value);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.addMessage(index, value);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder addExperimentsDatabricks(
+            org.mlflow.api.proto.Service.ExperimentDatabricks.Builder builderForValue) {
+          if (experimentsDatabricksBuilder_ == null) {
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.add(builderForValue.build());
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.addMessage(builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder addExperimentsDatabricks(
+            int index, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder builderForValue) {
+          if (experimentsDatabricksBuilder_ == null) {
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.add(index, builderForValue.build());
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.addMessage(index, builderForValue.build());
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder addAllExperimentsDatabricks(
+            java.lang.Iterable<? extends org.mlflow.api.proto.Service.ExperimentDatabricks> values) {
+          if (experimentsDatabricksBuilder_ == null) {
+            ensureExperimentsDatabricksIsMutable();
+            com.google.protobuf.AbstractMessageLite.Builder.addAll(
+                values, experimentsDatabricks_);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.addAllMessages(values);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder clearExperimentsDatabricks() {
+          if (experimentsDatabricksBuilder_ == null) {
+            experimentsDatabricks_ = java.util.Collections.emptyList();
+            bitField0_ = (bitField0_ & ~0x00000002);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.clear();
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public Builder removeExperimentsDatabricks(int index) {
+          if (experimentsDatabricksBuilder_ == null) {
+            ensureExperimentsDatabricksIsMutable();
+            experimentsDatabricks_.remove(index);
+            onChanged();
+          } else {
+            experimentsDatabricksBuilder_.remove(index);
+          }
+          return this;
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentDatabricks.Builder getExperimentsDatabricksBuilder(
+            int index) {
+          return getExperimentsDatabricksFieldBuilder().getBuilder(index);
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder getExperimentsDatabricksOrBuilder(
+            int index) {
+          if (experimentsDatabricksBuilder_ == null) {
+            return experimentsDatabricks_.get(index);  } else {
+            return experimentsDatabricksBuilder_.getMessageOrBuilder(index);
+          }
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public java.util.List<? extends org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder> 
+             getExperimentsDatabricksOrBuilderList() {
+          if (experimentsDatabricksBuilder_ != null) {
+            return experimentsDatabricksBuilder_.getMessageOrBuilderList();
+          } else {
+            return java.util.Collections.unmodifiableList(experimentsDatabricks_);
+          }
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentDatabricks.Builder addExperimentsDatabricksBuilder() {
+          return getExperimentsDatabricksFieldBuilder().addBuilder(
+              org.mlflow.api.proto.Service.ExperimentDatabricks.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public org.mlflow.api.proto.Service.ExperimentDatabricks.Builder addExperimentsDatabricksBuilder(
+            int index) {
+          return getExperimentsDatabricksFieldBuilder().addBuilder(
+              index, org.mlflow.api.proto.Service.ExperimentDatabricks.getDefaultInstance());
+        }
+        /**
+         * <pre>
+         * Internal Experiments that match the search criteria.
+         * These experiments have additional edge fields,
+         * such as actions allowed to perform on the experiment.
+         * </pre>
+         *
+         * <code>repeated .mlflow.ExperimentDatabricks experiments_databricks = 2;</code>
+         */
+        public java.util.List<org.mlflow.api.proto.Service.ExperimentDatabricks.Builder> 
+             getExperimentsDatabricksBuilderList() {
+          return getExperimentsDatabricksFieldBuilder().getBuilderList();
+        }
+        private com.google.protobuf.RepeatedFieldBuilderV3<
+            org.mlflow.api.proto.Service.ExperimentDatabricks, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder, org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder> 
+            getExperimentsDatabricksFieldBuilder() {
+          if (experimentsDatabricksBuilder_ == null) {
+            experimentsDatabricksBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+                org.mlflow.api.proto.Service.ExperimentDatabricks, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder, org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder>(
+                    experimentsDatabricks_,
+                    ((bitField0_ & 0x00000002) != 0),
+                    getParentForChildren(),
+                    isClean());
+            experimentsDatabricks_ = null;
+          }
+          return experimentsDatabricksBuilder_;
+        }
+
+        private java.lang.Object nextPageToken_ = "";
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @return Whether the nextPageToken field is set.
+         */
+        public boolean hasNextPageToken() {
+          return ((bitField0_ & 0x00000004) != 0);
+        }
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @return The nextPageToken.
+         */
+        public java.lang.String getNextPageToken() {
+          java.lang.Object ref = nextPageToken_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              nextPageToken_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @return The bytes for nextPageToken.
+         */
+        public com.google.protobuf.ByteString
+            getNextPageTokenBytes() {
+          java.lang.Object ref = nextPageToken_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            nextPageToken_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @param value The nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageToken(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @return This builder for chaining.
+         */
+        public Builder clearNextPageToken() {
+          bitField0_ = (bitField0_ & ~0x00000004);
+          nextPageToken_ = getDefaultInstance().getNextPageToken();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Token that can be used to retrieve the next page of experiments.
+         * An empty token means that no more experiments are available for retrieval.
+         * </pre>
+         *
+         * <code>optional string next_page_token = 3;</code>
+         * @param value The bytes for nextPageToken to set.
+         * @return This builder for chaining.
+         */
+        public Builder setNextPageTokenBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+          nextPageToken_ = value;
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SearchExperimentsDatabricks.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SearchExperimentsDatabricks.Response)
+      private static final org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response();
+      }
+
+      public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int MAX_RESULTS_FIELD_NUMBER = 1;
+    private long maxResults_;
+    /**
+     * <pre>
+     * Maximum number of experiments desired. Max threshold is 3000.
+     * NOTE: the frontend will initially always override this parameter to 3000,
+     * but we include it so that we can adjust the number of max results fetched
+     * via static feature flag in the MLflow service as needed for stability purposes
+     * </pre>
+     *
+     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * @return Whether the maxResults field is set.
+     */
+    @java.lang.Override
+    public boolean hasMaxResults() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Maximum number of experiments desired. Max threshold is 3000.
+     * NOTE: the frontend will initially always override this parameter to 3000,
+     * but we include it so that we can adjust the number of max results fetched
+     * via static feature flag in the MLflow service as needed for stability purposes
+     * </pre>
+     *
+     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * @return The maxResults.
+     */
+    @java.lang.Override
+    public long getMaxResults() {
+      return maxResults_;
+    }
+
+    public static final int PAGE_TOKEN_FIELD_NUMBER = 2;
+    private volatile java.lang.Object pageToken_;
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return Whether the pageToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasPageToken() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return The pageToken.
+     */
+    @java.lang.Override
+    public java.lang.String getPageToken() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          pageToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Token indicating the page of experiments to fetch
+     * </pre>
+     *
+     * <code>optional string page_token = 2;</code>
+     * @return The bytes for pageToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPageTokenBytes() {
+      java.lang.Object ref = pageToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        pageToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int FILTER_FIELD_NUMBER = 3;
+    private volatile java.lang.Object filter_;
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return Whether the filter field is set.
+     */
+    @java.lang.Override
+    public boolean hasFilter() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return The filter.
+     */
+    @java.lang.Override
+    public java.lang.String getFilter() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          filter_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * </pre>
+     *
+     * <code>optional string filter = 3;</code>
+     * @return The bytes for filter.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getFilterBytes() {
+      java.lang.Object ref = filter_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        filter_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int ORDER_BY_FIELD_NUMBER = 4;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @return A list containing the orderBy.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @return The count of orderBy.
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <pre>
+     * List of columns for ordering search results, which can include experiment name and last updated
+     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Tiebreaks are done by experiment id DESC.
+     * </pre>
+     *
+     * <code>repeated string order_by = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeInt64(1, maxResults_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, pageToken_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, filter_);
+      }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 4, orderBy_.getRaw(i));
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt64Size(1, maxResults_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, pageToken_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, filter_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.SearchExperimentsDatabricks)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.SearchExperimentsDatabricks other = (org.mlflow.api.proto.Service.SearchExperimentsDatabricks) obj;
+
+      if (hasMaxResults() != other.hasMaxResults()) return false;
+      if (hasMaxResults()) {
+        if (getMaxResults()
+            != other.getMaxResults()) return false;
+      }
+      if (hasPageToken() != other.hasPageToken()) return false;
+      if (hasPageToken()) {
+        if (!getPageToken()
+            .equals(other.getPageToken())) return false;
+      }
+      if (hasFilter() != other.hasFilter()) return false;
+      if (hasFilter()) {
+        if (!getFilter()
+            .equals(other.getFilter())) return false;
+      }
+      if (!getOrderByList()
+          .equals(other.getOrderByList())) return false;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasMaxResults()) {
+        hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getMaxResults());
+      }
+      if (hasPageToken()) {
+        hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasFilter()) {
+        hash = (37 * hash) + FILTER_FIELD_NUMBER;
+        hash = (53 * hash) + getFilter().hashCode();
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.SearchExperimentsDatabricks prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.SearchExperimentsDatabricks}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.SearchExperimentsDatabricks)
+        org.mlflow.api.proto.Service.SearchExperimentsDatabricksOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SearchExperimentsDatabricks.class, org.mlflow.api.proto.Service.SearchExperimentsDatabricks.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.SearchExperimentsDatabricks.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        maxResults_ = 100L;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        pageToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        filter_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchExperimentsDatabricks_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperimentsDatabricks getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.SearchExperimentsDatabricks.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperimentsDatabricks build() {
+        org.mlflow.api.proto.Service.SearchExperimentsDatabricks result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchExperimentsDatabricks buildPartial() {
+        org.mlflow.api.proto.Service.SearchExperimentsDatabricks result = new org.mlflow.api.proto.Service.SearchExperimentsDatabricks(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.maxResults_ = maxResults_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.filter_ = filter_;
+        if (((bitField0_ & 0x00000008) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000008);
+        }
+        result.orderBy_ = orderBy_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.SearchExperimentsDatabricks) {
+          return mergeFrom((org.mlflow.api.proto.Service.SearchExperimentsDatabricks)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.SearchExperimentsDatabricks other) {
+        if (other == org.mlflow.api.proto.Service.SearchExperimentsDatabricks.getDefaultInstance()) return this;
+        if (other.hasMaxResults()) {
+          setMaxResults(other.getMaxResults());
+        }
+        if (other.hasPageToken()) {
+          bitField0_ |= 0x00000002;
+          pageToken_ = other.pageToken_;
+          onChanged();
+        }
+        if (other.hasFilter()) {
+          bitField0_ |= 0x00000004;
+          filter_ = other.filter_;
+          onChanged();
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000008);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.SearchExperimentsDatabricks parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.SearchExperimentsDatabricks) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private long maxResults_ = 100L;
+      /**
+       * <pre>
+       * Maximum number of experiments desired. Max threshold is 3000.
+       * NOTE: the frontend will initially always override this parameter to 3000,
+       * but we include it so that we can adjust the number of max results fetched
+       * via static feature flag in the MLflow service as needed for stability purposes
+       * </pre>
+       *
+       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * @return Whether the maxResults field is set.
+       */
+      @java.lang.Override
+      public boolean hasMaxResults() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired. Max threshold is 3000.
+       * NOTE: the frontend will initially always override this parameter to 3000,
+       * but we include it so that we can adjust the number of max results fetched
+       * via static feature flag in the MLflow service as needed for stability purposes
+       * </pre>
+       *
+       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * @return The maxResults.
+       */
+      @java.lang.Override
+      public long getMaxResults() {
+        return maxResults_;
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired. Max threshold is 3000.
+       * NOTE: the frontend will initially always override this parameter to 3000,
+       * but we include it so that we can adjust the number of max results fetched
+       * via static feature flag in the MLflow service as needed for stability purposes
+       * </pre>
+       *
+       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * @param value The maxResults to set.
+       * @return This builder for chaining.
+       */
+      public Builder setMaxResults(long value) {
+        bitField0_ |= 0x00000001;
+        maxResults_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum number of experiments desired. Max threshold is 3000.
+       * NOTE: the frontend will initially always override this parameter to 3000,
+       * but we include it so that we can adjust the number of max results fetched
+       * via static feature flag in the MLflow service as needed for stability purposes
+       * </pre>
+       *
+       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearMaxResults() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        maxResults_ = 100L;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object pageToken_ = "";
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @return Whether the pageToken field is set.
+       */
+      public boolean hasPageToken() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @return The pageToken.
+       */
+      public java.lang.String getPageToken() {
+        java.lang.Object ref = pageToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            pageToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @return The bytes for pageToken.
+       */
+      public com.google.protobuf.ByteString
+          getPageTokenBytes() {
+        java.lang.Object ref = pageToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          pageToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @param value The pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPageToken() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        pageToken_ = getDefaultInstance().getPageToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Token indicating the page of experiments to fetch
+       * </pre>
+       *
+       * <code>optional string page_token = 2;</code>
+       * @param value The bytes for pageToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPageTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        pageToken_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object filter_ = "";
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @return Whether the filter field is set.
+       */
+      public boolean hasFilter() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @return The filter.
+       */
+      public java.lang.String getFilter() {
+        java.lang.Object ref = filter_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            filter_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @return The bytes for filter.
+       */
+      public com.google.protobuf.ByteString
+          getFilterBytes() {
+        java.lang.Object ref = filter_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          filter_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @param value The filter to set.
+       * @return This builder for chaining.
+       */
+      public Builder setFilter(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearFilter() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        filter_ = getDefaultInstance().getFilter();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * </pre>
+       *
+       * <code>optional string filter = 3;</code>
+       * @param value The bytes for filter to set.
+       * @return This builder for chaining.
+       */
+      public Builder setFilterBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000004;
+        filter_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000008) != 0)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000008;
+         }
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @return A list containing the orderBy.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @return The count of orderBy.
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param index The index of the element to return.
+       * @return The orderBy at the given index.
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the orderBy at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param index The index to set the value at.
+       * @param value The orderBy to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param value The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param values The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns for ordering search results, which can include experiment name and last updated
+       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Tiebreaks are done by experiment id DESC.
+       * </pre>
+       *
+       * <code>repeated string order_by = 4;</code>
+       * @param value The bytes of the orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.SearchExperimentsDatabricks)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.SearchExperimentsDatabricks)
+    private static final org.mlflow.api.proto.Service.SearchExperimentsDatabricks DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchExperimentsDatabricks();
+    }
+
+    public static org.mlflow.api.proto.Service.SearchExperimentsDatabricks getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SearchExperimentsDatabricks>
+        PARSER = new com.google.protobuf.AbstractParser<SearchExperimentsDatabricks>() {
+      @java.lang.Override
+      public SearchExperimentsDatabricks parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new SearchExperimentsDatabricks(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<SearchExperimentsDatabricks> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<SearchExperimentsDatabricks> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.SearchExperimentsDatabricks getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface ExperimentDatabricksOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.ExperimentDatabricks)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     * @return Whether the experiment field is set.
+     */
+    boolean hasExperiment();
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     * @return The experiment.
+     */
+    org.mlflow.api.proto.Service.Experiment getExperiment();
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     */
+    org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder();
+
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @return A list containing the allowedActions.
+     */
+    java.util.List<org.mlflow.api.proto.Service.ExperimentAction> getAllowedActionsList();
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @return The count of allowedActions.
+     */
+    int getAllowedActionsCount();
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @param index The index of the element to return.
+     * @return The allowedActions at the given index.
+     */
+    org.mlflow.api.proto.Service.ExperimentAction getAllowedActions(int index);
+
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+     * @return Whether the experimentType field is set.
+     */
+    boolean hasExperimentType();
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+     * @return The experimentType.
+     */
+    org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType getExperimentType();
+
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+     * @return Whether the sourceType field is set.
+     */
+    boolean hasSourceType();
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+     * @return The sourceType.
+     */
+    org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType getSourceType();
+
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return Whether the sourceId field is set.
+     */
+    boolean hasSourceId();
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return The sourceId.
+     */
+    java.lang.String getSourceId();
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return The bytes for sourceId.
+     */
+    com.google.protobuf.ByteString
+        getSourceIdBytes();
+  }
+  /**
+   * <pre>
+   * Databricks internal Experiment
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.ExperimentDatabricks}
+   */
+  public static final class ExperimentDatabricks extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.ExperimentDatabricks)
+      ExperimentDatabricksOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use ExperimentDatabricks.newBuilder() to construct.
+    private ExperimentDatabricks(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private ExperimentDatabricks() {
+      allowedActions_ = java.util.Collections.emptyList();
+      experimentType_ = 0;
+      sourceType_ = 0;
+      sourceId_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ExperimentDatabricks();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private ExperimentDatabricks(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              org.mlflow.api.proto.Service.Experiment.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000001) != 0)) {
+                subBuilder = experiment_.toBuilder();
+              }
+              experiment_ = input.readMessage(org.mlflow.api.proto.Service.Experiment.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(experiment_);
+                experiment_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000001;
+              break;
+            }
+            case 16: {
+              int rawValue = input.readEnum();
+              @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Service.ExperimentAction value = org.mlflow.api.proto.Service.ExperimentAction.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(2, rawValue);
+              } else {
+                if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                  allowedActions_ = new java.util.ArrayList<java.lang.Integer>();
+                  mutable_bitField0_ |= 0x00000002;
+                }
+                allowedActions_.add(rawValue);
+              }
+              break;
+            }
+            case 18: {
+              int length = input.readRawVarint32();
+              int oldLimit = input.pushLimit(length);
+              while(input.getBytesUntilLimit() > 0) {
+                int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+                org.mlflow.api.proto.Service.ExperimentAction value = org.mlflow.api.proto.Service.ExperimentAction.valueOf(rawValue);
+                if (value == null) {
+                  unknownFields.mergeVarintField(2, rawValue);
+                } else {
+                  if (!((mutable_bitField0_ & 0x00000002) != 0)) {
+                    allowedActions_ = new java.util.ArrayList<java.lang.Integer>();
+                    mutable_bitField0_ |= 0x00000002;
+                  }
+                  allowedActions_.add(rawValue);
+                }
+              }
+              input.popLimit(oldLimit);
+              break;
+            }
+            case 24: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType value = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(3, rawValue);
+              } else {
+                bitField0_ |= 0x00000002;
+                experimentType_ = rawValue;
+              }
+              break;
+            }
+            case 32: {
+              int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType value = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(4, rawValue);
+              } else {
+                bitField0_ |= 0x00000004;
+                sourceType_ = rawValue;
+              }
+              break;
+            }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              sourceId_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        if (((mutable_bitField0_ & 0x00000002) != 0)) {
+          allowedActions_ = java.util.Collections.unmodifiableList(allowedActions_);
+        }
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentDatabricks_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentDatabricks_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.Service.ExperimentDatabricks.class, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder.class);
+    }
+
+    /**
+     * <pre>
+     * An enum defining the type of an Experiment.
+     * If an experiment's type is unspecified, it should be treated as Workspace experiments whose
+     * ACL and ID are generated by the webapp. For the non workspace type, all information related to
+     * the experiment is stored on the MLFlow tracking database.
+     * </pre>
+     *
+     * Protobuf enum {@code mlflow.ExperimentDatabricks.ExperimentType}
+     */
+    public enum ExperimentType
+        implements com.google.protobuf.ProtocolMessageEnum {
+      /**
+       * <pre>
+       * Default value if not set.
+       * </pre>
+       *
+       * <code>EXPERIMENT_TYPE_UNSPECIFIED = 0;</code>
+       */
+      EXPERIMENT_TYPE_UNSPECIFIED(0),
+      /**
+       * <pre>
+       * Non-WS experiments.
+       * </pre>
+       *
+       * <code>NON_WORKSPACE = 1;</code>
+       */
+      NON_WORKSPACE(1),
+      ;
+
+      /**
+       * <pre>
+       * Default value if not set.
+       * </pre>
+       *
+       * <code>EXPERIMENT_TYPE_UNSPECIFIED = 0;</code>
+       */
+      public static final int EXPERIMENT_TYPE_UNSPECIFIED_VALUE = 0;
+      /**
+       * <pre>
+       * Non-WS experiments.
+       * </pre>
+       *
+       * <code>NON_WORKSPACE = 1;</code>
+       */
+      public static final int NON_WORKSPACE_VALUE = 1;
+
+
+      public final int getNumber() {
+        return value;
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       * @deprecated Use {@link #forNumber(int)} instead.
+       */
+      @java.lang.Deprecated
+      public static ExperimentType valueOf(int value) {
+        return forNumber(value);
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       */
+      public static ExperimentType forNumber(int value) {
+        switch (value) {
+          case 0: return EXPERIMENT_TYPE_UNSPECIFIED;
+          case 1: return NON_WORKSPACE;
+          default: return null;
+        }
+      }
+
+      public static com.google.protobuf.Internal.EnumLiteMap<ExperimentType>
+          internalGetValueMap() {
+        return internalValueMap;
+      }
+      private static final com.google.protobuf.Internal.EnumLiteMap<
+          ExperimentType> internalValueMap =
+            new com.google.protobuf.Internal.EnumLiteMap<ExperimentType>() {
+              public ExperimentType findValueByNumber(int number) {
+                return ExperimentType.forNumber(number);
+              }
+            };
+
+      public final com.google.protobuf.Descriptors.EnumValueDescriptor
+          getValueDescriptor() {
+        return getDescriptor().getValues().get(ordinal());
+      }
+      public final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptorForType() {
+        return getDescriptor();
+      }
+      public static final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.ExperimentDatabricks.getDescriptor().getEnumTypes().get(0);
+      }
+
+      private static final ExperimentType[] VALUES = values();
+
+      public static ExperimentType valueOf(
+          com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+        if (desc.getType() != getDescriptor()) {
+          throw new java.lang.IllegalArgumentException(
+            "EnumValueDescriptor is not for this type.");
+        }
+        return VALUES[desc.getIndex()];
+      }
+
+      private final int value;
+
+      private ExperimentType(int value) {
+        this.value = value;
+      }
+
+      // @@protoc_insertion_point(enum_scope:mlflow.ExperimentDatabricks.ExperimentType)
+    }
+
+    /**
+     * <pre>
+     * An enum identifying the source type in which the experiment is created.
+     * For non-Workspace experiments (experiment_type = NON_WORKSPACE), source_type must be specified.
+     * </pre>
+     *
+     * Protobuf enum {@code mlflow.ExperimentDatabricks.ExperimentSourceType}
+     */
+    public enum ExperimentSourceType
+        implements com.google.protobuf.ProtocolMessageEnum {
+      /**
+       * <pre>
+       * Default value if not set.
+       * </pre>
+       *
+       * <code>SOURCE_TYPE_UNSPECIFIED = 0;</code>
+       */
+      SOURCE_TYPE_UNSPECIFIED(0),
+      /**
+       * <pre>
+       * Indicates that the experiment is created in a Databricks Job.
+       * </pre>
+       *
+       * <code>JOB = 1;</code>
+       */
+      JOB(1),
+      /**
+       * <pre>
+       * Indicates that this is a default experiment for a notebook *in a repo*.
+       * </pre>
+       *
+       * <code>REPO_NOTEBOOK = 2;</code>
+       */
+      REPO_NOTEBOOK(2),
+      ;
+
+      /**
+       * <pre>
+       * Default value if not set.
+       * </pre>
+       *
+       * <code>SOURCE_TYPE_UNSPECIFIED = 0;</code>
+       */
+      public static final int SOURCE_TYPE_UNSPECIFIED_VALUE = 0;
+      /**
+       * <pre>
+       * Indicates that the experiment is created in a Databricks Job.
+       * </pre>
+       *
+       * <code>JOB = 1;</code>
+       */
+      public static final int JOB_VALUE = 1;
+      /**
+       * <pre>
+       * Indicates that this is a default experiment for a notebook *in a repo*.
+       * </pre>
+       *
+       * <code>REPO_NOTEBOOK = 2;</code>
+       */
+      public static final int REPO_NOTEBOOK_VALUE = 2;
+
+
+      public final int getNumber() {
+        return value;
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       * @deprecated Use {@link #forNumber(int)} instead.
+       */
+      @java.lang.Deprecated
+      public static ExperimentSourceType valueOf(int value) {
+        return forNumber(value);
+      }
+
+      /**
+       * @param value The numeric wire value of the corresponding enum entry.
+       * @return The enum associated with the given numeric wire value.
+       */
+      public static ExperimentSourceType forNumber(int value) {
+        switch (value) {
+          case 0: return SOURCE_TYPE_UNSPECIFIED;
+          case 1: return JOB;
+          case 2: return REPO_NOTEBOOK;
+          default: return null;
+        }
+      }
+
+      public static com.google.protobuf.Internal.EnumLiteMap<ExperimentSourceType>
+          internalGetValueMap() {
+        return internalValueMap;
+      }
+      private static final com.google.protobuf.Internal.EnumLiteMap<
+          ExperimentSourceType> internalValueMap =
+            new com.google.protobuf.Internal.EnumLiteMap<ExperimentSourceType>() {
+              public ExperimentSourceType findValueByNumber(int number) {
+                return ExperimentSourceType.forNumber(number);
+              }
+            };
+
+      public final com.google.protobuf.Descriptors.EnumValueDescriptor
+          getValueDescriptor() {
+        return getDescriptor().getValues().get(ordinal());
+      }
+      public final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptorForType() {
+        return getDescriptor();
+      }
+      public static final com.google.protobuf.Descriptors.EnumDescriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.ExperimentDatabricks.getDescriptor().getEnumTypes().get(1);
+      }
+
+      private static final ExperimentSourceType[] VALUES = values();
+
+      public static ExperimentSourceType valueOf(
+          com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
+        if (desc.getType() != getDescriptor()) {
+          throw new java.lang.IllegalArgumentException(
+            "EnumValueDescriptor is not for this type.");
+        }
+        return VALUES[desc.getIndex()];
+      }
+
+      private final int value;
+
+      private ExperimentSourceType(int value) {
+        this.value = value;
+      }
+
+      // @@protoc_insertion_point(enum_scope:mlflow.ExperimentDatabricks.ExperimentSourceType)
+    }
+
+    private int bitField0_;
+    public static final int EXPERIMENT_FIELD_NUMBER = 1;
+    private org.mlflow.api.proto.Service.Experiment experiment_;
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     * @return Whether the experiment field is set.
+     */
+    @java.lang.Override
+    public boolean hasExperiment() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     * @return The experiment.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.Experiment getExperiment() {
+      return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+    }
+    /**
+     * <pre>
+     * The Experiment as defined in mlflow/api/proto/service.proto.
+     * </pre>
+     *
+     * <code>optional .mlflow.Experiment experiment = 1;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder() {
+      return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+    }
+
+    public static final int ALLOWED_ACTIONS_FIELD_NUMBER = 2;
+    private java.util.List<java.lang.Integer> allowedActions_;
+    private static final com.google.protobuf.Internal.ListAdapter.Converter<
+        java.lang.Integer, org.mlflow.api.proto.Service.ExperimentAction> allowedActions_converter_ =
+            new com.google.protobuf.Internal.ListAdapter.Converter<
+                java.lang.Integer, org.mlflow.api.proto.Service.ExperimentAction>() {
+              public org.mlflow.api.proto.Service.ExperimentAction convert(java.lang.Integer from) {
+                @SuppressWarnings("deprecation")
+                org.mlflow.api.proto.Service.ExperimentAction result = org.mlflow.api.proto.Service.ExperimentAction.valueOf(from);
+                return result == null ? org.mlflow.api.proto.Service.ExperimentAction.NO_ACTION : result;
+              }
+            };
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @return A list containing the allowedActions.
+     */
+    @java.lang.Override
+    public java.util.List<org.mlflow.api.proto.Service.ExperimentAction> getAllowedActionsList() {
+      return new com.google.protobuf.Internal.ListAdapter<
+          java.lang.Integer, org.mlflow.api.proto.Service.ExperimentAction>(allowedActions_, allowedActions_converter_);
+    }
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @return The count of allowedActions.
+     */
+    @java.lang.Override
+    public int getAllowedActionsCount() {
+      return allowedActions_.size();
+    }
+    /**
+     * <pre>
+     * Permissible actions by requesting user on experiment.
+     * </pre>
+     *
+     * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+     * @param index The index of the element to return.
+     * @return The allowedActions at the given index.
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ExperimentAction getAllowedActions(int index) {
+      return allowedActions_converter_.convert(allowedActions_.get(index));
+    }
+
+    public static final int EXPERIMENT_TYPE_FIELD_NUMBER = 3;
+    private int experimentType_;
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+     * @return Whether the experimentType field is set.
+     */
+    @java.lang.Override public boolean hasExperimentType() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+     * @return The experimentType.
+     */
+    @java.lang.Override public org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType getExperimentType() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType result = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType.valueOf(experimentType_);
+      return result == null ? org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType.EXPERIMENT_TYPE_UNSPECIFIED : result;
+    }
+
+    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
+    private int sourceType_;
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+     * @return Whether the sourceType field is set.
+     */
+    @java.lang.Override public boolean hasSourceType() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+     * @return The sourceType.
+     */
+    @java.lang.Override public org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType getSourceType() {
+      @SuppressWarnings("deprecation")
+      org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType result = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType.valueOf(sourceType_);
+      return result == null ? org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType.SOURCE_TYPE_UNSPECIFIED : result;
+    }
+
+    public static final int SOURCE_ID_FIELD_NUMBER = 5;
+    private volatile java.lang.Object sourceId_;
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return Whether the sourceId field is set.
+     */
+    @java.lang.Override
+    public boolean hasSourceId() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return The sourceId.
+     */
+    @java.lang.Override
+    public java.lang.String getSourceId() {
+      java.lang.Object ref = sourceId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          sourceId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * A unique ID identifying the experiment creation source.
+     * </pre>
+     *
+     * <code>optional string source_id = 5;</code>
+     * @return The bytes for sourceId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getSourceIdBytes() {
+      java.lang.Object ref = sourceId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        sourceId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        output.writeMessage(1, getExperiment());
+      }
+      for (int i = 0; i < allowedActions_.size(); i++) {
+        output.writeEnum(2, allowedActions_.get(i));
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        output.writeEnum(3, experimentType_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        output.writeEnum(4, sourceType_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, sourceId_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(1, getExperiment());
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < allowedActions_.size(); i++) {
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeEnumSizeNoTag(allowedActions_.get(i));
+        }
+        size += dataSize;
+        size += 1 * allowedActions_.size();
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(3, experimentType_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeEnumSize(4, sourceType_);
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, sourceId_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.Service.ExperimentDatabricks)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.Service.ExperimentDatabricks other = (org.mlflow.api.proto.Service.ExperimentDatabricks) obj;
+
+      if (hasExperiment() != other.hasExperiment()) return false;
+      if (hasExperiment()) {
+        if (!getExperiment()
+            .equals(other.getExperiment())) return false;
+      }
+      if (!allowedActions_.equals(other.allowedActions_)) return false;
+      if (hasExperimentType() != other.hasExperimentType()) return false;
+      if (hasExperimentType()) {
+        if (experimentType_ != other.experimentType_) return false;
+      }
+      if (hasSourceType() != other.hasSourceType()) return false;
+      if (hasSourceType()) {
+        if (sourceType_ != other.sourceType_) return false;
+      }
+      if (hasSourceId() != other.hasSourceId()) return false;
+      if (hasSourceId()) {
+        if (!getSourceId()
+            .equals(other.getSourceId())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasExperiment()) {
+        hash = (37 * hash) + EXPERIMENT_FIELD_NUMBER;
+        hash = (53 * hash) + getExperiment().hashCode();
+      }
+      if (getAllowedActionsCount() > 0) {
+        hash = (37 * hash) + ALLOWED_ACTIONS_FIELD_NUMBER;
+        hash = (53 * hash) + allowedActions_.hashCode();
+      }
+      if (hasExperimentType()) {
+        hash = (37 * hash) + EXPERIMENT_TYPE_FIELD_NUMBER;
+        hash = (53 * hash) + experimentType_;
+      }
+      if (hasSourceType()) {
+        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
+        hash = (53 * hash) + sourceType_;
+      }
+      if (hasSourceId()) {
+        hash = (37 * hash) + SOURCE_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getSourceId().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.Service.ExperimentDatabricks prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Databricks internal Experiment
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.ExperimentDatabricks}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.ExperimentDatabricks)
+        org.mlflow.api.proto.Service.ExperimentDatabricksOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentDatabricks_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentDatabricks_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.ExperimentDatabricks.class, org.mlflow.api.proto.Service.ExperimentDatabricks.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.Service.ExperimentDatabricks.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+          getExperimentFieldBuilder();
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        if (experimentBuilder_ == null) {
+          experiment_ = null;
+        } else {
+          experimentBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000001);
+        allowedActions_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000002);
+        experimentType_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        sourceType_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000008);
+        sourceId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_ExperimentDatabricks_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks getDefaultInstanceForType() {
+        return org.mlflow.api.proto.Service.ExperimentDatabricks.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks build() {
+        org.mlflow.api.proto.Service.ExperimentDatabricks result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks buildPartial() {
+        org.mlflow.api.proto.Service.ExperimentDatabricks result = new org.mlflow.api.proto.Service.ExperimentDatabricks(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          if (experimentBuilder_ == null) {
+            result.experiment_ = experiment_;
+          } else {
+            result.experiment_ = experimentBuilder_.build();
+          }
+          to_bitField0_ |= 0x00000001;
+        }
+        if (((bitField0_ & 0x00000002) != 0)) {
+          allowedActions_ = java.util.Collections.unmodifiableList(allowedActions_);
+          bitField0_ = (bitField0_ & ~0x00000002);
+        }
+        result.allowedActions_ = allowedActions_;
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.experimentType_ = experimentType_;
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.sourceType_ = sourceType_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.sourceId_ = sourceId_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.Service.ExperimentDatabricks) {
+          return mergeFrom((org.mlflow.api.proto.Service.ExperimentDatabricks)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.Service.ExperimentDatabricks other) {
+        if (other == org.mlflow.api.proto.Service.ExperimentDatabricks.getDefaultInstance()) return this;
+        if (other.hasExperiment()) {
+          mergeExperiment(other.getExperiment());
+        }
+        if (!other.allowedActions_.isEmpty()) {
+          if (allowedActions_.isEmpty()) {
+            allowedActions_ = other.allowedActions_;
+            bitField0_ = (bitField0_ & ~0x00000002);
+          } else {
+            ensureAllowedActionsIsMutable();
+            allowedActions_.addAll(other.allowedActions_);
+          }
+          onChanged();
+        }
+        if (other.hasExperimentType()) {
+          setExperimentType(other.getExperimentType());
+        }
+        if (other.hasSourceType()) {
+          setSourceType(other.getSourceType());
+        }
+        if (other.hasSourceId()) {
+          bitField0_ |= 0x00000010;
+          sourceId_ = other.sourceId_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.Service.ExperimentDatabricks parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.Service.ExperimentDatabricks) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private org.mlflow.api.proto.Service.Experiment experiment_;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentBuilder_;
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       * @return Whether the experiment field is set.
+       */
+      public boolean hasExperiment() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       * @return The experiment.
+       */
+      public org.mlflow.api.proto.Service.Experiment getExperiment() {
+        if (experimentBuilder_ == null) {
+          return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+        } else {
+          return experimentBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public Builder setExperiment(org.mlflow.api.proto.Service.Experiment value) {
+        if (experimentBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          experiment_ = value;
+          onChanged();
+        } else {
+          experimentBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public Builder setExperiment(
+          org.mlflow.api.proto.Service.Experiment.Builder builderForValue) {
+        if (experimentBuilder_ == null) {
+          experiment_ = builderForValue.build();
+          onChanged();
+        } else {
+          experimentBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public Builder mergeExperiment(org.mlflow.api.proto.Service.Experiment value) {
+        if (experimentBuilder_ == null) {
+          if (((bitField0_ & 0x00000001) != 0) &&
+              experiment_ != null &&
+              experiment_ != org.mlflow.api.proto.Service.Experiment.getDefaultInstance()) {
+            experiment_ =
+              org.mlflow.api.proto.Service.Experiment.newBuilder(experiment_).mergeFrom(value).buildPartial();
+          } else {
+            experiment_ = value;
+          }
+          onChanged();
+        } else {
+          experimentBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000001;
+        return this;
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public Builder clearExperiment() {
+        if (experimentBuilder_ == null) {
+          experiment_ = null;
+          onChanged();
+        } else {
+          experimentBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000001);
+        return this;
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public org.mlflow.api.proto.Service.Experiment.Builder getExperimentBuilder() {
+        bitField0_ |= 0x00000001;
+        onChanged();
+        return getExperimentFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      public org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder() {
+        if (experimentBuilder_ != null) {
+          return experimentBuilder_.getMessageOrBuilder();
+        } else {
+          return experiment_ == null ?
+              org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
+        }
+      }
+      /**
+       * <pre>
+       * The Experiment as defined in mlflow/api/proto/service.proto.
+       * </pre>
+       *
+       * <code>optional .mlflow.Experiment experiment = 1;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> 
+          getExperimentFieldBuilder() {
+        if (experimentBuilder_ == null) {
+          experimentBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder>(
+                  getExperiment(),
+                  getParentForChildren(),
+                  isClean());
+          experiment_ = null;
+        }
+        return experimentBuilder_;
+      }
+
+      private java.util.List<java.lang.Integer> allowedActions_ =
+        java.util.Collections.emptyList();
+      private void ensureAllowedActionsIsMutable() {
+        if (!((bitField0_ & 0x00000002) != 0)) {
+          allowedActions_ = new java.util.ArrayList<java.lang.Integer>(allowedActions_);
+          bitField0_ |= 0x00000002;
+        }
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @return A list containing the allowedActions.
+       */
+      public java.util.List<org.mlflow.api.proto.Service.ExperimentAction> getAllowedActionsList() {
+        return new com.google.protobuf.Internal.ListAdapter<
+            java.lang.Integer, org.mlflow.api.proto.Service.ExperimentAction>(allowedActions_, allowedActions_converter_);
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @return The count of allowedActions.
+       */
+      public int getAllowedActionsCount() {
+        return allowedActions_.size();
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @param index The index of the element to return.
+       * @return The allowedActions at the given index.
+       */
+      public org.mlflow.api.proto.Service.ExperimentAction getAllowedActions(int index) {
+        return allowedActions_converter_.convert(allowedActions_.get(index));
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @param index The index to set the value at.
+       * @param value The allowedActions to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAllowedActions(
+          int index, org.mlflow.api.proto.Service.ExperimentAction value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAllowedActionsIsMutable();
+        allowedActions_.set(index, value.getNumber());
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @param value The allowedActions to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllowedActions(org.mlflow.api.proto.Service.ExperimentAction value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAllowedActionsIsMutable();
+        allowedActions_.add(value.getNumber());
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @param values The allowedActions to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllAllowedActions(
+          java.lang.Iterable<? extends org.mlflow.api.proto.Service.ExperimentAction> values) {
+        ensureAllowedActionsIsMutable();
+        for (org.mlflow.api.proto.Service.ExperimentAction value : values) {
+          allowedActions_.add(value.getNumber());
+        }
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Permissible actions by requesting user on experiment.
+       * </pre>
+       *
+       * <code>repeated .mlflow.ExperimentAction allowed_actions = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAllowedActions() {
+        allowedActions_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000002);
+        onChanged();
+        return this;
+      }
+
+      private int experimentType_ = 0;
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+       * @return Whether the experimentType field is set.
+       */
+      @java.lang.Override public boolean hasExperimentType() {
+        return ((bitField0_ & 0x00000004) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+       * @return The experimentType.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType getExperimentType() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType result = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType.valueOf(experimentType_);
+        return result == null ? org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType.EXPERIMENT_TYPE_UNSPECIFIED : result;
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+       * @param value The experimentType to set.
+       * @return This builder for chaining.
+       */
+      public Builder setExperimentType(org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentType value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000004;
+        experimentType_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentType experiment_type = 3;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearExperimentType() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        experimentType_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private int sourceType_ = 0;
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+       * @return Whether the sourceType field is set.
+       */
+      @java.lang.Override public boolean hasSourceType() {
+        return ((bitField0_ & 0x00000008) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+       * @return The sourceType.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType getSourceType() {
+        @SuppressWarnings("deprecation")
+        org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType result = org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType.valueOf(sourceType_);
+        return result == null ? org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType.SOURCE_TYPE_UNSPECIFIED : result;
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+       * @param value The sourceType to set.
+       * @return This builder for chaining.
+       */
+      public Builder setSourceType(org.mlflow.api.proto.Service.ExperimentDatabricks.ExperimentSourceType value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000008;
+        sourceType_ = value.getNumber();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.ExperimentDatabricks.ExperimentSourceType source_type = 4;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearSourceType() {
+        bitField0_ = (bitField0_ & ~0x00000008);
+        sourceType_ = 0;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object sourceId_ = "";
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @return Whether the sourceId field is set.
+       */
+      public boolean hasSourceId() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @return The sourceId.
+       */
+      public java.lang.String getSourceId() {
+        java.lang.Object ref = sourceId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            sourceId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @return The bytes for sourceId.
+       */
+      public com.google.protobuf.ByteString
+          getSourceIdBytes() {
+        java.lang.Object ref = sourceId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          sourceId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @param value The sourceId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setSourceId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        sourceId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearSourceId() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        sourceId_ = getDefaultInstance().getSourceId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A unique ID identifying the experiment creation source.
+       * </pre>
+       *
+       * <code>optional string source_id = 5;</code>
+       * @param value The bytes for sourceId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setSourceIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        sourceId_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.ExperimentDatabricks)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.ExperimentDatabricks)
+    private static final org.mlflow.api.proto.Service.ExperimentDatabricks DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.ExperimentDatabricks();
+    }
+
+    public static org.mlflow.api.proto.Service.ExperimentDatabricks getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<ExperimentDatabricks>
+        PARSER = new com.google.protobuf.AbstractParser<ExperimentDatabricks>() {
+      @java.lang.Override
+      public ExperimentDatabricks parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new ExperimentDatabricks(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<ExperimentDatabricks> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<ExperimentDatabricks> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.Service.ExperimentDatabricks getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -51170,6 +58535,31 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ListExperiments_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchExperiments_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchExperiments_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchExperiments_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchExperiments_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchExperimentsDatabricks_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchExperimentsDatabricks_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchExperimentsDatabricks_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_ExperimentDatabricks_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_ExperimentDatabricks_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetExperiment_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -51413,190 +58803,223 @@ public final class Service {
       "sults\030\002 \001(\003\022\022\n\npage_token\030\003 \001(\t\032L\n\010Respo" +
       "nse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Experi" +
       "ment\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\260\001\n\rG" +
-      "etExperiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031" +
-      "\001\032U\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022.mlfl" +
-      "ow.Experiment\022!\n\004runs\030\002 \003(\0132\017.mlflow.Run" +
-      "InfoB\002\030\001:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"h\n\020DeleteExperiment\022\033\n\rexp" +
-      "eriment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "i\n\021RestoreExperiment\022\033\n\rexperiment_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"z\n\020UpdateExpe" +
-      "riment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010n" +
-      "ew_name\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\270\001\n\tCreat" +
-      "eRun\022\025\n\rexperiment_id\030\001 \001(\t\022\017\n\007user_id\030\002" +
-      " \001(\t\022\022\n\nstart_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016" +
-      ".mlflow.RunTag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132" +
-      "\013.mlflow.Run:+\342?(\n&com.databricks.rpc.RP" +
-      "C[$this.Response]\"\276\001\n\tUpdateRun\022\016\n\006run_i" +
-      "d\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(" +
-      "\0162\021.mlflow.RunStatus\022\020\n\010end_time\030\003 \001(\003\032-" +
-      "\n\010Response\022!\n\010run_info\030\001 \001(\0132\017.mlflow.Ru" +
-      "nInfo:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"Z\n\tDeleteRun\022\024\n\006run_id\030\001 \001(\tB" +
-      "\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"[\n\nRestoreRun\022\024\n\006" +
-      "run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\270\001\n\t" +
-      "LogMetric\022\016\n\006run_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 " +
-      "\001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370" +
-      "\206\031\001\022\027\n\ttimestamp\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001" +
-      "(\003:\0010\032\n\n\010Response:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"\215\001\n\010LogParam\022\016\n\006r" +
-      "un_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001" +
-      "(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
+      "databricks.rpc.RPC[$this.Response]\"\376\001\n\021S" +
+      "earchExperiments\022#\n\tview_type\030\001 \001(\0162\020.ml" +
+      "flow.ViewType\022\023\n\013max_results\030\002 \001(\003\022\022\n\npa" +
+      "ge_token\030\003 \001(\t\022\016\n\006filter\030\004 \001(\t\022\020\n\010order_" +
+      "by\030\005 \003(\t\032L\n\010Response\022\'\n\013experiments\030\001 \003(" +
+      "\0132\022.mlflow.Experiment\022\027\n\017next_page_token" +
+      "\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\337\002\n\033SearchExperimentsDatabri" +
+      "cks\022\030\n\013max_results\030\001 \001(\003:\003100\022\022\n\npage_to" +
+      "ken\030\002 \001(\t\022\016\n\006filter\030\003 \001(\t\022\020\n\010order_by\030\004 " +
+      "\003(\t\032\216\001\n\010Response\022+\n\013experiments\030\001 \003(\0132\022." +
+      "mlflow.ExperimentB\002\030\001\022<\n\026experiments_dat" +
+      "abricks\030\002 \003(\0132\034.mlflow.ExperimentDatabri" +
+      "cks\022\027\n\017next_page_token\030\003 \001(\t:_\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\342?1\n/co" +
+      "m.databricks.mlflow.api.MlflowTrackingMe" +
+      "ssage\"\251\003\n\024ExperimentDatabricks\022&\n\nexperi" +
+      "ment\030\001 \001(\0132\022.mlflow.Experiment\0221\n\017allowe" +
+      "d_actions\030\002 \003(\0162\030.mlflow.ExperimentActio" +
+      "n\022D\n\017experiment_type\030\003 \001(\0162+.mlflow.Expe" +
+      "rimentDatabricks.ExperimentType\022F\n\013sourc" +
+      "e_type\030\004 \001(\01621.mlflow.ExperimentDatabric" +
+      "ks.ExperimentSourceType\022\021\n\tsource_id\030\005 \001" +
+      "(\t\"D\n\016ExperimentType\022\037\n\033EXPERIMENT_TYPE_" +
+      "UNSPECIFIED\020\000\022\021\n\rNON_WORKSPACE\020\001\"O\n\024Expe" +
+      "rimentSourceType\022\033\n\027SOURCE_TYPE_UNSPECIF" +
+      "IED\020\000\022\007\n\003JOB\020\001\022\021\n\rREPO_NOTEBOOK\020\002\"\260\001\n\rGe" +
+      "tExperiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001" +
+      "\032U\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022.mlflo" +
+      "w.Experiment\022!\n\004runs\030\002 \003(\0132\017.mlflow.RunI" +
+      "nfoB\002\030\001:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"h\n\020DeleteExperiment\022\033\n\rexpe" +
+      "riment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&" +
+      "com.databricks.rpc.RPC[$this.Response]\"i" +
+      "\n\021RestoreExperiment\022\033\n\rexperiment_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"z\n\020UpdateExper" +
+      "iment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010ne" +
+      "w_name\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]\"\270\001\n\tCreate" +
+      "Run\022\025\n\rexperiment_id\030\001 \001(\t\022\017\n\007user_id\030\002 " +
+      "\001(\t\022\022\n\nstart_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016." +
+      "mlflow.RunTag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013" +
+      ".mlflow.Run:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"\276\001\n\tUpdateRun\022\016\n\006run_id" +
+      "\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(\016" +
+      "2\021.mlflow.RunStatus\022\020\n\010end_time\030\003 \001(\003\032-\n" +
+      "\010Response\022!\n\010run_info\030\001 \001(\0132\017.mlflow.Run" +
+      "Info:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"Z\n\tDeleteRun\022\024\n\006run_id\030\001 \001(\tB\004" +
+      "\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"[\n\nRestoreRun\022\024\n\006r" +
+      "un_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\270\001\n\tL" +
+      "ogMetric\022\016\n\006run_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 \001" +
+      "(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370\206" +
+      "\031\001\022\027\n\ttimestamp\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001(" +
+      "\003:\0010\032\n\n\010Response:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\215\001\n\010LogParam\022\016\n\006ru" +
+      "n_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(" +
+      "\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]\"\220\001\n\020SetExperimentTag\022\033\n\rexperiment" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005va" +
+      "lue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\213\001\n\006Set" +
+      "Tag\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n" +
+      "\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n" +
+      "\010Response:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"m\n\tDeleteTag\022\024\n\006run_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response" +
+      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
+      "onse]\"}\n\006GetRun\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_u" +
+      "uid\030\001 \001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlf" +
+      "low.Run:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"\230\002\n\nSearchRuns\022\026\n\016experimen" +
+      "t_ids\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_" +
+      "type\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE_ONL" +
+      "Y\022\031\n\013max_results\030\005 \001(\005:\0041000\022\020\n\010order_by" +
+      "\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\032>\n\010Response\022\031" +
+      "\n\004runs\030\001 \003(\0132\013.mlflow.Run\022\027\n\017next_page_t" +
+      "oken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\330\001\n\rListArtifacts\022\016\n\006run" +
+      "_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(" +
+      "\t\022\022\n\npage_token\030\004 \001(\t\032V\n\010Response\022\020\n\010roo" +
+      "t_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.File" +
+      "Info\022\027\n\017next_page_token\030\003 \001(\t:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\";\n\010Fi" +
+      "leInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\t" +
+      "file_size\030\003 \001(\003\"\250\001\n\020GetMetricHistory\022\016\n\006" +
+      "run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\030\n\nmetric" +
+      "_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n\007metrics\030" +
+      "\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatch\022" +
+      "\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflo" +
+      "w.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param\022" +
+      "\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respons" +
       "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\220\001\n\020SetExperimentTag\022\033\n\rexperimen" +
-      "t_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005v" +
-      "alue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"\213\001\n\006Se" +
-      "tTag\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021" +
-      "\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n" +
-      "\n\010Response:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"m\n\tDeleteTag\022\024\n\006run_id\030\001" +
-      " \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"}\n\006GetRun\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_" +
-      "uuid\030\001 \001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.ml" +
-      "flow.Run:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"\230\002\n\nSearchRuns\022\026\n\016experime" +
-      "nt_ids\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view" +
-      "_type\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE_ON" +
-      "LY\022\031\n\013max_results\030\005 \001(\005:\0041000\022\020\n\010order_b" +
-      "y\030\006 \003(\t\022\022\n\npage_token\030\007 \001(\t\032>\n\010Response\022" +
-      "\031\n\004runs\030\001 \003(\0132\013.mlflow.Run\022\027\n\017next_page_" +
-      "token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\330\001\n\rListArtifacts\022\016\n\006ru" +
-      "n_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001" +
-      "(\t\022\022\n\npage_token\030\004 \001(\t\032V\n\010Response\022\020\n\010ro" +
-      "ot_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.Fil" +
-      "eInfo\022\027\n\017next_page_token\030\003 \001(\t:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\";\n\010F" +
-      "ileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n" +
-      "\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetricHistory\022\016\n" +
-      "\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\030\n\nmetri" +
-      "c_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n\007metrics" +
-      "\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatch" +
-      "\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlfl" +
-      "ow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param" +
-      "\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nm" +
-      "odel_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"\225\001\n\023Get" +
-      "ExperimentByName\022\035\n\017experiment_name\030\001 \001(" +
-      "\tB\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030\001 \001(\0132" +
-      "\022.mlflow.Experiment:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]*6\n\010ViewType\022\017\n\013" +
-      "ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003" +
-      "*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n" +
-      "\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tR" +
-      "unStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010" +
-      "FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\341\036\n\rM" +
-      "lflowService\022\246\001\n\023getExperimentByName\022\033.m" +
-      "lflow.GetExperimentByName\032$.mlflow.GetEx" +
-      "perimentByName.Response\"L\362\206\031H\n,\n\003GET\022\037/m" +
-      "lflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026G" +
-      "et Experiment By Name\022\306\001\n\020createExperime" +
-      "nt\022\030.mlflow.CreateExperiment\032!.mlflow.Cr" +
-      "eateExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/" +
-      "mlflow/experiments/create\032\004\010\002\020\000\n0\n\004POST\022" +
-      "\"/preview/mlflow/experiments/create\032\004\010\002\020" +
-      "\000\020\001*\021Create Experiment\022\274\001\n\017listExperimen" +
-      "ts\022\027.mlflow.ListExperiments\032 .mlflow.Lis" +
-      "tExperiments.Response\"n\362\206\031j\n%\n\003GET\022\030/mlf" +
-      "low/experiments/list\032\004\010\002\020\000\n-\n\003GET\022 /prev" +
-      "iew/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020Lis" +
-      "t Experiments\022\262\001\n\rgetExperiment\022\025.mlflow" +
-      ".GetExperiment\032\036.mlflow.GetExperiment.Re" +
-      "sponse\"j\362\206\031f\n$\n\003GET\022\027/mlflow/experiments" +
-      "/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/mlflow/exper" +
-      "iments/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\306\001\n\020d" +
-      "eleteExperiment\022\030.mlflow.DeleteExperimen" +
-      "t\032!.mlflow.DeleteExperiment.Response\"u\362\206" +
-      "\031q\n(\n\004POST\022\032/mlflow/experiments/delete\032\004" +
-      "\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiment" +
-      "s/delete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\314\001\n\021" +
-      "restoreExperiment\022\031.mlflow.RestoreExperi" +
-      "ment\032\".mlflow.RestoreExperiment.Response" +
-      "\"x\362\206\031t\n)\n\004POST\022\033/mlflow/experiments/rest" +
-      "ore\032\004\010\002\020\000\n1\n\004POST\022#/preview/mlflow/exper" +
-      "iments/restore\032\004\010\002\020\000\020\001*\022Restore Experime" +
-      "nt\022\306\001\n\020updateExperiment\022\030.mlflow.UpdateE" +
-      "xperiment\032!.mlflow.UpdateExperiment.Resp" +
-      "onse\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/" +
-      "update\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/ex" +
-      "periments/update\032\004\010\002\020\000\020\001*\021Update Experim" +
-      "ent\022\234\001\n\tcreateRun\022\021.mlflow.CreateRun\032\032.m" +
-      "lflow.CreateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023" +
-      "/mlflow/runs/create\032\004\010\002\020\000\n)\n\004POST\022\033/prev" +
-      "iew/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate R" +
-      "un\022\234\001\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.ml" +
-      "flow.UpdateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/" +
-      "mlflow/runs/update\032\004\010\002\020\000\n)\n\004POST\022\033/previ" +
-      "ew/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Ru" +
-      "n\022\234\001\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlf" +
-      "low.DeleteRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/m" +
-      "lflow/runs/delete\032\004\010\002\020\000\n)\n\004POST\022\033/previe" +
-      "w/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run" +
-      "\022\242\001\n\nrestoreRun\022\022.mlflow.RestoreRun\032\033.ml" +
-      "flow.RestoreRun.Response\"c\362\206\031_\n\"\n\004POST\022\024" +
-      "/mlflow/runs/restore\032\004\010\002\020\000\n*\n\004POST\022\034/pre" +
-      "view/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restor" +
-      "e Run\022\244\001\n\tlogMetric\022\021.mlflow.LogMetric\032\032" +
-      ".mlflow.LogMetric.Response\"h\362\206\031d\n%\n\004POST" +
-      "\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\n-\n\004POST\022" +
-      "\037/preview/mlflow/runs/log-metric\032\004\010\002\020\000\020\001" +
-      "*\nLog Metric\022\246\001\n\010logParam\022\020.mlflow.LogPa" +
-      "ram\032\031.mlflow.LogParam.Response\"m\362\206\031i\n(\n\004" +
-      "POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\n0" +
-      "\n\004POST\022\"/preview/mlflow/runs/log-paramet" +
-      "er\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020setExperimentT" +
-      "ag\022\030.mlflow.SetExperimentTag\032!.mlflow.Se" +
-      "tExperimentTag.Response\"\217\001\362\206\031\212\001\n4\n\004POST\022" +
-      "&/mlflow/experiments/set-experiment-tag\032" +
-      "\004\010\002\020\000\n<\n\004POST\022./preview/mlflow/experimen" +
-      "ts/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Exper" +
-      "iment Tag\022\222\001\n\006setTag\022\016.mlflow.SetTag\032\027.m" +
-      "lflow.SetTag.Response\"_\362\206\031[\n\"\n\004POST\022\024/ml" +
-      "flow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/previe" +
-      "w/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244" +
-      "\001\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlflow" +
-      ".DeleteTag.Response\"h\362\206\031d\n%\n\004POST\022\027/mlfl" +
-      "ow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/previ" +
-      "ew/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelet" +
-      "e Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032\027.mlflo" +
-      "w.GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/" +
-      "runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlflow/r" +
-      "uns/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsearchRuns\022" +
-      "\022.mlflow.SearchRuns\032\033.mlflow.SearchRuns." +
-      "Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflow/runs/s" +
-      "earch\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/run" +
-      "s/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/r" +
-      "uns/search\032\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n\rlist" +
-      "Artifacts\022\025.mlflow.ListArtifacts\032\036.mlflo" +
-      "w.ListArtifacts.Response\"h\362\206\031d\n#\n\003GET\022\026/" +
-      "mlflow/artifacts/list\032\004\010\002\020\000\n+\n\003GET\022\036/pre" +
-      "view/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List" +
-      " Artifacts\022\307\001\n\020getMetricHistory\022\030.mlflow" +
-      ".GetMetricHistory\032!.mlflow.GetMetricHist" +
-      "ory.Response\"v\362\206\031r\n(\n\003GET\022\033/mlflow/metri" +
-      "cs/get-history\032\004\010\002\020\000\n0\n\003GET\022#/preview/ml" +
-      "flow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Me" +
-      "tric History\022\236\001\n\010logBatch\022\020.mlflow.LogBa" +
-      "tch\032\031.mlflow.LogBatch.Response\"e\362\206\031a\n$\n\004" +
-      "POST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\n,\n\004PO" +
-      "ST\022\036/preview/mlflow/runs/log-batch\032\004\010\002\020\000" +
-      "\020\001*\tLog Batch\022\236\001\n\010logModel\022\020.mlflow.LogM" +
-      "odel\032\031.mlflow.LogModel.Response\"e\362\206\031a\n$\n" +
-      "\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020\000\n,\n\004P" +
-      "OST\022\036/preview/mlflow/runs/log-model\032\004\010\002\020" +
-      "\000\020\001*\tLog ModelB\036\n\024org.mlflow.api.proto\220\001" +
-      "\001\342?\002\020\001"
+      "ponse]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmo" +
+      "del_json\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\225\001\n\023GetE" +
+      "xperimentByName\022\035\n\017experiment_name\030\001 \001(\t" +
+      "B\004\370\206\031\001\0322\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022" +
+      ".mlflow.Experiment:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]*6\n\010ViewType\022\017\n\013A" +
+      "CTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*" +
+      "I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007" +
+      "PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRu" +
+      "nStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010F" +
+      "INISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*Q\n\020Exp" +
+      "erimentAction\022\r\n\tNO_ACTION\020\000\022\026\n\022MODIFIY_" +
+      "PERMISSION\020\001\022\n\n\006DELETE\020\002\022\n\n\006RENAME\020\0032\256 \n" +
+      "\rMlflowService\022\246\001\n\023getExperimentByName\022\033" +
+      ".mlflow.GetExperimentByName\032$.mlflow.Get" +
+      "ExperimentByName.Response\"L\362\206\031H\n,\n\003GET\022\037" +
+      "/mlflow/experiments/get-by-name\032\004\010\002\020\000\020\001*" +
+      "\026Get Experiment By Name\022\306\001\n\020createExperi" +
+      "ment\022\030.mlflow.CreateExperiment\032!.mlflow." +
+      "CreateExperiment.Response\"u\362\206\031q\n(\n\004POST\022" +
+      "\032/mlflow/experiments/create\032\004\010\002\020\000\n0\n\004POS" +
+      "T\022\"/preview/mlflow/experiments/create\032\004\010" +
+      "\002\020\000\020\001*\021Create Experiment\022\274\001\n\017listExperim" +
+      "ents\022\027.mlflow.ListExperiments\032 .mlflow.L" +
+      "istExperiments.Response\"n\362\206\031j\n%\n\003GET\022\030/m" +
+      "lflow/experiments/list\032\004\010\002\020\000\n-\n\003GET\022 /pr" +
+      "eview/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020L" +
+      "ist Experiments\022\312\001\n\021searchExperiments\022\031." +
+      "mlflow.SearchExperiments\032\".mlflow.Search" +
+      "Experiments.Response\"v\362\206\031r\n(\n\004POST\022\032/mlf" +
+      "low/experiments/search\032\004\010\002\020\000\n0\n\004POST\022\"/p" +
+      "review/mlflow/experiments/search\032\004\010\002\020\000\020\001" +
+      "*\022Search Experiments\022\262\001\n\rgetExperiment\022\025" +
+      ".mlflow.GetExperiment\032\036.mlflow.GetExperi" +
+      "ment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow/expe" +
+      "riments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/mlflo" +
+      "w/experiments/get\032\004\010\002\020\000\020\001*\016Get Experimen" +
+      "t\022\306\001\n\020deleteExperiment\022\030.mlflow.DeleteEx" +
+      "periment\032!.mlflow.DeleteExperiment.Respo" +
+      "nse\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/d" +
+      "elete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/exp" +
+      "eriments/delete\032\004\010\002\020\000\020\001*\021Delete Experime" +
+      "nt\022\314\001\n\021restoreExperiment\022\031.mlflow.Restor" +
+      "eExperiment\032\".mlflow.RestoreExperiment.R" +
+      "esponse\"x\362\206\031t\n)\n\004POST\022\033/mlflow/experimen" +
+      "ts/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/mlflo" +
+      "w/experiments/restore\032\004\010\002\020\000\020\001*\022Restore E" +
+      "xperiment\022\306\001\n\020updateExperiment\022\030.mlflow." +
+      "UpdateExperiment\032!.mlflow.UpdateExperime" +
+      "nt.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/exper" +
+      "iments/update\032\004\010\002\020\000\n0\n\004POST\022\"/preview/ml" +
+      "flow/experiments/update\032\004\010\002\020\000\020\001*\021Update " +
+      "Experiment\022\234\001\n\tcreateRun\022\021.mlflow.Create" +
+      "Run\032\032.mlflow.CreateRun.Response\"`\362\206\031\\\n!\n" +
+      "\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n\004POST" +
+      "\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020\001*\nC" +
+      "reate Run\022\234\001\n\tupdateRun\022\021.mlflow.UpdateR" +
+      "un\032\032.mlflow.UpdateRun.Response\"`\362\206\031\\\n!\n\004" +
+      "POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004POST\022" +
+      "\033/preview/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUp" +
+      "date Run\022\234\001\n\tdeleteRun\022\021.mlflow.DeleteRu" +
+      "n\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\\n!\n\004P" +
+      "OST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004POST\022\033" +
+      "/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDel" +
+      "ete Run\022\242\001\n\nrestoreRun\022\022.mlflow.RestoreR" +
+      "un\032\033.mlflow.RestoreRun.Response\"c\362\206\031_\n\"\n" +
+      "\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*\n\004POS" +
+      "T\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000\020\001*" +
+      "\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow.LogM" +
+      "etric\032\032.mlflow.LogMetric.Response\"h\362\206\031d\n" +
+      "%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\n-" +
+      "\n\004POST\022\037/preview/mlflow/runs/log-metric\032" +
+      "\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020.mlflo" +
+      "w.LogParam\032\031.mlflow.LogParam.Response\"m\362" +
+      "\206\031i\n(\n\004POST\022\032/mlflow/runs/log-parameter\032" +
+      "\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs/log-" +
+      "parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020setExpe" +
+      "rimentTag\022\030.mlflow.SetExperimentTag\032!.ml" +
+      "flow.SetExperimentTag.Response\"\217\001\362\206\031\212\001\n4" +
+      "\n\004POST\022&/mlflow/experiments/set-experime" +
+      "nt-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlflow/ex" +
+      "periments/set-experiment-tag\032\004\010\002\020\000\020\001*\022Se" +
+      "t Experiment Tag\022\222\001\n\006setTag\022\016.mlflow.Set" +
+      "Tag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n\"\n\004PO" +
+      "ST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034" +
+      "/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Se" +
+      "t Tag\022\244\001\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032" +
+      ".mlflow.DeleteTag.Response\"h\362\206\031d\n%\n\004POST" +
+      "\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022" +
+      "\037/preview/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001" +
+      "*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032" +
+      "\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020/" +
+      "mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/m" +
+      "lflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsear" +
+      "chRuns\022\022.mlflow.SearchRuns\032\033.mlflow.Sear" +
+      "chRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflow" +
+      "/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlf" +
+      "low/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/m" +
+      "lflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\260" +
+      "\001\n\rlistArtifacts\022\025.mlflow.ListArtifacts\032" +
+      "\036.mlflow.ListArtifacts.Response\"h\362\206\031d\n#\n" +
+      "\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+\n\003GE" +
+      "T\022\036/preview/mlflow/artifacts/list\032\004\010\002\020\000\020" +
+      "\001*\016List Artifacts\022\307\001\n\020getMetricHistory\022\030" +
+      ".mlflow.GetMetricHistory\032!.mlflow.GetMet" +
+      "ricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/mlflo" +
+      "w/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#/pre" +
+      "view/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*" +
+      "\022Get Metric History\022\236\001\n\010logBatch\022\020.mlflo" +
+      "w.LogBatch\032\031.mlflow.LogBatch.Response\"e\362" +
+      "\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010\002\020" +
+      "\000\n,\n\004POST\022\036/preview/mlflow/runs/log-batc" +
+      "h\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logModel\022\020.mlfl" +
+      "ow.LogModel\032\031.mlflow.LogModel.Response\"e" +
+      "\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002" +
+      "\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-mod" +
+      "el\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlflow.api." +
+      "proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -51676,8 +59099,38 @@ public final class Service {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListExperiments_Response_descriptor,
         new java.lang.String[] { "Experiments", "NextPageToken", });
-    internal_static_mlflow_GetExperiment_descriptor =
+    internal_static_mlflow_SearchExperiments_descriptor =
       getDescriptor().getMessageTypes().get(10);
+    internal_static_mlflow_SearchExperiments_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchExperiments_descriptor,
+        new java.lang.String[] { "ViewType", "MaxResults", "PageToken", "Filter", "OrderBy", });
+    internal_static_mlflow_SearchExperiments_Response_descriptor =
+      internal_static_mlflow_SearchExperiments_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_SearchExperiments_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchExperiments_Response_descriptor,
+        new java.lang.String[] { "Experiments", "NextPageToken", });
+    internal_static_mlflow_SearchExperimentsDatabricks_descriptor =
+      getDescriptor().getMessageTypes().get(11);
+    internal_static_mlflow_SearchExperimentsDatabricks_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchExperimentsDatabricks_descriptor,
+        new java.lang.String[] { "MaxResults", "PageToken", "Filter", "OrderBy", });
+    internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor =
+      internal_static_mlflow_SearchExperimentsDatabricks_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_SearchExperimentsDatabricks_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchExperimentsDatabricks_Response_descriptor,
+        new java.lang.String[] { "Experiments", "ExperimentsDatabricks", "NextPageToken", });
+    internal_static_mlflow_ExperimentDatabricks_descriptor =
+      getDescriptor().getMessageTypes().get(12);
+    internal_static_mlflow_ExperimentDatabricks_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_ExperimentDatabricks_descriptor,
+        new java.lang.String[] { "Experiment", "AllowedActions", "ExperimentType", "SourceType", "SourceId", });
+    internal_static_mlflow_GetExperiment_descriptor =
+      getDescriptor().getMessageTypes().get(13);
     internal_static_mlflow_GetExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperiment_descriptor,
@@ -51689,7 +59142,7 @@ public final class Service {
         internal_static_mlflow_GetExperiment_Response_descriptor,
         new java.lang.String[] { "Experiment", "Runs", });
     internal_static_mlflow_DeleteExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(14);
     internal_static_mlflow_DeleteExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteExperiment_descriptor,
@@ -51701,7 +59154,7 @@ public final class Service {
         internal_static_mlflow_DeleteExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_RestoreExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(12);
+      getDescriptor().getMessageTypes().get(15);
     internal_static_mlflow_RestoreExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RestoreExperiment_descriptor,
@@ -51713,7 +59166,7 @@ public final class Service {
         internal_static_mlflow_RestoreExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_UpdateExperiment_descriptor =
-      getDescriptor().getMessageTypes().get(13);
+      getDescriptor().getMessageTypes().get(16);
     internal_static_mlflow_UpdateExperiment_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateExperiment_descriptor,
@@ -51725,7 +59178,7 @@ public final class Service {
         internal_static_mlflow_UpdateExperiment_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_CreateRun_descriptor =
-      getDescriptor().getMessageTypes().get(14);
+      getDescriptor().getMessageTypes().get(17);
     internal_static_mlflow_CreateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateRun_descriptor,
@@ -51737,7 +59190,7 @@ public final class Service {
         internal_static_mlflow_CreateRun_Response_descriptor,
         new java.lang.String[] { "Run", });
     internal_static_mlflow_UpdateRun_descriptor =
-      getDescriptor().getMessageTypes().get(15);
+      getDescriptor().getMessageTypes().get(18);
     internal_static_mlflow_UpdateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateRun_descriptor,
@@ -51749,7 +59202,7 @@ public final class Service {
         internal_static_mlflow_UpdateRun_Response_descriptor,
         new java.lang.String[] { "RunInfo", });
     internal_static_mlflow_DeleteRun_descriptor =
-      getDescriptor().getMessageTypes().get(16);
+      getDescriptor().getMessageTypes().get(19);
     internal_static_mlflow_DeleteRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteRun_descriptor,
@@ -51761,7 +59214,7 @@ public final class Service {
         internal_static_mlflow_DeleteRun_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_RestoreRun_descriptor =
-      getDescriptor().getMessageTypes().get(17);
+      getDescriptor().getMessageTypes().get(20);
     internal_static_mlflow_RestoreRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RestoreRun_descriptor,
@@ -51773,7 +59226,7 @@ public final class Service {
         internal_static_mlflow_RestoreRun_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogMetric_descriptor =
-      getDescriptor().getMessageTypes().get(18);
+      getDescriptor().getMessageTypes().get(21);
     internal_static_mlflow_LogMetric_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogMetric_descriptor,
@@ -51785,7 +59238,7 @@ public final class Service {
         internal_static_mlflow_LogMetric_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogParam_descriptor =
-      getDescriptor().getMessageTypes().get(19);
+      getDescriptor().getMessageTypes().get(22);
     internal_static_mlflow_LogParam_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogParam_descriptor,
@@ -51797,7 +59250,7 @@ public final class Service {
         internal_static_mlflow_LogParam_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_SetExperimentTag_descriptor =
-      getDescriptor().getMessageTypes().get(20);
+      getDescriptor().getMessageTypes().get(23);
     internal_static_mlflow_SetExperimentTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetExperimentTag_descriptor,
@@ -51809,7 +59262,7 @@ public final class Service {
         internal_static_mlflow_SetExperimentTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_SetTag_descriptor =
-      getDescriptor().getMessageTypes().get(21);
+      getDescriptor().getMessageTypes().get(24);
     internal_static_mlflow_SetTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SetTag_descriptor,
@@ -51821,7 +59274,7 @@ public final class Service {
         internal_static_mlflow_SetTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_DeleteTag_descriptor =
-      getDescriptor().getMessageTypes().get(22);
+      getDescriptor().getMessageTypes().get(25);
     internal_static_mlflow_DeleteTag_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteTag_descriptor,
@@ -51833,7 +59286,7 @@ public final class Service {
         internal_static_mlflow_DeleteTag_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetRun_descriptor =
-      getDescriptor().getMessageTypes().get(23);
+      getDescriptor().getMessageTypes().get(26);
     internal_static_mlflow_GetRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetRun_descriptor,
@@ -51845,7 +59298,7 @@ public final class Service {
         internal_static_mlflow_GetRun_Response_descriptor,
         new java.lang.String[] { "Run", });
     internal_static_mlflow_SearchRuns_descriptor =
-      getDescriptor().getMessageTypes().get(24);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
@@ -51857,7 +59310,7 @@ public final class Service {
         internal_static_mlflow_SearchRuns_Response_descriptor,
         new java.lang.String[] { "Runs", "NextPageToken", });
     internal_static_mlflow_ListArtifacts_descriptor =
-      getDescriptor().getMessageTypes().get(25);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_ListArtifacts_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListArtifacts_descriptor,
@@ -51869,13 +59322,13 @@ public final class Service {
         internal_static_mlflow_ListArtifacts_Response_descriptor,
         new java.lang.String[] { "RootUri", "Files", "NextPageToken", });
     internal_static_mlflow_FileInfo_descriptor =
-      getDescriptor().getMessageTypes().get(26);
+      getDescriptor().getMessageTypes().get(29);
     internal_static_mlflow_FileInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_FileInfo_descriptor,
         new java.lang.String[] { "Path", "IsDir", "FileSize", });
     internal_static_mlflow_GetMetricHistory_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(30);
     internal_static_mlflow_GetMetricHistory_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_descriptor,
@@ -51887,7 +59340,7 @@ public final class Service {
         internal_static_mlflow_GetMetricHistory_Response_descriptor,
         new java.lang.String[] { "Metrics", });
     internal_static_mlflow_LogBatch_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(31);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogBatch_descriptor,
@@ -51899,7 +59352,7 @@ public final class Service {
         internal_static_mlflow_LogBatch_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogModel_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(32);
     internal_static_mlflow_LogModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogModel_descriptor,
@@ -51911,7 +59364,7 @@ public final class Service {
         internal_static_mlflow_LogModel_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetExperimentByName_descriptor =
-      getDescriptor().getMessageTypes().get(30);
+      getDescriptor().getMessageTypes().get(33);
     internal_static_mlflow_GetExperimentByName_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperimentByName_descriptor,
