@@ -344,7 +344,8 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     dm = IrisDataModule()
     dm.setup(stage="fit")
 
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS, accelerator="ddp_cpu", num_processes=4)
+    accelerator = "cpu" if Version(pl.__version__) < Version("1.6.4") else "ddp_cpu"
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS, accelerator=accelerator, num_processes=4)
 
     with mlflow.start_run() as run:
         trainer.fit(model, datamodule=dm)
