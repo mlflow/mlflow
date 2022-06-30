@@ -1180,10 +1180,10 @@ def autolog(
                 if log_models:
                     _log_keras_model(result, args)
 
-                    _flush_queue()
-                    mlflow.log_artifacts(
-                        local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
-                    )
+                _flush_queue()
+                mlflow.log_artifacts(
+                    local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
+                )
                 if self.log_dir.is_temp:
                     shutil.rmtree(self.log_dir.location)
 
