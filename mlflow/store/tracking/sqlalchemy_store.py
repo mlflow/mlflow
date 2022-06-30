@@ -341,7 +341,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_experiments(
         self,
-        view_type,  # pylint: disable=unused-argument
+        view_type,
         max_results,
         filter_string,
         order_by,
