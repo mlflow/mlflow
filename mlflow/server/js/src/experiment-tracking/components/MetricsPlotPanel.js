@@ -6,8 +6,6 @@ import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
-import { Button } from '../../shared/building_blocks/Button';
-import { FormattedMessage } from 'react-intl';
 import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
