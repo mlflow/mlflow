@@ -1686,7 +1686,7 @@ The resulting deployment accepts the following data formats as input:
 * Tensor input format as JSON-serialized lists (for tensors) and dictionary of lists (for named tensors).
 
 .. note:: 
-  Regardless of the format, the input data should be indicated in a JSON payload within the key `input_data`. Notice that this payload is different from the one used when models are served using `mlflow models serve`.
+  Regardless of the format, the input data should be supplied as a JSON payload within the key `input_data`. Notice that this payload is different from the one used when models are served using `mlflow models serve`.
   
 Deployments can be generated using either the Python API or the MLflow CLI. In both cases, a ``JSON`` configuration file can be indicated with the details of the deployment you want to achieve. If not indicated, then a default deployment is done using Azure Container Instances (ACI) and a minimal configuration. Also, you will also need the Azure ML MLflow Tracking URI of your particular Azure ML Workspace where you want to deploy your model. You can obtain this URI in several ways:
 
