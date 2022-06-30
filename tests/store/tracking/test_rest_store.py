@@ -33,6 +33,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     GetExperimentByName,
     ListExperiments,
+    SearchExperiments,
     LogModel,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -476,6 +477,40 @@ class TestRestStore:
             ):
                 assert experiments[0].name == str(next_page_tokens[idx])
                 assert experiments.token == next_page_tokens[idx]
+
+    def test_search_experiments(self):
+        creds = MlflowHostCreds("https://hello")
+        store = RestStore(lambda: creds)
+
+        with mock_http_request() as mock_http:
+            store.search_experiments()
+            self._verify_requests(
+                mock_http,
+                creds,
+                "experiments/search",
+                "POST",
+                message_to_json(SearchExperiments(view_type=ViewType.ACTIVE_ONLY)),
+            )
+
+        with mock_http_request() as mock_http:
+            store.search_experiments(view_type=ViewType.DELETED_ONLY)
+            self._verify_requests(
+                mock_http,
+                creds,
+                "experiments/search",
+                "POST",
+                message_to_json(SearchExperiments(view_type=ViewType.DELETED_ONLY)),
+            )
+
+        with mock_http_request() as mock_http:
+            store.search_experiments(order_by=["name DESC"])
+            self._verify_requests(
+                mock_http,
+                creds,
+                "experiments/search",
+                "POST",
+                message_to_json(SearchExperiments(view_type=ViewType.DELETED_ONLY)),
+            )
 
 
 if __name__ == "__main__":

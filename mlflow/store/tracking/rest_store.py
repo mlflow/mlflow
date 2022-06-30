@@ -8,6 +8,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     SearchRuns,
     ListExperiments,
+    SearchExperiments,
     GetMetricHistory,
     LogMetric,
     LogParam,
@@ -91,7 +92,21 @@ class RestStore(AbstractStore):
         order_by=None,
         page_token=None,
     ):
-        raise NotImplementedError("Not implemented yet")
+        req_body = message_to_json(
+            SearchExperiments(
+                view_type=view_type,
+                max_results=max_results,
+                page_token=page_token,
+                order_by=order_by,
+                filter=filter_string,
+            )
+        )
+        response_proto = self._call_endpoint(SearchExperiments, req_body)
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
 
     def create_experiment(self, name, artifact_location=None, tags=None):
         """
