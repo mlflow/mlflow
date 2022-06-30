@@ -65,7 +65,7 @@ def _read_log_model_allowlist_from_file(allowlist_file):
             return _parse_allowlist_file(f)
     else:
         host_creds = MlflowHostCreds(
-            host=url_parsed.scheme + "://" + url_parsed.hostname,
+            host=url_parsed.scheme + "://" + url_parsed.hostname or "",
             username=url_parsed.username,
             password=url_parsed.password,
         )
