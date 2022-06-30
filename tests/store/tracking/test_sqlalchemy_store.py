@@ -375,6 +375,18 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.store.list_experiments(page_token=None, max_results=int(1e15))
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+    def test_search_experiments_view_type(self):
+        experiment_names = ["a", "b"]
+        experiment_ids = self._experiment_factory(experiment_names)
+        self.store.delete_experiment(experiment_ids[1])
+
+        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        assert [e.name for e in experiments] == ["a", "Default"]
+        experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
+        assert [e.name for e in experiments] == ["b"]
+        experiments = self.store.search_experiments(view_type=ViewType.ALL)
+        assert [e.name for e in experiments] == ["b", "a", "Default"]
+
     def test_search_experiments_filter_by_attribute(self):
         experiment_names = ["a", "ab", "A", "b"]
         self._experiment_factory(experiment_names)
