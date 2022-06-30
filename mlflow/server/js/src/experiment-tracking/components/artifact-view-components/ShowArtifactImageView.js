@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { Image } from 'antd';
 import { Skeleton } from '@databricks/design-system';
-import { css } from 'emotion';
 
 const ShowArtifactImageView = ({ runUuid, path }) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -15,18 +14,18 @@ const ShowArtifactImageView = ({ runUuid, path }) => {
 
   const src = getSrc(path, runUuid);
   return (
-    <div className={classNames.imageOuterContainer}>
+    <div css={classNames.imageOuterContainer}>
       {isLoading && <Skeleton active />}
-      <div className={isLoading ? classNames.hidden : classNames.imageWrapper}>
+      <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
         <img
           alt={path}
-          className={classNames.image}
+          css={classNames.image}
           src={src}
           onLoad={() => setIsLoading(false)}
           onClick={() => setPreviewVisible(true)}
         />
       </div>
-      <div className={classNames.hidden}>
+      <div css={classNames.hidden}>
         <Image.PreviewGroup
           preview={{
             visible: previewVisible,
@@ -46,18 +45,18 @@ ShowArtifactImageView.propTypes = {
 };
 
 const classNames = {
-  imageOuterContainer: css({
+  imageOuterContainer: {
     padding: '10px',
     overflow: 'scroll',
-  }),
-  imageWrapper: css({ display: 'inline-block' }),
-  image: css({
+  },
+  imageWrapper: { display: 'inline-block' },
+  image: {
     cursor: 'pointer',
     '&:hover': {
       boxShadow: '0 0 4px gray',
     },
-  }),
-  hidden: css({ display: 'none' }),
+  },
+  hidden: { display: 'none' },
 };
 
 export default ShowArtifactImageView;

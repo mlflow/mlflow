@@ -1,10 +1,11 @@
 import React from 'react';
 import { connect } from 'react-redux';
+import { FormattedMessage } from 'react-intl';
 import PropTypes from 'prop-types';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { RunInfo } from '../sdk/MlflowMessages';
 import classNames from 'classnames';
-import { Dropdown, Menu } from 'antd';
+import { Alert, Dropdown, Menu, Spacer } from '@databricks/design-system';
 import BaggedCell from './BaggedCell';
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import _ from 'lodash';
@@ -418,12 +419,20 @@ export class ExperimentRunsTableCompactView extends React.Component {
 
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     const showLoadMore = this.state.isAtScrollBottom || this.props.loadingMore;
+    const deprecation = (
+      <FormattedMessage
+        defaultMessage='This view is deprecated and will be removed in a future release.'
+        description='Deprecation of compact view'
+      />
+    );
     return (
       <div
         id='autosizer-container'
         className='runs-table-flex-container compact-view-table-container'
         data-test-id='compact-runs-table-view'
       >
+        <Alert css={styles.alert} message={deprecation} type='info' closable={false} showIcon />
+        <Spacer size={'medium'} />
         <AutoSizer>
           {({ width, height }) => {
             if (this._lastRenderedWidth !== width) {

@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import yaml from 'js-yaml';
-import { css } from 'emotion';
 import '../../../common/styles/CodeSnippet.css';
 import { MLMODEL_FILE_NAME } from '../../constants';
 import { getSrc } from './ShowArtifactPage';
@@ -149,7 +148,7 @@ class ShowArtifactLoggedModelView extends Component {
           />
         </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Paragraph
               dangerouslySetAntdProps={{
                 copyable: { text: this.loadModelCodeText(modelPath, flavor) },
@@ -208,7 +207,7 @@ class ShowArtifactLoggedModelView extends Component {
           />
         </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Spark DataFrame:'
@@ -259,7 +258,7 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
           </div>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len

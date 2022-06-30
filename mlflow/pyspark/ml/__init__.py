@@ -8,9 +8,9 @@ from urllib.parse import urlparse
 import weakref
 
 import mlflow
+from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
     _truncate_dict,
@@ -715,7 +715,7 @@ class _AutologgingMetricsManager:
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             evaluator_call_list = []

@@ -413,5 +413,8 @@ diviner:
   models:
     minimum: "0.1.0"
     maximum: "0.1.0"
+    requirements:
+      # https://github.com/alan-turing-institute/sktime/issues/2898
+      ">= 0.0": ["cmdstanpy!=1.0.2"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py

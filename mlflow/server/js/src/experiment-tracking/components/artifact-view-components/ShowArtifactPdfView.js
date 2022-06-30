@@ -5,6 +5,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spin } from 'antd';
 import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
+import Utils from '../../../common/utils/Utils';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
@@ -56,6 +58,10 @@ class ShowArtifactPdfView extends Component {
     this.setState({ numPages });
   };
 
+  onDocumentLoadError = (error) => {
+    Utils.logErrorAndNotifyUser(new ErrorWrapper(error));
+  };
+
   onPageChange = (newPageNumber, itemsPerPage) => {
     this.setState({ currentPage: newPageNumber });
   };
@@ -77,6 +83,7 @@ class ShowArtifactPdfView extends Component {
             <Document
               file={this.state.pdfData}
               onLoadSuccess={this.onDocumentLoadSuccess}
+              onLoadError={this.onDocumentLoadError}
               loading={<Spin />}
             >
               <Page pageNumber={this.state.currentPage} loading={<Spin />} />

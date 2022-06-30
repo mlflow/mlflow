@@ -21,15 +21,14 @@ import {
   XCircleBorderIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { css } from 'emotion';
 
 function ErrorIcon() {
   const { theme } = useDesignSystemTheme();
   return (
     <XCircleBorderIcon
-      className={css({
+      css={{
         color: theme.colors.textValidationDanger,
-      })}
+      }}
     />
   );
 }
@@ -38,9 +37,9 @@ function FinishedIcon() {
   const { theme } = useDesignSystemTheme();
   return (
     <CheckCircleBorderIcon
-      className={css({
+      css={{
         color: theme.colors.textValidationSuccess,
-      })}
+      }}
     />
   );
 }

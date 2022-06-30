@@ -201,15 +201,8 @@ export class RunViewImpl extends Component {
   }
 
   render() {
-    const {
-      runUuid,
-      run,
-      params,
-      tags,
-      latestMetrics,
-      getMetricPagePath,
-      modelVersions,
-    } = this.props;
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath, modelVersions } =
+      this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';

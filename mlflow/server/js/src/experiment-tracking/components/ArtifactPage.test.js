@@ -55,12 +55,7 @@ describe('ArtifactPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': mockModelVersionDetailed(
-              'Model A',
-              1,
-              Stages.PRODUCTION,
-              ModelVersionStatus.READY,
-            ),
+            1: mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
           },
         },
       },
@@ -201,6 +196,57 @@ describe('ArtifactPage', () => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
     expect(expectedActions).toHaveLength(0);
+  });
+
+  test('should not report multiple errors', () => {
+    jest.useFakeTimers();
+    Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
+    Utils.logErrorAndNotifyUser = jest.fn();
+
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(0);
+    const props = {
+      ...minimalProps,
+      apis: {},
+      searchModelVersionsApi: jest.fn(() => {
+        throw Error('err');
+      }),
+    };
+
+    // Create our wrapper with the intial props
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ArtifactPageImpl {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    wrapper.find(ArtifactPageImpl).setState({ activeNodeIsDirectory: true });
+
+    // Wait multiple poll intervals
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
+
+    // We should have only one error call
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
+
+    // Let's change the run uuid now by changing the props
+    // sadly, enzyme provides no convenient method to change
+    // the deeply nested component props so we need to
+    // improvise: https://github.com/enzymejs/enzyme/issues/1925
+    wrapper.setProps({
+      children: (
+        <BrowserRouter>
+          <ArtifactPageImpl {...props} runUuid='anotherFakeUuid' />
+        </BrowserRouter>
+      ),
+    });
+
+    // Wait another multiple poll intervals
+    jest.advanceTimersByTime(POLL_INTERVAL * 5);
+
+    // We should have only one more error call
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(2);
+
+    jest.clearAllMocks();
   });
 
   describe('autoselect logged model', () => {

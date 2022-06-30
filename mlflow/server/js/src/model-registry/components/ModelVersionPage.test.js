@@ -45,7 +45,7 @@ describe('ModelVersionPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': mockModelVersionDetailed(
+            1: mockModelVersionDetailed(
               'Model A',
               '1',
               Stages.PRODUCTION,

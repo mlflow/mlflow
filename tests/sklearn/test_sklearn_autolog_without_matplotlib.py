@@ -4,7 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from unittest import mock
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from tests.helper_functions import AnyStringWith
 
 

@@ -1,6 +1,7 @@
 import pytest
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities import ViewType
 
 
@@ -45,5 +46,5 @@ def test_set_run_status_to_killed():
     """
     with mlflow.start_run() as run:
         pass
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     client.set_terminated(run_id=run.info.run_id, status="KILLED")

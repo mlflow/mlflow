@@ -3,6 +3,7 @@ import mlflow
 import hashlib
 import json
 import os
+from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
@@ -617,7 +618,7 @@ def _evaluate(
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     model_uuid = model.metadata.model_uuid
     dataset._log_dataset_tag(client, run_id, model_uuid)
 

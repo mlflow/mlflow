@@ -7,6 +7,7 @@ import pathlib
 import pytest
 
 import mlflow
+from mlflow import MlflowClient
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
@@ -163,7 +164,7 @@ def test_log_artifacts(artifacts_server, tmpdir):
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert sorted(artifacts) == ["a.txt", "dir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
@@ -189,7 +190,7 @@ def test_list_artifacts(artifacts_server, tmpdir):
     tmp_path_a.write("0")
     tmp_path_b = tmpdir.join("b.txt")
     tmp_path_b.write("1")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     with mlflow.start_run() as run:
         assert client.list_artifacts(run.info.run_id) == []
         mlflow.log_artifact(tmp_path_a)
@@ -213,7 +214,7 @@ def test_download_artifacts(artifacts_server, tmpdir):
         mlflow.log_artifact(tmp_path_a)
         mlflow.log_artifact(tmp_path_b, "dir")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     dest_path = client.download_artifacts(run.info.run_id, "")
     assert sorted(os.listdir(dest_path)) == ["a.txt", "dir"]
     assert read_file(os.path.join(dest_path, "a.txt")) == "0"
