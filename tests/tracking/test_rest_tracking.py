@@ -475,7 +475,7 @@ def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri
 
 def test_set_tag_with_empty_string_as_value(mlflow_client, tracking_server_uri):
     experiment_id = mlflow_client.create_experiment(
-        test_log_param_with_empty_string_as_value.__name__
+        test_set_tag_with_empty_string_as_value.__name__
     )
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
@@ -496,7 +496,7 @@ def test_log_batch_containing_params_and_tags_with_empty_string_values(
     mlflow_client, tracking_server_uri
 ):
     experiment_id = mlflow_client.create_experiment(
-        test_log_param_with_empty_string_as_value.__name__
+        test_log_batch_containing_params_and_tags_with_empty_string_values.__name__
     )
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
