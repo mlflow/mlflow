@@ -88,7 +88,8 @@ def main(args):
     validate_requirements_yaml(requirements_yaml)
     requirements_txt_content = generate_requirements_txt_content(requirements_yaml)
     with open(args.requirements_txt_output_location, "w") as f:
-        f.write(requirements_txt_content)
+        # Write requirements file content with a trailing newline
+        f.write(requirements_txt_content + "\n")
 
 
 if __name__ == "__main__":
