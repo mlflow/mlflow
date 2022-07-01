@@ -64,7 +64,7 @@ def generate_requirements_txt_content(requirements_yaml):
         version_specs = []
 
         max_major_version = package_entry["max_major_version"]
-        version_specs += [f"<={max_major_version + 1}.*"]
+        version_specs += [f"<{max_major_version + 1}.*"]
 
         min_version = package_entry.get("minimum")
         version_specs += [f">={min_version}"] if min_version else []
