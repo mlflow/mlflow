@@ -1,3 +1,8 @@
+# These are the core requirements for the complete MLflow platform, which augments
+# the skinny client functionality with support for running the MLflow Tracking
+# Server & UI. It also adds project backends such as Docker and Kubernetes among
+# other capabilities.
+
 alembic:
   pip_release: alembic
   max_major_version: 1

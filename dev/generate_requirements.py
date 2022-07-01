@@ -69,7 +69,7 @@ def generate_requirements_txt_content(requirements_yaml):
         min_version = package_entry.get("minimum")
         version_specs += [f">={min_version}"] if min_version else []
 
-        unsupported_versions = package_entry.get("unsupported_versions", [])
+        unsupported_versions = package_entry.get("unsupported", [])
         version_specs += [f"!={version}" for version in unsupported_versions]
 
         markers = package_entry.get("markers")
