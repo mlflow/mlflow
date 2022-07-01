@@ -234,9 +234,13 @@ describe('unit tests', () => {
     // Test converting to & from log scale for an empty layout (e.g. a layout without any
     // user-specified zoom)
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'log', autorange: true } });
+    expect(instance.getUrlState().layout).toEqual({
+      yaxis: { type: 'log', autorange: true, exponentformat: 'e' },
+    });
     instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'linear', autorange: true } });
+    expect(instance.getUrlState().layout).toEqual({
+      yaxis: { type: 'linear', autorange: true },
+    });
     // Test converting to & from log scale for a layout with specified y axis range bounds
     instance.handleLayoutChange({
       'xaxis.range[0]': 2,
@@ -247,7 +251,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [2, 4], autorange: false },
-      yaxis: { range: [0, 2], type: 'log' },
+      yaxis: { range: [0, 2], type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -264,7 +268,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -276,7 +280,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({

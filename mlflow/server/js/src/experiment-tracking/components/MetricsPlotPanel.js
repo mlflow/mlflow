@@ -304,7 +304,11 @@ export class MetricsPlotPanel extends React.Component {
     // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
     // log or linear scale appropriately
     if (!state.layout.yaxis || !state.layout.yaxis.range) {
-      newLayout.yaxis = { type: newAxisType, autorange: true, exponentformat: 'e' };
+      newLayout.yaxis = {
+        type: newAxisType,
+        autorange: true,
+        ...(newAxisType === 'log' ? { exponentformat: 'e' } : {}),
+      };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
@@ -441,6 +445,9 @@ export class MetricsPlotPanel extends React.Component {
         state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
       newYAxis.autorange = true;
       newYAxis.type = axisType;
+    }
+    if (newYAxis.type === 'log') {
+      newYAxis.exponentformat = 'e';
     }
     // Merge new X & Y axis info into layout
     mergedLayout = {
