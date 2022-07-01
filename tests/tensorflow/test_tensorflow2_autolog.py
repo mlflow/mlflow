@@ -599,6 +599,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
             restore_weights,
             patience,
             initial_epoch,
+            log_models=False
         )
     patched_metrics_data = dict(patched_metrics_data)
     original_metrics = run.data.metrics
