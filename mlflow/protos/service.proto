@@ -735,8 +735,8 @@ message SearchExperiments {
   // String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
   optional string filter = 3;
 
-  // List of columns for ordering search results, which can include experiment name and last updated
-  // timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // List of columns for ordering search results, which can include experiment name and id
+  // with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
   // Tiebreaks are done by experiment id DESC.
   repeated string order_by = 4;
 
