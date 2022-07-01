@@ -229,7 +229,7 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
         proxy_variables = {
             "http_proxy": "http://proxy.example.net:1234",
             "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "localhost",
+            "no_proxy": "169.254.169.254,localhost",
         }
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
@@ -290,7 +290,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
         proxy_variables = {
             "http_proxy": "http://proxy.example.net:1234",
             "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "localhost",
+            "no_proxy": "169.254.169.254,localhost",
         }
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
@@ -377,7 +377,7 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
         proxy_variables = {
             "http_proxy": "http://proxy.example.net:1234",
             "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "localhost",
+            "no_proxy": "169.254.169.254,localhost",
         }
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
@@ -437,7 +437,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
         proxy_variables = {
             "http_proxy": "http://proxy.example.net:1234",
             "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "localhost",
+            "no_proxy": "169.254.169.254,localhost",
         }
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
