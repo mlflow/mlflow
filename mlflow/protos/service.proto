@@ -721,7 +721,6 @@ message ListExperiments {
 
 message SearchExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
 
   // Maximum number of experiments desired.
   // Servers may select a desired default `max_results` value. All servers are
