@@ -238,9 +238,7 @@ describe('unit tests', () => {
       yaxis: { type: 'log', autorange: true, exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
-    expect(instance.getUrlState().layout).toEqual({
-      yaxis: { type: 'linear', autorange: true },
-    });
+    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'linear', autorange: true } });
     // Test converting to & from log scale for a layout with specified y axis range bounds
     instance.handleLayoutChange({
       'xaxis.range[0]': 2,
