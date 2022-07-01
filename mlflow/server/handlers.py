@@ -981,9 +981,9 @@ def _log_batch():
             _assert_required(m["timestamp"])
             _assert_required(m["step"])
 
-    def _assert_params_tags_fields_present(params):
-        for p in params:
-            _assert_required(p["key"])
+    def _assert_params_tags_fields_present(params_or_tags):
+        for param_or_tag in params_or_tags:
+            _assert_required(param_or_tag["key"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
