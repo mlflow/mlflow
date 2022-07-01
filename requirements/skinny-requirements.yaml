@@ -14,7 +14,7 @@ cloudpickle:
 
 databricks-cli:
   pip_release: databricks-cli
-  minimum: "0.17.0"
+  minimum: "0.8.7"
   max_major_version: 0
 
 entrypoints:
@@ -62,5 +62,5 @@ importlib_metadata:
 sqlparse:
   pip_release: sqlparse
   # Lower bound sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-  minimum: "0.3.0"
+  minimum: "0.3.1"
   max_major_version: 0
