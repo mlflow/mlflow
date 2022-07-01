@@ -984,7 +984,6 @@ def _log_batch():
     def _assert_params_tags_fields_present(params):
         for p in params:
             _assert_required(p["key"])
-            _assert_required(p["value"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
