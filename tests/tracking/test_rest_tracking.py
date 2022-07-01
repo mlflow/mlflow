@@ -492,7 +492,9 @@ def test_set_tag_with_empty_string_as_value(mlflow_client, tracking_server_uri):
     assert response.status_code == 200
 
 
-def test_log_batch_containing_params_and_tags_with_empty_string_values(mlflow_client, tracking_server_uri):
+def test_log_batch_containing_params_and_tags_with_empty_string_values(
+    mlflow_client, tracking_server_uri
+):
     experiment_id = mlflow_client.create_experiment(
         test_log_param_with_empty_string_as_value.__name__
     )
