@@ -473,6 +473,62 @@ def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri
     assert response.status_code == 200
 
 
+def test_set_tag_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_param_with_empty_string_as_value.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/set-tag",
+        {
+            "run_id": run_id,
+            "key": "tag",
+            "value": "",
+        },
+    )
+    assert response.status_code == 200
+
+
+def test_log_batch_containing_params_and_tags_with_empty_string_values(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_param_with_empty_string_as_value.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        {
+            "run_id": run_id,
+            "params": [
+                {
+                    "key": "param",
+                    "value": "",
+                },
+                {
+                    "key": "param",
+                    "value": "nonempty_param",
+                },
+            ],
+            "tags": [
+                {
+                    "key": "tag",
+                    "value": "",
+                },
+                {
+                    "key": "tag",
+                    "value": "nonempty_tag",
+                },
+            ],
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_set_tag_validation(mlflow_client, tracking_server_uri):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)

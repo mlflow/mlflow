@@ -782,7 +782,7 @@ def _set_tag():
         schema={
             "run_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = RunTag(request_message.key, request_message.value)
