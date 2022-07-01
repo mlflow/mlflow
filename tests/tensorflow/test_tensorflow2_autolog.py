@@ -473,9 +473,10 @@ def get_tf_keras_random_data_run_with_callback(
     restore_weights,
     patience,
     initial_epoch,
+    log_models,
 ):
     # pylint: disable=unused-argument
-    mlflow.tensorflow.autolog(every_n_iter=1)
+    mlflow.tensorflow.autolog(every_n_iter=1, log_models=log_models)
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -514,6 +515,7 @@ def tf_keras_random_data_run_with_callback(
     restore_weights,
     patience,
     initial_epoch,
+    log_models,
 ):
     return get_tf_keras_random_data_run_with_callback(
         random_train_data,
@@ -522,9 +524,11 @@ def tf_keras_random_data_run_with_callback(
         restore_weights,
         patience,
         initial_epoch,
+        log_models=log_models,
     )
 
 
+@pytest.mark.parametrize("log_models", [True, False])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -556,6 +560,9 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert steps == [*history.epoch, callback.stopped_epoch + 1]
     # Check that MLflow has logged the correct metric values
     np.testing.assert_allclose(values, [*loss, callback.best])
+
+    artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
+    assert "tensorboard_logs" in artifacts
 
 
 @pytest.mark.parametrize("restore_weights", [True])
@@ -592,6 +599,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
             restore_weights,
             patience,
             initial_epoch,
+            log_models=False
         )
     patched_metrics_data = dict(patched_metrics_data)
     original_metrics = run.data.metrics
@@ -603,6 +611,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     assert restored_epoch == initial_epoch
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
@@ -628,6 +637,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
@@ -653,6 +663,7 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -1266,8 +1277,9 @@ def test_autolog_text_vec_model(tmpdir):
     np.testing.assert_array_equal(loaded_model.predict(train_samples), model.predict(train_samples))
 
 
-def test_fit_generator(random_train_data, random_one_hot_labels):
-    mlflow.tensorflow.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_fit_generator(random_train_data, random_one_hot_labels, log_models):
+    mlflow.tensorflow.autolog(log_models=log_models)
     model = create_tf_keras_model()
 
     def generator():
@@ -1277,15 +1289,18 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     with mlflow.start_run() as run:
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
 
-    run = MlflowClient().get_run(run.info.run_id)
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
     params = run.data.params
     metrics = run.data.metrics
+    artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
     assert "epochs" in params
     assert params["epochs"] == "10"
     assert "steps_per_epoch" in params
     assert params["steps_per_epoch"] == "1"
     assert "accuracy" in metrics
     assert "loss" in metrics
+    assert "tensorboard_logs" in artifacts
 
 
 def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
