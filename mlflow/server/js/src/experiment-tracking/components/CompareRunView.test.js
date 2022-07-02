@@ -14,6 +14,7 @@ const getCompareRunViewMock = () => {
       runUuids={['0']}
       metricLists={[]}
       paramLists={[]}
+      tagLists={[]}
       runNames={['run1']}
       runDisplayNames={['run1DisplayName', 'run2DisplayName']}
       intl={createIntl({ locale: 'en' })}
