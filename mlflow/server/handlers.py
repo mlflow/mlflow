@@ -763,7 +763,7 @@ def _set_experiment_tag():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
@@ -1203,7 +1203,7 @@ def _set_registered_model_tag():
         schema={
             "name": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
@@ -1373,7 +1373,7 @@ def _set_model_version_tag():
             "name": [_assert_string, _assert_required],
             "version": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
