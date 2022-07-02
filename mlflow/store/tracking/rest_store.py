@@ -297,10 +297,38 @@ class RestStore(AbstractStore):
                 return None
             raise e
 
+    def _validate_new_param_value(self, run_id, new_params):
+        """
+        When logging a parameters with a key that already exists, this function is used to
+        enforce immutability by verifying that the specified parameter value matches the existing
+        value.
+        :raises: py:class:`mlflow.exceptions.MlflowException` if the specified new parameter value
+                 does not match the existing parameter value.
+        """
+        run = self.get_run(run_id)
+        old_params = run.data.params
+        old_params_keys = old_params.keys()
+
+        invalid_keys = []
+
+        for param in new_params:
+            if param.key in old_params_keys and param.value != old_params.get(param.key):
+                invalid_keys.append(param.key)
+
+        if invalid_keys:
+            raise MlflowException(
+                "Changing param values is not allowed. Param with keys='{}' was already"
+                " logged for run ID='{}'. Attempted logging new value".format(invalid_keys, run_id),
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
+
+        self._validate_new_param_value(run_id, params)
+
         req_body = message_to_json(
             LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
         )
