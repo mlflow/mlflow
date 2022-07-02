@@ -210,7 +210,7 @@ export class CompareRunView extends Component {
     return (
       <table
         className='table compare-table compare-run-table'
-        style={{ maxHeight: '500px' }}
+        css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
@@ -237,7 +237,7 @@ export class CompareRunView extends Component {
             title='Plot chart'
           >
             {key}
-            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+            <i className='fas fa-chart-line' css={{ paddingLeft: '6px' }} />
           </Link>
         );
       },
@@ -256,13 +256,13 @@ export class CompareRunView extends Component {
     return (
       <table
         className='table compare-table compare-run-table'
-        style={{ maxHeight: '300px' }}
+        css={{ maxHeight: '300px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
       </table>
     );
-  }  
+  }
 
   renderTagTable(colWidth) {
     const dataRows = this.renderDataRows(
@@ -284,7 +284,7 @@ export class CompareRunView extends Component {
     return (
       <table
         className='table compare-table compare-run-table'
-        style={{ maxHeight: '500px' }}
+        css={{ maxHeight: '500px' }}
         onScroll={this.onCompareRunTableScrollHandler}
       >
         <tbody>{dataRows}</tbody>
@@ -344,11 +344,11 @@ export class CompareRunView extends Component {
     ];
     return rows.map(({ key, title, data }) => (
       <tr key={key}>
-        <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+        <th scope='row' className='head-value sticky-header' css={colWidthStyle}>
           {title}
         </th>
         {data.map(([runUuid, value]) => (
-          <td className='data-value' key={runUuid} style={colWidthStyle}>
+          <td className='data-value' key={runUuid} css={colWidthStyle}>
             <Tooltip
               title={value}
               color='gray'
@@ -439,14 +439,14 @@ export class CompareRunView extends Component {
           >
             <thead>
               <tr>
-                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+                <th scope='row' className='head-value sticky-header' css={colWidthStyle}>
                   <FormattedMessage
                     defaultMessage='Run ID:'
                     description='Row title for the run id on the experiment compare runs page'
                   />
                 </th>
                 {this.props.runInfos.map((r) => (
-                  <th scope='row' className='data-value' key={r.run_uuid} style={colWidthStyle}>
+                  <th scope='row' className='data-value' key={r.run_uuid} css={colWidthStyle}>
                     <Tooltip
                       title={r.getRunUuid()}
                       color='gray'
@@ -464,7 +464,7 @@ export class CompareRunView extends Component {
             </thead>
             <tbody>
               <tr>
-                <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+                <th scope='row' className='head-value sticky-header' css={colWidthStyle}>
                   <FormattedMessage
                     defaultMessage='Run Name:'
                     description='Row title for the run name on the experiment compare runs page'
@@ -472,7 +472,7 @@ export class CompareRunView extends Component {
                 </th>
                 {runNames.map((runName, i) => {
                   return (
-                    <td className='data-value' key={runInfos[i].run_uuid} style={colWidthStyle}>
+                    <td className='data-value' key={runInfos[i].run_uuid} css={colWidthStyle}>
                       <div className='truncate-text single-line'>
                         <Tooltip
                           title={runName}
@@ -538,8 +538,7 @@ export class CompareRunView extends Component {
         <CollapsibleSection
           title={this.props.intl.formatMessage({
             defaultMessage: 'Tags',
-            description:
-              'Row group title for tags of runs on the experiment compare runs page',
+            description: 'Row group title for tags of runs on the experiment compare runs page',
           })}
         >
           <Switch
@@ -590,7 +589,7 @@ export class CompareRunView extends Component {
         const rowClass = highlightDiff && hasDiff ? 'diff-row' : undefined;
         return (
           <tr key={k} className={rowClass}>
-            <th scope='row' className='head-value sticky-header' style={colWidthStyle}>
+            <th scope='row' className='head-value sticky-header' css={colWidthStyle}>
               {headerMap(k, values)}
             </th>
             {values.map((value, i) => {
@@ -599,7 +598,7 @@ export class CompareRunView extends Component {
                 <td
                   className='data-value'
                   key={this.props.runInfos[i].run_uuid}
-                  style={colWidthStyle}
+                  css={colWidthStyle}
                 >
                   <Tooltip
                     title={cellText}
@@ -634,7 +633,12 @@ const mapStateToProps = (state, ownProps) => {
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
     const runTags = getRunTags(runUuid, state);
-    tagLists.push(Object.values(runTags));
+    const visibleTags = Utils.getVisibleTagValues(runTags).map((values) => ({
+      key: values[0],
+      name: values[0],
+      value: values[1],
+    }));
+    tagLists.push(Object.values(visibleTags));
     runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
     runNames.push(Utils.getRunName(runTags));
   });
