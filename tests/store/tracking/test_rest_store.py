@@ -40,6 +40,7 @@ from mlflow.protos.databricks_pb2 import (
     ENDPOINT_NOT_FOUND,
     REQUEST_LIMIT_EXCEEDED,
     INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
     ErrorCode,
 )
 from mlflow.store.tracking.rest_store import (
@@ -472,6 +473,23 @@ class TestRestStore:
             ):
                 assert experiments[0].name == str(next_page_tokens[idx])
                 assert experiments.token == next_page_tokens[idx]
+
+    @mock.patch("requests.Session.request")
+    def test_log_batch_validation(self, request):
+        response = mock.MagicMock()
+        response.status_code = INVALID_PARAMETER_VALUE
+        response.text = '{"error_code": "INVALID_PARAMETER_VALUE", \
+        "message": "Changing param values is not allowed."}'
+        request.return_value = response
+
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+        metrics = []
+        tags = []
+        params = [Param("p1", "p1val"), Param("p2", "p2val")]
+
+        with pytest.raises(MlflowException, match="INVALID_PARAMETER_VALUE: Changing param values is not allowed."):
+            store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)
 
 
 if __name__ == "__main__":
