@@ -37,6 +37,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -2691,6 +2692,7 @@ class MlflowClient:
         :param version: Registered model version.
         :param key: Tag key to log.
         :param value: Tag value to log.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2725,7 +2727,13 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
+
+            # Tag using model version
             client.set_model_version_tag(name, mv.version, "t", "1")
+
+            # Tag using model stage
+            client.set_model_version_tag(name, key="t", value="1", stage=mv.current_stage)
+
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2740,7 +2748,12 @@ class MlflowClient:
             Version: 1
             Tags: {'t': '1'}
         """
-        self._get_registry_client().set_model_version_tag(name, version, key, value, stage)
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            version = latest_versions[0].version if latest_versions else None
+
+        self._get_registry_client().set_model_version_tag(name, version, key, value)
 
     def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
         """

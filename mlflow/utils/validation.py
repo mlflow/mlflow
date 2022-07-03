@@ -388,6 +388,9 @@ def _validate_db_type_string(db_type):
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 
-def _validate_version_or_stage(version, stage):
+def _validate_model_version_or_stage_exists(version, stage):
+    if version and stage:
+        raise MlflowException("Only version or stage should be set")
+
     if not (version or stage):
         raise MlflowException("version or stage should be set")
