@@ -306,7 +306,7 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_stages(name, version)
 
-    def set_model_version_tag(self, name, version=None, key=None, value=None):
+    def set_model_version_tag(self, name, version, key, value):
         """
         Set a tag for the model version.
 
