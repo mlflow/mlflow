@@ -633,12 +633,12 @@ const mapStateToProps = (state, ownProps) => {
     metricLists.push(Object.values(getLatestMetrics(runUuid, state)));
     paramLists.push(Object.values(getParams(runUuid, state)));
     const runTags = getRunTags(runUuid, state);
-    const visibleTags = Utils.getVisibleTagValues(runTags).map((values) => ({
-      key: values[0],
-      name: values[0],
-      value: values[1],
+    const visibleTags = Utils.getVisibleTagValues(runTags).map(([key, value]) => ({
+      key,
+      name: key,
+      value,
     }));
-    tagLists.push(Object.values(visibleTags));
+    tagLists.push(visibleTags);
     runDisplayNames.push(Utils.getRunDisplayName(runTags, runUuid));
     runNames.push(Utils.getRunName(runTags));
   });
