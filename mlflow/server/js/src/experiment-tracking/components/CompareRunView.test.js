@@ -12,9 +12,9 @@ const getCompareRunViewMock = () => {
       experiments={[Fixtures.createExperiment()]}
       experimentIds={['0']}
       runUuids={['0']}
-      metricLists={[]}
-      paramLists={[]}
-      tagLists={[]}
+      metricLists={[[{ m: 1 }]]}
+      paramLists={[[{ p: 'p' }]]}
+      tagLists={[[{ t: 't' }]]}
       runNames={['run1']}
       runDisplayNames={['run1DisplayName', 'run2DisplayName']}
       intl={createIntl({ locale: 'en' })}
