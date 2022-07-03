@@ -635,7 +635,6 @@ const mapStateToProps = (state, ownProps) => {
     const runTags = getRunTags(runUuid, state);
     const visibleTags = Utils.getVisibleTagValues(runTags).map(([key, value]) => ({
       key,
-      name: key,
       value,
     }));
     tagLists.push(visibleTags);
