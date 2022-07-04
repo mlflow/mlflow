@@ -1059,9 +1059,7 @@ def search_experiments(
     :param filter_string: Filter query string, defaults to searching for all experiments.
     :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                      matching search results.
-    :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-             :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-             for the next page can be obtained via the ``token`` attribute of the object.
+     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
     """
 
     def pagination_wrapper_func(number_to_get, next_page_token):
