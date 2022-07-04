@@ -1387,4 +1387,9 @@ def _get_search_experiments_order_by_clauses(order_by):
             order_by_clauses.append(attr.asc() if ascending else attr.desc())
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {typ}")
-    return order_by_clauses + [SqlExperiment.experiment_id.desc()]  # Add a tie-breaker
+
+    # Add a tie-breaker
+    desc_experiment_id = SqlExperiment.experiment_id.desc()
+    if desc_experiment_id not in order_by_clauses:
+        order_by_clauses.append(desc_experiment_id)
+    return order_by_clauses
