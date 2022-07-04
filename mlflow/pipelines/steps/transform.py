@@ -11,6 +11,7 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.pipelines.utils.tracking import get_pipeline_tracking_config
 
 _logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class TransformStep(BaseStep):
         self.execution_duration = None
         self.target_col = self.step_config.get("target_col")
         (self.transformer_module_name, self.transformer_method_name,) = self.step_config[
-            "transform_method"
+            "transformer_method"
         ].rsplit(".", 1)
 
     def _run(self, output_directory):
@@ -116,19 +117,13 @@ class TransformStep(BaseStep):
         card = BaseCard(self.pipeline_name, self.name)
 
         # Tab 1 and 2: build profiles for train_transformed, validation_transformed
-        from pandas_profiling import ProfileReport
-
-        train_transformed_profile = ProfileReport(
+        train_transformed_profile = get_pandas_data_profile(
             train_transformed,
-            title="Profile of Train Transformed Dataset",
-            minimal=True,
-            progress_bar=False,
+            "Profile of Train Transformed Dataset",
         )
-        validation_transformed_profile = ProfileReport(
+        validation_transformed_profile = get_pandas_data_profile(
             validation_transformed,
-            title="Profile of Validation Transformed Dataset",
-            minimal=True,
-            progress_bar=False,
+            "Profile of Validation Transformed Dataset",
         )
         card.add_tab("Data Profile (Train Transformed)", "{{PROFILE}}").add_pandas_profile(
             "PROFILE", train_transformed_profile

@@ -163,6 +163,7 @@ register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
 evaluate = mlflow.models.evaluate
 last_active_run = mlflow.tracking.fluent.last_active_run
+MlflowClient = tracking.MlflowClient
 
 run = projects.run
 
@@ -207,4 +208,5 @@ __all__ = [
     "autolog",
     "evaluate",
     "last_active_run",
+    "MlflowClient",
 ] + _model_flavors_supported

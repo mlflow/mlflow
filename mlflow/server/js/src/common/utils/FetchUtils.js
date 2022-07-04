@@ -16,8 +16,8 @@ export const HTTPMethods = {
 // to be set during HTTP requests (e.g., CSRF tokens), we support parsing
 // a set of cookies with a key prefix of "$appName-request-header-$headerName",
 // which will be added as an HTTP header to all requests.
-export const getDefaultHeaders = (cookieStr, appName = 'mlflow') => {
-  const headerCookiePrefix = `${appName}-request-header-`;
+export const getDefaultHeaders = (cookieStr) => {
+  const headerCookiePrefix = 'mlflow-request-header-';
   const parsedCookie = cookie.parse(cookieStr);
   if (!parsedCookie || Object.keys(parsedCookie).length === 0) {
     return {};
@@ -90,14 +90,12 @@ export const fetchEndpointRaw = ({
   timeoutMs = undefined,
 }) => {
   const url = getAjaxUrl(relativeUrl);
-  // eslint-disable-next-line prefer-const
-  let appName = 'mlflow';
 
   // if custom headers has duplicate fields with default Headers,
   // values in the custom headers options will always override.
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    ...getDefaultHeaders(document.cookie, appName),
+    ...getDefaultHeaders(document.cookie),
     ...headerOptions,
   };
   const defaultOptions = {

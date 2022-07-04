@@ -19,6 +19,7 @@ import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { saveAs } from 'file-saver';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -27,6 +28,17 @@ export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
 // A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
 // prior to this threshold. The metrics plot doesn't automatically update hanging runs.
 export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
+
+export const convertMetricsToCsv = (metrics) => {
+  const header = ['run_id', ...Object.keys(metrics[0].history[0])];
+  const rows = metrics.flatMap(({ runUuid, history }) =>
+    history.map((metric) => [runUuid, ...Object.values(metric)]),
+  );
+  return [header]
+    .concat(rows)
+    .map((row) => row.join(','))
+    .join('\n');
+};
 
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
@@ -292,7 +304,11 @@ export class MetricsPlotPanel extends React.Component {
     // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
     // log or linear scale appropriately
     if (!state.layout.yaxis || !state.layout.yaxis.range) {
-      newLayout.yaxis = { type: newAxisType, autorange: true };
+      newLayout.yaxis = {
+        type: newAxisType,
+        autorange: true,
+        ...(newAxisType === 'log' ? { exponentformat: 'e' } : {}),
+      };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
@@ -321,11 +337,13 @@ export class MetricsPlotPanel extends React.Component {
         newLayout.yaxis = {
           type: 'log',
           autorange: true,
+          exponentformat: 'e',
         };
       } else {
         newLayout.yaxis = {
           type: 'log',
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+          exponentformat: 'e',
         };
       }
     } else {
@@ -428,6 +446,9 @@ export class MetricsPlotPanel extends React.Component {
       newYAxis.autorange = true;
       newYAxis.type = axisType;
     }
+    if (newYAxis.type === 'log') {
+      newYAxis.exponentformat = 'e';
+    }
     // Merge new X & Y axis info into layout
     mergedLayout = {
       ...mergedLayout,
@@ -435,6 +456,12 @@ export class MetricsPlotPanel extends React.Component {
       yaxis: newYAxis,
     };
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
+  };
+
+  handleDownloadCsv = () => {
+    const csv = convertMetricsToCsv(this.props.metricsWithRunInfoAndHistory);
+    const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+    saveAs(blob, 'metrics.csv');
   };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
@@ -582,6 +609,7 @@ export class MetricsPlotPanel extends React.Component {
           initialLineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
+          handleDownloadCsv={this.handleDownloadCsv}
         />
         <div className='metrics-plot-data'>
           <RequestStateWrapper

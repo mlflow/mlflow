@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
-import { css } from 'emotion';
 import { Switch, Row, Col, Select } from 'antd';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
@@ -234,7 +233,7 @@ export class CompareRunContour extends Component {
         <div className='container-fluid'>
           <Row>
             <Col span={6}>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='x-axis-selector'>
                   <FormattedMessage
                     defaultMessage='X-axis:'
@@ -243,7 +242,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('xaxis')}
               </div>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='y-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Y-axis:'
@@ -252,7 +251,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('yaxis')}
               </div>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='z-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Z-axis:'
@@ -299,7 +298,7 @@ export class CompareRunContour extends Component {
   renderSelect(axis) {
     return (
       <Select
-        className={css(styles.select)}
+        css={styles.select}
         id={axis + '-axis-selector'}
         aria-label={`${axis} axis`}
         onChange={(value) => {

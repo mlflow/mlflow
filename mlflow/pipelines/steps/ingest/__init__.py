@@ -4,6 +4,7 @@ import os
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.file_utils import read_parquet_as_pandas_df
 from mlflow.pipelines.steps.ingest.datasets import (
@@ -62,18 +63,19 @@ class IngestStep(BaseStep):
 
     def _run(self, output_directory: str) -> BaseCard:
         import pandas as pd
-        from pandas_profiling import ProfileReport
 
         dataset_dst_path = os.path.abspath(
             os.path.join(output_directory, IngestStep._DATASET_OUTPUT_NAME)
         )
-        self.dataset.resolve_to_parquet(dst_path=dataset_dst_path)
+        self.dataset.resolve_to_parquet(
+            dst_path=dataset_dst_path,
+        )
         _logger.info("Successfully stored data in parquet format at '%s'", dataset_dst_path)
 
         _logger.info("Profiling ingested dataset")
         ingested_df = read_parquet_as_pandas_df(data_parquet_path=dataset_dst_path)
-        ingested_dataset_profile = ProfileReport(
-            ingested_df, title="Profile of Ingested Dataset", minimal=True, progress_bar=False
+        ingested_dataset_profile = get_pandas_data_profile(
+            ingested_df, "Profile of Ingested Dataset"
         )
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
         dataset_profile_path = os.path.join(

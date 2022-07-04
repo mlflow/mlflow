@@ -1,6 +1,7 @@
 import React from 'react';
 import { DownOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Modal } from 'antd';
+import { Dropdown, Menu, Modal } from '@databricks/design-system';
+
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
 import { DirectTransitionForm } from './DirectTransitionForm';

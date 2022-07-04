@@ -7,7 +7,7 @@ from unittest.mock import ANY
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
     "mlflow.store.artifact.databricks_models_artifact_repo"

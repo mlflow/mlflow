@@ -62,10 +62,7 @@ describe('SchemaTable', () => {
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs table
-    wrapper
-      .find('tr.section-header-row')
-      .at(0)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
     expect(wrapper.find(Table).length).toBe(2);
     expect(wrapper.find('.outer-table').find(Table).length).toBe(2);
     expect(wrapper.find('.inner-table').find(Table).length).toBe(1);
@@ -87,10 +84,7 @@ describe('SchemaTable', () => {
     );
     // click to render outputs table
     expect(wrapper.find(Table).length).toBe(1);
-    wrapper
-      .find('tr.section-header-row')
-      .at(1)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(1).simulate('click');
     expect(wrapper.find(Table).length).toBe(2);
     expect(wrapper.find('.outer-table').find(Table).length).toBe(2);
     expect(wrapper.find('.inner-table').find(Table).length).toBe(1);
@@ -112,15 +106,9 @@ describe('SchemaTable', () => {
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs and outputs table
-    wrapper
-      .find('tr.section-header-row')
-      .at(0)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
     expect(wrapper.find(Table).length).toBe(2);
-    wrapper
-      .find('tr.section-header-row')
-      .at(1)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(1).simulate('click');
     expect(wrapper.find(Table).length).toBe(3);
     expect(wrapper.find('.outer-table').find(Table).length).toBe(3);
     expect(wrapper.find('.inner-table').find(Table).length).toBe(2);
@@ -160,15 +148,9 @@ describe('SchemaTable', () => {
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs and outputs table
-    wrapper
-      .find('tr.section-header-row')
-      .at(0)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(0).simulate('click');
     expect(wrapper.find(Table).length).toBe(2);
-    wrapper
-      .find('tr.section-header-row')
-      .at(1)
-      .simulate('click');
+    wrapper.find('tr.section-header-row').at(1).simulate('click');
     expect(wrapper.find(Table).length).toBe(3);
     expect(wrapper.find('.outer-table').find(Table).length).toBe(3);
     expect(wrapper.find('.inner-table').find(Table).length).toBe(2);

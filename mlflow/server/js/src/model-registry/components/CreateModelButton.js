@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from 'antd';
 import { CreateModelModal } from './CreateModelModal';
-import { css } from 'emotion';
 import PropTypes from 'prop-types';
 import { FormattedMessage } from 'react-intl';
 
@@ -32,11 +31,12 @@ export class CreateModelButton extends React.Component {
         description='Create button to register a new model'
       />
     );
-    const buttonSize = buttonType === 'primary' ? `${classNames.buttonSize}` : ``;
+
     return (
-      <div>
+      <div css={styles.wrapper}>
         <Button
-          className={`create-model-btn ${buttonSize}`}
+          className={`create-model-btn`}
+          css={styles.getButtonSize(buttonType)}
           type={buttonType}
           onClick={this.showModal}
         >
@@ -48,9 +48,13 @@ export class CreateModelButton extends React.Component {
   }
 }
 
-const classNames = {
-  buttonSize: css({
-    height: '40px',
-    width: 'fit-content',
-  }),
+const styles = {
+  getButtonSize: (buttonType) =>
+    buttonType === 'primary'
+      ? {
+          height: '40px',
+          width: 'fit-content',
+        }
+      : { padding: '0px' },
+  wrapper: { display: 'inline' },
 };

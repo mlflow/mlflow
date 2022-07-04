@@ -7,15 +7,21 @@ import yaml
 from unittest import mock
 
 import mlflow
+from mlflow.entities import Run
+from mlflow.entities.model_registry import ModelVersion
+from mlflow.exceptions import MlflowException
 from mlflow.pipelines.pipeline import Pipeline
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path, _get_execution_directory_basename
-from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.registry import resolve_tags
 from mlflow.utils.file_utils import path_to_local_file_uri
-from mlflow.entities import Run
-from mlflow.entities.model_registry import ModelVersion
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_REPO_URL,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+)
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -29,7 +35,10 @@ _STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate"]
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_create_pipeline_fails_with_invalid_profile():
-    with pytest.raises(MlflowException, match=r".*(Failed to find|does not exist).*"):
+    with pytest.raises(
+        MlflowException,
+        match=r"(Failed to find|Did not find the YAML configuration)",
+    ):
         Pipeline(profile="local123")
 
 
@@ -37,6 +46,13 @@ def test_create_pipeline_fails_with_invalid_profile():
 def test_create_pipeline_and_clean_works():
     p = Pipeline(profile="local")
     p.clean()
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+@pytest.mark.parametrize("empty_profile", [None, ""])
+def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
+    with pytest.raises(MlflowException, match="A profile name must be provided"):
+        _ = Pipeline(profile=empty_profile)
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
@@ -126,6 +142,37 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
     assert len(logged_runs) == 1
 
 
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_pipelines_run_sets_mlflow_git_tags():
+    pipeline = Pipeline(profile="local")
+    pipeline.clean()
+    pipeline.run(step="train")
+
+    profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
+    with open(profile_path, "r") as f:
+        profile_contents = yaml.safe_load(f)
+
+    tracking_uri = profile_contents["experiment"]["tracking_uri"]
+    experiment_name = profile_contents["experiment"]["name"]
+
+    mlflow.set_tracking_uri(tracking_uri)
+    logged_runs = mlflow.search_runs(
+        experiment_names=[experiment_name],
+        output_format="list",
+        order_by=["attributes.start_time DESC"],
+    )
+    logged_run = logged_runs[0]
+
+    run_tags = MlflowClient(tracking_uri).get_run(run_id=logged_run.info.run_id).data.tags
+    assert {
+        MLFLOW_SOURCE_NAME,
+        MLFLOW_GIT_COMMIT,
+        MLFLOW_GIT_REPO_URL,
+        LEGACY_MLFLOW_GIT_REPO_URL,
+    } < run_tags.keys()
+    assert run_tags[MLFLOW_SOURCE_NAME] == run_tags[MLFLOW_GIT_REPO_URL]
+
+
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_pipelines_run_throws_exception_and_produces_failure_card_when_step_fails():
     profile_path = pathlib.Path.cwd() / "profiles" / "local.yaml"
@@ -205,14 +252,15 @@ def test_pipeline_get_artifacts():
     assert isinstance(pipeline.get_artifact("run"), Run)
     assert isinstance(pipeline.get_artifact("registered_model_version"), ModelVersion)
 
-    with pytest.raises(MlflowException, match="The artifact abcde is not supported."):
+    with pytest.raises(MlflowException, match="The artifact with name 'abcde' is not supported."):
         pipeline.get_artifact("abcde")
 
     pipeline.clean()
     with mock.patch("mlflow.pipelines.regression.v1.pipeline._logger.warning") as mock_warning:
         pipeline.get_artifact("ingested_data")
         mock_warning.assert_called_once_with(
-            "ingested_data is not found. Re-run the ingest step to generate."
+            "The artifact with name 'ingested_data' was not found."
+            " Re-run the 'ingest' step to generate it."
         )
 
 

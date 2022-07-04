@@ -11,7 +11,7 @@ from itertools import permutations
 from unittest import mock
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     safe_patch,

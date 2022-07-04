@@ -399,7 +399,7 @@ ingest:
 # target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
 # ensuring that data is only ingested for downstream steps if it is not already present on the
 # local filesystem
-steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml
+steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
 	$(MAKE) ingest
 
 split_objects = steps/split/outputs/train.parquet steps/split/outputs/validation.parquet steps/split/outputs/test.parquet

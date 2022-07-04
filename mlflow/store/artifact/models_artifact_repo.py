@@ -59,7 +59,8 @@ class ModelsArtifactRepository(ArtifactRepository):
     def get_underlying_uri(uri):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
-        from mlflow.tracking import MlflowClient
+
+        from mlflow import MlflowClient
 
         databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()

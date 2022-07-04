@@ -59,6 +59,8 @@ SKINNY_REQUIREMENTS = [
     # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
     # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
     "importlib_metadata>=3.7.0,!=4.7.0",
+    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+    "sqlparse>=0.3.1",
 ]
 
 """
@@ -78,8 +80,6 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
-    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-    "sqlparse>=0.3.1",
     # Required to run the MLflow server against SQL-backed storage
     "sqlalchemy>=1.4.0",
     "waitress; platform_system == 'Windows'",
@@ -180,6 +180,7 @@ setup(
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+        mlp=mlflow.pipelines.cli:commands
     """,
     cmdclass={
         "dependencies": ListDependencies,

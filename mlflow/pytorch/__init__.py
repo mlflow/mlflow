@@ -948,7 +948,7 @@ def autolog(
             from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         # For brevity, here is the simplest most minimal example with just a training
         # loop step, (no validation, no testing). It illustrates how you can use MLflow

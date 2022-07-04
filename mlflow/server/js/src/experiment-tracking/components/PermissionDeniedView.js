@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
 import permissionDeniedLock from '../../common/static/permission-denied-lock.svg';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -16,7 +15,7 @@ export function PermissionDeniedView({ errorMessage }) {
         alt='permission denied'
       />
       <h1 style={{ paddingTop: 10 }}>Permission Denied</h1>
-      <h2 data-testid='error-message' className={css({ color: theme.colors.textSecondary })}>
+      <h2 data-testid='error-message' css={{ color: theme.colors.textSecondary }}>
         {errorMessage || defaultMessage}
       </h2>
     </div>

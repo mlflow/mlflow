@@ -12,6 +12,7 @@ import pytest
 from unittest import mock
 
 import mlflow
+from mlflow import MlflowClient
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow.entities import (
@@ -30,7 +31,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.dbmodels.models import SqlExperiment
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
@@ -326,7 +326,7 @@ def test_list_experiments(view_type, tmpdir):
 
     if view_type == ViewType.DELETED_ONLY:
         # Delete the default experiment
-        mlflow.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
+        MlflowClient(sqlite_uri).delete_experiment("0")
 
     # This is a bit hacky but much faster than creating experiments one by one with
     # `mlflow.create_experiment`

@@ -6,6 +6,7 @@ from unittest import mock
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.entities import ViewType
 from mlflow.projects.docker import _get_docker_image_uri
 from mlflow.projects import ExecutionException
@@ -43,7 +44,7 @@ def test_docker_project_execution(
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
@@ -132,7 +133,7 @@ def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disab
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks", backend_config={})
 
 
-@mock.patch("mlflow.projects.docker._get_git_commit")
+@mock.patch("mlflow.projects.docker.get_git_commit")
 def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = "1234567890"
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
@@ -140,7 +141,7 @@ def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.assert_called_with("my_workdir")
 
 
-@mock.patch("mlflow.projects.docker._get_git_commit")
+@mock.patch("mlflow.projects.docker.get_git_commit")
 def test_docker_image_uri_no_git(get_git_commit_mock):
     get_git_commit_mock.return_value = None
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
