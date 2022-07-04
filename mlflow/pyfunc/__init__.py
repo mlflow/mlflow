@@ -237,7 +237,7 @@ from mlflow.pyfunc.model import get_default_pip_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
 from mlflow.types.utils import clean_tensor_type
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version, _is_in_ipython_notebook
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import _copy_file_or_tree, write_to
 from mlflow.utils.model_utils import (
@@ -808,10 +808,11 @@ def get_model_dependencies(model_uri, format="pip"):  # pylint: disable=redefine
              specifying the model's dependencies.
     """
     dep_file = _get_model_dependencies(model_uri, format)
+
     if format == "pip":
-        prefix = "%" if is_in_databricks_runtime() else ""
+        prefix = "%" if _is_in_ipython_notebook() else ""
         _logger.info(
-            "To install these model dependencies, run the "
+            "To install the dependencies that were used to train the model, run the "
             f"following command: '{prefix}pip install -r {dep_file}'."
         )
     return dep_file
@@ -1197,12 +1198,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 )
 
             # launch scoring server
-            # TODO: adjust timeout for server requests handler.
             server_port = find_free_port()
             scoring_server_proc = pyfunc_backend.serve(
                 model_uri=local_model_path_on_executor,
                 port=server_port,
                 host="127.0.0.1",
+                timeout=60,
                 enable_mlserver=False,
                 synchronous=False,
                 stdout=subprocess.PIPE,
@@ -1267,7 +1268,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
                 else:
                     row_batch_args = input_batch
 
-                yield _predict_row_batch(batch_predict_fn, row_batch_args)
+                if len(row_batch_args[0]) > 0:
+                    yield _predict_row_batch(batch_predict_fn, row_batch_args)
         finally:
             if scoring_server_proc is not None:
                 os.kill(scoring_server_proc.pid, signal.SIGTERM)

@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: harupy/auto-labeling@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

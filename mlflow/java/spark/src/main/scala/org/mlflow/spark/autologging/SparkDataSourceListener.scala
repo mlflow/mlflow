@@ -17,14 +17,11 @@ class SparkDataSourceListener(
     DatasourceAttributeExtractor
   }
 
-  protected def getReplIdOpt(event: SparkListenerSQLExecutionEnd): Option[String] = None
-
-  // Exposed for testing
-  private[autologging] def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
+  protected[autologging] def onSQLExecutionEnd(event: SparkListenerSQLExecutionEnd): Unit = {
     val extractor = getDatasourceAttributeExtractor
     val tableInfos = extractor.getTableInfos(event)
     tableInfos.foreach { tableInfo =>
-      publisher.publishEvent(getReplIdOpt(event), tableInfo)
+      publisher.publishEvent(replIdOpt = None, sparkTableInfo = tableInfo)
     }
   }
 

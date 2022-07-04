@@ -302,3 +302,54 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
     dir_contents = os.listdir(tmpdir.strpath)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
+
+
+def test_delete_artifacts(gcs_mock):
+    experiment_root_path = "/experiment_id/"
+    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, gcs_mock)
+
+    def delete_file():
+        del obj_mock.name
+        del obj_mock.size
+        return obj_mock
+
+    obj_mock = mock.Mock()
+    run_id_path = experiment_root_path + "run_id/"
+    file_path = "file"
+    attrs = {"name": run_id_path + file_path, "size": 1, "delete.side_effect": delete_file}
+    obj_mock.configure_mock(**attrs)
+
+    def get_mock_listing(prefix, **kwargs):
+        """
+        Produces a mock listing that only contains content if the
+        specified prefix is the artifact root. This allows us to mock
+        `list_artifacts` during the `_download_artifacts_into` subroutine
+        without recursively listing the same artifacts at every level of the
+        directory traversal.
+        """
+
+        # pylint: disable=unused-argument
+        if hasattr(obj_mock, "name") and hasattr(obj_mock, "size"):
+            mock_results = mock.MagicMock()
+            mock_results.__iter__.return_value = [obj_mock]
+            return mock_results
+        else:
+            mock_empty_results = mock.MagicMock()
+            mock_empty_results.__iter__.return_value = []
+            return mock_empty_results
+
+    mock_method_chain(
+        gcs_mock,
+        [
+            "Client",
+            "bucket",
+            "list_blobs",
+        ],
+        side_effect=get_mock_listing,
+    )
+
+    artifact_file_names = [obj.path for obj in repo.list_artifacts()]
+    assert "run_id/file" in artifact_file_names
+    repo.delete_artifacts()
+    artifact_file_names = [obj.path for obj in repo.list_artifacts()]
+    assert not artifact_file_names

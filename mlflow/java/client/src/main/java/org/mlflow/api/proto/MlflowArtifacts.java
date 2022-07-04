@@ -21,7 +21,7 @@ public final class MlflowArtifacts {
   /**
    * Protobuf type {@code mlflow.artifacts.DownloadArtifact}
    */
-  public  static final class DownloadArtifact extends
+  public static final class DownloadArtifact extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.artifacts.DownloadArtifact)
       DownloadArtifactOrBuilder {
@@ -31,6 +31,13 @@ public final class MlflowArtifacts {
       super(builder);
     }
     private DownloadArtifact() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DownloadArtifact();
     }
 
     @java.lang.Override
@@ -95,7 +102,7 @@ public final class MlflowArtifacts {
     /**
      * Protobuf type {@code mlflow.artifacts.DownloadArtifact.Response}
      */
-    public  static final class Response extends
+    public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.artifacts.DownloadArtifact.Response)
         ResponseOrBuilder {
@@ -105,6 +112,13 @@ public final class MlflowArtifacts {
         super(builder);
       }
       private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
       }
 
       @java.lang.Override
@@ -200,9 +214,8 @@ public final class MlflowArtifacts {
         }
         org.mlflow.api.proto.MlflowArtifacts.DownloadArtifact.Response other = (org.mlflow.api.proto.MlflowArtifacts.DownloadArtifact.Response) obj;
 
-        boolean result = true;
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -377,35 +390,35 @@ public final class MlflowArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -538,9 +551,8 @@ public final class MlflowArtifacts {
       }
       org.mlflow.api.proto.MlflowArtifacts.DownloadArtifact other = (org.mlflow.api.proto.MlflowArtifacts.DownloadArtifact) obj;
 
-      boolean result = true;
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -715,35 +727,35 @@ public final class MlflowArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -845,7 +857,7 @@ public final class MlflowArtifacts {
   /**
    * Protobuf type {@code mlflow.artifacts.UploadArtifact}
    */
-  public  static final class UploadArtifact extends
+  public static final class UploadArtifact extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.artifacts.UploadArtifact)
       UploadArtifactOrBuilder {
@@ -855,6 +867,13 @@ public final class MlflowArtifacts {
       super(builder);
     }
     private UploadArtifact() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new UploadArtifact();
     }
 
     @java.lang.Override
@@ -919,7 +938,7 @@ public final class MlflowArtifacts {
     /**
      * Protobuf type {@code mlflow.artifacts.UploadArtifact.Response}
      */
-    public  static final class Response extends
+    public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.artifacts.UploadArtifact.Response)
         ResponseOrBuilder {
@@ -929,6 +948,13 @@ public final class MlflowArtifacts {
         super(builder);
       }
       private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
       }
 
       @java.lang.Override
@@ -1024,9 +1050,8 @@ public final class MlflowArtifacts {
         }
         org.mlflow.api.proto.MlflowArtifacts.UploadArtifact.Response other = (org.mlflow.api.proto.MlflowArtifacts.UploadArtifact.Response) obj;
 
-        boolean result = true;
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -1201,35 +1226,35 @@ public final class MlflowArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1362,9 +1387,8 @@ public final class MlflowArtifacts {
       }
       org.mlflow.api.proto.MlflowArtifacts.UploadArtifact other = (org.mlflow.api.proto.MlflowArtifacts.UploadArtifact) obj;
 
-      boolean result = true;
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -1539,35 +1563,35 @@ public final class MlflowArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1672,6 +1696,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
      */
     boolean hasPath();
     /**
@@ -1680,6 +1705,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The path.
      */
     java.lang.String getPath();
     /**
@@ -1688,6 +1714,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The bytes for path.
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -1695,7 +1722,7 @@ public final class MlflowArtifacts {
   /**
    * Protobuf type {@code mlflow.artifacts.ListArtifacts}
    */
-  public  static final class ListArtifacts extends
+  public static final class ListArtifacts extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.artifacts.ListArtifacts)
       ListArtifactsOrBuilder {
@@ -1706,6 +1733,13 @@ public final class MlflowArtifacts {
     }
     private ListArtifacts() {
       path_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ListArtifacts();
     }
 
     @java.lang.Override
@@ -1821,7 +1855,7 @@ public final class MlflowArtifacts {
     /**
      * Protobuf type {@code mlflow.artifacts.ListArtifacts.Response}
      */
-    public  static final class Response extends
+    public static final class Response extends
         com.google.protobuf.GeneratedMessageV3 implements
         // @@protoc_insertion_point(message_implements:mlflow.artifacts.ListArtifacts.Response)
         ResponseOrBuilder {
@@ -1832,6 +1866,13 @@ public final class MlflowArtifacts {
       }
       private Response() {
         files_ = java.util.Collections.emptyList();
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
       }
 
       @java.lang.Override
@@ -1859,7 +1900,7 @@ public final class MlflowArtifacts {
                 done = true;
                 break;
               case 10: {
-                if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                if (!((mutable_bitField0_ & 0x00000001) != 0)) {
                   files_ = new java.util.ArrayList<org.mlflow.api.proto.MlflowArtifacts.FileInfo>();
                   mutable_bitField0_ |= 0x00000001;
                 }
@@ -1882,7 +1923,7 @@ public final class MlflowArtifacts {
           throw new com.google.protobuf.InvalidProtocolBufferException(
               e).setUnfinishedMessage(this);
         } finally {
-          if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+          if (((mutable_bitField0_ & 0x00000001) != 0)) {
             files_ = java.util.Collections.unmodifiableList(files_);
           }
           this.unknownFields = unknownFields.build();
@@ -1911,6 +1952,7 @@ public final class MlflowArtifacts {
        *
        * <code>repeated .mlflow.artifacts.FileInfo files = 1;</code>
        */
+      @java.lang.Override
       public java.util.List<org.mlflow.api.proto.MlflowArtifacts.FileInfo> getFilesList() {
         return files_;
       }
@@ -1921,6 +1963,7 @@ public final class MlflowArtifacts {
        *
        * <code>repeated .mlflow.artifacts.FileInfo files = 1;</code>
        */
+      @java.lang.Override
       public java.util.List<? extends org.mlflow.api.proto.MlflowArtifacts.FileInfoOrBuilder> 
           getFilesOrBuilderList() {
         return files_;
@@ -1932,6 +1975,7 @@ public final class MlflowArtifacts {
        *
        * <code>repeated .mlflow.artifacts.FileInfo files = 1;</code>
        */
+      @java.lang.Override
       public int getFilesCount() {
         return files_.size();
       }
@@ -1942,6 +1986,7 @@ public final class MlflowArtifacts {
        *
        * <code>repeated .mlflow.artifacts.FileInfo files = 1;</code>
        */
+      @java.lang.Override
       public org.mlflow.api.proto.MlflowArtifacts.FileInfo getFiles(int index) {
         return files_.get(index);
       }
@@ -1952,6 +1997,7 @@ public final class MlflowArtifacts {
        *
        * <code>repeated .mlflow.artifacts.FileInfo files = 1;</code>
        */
+      @java.lang.Override
       public org.mlflow.api.proto.MlflowArtifacts.FileInfoOrBuilder getFilesOrBuilder(
           int index) {
         return files_.get(index);
@@ -2002,11 +2048,10 @@ public final class MlflowArtifacts {
         }
         org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response other = (org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response) obj;
 
-        boolean result = true;
-        result = result && getFilesList()
-            .equals(other.getFilesList());
-        result = result && unknownFields.equals(other.unknownFields);
-        return result;
+        if (!getFilesList()
+            .equals(other.getFilesList())) return false;
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
       }
 
       @java.lang.Override
@@ -2188,7 +2233,7 @@ public final class MlflowArtifacts {
           org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response result = new org.mlflow.api.proto.MlflowArtifacts.ListArtifacts.Response(this);
           int from_bitField0_ = bitField0_;
           if (filesBuilder_ == null) {
-            if (((bitField0_ & 0x00000001) == 0x00000001)) {
+            if (((bitField0_ & 0x00000001) != 0)) {
               files_ = java.util.Collections.unmodifiableList(files_);
               bitField0_ = (bitField0_ & ~0x00000001);
             }
@@ -2202,35 +2247,35 @@ public final class MlflowArtifacts {
 
         @java.lang.Override
         public Builder clone() {
-          return (Builder) super.clone();
+          return super.clone();
         }
         @java.lang.Override
         public Builder setField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.setField(field, value);
+          return super.setField(field, value);
         }
         @java.lang.Override
         public Builder clearField(
             com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return (Builder) super.clearField(field);
+          return super.clearField(field);
         }
         @java.lang.Override
         public Builder clearOneof(
             com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return (Builder) super.clearOneof(oneof);
+          return super.clearOneof(oneof);
         }
         @java.lang.Override
         public Builder setRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             int index, java.lang.Object value) {
-          return (Builder) super.setRepeatedField(field, index, value);
+          return super.setRepeatedField(field, index, value);
         }
         @java.lang.Override
         public Builder addRepeatedField(
             com.google.protobuf.Descriptors.FieldDescriptor field,
             java.lang.Object value) {
-          return (Builder) super.addRepeatedField(field, value);
+          return super.addRepeatedField(field, value);
         }
         @java.lang.Override
         public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -2303,7 +2348,7 @@ public final class MlflowArtifacts {
         private java.util.List<org.mlflow.api.proto.MlflowArtifacts.FileInfo> files_ =
           java.util.Collections.emptyList();
         private void ensureFilesIsMutable() {
-          if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+          if (!((bitField0_ & 0x00000001) != 0)) {
             files_ = new java.util.ArrayList<org.mlflow.api.proto.MlflowArtifacts.FileInfo>(files_);
             bitField0_ |= 0x00000001;
            }
@@ -2604,7 +2649,7 @@ public final class MlflowArtifacts {
             filesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
                 org.mlflow.api.proto.MlflowArtifacts.FileInfo, org.mlflow.api.proto.MlflowArtifacts.FileInfo.Builder, org.mlflow.api.proto.MlflowArtifacts.FileInfoOrBuilder>(
                     files_,
-                    ((bitField0_ & 0x00000001) == 0x00000001),
+                    ((bitField0_ & 0x00000001) != 0),
                     getParentForChildren(),
                     isClean());
             files_ = null;
@@ -2673,9 +2718,11 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
      */
+    @java.lang.Override
     public boolean hasPath() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -2683,7 +2730,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The path.
      */
+    @java.lang.Override
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
       if (ref instanceof java.lang.String) {
@@ -2704,7 +2753,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The bytes for path.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPathBytes() {
       java.lang.Object ref = path_;
@@ -2733,7 +2784,7 @@ public final class MlflowArtifacts {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, path_);
       }
       unknownFields.writeTo(output);
@@ -2745,7 +2796,7 @@ public final class MlflowArtifacts {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, path_);
       }
       size += unknownFields.getSerializedSize();
@@ -2763,14 +2814,13 @@ public final class MlflowArtifacts {
       }
       org.mlflow.api.proto.MlflowArtifacts.ListArtifacts other = (org.mlflow.api.proto.MlflowArtifacts.ListArtifacts) obj;
 
-      boolean result = true;
-      result = result && (hasPath() == other.hasPath());
+      if (hasPath() != other.hasPath()) return false;
       if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
+        if (!getPath()
+            .equals(other.getPath())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -2947,7 +2997,7 @@ public final class MlflowArtifacts {
         org.mlflow.api.proto.MlflowArtifacts.ListArtifacts result = new org.mlflow.api.proto.MlflowArtifacts.ListArtifacts(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.path_ = path_;
@@ -2958,35 +3008,35 @@ public final class MlflowArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -3042,9 +3092,10 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return Whether the path field is set.
        */
       public boolean hasPath() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -3052,6 +3103,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return The path.
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -3073,6 +3125,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return The bytes for path.
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -3093,6 +3146,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           java.lang.String value) {
@@ -3110,6 +3165,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -3123,6 +3179,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -3187,6 +3245,842 @@ public final class MlflowArtifacts {
 
   }
 
+  public interface DeleteArtifactOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.artifacts.DeleteArtifact)
+      com.google.protobuf.MessageOrBuilder {
+  }
+  /**
+   * Protobuf type {@code mlflow.artifacts.DeleteArtifact}
+   */
+  public static final class DeleteArtifact extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.artifacts.DeleteArtifact)
+      DeleteArtifactOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DeleteArtifact.newBuilder() to construct.
+    private DeleteArtifact(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DeleteArtifact() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DeleteArtifact();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DeleteArtifact(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.class, org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.artifacts.DeleteArtifact.Response)
+        com.google.protobuf.MessageOrBuilder {
+    }
+    /**
+     * Protobuf type {@code mlflow.artifacts.DeleteArtifact.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.artifacts.DeleteArtifact.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.class, org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.Builder.class);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response other = (org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response) obj;
+
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.artifacts.DeleteArtifact.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.artifacts.DeleteArtifact.Response)
+          org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.class, org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response build() {
+          org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response buildPartial() {
+          org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response result = new org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response(this);
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response) {
+            return mergeFrom((org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response other) {
+          if (other == org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response.getDefaultInstance()) return this;
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.artifacts.DeleteArtifact.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.artifacts.DeleteArtifact.Response)
+      private static final org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response();
+      }
+
+      public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact other = (org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact) obj;
+
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.artifacts.DeleteArtifact}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.artifacts.DeleteArtifact)
+        org.mlflow.api.proto.MlflowArtifacts.DeleteArtifactOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.class, org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.MlflowArtifacts.internal_static_mlflow_artifacts_DeleteArtifact_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact getDefaultInstanceForType() {
+        return org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact build() {
+        org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact buildPartial() {
+        org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact result = new org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact(this);
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact) {
+          return mergeFrom((org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact other) {
+        if (other == org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.artifacts.DeleteArtifact)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.artifacts.DeleteArtifact)
+    private static final org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact();
+    }
+
+    public static org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DeleteArtifact>
+        PARSER = new com.google.protobuf.AbstractParser<DeleteArtifact>() {
+      @java.lang.Override
+      public DeleteArtifact parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DeleteArtifact(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DeleteArtifact> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DeleteArtifact> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.MlflowArtifacts.DeleteArtifact getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface FileInfoOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.artifacts.FileInfo)
       com.google.protobuf.MessageOrBuilder {
@@ -3197,6 +4091,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
      */
     boolean hasPath();
     /**
@@ -3205,6 +4100,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The path.
      */
     java.lang.String getPath();
     /**
@@ -3213,6 +4109,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The bytes for path.
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -3223,6 +4120,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional bool is_dir = 2;</code>
+     * @return Whether the isDir field is set.
      */
     boolean hasIsDir();
     /**
@@ -3231,6 +4129,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional bool is_dir = 2;</code>
+     * @return The isDir.
      */
     boolean getIsDir();
 
@@ -3240,6 +4139,7 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional int64 file_size = 3;</code>
+     * @return Whether the fileSize field is set.
      */
     boolean hasFileSize();
     /**
@@ -3248,13 +4148,14 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional int64 file_size = 3;</code>
+     * @return The fileSize.
      */
     long getFileSize();
   }
   /**
    * Protobuf type {@code mlflow.artifacts.FileInfo}
    */
-  public  static final class FileInfo extends
+  public static final class FileInfo extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.artifacts.FileInfo)
       FileInfoOrBuilder {
@@ -3265,8 +4166,13 @@ public final class MlflowArtifacts {
     }
     private FileInfo() {
       path_ = "";
-      isDir_ = false;
-      fileSize_ = 0L;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new FileInfo();
     }
 
     @java.lang.Override
@@ -3350,9 +4256,11 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return Whether the path field is set.
      */
+    @java.lang.Override
     public boolean hasPath() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -3360,7 +4268,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The path.
      */
+    @java.lang.Override
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
       if (ref instanceof java.lang.String) {
@@ -3381,7 +4291,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional string path = 1;</code>
+     * @return The bytes for path.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPathBytes() {
       java.lang.Object ref = path_;
@@ -3404,9 +4316,11 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional bool is_dir = 2;</code>
+     * @return Whether the isDir field is set.
      */
+    @java.lang.Override
     public boolean hasIsDir() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -3414,7 +4328,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional bool is_dir = 2;</code>
+     * @return The isDir.
      */
+    @java.lang.Override
     public boolean getIsDir() {
       return isDir_;
     }
@@ -3427,9 +4343,11 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional int64 file_size = 3;</code>
+     * @return Whether the fileSize field is set.
      */
+    @java.lang.Override
     public boolean hasFileSize() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -3437,7 +4355,9 @@ public final class MlflowArtifacts {
      * </pre>
      *
      * <code>optional int64 file_size = 3;</code>
+     * @return The fileSize.
      */
+    @java.lang.Override
     public long getFileSize() {
       return fileSize_;
     }
@@ -3456,13 +4376,13 @@ public final class MlflowArtifacts {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, path_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeBool(2, isDir_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         output.writeInt64(3, fileSize_);
       }
       unknownFields.writeTo(output);
@@ -3474,14 +4394,14 @@ public final class MlflowArtifacts {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, path_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeBoolSize(2, isDir_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(3, fileSize_);
       }
@@ -3500,24 +4420,23 @@ public final class MlflowArtifacts {
       }
       org.mlflow.api.proto.MlflowArtifacts.FileInfo other = (org.mlflow.api.proto.MlflowArtifacts.FileInfo) obj;
 
-      boolean result = true;
-      result = result && (hasPath() == other.hasPath());
+      if (hasPath() != other.hasPath()) return false;
       if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
+        if (!getPath()
+            .equals(other.getPath())) return false;
       }
-      result = result && (hasIsDir() == other.hasIsDir());
+      if (hasIsDir() != other.hasIsDir()) return false;
       if (hasIsDir()) {
-        result = result && (getIsDir()
-            == other.getIsDir());
+        if (getIsDir()
+            != other.getIsDir()) return false;
       }
-      result = result && (hasFileSize() == other.hasFileSize());
+      if (hasFileSize() != other.hasFileSize()) return false;
       if (hasFileSize()) {
-        result = result && (getFileSize()
-            == other.getFileSize());
+        if (getFileSize()
+            != other.getFileSize()) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -3708,18 +4627,18 @@ public final class MlflowArtifacts {
         org.mlflow.api.proto.MlflowArtifacts.FileInfo result = new org.mlflow.api.proto.MlflowArtifacts.FileInfo(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.isDir_ = isDir_;
           to_bitField0_ |= 0x00000002;
         }
-        result.isDir_ = isDir_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          result.fileSize_ = fileSize_;
           to_bitField0_ |= 0x00000004;
         }
-        result.fileSize_ = fileSize_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -3727,35 +4646,35 @@ public final class MlflowArtifacts {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -3817,9 +4736,10 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return Whether the path field is set.
        */
       public boolean hasPath() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -3827,6 +4747,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return The path.
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -3848,6 +4769,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return The bytes for path.
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -3868,6 +4790,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           java.lang.String value) {
@@ -3885,6 +4809,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -3898,6 +4823,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional string path = 1;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -3917,9 +4844,11 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional bool is_dir = 2;</code>
+       * @return Whether the isDir field is set.
        */
+      @java.lang.Override
       public boolean hasIsDir() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -3927,7 +4856,9 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional bool is_dir = 2;</code>
+       * @return The isDir.
        */
+      @java.lang.Override
       public boolean getIsDir() {
         return isDir_;
       }
@@ -3937,6 +4868,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional bool is_dir = 2;</code>
+       * @param value The isDir to set.
+       * @return This builder for chaining.
        */
       public Builder setIsDir(boolean value) {
         bitField0_ |= 0x00000002;
@@ -3950,6 +4883,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional bool is_dir = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearIsDir() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -3965,9 +4899,11 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional int64 file_size = 3;</code>
+       * @return Whether the fileSize field is set.
        */
+      @java.lang.Override
       public boolean hasFileSize() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -3975,7 +4911,9 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional int64 file_size = 3;</code>
+       * @return The fileSize.
        */
+      @java.lang.Override
       public long getFileSize() {
         return fileSize_;
       }
@@ -3985,6 +4923,8 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional int64 file_size = 3;</code>
+       * @param value The fileSize to set.
+       * @return This builder for chaining.
        */
       public Builder setFileSize(long value) {
         bitField0_ |= 0x00000004;
@@ -3998,6 +4938,7 @@ public final class MlflowArtifacts {
        * </pre>
        *
        * <code>optional int64 file_size = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearFileSize() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -4089,6 +5030,16 @@ public final class MlflowArtifacts {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_artifacts_ListArtifacts_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_artifacts_DeleteArtifact_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_artifacts_DeleteArtifact_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_artifacts_DeleteArtifact_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_artifacts_FileInfo_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -4107,39 +5058,36 @@ public final class MlflowArtifacts {
       "oto\"\036\n\020DownloadArtifact\032\n\n\010Response\"\034\n\016U" +
       "ploadArtifact\032\n\n\010Response\"T\n\rListArtifac" +
       "ts\022\014\n\004path\030\001 \001(\t\0325\n\010Response\022)\n\005files\030\001 " +
-      "\003(\0132\032.mlflow.artifacts.FileInfo\";\n\010FileI" +
-      "nfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfil" +
-      "e_size\030\003 \001(\0032\257\004\n\026MlflowArtifactsService\022" +
-      "\275\001\n\020downloadArtifact\022\".mlflow.artifacts." +
-      "DownloadArtifact\032+.mlflow.artifacts.Down" +
-      "loadArtifact.Response\"X\362\206\031T\n=\n\003GET\0220/mlf" +
-      "low-artifacts/artifacts/<path:artifact_p" +
-      "ath>\032\004\010\002\020\000\020\001*\021Download Artifact\022\265\001\n\016uplo" +
-      "adArtifact\022 .mlflow.artifacts.UploadArti" +
-      "fact\032).mlflow.artifacts.UploadArtifact.R" +
-      "esponse\"V\362\206\031R\n=\n\003PUT\0220/mlflow-artifacts/" +
-      "artifacts/<path:artifact_path>\032\004\010\002\020\000\020\001*\017" +
-      "Upload Artifact\022\234\001\n\rlistArtifacts\022\037.mlfl" +
-      "ow.artifacts.ListArtifacts\032(.mlflow.arti" +
-      "facts.ListArtifacts.Response\"@\362\206\031<\n(\n\003GE" +
-      "T\022\033/mlflow-artifacts/artifacts\032\004\010\002\020\000\020\001*\016" +
-      "List ArtifactsB\036\n\024org.mlflow.api.proto\220\001" +
-      "\001\342?\002\020\001"
+      "\003(\0132\032.mlflow.artifacts.FileInfo\"\034\n\016Delet" +
+      "eArtifact\032\n\n\010Response\";\n\010FileInfo\022\014\n\004pat" +
+      "h\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001" +
+      "(\0032\353\005\n\026MlflowArtifactsService\022\275\001\n\020downlo" +
+      "adArtifact\022\".mlflow.artifacts.DownloadAr" +
+      "tifact\032+.mlflow.artifacts.DownloadArtifa" +
+      "ct.Response\"X\362\206\031T\n=\n\003GET\0220/mlflow-artifa" +
+      "cts/artifacts/<path:artifact_path>\032\004\010\002\020\000" +
+      "\020\001*\021Download Artifact\022\265\001\n\016uploadArtifact" +
+      "\022 .mlflow.artifacts.UploadArtifact\032).mlf" +
+      "low.artifacts.UploadArtifact.Response\"V\362" +
+      "\206\031R\n=\n\003PUT\0220/mlflow-artifacts/artifacts/" +
+      "<path:artifact_path>\032\004\010\002\020\000\020\001*\017Upload Art" +
+      "ifact\022\234\001\n\rlistArtifacts\022\037.mlflow.artifac" +
+      "ts.ListArtifacts\032(.mlflow.artifacts.List" +
+      "Artifacts.Response\"@\362\206\031<\n(\n\003GET\022\033/mlflow" +
+      "-artifacts/artifacts\032\004\010\002\020\000\020\001*\016List Artif" +
+      "acts\022\271\001\n\016deleteArtifact\022 .mlflow.artifac" +
+      "ts.DeleteArtifact\032).mlflow.artifacts.Del" +
+      "eteArtifact.Response\"Z\362\206\031V\n@\n\006DELETE\0220/m" +
+      "lflow-artifacts/artifacts/<path:artifact" +
+      "_path>\032\004\010\002\020\000\020\001*\020Delete ArtifactsB\036\n\024org." +
+      "mlflow.api.proto\220\001\001\342?\002\020\001"
     };
-    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
-          public com.google.protobuf.ExtensionRegistry assignDescriptors(
-              com.google.protobuf.Descriptors.FileDescriptor root) {
-            descriptor = root;
-            return null;
-          }
-        };
-    com.google.protobuf.Descriptors.FileDescriptor
+    descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
-        }, assigner);
+        });
     internal_static_mlflow_artifacts_DownloadArtifact_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_mlflow_artifacts_DownloadArtifact_fieldAccessorTable = new
@@ -4176,8 +5124,20 @@ public final class MlflowArtifacts {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_ListArtifacts_Response_descriptor,
         new java.lang.String[] { "Files", });
-    internal_static_mlflow_artifacts_FileInfo_descriptor =
+    internal_static_mlflow_artifacts_DeleteArtifact_descriptor =
       getDescriptor().getMessageTypes().get(3);
+    internal_static_mlflow_artifacts_DeleteArtifact_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_artifacts_DeleteArtifact_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor =
+      internal_static_mlflow_artifacts_DeleteArtifact_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_artifacts_DeleteArtifact_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_artifacts_DeleteArtifact_Response_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_artifacts_FileInfo_descriptor =
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_artifacts_FileInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_artifacts_FileInfo_descriptor,

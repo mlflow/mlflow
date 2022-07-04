@@ -1,0 +1,11 @@
+name: virtualenv-conda
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.13
+  - numpy
+  - pip
+  - pip:
+      - mlflow
+      - scikit-learn==1.0.2
+      - protobuf<4.0.0

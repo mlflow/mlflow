@@ -1,6 +1,9 @@
 import os
 from functools import partial
 import logging
+from pathlib import Path
+from typing import Union
+from contextlib import contextmanager
 
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -39,7 +42,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri: str) -> None:
+def set_tracking_uri(uri: Union[str, Path]) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.
@@ -53,6 +56,7 @@ def set_tracking_uri(uri: str) -> None:
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+                - A :py:class:`pathlib.Path` instance
 
     .. code-block:: python
         :caption: Example
@@ -68,8 +72,34 @@ def set_tracking_uri(uri: str) -> None:
 
         Current tracking uri: file:///tmp/my_tracking
     """
+    if isinstance(uri, Path):
+        # On Windows with Python3.7 (https://bugs.python.org/issue38671)
+        # .resolve() doesn't return the absolute path if the directory doesn't exist
+        # so we're calling .absolute() first to get the absolute path on Windows,
+        # then .resolve() to clean the path
+        uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
     _tracking_uri = uri
+
+
+@contextmanager
+def _use_tracking_uri(uri: str, local_store_root_path: str = None) -> None:
+    """
+    Similar to `mlflow.tracking.set_tracking_uri` function but return a context manager.
+    :param uri: tracking URI to use.
+    :param local_store_root_path: the local store root path for the tracking URI.
+    """
+    global _tracking_uri
+    cwd = os.getcwd()
+    old_tracking_uri = _tracking_uri
+    try:
+        if local_store_root_path is not None:
+            os.chdir(local_store_root_path)
+        _tracking_uri = uri
+        yield
+    finally:
+        _tracking_uri = old_tracking_uri
+        os.chdir(cwd)
 
 
 def _resolve_tracking_uri(tracking_uri=None):

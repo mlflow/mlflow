@@ -63,7 +63,6 @@ def h2o_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(h2o_iris_model, model_path):
     h2o_model = h2o_iris_model.model
     mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path)
@@ -100,7 +99,6 @@ def test_signature_and_examples_are_saved_correctly(h2o_iris_model):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_model_log(h2o_iris_model):
     h2o_model = h2o_iris_model.model
     try:
@@ -120,7 +118,6 @@ def test_model_log(h2o_iris_model):
         mlflow.end_run()
 
 
-@pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
     h2o_iris_model, model_path
 ):
@@ -145,7 +142,6 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     )
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     h2o_iris_model, model_path, h2o_custom_env
 ):
@@ -163,7 +159,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == h2o_custom_env_text
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     h2o_iris_model, model_path, h2o_custom_env
 ):
@@ -173,7 +168,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(h2o_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -206,7 +200,6 @@ def test_log_model_with_pip_requirements(h2o_iris_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
     default_reqs = mlflow.h2o.get_default_pip_requirements()
 
@@ -238,7 +231,6 @@ def test_log_model_with_extra_pip_requirements(h2o_iris_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
     conda_env = dict(mlflow.h2o.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -253,7 +245,6 @@ def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     h2o_iris_model, h2o_custom_env
 ):
@@ -280,7 +271,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == h2o_custom_env_text
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_model, h2o_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -297,7 +287,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(h2o_iris_mode
     _compare_conda_env_requirements(h2o_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     h2o_iris_model, model_path
 ):
@@ -305,7 +294,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.h2o.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     h2o_iris_model,
 ):
@@ -316,7 +304,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.h2o.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(h2o_iris_model):
     model, inference_dataframe = h2o_iris_model
     artifact_path = "model"

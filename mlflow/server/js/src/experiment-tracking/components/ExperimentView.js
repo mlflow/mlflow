@@ -7,8 +7,8 @@ import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
 import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
-import { Alert, Badge, Descriptions, Menu, Popover, Select, Tooltip, Switch } from 'antd';
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Badge, Descriptions, Menu, Select, Tooltip, Switch } from 'antd';
+import { Popover, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -47,7 +47,6 @@ import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { Radio } from '../../shared/building_blocks/Radio';
 import syncSvg from '../../common/static/sync.svg';
 import { middleTruncateStr } from '../../common/utils/StringUtils';
-import { css } from 'emotion';
 import {
   COLUMN_TYPES,
   LIFECYCLE_FILTER,
@@ -401,7 +400,7 @@ export class ExperimentView extends Component {
     );
     return this.state.showOnboardingHelper ? (
       <Alert
-        className={css(styles.alert)}
+        css={styles.alert}
         message={content}
         type='info'
         showIcon
@@ -577,7 +576,6 @@ export class ExperimentView extends Component {
     };
     /* eslint-disable prefer-const */
     let breadcrumbs = [];
-    let form;
 
     const artifactLocationProps = {
       experiment: this.props.experiments[0],
@@ -669,12 +667,7 @@ export class ExperimentView extends Component {
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
         {this.renderGetLinkModal()}
-        <PageHeader
-          /* prettier-ignore */
-          title={pageHeaderTitle}
-          breadcrumbs={breadcrumbs}
-          feedbackForm={form}
-        >
+        <PageHeader title={pageHeaderTitle} breadcrumbs={breadcrumbs}>
           {!this.props.compareExperiments && (
             <OverflowMenu
               data-test-id='experiment-view-page-header'
@@ -882,7 +875,7 @@ export class ExperimentView extends Component {
                       })}
                     >
                       <Switch
-                        style={{ margin: '5px' }}
+                        css={styles.columnSwitch}
                         // dataTestId='diff-switch'
                         checked={diffSwitchSelected}
                         onChange={this.handleDiffSwitchChange}
@@ -897,7 +890,7 @@ export class ExperimentView extends Component {
                     >
                       <QuestionCircleFilled className='ExperimentView-search-help' />
                     </Popover>
-                    <div style={styles.searchBox}>
+                    <div css={styles.searchBox}>
                       <SearchBox
                         onChange={this.onSearchInput}
                         value={this.state.searchInput}
@@ -906,7 +899,7 @@ export class ExperimentView extends Component {
                       />
                     </div>
                     <Button dataTestId='filter-button' onClick={this.handleFilterToggle}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <div css={styles.filterButtonWrapper}>
                         <img className='filterIcon' src={filterIcon} alt='Filter' />
                         <FormattedMessage
                           defaultMessage='Filter'
@@ -933,7 +926,7 @@ export class ExperimentView extends Component {
               unmountOnExit
             >
               <div className='ExperimentView-lifecycle-input'>
-                <div className='filter-wrapper' style={styles.lifecycleButtonFilterWrapper}>
+                <div className='filter-wrapper' css={styles.lifecycleButtonFilterWrapper}>
                   <FormattedMessage
                     defaultMessage='State:'
                     // eslint-disable-next-line max-len
@@ -1377,12 +1370,8 @@ const styles = {
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
     borderRadius: 4,
   },
-  shareButton: {
-    padding: '6px 12px',
-    marginBottom: 8,
-    display: 'flex',
-    alignItems: 'center',
-  },
+  columnSwitch: { margin: '5px' },
+  filterButtonWrapper: { display: 'flex', alignItems: 'center' },
 };
 
 export const ExperimentViewWithIntl = injectIntl(ExperimentView);

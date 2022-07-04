@@ -14,7 +14,6 @@ from mlflow.store.artifact.s3_artifact_repo import (
 )
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 from unittest import mock
 

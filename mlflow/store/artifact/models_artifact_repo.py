@@ -42,10 +42,25 @@ class ModelsArtifactRepository(ArtifactRepository):
         return urllib.parse.urlparse(uri).scheme == "models"
 
     @staticmethod
+    def split_models_uri(uri):
+        """
+        Split 'models:/<name>/<version>/path/to/model' into
+        ('models:/<name>/<version>', 'path/to/model').
+        """
+        path = urllib.parse.urlparse(uri).path
+        if path.count("/") >= 3 and not path.endswith("/"):
+            splits = path.split("/", 3)
+            model_name_and_version = splits[:3]
+            artifact_path = splits[-1]
+            return "models:" + "/".join(model_name_and_version), artifact_path
+        return uri, ""
+
+    @staticmethod
     def get_underlying_uri(uri):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
-        from mlflow.tracking import MlflowClient
+
+        from mlflow import MlflowClient
 
         databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()

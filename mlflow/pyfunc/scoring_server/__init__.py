@@ -25,7 +25,7 @@ import traceback
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
 # mlflow in the model's conda environment (inside) can differ. We should therefore keep mlflow
 # dependencies to the minimum here.
-# ALl of the mlfow dependencies below need to be backwards compatible.
+# ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
@@ -44,10 +44,7 @@ except ImportError:
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
@@ -354,13 +351,14 @@ def _serve(model_uri, port, host):
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: int = None, nworkers: int = None
+    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
+    timeout = timeout or 60
     # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
     # platform compatibility.
     if os.name != "nt":
-        args = ["--timeout=60"]
+        args = [f"--timeout={timeout}"]
         if port and host:
             args.append(f"-b {host}:{port}")
         elif host:

@@ -12,6 +12,8 @@ MLflow Tracking lets you log and query experiments using :ref:`Python <python-ap
   :local:
   :depth: 2
 
+.. _tracking-concepts:
+
 Concepts
 ========
 
@@ -305,11 +307,11 @@ with no active run automatically starts a new one.
 currently active run, if any.
 **Note**: You cannot access currently-active run attributes
 (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
-such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
 
 .. code-block:: py
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
 :py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
@@ -738,7 +740,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
+The :py:func:`mlflow.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
@@ -760,7 +762,7 @@ machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
-* Experiment-based run listing and comparison
+* Experiment-based run listing and comparison (including run comparison across multiple experiments)
 * Searching for runs by parameter or metric value
 * Visualizing run metrics
 * Downloading run results
@@ -860,7 +862,7 @@ Artifact Stores
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+default location to store artifacts for all runs in this experiment. Additionally, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 

@@ -23,8 +23,6 @@ export const rejected = (apiActionType) => {
 };
 
 export const getUUID = () => {
-  const randomPart = Math.random()
-    .toString(36)
-    .substring(2, 10);
+  const randomPart = Math.random().toString(36).substring(2, 10);
   return new Date().getTime() + randomPart;
 };

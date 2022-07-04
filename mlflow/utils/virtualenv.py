@@ -4,10 +4,11 @@ import shutil
 import uuid
 import re
 from pathlib import Path
+from packaging.version import Version
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
-from mlflow.utils.requirements_utils import _get_package_name, _parse_requirements
+from mlflow.utils.requirements_utils import _parse_requirements
 from mlflow.utils.environment import (
     _PythonEnv,
     _PYTHON_ENV_FILE_NAME,
@@ -16,7 +17,7 @@ from mlflow.utils.environment import (
     _get_mlflow_env_name,
     _get_pip_install_mlflow,
 )
-from mlflow.utils.conda import _get_conda_dependencies, _PIP_CACHE_DIR
+from mlflow.utils.conda import _PIP_CACHE_DIR
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 _MLFLOW_ENV_ROOT_ENV_VAR = "MLFLOW_ENV_ROOT"
@@ -83,18 +84,24 @@ def _validate_virtualenv_is_available():
 _SEMANTIC_VERSION_REGEX = re.compile(r"^([0-9]+)\.([0-9]+)\.([0-9]+)$")
 
 
+def _get_pyenv_bin_path():
+    return _DATABRICKS_PYENV_BIN_PATH if is_in_databricks_runtime() else "pyenv"
+
+
 def _find_latest_installable_python_version(version_prefix):
     """
     Find the latest installable python version that matches the given version prefix
     from the output of `pyenv install --list`. For example, `version_prefix("3.8")` returns '3.8.x'
     where 'x' represents the latest micro version in 3.8.
     """
-    lines = _exec_cmd(["pyenv", "install", "--list"], capture_output=True).stdout.splitlines()
+    lines = _exec_cmd(
+        [_get_pyenv_bin_path(), "install", "--list"], capture_output=True
+    ).stdout.splitlines()
     semantic_versions = filter(_SEMANTIC_VERSION_REGEX.match, map(str.strip, lines))
     matched = [v for v in semantic_versions if v.startswith(version_prefix)]
     if not matched:
         raise MlflowException((f"Could not find python version that matches {version_prefix}"))
-    return sorted(matched)[-1]
+    return sorted(matched, key=Version)[-1]
 
 
 def _install_python(version, pyenv_root=None, capture_output=False):
@@ -118,7 +125,7 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     # https://github.com/pyenv-win/pyenv-win/pull/314
     pyenv_install_options = ("--skip-existing",) if _IS_UNIX else ()
     extra_env = {"PYENV_ROOT": pyenv_root} if pyenv_root else None
-    pyenv_bin_path = _DATABRICKS_PYENV_BIN_PATH if is_in_databricks_runtime() else "pyenv"
+    pyenv_bin_path = _get_pyenv_bin_path()
     _exec_cmd(
         [pyenv_bin_path, "install", *pyenv_install_options, version],
         capture_output=capture_output,
@@ -165,14 +172,6 @@ def _get_python_env(local_model_path):
             _REQUIREMENTS_FILE_NAME,
             _CONDA_ENV_FILE_NAME,
         )
-        conda_deps = _get_conda_dependencies(conda_env_file)
-        build_packages = ("python", *_PythonEnv.BUILD_PACKAGES)
-        conda_deps = [d for d in conda_deps if _get_package_name(d) not in build_packages]
-        if conda_deps:
-            _logger.warning(
-                f"This model contains conda dependencies: {conda_deps}. The resulting virtualenv "
-                "environment will not install them and may not be able to load the model."
-            )
         if requirements_file.exists():
             deps = _PythonEnv.get_dependencies_from_conda_yaml(conda_env_file)
             return _PythonEnv(
@@ -182,6 +181,17 @@ def _get_python_env(local_model_path):
             )
         else:
             return _PythonEnv.from_conda_yaml(conda_env_file)
+
+
+def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
+    requirements = _parse_requirements(
+        python_env.dependencies,
+        is_constraint=False,
+        base_dir=work_dir_path,
+    )
+    return _get_mlflow_env_name(
+        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
+    )
 
 
 def _create_virtualenv(
@@ -269,14 +279,7 @@ def _get_or_create_virtualenv(
     python_bin_path = _install_python(
         python_env.python, pyenv_root=pyenv_root_dir, capture_output=capture_output
     )
-    requirements = _parse_requirements(
-        python_env.dependencies,
-        is_constraint=False,
-        base_dir=local_model_path,
-    )
-    env_name = _get_mlflow_env_name(
-        str(python_env) + "".join(map(lambda x: x.req_str, requirements)) + (env_id or "")
-    )
+    env_name = _get_virtualenv_name(python_env, local_model_path, env_id)
     env_dir = virtual_envs_root_path / env_name
     try:
         return _create_virtualenv(

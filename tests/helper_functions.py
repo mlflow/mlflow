@@ -28,6 +28,7 @@ from mlflow.utils.environment import (
 )
 
 LOCALHOST = "127.0.0.1"
+PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
 _logger = logging.getLogger(__name__)
 
@@ -93,6 +94,9 @@ def pyfunc_build_image(model_uri, extra_args=None):
     """
     name = uuid.uuid4().hex
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd)
@@ -219,9 +223,9 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
-            time.sleep(5)
+            time.sleep(1)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
@@ -282,28 +286,11 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
-
-
-@pytest.fixture
-def mock_s3_bucket():
-    """
-    Creates a mock S3 bucket using moto
-
-    :return: The name of the mock bucket
-    """
-    import boto3
-    import moto
-
-    with moto.mock_s3():
-        bucket_name = "mock-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield bucket_name
+@pytest.fixture(scope="function", autouse=True)
+def set_boto_credentials(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
 
 
 class safe_edit_yaml:
@@ -323,11 +310,11 @@ class safe_edit_yaml:
 
 def create_mock_response(status_code, text):
     """
-    Create a mock resposne object with the status_code and text
+    Create a mock response object with the status_code and text
 
     :param: status_code int HTTP status code
     :param: text message from the response
-    :reutrn: mock HTTP Response
+    :return: mock HTTP Response
     """
     response = mock.MagicMock()
     response.status_code = status_code

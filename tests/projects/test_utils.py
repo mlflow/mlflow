@@ -19,6 +19,7 @@ from mlflow.projects.utils import (
     get_or_create_run,
     fetch_and_validate_project,
     load_project,
+    _GIT_URI_REGEX,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
@@ -62,6 +63,12 @@ def test_is_zip_uri():
     assert not _is_zip_uri("file://C:/moo")
     assert not _is_zip_uri("/moo")
     assert not _is_zip_uri("C:/moo")
+
+
+def test_is_git_uri():
+    assert _GIT_URI_REGEX.match("https://github.com/mlflow/mlflow-example.git)")
+    assert _GIT_URI_REGEX.match("git@github.com:mlflow/mlflow.git")
+    assert not _GIT_URI_REGEX.match("D:\\mlflow\\mlflow-example")
 
 
 def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
@@ -186,7 +193,11 @@ def test_fetch_create_and_log(tmpdir):
     }
     entry_point = _project_spec.EntryPoint(entry_point_name, parameters, "run_model.sh")
     mock_fetched_project = _project_spec.Project(
-        None, {entry_point_name: entry_point}, None, "my_project"
+        env_type="local",
+        env_config_path=None,
+        entry_points={entry_point_name: entry_point},
+        docker_env=None,
+        name="my_project",
     )
     experiment_id = mlflow.create_experiment("test_fetch_project")
     expected_dir = tmpdir

@@ -23,8 +23,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
@@ -60,7 +58,6 @@ def fastai_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(fastai_model, model_path):
     model = fastai_model.model
 
@@ -113,7 +110,6 @@ def test_signature_and_examples_are_saved_correctly(fastai_model):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_bucket):
     model = fastai_model.model
 
@@ -135,7 +131,6 @@ def test_model_load_from_remote_uri_succeeds(fastai_model, model_path, mock_s3_b
     )
 
 
-@pytest.mark.large
 def test_model_log(fastai_model, model_path):
     model = fastai_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
@@ -210,7 +205,6 @@ def test_log_model_no_registered_model_name(fastai_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     fastai_model, model_path, fastai_custom_env
 ):
@@ -230,7 +224,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == fastai_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     fastai_model, model_path, fastai_custom_env
 ):
@@ -242,7 +235,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(fastai_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_save_model_with_pip_requirements(fastai_model, tmpdir):
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
@@ -268,7 +260,6 @@ def test_save_model_with_pip_requirements(fastai_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_save_model_with_extra_pip_requirements(fastai_model, tmpdir):
     default_reqs = mlflow.fastai.get_default_pip_requirements()
 
@@ -298,7 +289,6 @@ def test_save_model_with_extra_pip_requirements(fastai_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
     conda_env = dict(mlflow.fastai.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -315,7 +305,6 @@ def test_model_save_accepts_conda_env_as_dict(fastai_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     fastai_model, fastai_custom_env
 ):
@@ -343,7 +332,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == fastai_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model, fastai_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -362,7 +350,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(fastai_model,
     _compare_conda_env_requirements(fastai_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     fastai_model, model_path
 ):
@@ -370,7 +357,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.fastai.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     fastai_model,
 ):
@@ -381,7 +367,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.fastai.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(fastai_model):
     model, inference_dataframe = fastai_model
     artifact_path = "model"

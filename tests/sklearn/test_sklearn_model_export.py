@@ -27,8 +27,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
@@ -86,7 +84,6 @@ def sklearn_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
 
@@ -105,7 +102,6 @@ def test_model_save_load(sklearn_knn_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
     sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
     sklearn_model_path.mkdir()
@@ -118,7 +114,6 @@ def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_pat
         mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
     data = sklearn_knn_model.inference_data
     model = sklearn_knn_model.model
@@ -141,7 +136,6 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
                     assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
@@ -158,7 +152,6 @@ def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock
     )
 
 
-@pytest.mark.large
 def test_model_log(sklearn_logreg_model, model_path):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
@@ -231,7 +224,6 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     sklearn_custom_transformer_model, tmpdir
 ):
@@ -266,7 +258,6 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     )
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_knn_model, model_path, sklearn_custom_env
 ):
@@ -286,7 +277,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == sklearn_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     sklearn_knn_model, model_path, sklearn_custom_env
 ):
@@ -298,7 +288,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(sklearn_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -331,7 +320,6 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
     default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
@@ -365,7 +353,6 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     conda_env = dict(mlflow.sklearn.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -382,7 +369,6 @@ def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_knn_model, sklearn_custom_env
 ):
@@ -410,7 +396,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == sklearn_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(
     sklearn_knn_model, sklearn_custom_env
 ):
@@ -430,7 +415,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(sklearn_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
     sklearn_knn_model, model_path
 ):
@@ -449,7 +433,6 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model, model_path
 ):
@@ -459,7 +442,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     )
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model,
 ):
@@ -473,7 +455,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     )
 
 
-@pytest.mark.large
 def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
@@ -484,7 +465,6 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
 
-@pytest.mark.large
 def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
@@ -501,7 +481,6 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
 
 
-@pytest.mark.large
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
     sklearn_knn_model, model_path
 ):
@@ -532,7 +511,6 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     assert any("cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"])
 
 
-@pytest.mark.large
 def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
     sklearn_knn_model, model_path
 ):
@@ -564,7 +542,6 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         )
 
 
-@pytest.mark.large
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
     sklearn_knn_model, model_path
 ):

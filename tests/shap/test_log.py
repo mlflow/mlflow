@@ -9,7 +9,7 @@ from unittest import mock
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.utils import PYTHON_VERSION
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import (

@@ -1,3 +1,4 @@
+import os
 import sys
 from unittest import mock
 import pytest
@@ -10,6 +11,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
     is_databricks_default_tracking_uri,
+    is_running_in_ipython_environment,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
 from tests.helper_functions import mock_method_chain
@@ -212,20 +214,10 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
 
 
 def test_is_in_databricks_runtime():
-    with mock.patch(
-        "sys.modules",
-        new={**sys.modules, "pyspark": mock.MagicMock(), "pyspark.databricks": mock.MagicMock()},
-    ):
-        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks
-
+    with mock.patch.dict(os.environ, {"DATABRICKS_RUNTIME_VERSION": "11.x"}):
         assert databricks_utils.is_in_databricks_runtime()
 
-    with mock.patch("sys.modules", new={**sys.modules, "pyspark": mock.MagicMock()}):
-        with pytest.raises(ModuleNotFoundError, match="No module named 'pyspark.databricks'"):
-            # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-            import pyspark.databricks
-        assert not databricks_utils.is_in_databricks_runtime()
+    assert not databricks_utils.is_in_databricks_runtime()
 
 
 def test_get_repl_id():
@@ -331,3 +323,15 @@ def get_context():
         assert databricks_utils.is_in_cluster()
         mock_get_context.assert_called_once()
         mock_spark_session.assert_not_called()
+
+
+@pytest.mark.parametrize("get_ipython", [True, None])
+def test_is_running_in_ipython_environment_works(get_ipython):
+    mod_name = "IPython"
+    if mod_name in sys.modules:
+        ipython_mod = sys.modules.pop(mod_name)
+        assert not is_running_in_ipython_environment()
+        sys.modules["IPython"] = ipython_mod
+
+        with mock.patch("IPython.get_ipython", return_value=get_ipython):
+            assert is_running_in_ipython_environment() == (get_ipython is not None)

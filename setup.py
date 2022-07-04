@@ -12,7 +12,7 @@ version = (
 )
 
 
-# Get a list of all files in the JS directory to include in our module
+# Get a list of all files in the directory to include in our module
 def package_files(directory):
     paths = []
     for (path, _, filenames) in os.walk(directory):
@@ -34,6 +34,8 @@ extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
 ]
+pipelines_regression_v1_files = package_files("mlflow/pipelines/regression/v1/resources")
+pipelines_files = package_files("mlflow/pipelines/cards/templates")
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -48,7 +50,7 @@ SKINNY_REQUIREMENTS = [
     "entrypoints",
     "gitpython>=2.1.0",
     "pyyaml>=5.1",
-    "protobuf>=3.7.0",
+    "protobuf>=3.12.0",
     "pytz",
     "requests>=2.17.3",
     "packaging",
@@ -57,6 +59,8 @@ SKINNY_REQUIREMENTS = [
     # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
     # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
     "importlib_metadata>=3.7.0,!=4.7.0",
+    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+    "sqlparse>=0.3.1",
 ]
 
 """
@@ -76,10 +80,8 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
-    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-    "sqlparse>=0.3.1",
     # Required to run the MLflow server against SQL-backed storage
-    "sqlalchemy",
+    "sqlalchemy>=1.4.0",
     "waitress; platform_system == 'Windows'",
 ]
 
@@ -107,11 +109,37 @@ class ListDependencies(distutils.cmd.Command):
         print("\n".join(dependencies))
 
 
+MINIMUM_SUPPORTED_PYTHON_VERSION = "3.7"
+
+
+class MinPythonVersion(distutils.cmd.Command):
+    description = "Print out the minimum supported Python version"
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        print(MINIMUM_SUPPORTED_PYTHON_VERSION)
+
+
 setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
+    package_data={
+        "mlflow": (
+            js_files
+            + models_container_server_files
+            + alembic_files
+            + extra_files
+            + pipelines_regression_v1_files
+            + pipelines_files
+        ),
+    }
     if not _is_mlflow_skinny
     # include alembic files to enable usage of the skinny client with SQL databases
     # if users install sqlalchemy, alembic, and sqlparse independently
@@ -137,14 +165,27 @@ setup(
             "mlserver-mlflow>=0.5.3",
             "virtualenv",
         ],
+        "pipelines": [
+            "scikit-learn>=1.0.*",
+            "pyarrow>=7.0.*",
+            "shap>=0.40.*",
+            "pandas-profiling>=3.1.*",
+            "ipython>=7.0.*",
+            "markdown>=3.3.*",
+            "Jinja2>=3.0.*",
+        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+        mlp=mlflow.pipelines.cli:commands
     """,
-    cmdclass={"dependencies": ListDependencies},
+    cmdclass={
+        "dependencies": ListDependencies,
+        "min_python_version": MinPythonVersion,
+    },
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
@@ -153,10 +194,13 @@ setup(
     else open("README_SKINNY.rst").read() + open("README.rst").read(),
     long_description_content_type="text/x-rst",
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.7"],
+    classifiers=[
+        "Intended Audience :: Developers",
+        f"Programming Language :: Python :: {MINIMUM_SUPPORTED_PYTHON_VERSION}",
+    ],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.7",
+    python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

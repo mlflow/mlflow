@@ -13,6 +13,7 @@ from mlflow import (
     active_run,
     get_tracking_uri,
     log_artifact,
+    MlflowClient,
 )
 
 if __name__ == "__main__":
@@ -24,7 +25,7 @@ if __name__ == "__main__":
     log_metric("random_int", random.randint(0, 100))
     run_id = active_run().info.run_id
     # Get run metadata & data from the tracking server
-    service = mlflow.tracking.MlflowClient()
+    service = MlflowClient()
     run = service.get_run(run_id)
     print("Metadata & data for run with UUID %s: %s" % (run_id, run))
     local_dir = tempfile.mkdtemp()

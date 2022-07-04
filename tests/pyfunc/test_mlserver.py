@@ -40,3 +40,16 @@ def test_get_cmd(params: dict, expected: dict):
         **expected,
         **os.environ.copy(),
     }
+
+
+@pytest.mark.parametrize(
+    "params, expected",
+    [
+        ({"port": 5000, "timeout": 70}, "Timeout is not yet supported in MLServer."),
+    ],
+)
+def test_raise_error_mlserver_timeout(params: dict, expected: str):
+    model_uri = "/foo/bar"
+
+    with pytest.raises(Exception, match=expected):
+        get_cmd(model_uri=model_uri, **params)

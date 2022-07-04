@@ -1,5 +1,6 @@
 from collections import namedtuple
 from unittest import mock
+from packaging.version import Version
 import os
 import pytest
 import yaml
@@ -21,8 +22,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
@@ -87,20 +86,43 @@ def custom_env(tmpdir):
     return conda_env_path
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
 def test_init_model(model_type):
     model = mlflow.catboost._init_model(model_type)
     assert model.__class__.__name__ == model_type
 
 
-@pytest.mark.large
+@pytest.mark.skipif(
+    Version(cb.__version__) < Version("0.26.0"),
+    reason="catboost < 0.26.0 does not support CatBoostRanker",
+)
+def test_log_catboost_ranker():
+    """
+    This is a separate test for the CatBoostRanker model.
+    It is separate since the ranking task requires a group_id column which makes the code different.
+    """
+    # the ranking task requires setting a group_id
+    # we are creating a dummy group_id here that doesn't make any sense for the Iris dataset,
+    # but is ok for testing if the code is running correctly
+    X, y = get_iris()
+    dummy_group_id = np.arange(len(X)) % 3
+    dummy_group_id.sort()
+
+    model = cb.CatBoostRanker(**MODEL_PARAMS, subsample=1.0)
+    model.fit(X, y, group_id=dummy_group_id)
+
+    with mlflow.start_run():
+        model_info = mlflow.catboost.log_model(model, "model")
+        loaded_model = mlflow.catboost.load_model(model_info.model_uri)
+        assert isinstance(loaded_model, cb.CatBoostRanker)
+        np.testing.assert_array_almost_equal(model.predict(X), loaded_model.predict(X))
+
+
 def test_init_model_throws_for_invalid_model_type():
     with pytest.raises(TypeError, match="Invalid model type"):
         mlflow.catboost._init_model("unsupported")
 
 
-@pytest.mark.large
 def test_model_save_load(cb_model, model_path):
     model, inference_dataframe = cb_model
     mlflow.catboost.save_model(cb_model=model, path=model_path)
@@ -118,7 +140,6 @@ def test_model_save_load(cb_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_log_model_logs_model_type(cb_model):
     with mlflow.start_run():
         artifact_path = "model"
@@ -136,7 +157,6 @@ SUPPORTS_DESERIALIZATION = ["cbm", "coreml", "json", "onnx"]
 save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 
 
-@pytest.mark.large
 @pytest.mark.allow_infer_pip_requirements_fallback
 @pytest.mark.parametrize("save_format", save_formats)
 def test_log_model_logs_save_format(reg_model, save_format):
@@ -156,7 +176,6 @@ def test_log_model_logs_save_format(reg_model, save_format):
             mlflow.catboost.load_model(model_uri)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("signature", [None, infer_signature(get_iris()[0])])
 @pytest.mark.parametrize("input_example", [None, get_iris()[0].head(3)])
 def test_signature_and_examples_are_saved_correctly(
@@ -173,7 +192,6 @@ def test_signature_and_examples_are_saved_correctly(
         pd.testing.assert_frame_equal(_read_example(mlflow_model, model_path), input_example)
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_bucket):
     model, inference_dataframe = reg_model
     mlflow.catboost.save_model(cb_model=model, path=model_path)
@@ -190,7 +208,6 @@ def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_buck
     )
 
 
-@pytest.mark.large
 def test_log_model(cb_model, tmpdir):
     model, inference_dataframe = cb_model
     with mlflow.start_run():
@@ -243,7 +260,6 @@ def test_log_model_no_registered_model_name(cb_model, tmpdir):
         register_model_mock.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     reg_model, model_path, custom_env
 ):
@@ -255,7 +271,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     reg_model, model_path, custom_env
 ):
@@ -265,7 +280,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
     conda_env = mlflow.catboost.get_default_conda_env()
     conda_env["dependencies"].append("pytest")
@@ -277,7 +291,6 @@ def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
     assert read_yaml(saved_conda_env_path) == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_model, custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -292,7 +305,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_mo
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -304,7 +316,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, cu
     _compare_conda_env_requirements(custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(reg_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -335,7 +346,6 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
     default_reqs = mlflow.catboost.get_default_pip_requirements()
 
@@ -367,7 +377,6 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     reg_model, model_path
 ):
@@ -375,7 +384,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.catboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     reg_model,
 ):
@@ -387,7 +395,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.catboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(reg_model):
     model, inference_dataframe = reg_model
     artifact_path = "model"
@@ -405,7 +412,6 @@ def test_pyfunc_serve_and_score(reg_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score_sklearn(reg_model):
     model, inference_dataframe = reg_model
     model = Pipeline([("model", reg_model.model)])

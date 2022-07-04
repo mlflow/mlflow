@@ -29,6 +29,7 @@ from collections import namedtuple
 from sklearn.neighbors import KNeighborsClassifier
 
 from pyspark.sql.functions import pandas_udf
+from pyspark.sql.functions import col, struct
 
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2]
@@ -37,7 +38,7 @@ types = [np.int32, int, str, np.float32, np.double]
 
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     spark = get_spark_session(pyspark.SparkConf())
-    spark_df = spark.createDataFrame(pandas_df)
+    spark_df = spark.createDataFrame(pandas_df).coalesce(1)
     pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
@@ -71,7 +72,7 @@ def get_spark_session(conf):
     # when local run test_spark.py
     # you can set SPARK_MASTER=local[1]
     # so that executor log will be printed as test process output
-    # which make debug easiser.
+    # which make debug easier.
     spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
@@ -107,7 +108,6 @@ def sklearn_model():
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-@pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -212,8 +212,6 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 
 
 def test_spark_udf_with_single_arg(spark):
-    from pyspark.sql.functions import struct
-
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [",".join(model_input.columns.tolist())] * len(model_input)
@@ -268,7 +266,10 @@ def test_spark_udf_autofills_no_arguments(spark):
                 columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(AnalysisException, match=r"cannot resolve 'a' given input columns"):
+        with pytest.raises(
+            AnalysisException,
+            match=r"cannot resolve 'a' given input columns|Column 'a' does not exist",
+        ):
             bad_data.withColumn("res", udf())
 
     nameless_signature = ModelSignature(
@@ -347,7 +348,40 @@ def test_spark_udf_with_datetime_columns(spark):
         assert res["res"][0] == ["timestamp", "date"]
 
 
-@pytest.mark.large
+def test_spark_udf_over_empty_partition(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            if len(model_input) == 0:
+                raise ValueError("Empty input is not allowed.")
+            else:
+                return model_input.a + model_input.b
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b")]),
+        outputs=Schema([ColSpec("long")]),
+    )
+
+    # Create a spark dataframe with 2 partitions, one partition has one record and
+    # the other partition is empty.
+    spark_df = spark.createDataFrame(
+        pd.DataFrame(columns=["x", "y"], data={"x": [11], "y": [21]})
+    ).repartition(2)
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        python_udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=LongType()
+        )
+        res_df = spark_df.withColumn("res", python_udf("x", "y")).select("res").toPandas()
+        assert res_df.res[0] == 32
+
+        res_df2 = (
+            spark_df.withColumn("res", python_udf(struct(col("x").alias("a"), col("y").alias("b"))))
+            .select("res")
+            .toPandas()
+        )
+        assert res_df2.res[0] == 32
+
+
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
         path=model_path,
@@ -398,7 +432,6 @@ def test_model_cache(spark, model_path):
     not sys.platform.startswith("linux"),
     reason="Only Linux system support setting  parent process death signal via prctl lib.",
 )
-@pytest.mark.large
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager
@@ -409,6 +442,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
+    timeout = 60
 
     @pandas_udf("int")
     def udf_with_model_server(it: Iterator[pd.Series]) -> Iterator[pd.Series]:
@@ -420,6 +454,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
             model_uri=model_path,
             port=server_port,
             host="127.0.0.1",
+            timeout=timeout,
             enable_mlserver=False,
             synchronous=False,
         )

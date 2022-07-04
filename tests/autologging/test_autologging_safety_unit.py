@@ -12,7 +12,7 @@ from unittest import mock
 import mlflow
 import mlflow.utils.autologging_utils as autologging_utils
 from mlflow.entities import RunStatus
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
@@ -35,8 +35,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
 from tests.autologging.test_autologging_utils import get_func_attrs
-
-pytestmark = pytest.mark.large
 
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"

@@ -49,16 +49,14 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - uses: ./.github/actions/cache-pip
     - name: Add problem matchers
       run: |
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
+        echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
         pip install -r requirements/lint-requirements.txt
@@ -68,56 +66,6 @@ jobs:
     - name: Run lint checks
       run: |
         ./dev/lint.sh
-  r:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mlflow/R/mlflow
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    - uses: actions/setup-java@v3
-      with:
-        java-version: 11
-        distribution: 'adopt'
-    - uses: r-lib/actions/setup-r@v1
-    # This step dumps the current set of R dependencies and R version into files to be used
-    # as a cache key when caching/restoring R dependencies.
-    - name: Dump dependencies
-      run: |
-        Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
-    - name: Get OS name
-      id: os-name
-      run: |
-        # `os_name` will be like "Ubuntu-20.04.1-LTS"
-        os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo "::set-output name=os-name::$os_name"
-    - name: Cache R packages
-      uses: actions/cache@v2
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-        # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
-    - name: Install dependencies
-      run: |
-        Rscript -e 'source(".install-deps.R", echo=TRUE)'
-        # TODO: Remove this line once h2o 3.36.0.2 is uploaded to https://packagemanager.rstudio.com
-        Rscript -e 'install.packages("h2o", repos="http://cran.r-project.org")'
-    - name: Build package
-      run: |
-        ./build-package.sh
-    - name: Create test environment
-      run: |
-        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
-    - name: Run tests
-      env:
-        LINTR_COMMENT_BOT: false
-      run: |
-        cd tests
-        Rscript -e 'source("../.run-tests.R", echo=TRUE)'
 
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -128,11 +76,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - name: Install dependencies
       env:
         INSTALL_SKINNY_PYTHON_DEPS: true
@@ -143,40 +90,21 @@ jobs:
       run: |
         ./dev/run-python-skinny-tests.sh
 
-  python-small:
+  python:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
-    - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
-    - name: Install dependencies
-      env:
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      run: |
-        ./dev/run-small-python-tests.sh
-
-  python-large:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Increase available disk space
       run: |
         # Increase available disk space by removing unnecessary tool chains:
         # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
+    - uses: ./.github/actions/setup-pyenv
     - uses: actions/setup-java@v3
       with:
         java-version: 11
@@ -184,8 +112,7 @@ jobs:
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_ML_DEPENDENCIES: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
@@ -193,11 +120,15 @@ jobs:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
-        ./dev/run-large-python-tests.sh
-    - name: Run anaconda compatibility tests
-      run: |
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
+        # Establish SSH to localhost for test_sftp_artifact_repo.py
+        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+        ssh $(whoami)@localhost exit
+        export LOGNAME=$(whoami)
+
+        ./dev/run-python-tests.sh
 
   database:
     runs-on: ubuntu-latest
@@ -206,6 +137,7 @@ jobs:
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Build
       run: |
         ./tests/db/compose.sh pull -q postgresql mysql mssql
@@ -227,11 +159,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
+        submodules: recursive
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - name: Set up Java
       uses: actions/setup-java@v3
       with:
@@ -254,6 +185,7 @@ jobs:
       with:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
     - name: Test building Docker image
       working-directory: dev
       env:
@@ -263,8 +195,10 @@ jobs:
         docker run --rm gen-protos protoc --version
     - name: Install dependencies
       run: |
-        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /usr
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
+        sudo unzip $HOME/protoc.zip -d /tmp/protoc
+        sudo chmod -R 777 /tmp/protoc
+        echo "/tmp/protoc/bin" >> $GITHUB_PATH
     - name: Run tests
       run: |
         ./dev/test-generate-protos.sh
@@ -276,14 +210,13 @@ jobs:
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
       - name: Increase available disk space
         run: |
           # Increase available disk space by removing unnecessary tool chains:
           # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
           rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
         with:
@@ -292,17 +225,13 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          # Install libopenblas-dev for mxnet 1.8.0.post0
-          sudo apt-get update -y
-          sudo apt-get install libopenblas-dev -y
           ./dev/run-python-flavor-tests.sh;
 
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
@@ -312,19 +241,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - uses: actions/setup-java@v3
         with:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
@@ -333,26 +258,97 @@ jobs:
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
-          pytest tests/models --large
+          pytest tests/models
 
-  sagemaker:
+  pipelines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        env:
+          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_LARGE_PYTHON_DEPS: false
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install -e .[pipelines]
+          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
+          pip install 'pyspark<3.3'
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/pipelines
+
+  pipelines-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+      - name: Install python dependencies
+        run: |
+          pip install -r requirements/test-requirements.txt
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
+          pip install -e .[extras]
+          pip install -e .[pipelines]
+          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
+          pip install 'pyspark<3.3'
+      - name: Download Hadoop winutils for Spark
+        run: |
+          git clone https://github.com/cdarlint/winutils
+      - name: Run tests
+        run: |
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export PATH=$PATH:$HADOOP_HOME/bin
+          # Run pipelines tests
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/pipelines
+
+  pyfunc:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+          submodules: recursive
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
         with:
-          python-version: "3.7"
+          java-version: 11
+          distribution: 'adopt'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install keras tensorflow pyspark
+      - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest --durations=30 tests/pyfunc
+
+  sagemaker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
       - uses: actions/setup-java@v3
         with:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
         env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
+          INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
@@ -366,18 +362,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v3
-        with:
-          python-version: "3.7"
+      - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
       - name: Install python dependencies
         run: |
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
+          pip install pyspark
       - name: Run python tests
         run: |
-          pytest --ignore-flavors --ignore=tests/projects tests
-          pytest tests/pyfunc/test_virtualenv.py
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/pipelines

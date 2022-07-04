@@ -45,9 +45,22 @@ MLFLOW_DATABRICKS_JOB_RUN_ID = "mlflow.databricks.jobRunID"
 # implies the job type which could be normal, ephemeral, etc.
 MLFLOW_DATABRICKS_JOB_TYPE = "mlflow.databricks.jobType"
 MLFLOW_DATABRICKS_JOB_TYPE_INFO = "mlflow.databricks.jobTypeInfo"
+# For MLflow Repo Lineage tracking
+MLFLOW_DATABRICKS_GIT_REPO_URL = "mlflow.databricks.gitRepoUrl"
+MLFLOW_DATABRICKS_GIT_REPO_COMMIT = "mlflow.databricks.gitRepoCommit"
+MLFLOW_DATABRICKS_GIT_REPO_PROVIDER = "mlflow.databricks.gitRepoProvider"
+MLFLOW_DATABRICKS_GIT_REPO_RELATIVE_PATH = "mlflow.databricks.gitRepoRelativePath"
+MLFLOW_DATABRICKS_GIT_REPO_REFERENCE = "mlflow.databricks.gitRepoReference"
+MLFLOW_DATABRICKS_GIT_REPO_REFERENCE_TYPE = "mlflow.databricks.gitRepoReferenceType"
+MLFLOW_DATABRICKS_GIT_REPO_STATUS = "mlflow.databricks.gitRepoStatus"
 
 MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.
 LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch
 LEGACY_MLFLOW_GIT_REPO_URL = "mlflow.gitRepoURL"  # Replaced with mlflow.source.git.repoURL
+
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
+    "mlflow.experiment.primaryMetric.greaterIsBetter"
+)

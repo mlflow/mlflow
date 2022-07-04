@@ -13,12 +13,11 @@ import pytest
 from unittest import mock
 
 import mlflow
-from mlflow import tracking
+from mlflow import tracking, MlflowClient
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
@@ -26,6 +25,10 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+)
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
 )
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
@@ -277,7 +280,7 @@ def test_metric_timestamp():
         mlflow.log_metric("name_1", 30)
         run_id = active_run.info.run_uuid
     # Check that metric timestamps are between run start and finish
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
     finished_run = client.get_run(run_id)
     assert len(history) == 2
@@ -305,9 +308,7 @@ def test_log_batch():
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.tracking.MlflowClient().log_batch(
-            run_id=run_id, metrics=metrics, params=params, tags=tags
-        )
+        MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
     client = tracking.MlflowClient()
     finished_run = client.get_run(run_id)
     # Validate metrics
@@ -338,6 +339,45 @@ def test_log_batch():
     for tag_key, tag_value in finished_run_2.data.tags.items():
         if tag_key in new_tags:
             assert new_tags[tag_key] == tag_value
+
+
+@pytest.mark.usefixtures("tmpdir")
+def test_log_batch_with_many_elements():
+    num_metrics = MAX_METRICS_PER_BATCH * 2
+    num_params = num_tags = MAX_PARAMS_TAGS_PER_BATCH * 2
+    expected_metrics = {f"metric-key{i}": float(i) for i in range(num_metrics)}
+    expected_params = {f"param-key{i}": f"param-val{i}" for i in range(num_params)}
+    exact_expected_tags = {f"tag-key{i}": f"tag-val{i}" for i in range(num_tags)}
+
+    t = int(time.time())
+    sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[1])
+    metrics = [
+        Metric(key=key, value=value, timestamp=t, step=i)
+        for i, (key, value) in enumerate(sorted_expected_metrics)
+    ]
+    params = [Param(key=key, value=value) for key, value in expected_params.items()]
+    tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
+
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        mlflow.tracking.MlflowClient().log_batch(
+            run_id=run_id, metrics=metrics, params=params, tags=tags
+        )
+    client = tracking.MlflowClient()
+    finished_run = client.get_run(run_id)
+    # Validate metrics
+    assert expected_metrics == finished_run.data.metrics
+    for i in range(num_metrics):
+        metric_history = client.get_metric_history(run_id, f"metric-key{i}")
+        assert {(m.value, m.timestamp, m.step) for m in metric_history} == {(float(i), t, i)}
+
+    # Validate tags
+    logged_tags = finished_run.data.tags
+    for tag_key, tag_value in exact_expected_tags.items():
+        assert logged_tags[tag_key] == tag_value
+
+    # Validate params
+    assert finished_run.data.params == expected_params
 
 
 def test_log_metric():
@@ -676,206 +716,6 @@ def test_log_dict(subdir, extension):
                 else json.load(f)
             )
             assert loaded == dictionary
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_figure_matplotlib(subdir):
-    import matplotlib.pyplot as plt
-
-    filename = "figure.png"
-    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
-
-    fig, ax = plt.subplots()
-    ax.plot([0, 1], [2, 3])
-
-    with mlflow.start_run():
-        mlflow.log_figure(fig, artifact_file)
-        plt.close(fig)
-
-        artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_figure_plotly(subdir):
-    from plotly import graph_objects as go
-
-    filename = "figure.html"
-    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
-
-    fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
-
-    with mlflow.start_run():
-        mlflow.log_figure(fig, artifact_file)
-
-        artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-
-@pytest.mark.large
-def test_log_figure_raises_error_for_unsupported_figure_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
-        mlflow.log_figure("not_figure", "figure.png")
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_image_numpy(subdir):
-    import numpy as np
-    from PIL import Image
-
-    filename = "image.png"
-    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
-
-    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
-
-    with mlflow.start_run():
-        mlflow.log_image(image, artifact_file)
-
-        artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-        logged_path = os.path.join(run_artifact_dir, filename)
-        loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
-        np.testing.assert_array_equal(loaded_image, image)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-def test_log_image_pillow(subdir):
-    from PIL import Image
-    from PIL import ImageChops
-
-    filename = "image.png"
-    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
-
-    image = Image.new("RGB", (100, 100))
-
-    with mlflow.start_run():
-        mlflow.log_image(image, artifact_file)
-
-        artifact_path = None if subdir is None else posixpath.normpath(subdir)
-        artifact_uri = mlflow.get_artifact_uri(artifact_path)
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-        logged_path = os.path.join(run_artifact_dir, filename)
-        loaded_image = Image.open(logged_path)
-        # How to check Pillow image equality: https://stackoverflow.com/a/6204954/6943581
-        assert ImageChops.difference(loaded_image, image).getbbox() is None
-
-
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "size",
-    [
-        (100, 100),  # Grayscale (2D)
-        (100, 100, 1),  # Grayscale (3D)
-        (100, 100, 3),  # RGB
-        (100, 100, 4),  # RGBA
-    ],
-)
-def test_log_image_numpy_shape(size):
-    import numpy as np
-
-    filename = "image.png"
-    image = np.random.randint(0, 256, size=size, dtype=np.uint8)
-
-    with mlflow.start_run():
-        mlflow.log_image(image, filename)
-        artifact_uri = mlflow.get_artifact_uri()
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "dtype",
-    [
-        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types
-        "int8",
-        "int16",
-        "int32",
-        "int64",
-        "uint8",
-        "uint16",
-        "uint32",
-        "uint64",
-        "float16",
-        "float32",
-        "float64",
-        "bool",
-    ],
-)
-def test_log_image_numpy_dtype(dtype):
-    import numpy as np
-
-    filename = "image.png"
-    image = np.random.randint(0, 2, size=(100, 100, 3)).astype(np.dtype(dtype))
-
-    with mlflow.start_run():
-        mlflow.log_image(image, filename)
-        artifact_uri = mlflow.get_artifact_uri()
-        run_artifact_dir = local_file_uri_to_path(artifact_uri)
-        assert os.listdir(run_artifact_dir) == [filename]
-
-
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "array",
-    # 1 pixel images with out-of-range values
-    [[[-1]], [[256]], [[-0.1]], [[1.1]]],
-)
-def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
-    import numpy as np
-
-    image = np.array(array).astype(type(array[0][0]))
-
-    with mlflow.start_run(), mock.patch("mlflow.tracking.client._logger.warning") as warn_mock:
-        mlflow.log_image(image, "image.png")
-        range_str = "[0, 255]" if isinstance(array[0][0], int) else "[0, 1]"
-        msg = "Out-of-range values are detected. Clipping array (dtype: '{}') to {}".format(
-            image.dtype, range_str
-        )
-        assert any(msg in args[0] for args in warn_mock.call_args_list)
-
-
-@pytest.mark.large
-def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
-    import numpy as np
-
-    with mlflow.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
-        mlflow.log_image(np.tile("a", (1, 1, 3)), "image.png")
-
-
-@pytest.mark.large
-def test_log_image_numpy_raises_exception_for_invalid_array_shape():
-    import numpy as np
-
-    with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
-        mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
-
-
-@pytest.mark.large
-def test_log_image_numpy_raises_exception_for_invalid_channel_length():
-    import numpy as np
-
-    with mlflow.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
-        mlflow.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
-
-
-@pytest.mark.large
-def test_log_image_raises_exception_for_unsupported_image_object_type():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
-        mlflow.log_image("not_image", "image.png")
 
 
 def test_with_startrun():

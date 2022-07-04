@@ -18,5 +18,5 @@ pip install scikit-learn
 #### How to run the examples
 
 ```
-python sklearn_model_inference_restoring_dependencies.py
+python spark_udf.py
 ```

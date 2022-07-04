@@ -141,6 +141,7 @@ class PyFuncBackend(FlavorBackend):
         model_uri,
         port,
         host,
+        timeout,
         enable_mlserver,
         synchronous=True,
         stdout=None,
@@ -152,7 +153,9 @@ class PyFuncBackend(FlavorBackend):
         local_path = _download_artifact_from_uri(model_uri)
 
         server_implementation = mlserver if enable_mlserver else scoring_server
-        command, command_env = server_implementation.get_cmd(local_path, port, host, self._nworkers)
+        command, command_env = server_implementation.get_cmd(
+            local_path, port, host, timeout, self._nworkers
+        )
 
         if sys.platform.startswith("linux"):
 
@@ -293,7 +296,8 @@ class PyFuncBackend(FlavorBackend):
                 _install_pyfunc_deps(\
                     "/opt/ml/model", \
                     install_mlflow={install_mlflow}, \
-                    enable_mlserver={enable_mlserver})'
+                    enable_mlserver={enable_mlserver}, \
+                    env_manager="{env_manager}")'
                 ENV {disable_env}="true"
                 ENV {ENABLE_MLSERVER}={enable_mlserver}
                 """.format(
@@ -302,15 +306,18 @@ class PyFuncBackend(FlavorBackend):
                 install_mlflow=repr(install_mlflow),
                 ENABLE_MLSERVER=ENABLE_MLSERVER,
                 enable_mlserver=repr(enable_mlserver),
+                env_manager=self._env_manager,
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
         pyfunc_entrypoint = (
-            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C; C._serve()"]'
+            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
+            f'C._serve({repr(self._env_manager)})"]'
         )
         _build_image(
             image_name=image_name,
             mlflow_home=mlflow_home,
+            env_manager=self._env_manager,
             custom_setup_steps_hook=copy_model_into_container,
             entrypoint=pyfunc_entrypoint,
         )

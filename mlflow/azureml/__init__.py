@@ -594,7 +594,7 @@ def _load_pyfunc_conf_with_model(model_path):
         raise MlflowException(
             message=(
                 "The specified model does not contain the `python_function` flavor. This "
-                " flavor is required for model deployment."
+                "flavor is required for model deployment."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )

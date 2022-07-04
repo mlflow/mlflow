@@ -11,7 +11,7 @@ from itertools import permutations
 from unittest import mock
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     safe_patch,
@@ -21,9 +21,6 @@ from mlflow.utils.autologging_utils import (
 
 from tests.autologging.fixtures import test_mode_off
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
-
-
-pytestmark = pytest.mark.large
 
 
 AUTOLOGGING_INTEGRATIONS_TO_TEST = {

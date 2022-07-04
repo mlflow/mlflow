@@ -45,8 +45,5 @@ export function shallowWithIntl(node, providerProps = {}) {
 }
 
 export function shallowWithInjectIntl(node, providerProps = {}) {
-  return shallowWithIntl(node, providerProps)
-    .dive()
-    .dive()
-    .dive();
+  return shallowWithIntl(node, providerProps).dive().dive().dive();
 }

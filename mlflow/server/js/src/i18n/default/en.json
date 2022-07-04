@@ -11,6 +11,10 @@
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
   },
+  "+hkg/y": {
+    "defaultMessage": "Max",
+    "description": "Column title for the column displaying the maximum metric values for a metric"
+  },
   "/2MZix": {
     "defaultMessage": "Run ID:",
     "description": "Row title for the run id on the experiment compare runs page"
@@ -87,10 +91,6 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
-  "2AmV5N": {
-    "defaultMessage": "Search by model name",
-    "description": "Placeholder text inside model search bar"
-  },
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -151,6 +151,10 @@
     "defaultMessage": "All Runs",
     "description": "Linked model dropdown option to show all experiment runs"
   },
+  "4hOOuV": {
+    "defaultMessage": "404: Resource not found",
+    "description": "Generic 404 user-friendly error for the MLFlow UI"
+  },
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
@@ -166,6 +170,10 @@
   "5ZAXeS": {
     "defaultMessage": "{timeSince, plural, =1 {1 month} other {# months}} ago",
     "description": "Text for time in months since given date for MLflow views"
+  },
+  "5Zui9s": {
+    "defaultMessage": "500: Internal server error",
+    "description": "Generic 500 user-friendly error for the MLFlow UI"
   },
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
@@ -267,6 +275,10 @@
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
   },
+  "9KXBFn": {
+    "defaultMessage": "Tags",
+    "description": "Row group title for tags of runs on the experiment compare runs page"
+  },
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
@@ -310,6 +322,10 @@
   "CGVHLD": {
     "defaultMessage": "Parameters",
     "description": "Label for the collapsible area to display the parameters used during the experiment run"
+  },
+  "ClUzUX": {
+    "defaultMessage": "Run ID",
+    "description": "Label for displaying the ID of the experiment run"
   },
   "CpLnGS": {
     "defaultMessage": "Metrics",
@@ -471,10 +487,6 @@
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
   },
-  "Ibw+mW": {
-    "defaultMessage": "Filter",
-    "description": "String for the filter button to filter model registry table\n                   for models"
-  },
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
@@ -494,6 +506,10 @@
   "KEL9Js": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
+  },
+  "KwMekr": {
+    "defaultMessage": "Download CSV",
+    "description": "String for the download csv button to download metrics from this run offline in a CSV format"
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -679,10 +695,6 @@
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
   },
-  "WomXZ4": {
-    "defaultMessage": "Failed to load chart.",
-    "description": "Error message when the plotly javascript library fails to load."
-  },
   "WqtISN": {
     "defaultMessage": "Job Output",
     "description": "Label for displaying the output logs for the experiment run job"
@@ -714,6 +726,10 @@
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
+  },
+  "YINJEO": {
+    "defaultMessage": "Metric",
+    "description": "Column title for the column displaying the metric names for a run"
   },
   "YLvpXM": {
     "defaultMessage": "Track machine learning training runs in experiments. <link>Learn more</link>",
@@ -762,6 +778,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aGxvDa": {
+    "defaultMessage": "To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}",
+    "description": "Tooltip string to explain how to search models from the model registry table"
   },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
@@ -839,6 +859,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the run view"
   },
+  "d1Ou4x": {
+    "defaultMessage": "Run",
+    "description": "Column title for the column displaying the run names for a metric"
+  },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
     "description": "Tab text for contour plot on the model comparison page"
@@ -866,6 +890,10 @@
   "eOxs/C": {
     "defaultMessage": "Parameters",
     "description": "Row group title for parameters of runs on the experiment compare runs page"
+  },
+  "eQgPEi": {
+    "defaultMessage": "{value} (step={step})",
+    "description": "Formats a metric value along with the step number it corresponds to"
   },
   "eQsXm7": {
     "defaultMessage": "Last 7 days",
@@ -915,6 +943,10 @@
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
   },
+  "iQzwqe": {
+    "defaultMessage": "Min",
+    "description": "Column title for the column displaying the minimum metric values for a metric"
+  },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
@@ -951,6 +983,10 @@
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
   },
+  "kjxsOJ": {
+    "defaultMessage": "Search by model names or tags",
+    "description": "Placeholder text inside model search bar"
+  },
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
@@ -966,6 +1002,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "m9e01X": {
+    "defaultMessage": "No tags to display.",
+    "description": "Text shown when there are no tags to display"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -1006,6 +1046,10 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "nam2iP": {
+    "defaultMessage": "This view is deprecated and will be removed in a future release.",
+    "description": "Deprecation of compact view"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",
@@ -1126,6 +1170,10 @@
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
     "description": "Page title for the compare runs page"
+  },
+  "umeTwG": {
+    "defaultMessage": "Latest",
+    "description": "Column title for the column displaying the latest metric values for a metric"
   },
   "vi2MM7": {
     "defaultMessage": "All",

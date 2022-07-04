@@ -4,14 +4,20 @@ import filecmp
 import hashlib
 import os
 import shutil
+
+import jinja2.exceptions
 import pytest
 import tarfile
 import stat
+import pandas as pd
 
+from mlflow.exceptions import MissingConfigException
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     get_parent_dir,
     _copy_file_or_tree,
+    read_parquet_as_pandas_df,
+    write_pandas_df_as_parquet,
     TempDir,
     _handle_readonly_on_windows,
 )
@@ -53,6 +59,86 @@ def test_yaml_read_and_write(tmpdir):
         assert "more_text" in editted_dict
         assert editted_dict["more_text"] == "西班牙语"
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
+
+
+def test_render_and_merge_yaml(tmpdir):
+    template_yaml_file = random_file("yaml")
+    with open(tmpdir / template_yaml_file, "w") as f:
+        f.write(
+            """
+            steps:
+              preprocess:
+                train_ratio: {{ MY_TRAIN_RATIO|default(0.5) }}
+                experiment:
+                  tracking_uri: {{ MY_MLFLOW_SERVER|default("https://localhost:5000") }}
+            test_1: [1, 2, 3]
+            test_2: {{ TEST_VAR_1 }}
+            test_3: {{ TEST_VAR_2 }}
+            """
+        )
+
+    data = {"MY_MLFLOW_SERVER": "./mlruns", "TEST_VAR_1": ["a", 1.2], "TEST_VAR_2": {"a": 2}}
+    context_yaml_file = random_file("yaml")
+    file_utils.write_yaml(str(tmpdir), context_yaml_file, data)
+
+    result = file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
+    expected = {
+        "MY_MLFLOW_SERVER": "./mlruns",
+        "TEST_VAR_1": ["a", 1.2],
+        "TEST_VAR_2": {"a": 2},
+        "steps": {"preprocess": {"train_ratio": 0.5, "experiment": {"tracking_uri": "./mlruns"}}},
+        "test_1": [1, 2, 3],
+        "test_2": ["a", 1.2],
+        "test_3": {"a": 2},
+    }
+
+    assert result == expected
+
+
+def test_render_and_merge_yaml_raise_on_duplicate_keys(tmpdir):
+    template_yaml_file = random_file("yaml")
+    with open(tmpdir / template_yaml_file, "w") as f:
+        f.write(
+            """
+            steps: 1
+            steps: 2
+            test_2: {{ TEST_VAR_1 }}
+            """
+        )
+
+    context_yaml_file = random_file("yaml")
+    file_utils.write_yaml(str(tmpdir), context_yaml_file, {"TEST_VAR_1": 3})
+
+    with pytest.raises(ValueError, match="Duplicate 'steps' key found"):
+        file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
+
+
+def test_render_and_merge_yaml_raise_on_non_existent_yamls(tmpdir):
+    template_yaml_file = random_file("yaml")
+    with open(tmpdir / template_yaml_file, "w") as f:
+        f.write("""test_1: {{ TEST_VAR_1 }}""")
+
+    context_yaml_file = random_file("yaml")
+    file_utils.write_yaml(str(tmpdir), context_yaml_file, {"TEST_VAR_1": 3})
+
+    with pytest.raises(MissingConfigException, match="does not exist"):
+        file_utils.render_and_merge_yaml(tmpdir, "invalid_name", context_yaml_file)
+    with pytest.raises(MissingConfigException, match="does not exist"):
+        file_utils.render_and_merge_yaml("invalid_path", template_yaml_file, context_yaml_file)
+    with pytest.raises(MissingConfigException, match="does not exist"):
+        file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, "invalid_name")
+
+
+def test_render_and_merge_yaml_raise_on_not_found_key(tmpdir):
+    template_yaml_file = random_file("yaml")
+    with open(tmpdir / template_yaml_file, "w") as f:
+        f.write("""test_1: {{ TEST_VAR_1 }}""")
+
+    context_yaml_file = random_file("yaml")
+    file_utils.write_yaml(str(tmpdir), context_yaml_file, {})
+
+    with pytest.raises(jinja2.exceptions.UndefinedError, match="'TEST_VAR_1' is undefined"):
+        file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
 
 
 def test_yaml_write_sorting(tmpdir):
@@ -174,6 +260,14 @@ def test_dir_copy():
             f.write("testing")
         _copy_file_or_tree(dir_path, copy_path, "")
         assert filecmp.dircmp(dir_path, copy_path)
+
+
+def test_read_and_write_parquet():
+    fileSource = "sample-file-to-write"
+    data_frame = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
+    write_pandas_df_as_parquet(data_frame, fileSource)
+    serialized_data_frame = read_parquet_as_pandas_df(fileSource)
+    pd.testing.assert_frame_equal(data_frame, serialized_data_frame)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires Windows")

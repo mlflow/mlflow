@@ -343,6 +343,7 @@ nitpick_ignore = [
     ("py:class", "scipy.sparse.csc.csc_matrix"),
     ("py:class", "scipy.sparse._csr.csr_matrix"),
     ("py:class", "scipy.sparse._csc.csc_matrix"),
+    ("py:class", "pathlib.Path"),
 ]
 
 
