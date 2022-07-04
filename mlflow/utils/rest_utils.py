@@ -1,5 +1,7 @@
 import base64
 import json
+import os
+
 import requests
 import urllib3
 from contextlib import contextmanager
@@ -9,12 +11,18 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from requests.exceptions import HTTPError
 
-from mlflow import __version__
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import get_error_code, MlflowException, RestException
+
+from mlflow.environment_variables import (
+    MLFLOW_RESTAPI_REQUEST_TIMEOUT,
+    MLFLOW_RESTAPI_REQUEST_MAX_RETRIES,
+    MLFLOW_RESTAPI_REQUEST_BACKOFF_FACTOR,
+)
+
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -31,9 +39,6 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
         504,  # Gateway Timeout
     ]
 )
-_MAX_RETRIES = 5
-_BACKOFF_FACTOR = 2
-_DEFAULT_TIMEOUT = 120
 
 
 @lru_cache(maxsize=64)
@@ -98,10 +103,10 @@ def http_request(
     host_creds,
     endpoint,
     method,
-    max_retries=_MAX_RETRIES,
-    backoff_factor=_BACKOFF_FACTOR,
+    max_retries=None,
+    backoff_factor=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=_DEFAULT_TIMEOUT,
+    timeout=None,
     **kwargs,
 ):
     """
@@ -125,6 +130,9 @@ def http_request(
 
     :return: requests.Response object.
     """
+    max_retries = max_retries or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_MAX_RETRIES, '5'))
+    backoff_factor = backoff_factor or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_BACKOFF_FACTOR, '2'))
+    timeout = timeout or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_TIMEOUT, '120'))
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
