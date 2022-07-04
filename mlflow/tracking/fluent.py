@@ -1053,9 +1053,7 @@ def search_experiments(
     :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
                       defined in :py:class:`mlflow.entities.ViewType`.
     :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                        passed, all experiments will be returned for the File and SQL backends.
-                        For the REST backend, the server will pick a maximum number of results
-                        to return.
+                        passed, all experiments will be returned.
     :param filter_string:
         Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
         experiments. The following fields, comparators, and logical operators are supported.
