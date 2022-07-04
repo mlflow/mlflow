@@ -275,6 +275,10 @@
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
   },
+  "9KXBFn": {
+    "defaultMessage": "Tags",
+    "description": "Row group title for tags of runs on the experiment compare runs page"
+  },
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
@@ -998,6 +1002,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "m9e01X": {
+    "defaultMessage": "No tags to display.",
+    "description": "Text shown when there are no tags to display"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
