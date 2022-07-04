@@ -78,7 +78,7 @@ service MlflowService {
   rpc searchExperiments (SearchExperiments) returns (SearchExperiments.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "POST",
+        method: "GET",
         path: "/mlflow/experiments/search"
         since { major: 2, minor: 0 },
       }],
