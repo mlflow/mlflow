@@ -398,7 +398,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
         assert [e.name for e in experiments] == ["a"]
         experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
-        assert [e.name for e in experiments] == ["a", "ab", "A"]
+        assert [e.name for e in experiments] == ["A", "ab", "a"]
         experiments = self.store.search_experiments(
             filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
         )
@@ -464,28 +464,28 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_search_experiments_max_results(self):
         experiment_names = list(map(str, range(9)))
         self._experiment_factory(experiment_names)
-        experiment_names.insert(0, "Default")
+        reversed_experiment_names = experiment_names[::-1]
 
         experiments = self.store.search_experiments()
-        assert [e.name for e in experiments] == experiment_names
+        assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
         experiments = self.store.search_experiments(max_results=3)
-        assert [e.name for e in experiments] == experiment_names[:3]
+        assert [e.name for e in experiments] == reversed_experiment_names[:3]
 
     def test_search_experiments_pagination(self):
         experiment_names = list(map(str, range(9)))
         self._experiment_factory(experiment_names)
-        experiment_names.insert(0, "Default")
+        reversed_experiment_names = experiment_names[::-1]
 
         experiments = self.store.search_experiments(max_results=4)
-        assert [e.name for e in experiments] == experiment_names[0:4]
+        assert [e.name for e in experiments] == reversed_experiment_names[:4]
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == experiment_names[4:8]
+        assert [e.name for e in experiments] == reversed_experiment_names[4:8]
         assert experiments.token is not None
 
         experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
-        assert [e.name for e in experiments] == experiment_names[8:]
+        assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
         assert experiments.token is None
 
     def test_create_experiments(self):
