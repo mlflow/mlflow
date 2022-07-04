@@ -444,6 +444,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(order_by=["name DESC"])
         assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
 
+        experiments = self.store.search_experiments(order_by=["experiment_id DESC"])
+        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+
+        experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
     def test_search_experiments_max_results(self):
         experiment_names = list(map(str, range(9)))
         self._experiment_factory(experiment_names)

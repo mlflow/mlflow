@@ -823,7 +823,7 @@ class SearchUtils:
 
 class SearchExperimentsUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name",)
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
