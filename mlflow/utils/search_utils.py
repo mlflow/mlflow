@@ -178,7 +178,7 @@ class SearchUtils:
         identifier = cls._valid_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Invalid attribute key '{}' specified. Valid keys "
                 "are '{}'".format(key, valid_attributes)
             )
@@ -864,7 +864,7 @@ class SearchExperimentsUtils(SearchUtils):
 
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Invalid attribute key '{}' specified. Valid keys "
                 "are '{}'".format(key, valid_attributes)
             )
