@@ -15697,25 +15697,27 @@ public final class Service {
 
     /**
      * <pre>
-     * Maximum number of experiments desired. Max threshold is 3000.
-     * NOTE: the frontend will initially always override this parameter to 3000,
-     * but we include it so that we can adjust the number of max results fetched
-     * via static feature flag in the MLflow service as needed for stability purposes
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * <code>optional int64 max_results = 1;</code>
      * @return Whether the maxResults field is set.
      */
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of experiments desired. Max threshold is 3000.
-     * NOTE: the frontend will initially always override this parameter to 3000,
-     * but we include it so that we can adjust the number of max results fetched
-     * via static feature flag in the MLflow service as needed for stability purposes
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * <code>optional int64 max_results = 1;</code>
      * @return The maxResults.
      */
     long getMaxResults();
@@ -15780,8 +15782,8 @@ public final class Service {
 
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -15792,8 +15794,8 @@ public final class Service {
         getOrderByList();
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -15803,8 +15805,8 @@ public final class Service {
     int getOrderByCount();
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -15815,8 +15817,8 @@ public final class Service {
     java.lang.String getOrderBy(int index);
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -15861,7 +15863,6 @@ public final class Service {
       super(builder);
     }
     private SearchExperiments() {
-      maxResults_ = 100L;
       pageToken_ = "";
       filter_ = "";
       orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -17127,13 +17128,14 @@ public final class Service {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of experiments desired. Max threshold is 3000.
-     * NOTE: the frontend will initially always override this parameter to 3000,
-     * but we include it so that we can adjust the number of max results fetched
-     * via static feature flag in the MLflow service as needed for stability purposes
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * <code>optional int64 max_results = 1;</code>
      * @return Whether the maxResults field is set.
      */
     @java.lang.Override
@@ -17142,13 +17144,14 @@ public final class Service {
     }
     /**
      * <pre>
-     * Maximum number of experiments desired. Max threshold is 3000.
-     * NOTE: the frontend will initially always override this parameter to 3000,
-     * but we include it so that we can adjust the number of max results fetched
-     * via static feature flag in the MLflow service as needed for stability purposes
+     * Maximum number of experiments desired.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 1 [default = 100];</code>
+     * <code>optional int64 max_results = 1;</code>
      * @return The maxResults.
      */
     @java.lang.Override
@@ -17280,8 +17283,8 @@ public final class Service {
     private com.google.protobuf.LazyStringList orderBy_;
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -17294,8 +17297,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -17307,8 +17310,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -17321,8 +17324,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * List of columns for ordering search results, which can include experiment name and last updated
-     * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * List of columns for ordering search results, which can include experiment name and id
+     * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
      * Tiebreaks are done by experiment id DESC.
      * </pre>
      *
@@ -17625,7 +17628,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        maxResults_ = 100L;
+        maxResults_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000001);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -17664,9 +17667,9 @@ public final class Service {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.maxResults_ = maxResults_;
           to_bitField0_ |= 0x00000001;
         }
-        result.maxResults_ = maxResults_;
         if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
@@ -17789,16 +17792,17 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long maxResults_ = 100L;
+      private long maxResults_ ;
       /**
        * <pre>
-       * Maximum number of experiments desired. Max threshold is 3000.
-       * NOTE: the frontend will initially always override this parameter to 3000,
-       * but we include it so that we can adjust the number of max results fetched
-       * via static feature flag in the MLflow service as needed for stability purposes
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * <code>optional int64 max_results = 1;</code>
        * @return Whether the maxResults field is set.
        */
       @java.lang.Override
@@ -17807,13 +17811,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. Max threshold is 3000.
-       * NOTE: the frontend will initially always override this parameter to 3000,
-       * but we include it so that we can adjust the number of max results fetched
-       * via static feature flag in the MLflow service as needed for stability purposes
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * <code>optional int64 max_results = 1;</code>
        * @return The maxResults.
        */
       @java.lang.Override
@@ -17822,13 +17827,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. Max threshold is 3000.
-       * NOTE: the frontend will initially always override this parameter to 3000,
-       * but we include it so that we can adjust the number of max results fetched
-       * via static feature flag in the MLflow service as needed for stability purposes
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * <code>optional int64 max_results = 1;</code>
        * @param value The maxResults to set.
        * @return This builder for chaining.
        */
@@ -17840,18 +17846,19 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. Max threshold is 3000.
-       * NOTE: the frontend will initially always override this parameter to 3000,
-       * but we include it so that we can adjust the number of max results fetched
-       * via static feature flag in the MLflow service as needed for stability purposes
+       * Maximum number of experiments desired.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 1 [default = 100];</code>
+       * <code>optional int64 max_results = 1;</code>
        * @return This builder for chaining.
        */
       public Builder clearMaxResults() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        maxResults_ = 100L;
+        maxResults_ = 0L;
         onChanged();
         return this;
       }
@@ -18081,8 +18088,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18095,8 +18102,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18108,8 +18115,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18122,8 +18129,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18137,8 +18144,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18159,8 +18166,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18180,8 +18187,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18199,8 +18206,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -18215,8 +18222,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of columns for ordering search results, which can include experiment name and last updated
-       * timestamp with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * List of columns for ordering search results, which can include experiment name and id
+       * with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
        * Tiebreaks are done by experiment id DESC.
        * </pre>
        *
@@ -54082,201 +54089,200 @@ public final class Service {
       "sults\030\002 \001(\003\022\022\n\npage_token\030\003 \001(\t\032L\n\010Respo" +
       "nse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Experi" +
       "ment\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\267\002\n\021S" +
-      "earchExperiments\022\030\n\013max_results\030\001 \001(\003:\0031" +
-      "00\022\022\n\npage_token\030\002 \001(\t\022\016\n\006filter\030\003 \001(\t\022\020" +
-      "\n\010order_by\030\004 \003(\t\022#\n\tview_type\030\005 \001(\0162\020.ml" +
-      "flow.ViewType\032L\n\010Response\022\'\n\013experiments" +
-      "\030\001 \003(\0132\022.mlflow.Experiment\022\027\n\017next_page_" +
-      "token\030\002 \001(\t:_\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\342?1\n/com.databricks.mlfl" +
-      "ow.api.MlflowTrackingMessage\"\260\001\n\rGetExpe" +
-      "riment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032U\n\010R" +
-      "esponse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Exp" +
-      "eriment\022!\n\004runs\030\002 \003(\0132\017.mlflow.RunInfoB\002" +
-      "\030\001:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"h\n\020DeleteExperiment\022\033\n\rexperimen" +
-      "t_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"i\n\021Res" +
-      "toreExperiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370" +
-      "\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"z\n\020UpdateExperiment" +
-      "\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_nam" +
-      "e\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"\270\001\n\tCreateRun\022\025" +
-      "\n\rexperiment_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022" +
-      "\n\nstart_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016.mlflo" +
-      "w.RunTag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlfl" +
-      "ow.Run:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\276\001\n\tUpdateRun\022\016\n\006run_id\030\004 \001(" +
-      "\t\022\020\n\010run_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(\0162\021.ml" +
-      "flow.RunStatus\022\020\n\010end_time\030\003 \001(\003\032-\n\010Resp" +
-      "onse\022!\n\010run_info\030\001 \001(\0132\017.mlflow.RunInfo:" +
+      "databricks.rpc.RPC[$this.Response]\"\376\001\n\021S" +
+      "earchExperiments\022\023\n\013max_results\030\001 \001(\003\022\022\n" +
+      "\npage_token\030\002 \001(\t\022\016\n\006filter\030\003 \001(\t\022\020\n\010ord" +
+      "er_by\030\004 \003(\t\022#\n\tview_type\030\005 \001(\0162\020.mlflow." +
+      "ViewType\032L\n\010Response\022\'\n\013experiments\030\001 \003(" +
+      "\0132\022.mlflow.Experiment\022\027\n\017next_page_token" +
+      "\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\"\260\001\n\rGetExperiment\022\033\n\rexperim" +
+      "ent_id\030\001 \001(\tB\004\370\206\031\001\032U\n\010Response\022&\n\nexperi" +
+      "ment\030\001 \001(\0132\022.mlflow.Experiment\022!\n\004runs\030\002" +
+      " \003(\0132\017.mlflow.RunInfoB\002\030\001:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"h\n\020Delete" +
+      "Experiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032" +
+      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]\"i\n\021RestoreExperiment\022\033\n" +
+      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"z\n\020UpdateExperiment\022\033\n\rexperiment_id" +
+      "\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Respon" +
+      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"\270\001\n\tCreateRun\022\025\n\rexperiment_id\030\001" +
+      " \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\nstart_time\030\007 \001(" +
+      "\003\022\034\n\004tags\030\t \003(\0132\016.mlflow.RunTag\032$\n\010Respo" +
+      "nse\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\276\001\n\tU" +
+      "pdateRun\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001" +
+      "(\t\022!\n\006status\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n" +
+      "\010end_time\030\003 \001(\003\032-\n\010Response\022!\n\010run_info\030" +
+      "\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun" +
+      "\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010R" +
+      "esponse:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"\270\001\n\tLogMetric\022\016\n\006run_id\030\006 \001" +
+      "(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022" +
+      "\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimestamp\030\004 \001(\003B" +
+      "\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid" +
+      "\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\t" +
+      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\220\001\n\020SetExperimen" +
+      "tTag\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key" +
+      "\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\213\001\n\006SetTag\022\016\n\006run_id\030\004 \001(\t\022\020\n" +
+      "\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005va" +
+      "lue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"m\n\tDele" +
+      "teTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\t" +
+      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"}\n\006GetRun\022\016\n\006run" +
+      "_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response\022" +
+      "\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\230\002\n\nSearc" +
+      "hRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030" +
+      "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
+      "ewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005" +
+      ":\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030\007" +
+      " \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow." +
+      "Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"\330\001\n\rLi" +
+      "stArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030" +
+      "\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\npage_token\030\004 \001(\t\032" +
+      "V\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002" +
+      " \003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_toke" +
+      "n\030\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016" +
+      "\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020Ge" +
+      "tMetricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uu" +
+      "id\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Re" +
+      "sponse\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:" +
       "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"Z\n\tDeleteRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"[\n\nRestoreRun\022\024\n\006run_id" +
-      "\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"\270\001\n\tLogMet" +
-      "ric\022\016\n\006run_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n" +
-      "\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n" +
-      "\ttimestamp\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\215\001\n\010LogParam\022\016\n\006run_id\030" +
-      "\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\220\001\n\020SetExperimentTag\022\033\n\rexperiment_id\030\001" +
-      " \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003" +
-      " \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\213\001\n\006SetTag\022\016" +
-      "\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030" +
-      "\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Resp" +
+      "nse]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007met" +
+      "rics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003" +
+      "(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow" +
+      ".RunTag\032\n\n\010Response:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\"g\n\010LogModel\022\016\n\006" +
+      "run_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Resp" +
       "onse:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"m\n\tDeleteTag\022\024\n\006run_id\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"}\n\006GetRun\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_uuid\030\001" +
-      " \001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.R" +
-      "un:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\230\002\n\nSearchRuns\022\026\n\016experiment_ids" +
-      "\030\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_type\030" +
-      "\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE_ONLY\022\031\n\013" +
-      "max_results\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(" +
-      "\t\022\022\n\npage_token\030\007 \001(\t\032>\n\010Response\022\031\n\004run" +
-      "s\030\001 \003(\0132\013.mlflow.Run\022\027\n\017next_page_token\030" +
-      "\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\330\001\n\rListArtifacts\022\016\n\006run_id\030\003" +
-      " \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\n" +
-      "page_token\030\004 \001(\t\032V\n\010Response\022\020\n\010root_uri" +
-      "\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo\022" +
-      "\027\n\017next_page_token\030\003 \001(\t:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\";\n\010FileInf" +
-      "o\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_" +
-      "size\030\003 \001(\003\"\250\001\n\020GetMetricHistory\022\016\n\006run_i" +
-      "d\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\030\n\nmetric_key\030" +
-      "\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n\007metrics\030\001 \003(\013" +
-      "2\016.mlflow.Metric:+\342?(\n&com.databricks.rp" +
-      "c.RPC[$this.Response]\"\261\001\n\010LogBatch\022\016\n\006ru" +
-      "n_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflow.Met" +
-      "ric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param\022\034\n\004ta" +
-      "gs\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Response:+\342?" +
+      "Response]\"\225\001\n\023GetExperimentByName\022\035\n\017exp" +
+      "eriment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\n" +
+      "experiment\030\001 \001(\0132\022.mlflow.Experiment:+\342?" +
       "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"g\n\010LogModel\022\016\n\006run_id\030\001 \001(\t\022\022\n\nmodel_j" +
-      "son\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\225\001\n\023GetExperi" +
-      "mentByName\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031" +
-      "\001\0322\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022.mlfl" +
-      "ow.Experiment:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE" +
-      "_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSo" +
-      "urceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJE" +
-      "CT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStat" +
-      "us\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISH" +
-      "ED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\374\037\n\rMlflowS" +
-      "ervice\022\246\001\n\023getExperimentByName\022\033.mlflow." +
-      "GetExperimentByName\032$.mlflow.GetExperime" +
-      "ntByName.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/" +
-      "experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get Exp" +
-      "eriment By Name\022\306\001\n\020createExperiment\022\030.m" +
-      "lflow.CreateExperiment\032!.mlflow.CreateEx" +
-      "periment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow" +
-      "/experiments/create\032\004\010\002\020\000\n0\n\004POST\022\"/prev" +
-      "iew/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021C" +
-      "reate Experiment\022\274\001\n\017listExperiments\022\027.m" +
-      "lflow.ListExperiments\032 .mlflow.ListExper" +
-      "iments.Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/ex" +
-      "periments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/ml" +
-      "flow/experiments/list\032\004\010\002\020\000\020\001*\020List Expe" +
-      "riments\022\230\001\n\021searchExperiments\022\031.mlflow.S" +
-      "earchExperiments\032\".mlflow.SearchExperime" +
-      "nts.Response\"D\362\206\031@\n(\n\004POST\022\032/mlflow/expe" +
-      "riments/search\032\004\010\002\020\000\020\001*\022Search Experimen" +
-      "ts\022\262\001\n\rgetExperiment\022\025.mlflow.GetExperim" +
-      "ent\032\036.mlflow.GetExperiment.Response\"j\362\206\031" +
-      "f\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\n" +
-      ",\n\003GET\022\037/preview/mlflow/experiments/get\032" +
-      "\004\010\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteExperi" +
-      "ment\022\030.mlflow.DeleteExperiment\032!.mlflow." +
-      "DeleteExperiment.Response\"u\362\206\031q\n(\n\004POST\022" +
-      "\032/mlflow/experiments/delete\032\004\010\002\020\000\n0\n\004POS" +
-      "T\022\"/preview/mlflow/experiments/delete\032\004\010" +
-      "\002\020\000\020\001*\021Delete Experiment\022\314\001\n\021restoreExpe" +
-      "riment\022\031.mlflow.RestoreExperiment\032\".mlfl" +
-      "ow.RestoreExperiment.Response\"x\362\206\031t\n)\n\004P" +
-      "OST\022\033/mlflow/experiments/restore\032\004\010\002\020\000\n1" +
-      "\n\004POST\022#/preview/mlflow/experiments/rest" +
-      "ore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020upda" +
-      "teExperiment\022\030.mlflow.UpdateExperiment\032!" +
-      ".mlflow.UpdateExperiment.Response\"u\362\206\031q\n" +
-      "(\n\004POST\022\032/mlflow/experiments/update\032\004\010\002\020" +
-      "\000\n0\n\004POST\022\"/preview/mlflow/experiments/u" +
-      "pdate\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n\tcre" +
-      "ateRun\022\021.mlflow.CreateRun\032\032.mlflow.Creat" +
-      "eRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/run" +
-      "s/create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/" +
-      "runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupda" +
-      "teRun\022\021.mlflow.UpdateRun\032\032.mlflow.Update" +
-      "Run.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs" +
-      "/update\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/r" +
-      "uns/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdelet" +
-      "eRun\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteR" +
-      "un.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/" +
-      "delete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/ru" +
-      "ns/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestor" +
-      "eRun\022\022.mlflow.RestoreRun\032\033.mlflow.Restor" +
-      "eRun.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/run" +
-      "s/restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow" +
-      "/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tl" +
-      "ogMetric\022\021.mlflow.LogMetric\032\032.mlflow.Log" +
-      "Metric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/r" +
-      "uns/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/m" +
-      "lflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metri" +
-      "c\022\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.mlflo" +
-      "w.LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/mlfl" +
-      "ow/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/pr" +
-      "eview/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*" +
-      "\tLog Param\022\341\001\n\020setExperimentTag\022\030.mlflow" +
-      ".SetExperimentTag\032!.mlflow.SetExperiment" +
-      "Tag.Response\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/ex" +
-      "periments/set-experiment-tag\032\004\010\002\020\000\n<\n\004PO" +
-      "ST\022./preview/mlflow/experiments/set-expe" +
-      "riment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022\222" +
-      "\001\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTa" +
-      "g.Response\"_\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/s" +
-      "et-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/ru" +
-      "ns/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTa" +
-      "g\022\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag." +
-      "Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/del" +
-      "ete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/r" +
-      "uns/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006g" +
-      "etRun\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Re" +
-      "sponse\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010" +
-      "\002\020\000\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002" +
-      "\020\000\020\001*\007Get Run\022\314\001\n\nsearchRuns\022\022.mlflow.Se" +
-      "archRuns\032\033.mlflow.SearchRuns.Response\"\214\001" +
-      "\362\206\031\207\001\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000" +
-      "\n)\n\004POST\022\033/preview/mlflow/runs/search\032\004\010" +
-      "\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/search\032" +
-      "\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n\rlistArtifacts\022\025" +
-      ".mlflow.ListArtifacts\032\036.mlflow.ListArtif" +
-      "acts.Response\"h\362\206\031d\n#\n\003GET\022\026/mlflow/arti" +
-      "facts/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow" +
-      "/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022" +
-      "\307\001\n\020getMetricHistory\022\030.mlflow.GetMetricH" +
-      "istory\032!.mlflow.GetMetricHistory.Respons" +
-      "e\"v\362\206\031r\n(\n\003GET\022\033/mlflow/metrics/get-hist" +
-      "ory\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlflow/metric" +
-      "s/get-history\032\004\010\002\020\000\020\001*\022Get Metric Histor" +
-      "y\022\236\001\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflo" +
-      "w.LogBatch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlfl" +
-      "ow/runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/previe" +
-      "w/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Bat" +
-      "ch\022\236\001\n\010logModel\022\020.mlflow.LogModel\032\031.mlfl" +
-      "ow.LogModel.Response\"e\362\206\031a\n$\n\004POST\022\026/mlf" +
-      "low/runs/log-model\032\004\010\002\020\000\n,\n\004POST\022\036/previ" +
-      "ew/mlflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Mo" +
-      "delB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETE" +
+      "D_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEB" +
+      "OOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014" +
+      "\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r" +
+      "\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022" +
+      "\n\n\006KILLED\020\0052\373\037\n\rMlflowService\022\246\001\n\023getExp" +
+      "erimentByName\022\033.mlflow.GetExperimentByNa" +
+      "me\032$.mlflow.GetExperimentByName.Response" +
+      "\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-b" +
+      "y-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\306" +
+      "\001\n\020createExperiment\022\030.mlflow.CreateExper" +
+      "iment\032!.mlflow.CreateExperiment.Response" +
+      "\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/crea" +
+      "te\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experi" +
+      "ments/create\032\004\010\002\020\000\020\001*\021Create Experiment\022" +
+      "\274\001\n\017listExperiments\022\027.mlflow.ListExperim" +
+      "ents\032 .mlflow.ListExperiments.Response\"n" +
+      "\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010" +
+      "\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments/" +
+      "list\032\004\010\002\020\000\020\001*\020List Experiments\022\227\001\n\021searc" +
+      "hExperiments\022\031.mlflow.SearchExperiments\032" +
+      "\".mlflow.SearchExperiments.Response\"C\362\206\031" +
+      "?\n\'\n\003GET\022\032/mlflow/experiments/search\032\004\010\002" +
+      "\020\000\020\001*\022Search Experiments\022\262\001\n\rgetExperime" +
+      "nt\022\025.mlflow.GetExperiment\032\036.mlflow.GetEx" +
+      "periment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow/" +
+      "experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/m" +
+      "lflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Exper" +
+      "iment\022\306\001\n\020deleteExperiment\022\030.mlflow.Dele" +
+      "teExperiment\032!.mlflow.DeleteExperiment.R" +
+      "esponse\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experimen" +
+      "ts/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow" +
+      "/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Expe" +
+      "riment\022\314\001\n\021restoreExperiment\022\031.mlflow.Re" +
+      "storeExperiment\032\".mlflow.RestoreExperime" +
+      "nt.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/exper" +
+      "iments/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/m" +
+      "lflow/experiments/restore\032\004\010\002\020\000\020\001*\022Resto" +
+      "re Experiment\022\306\001\n\020updateExperiment\022\030.mlf" +
+      "low.UpdateExperiment\032!.mlflow.UpdateExpe" +
+      "riment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/e" +
+      "xperiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/previe" +
+      "w/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Upd" +
+      "ate Experiment\022\234\001\n\tcreateRun\022\021.mlflow.Cr" +
+      "eateRun\032\032.mlflow.CreateRun.Response\"`\362\206\031" +
+      "\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n\004" +
+      "POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020" +
+      "\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlflow.Upd" +
+      "ateRun\032\032.mlflow.UpdateRun.Response\"`\362\206\031\\" +
+      "\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004P" +
+      "OST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020\001" +
+      "*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflow.Dele" +
+      "teRun\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\\n" +
+      "!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004PO" +
+      "ST\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001*" +
+      "\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlflow.Rest" +
+      "oreRun\032\033.mlflow.RestoreRun.Response\"c\362\206\031" +
+      "_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*\n" +
+      "\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020" +
+      "\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow." +
+      "LogMetric\032\032.mlflow.LogMetric.Response\"h\362" +
+      "\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002" +
+      "\020\000\n-\n\004POST\022\037/preview/mlflow/runs/log-met" +
+      "ric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020.m" +
+      "lflow.LogParam\032\031.mlflow.LogParam.Respons" +
+      "e\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-parame" +
+      "ter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs/" +
+      "log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020set" +
+      "ExperimentTag\022\030.mlflow.SetExperimentTag\032" +
+      "!.mlflow.SetExperimentTag.Response\"\217\001\362\206\031" +
+      "\212\001\n4\n\004POST\022&/mlflow/experiments/set-expe" +
+      "riment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlflo" +
+      "w/experiments/set-experiment-tag\032\004\010\002\020\000\020\001" +
+      "*\022Set Experiment Tag\022\222\001\n\006setTag\022\016.mlflow" +
+      ".SetTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n\"" +
+      "\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004PO" +
+      "ST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001" +
+      "*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.DeleteT" +
+      "ag\032\032.mlflow.DeleteTag.Response\"h\362\206\031d\n%\n\004" +
+      "POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004P" +
+      "OST\022\037/preview/mlflow/runs/delete-tag\032\004\010\002" +
+      "\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.Get" +
+      "Run\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003GE" +
+      "T\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/previ" +
+      "ew/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\n" +
+      "searchRuns\022\022.mlflow.SearchRuns\032\033.mlflow." +
+      "SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/ml" +
+      "flow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview" +
+      "/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/previ" +
+      "ew/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Ru" +
+      "ns\022\260\001\n\rlistArtifacts\022\025.mlflow.ListArtifa" +
+      "cts\032\036.mlflow.ListArtifacts.Response\"h\362\206\031" +
+      "d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+" +
+      "\n\003GET\022\036/preview/mlflow/artifacts/list\032\004\010" +
+      "\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetricHisto" +
+      "ry\022\030.mlflow.GetMetricHistory\032!.mlflow.Ge" +
+      "tMetricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/m" +
+      "lflow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#" +
+      "/preview/mlflow/metrics/get-history\032\004\010\002\020" +
+      "\000\020\001*\022Get Metric History\022\236\001\n\010logBatch\022\020.m" +
+      "lflow.LogBatch\032\031.mlflow.LogBatch.Respons" +
+      "e\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch\032" +
+      "\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-" +
+      "batch\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logModel\022\020." +
+      "mlflow.LogModel\032\031.mlflow.LogModel.Respon" +
+      "se\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-model" +
+      "\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log" +
+      "-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlflow." +
+      "api.proto\220\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
