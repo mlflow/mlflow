@@ -76,7 +76,7 @@ class AbstractStore:
                          optional ``DESC`` or ``ASC`` value (e.g., "name DESC"). The default is
                          ``ASC`` so ``"name"`` is equivalent to ``"name ASC"``.
         :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``search_experiments`` call.
+                           a ``search_experiments`` call.
         :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
                  :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
                  for the next page can be obtained via the ``token`` attribute of the object.
