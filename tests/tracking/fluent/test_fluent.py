@@ -28,7 +28,7 @@ from mlflow.entities import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlExperimentTag
+from mlflow.store.tracking.dbmodels.models import SqlExperiment
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (
@@ -359,43 +359,26 @@ def test_list_experiments(view_type, tmpdir):
 
 def test_search_experiments(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    store = SqlAlchemyStore(sqlite_uri, default_artifact_root=str(tmp_path))
+    mlflow.set_tracking_uri(sqlite_uri)
 
     num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
     num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
     num_deleted_experiments = SEARCH_MAX_RESULTS_DEFAULT - num_active_experiments
 
-    with store.ManagedSessionMaker() as session:
-        # Create active experiments
-        active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
-        active_experiments = [
-            SqlExperiment(
-                name=name,
-                lifecycle_stage="active",
-                artifact_location=str(tmp_path.joinpath(name)),
-            )
-            for name in active_experiment_names
-        ]
-        # Create deleted experiments
-        deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
-        deleted_experiments = [
-            SqlExperiment(
-                name=name,
-                lifecycle_stage="deleted",
-                artifact_location=str(tmp_path.joinpath(name)),
-            )
-            for name in deleted_experiment_names
-        ]
-        session.add_all(active_experiments + deleted_experiments)
-        # Create some tags
-        experiment_tags = [
-            SqlExperimentTag(key="tag", value="x", experiment_id=1),
-            SqlExperimentTag(key="tag", value="x", experiment_id=2),
-            SqlExperimentTag(key="tag", value="y", experiment_id=3),
-        ]
-        session.add_all(experiment_tags)
+    active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
+    tag_values = ["x", "x", "y"]
+    for (idx, active_experiment_name) in enumerate(active_experiment_names):
+        if idx < 3:
+            tags = {"tag": tag_values[idx]}
+        else:
+            tags = None
+        mlflow.create_experiment(active_experiment_name, tags=tags)
 
-    mlflow.set_tracking_uri(sqlite_uri)
+    deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
+    for deleted_experiment_name in deleted_experiment_names:
+        exp_id = mlflow.create_experiment(deleted_experiment_name)
+        mlflow.delete_experiment(exp_id)
+
     # max_results is unspecified
     experiments = mlflow.search_experiments(view_type=ViewType.ALL)
     assert len(experiments) == num_all_experiments
@@ -415,25 +398,22 @@ def test_search_experiments(tmp_path):
 
     # Filter by view_type
     experiments = mlflow.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    assert [e.name for e in experiments] == ["Default", *active_experiment_names]
+    assert [e.name for e in experiments] == active_experiment_names[::-1] + ["Default"]
     experiments = mlflow.search_experiments(view_type=ViewType.DELETED_ONLY)
-    assert [e.name for e in experiments] == deleted_experiment_names
+    assert [e.name for e in experiments] == deleted_experiment_names[::-1]
     experiments = mlflow.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == [
-        "Default",
-        *active_experiment_names,
-        *deleted_experiment_names,
-    ]
-
+    assert [e.name for e in experiments] == (
+        deleted_experiment_names[::-1] + active_experiment_names[::-1] + ["Default"]
+    )
     # Filter by name
     experiments = mlflow.search_experiments(filter_string="name = 'active_1'")
     assert [e.name for e in experiments] == ["active_1"]
     experiments = mlflow.search_experiments(filter_string="name ILIKE 'active_%'")
-    assert [e.name for e in experiments] == active_experiment_names
+    assert [e.name for e in experiments] == active_experiment_names[::-1]
 
     # Filter by tags
     experiments = mlflow.search_experiments(filter_string="tags.tag = 'x'")
-    assert [e.experiment_id for e in experiments] == ["1", "2"]
+    assert [e.name for e in experiments] == active_experiment_names[:2][::-1]
     experiments = mlflow.search_experiments(filter_string="tags.tag = 'y'")
     assert [e.experiment_id for e in experiments] == ["3"]
 
