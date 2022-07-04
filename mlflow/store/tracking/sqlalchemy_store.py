@@ -1337,11 +1337,11 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
     attribute_filters = []
     non_attribute_filters = []
     for f in parsed_filters:
-        typ = f["type"]
+        type_ = f["type"]
         key = f["key"]
         comparator = f["comparator"]
         value = f["value"]
-        if typ == "attribute":
+        if type_ == "attribute":
             attr = getattr(SqlExperiment, key)
             if comparator in ("LIKE", "ILIKE"):
                 f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
@@ -1354,26 +1354,30 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                     f"Invalid comparator for attribute: {comparator}"
                 )
             attribute_filters.append(f)
-        elif typ == "tag":
-            if comparator == "=":
-                f = (
-                    select(SqlExperimentTag)
-                    .filter(SqlExperimentTag.key == key, SqlExperimentTag.value == value)
-                    .subquery()
-                )
+        elif type_ == "tag":
+            stmt = select(SqlExperimentTag)
+            if comparator in ("LIKE", "ILIKE"):
+                f = stmt.filter(
+                    SqlExperimentTag.key == key,
+                    SearchUtils.get_sql_filter_ops(SqlExperimentTag.value, comparator, dialect)(
+                        value
+                    ),
+                ).subquery()
+            elif comparator == "=":
+                f = stmt.filter(
+                    SqlExperimentTag.key == key, SqlExperimentTag.value == value
+                ).subquery()
             elif comparator == "!=":
-                f = (
-                    select(SqlExperimentTag)
-                    .filter(SqlExperimentTag.key == key, SqlExperimentTag.value != value)
-                    .subquery()
-                )
+                f = stmt.filter(
+                    SqlExperimentTag.key == key, SqlExperimentTag.value != value
+                ).subquery()
             else:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
             non_attribute_filters.append(f)
         else:
-            raise MlflowException.invalid_parameter_value(f"Invalid token type: {typ}")
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
     return attribute_filters, non_attribute_filters
 

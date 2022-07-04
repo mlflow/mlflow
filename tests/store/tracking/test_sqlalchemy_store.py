@@ -405,18 +405,29 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["ab"]
 
     def test_search_experiments_filter_by_tag(self):
-        self.store.create_experiment(
-            "exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")]
-        )
-        self.store.create_experiment(
-            "exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")]
-        )
+        experiments = [
+            ("exp1", [ExperimentTag("key", "value")]),
+            ("exp2", [ExperimentTag("key", "vaLue")]),
+            ("exp3", [ExperimentTag("value", "key")]),
+        ]
+        for name, tags in experiments:
+            self.store.create_experiment(name, tags=tags)
 
-        experiments = self.store.search_experiments(filter_string="tag.a = '1'")
+        experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.`a` = '1'")
+        experiments = self.store.search_experiments(filter_string="tag.`key` = 'value'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.a != '1'")
+        experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
+        assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
+        assert [e.name for e in experiments] == ["exp1"]
+        experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
+        assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+        assert [e.name for e in experiments] == ["exp2", "exp1"]
+        experiments = self.store.search_experiments(
+            filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
+        )
         assert [e.name for e in experiments] == ["exp2"]
 
     def test_search_experiments_filter_by_attribute_and_tag(self):
