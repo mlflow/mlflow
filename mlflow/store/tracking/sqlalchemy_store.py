@@ -1355,24 +1355,22 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 )
             attribute_filters.append(f)
         elif type_ == "tag":
-            stmt = select(SqlExperimentTag)
-            key_filter = SqlExperimentTag.key == key
             if comparator in ("LIKE", "ILIKE"):
-                f = stmt.filter(
-                    key_filter,
-                    SearchUtils.get_sql_filter_ops(SqlExperimentTag.value, comparator, dialect)(
-                        value
-                    ),
-                )
+                val_filter = SearchUtils.get_sql_filter_ops(
+                    SqlExperimentTag.value, comparator, dialect
+                )(value)
             elif comparator == "=":
-                f = stmt.filter(key_filter, SqlExperimentTag.value == value)
+                val_filter = SqlExperimentTag.value == value
             elif comparator == "!=":
-                f = stmt.filter(key_filter, SqlExperimentTag.value != value)
+                val_filter = SqlExperimentTag.value != value
             else:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
-            non_attribute_filters.append(f.subquery())
+            key_filter = SqlExperimentTag.key == key
+            non_attribute_filters.append(
+                select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
+            )
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
