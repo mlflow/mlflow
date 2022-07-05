@@ -1,0 +1,26 @@
+name: Closing PR
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  closing-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: actions/github-script@v4
+        with:
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/closing-pr.js`
+            );
+            script({ context, github });
