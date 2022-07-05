@@ -344,6 +344,13 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
     assert registered_model_detailed.tags == {"numeric value": "12345"}
 
 
+def test_set_registered_model_tag_with_empty_string_as_value(mlflow_client):
+    name = "SetRMTagEmptyValueTest"
+    mlflow_client.create_registered_model(name)
+    mlflow_client.set_registered_model_tag(name, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_registered_model(name).tags.items()
+
+
 def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
@@ -583,3 +590,11 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     mlflow_client.delete_model_version_tag(name, "1", "key")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {"numeric value": "12345"}
+
+
+def test_set_model_version_tag_with_empty_string_as_value(mlflow_client):
+    name = "SetMVTagEmptyValueTest"
+    mlflow_client.create_registered_model(name)
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    mlflow_client.set_model_version_tag(name, "1", "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_model_version(name, "1").tags.items()
