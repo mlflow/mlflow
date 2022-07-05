@@ -11,7 +11,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  labeling:
+  closing-pr:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
