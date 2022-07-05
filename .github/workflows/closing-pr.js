@@ -1,5 +1,5 @@
 // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
-const CLOSING_SYNTAX_REGEX = /(?:close|fix|resolve)[sd]?\s+#(\d+)/i;
+const CLOSING_SYNTAX_REGEX = /(?:close|fixe?|resolve)[sd]?\s+#(\d+)/i;
 const HAS_CLOSING_PR_LABEL = 'has-closing-pr';
 
 module.exports = async ({ context, github }) => {
