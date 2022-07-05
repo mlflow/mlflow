@@ -97,14 +97,20 @@ class SearchUtils:
         if dialect == MSSQL:
             column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
 
-        def mysql_like(value):
-            # Filter by `LIKE` ahead of `LIKE BINARY` to improve performance
+        # Use non-binary ahead of binary comparison for runtime performance
+        def case_sensitive_mysql_eq(value):
+            return sa.and_(column.__eq__(value), column.op("= BINARY", is_comparison=True)(value))
+
+        def case_sensitive_mysql_ne(value):
+            return sa.or_(column.__ne__(value), column.op("!= BINARY", is_comparison=True)(value))
+
+        def case_sensitive_mysql_like(value):
             return sa.and_(column.like(value), column.op("LIKE BINARY", is_comparison=True)(value))
 
         sql_filter_ops = {
-            "=": column.__eq__,
-            "!=": column.__ne__,
-            "LIKE": mysql_like if dialect == MYSQL else column.like,
+            "=": case_sensitive_mysql_eq if dialect == MYSQL else column.__eq__,
+            "!=": case_sensitive_mysql_ne if dialect == MYSQL else column.__ne__,
+            "LIKE": case_sensitive_mysql_like if dialect == MYSQL else column.like,
             "ILIKE": column.ilike,
         }
         return sql_filter_ops[operator]
