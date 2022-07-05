@@ -65,6 +65,7 @@ jobs:
 
       - name: Check dependencies consistency
         run: |
+          pip install pyyaml
           ./dev/validate-requirements-consistency.sh
 
       - name: Install dependencies
