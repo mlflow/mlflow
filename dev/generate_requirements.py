@@ -1,3 +1,10 @@
+"""
+This script generates a pip-compatible requirements file (e.g. requirements/core-requirements.txt)
+based on a YAML dependencies specification (e.g. requirements/core-requirements.yaml). These
+requirements files are then read by `setup.py` to specify dependencies for MLflow wheel
+installation.
+"""
+
 import argparse
 import sys
 import yaml
