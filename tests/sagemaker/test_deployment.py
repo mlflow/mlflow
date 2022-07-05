@@ -26,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
+from tests.helper_functions import AWS_METADATA_IP
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
 
@@ -227,13 +228,13 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "169.254.169.254,localhost",
-        }
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
+            "no_proxy": f"localhost,{AWS_METADATA_IP}",
+        }  # Ensuring access to the isntance metadata service skips the proxy server.
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
-        with mock.patch.dict(os.environ, proxy_variables, clear=True):
+        with mock.patch.dict(os.environ, proxy_variables):
             mfs.deploy(
                 app_name=app_name,
                 model_uri=pretrained_model.model_uri,
@@ -241,8 +242,13 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
             )
 
     else:
+        environment_variables = {
+            proxy: proxy_value
+            for proxy, proxy_value in os.environ.items()
+            if not "proxy" in proxy.lower()
+        }
         app_name = "test-app"
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(os.environ, environment_variables, clear=True):
             mfs.deploy(
                 app_name=app_name,
                 model_uri=pretrained_model.model_uri,
@@ -288,10 +294,10 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "169.254.169.254,localhost",
-        }
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
+            "no_proxy": f"localhost,{AWS_METADATA_IP}",
+        }  # Ensuring access to the isntance metadata service skips the proxy server.
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
         result = CliRunner(env={**environment_variables, **proxy_variables}).invoke(
@@ -375,17 +381,22 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_and_env_f
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "169.254.169.254,localhost",
-        }
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
+            "no_proxy": f"localhost,{AWS_METADATA_IP}",
+        }  # Ensuring access to the isntance metadata service skips the proxy server.
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
-        with mock.patch.dict(os.environ, proxy_variables, clear=True):
+        with mock.patch.dict(os.environ, proxy_variables):
             mfs.deploy(app_name=app_name, model_uri=model_s3_uri, mode=mfs.DEPLOYMENT_MODE_CREATE)
     else:
+        environment_variables = {
+            proxy: proxy_value
+            for proxy, proxy_value in os.environ.items()
+            if not "proxy" in proxy.lower()
+        }
         app_name = "test-app"
-        with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch.dict(os.environ, environment_variables, clear=True):
             mfs.deploy(app_name=app_name, model_uri=model_s3_uri, mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
@@ -435,10 +446,10 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
-            "no_proxy": "169.254.169.254,localhost",
-        }
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
+            "no_proxy": f"localhost,{AWS_METADATA_IP}",
+        }  # Ensuring access to the isntance metadata service skips the proxy server.
         expected_model_environment.update(proxy_variables)
         app_name = "test-app-proxies"
         result = CliRunner(env={**environment_variables, **proxy_variables}).invoke(
