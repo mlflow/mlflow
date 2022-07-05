@@ -63,6 +63,10 @@ jobs:
           </html>
           ' > mlflow/server/js/build/index.html
 
+      - name: Check dependencies consistency
+        run: |
+          ./dev/validate-requirements-consistency.sh
+
       - name: Install dependencies
         run: |
           pip install wheel twine
