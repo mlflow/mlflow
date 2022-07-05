@@ -40,7 +40,8 @@ RUN pip install virtualenv
 
 if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
 
-    # Expects proxies as PROTOCOL://HOSTNAME:PORT
+    # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
+    # or PROTOCOL://HOSTNAME:PORT
     parsed_http_proxy = urlparse(os.environ["http_proxy"])
     assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
     assert isinstance(parsed_http_proxy.port, int), f"Invalid Proxy Port: {parsed_http_proxy.port}"
@@ -61,6 +62,15 @@ if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
         https_proxy_host=parsed_https_proxy.hostname,
         https_proxy_port=parsed_https_proxy.port,
     )
+
+    if parsed_http_proxy.username is not None and parsed_http_proxy.password is not None:
+
+        MAVEN_PROXY += (
+            " -Dhttp.proxyUser={proxy_username} -Dhttp.proxyPassword={proxy_password}".format(
+                proxy_username=parsed_http_proxy.username, proxy_password=parsed_http_proxy.password
+            )
+        )
+
 else:
     MAVEN_PROXY = ""  # No Proxy
 
