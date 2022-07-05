@@ -13,7 +13,7 @@ jobs:
           close-issue-message: 'This issue was closed because it has been stalled for 14 days with no activity.'
           days-before-stale: 7
           days-before-close: 14
-          # Only process issues created after 2022-07-01 since the bot is still experimental and may contain bugs
+          # Process issues created after 2022-07-01 as an experiment
           start-date: '2022-07-01T00:00:00Z'
           # Prevent the bot from staling/closing PRs
           days-before-pr-stale: -1
