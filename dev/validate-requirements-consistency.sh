@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-REQUIREMENTS_DIR=$SCRIPT_DIR/../requirements
+REQUIREMENTS_DIR=$(realpath $SCRIPT_DIR/../requirements)
 
 python $SCRIPT_DIR/generate_requirements.py --requirements-yaml-location $REQUIREMENTS_DIR/skinny-requirements.yaml --requirements-txt-output-location /tmp/skinny-requirements-for-validation.txt
 
-if ! diff /tmp/skinny-requirements-for-validation.txt $REQUIREMENTS_DIR/skinny-requirements.txt ; then
+if diff /tmp/skinny-requirements-for-validation.txt $REQUIREMENTS_DIR/skinny-requirements.txt ; then
+echo "$REQUIREMENTS_DIR/skinny-requirements.txt is consistent with $REQUIREMENTS_DIR/skinny-requirements.yaml"
+else
 REGENERATE_CMD=$(cat <<-END
     python dev/generate_requirements.py \\
       --requirements-yaml-location requirements/skinny-requirements.yaml \\
@@ -19,7 +21,9 @@ fi
 
 python $SCRIPT_DIR/generate_requirements.py --requirements-yaml-location $REQUIREMENTS_DIR/core-requirements.yaml --requirements-txt-output-location /tmp/core-requirements-for-validation.txt
 
-if ! diff /tmp/core-requirements-for-validation.txt $REQUIREMENTS_DIR/core-requirements.txt ; then
+if diff /tmp/core-requirements-for-validation.txt $REQUIREMENTS_DIR/core-requirements.txt ; then
+echo "$REQUIREMENTS_DIR/core-requirements.txt is consistent with $REQUIREMENTS_DIR/core-requirements.yaml"
+else
 REGENERATE_CMD=$(cat <<-END
     python dev/generate_requirements.py \\
       --requirements-yaml-location requirements/core-requirements.yaml \\
