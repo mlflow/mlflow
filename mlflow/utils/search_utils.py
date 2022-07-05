@@ -93,19 +93,20 @@ class SearchUtils:
     def get_sql_filter_ops(cls, column, operator, dialect):
         import sqlalchemy as sa
 
-        if dialect == MYSQL:
+        # Use case-sensitive collation for MSSQL
+        if dialect == MSSQL:
+            column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
 
-            def like_op(value):
-                # Filter by `LIKE` ahead of `LIKE BINARY` for runtime performance
-                return sa.and_(
-                    column.like(value), column.op("LIKE BINARY", is_comparison=True)(value)
-                )
+        def mysql_like(value):
+            # Filter by `LIKE` ahead of `LIKE BINARY` to improve performance
+            return sa.and_(column.like(value), column.op("LIKE BINARY", is_comparison=True)(value))
 
-        elif dialect == MSSQL:
-            like_op = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS").like
-        else:
-            like_op = column.like
-        sql_filter_ops = {"LIKE": like_op, "ILIKE": column.ilike}
+        sql_filter_ops = {
+            "=": column.__eq__,
+            "!=": column.__ne__,
+            "LIKE": mysql_like if dialect == MYSQL else column.like,
+            "ILIKE": column.ilike,
+        }
         return sql_filter_ops[operator]
 
     @classmethod

@@ -1343,30 +1343,20 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
         value = f["value"]
         if type_ == "attribute":
             attr = getattr(SqlExperiment, key)
-            if comparator in ("LIKE", "ILIKE"):
-                f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
-            elif comparator == "=":
-                f = attr == value
-            elif comparator == "!=":
-                f = attr != value
-            else:
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for attribute: {comparator}"
                 )
+            f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
             attribute_filters.append(f)
         elif type_ == "tag":
-            if comparator in ("LIKE", "ILIKE"):
-                val_filter = SearchUtils.get_sql_filter_ops(
-                    SqlExperimentTag.value, comparator, dialect
-                )(value)
-            elif comparator == "=":
-                val_filter = SqlExperimentTag.value == value
-            elif comparator == "!=":
-                val_filter = SqlExperimentTag.value != value
-            else:
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid comparator for tag: {comparator}"
                 )
+            val_filter = SearchUtils.get_sql_filter_ops(
+                SqlExperimentTag.value, comparator, dialect
+            )(value)
             key_filter = SqlExperimentTag.key == key
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
