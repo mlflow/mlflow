@@ -1379,17 +1379,16 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
 
 def _get_search_experiments_order_by_clauses(order_by):
     order_by_clauses = []
-    for (typ, key, ascending) in map(
+    for (type_, key, ascending) in map(
         SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
     ):
-        if typ == "attribute":
-            attr = getattr(SqlExperiment, key)
-            order_by_clauses.append(attr.asc() if ascending else attr.desc())
+        if type_ == "attribute":
+            order_by_clauses.append((getattr(SqlExperiment, key), ascending))
         else:
-            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {typ}")
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
     # Add a tie-breaker
-    desc_experiment_id = SqlExperiment.experiment_id.desc()
-    if desc_experiment_id not in order_by_clauses:
-        order_by_clauses.append(desc_experiment_id)
-    return order_by_clauses
+    if not any(col == SqlExperiment.experiment_id for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlExperiment.experiment_id, False))
+
+    return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
