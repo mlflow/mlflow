@@ -16,23 +16,37 @@ def unset_variable(variable_name):
         del os.environ[variable_name]
 
 
+class EnvironmentVariable:
+    def __init__(self, name, type, default):
+        self.name = name
+        self.type = type
+        self.default = default
+
+    def get(self):
+        val = os.getenv(self.name)
+        if val:
+            try:
+                return self.type(val)
+            except Exception as e:
+                raise ValueError(
+                    f"Parse environment config {self.name}'s value '{val}' failed. (error: {repr(e)})"
+                )
+        return self.default
+
+    def __str__(self):
+        return self.name
+
+
 _env_parser_and_default_value_map = {
-    MLFLOW_HTTP_REQUEST_MAX_RETRIES: (int, 5),
-    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR: (int, 2),
-    MLFLOW_HTTP_REQUEST_TIMEOUT: (int, 120),
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES: EnvironmentVariable(MLFLOW_HTTP_REQUEST_MAX_RETRIES, int, 5),
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR: EnvironmentVariable(
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR, int, 2
+    ),
+    MLFLOW_HTTP_REQUEST_TIMEOUT: EnvironmentVariable(MLFLOW_HTTP_REQUEST_TIMEOUT, int, 120),
 }
 
 
 def _get_env_config_value_or_default(name):
     assert name in _env_parser_and_default_value_map, f"Invalid environment config name {name}."
-    parser, default_value = _env_parser_and_default_value_map[name]
-    if name in os.environ:
-        value = os.environ[name]
-        try:
-            return parser(value)
-        except Exception as e:
-            raise ValueError(
-                f"Parse environment config {name}'s value '{value}' failed. (error: {repr(e)})"
-            )
-    else:
-        return default_value
+    env_var = _env_parser_and_default_value_map[name]
+    return env_var.get()
