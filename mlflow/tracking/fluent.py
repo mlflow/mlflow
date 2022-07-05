@@ -1072,9 +1072,14 @@ def search_experiments(
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
-    :param order_by: List of columns to order by. The ``order_by`` column can contain an optional
-                    ``DESC`` or ``ASC`` value (e.g., "name DESC"). The default is ``ASC`` so
-                    ``"name"`` is equivalent to ``"name ASC"``.
+    :param order_by:
+        List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+        ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is equivalent to
+        ``"name ASC"``. The following fields are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
     .. code-block:: python
