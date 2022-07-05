@@ -763,7 +763,7 @@ def _set_experiment_tag():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
@@ -782,7 +782,7 @@ def _set_tag():
         schema={
             "run_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = RunTag(request_message.key, request_message.value)
@@ -981,10 +981,9 @@ def _log_batch():
             _assert_required(m["timestamp"])
             _assert_required(m["step"])
 
-    def _assert_params_tags_fields_present(params):
-        for p in params:
-            _assert_required(p["key"])
-            _assert_required(p["value"])
+    def _assert_params_tags_fields_present(params_or_tags):
+        for param_or_tag in params_or_tags:
+            _assert_required(param_or_tag["key"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1204,7 +1203,7 @@ def _set_registered_model_tag():
         schema={
             "name": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
@@ -1374,7 +1373,7 @@ def _set_model_version_tag():
             "name": [_assert_string, _assert_required],
             "version": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
