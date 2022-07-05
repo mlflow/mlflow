@@ -29,32 +29,41 @@ def validate_requirements_yaml(requirements_yaml):
         requirements_yaml, dict
     ), "requirements.yaml contents must be a YAML dictionary"
     for package_entry in requirements_yaml.values():
-        assert isinstance(
-            package_entry, dict
-        ), f"Entry in requirements.yaml does not have required dictionary structure: {package_entry}"
+        assert isinstance(package_entry, dict), (
+            "Entry in requirements.yaml does not have required dictionary"
+            f" structure: {package_entry}"
+        )
         pip_release = package_entry.get("pip_release")
-        assert pip_release is not None and isinstance(
-            pip_release, str
-        ), f"Entry in requirements.yaml does not define a valid 'pip_release' string value: {package_entry}"
+        assert pip_release is not None and isinstance(pip_release, str), (
+            "Entry in requirements.yaml does not define a valid 'pip_release'"
+            f" string value: {package_entry}"
+        )
         max_major_version = package_entry.get("max_major_version")
-        assert max_major_version is not None and isinstance(
-            max_major_version, int
-        ), f"Entry in requirements.yaml does not specify a valid 'max_major_version' integer value: {package_entry}"
+        assert max_major_version is not None and isinstance(max_major_version, int), (
+            "Entry in requirements.yaml does not specify a valid 'max_major_version'"
+            f" integer value: {package_entry}"
+        )
         if "minimum" in package_entry:
-            assert isinstance(
-                package_entry["minimum"], str
-            ), f"Entry in requirements.yaml contains an invalid 'minimum' version string specification: {package_entry}"
+            assert isinstance(package_entry["minimum"], str), (
+                "Entry in requirements.yaml contains an invalid 'minimum' version"
+                f" string specification: {package_entry}"
+            )
         if "unsupported" in package_entry:
             assert isinstance(package_entry["unsupported"], list) and all(
                 [
                     isinstance(unsupported_entry, str)
                     for unsupported_entry in package_entry["unsupported"]
                 ]
-            ), "Entry in requirements.yaml contains an invalid 'unsupported' versions specification. Unsupported versions should be specified as lists of strings: {package_entry}"
+            ), (
+                "Entry in requirements.yaml contains an invalid 'unsupported' versions"
+                " specification. Unsupported versions should be specified as lists of strings:"
+                f" {package_entry}"
+            )
         if "markers" in package_entry:
-            assert isinstance(
-                package_entry["markers"], str
-            ), f"Entry in requirements.yaml contains invalid 'markers' string specification: {package_entry}"
+            assert isinstance(package_entry["markers"], str), (
+                "Entry in requirements.yaml contains invalid 'markers' string"
+                f" specification: {package_entry}"
+            )
 
 
 def generate_requirements_txt_content(requirements_yaml):
