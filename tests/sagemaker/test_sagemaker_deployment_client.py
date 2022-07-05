@@ -317,8 +317,8 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
         expected_model_environment.update(proxy_variables)
@@ -376,8 +376,8 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
         expected_model_environment.update(proxy_variables)
@@ -448,8 +448,8 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
         expected_model_environment.update(proxy_variables)
@@ -514,8 +514,8 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 
     if proxies_enabled:
         proxy_variables = {
-            "http_proxy": "http://proxy.example.net:1234",
-            "https_proxy": "https://proxy.example.net:1234",
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
             "no_proxy": "localhost",
         }
         expected_model_environment.update(proxy_variables)
