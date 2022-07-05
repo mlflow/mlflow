@@ -18,10 +18,11 @@ from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import get_error_code, MlflowException, RestException
 
 from mlflow.environment_variables import (
-    MLFLOW_RESTAPI_REQUEST_TIMEOUT,
-    MLFLOW_RESTAPI_REQUEST_MAX_RETRIES,
-    MLFLOW_RESTAPI_REQUEST_BACKOFF_FACTOR,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
 )
+from mlflow.utils.env import _get_env_config_value_or_default
 
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
@@ -130,9 +131,11 @@ def http_request(
 
     :return: requests.Response object.
     """
-    max_retries = max_retries or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_MAX_RETRIES, '5'))
-    backoff_factor = backoff_factor or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_BACKOFF_FACTOR, '2'))
-    timeout = timeout or int(os.environ.get(MLFLOW_RESTAPI_REQUEST_TIMEOUT, '120'))
+    max_retries = max_retries or _get_env_config_value_or_default(MLFLOW_HTTP_REQUEST_MAX_RETRIES)
+    backoff_factor = backoff_factor or _get_env_config_value_or_default(
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR
+    )
+    timeout = timeout or _get_env_config_value_or_default(MLFLOW_HTTP_REQUEST_TIMEOUT)
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
