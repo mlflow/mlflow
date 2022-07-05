@@ -55,7 +55,7 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 with open(os.path.join("requirements", "core-requirements.txt"), "r") as f:
-    CORE_REQUIREMENTS= SKINNY_REQUIREMENTS + f.readlines()
+    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + f.readlines()
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
