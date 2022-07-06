@@ -64,10 +64,8 @@ def validate_requirements_yaml(requirements_yaml):
             )
         if "unsupported" in package_entry:
             assert isinstance(package_entry["unsupported"], list) and all(
-                [
-                    isinstance(unsupported_entry, str)
-                    for unsupported_entry in package_entry["unsupported"]
-                ]
+                isinstance(unsupported_entry, str)
+                for unsupported_entry in package_entry["unsupported"]
             ), (
                 "Entry in requirements.yaml contains an invalid 'unsupported' versions"
                 " specification. Unsupported versions should be specified as lists of strings:"
