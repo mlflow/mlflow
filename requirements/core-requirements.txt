@@ -2,15 +2,14 @@
 # manually modify this file. Instead, modify the corresponding requirements YAML file and run the
 # dev/generate_requirements.py script to regenerate this file.
 
-click<9,>=7.0
-cloudpickle<3
-databricks-cli<1,>=0.8.7
-entrypoints<1
-gitpython<4,>=2.1.0
-pyyaml<7,>=5.1
-protobuf<5,>=3.12.0
-pytz<2023
-requests<3,>=2.17.3
-packaging<22
-importlib_metadata<5,>=3.7.0,!=4.7.0
-sqlparse<1,>=0.3.1
+alembic<2
+docker<6,>=4.0.0
+Flask<3
+numpy<2
+scipy<2
+pandas<2
+prometheus-flask-exporter<1
+querystring_parser<2
+sqlalchemy<2,>=1.4.0
+gunicorn<21; platform_system != 'Windows'
+waitress<3; platform_system == 'Windows'

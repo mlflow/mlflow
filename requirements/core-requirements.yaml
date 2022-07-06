@@ -1,0 +1,52 @@
+# These are the core requirements for the complete MLflow platform, which augments
+# the skinny client functionality with support for running the MLflow Tracking
+# Server & UI. It also adds project backends such as Docker and Kubernetes among
+# other capabilities.
+
+alembic:
+  pip_release: alembic
+  max_major_version: 1
+
+docker:
+  pip_release: docker
+  minimum: "4.0.0"
+  max_major_version: 5
+
+flask:
+  pip_release: Flask 
+  max_major_version: 2
+
+numpy:
+  pip_release: numpy 
+  max_major_version: 1
+
+scipy:
+  pip_release: scipy 
+  max_major_version: 1
+
+pandas:
+  pip_release: pandas 
+  max_major_version: 1
+
+prometheus-flask-exporter:
+  pip_release: prometheus-flask-exporter
+  max_major_version: 0
+
+querystring_parser:
+  pip_release: querystring_parser
+  max_major_version: 1
+
+sqlalchemy:
+  pip_release: sqlalchemy 
+  minimum: "1.4.0"
+  max_major_version: 1
+
+gunicorn:
+  pip_release: gunicorn 
+  max_major_version: 20
+  markers: "platform_system != 'Windows'"
+
+waitress:
+  pip_release: waitress 
+  max_major_version: 2
+  markers: "platform_system == 'Windows'"
