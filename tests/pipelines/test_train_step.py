@@ -99,3 +99,20 @@ def test_train_steps_autologs(tmp_pipeline_root_path):
     params = MlflowClient().get_run(run_id).data.params
     assert "training_score" in metrics
     assert "epsilon" in params
+
+
+def test_train_steps_with_correct_source_type(tmp_pipeline_root_path):
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_pipeline_root_path)}
+    ):
+        train_step, train_step_output_dir = set_up_train_step(tmp_pipeline_root_path)
+        train_step._run(str(train_step_output_dir))
+
+    assert os.path.exists(train_step_output_dir / "run_id")
+
+    # assert eval output exists
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
+
+    tags = MlflowClient().get_run(run_id).data.tags
+    assert tags["mlflow.source.type"] == "PIPELINE"

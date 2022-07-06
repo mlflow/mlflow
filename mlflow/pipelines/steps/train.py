@@ -7,7 +7,7 @@ import datetime
 import cloudpickle
 
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
@@ -29,7 +29,7 @@ from mlflow.pipelines.utils.tracking import (
 from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
-
+from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE
 
 _logger = logging.getLogger(__name__)
 
@@ -105,7 +105,8 @@ class TrainStep(BaseStep):
         estimator = estimator_fn()
         mlflow.autolog(log_models=False)
 
-        with mlflow.start_run() as run:
+        tags = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE)}
+        with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
 
             if hasattr(estimator, "best_score_"):
