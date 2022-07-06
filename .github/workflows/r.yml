@@ -10,8 +10,8 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
   schedule:
-    # Run this workflow daily at 7:00 UTC
-    - cron: "0 7 * * *"
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
