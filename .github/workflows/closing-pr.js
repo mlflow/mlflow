@@ -1,3 +1,4 @@
+// Regular expressions to capture a closing syntax in the PR body
 // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
 const CLOSING_SYNTAX_PATTERNS = [
   /(?:close|fixe?|resolve)[sd]?\s+(?:mlflow\/mlflow)?#(\d+)/i,
