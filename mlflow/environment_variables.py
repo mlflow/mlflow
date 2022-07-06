@@ -1,13 +1,14 @@
 """
-This module defines environment variable names used in MLflow.
+This module defines environment variables used in MLflow.
 """
 import os
 
 
 class _EnvironmentVariable:
     """
-    Define a environment variable
+    Represents an environment variable.
     """
+
     def __init__(self, name, type, default):
         self.name = name
         self.type = type
@@ -15,7 +16,8 @@ class _EnvironmentVariable:
 
     def get(self):
         """
-        Get environment variable value.
+        Reads the value of the environment variable if it exists and converts it to the desired type.
+        Otherwise, returns the default value.
         """
         val = os.getenv(self.name)
         if val:
@@ -32,7 +34,7 @@ class _EnvironmentVariable:
         return repr(self.name)
 
 
-#: Specify maximum retries for MLflow http request ``(default: 5)``.
+#: Specify the maximum number of retries for MLflow http request ``(default: 5)``.
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
 
 #: Specify backoff factor for MLflow http request ``(default: 2)``.
