@@ -9,9 +9,9 @@ class _EnvironmentVariable:
     Represents an environment variable.
     """
 
-    def __init__(self, name, _type, default):
+    def __init__(self, name, type_, default):
         self.name = name
-        self.type = _type
+        self.type = type_
         self.default = default
 
     def get(self):
