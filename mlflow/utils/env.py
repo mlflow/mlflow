@@ -28,4 +28,4 @@ class EnvironmentVariable:
         return self.default
 
     def __str__(self):
-        return self.name
+        return f"Environment variable: name={self.name}, type={self.type}, default={self.default}"
