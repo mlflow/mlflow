@@ -21,8 +21,6 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
 )
-from mlflow.utils.env import _get_env_config_value_or_default
-
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -130,11 +128,9 @@ def http_request(
 
     :return: requests.Response object.
     """
-    max_retries = max_retries or _get_env_config_value_or_default(MLFLOW_HTTP_REQUEST_MAX_RETRIES)
-    backoff_factor = backoff_factor or _get_env_config_value_or_default(
-        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR
-    )
-    timeout = timeout or _get_env_config_value_or_default(MLFLOW_HTTP_REQUEST_TIMEOUT)
+    max_retries = max_retries or MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
+    backoff_factor = backoff_factor or MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
+    timeout = timeout or MLFLOW_HTTP_REQUEST_TIMEOUT.get()
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
