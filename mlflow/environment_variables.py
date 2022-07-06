@@ -9,15 +9,15 @@ class _EnvironmentVariable:
     Represents an environment variable.
     """
 
-    def __init__(self, name, type, default):
+    def __init__(self, name, _type, default):
         self.name = name
-        self.type = type
+        self.type = _type
         self.default = default
 
     def get(self):
         """
-        Reads the value of the environment variable if it exists and converts it to the desired type.
-        Otherwise, returns the default value.
+        Reads the value of the environment variable if it exists and converts it to the desired
+        type. Otherwise, returns the default value.
         """
         val = os.getenv(self.name)
         if val:
@@ -28,19 +28,22 @@ class _EnvironmentVariable:
         return self.default
 
     def __str__(self):
-        return f"Environment variable: name={self.name}, type={self.type}, default={self.default}"
+        return f"EnvironmentVariable(name={self.name}, type={self.type}, default={self.default})"
 
     def __repr__(self):
         return repr(self.name)
 
 
-#: Specify the maximum number of retries for MLflow http request ``(default: 5)``.
+#: Specify the maximum number of retries for MLflow http request
+#: (default: ``5``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
 
-#: Specify backoff factor for MLflow http request ``(default: 2)``.
+#: Specify backoff factor for MLflow http request
+#: (default: ``2``)
 MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", int, 2
 )
 
-#: Specify timeout in seconds for MLflow http request ``(default: 120)``.
+#: Specify timeout in seconds for MLflow http request
+#: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
