@@ -10,7 +10,7 @@ module.exports = async ({ context, github }) => {
   const { body } = context.payload.pull_request;
   // Find a closing syntax after removing comments
   const commentsExcluded = body.replace(/<!--(.+?)-->/gs, '');
-  const match = CLOSING_SYNTAX_PATTERNS.map((pattern) => pattern.match(commentsExcluded)).find(
+  const match = CLOSING_SYNTAX_PATTERNS.map((pattern) => commentsExcluded.match(pattern)).find(
     (match) => match,
   );
   if (match) {
