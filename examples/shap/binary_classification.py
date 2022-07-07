@@ -6,7 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 import shap
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 # prepare training data

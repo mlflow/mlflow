@@ -9,7 +9,7 @@ import sklearn
 from sklearn.datasets import load_iris
 import xgboost as xgb
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 def read_lines(path):

@@ -6,7 +6,7 @@ from sklearn.linear_model import LinearRegression
 import shap
 
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 # prepare training data

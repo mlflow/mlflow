@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 
 def yield_artifacts(run_id, path=None):
