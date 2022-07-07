@@ -17,7 +17,7 @@ from mlflow.pipelines.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
+from typing import List, Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -206,7 +206,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str, pipeline_name: Optional[str] = None) -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -217,6 +217,8 @@ class Pipeline:
                         task-specific pipeline. Profiles customize the configuration of
                         one or more pipeline steps, and pipeline executions with different profiles
                         often produce different results.
+        :param pipeline_name: The name of the pipeline file. If none is provided, pipeline.yaml will 
+                              be used.
         :return: A pipeline for a particular ML problem or MLOps task. For example, an instance of
                  :py:class:`RegressionPipeline
                  <mlflow.pipelines.regression.v1.pipeline.RegressionPipeline>`
@@ -240,7 +242,7 @@ class Pipeline:
 
         pipeline_root_path = get_pipeline_root_path()
         pipeline_config = get_pipeline_config(
-            pipeline_root_path=pipeline_root_path, profile=profile
+            pipeline_root_path=pipeline_root_path, profile=profile, pipeline_name=pipeline_name
         )
         template = pipeline_config.get("template")
         if template is None:
