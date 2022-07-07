@@ -83,31 +83,9 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
-def _is_git_repo(path):
-    """Returns True if passed-in path is a valid git repository"""
-    import git
-
-    try:
-        git.Repo(path)
-        return True
-    except git.exc.InvalidGitRepositoryError:
-        return False
-
-
 def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
-    if _GIT_URI_REGEX.match(uri):
-        return False
-
-    parsed_uri = urllib.parse.urlparse(uri)
-    drive = pathlib.Path(uri).drive
-
-    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
-        return not _is_git_repo(uri)
-    elif parsed_uri.scheme in ("file", ""):
-        return not _is_git_repo(parsed_uri.path)
-    else:
-        return False
+    return pathlib.Path(uri).exists() and pathlib.Path(uri).is_dir()
 
 
 def _is_zip_uri(uri):
