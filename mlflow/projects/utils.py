@@ -80,6 +80,17 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
+def _is_git_repo(path):
+    """Returns True if passed-in path is a valid git repository"""
+    import git
+
+    try:
+        git.Repo(path)
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        return False
+
+
 def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
     if _is_file_uri(str(uri)):
