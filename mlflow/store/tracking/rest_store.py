@@ -359,12 +359,6 @@ class DatabricksRestStore(RestStore):
                 break
             page_token = experiments.token
 
-    def search_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        filter_string=None,
-        order_by=None,
-        page_token=None,
-    ):
-        raise NotImplementedError("Not implemented yet")
+    # Implement search_experiments to suppress pylint abstract-method error
+    def search_experiments(self, *args, **kwargs):
+        super().search_experiments(*args, **kwargs)

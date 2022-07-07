@@ -61,6 +61,10 @@ class CustomErrorHandlingRestStore(RestStore):
     def _call_endpoint(self, api, json_body):
         raise MyCoolException("cool")
 
+    # Implement search_experiments to suppress pylint abstract-method error
+    def search_experiments(self, *args, **kwargs):
+        return super().search_experiments(*args, **kwargs)
+
 
 def mock_http_request():
     return mock.patch(
