@@ -12,6 +12,7 @@ import {
   CHART_TYPE_LINE,
   METRICS_PLOT_POLLING_INTERVAL_MS,
   METRICS_PLOT_HANGING_RUN_THRESHOLD_MS,
+  convertMetricsToCsv,
 } from './MetricsPlotPanel';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
@@ -233,7 +234,9 @@ describe('unit tests', () => {
     // Test converting to & from log scale for an empty layout (e.g. a layout without any
     // user-specified zoom)
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'log', autorange: true } });
+    expect(instance.getUrlState().layout).toEqual({
+      yaxis: { type: 'log', autorange: true, exponentformat: 'e' },
+    });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'linear', autorange: true } });
     // Test converting to & from log scale for a layout with specified y axis range bounds
@@ -246,7 +249,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [2, 4], autorange: false },
-      yaxis: { range: [0, 2], type: 'log' },
+      yaxis: { range: [0, 2], type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -263,7 +266,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -275,7 +278,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -608,4 +611,64 @@ describe('unit tests', () => {
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(1);
   });
+});
+
+test('convertMetricsToCsv', () => {
+  const metrics = [
+    {
+      metricKey: 'metric1',
+      history: [
+        {
+          key: 'metric1',
+          value: 0,
+          step: 0,
+          timestamp: 0,
+        },
+        {
+          key: 'metric1',
+          value: 1,
+          step: 1,
+          timestamp: 1,
+        },
+        {
+          key: 'metric1',
+          value: 2,
+          step: 2,
+          timestamp: 2,
+        },
+      ],
+      runUuid: '1',
+      runDisplayName: 'Run 1',
+    },
+    {
+      metricKey: 'metric2',
+      history: [
+        {
+          key: 'metric2',
+          value: 0,
+          step: 0,
+          timestamp: 0,
+        },
+        {
+          key: 'metric2',
+          value: 1,
+          step: 1,
+          timestamp: 1,
+        },
+      ],
+      runUuid: '2',
+      runDisplayName: 'Run 2',
+    },
+  ];
+  const csv = convertMetricsToCsv(metrics);
+  expect(csv).toBe(
+    `
+run_id,key,value,step,timestamp
+1,metric1,0,0,0
+1,metric1,1,1,1
+1,metric1,2,2,2
+2,metric2,0,0,0
+2,metric2,1,1,1
+`.trim(),
+  );
 });

@@ -16,7 +16,7 @@ import mlflow.lightgbm
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
@@ -24,7 +24,7 @@ mpl.use("Agg")
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -166,7 +166,7 @@ def test_lgb_autolog_sklearn():
         model.fit(X, y)
         model_uri = mlflow.get_artifact_uri("model")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
     assert run.data.metrics.items() <= params.items()
     artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
@@ -205,7 +205,7 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_key = "train-multi_logloss"
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
@@ -240,7 +240,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for valid_name in valid_names:
         metric_key = "{}-multi_logloss".format(valid_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -276,7 +276,7 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_name in params["metric"]:
         metric_key = "{}-{}".format(valid_names[0], metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -312,7 +312,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = "{}-{}".format(valid_name, metric_name)
@@ -450,7 +450,7 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     assert "best_iteration" in data.metrics
     assert int(data.metrics["best_iteration"]) == model.best_iteration
     assert "stopped_iteration" in data.metrics
@@ -474,7 +474,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in ["split", "gain"]:
@@ -550,7 +550,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -600,7 +600,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -646,7 +646,7 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
         lgb.train(bst_params, dataset)
 
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 

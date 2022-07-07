@@ -17,7 +17,7 @@ import numpy as np
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
@@ -36,7 +36,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     Run hyperparameter optimization.
     """
     # create random file to store run ids of the training tasks
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
-import { Descriptions, Button, Popover } from 'antd';
+import { Descriptions, Button } from 'antd';
 import './ExperimentView.css';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';

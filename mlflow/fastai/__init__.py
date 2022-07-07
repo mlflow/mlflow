@@ -281,7 +281,7 @@ def log_model(
 
         import fastai.vision as vis
         import mlflow.fastai
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
@@ -442,7 +442,7 @@ def autolog(
 
         import fastai.vision as vis
         import mlflow.fastai
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}

@@ -12,16 +12,22 @@ You install MLflow by running:
 
     .. code-block:: python
 
+        # Install MLflow
         pip install mlflow
+
+        # Install MLflow with the experimental MLflow Pipelines component
+        pip install mlflow[pipelines]
+
+        # Install MLflow with extra ML libraries and 3rd-party tools
+        pip install mlflow[extras]
+
+        # Install a lightweight version of MLflow
+        pip install mlflow-skinny
 
     .. code-block:: R
 
         install.packages("mlflow")
         mlflow::install_mlflow()
-
-    .. code-block:: python
-
-        pip install mlflow-skinny
 
 .. note::
 
@@ -29,12 +35,19 @@ You install MLflow by running:
     installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
-To use certain MLflow modules and functionality (ML model persistence/inference, artifact storage options, etc),
-you may need to install extra libraries. For example, the ``mlflow.tensorflow`` module requires TensorFlow to be installed.
-See https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details
+.. note::
 
-MLflow skinny will also need installation of extra dependencies for certain MLflow modules and functionality. For example,
-``mlflow.set_tracking_uri("sqlite:///my.db")`` requires ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
+    To use certain MLflow modules and functionality (ML model persistence/inference,
+    artifact storage options, etc), you may need to install extra libraries. For example, the
+    ``mlflow.tensorflow`` module requires TensorFlow to be installed. See
+    https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details.
+
+.. note::
+
+    When using MLflow skinny, you may need to install additional dependencies if you wish to use
+    certain MLflow modules and functionalities. For example, usage of SQL-based storage for
+    MLflow Tracking (e.g. ``mlflow.set_tracking_uri("sqlite:///my.db")``) requires
+    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.

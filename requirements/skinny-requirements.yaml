@@ -1,0 +1,66 @@
+# Minimal requirements for the skinny MLflow client which provides a limited
+# subset of functionality such as: RESTful client functionality for Tracking and
+# Model Registry, as well as support for Project execution against local backends
+# and Databricks.
+
+click:
+  pip_release: click
+  minimum: "7.0"
+  max_major_version: 8
+
+cloudpickle:
+  pip_release: cloudpickle
+  max_major_version: 2
+
+databricks-cli:
+  pip_release: databricks-cli
+  minimum: "0.8.7"
+  max_major_version: 0
+
+entrypoints:
+  pip_release: entrypoints
+  max_major_version: 0
+
+gitpython:
+  pip_release: gitpython
+  minimum: "2.1.0"
+  max_major_version: 3
+
+pyyaml:
+  pip_release: pyyaml
+  minimum: "5.1"
+  max_major_version: 6
+
+protobuf:
+  pip_release: protobuf
+  minimum: "3.12.0"
+  max_major_version: 4
+
+pytz:
+  pip_release: pytz
+  max_major_version: 2022
+
+requests:
+  pip_release: requests
+  minimum: "2.17.3"
+  max_major_version: 2
+
+packaging:
+  pip_release: packaging
+  max_major_version: 21
+
+importlib_metadata:
+  pip_release: importlib_metadata
+  # Automated dependency detection in MLflow Models relies on
+  # `importlib_metadata.packages_distributions` to resolve a module name to its package name
+  # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
+  # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
+  minimum: "3.7.0"
+  max_major_version: 4
+  unsupported: ["4.7.0"]
+
+sqlparse:
+  pip_release: sqlparse
+  # Lower bound sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+  minimum: "0.3.1"
+  max_major_version: 0

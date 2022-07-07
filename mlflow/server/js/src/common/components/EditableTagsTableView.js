@@ -69,13 +69,8 @@ export class EditableTagsTableViewImpl extends Component {
   };
 
   render() {
-    const {
-      isRequestPending,
-      handleSaveEdit,
-      handleDeleteTag,
-      handleAddTag,
-      innerRef,
-    } = this.props;
+    const { isRequestPending, handleSaveEdit, handleDeleteTag, handleAddTag, innerRef } =
+      this.props;
 
     return (
       <Spacer direction='vertical' size='small'>

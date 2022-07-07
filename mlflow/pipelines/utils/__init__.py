@@ -49,7 +49,9 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
     try:
         if profile:
-            profile_file_path = os.path.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
+            profile_file_path = os.path.join(
+                pipeline_root_path, _PIPELINE_PROFILE_DIR, f"{profile}.yaml"
+            )
             if not os.path.exists(profile_file_path):
                 raise MlflowException(
                     "Did not find the YAML configuration file for the specified profile"

@@ -510,13 +510,14 @@ def autolog(
 
         import paddle
         import mlflow
+        from mlflow import MlflowClient
 
 
         def show_run_data(run_id):
             run = mlflow.get_run(run_id)
             print("params: {}".format(run.data.params))
             print("metrics: {}".format(run.data.metrics))
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             artifacts = [f.path for f in client.list_artifacts(run.info.run_id, "model")]
             print("artifacts: {}".format(artifacts))
 

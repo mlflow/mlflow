@@ -10,11 +10,7 @@ describe('ErrorView', () => {
         <ErrorView statusCode={400} fallbackHomePageReactRoute={'/path/to'} />
       </BrowserRouter>,
     );
-    const div = wrapper
-      .childAt(0)
-      .childAt(0)
-      .childAt(0)
-      .childAt(0);
+    const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 
     const errorImage = div.childAt(0);
     const title = div.childAt(1);
@@ -26,12 +22,7 @@ describe('ErrorView', () => {
     expect(title.text()).toBe('Bad Request');
     expect(subtitle.name()).toBe('h2');
     expect(subtitle.childAt(0).prop('defaultMessage')).toMatch(/^Go back to/);
-    expect(
-      subtitle
-        .childAt(0)
-        .render()
-        .toString(),
-    ).toMatch('/path/to');
+    expect(subtitle.childAt(0).render().toString()).toMatch('/path/to');
   });
 
   it('should render 404', () => {
@@ -40,11 +31,7 @@ describe('ErrorView', () => {
         <ErrorView statusCode={404} fallbackHomePageReactRoute={'/path/to'} />
       </BrowserRouter>,
     );
-    const div = wrapper
-      .childAt(0)
-      .childAt(0)
-      .childAt(0)
-      .childAt(0);
+    const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 
     const errorImage = div.childAt(0);
     const title = div.childAt(1);
@@ -56,12 +43,7 @@ describe('ErrorView', () => {
     expect(title.text()).toBe('Page Not Found');
     expect(subtitle.name()).toBe('h2');
     expect(subtitle.childAt(0).prop('defaultMessage')).toMatch(/^Go back to/);
-    expect(
-      subtitle
-        .childAt(0)
-        .render()
-        .toString(),
-    ).toMatch('/path/to');
+    expect(subtitle.childAt(0).render().toString()).toMatch('/path/to');
   });
 
   test('should render 404 with sub message', () => {
@@ -74,11 +56,7 @@ describe('ErrorView', () => {
         />
       </BrowserRouter>,
     );
-    const div = wrapper
-      .childAt(0)
-      .childAt(0)
-      .childAt(0)
-      .childAt(0);
+    const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 
     const errorImage = div.childAt(0);
     const title = div.childAt(1);
@@ -89,17 +67,7 @@ describe('ErrorView', () => {
     expect(title.name()).toBe('h1');
     expect(title.text()).toBe('Page Not Found');
     expect(subtitle.name()).toBe('h2');
-    expect(
-      subtitle
-        .childAt(0)
-        .render()
-        .toString(),
-    ).toMatch('sub message, go back to ');
-    expect(
-      subtitle
-        .childAt(0)
-        .render()
-        .toString(),
-    ).toMatch('/path/to');
+    expect(subtitle.childAt(0).render().toString()).toMatch('sub message, go back to ');
+    expect(subtitle.childAt(0).render().toString()).toMatch('/path/to');
   });
 });

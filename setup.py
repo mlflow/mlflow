@@ -37,29 +37,16 @@ extra_files = [
 pipelines_regression_v1_files = package_files("mlflow/pipelines/regression/v1/resources")
 pipelines_files = package_files("mlflow/pipelines/cards/templates")
 
+
 """
 Minimal requirements for the skinny MLflow client which provides a limited
 subset of functionality such as: RESTful client functionality for Tracking and
 Model Registry, as well as support for Project execution against local backends
 and Databricks.
 """
-SKINNY_REQUIREMENTS = [
-    "click>=7.0",
-    "cloudpickle",
-    "databricks-cli>=0.8.7",
-    "entrypoints",
-    "gitpython>=2.1.0",
-    "pyyaml>=5.1",
-    "protobuf>=3.12.0",
-    "pytz",
-    "requests>=2.17.3",
-    "packaging",
-    # Automated dependency detection in MLflow Models relies on
-    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
-    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
-    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
-    "importlib_metadata>=3.7.0,!=4.7.0",
-]
+with open(os.path.join("requirements", "skinny-requirements.txt"), "r") as f:
+    SKINNY_REQUIREMENTS = f.readlines()
+
 
 """
 These are the core requirements for the complete MLflow platform, which augments
@@ -67,23 +54,8 @@ the skinny client functionality with support for running the MLflow Tracking
 Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
-CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
-    "alembic",
-    # Required
-    "docker>=4.0.0",
-    "Flask",
-    "gunicorn; platform_system != 'Windows'",
-    "numpy",
-    "scipy",
-    "pandas",
-    "prometheus-flask-exporter",
-    "querystring_parser",
-    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-    "sqlparse>=0.3.1",
-    # Required to run the MLflow server against SQL-backed storage
-    "sqlalchemy>=1.4.0",
-    "waitress; platform_system == 'Windows'",
-]
+with open(os.path.join("requirements", "core-requirements.txt"), "r") as f:
+    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + f.readlines()
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
@@ -142,7 +114,7 @@ setup(
     }
     if not _is_mlflow_skinny
     # include alembic files to enable usage of the skinny client with SQL databases
-    # if users install sqlalchemy, alembic, and sqlparse independently
+    # if users install sqlalchemy and alembic independently
     else {"mlflow": alembic_files + extra_files},
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={

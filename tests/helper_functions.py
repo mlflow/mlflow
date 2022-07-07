@@ -27,6 +27,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 
+AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 

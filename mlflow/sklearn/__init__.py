@@ -23,6 +23,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -848,7 +849,7 @@ class _AutologgingMetricsManager:
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             call_commands_list = []
@@ -925,6 +926,7 @@ def autolog(
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
+    pos_label=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -1093,9 +1095,10 @@ def autolog(
         import numpy as np
         from sklearn.linear_model import LinearRegression
         import mlflow
+        from mlflow import MlflowClient
 
         def fetch_logged_data(run_id):
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             data = client.get_run(run_id).data
             tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
@@ -1182,6 +1185,11 @@ def autolog(
     :param registered_model_name: If given, each time a model is trained, it is registered as a
                                   new model version of the registered model with this name.
                                   The registered model is created if it does not already exist.
+    :param pos_label: If given, used as the positive label to compute binary classification
+                      training metrics such as precision, recall, f1, etc. This parameter should
+                      only be set for binary classification model. If used for multi-label model,
+                      the training metrics calculation will fail and the training metrics won't
+                      be logged. If used for regression model, the parameter will be ignored.
     """
     _autolog(
         flavor_name=FLAVOR_NAME,
@@ -1195,6 +1203,7 @@ def autolog(
         max_tuning_runs=max_tuning_runs,
         log_post_training_metrics=log_post_training_metrics,
         serialization_format=serialization_format,
+        pos_label=pos_label,
     )
 
 
@@ -1210,6 +1219,7 @@ def _autolog(
     max_tuning_runs=5,
     log_post_training_metrics=True,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    pos_label=None,
 ):  # pylint: disable=unused-argument
     """
     Internal autologging function for scikit-learn models.
@@ -1365,6 +1375,7 @@ def _autolog(
             X=X,
             y_true=y_true,
             sample_weight=sample_weight,
+            pos_label=pos_label,
         )
         if y_true is None and not logged_metrics:
             _logger.warning(

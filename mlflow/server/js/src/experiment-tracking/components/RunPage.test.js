@@ -63,7 +63,7 @@ describe('RunPage', () => {
         },
         artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
-          '12345': {
+          12345: {
             experiment_id: '12345',
             name: 'my experiment',
             artifact_location: 'dbfs:/databricks/abc',
@@ -75,7 +75,7 @@ describe('RunPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': modelVersion,
+            1: modelVersion,
           },
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },

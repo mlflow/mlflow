@@ -31,7 +31,6 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _log_child_runs_info,
 )
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -40,6 +39,7 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+from mlflow import MlflowClient
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -72,11 +72,11 @@ def fit_model(model, X, y, fit_func_name):
 
 
 def get_run(run_id):
-    return mlflow.tracking.MlflowClient().get_run(run_id)
+    return MlflowClient().get_run(run_id)
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     data = client.get_run(run_id).data
     # Ignore tags mlflow logs by default (e.g. "mlflow.user")
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
@@ -244,7 +244,7 @@ def test_classifier_binary():
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     plot_names = []
@@ -307,7 +307,7 @@ def test_classifier_multi_class():
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     plot_names = []
@@ -604,7 +604,10 @@ def test_only_score_contains_sample_weight():
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
     mlflow.sklearn.autolog()
 
-    with pytest.raises(ValueError, match="Penalty term must be positive"):
+    with pytest.raises(
+        ValueError,
+        match=r"(Penalty term must be positive|The 'C' parameter of LinearSVC must be a float)",
+    ):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
     latest_run = mlflow.search_runs().iloc[0]
@@ -616,7 +619,10 @@ def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
 
-    with pytest.raises(ValueError, match="Penalty term must be positive"):
+    with pytest.raises(
+        ValueError,
+        match=r"(Penalty term must be positive|The 'C' parameter of LinearSVC must be a float)",
+    ):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
     assert mlflow.active_run() is not None
@@ -775,7 +781,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
     input_example = _read_example(best_estimator_conf, best_estimator_path)
     best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     child_runs = client.search_runs(
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
@@ -847,7 +853,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
         cv_model.fit(*get_iris())
         run_id = run.info.run_id
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     child_runs = client.search_runs(
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
@@ -1020,7 +1026,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     # Create a run using the MLflow client, which will be resumed via the fluent API,
     # in order to avoid setting fluent-level tags (e.g., source and user). Suppressing these
     # tags simplifies test validation logic
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_id = client.create_run(experiment_id=0).info.run_id
 
     from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
@@ -1992,3 +1998,37 @@ def test_autolog_registering_model():
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+def test_autolog_pos_label_used_for_training_metric():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    import sklearn.ensemble
+
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        _, training_metrics, _, _ = get_run_data(run.info.run_id)
+        expected_training_metrics = mlflow.sklearn.eval_and_log_metrics(
+            model=model, X=X, y_true=y, prefix="training_", pos_label=1
+        )
+
+    assert training_metrics == expected_training_metrics
+
+
+def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
+    mlflow.sklearn.autolog(pos_label=1)
+
+    model = sklearn.svm.SVC()
+    X, y = get_iris()
+
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        model.fit(X, y)
+        assert mock_warning.call_count == 3  # for precision, recall and f1_score
+        mock_warning.assert_any_call(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
+            "Metric error: Target is multiclass but average='binary'. Please choose another "
+            "average setting, one of [None, 'micro', 'macro', 'weighted']."
+        )

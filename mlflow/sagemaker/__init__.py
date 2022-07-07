@@ -1237,6 +1237,16 @@ def _get_deployment_config(flavor_name):
         DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
         SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
     }
+
+    if os.getenv("http_proxy") is not None:
+        deployment_config.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        deployment_config.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        deployment_config.update({"no_proxy": os.environ["no_proxy"]})
+
     return deployment_config
 
 

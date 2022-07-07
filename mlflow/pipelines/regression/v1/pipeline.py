@@ -4,8 +4,11 @@
 The MLflow Regression Pipeline is an MLflow Pipeline for developing high-quality regression models.
 It is designed for developing models using scikit-learn and frameworks that integrate with
 scikit-learn, such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
-repository template is available at https://github.com/mlflow/mlp-regression-template. The
-pipeline contains the following sequential steps:
+template repository is available at https://github.com/mlflow/mlp-regression-template, and the
+:py:class:`RegressionPipeline API Documentation <RegressionPipeline>` provides instructions for
+executing the pipeline and inspecting its results.
+
+The pipeline contains the following sequential steps:
 
 **ingest** -> **split** -> **transform** -> **train** -> **evaluate** -> **register**
 
@@ -17,6 +20,14 @@ The pipeline steps are defined as follows:
         |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
 
+        .. note::
+            If you make changes to the dataset referenced by the **ingest** step (e.g. by adding
+            new records or columns), you must manually re-run the **ingest** step in order to
+            use the updated dataset in the pipeline. The **ingest** step does *not* automatically
+            detect changes in the dataset.
+
+   .. _mlflow-regression-pipeline-split-step:
+
    - **split**
       - The **split** step splits the ingested dataset produced by the **ingest** step into
         a training dataset for model training, a validation dataset for model performance
@@ -27,26 +38,28 @@ The pipeline steps are defined as follows:
         to develop a model and measure its performance.
 
    - **transform**
-      - The **transform** step uses the training dataset produced by **split** to fit
+      - The **transform** step uses the training dataset created by **split** to fit
         a transformer that performs the transformations defined in |steps/transform.py|. The
-        transformer is then applied to the training dataset and the validation dataset, producing
+        transformer is then applied to the training dataset and the validation dataset, creating
         transformed datasets that are used by subsequent steps for estimator training and model
         performance evaluation.
 
+   .. _mlflow-regression-pipeline-train-step:
+
    - **train**
-      - The **train** step uses the transformed training dataset produced by the **transform**
+      - The **train** step uses the transformed training dataset output from the **transform**
         step to fit an estimator with the type and parameters defined in |steps/train.py|. The
         estimator is then joined with the fitted transformer output from the **transform** step
         to create a model pipeline. Finally, this model pipeline is evaluated against the
-        transformed training and validation datasets to produce performance metrics; custom
+        transformed training and validation datasets to compute performance metrics; custom
         metrics are computed according to definitions in |steps/custom_metrics.py| and the
         |'metrics' section of pipeline.yaml|. The model pipeline and its associated parameters,
         performance metrics, and lineage information are logged to MLflow Tracking, producing
         an MLflow Run.
 
    - **evaluate**
-      - The **evaluate** step evaluates the model pipeline produced by the **train** step on
-        the test dataset output from the **split** step, producing performance metrics and
+      - The **evaluate** step evaluates the model pipeline created by the **train** step on
+        the test dataset output from the **split** step, computing performance metrics and
         model explanations. Performance metrics are compared against configured thresholds to
         compute a ``model_validation_status``, which indicates whether or not a model is good
         enough to be registered to the MLflow Model Registry by the subsequent **register**
@@ -54,13 +67,13 @@ The pipeline steps are defined as follows:
         |steps/custom_metrics.py| and the |'metrics' section of pipeline.yaml|. Model
         performance thresholds are defined in the
         |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml|. Model
-        performance metrics and explanations are logged to MLflow Tracking using the same MLflow
-        Run produced by the **train** step.
+        performance metrics and explanations are logged to the same MLflow Tracking Run used by
+        the **train** step.
 
    - **register**
       - The **register** step checks the ``model_validation_status`` output of the preceding
         **evaluate** step and, if model validation was successful
-        (as indicated by the ``'VALIDATED'`` status), registers the model pipeline produced by
+        (as indicated by the ``'VALIDATED'`` status), registers the model pipeline created by
         the **train** step to the MLflow Model Registry. If the ``model_validation_status`` does
         not indicate that the model passed validation checks (i.e. its value is ``'REJECTED'``),
         the model pipeline is not registered to the MLflow Model Registry.
@@ -74,14 +87,16 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
-.. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L35-L38>`__
-.. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L51-L53>`__
-.. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L15-L32>`__
-.. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L54-L58>`__
-.. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_critera' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/582e1e1bc139f963d9ba7bb101e37db5aa95615b/pipeline.yaml#L43-L50>`__
-.. |steps/ingest.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
+.. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L36-L40>`__
+.. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L57-L63>`__
+.. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
+.. |'metrics' section of pipeline.yaml| replace:: `'metrics' section of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L64-L73>`__
+.. |'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml| replace:: `'validation_criteria' section of the 'evaluate' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L47-L56>`__
+.. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/ingest.py>`__
 .. |steps/split.py| replace:: `steps/split.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/split.py>`__
+.. |steps/train.py| replace:: `steps/train.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/train.py>`__
 .. |steps/transform.py| replace:: `steps/transform.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/transform.py>`__
+.. |steps/custom_metrics.py| replace:: `steps/custom_metrics.py <https://github.com/mlflow/mlp-regression-template/blob/main/steps/custom_metrics.py>`__
 """
 
 import os
@@ -119,7 +134,7 @@ class RegressionPipeline(_BasePipeline):
     A pipeline for developing high-quality regression models. The pipeline is designed for
     developing models using scikit-learn and frameworks that integrate with scikit-learn,
     such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
-    repository template is available at https://github.com/mlflow/mlp-regression-template.
+    template repository is available at https://github.com/mlflow/mlp-regression-template.
     The pipeline contains the following sequential steps:
 
     **ingest** -> **split** -> **transform** -> **train** -> **evaluate** -> **register**
@@ -131,7 +146,7 @@ class RegressionPipeline(_BasePipeline):
         from mlflow.pipelines import Pipeline
 
         os.chdir("~/mlp-regression-template")
-        regression_pipeline = Pipeline()
+        regression_pipeline = Pipeline(profile="local")
         # Display a visual overview of the pipeline graph
         regression_pipeline.inspect()
         # Run the full pipeline
@@ -275,22 +290,22 @@ class RegressionPipeline(_BasePipeline):
                        performance evaluation & tuning, and a test dataset for model performance
                        evaluation.
 
-                     - ``"transform"``: uses the training dataset produced by the **split** step to
+                     - ``"transform"``: uses the training dataset created by the **split** step to
                        fit a transformer that performs the transformations defined in the
                        pipeline's ``steps/transform.py`` file. Then, applies the transformer to the
-                       training dataset and the validation dataset, producing transformed datasets
+                       training dataset and the validation dataset, creating transformed datasets
                        that are used by subsequent steps for estimator training and model
                        performance evaluation.
 
-                     - ``"train"``: uses the transformed training dataset produced by the
+                     - ``"train"``: uses the transformed training dataset output from the
                        **transform** step to fit an estimator with the type and parameters defined
                        in in the pipeline's ``steps/train.py`` file. Then, joins the estimator with
                        the fitted transformer output from the **transform** step to create a model
                        pipeline. Finally, evaluates the model pipeline against the transformed
-                       training and validation datasets to produce performance metrics.
+                       training and validation datasets to compute performance metrics.
 
-                     - ``"evaluate"``: evaluates the model pipeline produced by the **train** step
-                       on the validation and test dataset outputs from the **split** step, producing
+                     - ``"evaluate"``: evaluates the model pipeline created by the **train** step
+                       on the validation and test dataset outputs from the **split** step, computing
                        performance metrics and model explanations. Then, compares performance
                        metrics against thresholds configured in the pipeline's ``pipeline.yaml``
                        configuration file to compute a ``model_validation_status``, which indicates
@@ -300,7 +315,7 @@ class RegressionPipeline(_BasePipeline):
                      - ``"register"``: checks the ``model_validation_status`` output of the
                        preceding **evaluate** step and, if model validation was successful (as
                        indicated by the ``'VALIDATED'`` status), registers the model pipeline
-                       produced by the **train** step to the MLflow Model Registry.
+                       created by the **train** step to the MLflow Model Registry.
 
         .. code-block:: python
             :caption: Example
@@ -309,7 +324,7 @@ class RegressionPipeline(_BasePipeline):
             from mlflow.pipelines import Pipeline
 
             os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline()
+            regression_pipeline = Pipeline(profile="local")
             # Run the 'train' step and preceding steps
             regression_pipeline.run(step="train")
             # Run the 'register' step and preceding steps; the 'train' step and all steps
@@ -378,7 +393,7 @@ class RegressionPipeline(_BasePipeline):
             from mlflow.pyfunc import PyFuncModel
 
             os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline()
+            regression_pipeline = Pipeline(profile="local")
             regression_pipeline.run()
             train_df: pd.DataFrame = regression_pipeline.get_artifact("training_data")
             trained_model: PyFuncModel = regression_pipeline.get_artifact("model")
@@ -530,7 +545,7 @@ class RegressionPipeline(_BasePipeline):
             from mlflow.pipelines import Pipeline
 
             os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline()
+            regression_pipeline = Pipeline(profile="local")
             # Run the 'train' step and preceding steps
             regression_pipeline.run(step="train")
             # Clean the cache of the 'transform' step
@@ -562,7 +577,7 @@ class RegressionPipeline(_BasePipeline):
             from mlflow.pipelines import Pipeline
 
             os.chdir("~/mlp-regression-template")
-            regression_pipeline = Pipeline()
+            regression_pipeline = Pipeline(profile="local")
             # Display a visual overview of the pipeline graph.
             regression_pipeline.inspect()
             # Run the 'train' pipeline step
