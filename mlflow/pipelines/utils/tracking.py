@@ -6,7 +6,7 @@ import shutil
 from typing import Dict, Any, TypeVar
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.pipelines.utils import get_pipeline_name
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
@@ -193,10 +193,19 @@ def apply_pipeline_tracking_config(tracking_config: TrackingConfig):
                 "Experiment with name '%s' does not exist. Creating a new experiment.",
                 tracking_config.experiment_name,
             )
-            client.create_experiment(
-                name=tracking_config.experiment_name,
-                artifact_location=tracking_config.artifact_location,
-            )
+            try:
+                client.create_experiment(
+                    name=tracking_config.experiment_name,
+                    artifact_location=tracking_config.artifact_location,
+                )
+            except RestException:
+                # Inform user they should create an experiment and specify it in the pipeline
+                # config if an experiment with the pipeline name can't be created.
+                raise MlflowException(
+                    f"Could not create an experiment with name {tracking_config.experiment_name}."
+                    f"Please create an experiment for this pipeline and specify its name in your"
+                    f"profile configuration."
+                )
 
     fluent_set_experiment(
         experiment_id=tracking_config.experiment_id, experiment_name=tracking_config.experiment_name
