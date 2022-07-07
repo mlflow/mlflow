@@ -1,8 +1,8 @@
 // Regular expressions to capture a closing syntax in the PR body
 // https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue
 const CLOSING_SYNTAX_PATTERNS = [
-  /(?:close|fixe?|resolve)[sd]?\s+(?:mlflow\/mlflow)?#(\d+)/gi,
-  /(?:close|fixe?|resolve)[sd]?\s+(?:https?:\/\/github.com\/mlflow\/mlflow\/issues\/)(\d+)/gi,
+  /(?:(?:close|fixe|resolve)[sd]?|fix)\s+(?:mlflow\/mlflow)?#(\d+)/gi,
+  /(?:(?:close|fixe|resolve)[sd]?|fix)\s+(?:https?:\/\/github.com\/mlflow\/mlflow\/issues\/)(\d+)/gi,
 ];
 const HAS_CLOSING_PR_LABEL = 'has-closing-pr';
 
@@ -25,9 +25,17 @@ const assertArrayEqual = (a1, a2) => {
   }
 };
 
+const capitalizeFirstLetter = (string) => {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+};
+
 const test = () => {
-  const body1 = 'Close #123';
-  assertArrayEqual(getIssuesToClose(body1), ['123']);
+  ['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved'].forEach(
+    (keyword) => {
+      assertArrayEqual(getIssuesToClose(`${keyword} #123`), ['123']);
+      assertArrayEqual(getIssuesToClose(`${capitalizeFirstLetter(keyword)} #123`), ['123']);
+    },
+  );
 
   const body2 = `
 Fix mlflow/mlflow#123
@@ -46,6 +54,9 @@ Close #123
 
   const body5 = '<!-- close #123 -->';
   assertArrayEqual(getIssuesToClose(body5), []);
+
+  const body6 = 'Fixs #123 Fixd #456';
+  assertArrayEqual(getIssuesToClose(body6), []);
 };
 
 // `node .github/workflows/closing-pr.js` runs this block
