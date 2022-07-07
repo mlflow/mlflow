@@ -40,7 +40,7 @@ Close #78
   assertArrayEqual(getIssuesToClose(body3), ['78']);
 };
 
-// `node .github/workflows/closing-pr.js` to run
+// `node .github/workflows/closing-pr.js` runs this block
 if (require.main === module) {
   test();
 }
