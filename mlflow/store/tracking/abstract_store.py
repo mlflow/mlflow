@@ -40,7 +40,7 @@ class AbstractStore:
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
         filter_string=None,
         order_by=None,
         page_token=None,
@@ -50,10 +50,8 @@ class AbstractStore:
 
         :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
                           defined in :py:class:`mlflow.entities.ViewType`.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned for the File and SQL backends.
-                            For the REST backend, the server will pick a maximum number of results
-                            to return.
+        :param max_results: Maximum number of experiments desired. Certain server backend may apply
+                            its own limit.
         :param filter_string:
             Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
             experiments. The following fields, comparators, and logical operators are supported.

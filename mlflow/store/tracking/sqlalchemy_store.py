@@ -12,7 +12,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import (
@@ -355,10 +355,16 @@ class SqlAlchemyStore(AbstractStore):
 
             return next_token
 
-        if max_results and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+        if not isinstance(max_results, int) or max_results < 1:
             raise MlflowException(
-                "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                f"Invalid value for max_results. It must be at most {SEARCH_MAX_RESULTS_THRESHOLD},"
+                f" but got {max_results}",
                 INVALID_PARAMETER_VALUE,
             )
         with self.ManagedSessionMaker() as session:
@@ -388,7 +394,7 @@ class SqlAlchemyStore(AbstractStore):
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
         filter_string=None,
         order_by=None,
         page_token=None,

@@ -475,6 +475,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(max_results=3)
         assert [e.name for e in experiments] == reversed_experiment_names[:3]
 
+    def test_search_experiments_max_results_validation(self):
+        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+            self.store.search_experiments(max_results=None)
+        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+            self.store.search_experiments(max_results=0)
+        with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+            self.store.search_experiments(max_results=1_000_000)
+
     def test_search_experiments_pagination(self):
         experiment_names = list(map(str, range(9)))
         self._experiment_factory(experiment_names)
