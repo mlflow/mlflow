@@ -3,7 +3,7 @@ import tempfile
 from pprint import pprint
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow.tracking import MlflowClient
 
 
 def save_text(path, text):
