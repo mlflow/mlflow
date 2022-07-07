@@ -28,7 +28,7 @@ class _EnvironmentVariable:
         return self.default
 
     def __str__(self):
-        return f"EnvironmentVariable(name={self.name}, type={self.type}, default={self.default})"
+        return f"{self.name} (default: {self.default}, type: {self.type.__name__})"
 
     def __repr__(self):
         return repr(self.name)
