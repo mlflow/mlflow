@@ -47,7 +47,7 @@ with mlflow.start_run(run_name="test_pyfunc") as train_run:
         )
 
         # load the latest model version
-        mv = next(iter(client.get_latest_versions(custom_model_name, ["None"])))
+        mv = client.get_latest_versions(custom_model_name, ["None"])[0]
 
         # transition model to production
         client.transition_model_version_stage(
