@@ -22,7 +22,7 @@ class HttpArtifactRepository(ArtifactRepository):
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
         endpoint = posixpath.join("/", *paths)
         with open(local_file, "rb") as f:
-            resp = http_request(self._host_creds, endpoint, "PUT", data=f, timeout=600)
+            resp = http_request(self._host_creds, endpoint, "PUT", data=f)
             augmented_raise_for_status(resp)
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -45,7 +45,7 @@ class HttpArtifactRepository(ArtifactRepository):
         root = tail.lstrip("/")
         params = {"path": posixpath.join(root, path) if path else root}
         host_creds = _get_default_host_creds(url)
-        resp = http_request(host_creds, endpoint, "GET", params=params, timeout=10)
+        resp = http_request(host_creds, endpoint, "GET", params=params)
         augmented_raise_for_status(resp)
         file_infos = []
         for f in resp.json().get("files", []):
@@ -60,7 +60,7 @@ class HttpArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         endpoint = posixpath.join("/", remote_file_path)
-        resp = http_request(self._host_creds, endpoint, "GET", stream=True, timeout=10)
+        resp = http_request(self._host_creds, endpoint, "GET", stream=True)
         augmented_raise_for_status(resp)
         with open(local_path, "wb") as f:
             chunk_size = 1024 * 1024  # 1 MB
@@ -69,5 +69,5 @@ class HttpArtifactRepository(ArtifactRepository):
 
     def delete_artifacts(self, artifact_path=None):
         endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
-        resp = http_request(self._host_creds, endpoint, "DELETE", stream=True, timeout=10)
+        resp = http_request(self._host_creds, endpoint, "DELETE", stream=True)
         augmented_raise_for_status(resp)
