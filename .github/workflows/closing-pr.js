@@ -6,18 +6,48 @@ const CLOSING_SYNTAX_PATTERNS = [
 ];
 const HAS_CLOSING_PR_LABEL = 'has-closing-pr';
 
-const getIssuesToLabel = (body) => {
+const getIssuesToClose = (body) => {
   const commentsExcluded = body.replace(/<!--(.+?)-->/gs, ''); // remove comments
   const matches = CLOSING_SYNTAX_PATTERNS.flatMap((pattern) =>
     Array.from(commentsExcluded.matchAll(pattern)),
   );
   const issueNumbers = matches.map((match) => match[1]);
-  return [...new Set(issueNumbers)];
+  return [...new Set(issueNumbers)].sort();
 };
+
+const arraysEqual = (a1, a2) => {
+  return JSON.stringify(a1) == JSON.stringify(a2);
+};
+
+const assertArrayEqual = (a1, a2) => {
+  if (!arraysEqual(a1, a2)) {
+    throw `[${a1}] !== [${a2}]`;
+  }
+};
+
+const test = () => {
+  const body1 = 'Close #12';
+  assertArrayEqual(getIssuesToClose(body1), ['12']);
+  const body2 = `
+Fix mlflow/mlflow#34
+Resolve https://github.com/mlflow/mlflow/issues/56
+`;
+  assertArrayEqual(getIssuesToClose(body2), ['34', '56']);
+  const body3 = `
+Fix #78
+Close #78
+`;
+  assertArrayEqual(getIssuesToClose(body3), ['78']);
+};
+
+// `node .github/workflows/closing-pr.js` to run
+if (require.main === module) {
+  test();
+}
 
 module.exports = async ({ context, github }) => {
   const { body } = context.payload.pull_request;
-  getIssuesToLabel(body).forEach(async (issue_number) => {
+  getIssuesToClose(body).forEach(async (issue_number) => {
     await github.issues.addLabels({
       owner,
       repo,
@@ -26,17 +56,3 @@ module.exports = async ({ context, github }) => {
     });
   });
 };
-
-const main = () => {
-  const body1 = 'Close #123';
-  console.log(getIssuesToLabel(body1));
-  const body2 = `
-Fix mlflow/mlflow#456
-Resolve https://github.com/mlflow/mlflow/issues/789
-`;
-  console.log(getIssuesToLabel(body2));
-};
-
-if (require.main === module) {
-  main();
-}
