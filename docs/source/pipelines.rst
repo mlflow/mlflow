@@ -35,6 +35,10 @@ from PyPI as follows:
   pip install mlflow[pipelines]
 
 .. note::
+  MLflow Pipelines requires Make, which may not be preinstalled on Windows systems. In order to use
+  MLflow Pipelines on Windows, you must install Make first.
+
+.. note::
   You can install MLflow Pipelines from a Databricks Notebook by running
   ``%pip install mlflow[pipelines]`` or install MLflow Pipelines on a Databricks Cluster
   by following the instructions at
