@@ -1,5 +1,3 @@
-import os
-
 from mlflow.tracking import MlflowClient
 from sklearn.linear_model import LogisticRegression
 
@@ -8,8 +6,7 @@ import mlflow.sklearn
 
 
 class CustomPredict(mlflow.pyfunc.PythonModel):
-    def __init__(self) -> None:
-        """Custom pyfunc class used to create customized mlflow models"""
+    """Custom pyfunc class used to create customized mlflow models"""
 
     def load_context(self, context):
 
@@ -17,9 +14,7 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
 
     def predict(self, context, model_input):
 
-        prediction = self.model.predict(model_input)
-
-        return prediction
+        return self.model.predict(model_input)
 
 
 # create an mlflow client
@@ -32,33 +27,28 @@ with mlflow.start_run(run_name="test_pyfunc") as train_run:
 
     regression_model = LogisticRegression().fit([[1], [0]], [2, 1])
 
-    mlflow.sklearn.log_model(
+    model_info = mlflow.sklearn.log_model(
         sk_model=regression_model, artifact_path="model", registered_model_name=model_name
     )
 
     # start a child run to create custom imagine model
     with mlflow.start_run(run_name="test_custom_model", nested=True) as run:
 
-        # create the custom model artifact
-        model_uri = os.path.join(train_run.info.artifact_uri, "model")
-        custom_model_artifact = {custom_model_name: model_uri}
-
         # log a custom model
         mlflow.pyfunc.log_model(
             artifact_path="",
-            artifacts=custom_model_artifact,
+            artifacts={custom_model_name: model_info.model_uri},
             python_model=CustomPredict(),
             registered_model_name=custom_model_name,
         )
 
         # load the latest model version
-        for mv in client.get_latest_versions(custom_model_name, ["None"]):
-            model_version = mv.version
+        mv = next(iter(client.get_latest_versions(custom_model_name, ["None"])))
 
         # transition model to production
         client.transition_model_version_stage(
             name=custom_model_name,
-            version=model_version,
+            version=mv.version,
             stage="Production",
             archive_existing_versions=True,
         )
