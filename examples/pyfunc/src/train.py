@@ -1,4 +1,5 @@
 from mlflow.tracking import MlflowClient
+from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
@@ -17,6 +18,9 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
         return self.model.predict(model_input)
 
 
+X, y = load_iris(return_X_y=True, as_frame=True)
+params = {"C": 1.0, "random_state": 42}
+
 # create an mlflow client
 client = MlflowClient()
 
@@ -25,7 +29,7 @@ custom_model_name = "custom_model"
 
 with mlflow.start_run(run_name="test_pyfunc") as train_run:
 
-    regression_model = LogisticRegression().fit([[1], [0]], [2, 1])
+    regression_model = LogisticRegression(**params).fit(X, y)
 
     model_info = mlflow.sklearn.log_model(
         sk_model=regression_model, artifact_path="model", registered_model_name=model_name
