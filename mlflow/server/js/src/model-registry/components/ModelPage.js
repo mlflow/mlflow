@@ -32,14 +32,11 @@ export class ModelPageImpl extends React.Component {
     getRegisteredModelApi: PropTypes.func.isRequired,
     updateRegisteredModelApi: PropTypes.func.isRequired,
     deleteRegisteredModelApi: PropTypes.func.isRequired,
-    apis: PropTypes.object.isRequired,
     intl: PropTypes.any,
   };
 
   initSearchModelVersionsApiRequestId = getUUID();
   initgetRegisteredModelApiRequestId = getUUID();
-  searchModelVersionsApiId = getUUID();
-  getRegisteredModelApiId = getUUID();
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
@@ -47,14 +44,6 @@ export class ModelPageImpl extends React.Component {
     this.initSearchModelVersionsApiRequestId,
     this.initgetRegisteredModelApiRequestId,
   ];
-
-  pollingRelatedRequestIds = [this.getRegisteredModelApiId, this.searchModelVersionsApiId];
-
-  hasPendingPollingRequest = () =>
-    this.pollingRelatedRequestIds.every((requestId) => {
-      const request = this.props.apis[requestId];
-      return Boolean(request && request.active);
-    });
 
   handleEditDescription = (description) => {
     const { model } = this.props;
@@ -70,26 +59,25 @@ export class ModelPageImpl extends React.Component {
 
   loadData = (isInitialLoading) => {
     const { modelName } = this.props;
+    this.hasUnfilledRequests = true;
     const promiseValues = [
       this.props.getRegisteredModelApi(
         modelName,
-        isInitialLoading === true
-          ? this.initgetRegisteredModelApiRequestId
-          : this.getRegisteredModelApiId,
+        isInitialLoading === true ? this.initgetRegisteredModelApiRequestId : null,
       ),
       this.props.searchModelVersionsApi(
         { name: modelName },
-        isInitialLoading === true
-          ? this.initSearchModelVersionsApiRequestId
-          : this.searchModelVersionsApiId,
+        isInitialLoading === true ? this.initSearchModelVersionsApiRequestId : null,
       ),
     ];
-    return Promise.all(promiseValues);
+    return Promise.all(promiseValues).then(() => {
+      this.hasUnfilledRequests = false;
+    });
   };
 
   pollData = () => {
     const { modelName, history } = this.props;
-    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
+    if (!this.hasUnfilledRequests && Utils.isBrowserTabVisible()) {
       return this.loadData().catch((e) => {
         if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
@@ -98,6 +86,7 @@ export class ModelPageImpl extends React.Component {
         } else {
           console.error(e);
         }
+        this.hasUnfilledRequests = false;
       });
     }
     return Promise.resolve();
@@ -105,6 +94,7 @@ export class ModelPageImpl extends React.Component {
 
   componentDidMount() {
     this.loadData(true).catch(console.error);
+    this.hasUnfilledRequests = false;
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
   }
 
@@ -116,7 +106,10 @@ export class ModelPageImpl extends React.Component {
     const { model, modelVersions, history, modelName } = this.props;
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
+        <RequestStateWrapper
+          requestIds={this.criticalInitialRequestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
@@ -166,12 +159,10 @@ const mapStateToProps = (state, ownProps) => {
   const modelName = decodeURIComponent(ownProps.match.params.modelName);
   const model = state.entities.modelByName[modelName];
   const modelVersions = getModelVersions(state, modelName);
-  const { apis } = state;
   return {
     modelName,
     model,
     modelVersions,
-    apis,
   };
 };
 

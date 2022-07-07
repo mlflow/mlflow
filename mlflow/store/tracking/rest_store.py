@@ -83,6 +83,16 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        raise NotImplementedError("Not implemented yet")
+
     def create_experiment(self, name, artifact_location=None, tags=None):
         """
         Create a new experiment.
@@ -289,15 +299,13 @@ class RestStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST
             ):
                 return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(
-                databricks_pb2.REQUEST_LIMIT_EXCEEDED
-            ):
-                raise e
-            # Fall back to using ListExperiments-based implementation.
-            for experiment in self.list_experiments(ViewType.ALL):
-                if experiment.name == experiment_name:
-                    return experiment
-            return None
+            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                # Fall back to using ListExperiments-based implementation.
+                for experiment in self.list_experiments(ViewType.ALL):
+                    if experiment.name == experiment_name:
+                        return experiment
+                return None
+            raise e
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
@@ -350,3 +358,7 @@ class DatabricksRestStore(RestStore):
             if not experiments.token:
                 break
             page_token = experiments.token
+
+    # Implement search_experiments to suppress pylint abstract-method error
+    def search_experiments(self, *args, **kwargs):
+        super().search_experiments(*args, **kwargs)

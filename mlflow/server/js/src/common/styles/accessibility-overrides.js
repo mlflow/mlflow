@@ -1,3 +1,5 @@
+import React from 'react';
+import { Global } from '@emotion/react';
 import { primaryBlue, gray600 } from './color';
 
 export const accessibilityOverrides = {
@@ -25,3 +27,5 @@ export const accessibilityOverrides = {
     },
   },
 };
+
+export const AccessibilityOverridesStyles = () => <Global styles={accessibilityOverrides} />;

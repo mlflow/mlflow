@@ -40,7 +40,10 @@ class CompareRunPage extends Component {
   render() {
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={this.requestIds}>
+        <RequestStateWrapper
+          requestIds={this.requestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           <CompareRunView runUuids={this.props.runUuids} experimentIds={this.props.experimentIds} />
         </RequestStateWrapper>
       </PageContainer>

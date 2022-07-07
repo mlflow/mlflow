@@ -6,6 +6,7 @@ from sklearn.linear_model import LinearRegression
 import shap
 
 import mlflow
+from mlflow import MlflowClient
 
 
 # prepare training data
@@ -22,7 +23,7 @@ with mlflow.start_run() as run:
     mlflow.shap.log_explanation(model.predict, X)
 
 # list artifacts
-client = mlflow.tracking.MlflowClient()
+client = MlflowClient()
 artifact_path = "model_explanations_shap"
 artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
 print("# artifacts:")

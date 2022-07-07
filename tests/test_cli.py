@@ -168,7 +168,7 @@ def file_store():
     shutil.rmtree(ROOT_LOCATION)
 
 
-def _create_run_in_store(store):
+def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
         "user_id": "Anderson",
@@ -176,15 +176,17 @@ def _create_run_in_store(store):
         "tags": {},
     }
     run = store.create_run(**config)
-    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
-    if not os.path.exists(artifact_path):
-        os.makedirs(artifact_path)
+    if create_artifacts:
+        artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+        if not os.path.exists(artifact_path):
+            os.makedirs(artifact_path)
     return run
 
 
-def test_mlflow_gc_sqlite(sqlite_store):
+@pytest.mark.parametrize("create_artifacts_in_run", [True, False])
+def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     store = sqlite_store[0]
-    run = _create_run_in_store(store)
+    run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -192,16 +194,23 @@ def test_mlflow_gc_sqlite(sqlite_store):
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
         store.get_run(run.info.run_uuid)
 
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    assert not os.path.exists(artifact_path)
 
-def test_mlflow_gc_file_store(file_store):
+
+@pytest.mark.parametrize("create_artifacts_in_run", [True, False])
+def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
-    run = _create_run_in_store(store)
+    run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
         store.get_run(run.info.run_uuid)
+
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    assert not os.path.exists(artifact_path)
 
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):

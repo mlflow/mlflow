@@ -1,7 +1,7 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import BaggedCell from './BaggedCell';
-import { Dropdown } from 'antd';
+import { Dropdown } from '@databricks/design-system';
 
 describe('BaggedCell', () => {
   let minimalProps;
@@ -29,12 +29,7 @@ describe('BaggedCell', () => {
       onSortBy: mockOnSortByFn,
     };
     const wrapper = shallow(<BaggedCell {...newProps} />);
-    const overlay = mount(
-      wrapper
-        .find(Dropdown)
-        .first()
-        .props().overlay,
-    );
+    const overlay = mount(wrapper.find(Dropdown).first().props().overlay);
     const sortAscButton = overlay.find('[data-test-id="sort-ascending"]');
     sortAscButton.first().simulate('click');
     expect(mockOnSortByFn.mock.calls[0][0]).toEqual(expect.stringContaining('key1'));
@@ -48,12 +43,7 @@ describe('BaggedCell', () => {
       onSortBy: mockOnSortByFn,
     };
     const wrapper = shallow(<BaggedCell {...newProps} />);
-    const overlay = mount(
-      wrapper
-        .find(Dropdown)
-        .first()
-        .props().overlay,
-    );
+    const overlay = mount(wrapper.find(Dropdown).first().props().overlay);
     const sortDescButton = overlay.find('[data-test-id="sort-descending"]');
     sortDescButton.first().simulate('click');
     expect(mockOnSortByFn.mock.calls[0][0]).toEqual(expect.stringContaining('key1'));
@@ -67,12 +57,7 @@ describe('BaggedCell', () => {
       onRemoveBagged: mockOnRemoveBaggedFn,
     };
     const wrapper = shallow(<BaggedCell {...newProps} />);
-    const overlay = mount(
-      wrapper
-        .find(Dropdown)
-        .first()
-        .props().overlay,
-    );
+    const overlay = mount(wrapper.find(Dropdown).first().props().overlay);
     const removeBaggedButton = overlay.find('[data-test-id="remove-bagged"]');
     removeBaggedButton.first().simulate('click');
     expect(mockOnRemoveBaggedFn.mock.calls[0][0]).toBeFalsy();

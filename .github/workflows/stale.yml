@@ -1,0 +1,23 @@
+name: Stale
+on:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: harupy/stale@mlflow-stale-bot
+        with:
+          stale-issue-message: 'This issue is stale because it has been open 7 days with no activity. Remove stale label or comment or this will be closed in 14 days.'
+          close-issue-message: 'This issue was closed because it has been stalled for 14 days with no activity.'
+          days-before-stale: 14
+          days-before-close: 35
+          # Only process issues created after 2022-07-01 as an experiment. We can remove this option
+          # once we confirm the bot works fine.
+          start-date: '2022-07-01T00:00:00Z'
+          # Prevent the bot from staling/closing PRs
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          days-before-triage-reminder: 7
+          days-before-reply-reminder: 14

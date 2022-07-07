@@ -5,7 +5,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.keras
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
@@ -97,7 +97,7 @@ def keras_random_data_run(random_train_data, random_one_hot_labels, initial_epoc
         data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
     )
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
@@ -123,7 +123,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
     assert data.params["epsilon"] == "1e-07"
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
@@ -133,7 +133,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
     run, _ = keras_random_data_run
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
@@ -181,7 +181,7 @@ def get_keras_random_data_run_with_callback(
         initial_epoch=initial_epoch,
     )
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
@@ -216,7 +216,7 @@ def test_keras_autolog_log_models_configuration(
     model = create_model()
     model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_id = client.list_run_infos(experiment_id="0")[0].run_id
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
@@ -248,7 +248,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback, init
     # never observes a loss improvement due to an extremely large `min_delta` value
     assert restored_epoch == initial_epoch
     assert "loss" in history.history
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
     loss = history.history["loss"]
@@ -320,7 +320,7 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
@@ -345,7 +345,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == callback.patience + 1
@@ -368,7 +368,7 @@ def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_ru
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
@@ -386,7 +386,7 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     with mlflow.start_run() as run:
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
 
-    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
+    run = MlflowClient().get_run(run.info.run_id)
     params = run.data.params
     metrics = run.data.metrics
     assert "epochs" in params

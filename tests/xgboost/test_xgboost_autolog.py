@@ -17,14 +17,14 @@ import mlflow.xgboost
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -185,7 +185,7 @@ def test_xgb_autolog_sklearn():
         model.fit(X, y)
         model_uri = mlflow.get_artifact_uri("model")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
     assert run.data.metrics.items() <= params.items()
     artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
@@ -203,7 +203,7 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     run = get_latest_run()
     data = run.data
     metric_key = "train-mlogloss"
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
     assert len(metric_history) == 20
@@ -217,7 +217,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
     xgb.train(bst_params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for eval_name in [e[1] for e in evals]:
         metric_key = "{}-mlogloss".format(eval_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -235,7 +235,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_name in params["eval_metric"]:
         metric_key = "train-{}".format(metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -252,7 +252,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     xgb.train(params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for eval_name in [e[1] for e in evals]:
         for metric_name in params["eval_metric"]:
             metric_key = "{}-{}".format(eval_name, metric_name)
@@ -284,7 +284,7 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     assert int(data.metrics["best_iteration"]) == model.best_iteration
     assert "stopped_iteration" in data.metrics
     assert int(data.metrics["stopped_iteration"]) == len(evals_result["train"]["merror"]) - 1
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
 
     for eval_name in [e[1] for e in evals]:
         for metric_name in params["eval_metric"]:
@@ -305,7 +305,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = "weight"
@@ -329,7 +329,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in importance_types:
@@ -362,7 +362,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = "weight"
@@ -457,7 +457,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -518,7 +518,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -580,7 +580,7 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
         xgb.train(bst_params, dataset)
 
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 

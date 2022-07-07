@@ -3,7 +3,7 @@ from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 
 

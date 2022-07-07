@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { shallow } from 'enzyme';
 import { GenericInputModal } from './GenericInputModal';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 
 class SimpleForm extends Component {
   render() {

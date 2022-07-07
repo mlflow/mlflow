@@ -1,5 +1,6 @@
 import os
 from subprocess import Popen, PIPE, STDOUT
+from urllib.parse import urlparse
 import logging
 
 import mlflow
@@ -36,6 +37,42 @@ RUN wget https://bootstrap.pypa.io/get-pip.py -O /tmp/get-pip.py
 RUN python /tmp/get-pip.py
 RUN pip install virtualenv
 """
+
+if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
+
+    # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
+    # or PROTOCOL://HOSTNAME:PORT
+    parsed_http_proxy = urlparse(os.environ["http_proxy"])
+    assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
+    assert isinstance(parsed_http_proxy.port, int), f"Invalid Proxy Port: {parsed_http_proxy.port}"
+
+    parsed_https_proxy = urlparse(os.environ["https_proxy"])
+    assert parsed_https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
+    assert isinstance(
+        parsed_https_proxy.port, int
+    ), f"Invalid Proxy Port: {parsed_https_proxy.port}"
+
+    MAVEN_PROXY = (
+        " -DproxySet=true -Dhttp.proxyHost={http_proxy_host} "
+        "-Dhttp.proxyPort={http_proxy_port} -Dhttps.proxyHost={https_proxy_host} "
+        "-Dhttps.proxyPort={https_proxy_port} -Dhttps.nonProxyHosts=repo.maven.apache.org"
+    ).format(
+        http_proxy_host=parsed_http_proxy.hostname,
+        http_proxy_port=parsed_http_proxy.port,
+        https_proxy_host=parsed_https_proxy.hostname,
+        https_proxy_port=parsed_https_proxy.port,
+    )
+
+    if parsed_http_proxy.username is not None and parsed_http_proxy.password is not None:
+
+        MAVEN_PROXY += (
+            " -Dhttp.proxyUser={proxy_username} -Dhttp.proxyPassword={proxy_password}".format(
+                proxy_username=parsed_http_proxy.username, proxy_password=parsed_http_proxy.password
+            )
+        )
+
+else:
+    MAVEN_PROXY = ""  # No Proxy
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
@@ -89,26 +126,27 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "COPY {mlflow_dir} /opt/mlflow\n"
             "RUN pip install /opt/mlflow\n"
             "RUN cd /opt/mlflow/mlflow/java/scoring && "
-            "mvn --batch-mode package -DskipTests && "
+            "mvn --batch-mode package -DskipTests {maven_proxy} && "
             "mkdir -p /opt/java/jars && "
             "mv /opt/mlflow/mlflow/java/scoring/target/"
             "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        ).format(mlflow_dir=mlflow_dir)
+        ).format(mlflow_dir=mlflow_dir, maven_proxy=MAVEN_PROXY)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            " -DoutputDirectory=/opt/java\n"
+            " -DoutputDirectory=/opt/java {maven_proxy}\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars\n"
+            " -DoutputDirectory=/opt/java/jars {maven_proxy}\n"
             "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
             "RUN cd /opt/java && mvn "
-            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-        ).format(version=mlflow.version.VERSION)
+            "--batch-mode dependency:copy-dependencies "
+            "-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
+        ).format(version=mlflow.version.VERSION, maven_proxy=MAVEN_PROXY)
 
 
 def _build_image(

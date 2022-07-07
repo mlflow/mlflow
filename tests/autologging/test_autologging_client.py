@@ -4,7 +4,7 @@ from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 from mlflow.utils.validation import (
@@ -17,7 +17,7 @@ from mlflow.utils.validation import (
 
 
 def get_run_data(run_id):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     data = client.get_run(run_id).data
     # Ignore tags mlflow logs by default (e.g. "mlflow.user")
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}

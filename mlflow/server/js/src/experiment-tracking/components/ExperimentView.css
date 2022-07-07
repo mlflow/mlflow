@@ -39,7 +39,7 @@
 }
 
 .ExperimentView-run-buttons .run-count {
-  font-size: 14px;
+  font-size: 13px;
   color: #6b6b6b;
 }
 
@@ -312,7 +312,7 @@ span.error-message {
   color: rgba(0, 0, 0, 0.85); /* Mimic antd v4 */
   background-color: #fafafa;
   margin-right: 0;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .ExperimentView .ReactVirtualized__Table .run-table-container {
@@ -385,16 +385,7 @@ span.error-message {
 
 .ExperimentView .sort-select .ant-select-selection-item,
 .ExperimentView .start-time-select .ant-select-selection-item {
-  font-size: 14px;
-}
-
-.ExperimentView .ag-row-hover,
-.ExperimentView .ag-column-hover {
-  background-color: #f3fafd;
-}
-
-.ExperimentView .ag-row-hover .ag-column-hover {
-  background-color: #e8f6fd;
+  font-size: 13px;
 }
 
 .ExperimentView .multi-column-view .load-more-button,
