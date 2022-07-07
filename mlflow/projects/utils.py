@@ -82,7 +82,12 @@ def _is_file_uri(uri):
 
 def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
-    return pathlib.Path(uri).exists() and pathlib.Path(uri).is_dir()
+    if _is_file_uri(str(uri)):
+        parsed_uri = urllib.parse.urlparse(str(uri))
+        resolved_uri = pathlib.Path(parsed_uri.netloc, parsed_uri.path).resolve()
+    else:
+        resolved_uri = pathlib.Path(uri).resolve()
+    return resolved_uri.exists()
 
 
 def _is_zip_uri(uri):
