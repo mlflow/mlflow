@@ -1,0 +1,9 @@
+name: pyfunc_model
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  - pip=20.0.2
+  - pip:
+    - mlflow>=1.12
+    - scikit-learn==0.22.1
