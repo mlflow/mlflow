@@ -278,6 +278,16 @@ class FileStore(AbstractStore):
         else:
             return PagedList(experiments, None)
 
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        raise NotImplementedError("Not implemented yet")
+
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
             self.artifact_root_uri, str(experiment_id)
