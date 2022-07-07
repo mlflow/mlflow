@@ -44,6 +44,7 @@ class _BasePipeline:
         """
         self._pipeline_root_path = pipeline_root_path
         self._profile = profile
+        self._pipeline_name = pipeline_name
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
 
@@ -208,7 +209,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str, pipeline_name: str = "pipeline.yaml") -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -219,6 +220,8 @@ class Pipeline:
                         task-specific pipeline. Profiles customize the configuration of
                         one or more pipeline steps, and pipeline executions with different profiles
                         often produce different results.
+        :param pipeline_name: The name of the pipeline file. If none is provided, pipeline.yaml will 
+                              be used.
         :return: A pipeline for a particular ML problem or MLOps task. For example, an instance of
                  :py:class:`RegressionPipeline
                  <mlflow.pipelines.regression.v1.pipeline.RegressionPipeline>`

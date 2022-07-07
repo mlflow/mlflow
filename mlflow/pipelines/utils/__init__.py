@@ -23,6 +23,8 @@ def get_pipeline_name(pipeline_root_path: str = None, pipeline_name: str = None)
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem. If unspecified, the pipeline root directory is
                                resolved from the current working directory.
+    :param pipeline_name: The filename of the pipeline to load. If None is provided,
+                          pipeline.yaml will be used.
     :raises MlflowException: If the specified ``pipeline_root_path`` is not a pipeline root
                              directory or if ``pipeline_root_path`` is ``None`` and the current
                              working directory does not correspond to a pipeline.
