@@ -588,6 +588,12 @@ def build_and_push_container(build, push, container, mlflow_home):
             return "\n".join(
                 [
                     'ENV {disable_env}="false"',
+                    # Explicitly install protobuf==3.20.1 to replace any potential protobuf >= 4.0
+                    # versions preinstalled in the model serving container. This is necessary for
+                    # compatibility with MLflow versions <= 1.26.0, which are incompatible with
+                    # protobuf >= 4.0 but do not explicitly require protobuf < 4.0 in the package
+                    # requirements
+                    "RUN pip install protobuf==3.20.1",
                     'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
                     '_install_pyfunc_deps(None, False)"',
                 ]
