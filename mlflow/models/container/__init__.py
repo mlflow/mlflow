@@ -124,7 +124,7 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, enable_mlserver=
 
     if has_env and install_mlflow:
         # Explicitly install protobuf==3.20.1 to replace any potential protobuf >= 4.0  versions
-        # preinstalled in the model serving container. This is necessary for compatibility with
+        # preinstalled in the model's conda environment. This is necessary for compatibility with
         # MLflow versions <= 1.26.0, which are incompatible with protobuf >= 4.0 but do not
         # explicitly require protobuf < 4.0 in the package requirements
         install_protobuf_cmd = ["pip install protobuf==3.20.1"]
