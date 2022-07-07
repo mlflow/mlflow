@@ -26,18 +26,26 @@ const assertArrayEqual = (a1, a2) => {
 };
 
 const test = () => {
-  const body1 = 'Close #12';
-  assertArrayEqual(getIssuesToClose(body1), ['12']);
+  const body1 = 'Close #123';
+  assertArrayEqual(getIssuesToClose(body1), ['123']);
+
   const body2 = `
-Fix mlflow/mlflow#34
-Resolve https://github.com/mlflow/mlflow/issues/56
+Fix mlflow/mlflow#123
+Resolve https://github.com/mlflow/mlflow/issues/456
 `;
-  assertArrayEqual(getIssuesToClose(body2), ['34', '56']);
+  assertArrayEqual(getIssuesToClose(body2), ['123', '456']);
+
   const body3 = `
-Fix #78
-Close #78
+Fix #123
+Close #123
 `;
-  assertArrayEqual(getIssuesToClose(body3), ['78']);
+  assertArrayEqual(getIssuesToClose(body3), ['123']);
+
+  const body4 = 'Relates to #123';
+  assertArrayEqual(getIssuesToClose(body4), []);
+
+  const body5 = '<!-- close #123 -->';
+  assertArrayEqual(getIssuesToClose(body5), []);
 };
 
 // `node .github/workflows/closing-pr.js` runs this block
