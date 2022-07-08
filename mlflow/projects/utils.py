@@ -152,10 +152,10 @@ def _fetch_project(uri, version=None):
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
 
     if _is_file_uri(parsed_uri):
-        parsed_uri = _parse_file_uri(str(parsed_uri))
+        parsed_uri = str(_parse_file_uri(parsed_uri))
 
     if _is_file_uri(dst_dir):
-        dst_dir = _parse_file_uri(str(dst_dir))
+        dst_dir = str(_parse_file_uri(dst_dir))
 
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
