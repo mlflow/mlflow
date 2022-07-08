@@ -93,13 +93,12 @@ def _is_git_repo(path):
 
 def _parse_file_uri(uri: str) -> str:
     """Converts file URIs to filesystem paths"""
-    parsed_uri = uri
     if _is_file_uri(uri):
-        parsed_file_uri = urllib.parse.urlparse(str(uri))
-        parsed_uri = str(
+        parsed_file_uri = urllib.parse.urlparse(uri)
+        return str(
             pathlib.Path(parsed_file_uri.netloc, parsed_file_uri.path, parsed_file_uri.fragment)
         )
-    return parsed_uri
+    return uri
 
 
 def _is_local_uri(uri) -> bool:
