@@ -123,12 +123,22 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False, enable_mlserver=
         raise Exception("Failed to install serving dependencies into the model environment.")
 
     if has_env and install_mlflow:
+        # Explicitly install protobuf==3.20.1 before installing MLflow in the model's conda
+        # environment. Otherwise, installing MLflow <= 1.26.0 would install protobuf >= 4.0, which
+        # is not compatible with MLflow <= 1.26.0, because MLflow <= 1.26.0 does not place an
+        # upper bound on the protobuf library version in its requirements
+        install_protobuf_cmd = ["pip install protobuf==3.20.1"]
         install_mlflow_cmd = [
             "pip install /opt/mlflow/."
             if _container_includes_mlflow_source()
             else "pip install mlflow=={}".format(MLFLOW_VERSION)
         ]
-        if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+        shell_cmd = [
+            "bash",
+            "-c",
+            " && ".join(activate_cmd + install_protobuf_cmd + install_mlflow_cmd),
+        ]
+        if Popen(shell_cmd).wait() != 0:
             raise Exception("Failed to install mlflow into the model environment.")
 
 
