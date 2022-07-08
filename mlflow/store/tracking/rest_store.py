@@ -373,7 +373,3 @@ class DatabricksRestStore(RestStore):
             if not experiments.token:
                 break
             page_token = experiments.token
-
-    # Implement search_experiments to suppress pylint abstract-method error
-    def search_experiments(self, *args, **kwargs):
-        super().search_experiments(*args, **kwargs)
