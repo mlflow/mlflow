@@ -202,8 +202,9 @@ def apply_pipeline_tracking_config(tracking_config: TrackingConfig):
                 # Inform user they should create an experiment and specify it in the pipeline
                 # config if an experiment with the pipeline name can't be created.
                 raise MlflowException(
-                    f"Could not create an MLflow Experiment with name {tracking_config.experiment_name}."
-                    f"Please create an MLflow Experiment for this pipeline and specify its name in the"
+                    f"Could not create an MLflow Experiment with "
+                    f"name {tracking_config.experiment_name}. Please create an "
+                    f"MLflow Experiment for this pipeline and specify its name in the"
                     f'"name" field of the "experiment" section in your profile configuration.'
                 )
 
