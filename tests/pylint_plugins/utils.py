@@ -20,10 +20,10 @@ def get_pylint_msg_ids():
     return set(re.findall(rf"\(([{letters}][0-9]{{4}})\)", stdout))
 
 
-def create_message(msg_id, node):
+def create_message(msg_id, node, line=None, col_offset=None):
     import pylint.testutils
 
-    return pylint.testutils.Message(msg_id=msg_id, node=node)
+    return pylint.testutils.MessageTest(msg_id=msg_id, node=node, line=line, col_offset=col_offset)
 
 
 def extract_node(code):
