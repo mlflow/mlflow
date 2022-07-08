@@ -161,7 +161,6 @@ def _fetch_project(uri, version=None):
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting version is only supported for Git project URIs")
-            _fetch_git_repo(parsed_uri, version, dst_dir)
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
