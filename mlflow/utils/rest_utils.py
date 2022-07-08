@@ -168,6 +168,12 @@ def http_request(
             timeout=timeout,
             **kwargs,
         )
+    except requests.exceptions.Timeout as to:
+        raise MlflowException(
+            f"API request to {url} failed with timeout exception {to}."
+            f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
+            " to a larger value."
+        )
     except Exception as e:
         raise MlflowException("API request to %s failed with exception %s" % (url, e))
 
