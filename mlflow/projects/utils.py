@@ -90,12 +90,20 @@ def _is_git_repo(path):
     except git.exc.InvalidGitRepositoryError:
         return False
 
+def _parse_file_uri(uri: str) -> pathlib.Path:
+    """Converts file URIs to filesystem paths"""
+    parsed_file_uri = urllib.parse.urlparse(str(uri))
+    parsed_uri = pathlib.Path(
+        parsed_file_uri.netloc,
+        parsed_file_uri.path,
+        parsed_file_uri.fragment
+    )
+    return parsed_uri
 
 def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
     if _is_file_uri(str(uri)):
-        parsed_uri = urllib.parse.urlparse(str(uri))
-        resolved_uri = pathlib.Path(parsed_uri.netloc, parsed_uri.path, parsed_uri.fragment).resolve()
+        resolved_uri = _parse_file_uri(str(uri)).resolve()
     else:
         resolved_uri = pathlib.Path(uri).resolve()
     return resolved_uri.exists()
@@ -142,12 +150,17 @@ def _fetch_project(uri, version=None):
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    
+    if _is_file_uri(parsed_uri):
+        parsed_uri = _parse_file_uri(str(parsed_uri))
+    
+    if _is_file_uri(dst_dir):
+        dst_dir = _parse_file_uri(str(dst_dir))
+
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
-        if _is_file_uri(parsed_uri):
-            parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
-            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
+        
         _unzip_repo(
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=dst_dir,
