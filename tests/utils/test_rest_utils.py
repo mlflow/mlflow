@@ -1,9 +1,11 @@
-#!/usr/bin/env python
 import os
 from unittest import mock
+import re
 import numpy
 import pytest
+import requests
 
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
@@ -437,3 +439,15 @@ def test_http_request_customize_config():
                 verify=mock.ANY,
                 timeout=300,
             )
+
+
+def test_http_request_explains_how_to_increase_timeout_in_error_message():
+    with mock.patch("requests.Session.request", side_effect=requests.exceptions.Timeout):
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"To increase the timeout, set the environment variable "
+                + re.escape(str(MLFLOW_HTTP_REQUEST_TIMEOUT))
+            ),
+        ):
+            http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
