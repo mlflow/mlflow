@@ -7,8 +7,6 @@ import pathlib
 
 from distutils import dir_util
 
-from yaml import parse
-
 import mlflow.utils
 from mlflow.utils import databricks_utils
 from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
@@ -162,7 +160,7 @@ def _fetch_project(uri, version=None):
         )
     elif _is_local_uri(uri):
         if version is not None:
-            if not _is_git_repo(uri):
+            if not _is_git_repo(parsed_uri):
                 raise ExecutionException("Setting version is only supported for Git project URIs")
             _fetch_git_repo(parsed_uri, version, _parse_file_uri(dst_dir))
         if use_temp_dst_dir:
