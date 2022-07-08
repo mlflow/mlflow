@@ -479,33 +479,27 @@ class TestRestStore:
         store = RestStore(lambda: creds)
 
         with mock_http_request() as mock_http:
-            store.search_experiments()
-            self._verify_requests(
-                mock_http,
-                creds,
-                "experiments/search",
-                "POST",
-                message_to_json(SearchExperiments(view_type=ViewType.ACTIVE_ONLY)),
+            store.search_experiments(
+                view_type=ViewType.DELETED_ONLY,
+                max_results=5,
+                filter_string="name",
+                order_by=["name"],
+                page_token="abc",
             )
-
-        with mock_http_request() as mock_http:
-            store.search_experiments(view_type=ViewType.DELETED_ONLY)
             self._verify_requests(
                 mock_http,
                 creds,
                 "experiments/search",
-                "POST",
-                message_to_json(SearchExperiments(view_type=ViewType.DELETED_ONLY)),
-            )
-
-        with mock_http_request() as mock_http:
-            store.search_experiments(order_by=["name DESC"])
-            self._verify_requests(
-                mock_http,
-                creds,
-                "experiments/search",
-                "POST",
-                message_to_json(SearchExperiments(view_type=ViewType.DELETED_ONLY)),
+                "GET",
+                message_to_json(
+                    SearchExperiments(
+                        view_type=ViewType.DELETED_ONLY,
+                        max_results=5,
+                        filter="name",
+                        order_by=["name"],
+                        page_token="abc",
+                    )
+                ),
             )
 
 
