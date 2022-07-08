@@ -7,6 +7,8 @@ import pathlib
 
 from distutils import dir_util
 
+from yaml import parse
+
 import mlflow.utils
 from mlflow.utils import databricks_utils
 from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
@@ -91,21 +93,20 @@ def _is_git_repo(path):
         return False
 
 
-def _parse_file_uri(uri: str) -> pathlib.Path:
+def _parse_file_uri(uri: str) -> str:
     """Converts file URIs to filesystem paths"""
-    parsed_file_uri = urllib.parse.urlparse(str(uri))
-    parsed_uri = pathlib.Path(
-        parsed_file_uri.netloc, parsed_file_uri.path, parsed_file_uri.fragment
-    )
+    parsed_uri = uri
+    if _is_file_uri(uri):
+        parsed_file_uri = urllib.parse.urlparse(str(uri))
+        parsed_uri = str(
+            pathlib.Path(parsed_file_uri.netloc, parsed_file_uri.path, parsed_file_uri.fragment)
+        )
     return parsed_uri
 
 
 def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
-    if _is_file_uri(str(uri)):
-        resolved_uri = _parse_file_uri(str(uri)).resolve()
-    else:
-        resolved_uri = pathlib.Path(uri).resolve()
+    resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
     return resolved_uri.exists()
 
 
@@ -151,23 +152,19 @@ def _fetch_project(uri, version=None):
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
     dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
 
-    if _is_file_uri(parsed_uri):
-        parsed_uri = str(_parse_file_uri(parsed_uri))
-
-    if _is_file_uri(dst_dir):
-        dst_dir = str(_parse_file_uri(dst_dir))
-
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
-
+        parsed_uri = _parse_file_uri(parsed_uri)
         _unzip_repo(
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
-            dst_dir=dst_dir,
+            dst_dir=_parse_file_uri(dst_dir),
         )
     elif _is_local_uri(uri):
         if version is not None:
-            _fetch_git_repo(parsed_uri, version, dst_dir)
+            if not _is_git_repo(uri):
+                raise ExecutionException("Setting version is only supported for Git project URIs")
+            _fetch_git_repo(parsed_uri, version, _parse_file_uri(dst_dir))
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
