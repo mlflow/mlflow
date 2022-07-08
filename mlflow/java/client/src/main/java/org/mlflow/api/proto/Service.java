@@ -15753,7 +15753,14 @@ public final class Service {
 
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -15762,7 +15769,14 @@ public final class Service {
     boolean hasFilter();
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -15771,7 +15785,14 @@ public final class Service {
     java.lang.String getFilter();
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -17223,7 +17244,14 @@ public final class Service {
     private volatile java.lang.Object filter_;
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -17235,7 +17263,14 @@ public final class Service {
     }
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -17258,7 +17293,14 @@ public final class Service {
     }
     /**
      * <pre>
-     * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+     * A filter expression over experiment attributes and tags that allows returning a subset of
+     * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between an attribute or tag, and a constant.
+     * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+     * You can select columns with special characters (hyphen, space, period, etc.) by using
+     * double quotes or backticks.
+     * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+     * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
      * </pre>
      *
      * <code>optional string filter = 3;</code>
@@ -17974,7 +18016,14 @@ public final class Service {
       private java.lang.Object filter_ = "";
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>
@@ -17985,7 +18034,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>
@@ -18007,7 +18063,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>
@@ -18028,7 +18091,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>
@@ -18047,7 +18117,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>
@@ -18061,7 +18138,14 @@ public final class Service {
       }
       /**
        * <pre>
-       * String representing a SQL filter condition (e.g. "name ILIKE 'my-experiment%'")
+       * A filter expression over experiment attributes and tags that allows returning a subset of
+       * experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between an attribute or tag, and a constant.
+       * Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+       * You can select columns with special characters (hyphen, space, period, etc.) by using
+       * double quotes or backticks.
+       * Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+       * Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
        * </pre>
        *
        * <code>optional string filter = 3;</code>

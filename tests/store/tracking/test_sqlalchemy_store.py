@@ -421,6 +421,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert [e.name for e in experiments] == ["exp1"]
         experiments = self.store.search_experiments(filter_string="tag.`k e y` = 'value'")
         assert [e.name for e in experiments] == ["exp3"]
+        experiments = self.store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
+        assert [e.name for e in experiments] == ["exp3"]
         experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
         assert [e.name for e in experiments] == ["exp2"]
         experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
