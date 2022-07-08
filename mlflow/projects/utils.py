@@ -148,7 +148,7 @@ def _fetch_project(uri, version=None):
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
-    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else _parse_file_uri(parsed_uri)
 
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
@@ -162,7 +162,7 @@ def _fetch_project(uri, version=None):
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting version is only supported for Git project URIs")
-            _fetch_git_repo(parsed_uri, version, _parse_file_uri(dst_dir))
+            _fetch_git_repo(parsed_uri, version, dst_dir)
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
