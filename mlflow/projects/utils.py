@@ -104,9 +104,9 @@ def _parse_file_uri(uri: str) -> str:
 
 
 def _is_local_uri(uri: str) -> bool:
-    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
+    """Returns True if passed-in URI should be interpreted as a folder on the local filesystem."""
     resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
-    return resolved_uri.exists()
+    return resolved_uri.exists() and resolved_uri.is_dir()
 
 
 def _is_zip_uri(uri):
