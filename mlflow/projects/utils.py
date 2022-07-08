@@ -89,7 +89,7 @@ def _is_git_repo(path) -> bool:
         if len(repo.branches) > 0:
             return True
     except git.exc.InvalidGitRepositoryError:
-        pass 
+        pass
     return False
 
 
@@ -106,7 +106,7 @@ def _parse_file_uri(uri: str) -> str:
 def _is_local_uri(uri: str) -> bool:
     """Returns True if passed-in URI should be interpreted as a folder on the local filesystem."""
     resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
-    return resolved_uri.exists() and resolved_uri.is_dir()
+    return resolved_uri.exists()
 
 
 def _is_zip_uri(uri):
@@ -130,11 +130,13 @@ def _is_valid_branch_name(work_dir, version):
             return False
     return False
 
+
 def _checkout_branch(work_dir, version):
     """Checkout a specific commit or branch of a repo."""
     if version is not None:
         from git import Repo
         from git.exc import GitCommandError
+
         try:
             repo = Repo(work_dir)
             repo.git.checkout(version)
