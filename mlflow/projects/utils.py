@@ -102,7 +102,7 @@ def _parse_file_uri(uri: str) -> str:
     return parsed_uri
 
 
-def _is_local_uri(uri):
+def _is_local_uri(uri) -> bool:
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
     resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
     return resolved_uri.exists()
@@ -160,7 +160,7 @@ def _fetch_project(uri, version=None):
         )
     elif _is_local_uri(uri):
         if version is not None:
-            if not _is_git_repo(parsed_uri):
+            if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting version is only supported for Git project URIs")
             _fetch_git_repo(parsed_uri, version, _parse_file_uri(dst_dir))
         if use_temp_dst_dir:
