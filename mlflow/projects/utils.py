@@ -95,7 +95,7 @@ def _is_local_uri(uri):
     """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
     if _is_file_uri(str(uri)):
         parsed_uri = urllib.parse.urlparse(str(uri))
-        resolved_uri = pathlib.Path(parsed_uri.netloc, parsed_uri.path).resolve()
+        resolved_uri = pathlib.Path(parsed_uri.netloc, parsed_uri.path, parsed_uri.fragment).resolve()
     else:
         resolved_uri = pathlib.Path(uri).resolve()
     return resolved_uri.exists()
