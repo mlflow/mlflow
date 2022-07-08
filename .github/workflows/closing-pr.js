@@ -67,6 +67,7 @@ if (require.main === module) {
 module.exports = async ({ context, github }) => {
   const { body } = context.payload.pull_request;
   getIssuesToClose(body).forEach(async (issue_number) => {
+    const { owner, repo } = context.repo;
     await github.issues.addLabels({
       owner,
       repo,
