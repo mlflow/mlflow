@@ -80,15 +80,17 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
-def _is_git_repo(path):
+def _is_git_repo(path) -> bool:
     """Returns True if passed-in path is a valid git repository"""
     import git
 
     try:
-        git.Repo(path)
-        return True
+        repo = git.Repo(path)
+        if len(repo.branches) > 0:
+            return True
     except git.exc.InvalidGitRepositoryError:
-        return False
+        pass 
+    return False
 
 
 def _parse_file_uri(uri: str) -> str:
@@ -128,6 +130,21 @@ def _is_valid_branch_name(work_dir, version):
             return False
     return False
 
+def _checkout_branch(work_dir, version):
+    """Checkout a specific commit or branch of a repo."""
+    if version is not None:
+        from git import Repo
+        from git.exc import GitCommandError
+        try:
+            repo = Repo(work_dir)
+            repo.git.checkout(version)
+        except GitCommandError as e:
+            raise ExecutionException(
+                "Unable to checkout version '%s' of git repo %s"
+                "- please ensure that the version exists in the repo. "
+                "Error: %s" % (version, work_dir, e)
+            )
+
 
 def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
@@ -158,11 +175,15 @@ def _fetch_project(uri, version=None):
             dst_dir=_parse_file_uri(dst_dir),
         )
     elif _is_local_uri(uri):
+        if use_temp_dst_dir:
+            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting version is only supported for Git project URIs")
-        if use_temp_dst_dir:
-            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+            if not pathlib.Path(dst_dir).exist():
+                _fetch_git_repo(parsed_uri, version, dst_dir)
+            else:
+                _checkout_branch(dst_dir, version=version)
     else:
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
