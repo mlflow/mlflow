@@ -980,9 +980,6 @@ def _search_experiments():
             "page_token": [_assert_string],
         },
     )
-    # `ListFields` returns a list of (FieldDescriptor, value) tuples for *present* fields:
-    # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
-    # #google.protobuf.message.Message.ListFields
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
         max_results=request_message.max_results,
