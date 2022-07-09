@@ -131,14 +131,19 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
-def _checkout_branch(work_dir, version):
+def _checkout_branch(uri, work_dir, version):
     """Checkout a specific commit or branch of a repo."""
     if version is not None:
         from git import Repo
         from git.exc import GitCommandError
 
         try:
-            repo = Repo(work_dir)
+            repo = Repo.init(work_dir)
+            origin = next((remote for remote in repo.remotes), None)
+            if origin is None:
+                origin = repo.create_remote("origin", uri)
+            if origin:
+                origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH, verbose=True)
             repo.git.checkout(version)
         except GitCommandError as e:
             raise ExecutionException(
@@ -185,7 +190,7 @@ def _fetch_project(uri, version=None):
             if not pathlib.Path(dst_dir).exists():
                 _fetch_git_repo(parsed_uri, version, dst_dir)
             else:
-                _checkout_branch(dst_dir, version=version)
+                _checkout_branch(parsed_uri, dst_dir, version=version)
     else:
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
@@ -223,7 +228,9 @@ def _fetch_git_repo(uri, version, dst_dir):
     import git
 
     repo = git.Repo.init(dst_dir)
-    origin = repo.create_remote("origin", uri)
+    origin = next((remote for remote in repo.remotes), None)
+    if origin is None:
+        origin = repo.create_remote("origin", uri)
     if version is not None:
         try:
             origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
