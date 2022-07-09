@@ -186,7 +186,7 @@ def _fetch_project(uri, version=None):
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
-                raise ExecutionException("Setting version is only supported for Git project URIs")
+                raise ExecutionException("Setting a version is only supported for Git project URIs")
             if not pathlib.Path(dst_dir).exists():
                 _fetch_git_repo(parsed_uri, version, dst_dir)
             else:
