@@ -1717,7 +1717,7 @@ Deployments can be generated using either the Python API or the MLflow CLI. In b
 Remarks:
  * If ``containerResourceRequirements`` is not indicated, a deployment with minimal compute configuration is applied (``cpu: 0.1`` and ``memory: 0.5``).
  * If ``location`` is not indicated, it defaults to the location of the workspace.
- * The full specification of this configuration file can be viewed at `Deployment configuration schema <https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema>`_.
+ * The full specification of the ACI deployment configuration schema can be viewed at https://docs.microsoft.com/en-us/azure/machine-learning/reference-azure-machine-learning-cli#deployment-configuration-schema.
 
 .. rubric:: Configuration example for an AKS deployment
 
