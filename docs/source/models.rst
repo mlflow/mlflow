@@ -1697,7 +1697,7 @@ Deployments can be generated using either the Python API or the MLflow CLI. In b
   * Click "View all properties in Azure Portal" on the pane popup.
   * Copy the ``MLflow tracking URI`` value from the properties section.
 
-* Programmatically, using Azure ML SDK with the method `Workspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute (e.g., a Compute Instance) you this value can be accessed from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
+* Programmatically, using Azure ML SDK with the method `Workspace.get_mlflow_tracking_uri() <https://docs.microsoft.com/en-us/python/api/azureml-core/azureml.core.workspace.workspace?view=azure-ml-py#azureml-core-workspace-workspace-get-mlflow-tracking-uri>`_. If you are running inside Azure ML Compute (e.g., a Compute Instance), this value can be accessed from the environment variable ``os.environ["MLFLOW_TRACKING_URI"]``.
 * Manually, for a given Subscription ID, Resource Group and Azure ML Workspace, the URI is as follows: ``azureml://eastus.api.azureml.ms/mlflow/v1.0/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP_NAME>/providers/Microsoft.MachineLearningServices/workspaces/<WORKSPACE_NAME>``
 
 .. rubric:: Configuration example for ACI deployment
