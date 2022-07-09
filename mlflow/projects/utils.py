@@ -181,7 +181,7 @@ def _fetch_project(uri, version=None):
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=_parse_file_uri(dst_dir),
         )
-    elif _is_local_uri(uri):
+    elif _is_local_uri(parsed_uri):
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
         if version is not None:
