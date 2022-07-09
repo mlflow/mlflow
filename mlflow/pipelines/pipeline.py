@@ -29,7 +29,7 @@ class _BasePipeline:
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str, pipeline_name: str = "pipeline.yaml") -> None:
+    def __init__(self, pipeline_root_path: str, profile: str, pipeline_file_name: str = "pipeline.yaml") -> None:
         """
         Pipeline base class.
 
@@ -44,7 +44,7 @@ class _BasePipeline:
         """
         self._pipeline_root_path = pipeline_root_path
         self._profile = profile
-        self._pipeline_name = pipeline_name
+        self._pipeline_file_name = pipeline_file_name
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
 
@@ -209,7 +209,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str, pipeline_name: str = "pipeline.yaml") -> RegressionPipeline:
+    def __new__(cls, profile: str, pipeline_file_name: str = "pipeline.yaml") -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -220,7 +220,7 @@ class Pipeline:
                         task-specific pipeline. Profiles customize the configuration of
                         one or more pipeline steps, and pipeline executions with different profiles
                         often produce different results.
-        :param pipeline_name: The name of the pipeline file. If none is provided, pipeline.yaml will 
+        :param pipeline_file_name: The name of the pipeline file. If none is provided, pipeline.yaml will 
                               be used.
         :return: A pipeline for a particular ML problem or MLOps task. For example, an instance of
                  :py:class:`RegressionPipeline
@@ -245,7 +245,7 @@ class Pipeline:
 
         pipeline_root_path = get_pipeline_root_path()
         pipeline_config = get_pipeline_config(
-            pipeline_root_path=pipeline_root_path, profile=profile, pipeline_name=pipeline_name
+            pipeline_root_path=pipeline_root_path, profile=profile, pipeline_file_name=pipeline_file_name
         )
         template = pipeline_config.get("template")
         if template is None:

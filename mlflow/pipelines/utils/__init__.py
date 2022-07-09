@@ -15,7 +15,7 @@ _PIPELINE_PROFILE_ENV_VAR = "MLFLOW_PIPELINES_PROFILE"
 _logger = logging.getLogger(__name__)
 
 
-def get_pipeline_name(pipeline_root_path: str = None, pipeline_name: str = None) -> str:
+def get_pipeline_name(pipeline_root_path: str = None, pipeline_file_name: str = "pipeline.yaml") -> str:
     """
     Obtains the name of the specified pipeline or of the pipeline corresponding to the current
     working directory.
@@ -23,19 +23,19 @@ def get_pipeline_name(pipeline_root_path: str = None, pipeline_name: str = None)
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem. If unspecified, the pipeline root directory is
                                resolved from the current working directory.
-    :param pipeline_name: The filename of the pipeline to load. If None is provided,
+    :param pipeline_file_name: The filename of the pipeline to load. If None is provided,
                           pipeline.yaml will be used.
     :raises MlflowException: If the specified ``pipeline_root_path`` is not a pipeline root
                              directory or if ``pipeline_root_path`` is ``None`` and the current
                              working directory does not correspond to a pipeline.
     :return: The name of the specified pipeline.
     """
-    pipeline_root_path = pipeline_root_path or get_pipeline_root_path(pipeline_name=pipeline_name)
+    pipeline_root_path = pipeline_root_path or get_pipeline_root_path(pipeline_file_name=pipeline_file_name)
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
     return os.path.basename(pipeline_root_path)
 
 
-def get_pipeline_config(pipeline_root_path: str = None, profile: str = None, pipeline_name: str = None) -> Dict[str, Any]:
+def get_pipeline_config(pipeline_root_path: str = None, profile: str = None, pipeline_file_name: str = "pipeline.yaml") -> Dict[str, Any]:
     """
     Obtains a dictionary representation of the configuration for the specified pipeline.
 
@@ -49,11 +49,9 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None, pip
                              working directory does not correspond to a pipeline.
     :return: The configuration of the specified pipeline.
     """
-    pipeline_root_path = pipeline_root_path or get_pipeline_root_path(pipeline_name)
+    pipeline_root_path = pipeline_root_path or get_pipeline_root_path(pipeline_file_name)
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
 
-    if pipeline_name is None:
-        pipeline_name = _PIPELINE_CONFIG_FILE_NAME
     try:
         if profile:
             profile_file_path = os.path.join(
@@ -66,10 +64,10 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None, pip
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return render_and_merge_yaml(
-                pipeline_root_path, pipeline_name, profile_file_path
+                pipeline_root_path, pipeline_file_name, profile_file_path
             )
         else:
-            return read_yaml(pipeline_root_path, pipeline_name)
+            return read_yaml(pipeline_root_path, pipeline_file_name)
     except MlflowException:
         raise
     except Exception as e:
@@ -82,13 +80,13 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None, pip
         ) from e
 
 
-def get_pipeline_root_path(pipeline_name: str = None) -> str:
+def get_pipeline_root_path(pipeline_file_name: str = "pipeline.yaml") -> str:
     """
     Obtains the path of the pipeline corresponding to the current working directory, throwing an
     ``MlflowException`` if the current working directory does not reside within a pipeline
     directory.
 
-    :param pipeline_name: The filename of the pipeline to check for. If None is provided,
+    :param pipeline_file_name: The filename of the pipeline to check for. If None is provided,
                           pipeline.yaml will be used.
     :return: The absolute path of the pipeline root directory on the local filesystem.
     """
@@ -98,10 +96,8 @@ def get_pipeline_root_path(pipeline_name: str = None) -> str:
     # development purposes finds the first `pipeline.yaml` file by traversing up the directory
     # tree, while the release version will find the pipeline repository root (commented out below)
     curr_dir_path = pathlib.Path.cwd()
-    if pipeline_name is None:
-        pipeline_name = _PIPELINE_CONFIG_FILE_NAME
     while True:
-        pipeline_yaml_path_to_check = curr_dir_path / pipeline_name
+        pipeline_yaml_path_to_check = curr_dir_path / pipeline_file_name
         if pipeline_yaml_path_to_check.exists():
             return str(curr_dir_path.resolve())
         elif curr_dir_path != curr_dir_path.parent:
@@ -110,7 +106,7 @@ def get_pipeline_root_path(pipeline_name: str = None) -> str:
             # If curr_dir_path == curr_dir_path.parent,
             # we have reached the root directory without finding
             # the desired pipeline.yaml file
-            raise MlflowException(f"Failed to find {pipeline_name}!")
+            raise MlflowException(f"Failed to find {pipeline_file_name}!")
 
 
 def get_default_profile() -> str:
@@ -123,7 +119,7 @@ def get_default_profile() -> str:
     return "databricks" if is_in_databricks_runtime() else "local"
 
 
-def _verify_is_pipeline_root_directory(pipeline_root_path: str, pipeline_name: str = None) -> str:
+def _verify_is_pipeline_root_directory(pipeline_root_path: str, pipeline_file_name: str = "pipeline.yaml") -> str:
     """
     Verifies that the specified local filesystem path is the path of a pipeline root directory.
 
@@ -132,10 +128,8 @@ def _verify_is_pipeline_root_directory(pipeline_root_path: str, pipeline_name: s
     :raises MlflowException: If the specified ``pipeline_root_path`` is not a pipeline root
                              directory.
     """
-    if pipeline_name is None:
-        pipeline_name = _PIPELINE_CONFIG_FILE_NAME
-    pipeline_yaml_path = os.path.join(pipeline_root_path, pipeline_name)
+    pipeline_yaml_path = os.path.join(pipeline_root_path, pipeline_file_name)
     if not os.path.exists(pipeline_yaml_path):
         raise MlflowException(
-            f"Failed to find {pipeline_name} in {pipeline_yaml_path}!"
+            f"Failed to find {pipeline_file_name} in {pipeline_yaml_path}!"
         )
