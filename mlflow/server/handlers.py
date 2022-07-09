@@ -247,11 +247,15 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
 
 
 def _get_model_registry_store(registry_store_uri=None):
-    from mlflow.server import REGISTRY_STORE_URI_ENV_VAR
+    from mlflow.server import REGISTRY_STORE_URI_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
     global _model_registry_store
     if _model_registry_store is None:
-        store_uri = registry_store_uri or os.environ.get(REGISTRY_STORE_URI_ENV_VAR, None)
+        store_uri = (
+            registry_store_uri
+            or os.environ.get(REGISTRY_STORE_URI_ENV_VAR, None)
+            or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        )
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
     return _model_registry_store
 
