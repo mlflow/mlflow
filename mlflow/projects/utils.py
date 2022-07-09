@@ -131,28 +131,6 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
-def _checkout_branch(uri, work_dir, version):
-    """Checkout a specific commit or branch of a repo."""
-    if version is not None:
-        from git import Repo
-        from git.exc import GitCommandError
-
-        try:
-            repo = Repo.init(work_dir)
-            origin = next((remote for remote in repo.remotes), None)
-            if origin is None:
-                origin = repo.create_remote("origin", uri)
-            if origin:
-                origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH, verbose=True)
-            repo.git.checkout(version)
-        except GitCommandError as e:
-            raise ExecutionException(
-                "Unable to checkout version '%s' of git repo %s"
-                "- please ensure that the version exists in the repo. "
-                "Error: %s" % (version, work_dir, e)
-            )
-
-
 def fetch_and_validate_project(uri, version, entry_point, parameters):
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, version=version)
@@ -187,10 +165,7 @@ def _fetch_project(uri, version=None):
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting a version is only supported for Git project URIs")
-            if not pathlib.Path(dst_dir).exists():
-                _fetch_git_repo(parsed_uri, version, dst_dir)
-            else:
-                _checkout_branch(parsed_uri, dst_dir, version=version)
+            _fetch_git_repo(parsed_uri, version, dst_dir)
     else:
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
