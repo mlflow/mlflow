@@ -56,6 +56,17 @@ def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_create_pipeline_custom_yaml_file_works():
+    p = Pipeline(profile="local", pipeline_file_name="pipeline_train.yaml")
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_create_pipeline_custom_yaml_file_fails():
+    with pytest.raises(MlflowException, match="Yaml file"):
+        p = Pipeline(profile="local", pipeline_file_name="pipeline_inference.yaml")
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
 @pytest.mark.parametrize("custom_execution_directory", [None, "custom"])
 def test_pipelines_execution_directory_is_managed_as_expected(
     custom_execution_directory, enter_pipeline_example_directory, tmp_path
