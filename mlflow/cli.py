@@ -252,12 +252,12 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @click.option(
     "--registry-store-uri",
     metavar="URI",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
+    f"same to 'backend-store-uri'",
 )
 @click.option(
     "--default-artifact-root",
@@ -299,6 +299,10 @@ def ui(
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
@@ -358,12 +362,12 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--registry-store-uri",
     metavar="URI",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
+    "(e.g. 'file-plugin:///absolute/path/to/directory'). By default, data will be logged "
+    f"same to 'backend-store-uri'",
 )
 @click.option(
     "--default-artifact-root",
@@ -444,6 +448,10 @@ def server(
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
