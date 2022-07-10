@@ -57,7 +57,7 @@ def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_create_pipeline_custom_yaml_file_works():
-    p = Pipeline(profile="local", pipeline_file_name="pipeline_train.yaml")
+    p = Pipeline(profile="local", pipeline_file_name="pipeline.yaml")
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
