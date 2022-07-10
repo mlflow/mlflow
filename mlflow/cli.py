@@ -257,7 +257,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    f"same to 'backend-store-uri'",
+    "same to 'backend-store-uri'",
 )
 @click.option(
     "--default-artifact-root",
@@ -367,7 +367,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file-plugin:///absolute/path/to/directory'). By default, data will be logged "
-    f"same to 'backend-store-uri'",
+    "same to 'backend-store-uri'",
 )
 @click.option(
     "--default-artifact-root",
