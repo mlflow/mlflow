@@ -96,8 +96,16 @@ jobs:
     working_directory: mlflow/server/js
     steps:
       - checkout
-      - run: yarn install
-      - run: yarn build
+      - run:
+          name: Install dependencies
+          working_directory: examples/pipelines/sklearn_regression
+          run: |
+            yarn install
+      - run:
+          name: Build
+          working_directory: examples/pipelines/sklearn_regression
+          run: |
+            yarn build
       - store_artifacts:
           path: mlflow/server/js/build
 
