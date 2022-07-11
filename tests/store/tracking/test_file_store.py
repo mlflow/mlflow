@@ -53,7 +53,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def initialize(self):
         shutil.rmtree(self.test_root, ignore_errors=True)
-        self.store = self.get_store()
+        self.store = self.get_store()  # pylint: disable=attribute-defined-outside-init
 
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
