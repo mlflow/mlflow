@@ -93,7 +93,6 @@ jobs:
   mlflow-ui:
     docker:
       - image: cimg/node:16.15.1
-    working_directory: mlflow/server/js
     steps:
       - checkout
       - run:
