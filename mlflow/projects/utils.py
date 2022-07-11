@@ -157,7 +157,7 @@ def _fetch_project(uri, version=None):
         parsed_uri = _parse_file_uri(parsed_uri)
         _unzip_repo(
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
-            dst_dir=_parse_file_uri(dst_dir),
+            dst_dir=dst_dir,
         )
     elif _is_local_uri(parsed_uri):
         if use_temp_dst_dir:
