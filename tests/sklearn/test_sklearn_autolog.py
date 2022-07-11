@@ -906,6 +906,42 @@ def test_autolog_logs_signature_and_input_example(data_type):
     np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
+def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
+    from sklearn.base import BaseEstimator, TransformerMixin
+
+    X_train = pd.DataFrame.from_dict({
+        'Total Volume': {0: 64236.62, 1: 54876.98, 2: 118220.22},
+        'Total Bags': {0: 8696.87, 1: 9505.56, 2: 8145.35},
+        'Small Bags': {0: 8603.62, 1: 9408.07, 2: 8042.21},
+        'Large Bags': {0: 93.25, 1: 97.49, 2: 103.14},
+        'XLarge Bags': {0: 0.0, 1: 0.0, 2: 0.0},
+    })
+    y_train = pd.Series({0: 1.33, 1: 1.35, 2: 0.93})
+
+    class CustomTransformer(BaseEstimator, TransformerMixin):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
+            return self
+        def transform(self, X, y=None):  # pylint: disable=unused-argument
+            # Perform arbitary transformation
+            if "XX Large Bags" in X.columns:
+                raise Exception("Found unexpected 'XX Large Bags' column!")
+            X["XXLarge Bags"] = X["XLarge Bags"] + 1
+            return X
+
+    mlflow.sklearn.autolog()
+
+    sk_pipeline = sklearn.pipeline.make_pipeline(CustomTransformer(), sklearn.linear_model.LinearRegression())
+    sk_pipeline.fit(X_train, y_train)
+
+    model_conf = get_model_conf(mlflow.last_active_run().info.artifact_uri)
+    assert "XLarge Bags" in [inp.name for inp in model_conf.signature.inputs.inputs]
+    assert "XXLarge Bags" not in [inp.name for inp in model_conf.signature.inputs.inputs]
+
+    metrics = get_run_data(mlflow.last_active_run().info.run_id)[1]
+    assert "training_r2_score" in metrics
+    assert "training_rmse" in metrics
+
+
 def test_autolog_does_not_throw_when_failing_to_sample_X():
     class ArrayThatThrowsWhenSliced(np.ndarray):
         def __new__(cls, input_array):
