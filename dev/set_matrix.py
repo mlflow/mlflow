@@ -35,16 +35,16 @@ pytest dev/set_matrix.py --doctest-modules
 
 import sys
 import argparse
-from packaging.version import Version
-from packaging.specifiers import SpecifierSet
 import json
 import os
 import re
 import shutil
 import urllib.request
 import functools
-
 import yaml
+
+from packaging.version import Version
+from packaging.specifiers import SpecifierSet
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -55,6 +55,9 @@ DEV_NUMERIC = "9999.9999.9999"
 def read_yaml(location, if_error=None):
     """
     Reads a YAML file.
+
+    :param location: Location to read yaml file from
+    :param if_error: return value for error
 
     Examples
     --------
@@ -68,14 +71,14 @@ def read_yaml(location, if_error=None):
     """
     try:
         if re.search("^https?://", location):
-            with urllib.request.urlopen(location) as f:
-                return yaml.load(f, Loader=yaml.SafeLoader)
+            with urllib.request.urlopen(location) as file:
+                return yaml.load(file, Loader=yaml.SafeLoader)
         else:
-            with open(location) as f:
-                return yaml.load(f, Loader=yaml.SafeLoader)
-    except Exception as e:
+            with open(location, encoding="utf-8") as file:
+                return yaml.load(file, Loader=yaml.SafeLoader)
+    except Exception as err:
         if if_error is not None:
-            print("Failed to read '{}' due to: `{}`".format(location, e))
+            print(f"Failed to read '{location}' due to: `{err}`")
             return if_error
 
         raise
@@ -91,8 +94,9 @@ def get_released_versions(package_name):
     >>> get_released_versions("scikit-learn")
     {'0.10': '2012-01-11T14:42:25', '0.11': '2012-05-08T00:40:14', ...}
     """
-    url = "https://pypi.python.org/pypi/{}/json".format(package_name)
-    data = json.load(urllib.request.urlopen(url))
+    url = f"https://pypi.python.org/pypi/{package_name}/json"
+    with urllib.request.urlopen(url) as response:
+        data = json.load(response)
 
     versions = {
         # We can actually select any element in `dist_files` because all the distribution files
@@ -177,10 +181,10 @@ def filter_versions(versions, min_ver, max_ver, excludes=None, allow_unreleased_
 
     versions = {Version(v): t for v, t in versions.items() if v not in excludes}
 
-    def _is_final_or_post_release(v):
+    def _is_final_or_post_release(ver):
         # final release: https://www.python.org/dev/peps/pep-0440/#final-releases
         # post release: https://www.python.org/dev/peps/pep-0440/#post-releases
-        return (v.base_version == v.public) or (v.is_postrelease)
+        return (ver.base_version == ver.public) or ver.is_postrelease
 
     versions = {v: t for v, t in versions.items() if _is_final_or_post_release(v)}
     versions = {v: t for v, t in versions.items() if v.major <= Version(max_ver).major}
@@ -212,11 +216,11 @@ def get_changed_flavors(changed_files, flavors):
     []
     """
     changed_flavors = []
-    for f in changed_files:
+    for file in changed_files:
         pattern = r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
         #                           ~~~~~
         #                           # This group captures a flavor name
-        match = re.search(pattern, f)
+        match = re.search(pattern, file)
 
         if (match is not None) and (match.group(2) in flavors):
             changed_flavors.append(match.group(2))
@@ -265,10 +269,10 @@ def process_requirements(requirements, version=None):
                 reqs = reqs.union(packages)
         return sorted(reqs)
 
-    raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
+    raise TypeError(f"Invalid object type for `requirements`: '{type(requirements)}'")
 
 
-def remove_comments(s):
+def remove_comments(code):
     """
     Examples
     --------
@@ -280,7 +284,7 @@ def remove_comments(s):
     >>> remove_comments(code)
     'echo foo'
     """
-    return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
+    return "\n".join(l for l in code.strip().split("\n") if not l.strip().startswith("#"))
 
 
 def make_pip_install_command(packages):
@@ -290,7 +294,7 @@ def make_pip_install_command(packages):
     >>> make_pip_install_command(["foo", "bar"])
     "pip install 'foo' 'bar'"
     """
-    return "pip install " + " ".join("'{}'".format(x) for x in packages)
+    return "pip install " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -303,15 +307,25 @@ def divider(title, length=None):
     length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
     rest = length - len(title) - 2
     left = rest // 2 if rest % 2 else (rest + 1) // 2
-    return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
+    div_left = "=" * left
+    div_right = "=" * (rest - left)
+    return f"\n{div_left} {title} {div_right}"
 
 
-def split_by_comma(x):
-    stripped = x.strip()
+def split_by_comma(text_to_split):
+    """
+    Splits a string by comma
+    :param text_to_split: text to split by comma
+    """
+    stripped = text_to_split.strip()
     return list(map(str.strip, stripped.split(","))) if stripped != "" else []
 
 
 def parse_args(args):
+    """
+    A function to parse arguments passed.
+    :param args: arguments
+    """
     parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
     parser.add_argument(
         "--versions-yaml",
@@ -370,38 +384,46 @@ def parse_args(args):
 
 
 class Hashabledict(dict):
+    """
+    Class for hashable dictionary
+    """
+
     def __hash__(self):
         return hash(frozenset(self))
 
 
 def expand_config(config):
+    """
+    Expands a configuration object
+    :param config: configuration object to expand
+    """
     matrix = []
     for flavor_key, cfgs in config.items():
         flavor = flavor_key.split("-")[0]
         package_info = cfgs.pop("package_info")
-        all_versions = get_released_versions(package_info["pip_release"])
 
         for key, cfg in cfgs.items():
             # Released versions
-            min_ver = cfg["minimum"]
-            max_ver = cfg["maximum"]
             versions = filter_versions(
-                all_versions,
-                min_ver,
-                max_ver,
+                # all versions
+                get_released_versions(package_info["pip_release"]),
+                # min_ver
+                cfg["minimum"],
+                # max_ver
+                cfg["maximum"],
                 cfg.get("unsupported"),
                 allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
             )
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
-            if min_ver not in versions:
-                versions.append(min_ver)
+            if cfg["minimum"] not in versions:
+                versions.append(cfg["minimum"])
 
             pip_release = package_info["pip_release"]
             for ver in versions:
                 job_name = " / ".join([flavor_key, ver, key])
-                requirements = ["{}=={}".format(pip_release, ver)]
+                requirements = [f"{pip_release}=={ver}"]
                 requirements.extend(process_requirements(cfg.get("requirements"), ver))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg["run"])
@@ -414,7 +436,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=ver,
-                        supported=Version(ver) <= Version(max_ver),
+                        supported=Version(ver) <= Version(cfg["maximum"]),
                     )
                 )
 
@@ -442,6 +464,11 @@ def expand_config(config):
 
 
 def process_ref_versions_yaml(ref_versions_yaml, matrix_base):
+    """
+    Process reference versions for yaml
+    :param ref_versions_yaml: reference versions
+    :param matrix_base: base matrix
+    """
     if ref_versions_yaml is None:
         return set()
 
@@ -451,6 +478,11 @@ def process_ref_versions_yaml(ref_versions_yaml, matrix_base):
 
 
 def process_changed_files(changed_files, matrix_base):
+    """
+    A function to process changed files
+    :param changed_files: files changed
+    :param matrix_base: base matrix
+    """
     if changed_files is None:
         return set()
 
@@ -465,6 +497,10 @@ def process_changed_files(changed_files, matrix_base):
 
 
 def generate_matrix(args):
+    """
+    Generate matrix from arguments
+    :param args: arguments
+    """
     args = parse_args(args)
     config_base = read_yaml(args.versions_yaml)
     matrix_base = set(expand_config(config_base))
@@ -495,6 +531,10 @@ def generate_matrix(args):
 
 
 def main(args):
+    """
+    Main function to generate matrix and display it
+    :param args: arguments to generate matrix from
+    """
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
@@ -509,11 +549,12 @@ def main(args):
         # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
         # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
         # Note that this actually doesn't print anything to the console.
-        print("::set-output name=matrix::{}".format(json.dumps(matrix)))
+        print(f"::set-output name=matrix::{json.dumps(matrix)}")
 
         # Set a flag that indicates whether or not the matrix is empty. If this flag is 'true',
         # skip the subsequent jobs.
-        print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true"))
+        is_matrix_empty = "false" if job_names else "true"
+        print(f"::set-output name=is_matrix_empty::{is_matrix_empty}")
 
 
 if __name__ == "__main__":

@@ -1,11 +1,18 @@
+"""
+A script to display the package release dates.
+"""
 import os
 import subprocess
-import requests
-from concurrent.futures import ThreadPoolExecutor
 import traceback
+from concurrent.futures import ThreadPoolExecutor
+
+import requests
 
 
 def get_distributions():
+    """
+    A function that extracts the package and version
+    """
     res = subprocess.run(["pip", "list"], stdout=subprocess.PIPE, check=True)
     pip_list_stdout = res.stdout.decode("utf-8")
     # `pip_list_stdout` looks like this:
@@ -25,6 +32,11 @@ def get_distributions():
 
 
 def get_release_date(package, version):
+    """
+    Fetches a release date for a specific package and a version number
+    :param package: package to find release date for
+    :param version: version of package to find release date for
+    """
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json", timeout=10)
     if not resp.ok:
         return ""
@@ -38,18 +50,30 @@ def get_release_date(package, version):
 
 
 def get_longest_string_length(array):
+    """
+    Gets the length of longest string
+    :param array: array to calculate longest string length on
+    """
     return len(max(array, key=len))
 
 
 def safe_result(future, if_error=""):
+    """
+    Returns the result object safely
+    :param future: future object to get result from
+    :param if_error: error string to return in case of exception
+    """
     try:
         return future.result()
-    except Exception:
+    except future.exception():
         traceback.print_exc()
         return if_error
 
 
 def main():
+    """
+    A main function which orchestrates package version and release date display.
+    """
     distributions = get_distributions()
     with ThreadPoolExecutor(max_workers=min(32, os.cpu_count() + 4)) as executor:
         futures = [executor.submit(get_release_date, pkg, ver) for pkg, ver in distributions]

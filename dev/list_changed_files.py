@@ -13,6 +13,9 @@ import requests
 
 
 def parse_args():
+    """
+    A function to parse arguments passed.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--repository", help="Owner and repository name", required=True)
     parser.add_argument("--pr-num", help="Pull request number", required=True)
@@ -20,6 +23,9 @@ def parse_args():
 
 
 def main():
+    """
+    Main function to list changed files in a specified pull request.
+    """
     args = parse_args()
     changed_files = []
     per_page = 100

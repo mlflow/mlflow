@@ -7,16 +7,22 @@ at 'mlflow/pypi_package_index.json'.
 $ python dev/update_pypi_package_index.py
 """
 
+import sys
 import argparse
 import json
 import posixpath
-import requests
-import sys
+
 from datetime import datetime
 from html.parser import HTMLParser
 
+import requests
+
 
 def parse_args(args):
+    """
+    A function to parse arguments and return parsed arguments
+    :param args: arguments to parse
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-p",
@@ -29,10 +35,18 @@ def parse_args(args):
 
 
 def main(args):
+    """
+    A main function that orchestrates the index updates of known PyPI packages.
+    :param args: arguments to parse
+    """
     args = parse_args(args)
     package_names = set()
 
     class PyPIHTMLParser(HTMLParser):  # pylint: disable=abstract-method
+        """
+        Class to parse PyPI html
+        """
+
         def handle_starttag(self, tag, attrs):
             if tag == "a":
                 for name, value in attrs:
@@ -54,8 +68,8 @@ def main(args):
         "package_names": list(package_names),
     }
 
-    with open(args.path, "w") as f:
-        json.dump(formatted_package_index, f, indent=2)
+    with open(args.path, "w", encoding="utf-8") as file:
+        json.dump(formatted_package_index, file, indent=2)
 
 
 if __name__ == "__main__":

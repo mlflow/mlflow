@@ -4,14 +4,21 @@ A script to automatically find the minimum required python version for a specifi
 Usage:
 python dev/get_minimum_required_python.py -p scikit-learn -v 1.1.0 --python-versions "3.7,3.8"
 """
+import typing as t
+
+import argparse
 import requests
+
 from packaging.version import Version
 from packaging.specifiers import SpecifierSet
-import typing as t
-import argparse
 
 
 def get_requires_python(package: str, version: str) -> t.Optional[str]:
+    """
+    Function to get python version required for a package.
+    :param package: package name
+    :param version: version number
+    """
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     resp.raise_for_status()
     return next(
@@ -25,6 +32,9 @@ def get_requires_python(package: str, version: str) -> t.Optional[str]:
 
 
 def parse_args():
+    """
+    A function to parse arguments.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--package", help="Package name", required=True)
     parser.add_argument("-v", "--version", help="Package version", required=True)
@@ -41,6 +51,9 @@ def parse_args():
 
 
 def main():
+    """
+    Main function for getting minimum required python version.
+    """
     args = parse_args()
     sorted_python_versions = sorted(args.python_versions.split(","), key=Version)
     min_python_version = sorted_python_versions[0]
