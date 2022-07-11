@@ -928,7 +928,7 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
             X["XXLarge Bags"] = X["XLarge Bags"] + 1
             return X
 
-    mlflow.sklearn.autolog(log_input_examples=True)
+    mlflow.sklearn.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
     sk_pipeline = sklearn.pipeline.make_pipeline(CustomTransformer(), sklearn.linear_model.LinearRegression())
     sk_pipeline.fit(X_train, y_train)
