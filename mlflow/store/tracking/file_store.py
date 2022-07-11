@@ -314,7 +314,7 @@ class FileStore(AbstractStore):
 
         experiments = []
         parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
-        filters = _get_search_experiments_filter_clauses(parsed_filters)
+        filters = _get_search_experiments_filters(parsed_filters)
         for exp_id in experiment_ids:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
@@ -325,7 +325,7 @@ class FileStore(AbstractStore):
                 logging.warning(
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
-        experiments = sorted(experiments, key=_create_sort_key(order_by))
+        experiments = sorted(experiments, key=_get_search_experiments_sort_key(order_by))
         experiments, next_page_token = SearchUtils.paginate(experiments, page_token, max_results)
         return PagedList(experiments, next_page_token)
 
@@ -973,6 +973,9 @@ class FileStore(AbstractStore):
 
 
 def _like_pattern_to_regex(pattern):
+    """
+    Convert a pattern string for LIKE and ILIKE to the equivalent regular expression.
+    """
     return "^" + pattern.replace("%", ".*") + "$"
 
 
@@ -998,7 +1001,7 @@ def filter_by_tags(key, comparator, value):
     return lambda exp: any(f(tag[1]) for tag in filter(lambda tag: tag[0] == key, exp.tags.items()))
 
 
-def _get_search_experiments_filter_clauses(parsed_filters):
+def _get_search_experiments_filters(parsed_filters):
     filters = []
     for f in parsed_filters:
         type_ = f["type"]
@@ -1028,7 +1031,7 @@ class _Reversor:
         return other.obj < self.obj
 
 
-def _create_sort_key(order_by):
+def _get_search_experiments_sort_key(order_by):
     order_bys = []
     for type_, key, ascending in map(
         SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
@@ -1039,7 +1042,7 @@ def _create_sort_key(order_by):
             raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
 
     # Add a tie-breaker
-    if not any(ob[0] == "experiment_id" for ob in order_bys):
+    if not any(key == "experiment_id" for key, _ in order_bys):
         order_bys.append(("experiment_id", False))
 
     return lambda exp: tuple(
