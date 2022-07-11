@@ -98,12 +98,12 @@ jobs:
       - checkout
       - run:
           name: Install dependencies
-          working_directory: examples/pipelines/sklearn_regression
+          working_directory: mlflow/server/js
           run: |
             yarn install
       - run:
           name: Build
-          working_directory: examples/pipelines/sklearn_regression
+          working_directory: mlflow/server/js
           run: |
             yarn build
       - store_artifacts:
