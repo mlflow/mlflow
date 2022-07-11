@@ -90,6 +90,20 @@ jobs:
       - store_artifacts:
           path: ~/.mlflow/pipelines
 
+  mlflow-ui:
+    docker:
+      - image: cimg/node:16.15.1
+    steps:
+      - checkout
+      - run:
+          name: Build UI
+          working_directory: examples/pipelines/sklearn_regression
+          command: |
+            yarn install
+            yarn build
+      - store_artifacts:
+        path: mlflow/server/js/build
+
 workflows:
   build:
     jobs:
