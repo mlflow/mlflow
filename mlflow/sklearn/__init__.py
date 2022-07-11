@@ -1263,17 +1263,19 @@ def _autolog(
         """
         Autologging function for XGBoost and LightGBM scikit-learn models
         """
-        # Obtain a copy of the training dataset prior to model training for subsequent
-        # use during model logging & input example extraction, ensuring that we don't
-        # attempt to infer input examples on data that was mutated during training
-        X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
+        # Obtain a copy of a model input example from the training dataset prior to model training
+        # for subsequent use during model logging, ensuring that the input example and inferred
+        # model signature to not include any mutations from model training
+        input_example = (
+            _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+        )
         # parameter, metric, and non-model artifact logging are done in
         # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
-                lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
+                lambda: deepcopy(input_example),
                 lambda input_example: infer_signature(
                     # Copy the input example so that it is not mutated by the call to
                     # predict() prior to signature inference
