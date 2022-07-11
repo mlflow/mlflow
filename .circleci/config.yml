@@ -97,7 +97,7 @@ jobs:
       - checkout
       - run:
           name: Build UI
-          working_directory: examples/pipelines/sklearn_regression
+          working_directory: mlflow/server/js
           command: |
             yarn install
             yarn build
