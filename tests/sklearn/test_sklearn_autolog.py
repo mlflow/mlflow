@@ -909,18 +909,21 @@ def test_autolog_logs_signature_and_input_example(data_type):
 def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
     from sklearn.base import BaseEstimator, TransformerMixin
 
-    X_train = pd.DataFrame.from_dict({
-        'Total Volume': {0: 64236.62, 1: 54876.98, 2: 118220.22},
-        'Total Bags': {0: 8696.87, 1: 9505.56, 2: 8145.35},
-        'Small Bags': {0: 8603.62, 1: 9408.07, 2: 8042.21},
-        'Large Bags': {0: 93.25, 1: 97.49, 2: 103.14},
-        'XLarge Bags': {0: 0.0, 1: 0.0, 2: 0.0},
-    })
+    X_train = pd.DataFrame.from_dict(
+        {
+            "Total Volume": {0: 64236.62, 1: 54876.98, 2: 118220.22},
+            "Total Bags": {0: 8696.87, 1: 9505.56, 2: 8145.35},
+            "Small Bags": {0: 8603.62, 1: 9408.07, 2: 8042.21},
+            "Large Bags": {0: 93.25, 1: 97.49, 2: 103.14},
+            "XLarge Bags": {0: 0.0, 1: 0.0, 2: 0.0},
+        }
+    )
     y_train = pd.Series({0: 1.33, 1: 1.35, 2: 0.93})
 
     class CustomTransformer(BaseEstimator, TransformerMixin):
         def fit(self, X, y=None):  # pylint: disable=unused-argument
             return self
+
         def transform(self, X, y=None):  # pylint: disable=unused-argument
             # Perform arbitary transformation
             if "XXLarge Bags" in X.columns:
@@ -930,12 +933,16 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
 
     mlflow.sklearn.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
-    sk_pipeline = sklearn.pipeline.make_pipeline(CustomTransformer(), sklearn.linear_model.LinearRegression())
+    sk_pipeline = sklearn.pipeline.make_pipeline(
+        CustomTransformer(), sklearn.linear_model.LinearRegression()
+    )
     sk_pipeline.fit(X_train, y_train)
 
     run_artifact_uri = mlflow.last_active_run().info.artifact_uri
     model_conf = get_model_conf(run_artifact_uri)
-    input_example = pd.read_json(os.path.join(run_artifact_uri, "model", "input_example.json"), orient='split')
+    input_example = pd.read_json(
+        os.path.join(run_artifact_uri, "model", "input_example.json"), orient="split"
+    )
     model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
     assert "XLarge Bags" in model_signature_input_names
     assert "XLarge Bags" in input_example.columns

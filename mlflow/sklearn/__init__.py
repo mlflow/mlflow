@@ -1266,9 +1266,9 @@ def _autolog(
         # Obtain a copy of a model input example from the training dataset prior to model training
         # for subsequent use during model logging, ensuring that the input example and inferred
         # model signature to not include any mutations from model training
-        input_example = (
-            _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][:INPUT_EXAMPLE_SAMPLE_ROWS]
-        )
+        input_example = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][
+            :INPUT_EXAMPLE_SAMPLE_ROWS
+        ]
         # parameter, metric, and non-model artifact logging are done in
         # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
         fit_output = original(self, *args, **kwargs)
