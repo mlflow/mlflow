@@ -30,9 +30,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-_GIT_URI_REGEX = re.compile(
-    r"^((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
-)
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
@@ -83,31 +80,33 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
-def _is_git_repo(path):
+def _is_git_repo(path) -> bool:
     """Returns True if passed-in path is a valid git repository"""
     import git
 
     try:
-        git.Repo(path)
-        return True
+        repo = git.Repo(path)
+        if len(repo.branches) > 0:
+            return True
     except git.exc.InvalidGitRepositoryError:
-        return False
+        pass
+    return False
 
 
-def _is_local_uri(uri):
-    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
-    if _GIT_URI_REGEX.match(uri):
-        return False
+def _parse_file_uri(uri: str) -> str:
+    """Converts file URIs to filesystem paths"""
+    if _is_file_uri(uri):
+        parsed_file_uri = urllib.parse.urlparse(uri)
+        return str(
+            pathlib.Path(parsed_file_uri.netloc, parsed_file_uri.path, parsed_file_uri.fragment)
+        )
+    return uri
 
-    parsed_uri = urllib.parse.urlparse(uri)
-    drive = pathlib.Path(uri).drive
 
-    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
-        return not _is_git_repo(uri)
-    elif parsed_uri.scheme in ("file", ""):
-        return not _is_git_repo(parsed_uri.path)
-    else:
-        return False
+def _is_local_uri(uri: str) -> bool:
+    """Returns True if passed-in URI should be interpreted as a folder on the local filesystem."""
+    resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
+    return resolved_uri.exists()
 
 
 def _is_zip_uri(uri):
@@ -150,22 +149,23 @@ def _fetch_project(uri, version=None):
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
-    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else _parse_file_uri(parsed_uri)
+
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
-        if _is_file_uri(parsed_uri):
-            parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
-            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
+        parsed_uri = _parse_file_uri(parsed_uri)
         _unzip_repo(
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=dst_dir,
         )
-    elif _is_local_uri(uri):
-        if version is not None:
-            raise ExecutionException("Setting a version is only supported for Git project URIs")
+    elif _is_local_uri(parsed_uri):
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+        if version is not None:
+            if not _is_git_repo(_parse_file_uri(parsed_uri)):
+                raise ExecutionException("Setting a version is only supported for Git project URIs")
+            _fetch_git_repo(parsed_uri, version, dst_dir)
     else:
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
@@ -203,7 +203,9 @@ def _fetch_git_repo(uri, version, dst_dir):
     import git
 
     repo = git.Repo.init(dst_dir)
-    origin = repo.create_remote("origin", uri)
+    origin = next((remote for remote in repo.remotes), None)
+    if origin is None:
+        origin = repo.create_remote("origin", uri)
     if version is not None:
         try:
             origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
