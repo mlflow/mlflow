@@ -99,7 +99,7 @@ jobs:
       - run: yarn install
       - run: yarn build
       - store_artifacts:
-        path: mlflow/server/js/build
+          path: mlflow/server/js/build
 
 workflows:
   build:
