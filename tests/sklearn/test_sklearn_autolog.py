@@ -928,14 +928,19 @@ def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mut
             X["XXLarge Bags"] = X["XLarge Bags"] + 1
             return X
 
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_input_examples=True)
 
     sk_pipeline = sklearn.pipeline.make_pipeline(CustomTransformer(), sklearn.linear_model.LinearRegression())
     sk_pipeline.fit(X_train, y_train)
 
-    model_conf = get_model_conf(mlflow.last_active_run().info.artifact_uri)
-    assert "XLarge Bags" in [inp.name for inp in model_conf.signature.inputs.inputs]
-    assert "XXLarge Bags" not in [inp.name for inp in model_conf.signature.inputs.inputs]
+    run_artifact_uri = mlflow.last_active_run().info.artifact_uri
+    model_conf = get_model_conf(run_artifact_uri)
+    input_example = pd.read_json(os.path.join(run_artifact_uri, "model", "input_example.json"), orient='split')
+    model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
+    assert "XLarge Bags" in model_signature_input_names
+    assert "XLarge Bags" in input_example.columns
+    assert "XXLarge Bags" not in model_signature_input_names
+    assert "XXLarge Bags" not in input_example.columns
 
     metrics = get_run_data(mlflow.last_active_run().info.run_id)[1]
     assert "training_r2_score" in metrics

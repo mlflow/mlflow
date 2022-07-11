@@ -1277,10 +1277,10 @@ def _autolog(
             input_example, signature = resolve_input_example_and_signature(
                 lambda: deepcopy(input_example),
                 lambda input_example: infer_signature(
+                    input_example,
                     # Copy the input example so that it is not mutated by the call to
                     # predict() prior to signature inference
-                    deepcopy(input_example),
-                    self.predict(input_example),
+                    self.predict(deepcopy(input_example)),
                 ),
                 log_input_examples,
                 log_model_signatures,
@@ -1381,9 +1381,12 @@ def _autolog(
                     + "which is required in order to infer the signature"
                 )
 
-            # Copy the input example so that it is not mutated by the call to
-            # predict() prior to signature inference
-            return infer_signature(deepcopy(input_example), estimator.predict(input_example))
+            return infer_signature(
+                input_example,
+                # Copy the input example so that it is not mutated by the call to
+                # predict() prior to signature inference
+                estimator.predict(deepcopy(input_example)),
+            )
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
