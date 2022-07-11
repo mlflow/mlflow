@@ -98,12 +98,12 @@ jobs:
       - run:
           name: Install dependencies
           working_directory: mlflow/server/js
-          run: |
+          command: |
             yarn install
       - run:
           name: Build
           working_directory: mlflow/server/js
-          run: |
+          command: |
             yarn build
       - store_artifacts:
           path: mlflow/server/js/build
