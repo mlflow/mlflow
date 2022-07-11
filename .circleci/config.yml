@@ -107,3 +107,4 @@ workflows:
       - build_doc
       - build_doc_r
       - mlflow-pipelines
+      - mlflow-ui
