@@ -93,14 +93,11 @@ jobs:
   mlflow-ui:
     docker:
       - image: cimg/node:16.15.1
+    working_directory: mlflow/server/js
     steps:
       - checkout
-      - run:
-          name: Build UI
-          working_directory: mlflow/server/js
-          command: |
-            yarn install
-            yarn build
+      - run: yarn install
+      - run: yarn build
       - store_artifacts:
         path: mlflow/server/js/build
 
