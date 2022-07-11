@@ -104,7 +104,7 @@ jobs:
           name: Build
           working_directory: mlflow/server/js
           command: |
-            yarn build
+            yarn build:small
       - store_artifacts:
           path: mlflow/server/js/build
 

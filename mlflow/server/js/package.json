@@ -119,6 +119,7 @@
     "start:mfe": "MLFLOW_MFE_DEV=true npm run start:iframe",
     "start:web": "HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true craco start",
     "build": "craco --max_old_space_size=8192 build",
+    "build:small": "craco --max_old_space_size=2048 build",
     "build:mfe": "MLFLOW_MFE_DEV=true craco --max_old_space_size=8192 build",
     "test": "craco --max_old_space_size=8192 test --env=jsdom --colors",
     "test:ci": "CI=true craco test --env=jsdom --colors --forceExit --ci",
