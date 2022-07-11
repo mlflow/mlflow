@@ -502,19 +502,30 @@ cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 cli.add_command(mlflow.pipelines.cli.commands)
 
+# We are conditional loading these commands since the skinny client does
+# not support them due to the pandas and numpy dependencies of MLflow Models
 try:
-    # pylint: disable=unused-import
-    import mlflow.models.cli
-    import mlflow.azureml.cli
-    import mlflow.sagemaker.cli
+    import mlflow.models.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.azureml.cli.commands)
-    cli.add_command(mlflow.sagemaker.cli.commands)
     cli.add_command(mlflow.models.cli.commands)
 except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
     pass
+
+
+try:
+    import mlflow.azureml.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.azureml.cli.commands)
+except ImportError as e:
+    pass
+
+try:
+    import mlflow.sagemaker.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.sagemaker.cli.commands)
+except ImportError as e:
+    pass
+
 
 if __name__ == "__main__":
     cli()
