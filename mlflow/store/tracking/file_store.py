@@ -998,7 +998,14 @@ def filter_by_attribute(key, comparator, value):
 
 def filter_by_tags(key, comparator, value):
     f = _comparator_to_func(comparator, value)
-    return lambda exp: any(f(tag[1]) for tag in filter(lambda tag: tag[0] == key, exp.tags.items()))
+
+    def func(exp):
+        val = exp.tags.get(key)
+        if val is not None:
+            return f(val)
+        return False
+
+    return func
 
 
 def _get_search_experiments_filters(parsed_filters):
