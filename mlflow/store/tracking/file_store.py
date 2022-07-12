@@ -1009,10 +1009,8 @@ def _get_search_experiments_filters(parsed_filters):
         comparator = f["comparator"]
         value = f["value"]
         if type_ == "attribute":
-            f = _comparator_to_func(comparator, value)
             filters.append(filter_by_attribute(key, comparator, value))
         elif type_ == "tag":
-            f = _comparator_to_func(comparator, value)
             filters.append(filter_by_tags(key, comparator, value))
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
