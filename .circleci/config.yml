@@ -67,8 +67,32 @@ jobs:
       - store_artifacts:
           path: docs/build/html
 
+  mlflow-pipelines:
+    docker:
+      - image: circleci/python:3.7
+
+    steps:
+      - checkout
+      - run:
+          name: Pull submodule
+          command: |
+            git submodule update --init --recursive
+      - run:
+          name: Install dependencies
+          command: |
+            pip install -e '.[pipelines]'
+      - run:
+          name: Run example
+          working_directory: examples/pipelines/sklearn_regression
+          command: |
+            export MLFLOW_PIPELINES_PROFILE=local
+            mlp run
+      - store_artifacts:
+          path: ~/.mlflow/pipelines
+
 workflows:
   build:
     jobs:
       - build_doc
       - build_doc_r
+      - mlflow-pipelines

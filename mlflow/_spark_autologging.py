@@ -7,8 +7,8 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (

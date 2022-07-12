@@ -1,0 +1,85 @@
+name: R
+
+on:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  pull_request:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+  schedule:
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION: python
+
+jobs:
+  r:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash --noprofile --norc -exo pipefail {0}
+        working-directory: mlflow/R/mlflow
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+    - uses: actions/setup-java@v3
+      with:
+        java-version: 11
+        distribution: 'adopt'
+    - uses: r-lib/actions/setup-r@v2
+    # This step dumps the current set of R dependencies and R version into files to be used
+    # as a cache key when caching/restoring R dependencies.
+    - name: Dump dependencies
+      run: |
+        Rscript -e 'source(".dump-r-dependencies.R", echo = TRUE)'
+    - name: Get OS name
+      id: os-name
+      run: |
+        # `os_name` will be like "Ubuntu-20.04.1-LTS"
+        os_name=$(lsb_release -ds | sed 's/\s/-/g')
+        echo "::set-output name=os-name::$os_name"
+    - name: Cache R packages
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
+        # R dependencies
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
+    - name: Install dependencies
+      run: |
+        Rscript -e 'source(".install-deps.R", echo=TRUE)'
+    - name: Set USE_R_DEVEL
+      run: |
+        if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+          USE_R_DEVEL=true
+        elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          # Use r-devel on a pull request targeted to a release branch
+          USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+        else
+          # Use r-devel on a push to a release branch
+          USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+        fi
+        echo "USE_R_DEVEL=$USE_R_DEVEL" >> $GITHUB_ENV
+    - name: Build package
+      run: |
+        ./build-package.sh
+    - name: Create test environment
+      run: |
+        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
+    - name: Run tests
+      env:
+        LINTR_COMMENT_BOT: false
+      run: |
+        cd tests
+        Rscript -e 'source("../.run-tests.R", echo=TRUE)'

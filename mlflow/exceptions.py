@@ -5,6 +5,7 @@ from mlflow.protos.databricks_pb2 import (
     TEMPORARILY_UNAVAILABLE,
     ENDPOINT_NOT_FOUND,
     PERMISSION_DENIED,
+    CUSTOMER_UNAUTHORIZED,
     REQUEST_LIMIT_EXCEEDED,
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
@@ -22,10 +23,22 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.Name(ENDPOINT_NOT_FOUND): 404,
     ErrorCode.Name(RESOURCE_DOES_NOT_EXIST): 404,
     ErrorCode.Name(PERMISSION_DENIED): 403,
+    ErrorCode.Name(CUSTOMER_UNAUTHORIZED): 401,
     ErrorCode.Name(BAD_REQUEST): 400,
     ErrorCode.Name(RESOURCE_ALREADY_EXISTS): 400,
     ErrorCode.Name(INVALID_PARAMETER_VALUE): 400,
 }
+
+HTTP_STATUS_TO_ERROR_CODE = dict((v, k) for k, v in ERROR_CODE_TO_HTTP_STATUS.items())
+HTTP_STATUS_TO_ERROR_CODE[400] = ErrorCode.Name(BAD_REQUEST)
+HTTP_STATUS_TO_ERROR_CODE[404] = ErrorCode.Name(ENDPOINT_NOT_FOUND)
+HTTP_STATUS_TO_ERROR_CODE[500] = ErrorCode.Name(INTERNAL_ERROR)
+
+
+def get_error_code(http_status):
+    return ErrorCode.Value(
+        HTTP_STATUS_TO_ERROR_CODE.get(http_status, ErrorCode.Name(INTERNAL_ERROR))
+    )
 
 
 class MlflowException(Exception):
@@ -40,9 +53,9 @@ class MlflowException(Exception):
         """
         :param message: The message or exception describing the error that occurred. This will be
                         included in the exception's serialized JSON representation.
-        :param error_code: An appropriate error code for the error that occured; it will be included
-                           in the exception's serialized JSON representation. This should be one of
-                           the codes listed in the `mlflow.protos.databricks_pb2` proto.
+        :param error_code: An appropriate error code for the error that occurred; it will be
+                           included in the exception's serialized JSON representation. This should
+                           be one of the codes listed in the `mlflow.protos.databricks_pb2` proto.
         :param kwargs: Additional key-value pairs to include in the serialized JSON representation
                        of the MlflowException.
         """
@@ -68,7 +81,7 @@ class MlflowException(Exception):
         """
         Constructs an `MlflowException` object with the `INVALID_PARAMETER_VALUE` error code.
 
-        :param message: The message describing the error that occured. This will be included in the
+        :param message: The message describing the error that occurred. This will be included in the
                         exception's serialized JSON representation.
         :param kwargs: Additional key-value pairs to include in the serialized JSON representation
                        of the MlflowException.

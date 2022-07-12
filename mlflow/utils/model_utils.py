@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -77,7 +78,6 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
     """
     Obtains the names of the subdirectories contained under the specified source code
     path and joins them with the specified destination code path.
-
     :param src_code_path: The path of the source code directory for which to list subdirectories.
     :param dst_code_path: The destination directory path to which subdirectory names should be
                           joined.
@@ -87,7 +87,7 @@ def _get_code_dirs(src_code_path, dst_code_path=None):
     return [
         (os.path.join(dst_code_path, x))
         for x in os.listdir(src_code_path)
-        if os.path.isdir(x) and not x == "__pycache__"
+        if os.path.isdir(os.path.join(src_code_path, x)) and not x == "__pycache__"
     ]
 
 
@@ -119,6 +119,13 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + _get_code_dirs(code_path) + sys.path
+    # Delete cached modules so they will get reloaded anew from the correct code path
+    # Otherwise python will use the cached modules
+    modules = [
+        p.stem for p in Path(code_path).rglob("*.py") if p.is_file() and p.name != "__init__.py"
+    ]
+    for module in modules:
+        sys.modules.pop(module, None)
 
 
 def _validate_and_prepare_target_save_path(path):
@@ -142,6 +149,7 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     :param code_key: The key used by the flavor to indicate custom code artifacts.
     By default this is FLAVOR_CONFIG_CODE.
     """
+    assert isinstance(conf, dict), "`conf` argument must be a dict."
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)

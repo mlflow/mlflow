@@ -51,7 +51,7 @@ describe('RunView', () => {
         },
         artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
-          '12345': Experiment.fromJs({
+          12345: Experiment.fromJs({
             experiment_id: '12345',
             name: 'my experiment',
             artifact_location: 'dbfs:/databricks/abc',
@@ -63,7 +63,7 @@ describe('RunView', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': modelVersion,
+            1: modelVersion,
           },
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
@@ -204,14 +204,8 @@ describe('RunView', () => {
     );
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
-    wrapper
-      .find("[data-test-id='overflow-menu-trigger']")
-      .at(0)
-      .simulate('click');
-    wrapper
-      .find('[data-test-id="overflow-rename-button"]')
-      .hostNodes()
-      .simulate('click');
+    wrapper.find("[data-test-id='overflow-menu-trigger']").at(0).simulate('click');
+    wrapper.find('[data-test-id="overflow-rename-button"]').hostNodes().simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);
   });
 });

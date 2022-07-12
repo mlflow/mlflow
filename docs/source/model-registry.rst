@@ -135,12 +135,12 @@ For this method, you will need the ``run_id`` as part of the ``runs:URI`` argume
 If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
 If a registered model with the name exists, the method creates a new model version and returns the version object.
 
-And finally, you can use the :meth:`~mlflow.tracking.MlflowClient.create_registered_model` to create a new registered model. If the model name exists,
+And finally, you can use the :meth:`~mlflow.MlflowClient.create_registered_model` to create a new registered model. If the model name exists,
 this method will throw an :class:`~mlflow.exceptions.MlflowException` because creating a new registered model requires a unique name.
 
 .. code-block:: py
 
-   from mlflow.tracking import MlflowClient
+   from mlflow import MlflowClient
 
    client = MlflowClient()
    client.create_registered_model("sk-learn-random-forest-reg-model")
@@ -213,7 +213,7 @@ After you have registered an MLflow model, you can serve the model as a service 
 Adding or Updating an MLflow Model Descriptions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-At any point in a model’s lifecycle development, you can update a model version's description using :meth:`~mlflow.tracking.MlflowClient.update_model_version`.
+At any point in a model’s lifecycle development, you can update a model version's description using :meth:`~mlflow.MlflowClient.update_model_version`.
 
 .. code-block:: py
 
@@ -227,7 +227,7 @@ At any point in a model’s lifecycle development, you can update a model versio
 Renaming an MLflow Model
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-As well as adding or updating a description of a specific version of the model, you can rename an existing registered model using :meth:`~mlflow.tracking.MlflowClient.rename_registered_model`.
+As well as adding or updating a description of a specific version of the model, you can rename an existing registered model using :meth:`~mlflow.MlflowClient.rename_registered_model`.
 
 .. code-block:: py
 
@@ -277,7 +277,7 @@ This outputs:
         'name': 'sk-learn-random-forest-reg-model'}
 
 With hundreds of models, it can be cumbersome to peruse the results returned from this call. A more efficient approach would be to search for a specific model name and list its version
-details using :meth:`~mlflow.tracking.MlflowClient.search_model_versions` method
+details using :meth:`~mlflow.MlflowClient.search_model_versions` method
 and provide a filter string such as ``"name='sk-learn-random-forest-reg-model'"``
 
 .. code-block:: py

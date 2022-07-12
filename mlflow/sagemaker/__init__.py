@@ -143,7 +143,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     docker_login_cmd = (
         "aws ecr get-login-password"
         " | docker login  --username AWS "
-        " --password-stdin "
+        "--password-stdin "
         "{account}.dkr.ecr.{region}.amazonaws.com".format(account=account, region=region)
     )
 
@@ -1237,6 +1237,16 @@ def _get_deployment_config(flavor_name):
         DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name,
         SERVING_ENVIRONMENT: SAGEMAKER_SERVING_ENVIRONMENT,
     }
+
+    if os.getenv("http_proxy") is not None:
+        deployment_config.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        deployment_config.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        deployment_config.update({"no_proxy": os.environ["no_proxy"]})
+
     return deployment_config
 
 
@@ -1798,7 +1808,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
     """
 
     def __init__(self, target_uri):
-        super(SageMakerDeploymentClient, self).__init__(target_uri=target_uri)
+        super().__init__(target_uri=target_uri)
 
         # Default region_name and assumed_role_arn when
         # the target_uri is `sagemaker` or `sagemaker:/`

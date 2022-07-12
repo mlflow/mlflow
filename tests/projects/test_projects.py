@@ -12,7 +12,7 @@ from unittest import mock
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
-
+from mlflow import MlflowClient
 from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config
@@ -90,7 +90,6 @@ def test_invalid_run_mode():
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-@pytest.mark.large
 def test_use_conda():
     """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
@@ -99,9 +98,8 @@ def test_use_conda():
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
 
-@pytest.mark.large
 def test_expected_tags_logged_when_using_conda():
-    with mock.patch.object(mlflow.tracking.MlflowClient, "set_tag") as tag_mock:
+    with mock.patch.object(MlflowClient, "set_tag") as tag_mock:
         try:
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
         finally:
@@ -141,7 +139,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
@@ -202,7 +200,7 @@ def test_run(use_start_run):
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = MlflowClient()
 
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
@@ -240,7 +238,7 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     run_id = submitted_run.run_id
-    run = mlflow.tracking.MlflowClient().get_run(run_id)
+    run = MlflowClient().get_run(run_id)
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 

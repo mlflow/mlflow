@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Button as AntdButton } from './antd/Button';
-import { css, cx } from 'emotion';
+import { ClassNames } from '@emotion/react';
 import { buttonPrimaryBackground, buttonPrimaryBackgroundHover } from '../colors';
 
 /**
@@ -34,16 +34,26 @@ export class Button extends React.Component {
       ...restProps
     } = this.props;
     return (
-      <span className={cx(btnTextClassName, this.props.className)} data-test-id={dataTestId}>
-        <AntdButton onClick={onClick} type={type} disabled={disabled} size={size} {...restProps}>
-          {children}
-        </AntdButton>
-      </span>
+      <ClassNames>
+        {({ css, cx }) => (
+          <span className={cx(css(btnTextStyles), this.props.className)} data-test-id={dataTestId}>
+            <AntdButton
+              onClick={onClick}
+              type={type}
+              disabled={disabled}
+              size={size}
+              {...restProps}
+            >
+              {children}
+            </AntdButton>
+          </span>
+        )}
+      </ClassNames>
     );
   }
 }
 
-const btnTextClassName = css({
+const btnTextStyles = {
   // override bootstrap-style webpack config
   '--text-selected-background-color': 'auto',
   '> .ant-btn-primary:not([disabled])': {
@@ -55,6 +65,6 @@ const btnTextClassName = css({
     },
   },
   '& .ant-btn-lg': {
-    fontSize: '14px',
+    fontSize: '13px',
   },
-});
+};

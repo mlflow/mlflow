@@ -16,7 +16,7 @@ import mlflow.lightgbm
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
@@ -24,7 +24,7 @@ mpl.use("Agg")
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -50,14 +50,12 @@ def train_set():
     return lgb.Dataset(X, y, free_raw_data=False)
 
 
-@pytest.mark.large
 def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=1)
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):
     mlflow.lightgbm.autolog()
     with mlflow.start_run() as run:
@@ -66,7 +64,6 @@ def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_default_params(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set)
@@ -115,7 +112,6 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
         assert param not in params
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_specified_params(bst_params, train_set):
     mlflow.lightgbm.autolog()
     expected_params = {
@@ -158,7 +154,6 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
         assert param not in params
 
 
-@pytest.mark.large
 def test_lgb_autolog_sklearn():
 
     mlflow.lightgbm.autolog()
@@ -171,7 +166,7 @@ def test_lgb_autolog_sklearn():
         model.fit(X, y)
         model_uri = mlflow.get_artifact_uri("model")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
     assert run.data.metrics.items() <= params.items()
     artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
@@ -187,7 +182,6 @@ def test_lgb_autolog_sklearn():
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -211,7 +205,7 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_key = "train-multi_logloss"
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
@@ -219,7 +213,6 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
     assert metric_history == evals_result["train"]["multi_logloss"]
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -247,7 +240,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for valid_name in valid_names:
         metric_key = "{}-multi_logloss".format(valid_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -256,7 +249,6 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
         assert metric_history == evals_result[valid_name]["multi_logloss"]
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -284,7 +276,7 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_name in params["metric"]:
         metric_key = "{}-{}".format(valid_names[0], metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -293,7 +285,6 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
         assert metric_history == evals_result["train"][metric_name]
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -321,7 +312,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = "{}-{}".format(valid_name, metric_name)
@@ -333,7 +324,6 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_history == evals_result[valid_name][metric_name]
 
 
-@pytest.mark.large
 def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
     patched_metrics_data = []
 
@@ -387,7 +377,48 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
     assert "train-multi_logloss" in patched_metrics_data
 
 
-@pytest.mark.large
+def ranking_dataset(num_rows=100, num_queries=10):
+    # https://stackoverflow.com/a/67621253
+    num_rows_per_query = num_rows // num_queries
+    df = pd.DataFrame(
+        {
+            "query_id": [i for i in range(num_queries) for _ in range(num_rows_per_query)],
+            "f1": np.random.random(size=(num_rows,)),
+            "f2": np.random.random(size=(num_rows,)),
+            "relevance": np.random.randint(2, size=(num_rows,)),
+        }
+    )
+    train_size = int(num_rows * 0.75)
+    df_train = df[:train_size]
+    df_valid = df[train_size:]
+    # Train
+    group_train = df_train.groupby("query_id")["query_id"].count().to_numpy()
+    X_train = df_train.drop(["query_id", "relevance"], axis=1)
+    y_train = df_train["relevance"]
+    train_set = lgb.Dataset(X_train, y_train, group=group_train)
+    # Validation
+    group_val = df_valid.groupby("query_id")["query_id"].count().to_numpy()
+    X_valid = df_valid.drop(["query_id", "relevance"], axis=1)
+    y_valid = df_valid["relevance"]
+    valid_set = lgb.Dataset(X_valid, y_valid, group=group_val)
+    return train_set, valid_set
+
+
+def test_lgb_autolog_atsign_metrics(train_set):
+    train_set, valid_set = ranking_dataset()
+    mlflow.lightgbm.autolog()
+    params = {"objective": "regression", "metric": ["map"], "eval_at": [1]}
+    lgb.train(
+        params,
+        train_set,
+        valid_sets=[valid_set],
+        valid_names=["valid"],
+        num_boost_round=5,
+    )
+    run = get_latest_run()
+    assert set(run.data.metrics) == {"valid-map_at_1"}
+
+
 def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -419,7 +450,7 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
         )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     assert "best_iteration" in data.metrics
     assert int(data.metrics["best_iteration"]) == model.best_iteration
     assert "stopped_iteration" in data.metrics
@@ -437,14 +468,13 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
             assert metric_history == evals_result[valid_name][metric_name] + [best_metrics]
 
 
-@pytest.mark.large
 def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
     mlflow.lightgbm.autolog()
     model = lgb.train(bst_params, train_set, num_boost_round=10)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in ["split", "gain"]:
@@ -465,14 +495,12 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
         assert loaded_imp == imp
 
 
-@pytest.mark.large
 def test_no_figure_is_opened_after_logging(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=10)
     assert mpl.pyplot.get_fignums() == []
 
 
-@pytest.mark.large
 def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     mlflow.lightgbm.autolog()
     model = lgb.train(bst_params, train_set, num_boost_round=10)
@@ -485,7 +513,6 @@ def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     )
 
 
-@pytest.mark.large
 def test_lgb_autolog_gets_input_example(bst_params):
     # we need to check the example input against the initial input given to train function.
     # we can't use the train_set fixture for this as it defines free_raw_data=False but this
@@ -512,7 +539,6 @@ def test_lgb_autolog_gets_input_example(bst_params):
     pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
@@ -524,7 +550,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -552,7 +578,6 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     ]
 
 
-@pytest.mark.large
 def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("2,6.4,2.8,5.6,2.2\n")
@@ -575,7 +600,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -591,7 +616,6 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     assert "signature" not in data
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_model_signatures):
@@ -610,7 +634,6 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_lgb_autolog_log_models_configuration(bst_params, log_models):
     iris = datasets.load_iris()
@@ -623,7 +646,7 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
         lgb.train(bst_params, dataset)
 
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 
@@ -645,7 +668,6 @@ def test_callback_func_is_pickable():
     pickle.dumps(cb)
 
 
-@pytest.mark.large
 def test_sklearn_api_autolog_registering_model():
     registered_model_name = "test_autolog_registered_model"
     mlflow.lightgbm.autolog(registered_model_name=registered_model_name)
@@ -661,7 +683,6 @@ def test_sklearn_api_autolog_registering_model():
         assert registered_model.name == registered_model_name
 
 
-@pytest.mark.large
 def test_lgb_api_autolog_registering_model(bst_params, train_set):
     registered_model_name = "test_autolog_registered_model"
     mlflow.lightgbm.autolog(registered_model_name=registered_model_name)

@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".ModelsArtifactRepository"
@@ -105,3 +105,15 @@ def test_models_artifact_repo_uses_repo_download_artifacts():
         models_repo.repo = Mock()
         models_repo.download_artifacts("artifact_path", "dst_path")
         models_repo.repo.download_artifacts.assert_called_once()
+
+
+def test_split_models_uri():
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1") == ("models:/model/1", "")
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path") == (
+        "models:/model/1",
+        "path",
+    )
+    assert ModelsArtifactRepository.split_models_uri("models:/model/1/path/to/artifact") == (
+        "models:/model/1",
+        "path/to/artifact",
+    )

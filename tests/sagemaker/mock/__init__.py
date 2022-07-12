@@ -3,11 +3,11 @@ import json
 from collections import namedtuple
 from datetime import datetime
 
+from moto.core import get_account_id
 from moto.core import BaseBackend, BaseModel
 from moto.core.responses import BaseResponse
-
-from moto.iam.models import ACCOUNT_ID
 from moto.core.models import base_decorator
+from moto.core.utils import BackendDict
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 
@@ -249,7 +249,8 @@ class SageMakerBackend(BaseBackend):
 
     BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
-    def __init__(self):
+    def __init__(self, region_name, account_id=None):
+        super().__init__(region_name, account_id)
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
@@ -304,7 +305,7 @@ class SageMakerBackend(BaseBackend):
         :return: A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
-            region_name=region_name, account_id=ACCOUNT_ID
+            region_name=region_name, account_id=get_account_id()
         )
 
     def create_endpoint_config(self, config_name, production_variants, tags, region_name):
@@ -1076,6 +1077,6 @@ class TransformJobDescription:
 
 
 # Create a SageMaker backend for EC2 region: "us-west-2"
-sagemaker_backends = {"us-west-2": SageMakerBackend()}
+sagemaker_backends = BackendDict(SageMakerBackend, "sagemaker")
 
 mock_sagemaker = base_decorator(sagemaker_backends)

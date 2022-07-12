@@ -230,14 +230,14 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         # NOTE: Some distributions of onnxruntime require the specification of the providers
-        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differnetiate
+        # argument on calling. E.g. onnxruntime-gpu. The package import call does not differentiate
         #  which architecture specific version has been installed, as all are imported with
         # onnxruntime. onnxruntime documentation says that from v1.9.0 some distributions require
         #  the providers list to be provided on calling an InferenceSession. Therefore the try
         #  catch structure below attempts to create an inference session with just the model path
         #  as pre v1.9.0. If that fails, it will use the providers list call.
         # At the moment this is just CUDA and CPU, and probably should be expanded.
-        # A method of user customisation has been provided by adding a variable in the save_model()
+        # A method of user customization has been provided by adding a variable in the save_model()
         # function, which allows the ability to pass the list of execution providers via a
         # optional argument e.g.
         #

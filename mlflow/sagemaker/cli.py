@@ -352,7 +352,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@experimental
+@experimental("command")
 def deploy_transform_job(
     job_name,
     model_uri,
@@ -460,7 +460,7 @@ def deploy_transform_job(
         " asynchronously using the `--async` flag, this value is ignored."
     ),
 )
-@experimental
+@experimental("command")
 def terminate_transform_job(job_name, region_name, archive, asynchronous, timeout):
     """
     Terminate the specified Sagemaker batch transform job. Unless ``--archive`` is specified,
@@ -510,7 +510,7 @@ def terminate_transform_job(job_name, region_name, archive, asynchronous, timeou
         )
     ),
 )
-@experimental
+@experimental("command")
 def push_model_to_sagemaker(
     model_name,
     model_uri,

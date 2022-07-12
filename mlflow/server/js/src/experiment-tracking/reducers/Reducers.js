@@ -15,7 +15,12 @@ import {
 } from '../actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import {
+  metricsByRunUuid,
+  latestMetricsByRunUuid,
+  minMetricsByRunUuid,
+  maxMetricsByRunUuid,
+} from './MetricReducer';
 import modelRegistryReducers from '../../model-registry/reducers';
 import _ from 'lodash';
 import {
@@ -55,9 +60,18 @@ export const experimentsById = (state = {}, action) => {
     }
     case fulfilled(GET_EXPERIMENT_API): {
       const { experiment } = action.payload;
+
+      // getExperiment API response might not contain all relevant fields,
+      // thus instead of overwriting it, we rather want to merge the new data
+      // into the existing record. We're replacing it only if no experiment
+      // with this ID exists in the state.
+      const mergedExperiment =
+        state[experiment.experiment_id]?.mergeDeep(Experiment.fromJs(experiment)) ||
+        Experiment.fromJs(experiment);
+
       return {
         ...state,
-        [experiment.experiment_id]: Experiment.fromJs(experiment),
+        [experiment.experiment_id]: mergedExperiment,
       };
     }
     default:
@@ -89,11 +103,11 @@ export const runInfosByUuid = (state = {}, action) => {
       return {};
     }
     case fulfilled(LOAD_MORE_RUNS_API): {
-      let newState = { ...state };
+      const newState = { ...state };
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);
-          newState = amendRunInfosByUuid(newState, runInfo);
+          newState[runInfo.getRunUuid()] = runInfo;
         });
       }
       return newState;
@@ -121,6 +135,9 @@ export const modelVersionsByRunUuid = (state = {}, action) => {
         }
       }
       newState = { ...newState, ...updatedState };
+      if (_.isEqual(state, newState)) {
+        return state;
+      }
       return newState;
     }
     default:
@@ -363,6 +380,8 @@ export const entities = combineReducers({
   runInfosByUuid,
   metricsByRunUuid,
   latestMetricsByRunUuid,
+  minMetricsByRunUuid,
+  maxMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
   experimentTagsByExperimentId,
@@ -396,16 +415,25 @@ export const getApis = (requestIds, state) => {
 
 export const apis = (state = {}, action) => {
   if (isPendingApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: true },
     };
   } else if (isFulfilledApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, data: action.payload },
     };
   } else if (isRejectedApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, error: action.payload },

@@ -237,7 +237,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: 'test_root/dir2',
           },
@@ -280,7 +280,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: modelVersionSource,
           },
@@ -312,7 +312,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: 'test_root/dir2',
           },

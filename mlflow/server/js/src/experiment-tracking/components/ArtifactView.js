@@ -431,9 +431,9 @@ const TREEBEARD_STYLE = {
       margin: 0,
       padding: 0,
       backgroundColor: '#FAFAFA',
-      fontSize: '14px',
+      fontSize: '13px',
       maxWidth: '500px',
-      height: '673px',
+      height: '100%',
       overflow: 'scroll',
     },
     node: {

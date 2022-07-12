@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Menu, Pagination } from 'antd';
-import { css } from 'emotion';
 
 export class SimplePagination extends React.Component {
   static propTypes = {
@@ -18,7 +17,8 @@ export class SimplePagination extends React.Component {
   constructDropdown() {
     return (
       <Menu
-        className={`pagination-dropdown ${classNames.paginationDropdownMenuWrapper}`}
+        className='pagination-dropdown'
+        css={classNames.paginationDropdownMenuWrapper}
         onClick={this.props.handleSetMaxResult}
       >
         {this.props.maxResultOptions.map((num_models) => (
@@ -46,9 +46,9 @@ export class SimplePagination extends React.Component {
     }
 
     return (
-      <div className={`pagination-section ${classNames.wrapper}`}>
+      <div className='pagination-section' css={classNames.wrapper}>
         <Pagination
-          className={classNames.paginationOverride}
+          css={classNames.paginationOverride}
           current={currentPage}
           total={total}
           onChange={(nextPage) => (nextPage > currentPage ? onClickNext() : onClickPrev())}
@@ -63,18 +63,18 @@ export class SimplePagination extends React.Component {
 }
 
 const classNames = {
-  wrapper: css({
+  wrapper: {
     textAlign: 'right',
     paddingBottom: 30,
-  }),
-  paginationDropdownMenuWrapper: css({
+  },
+  paginationDropdownMenuWrapper: {
     '.ant-dropdown-menu-item': {
       textAlign: 'center',
     },
-  }),
-  paginationOverride: css({
+  },
+  paginationOverride: {
     '.ant-pagination-item:not(.ant-pagination-item-active)': {
       display: 'none',
     },
-  }),
+  },
 };

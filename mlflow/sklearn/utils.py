@@ -7,16 +7,12 @@ import numpy as np
 import time
 import warnings
 
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.arguments_utils import _get_arg_names
 
 _logger = logging.getLogger(__name__)
-
-# The earliest version we're guaranteed to support. Autologging utilities may not work properly
-# on scikit-learn older than this version.
-_MIN_SKLEARN_VERSION = "0.20.3"
 
 # The prefix to note that all calculated metrics and artifacts are solely based on training datasets
 _TRAINING_PREFIX = "training_"
@@ -147,7 +143,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
+def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Compute and record various common metrics for classifiers
 
@@ -157,8 +153,9 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
     (3) f1_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
-    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`,
-    `average` to be `weighted` to compute the weighted precision score.
+    By default, when `pos_label` is not specified (passed in as `None`), we set `average`
+    to `weighted` to compute the weighted score of these metrics.
+    When the `pos_label` is specified (not `None`), we set `average` to `binary`.
 
     For (4) accuracy score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
@@ -187,6 +184,7 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     import sklearn
 
+    average = "weighted" if pos_label is None else "binary"
     y_pred = fitted_estimator.predict(X)
 
     classifier_metrics = [
@@ -194,21 +192,33 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
             name=prefix + "precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
             name=prefix + "recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
             name=prefix + "f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
-                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+                y_true=y_true,
+                y_pred=y_pred,
+                pos_label=pos_label,
+                average=average,
+                sample_weight=sample_weight,
             ),
         ),
         _SklearnMetric(
@@ -299,6 +309,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
     def plot_confusion_matrix(*args, **kwargs):
         import matplotlib
+        import matplotlib.pyplot as plt
 
         class_labels = _get_class_labels_from_estimator(fitted_estimator)
         if class_labels is None:
@@ -306,16 +317,16 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
 
         with matplotlib.rc_context(
             {
-                "figure.dpi": 288,
-                "figure.figsize": [6.0, 4.0],
-                "font.size": min(10.0, 50.0 / len(class_labels)),
-                "axes.labelsize": 10.0,
+                "font.size": min(8.0, 50.0 / len(class_labels)),
+                "axes.labelsize": 8.0,
+                "figure.dpi": 175,
             }
         ):
+            _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0))
             return (
-                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs)
+                sklearn.metrics.ConfusionMatrixDisplay.from_estimator(*args, **kwargs, ax=ax)
                 if is_plot_function_deprecated
-                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs)
+                else sklearn.metrics.plot_confusion_matrix(*args, **kwargs, ax=ax)
             )
 
     y_true_arg_name = "y" if is_plot_function_deprecated else "y_true"
@@ -468,7 +479,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client, fitted_estimator, run_id, prefix, X, y_true, sample_weight, pos_label
 ):
     import sklearn
 
@@ -478,7 +489,7 @@ def _log_specialized_estimator_content(
         try:
             if sklearn.base.is_classifier(fitted_estimator):
                 metrics = _get_classifier_metrics(
-                    fitted_estimator, prefix, X, y_true, sample_weight
+                    fitted_estimator, prefix, X, y_true, sample_weight, pos_label
                 )
             elif sklearn.base.is_regressor(fitted_estimator):
                 metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
@@ -506,19 +517,28 @@ def _log_specialized_estimator_content(
                 + str(e)
             )
             _logger.warning(msg)
-            return
+            return metrics
 
+        try:
+            import matplotlib
+            import matplotlib.pyplot as plt
+        except ImportError as ie:
+            _logger.warning(
+                f"Failed to import matplotlib (error: {repr(ie)}). Skipping artifact logging."
+            )
+            return metrics
+
+        _matplotlib_config = {"savefig.dpi": 175, "figure.autolayout": True, "font.size": 8}
         with TempDir() as tmp_dir:
             for artifact in artifacts:
                 try:
-                    display = artifact.function(**artifact.arguments)
-                    display.ax_.set_title(artifact.title)
-                    artifact_path = "{}.png".format(artifact.name)
-                    filepath = tmp_dir.path(artifact_path)
-                    display.figure_.savefig(filepath)
-                    import matplotlib.pyplot as plt
-
-                    plt.close(display.figure_)
+                    with matplotlib.rc_context(_matplotlib_config):
+                        display = artifact.function(**artifact.arguments)
+                        display.ax_.set_title(artifact.title)
+                        artifact_path = "{}.png".format(artifact.name)
+                        filepath = tmp_dir.path(artifact_path)
+                        display.figure_.savefig(fname=filepath, format="png")
+                        plt.close(display.figure_)
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
@@ -528,7 +548,14 @@ def _log_specialized_estimator_content(
 
 
 def _log_estimator_content(
-    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client,
+    estimator,
+    run_id,
+    prefix,
+    X,
+    y_true=None,
+    sample_weight=None,
+    pos_label=None,
 ):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
@@ -544,6 +571,10 @@ def _log_estimator_content(
     :param X: The data samples.
     :param y_true: Labels.
     :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
+    :param pos_label: The positive label used to compute binary classification metrics such as
+        precision, recall, f1, etc. This parameter is only used for classification metrics.
+        If set to `None`, the function will calculate metrics for each label and find their
+        average weighted by support (number of true instances for each label).
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
@@ -554,6 +585,7 @@ def _log_estimator_content(
         X=X,
         y_true=y_true,
         sample_weight=sample_weight,
+        pos_label=pos_label,
     )
 
     if hasattr(estimator, "score") and y_true is not None:
@@ -753,12 +785,6 @@ def _create_child_runs_for_parameter_search(
         )
 
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
-
-
-def _is_supported_version():
-    import sklearn
-
-    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version

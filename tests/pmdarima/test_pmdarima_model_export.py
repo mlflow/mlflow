@@ -21,7 +21,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.prophet.test_prophet_model_export import DataGeneration
 
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
@@ -30,7 +29,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 
-pytestmark = pytest.mark.large
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("pmdarima") else ["--env-manager", "local"]

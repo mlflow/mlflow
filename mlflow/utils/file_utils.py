@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import stat
+import pathlib
 
 import urllib.parse
 import urllib.request
@@ -27,6 +28,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 from mlflow.utils.process import cache_return_value_per_process
+from mlflow.utils import merge_dicts
 
 ENCODING = "utf-8"
 
@@ -182,6 +184,77 @@ def read_yaml(root, file_name):
             return yaml.load(yaml_file, Loader=YamlSafeLoader)
     except Exception as e:
         raise e
+
+
+class UniqueKeyLoader(YamlSafeLoader):
+    def construct_mapping(self, node, deep=False):
+        mapping = set()
+        for key_node, _ in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(f"Duplicate '{key}' key found in YAML.")
+            mapping.add(key)
+        return super().construct_mapping(node, deep)
+
+
+def render_and_merge_yaml(root, template_name, context_name):
+    """
+    Renders a Jinja2-templated YAML file based on a YAML context file, merge them, and return
+    result as a dictionary.
+
+    :param root: Root directory of the YAML files
+    :param template_name: Name of the template file
+    :param context_name: Name of the context file
+    :return: Data in yaml file as dictionary
+    """
+    import jinja2
+
+    template_path = os.path.join(root, template_name)
+    context_path = os.path.join(root, context_name)
+
+    for path in (template_path, context_path):
+        if not pathlib.Path(path).is_file():
+            raise MissingConfigException("Yaml file '%s' does not exist." % path)
+
+    with codecs.open(context_path, mode="r", encoding=ENCODING) as context_file:
+        context_dict = yaml.load(context_file, Loader=UniqueKeyLoader) or {}
+
+    j2_env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(root, encoding=ENCODING), undefined=jinja2.StrictUndefined
+    )
+    source = j2_env.get_template(template_name).render(context_dict)
+    rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
+    return merge_dicts(rendered_template_dict, context_dict)
+
+
+def read_parquet_as_pandas_df(data_parquet_path: str):
+    """
+    Deserialize and load the specified parquet file as a Pandas DataFrame.
+
+    :param data_parquet_path: String, path object (implementing os.PathLike[str]),
+    or file-like object implementing a binary read() function. The string
+    could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
+    For file URLs, a host is expected. A local file could
+    be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
+    directory that contains multiple partitioned parquet files. Pyarrow
+    support paths to directories as well as file URLs. A directory
+    path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
+    :return: pandas dataframe
+    """
+    import pandas as pd
+
+    return pd.read_parquet(data_parquet_path, engine="pyarrow")
+
+
+def write_pandas_df_as_parquet(df, data_parquet_path: str):
+    """
+    Write a DataFrame to the binary parquet format.
+
+    :param df: pandas data frame.
+    :param data_parquet_path: String, path object (implementing os.PathLike[str]),
+    or file-like object implementing a binary write() function.
+    """
+    df.to_parquet(data_parquet_path, engine="pyarrow")
 
 
 class TempDir:

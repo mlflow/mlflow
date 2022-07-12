@@ -20,7 +20,7 @@ from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.models import Model
 
 import mlflow.pyfunc
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
@@ -452,14 +452,46 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
         },
         "Invalid value 31 for parameter 'key' supplied",
     )
-    assert_bad_request(
-        {
-            "run_id": run_id,
-            "key": "param",
-            # Missing value
-        },
-        "Missing value for required parameter 'value'",
+
+
+def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_param_with_empty_string_as_value.__name__
     )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    mlflow_client.log_param(run_id, "param_key", "")
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
+
+
+def test_set_tag_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_set_tag_with_empty_string_as_value.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    mlflow_client.set_tag(run_id, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_run(run_id).data.tags.items()
+
+
+def test_log_batch_containing_params_and_tags_with_empty_string_values(
+    mlflow_client, tracking_server_uri
+):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_batch_containing_params_and_tags_with_empty_string_values.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    mlflow_client.log_batch(
+        run_id=run_id,
+        params=[Param("param_key", "")],
+        tags=[RunTag("tag_key", "")],
+    )
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
+    assert {"tag_key": ""}.items() <= mlflow_client.get_run(run_id).data.tags.items()
 
 
 def test_set_tag_validation(mlflow_client, tracking_server_uri):
@@ -501,6 +533,17 @@ def test_set_tag_validation(mlflow_client, tracking_server_uri):
         "Missing value for required parameter 'key'",
     )
 
+    response = _send_rest_tracking_post_request(
+        tracking_server_uri,
+        "/api/2.0/mlflow/runs/set-tag",
+        {
+            "run_uuid": run_id,
+            "key": "key",
+            "value": "value",
+        },
+    )
+    assert response.status_code == 200
+
 
 def test_set_experiment_tag(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
@@ -528,6 +571,14 @@ def test_set_experiment_tag(mlflow_client, backend_store_uri):
         "multiline tag" in experiment.tags
         and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     )
+
+
+def test_set_experiment_tag_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+    experiment_id = mlflow_client.create_experiment(
+        test_set_experiment_tag_with_empty_string_as_value.__name__
+    )
+    mlflow_client.set_experiment_tag(experiment_id, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
 
 
 def test_delete_tag(mlflow_client, backend_store_uri):

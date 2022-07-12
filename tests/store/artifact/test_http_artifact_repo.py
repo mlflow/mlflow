@@ -78,7 +78,6 @@ def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
             posixpath.join("/", *paths),
             "PUT",
             data=FileObjectMatcher(tmp_path, "rb"),
-            timeout=mock.ANY,
         )
 
     with mock.patch(
@@ -129,7 +128,6 @@ def test_list_artifacts(http_artifact_repo):
             endpoint,
             "GET",
             params={"path": ""},
-            timeout=mock.ANY,
         )
 
     with mock.patch(
@@ -189,7 +187,6 @@ def test_download_file(http_artifact_repo, tmpdir, remote_file_path):
             posixpath.join("/", remote_file_path),
             "GET",
             stream=True,
-            timeout=mock.ANY,
         )
         with open(tmp_path) as f:
             assert f.read() == "data"
@@ -285,3 +282,18 @@ def test_default_host_creds():
         },
     ):
         assert repo._host_creds == expected_host_creds
+
+
+@pytest.mark.parametrize("remote_file_path", ["a.txt", "dir/b.txt", None])
+def test_delete_artifacts(http_artifact_repo, remote_file_path):
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request",
+        return_value=MockStreamResponse("data", 200),
+    ) as mock_get:
+        http_artifact_repo.delete_artifacts(remote_file_path)
+        mock_get.assert_called_once_with(
+            http_artifact_repo._host_creds,
+            posixpath.join("/", remote_file_path if remote_file_path else ""),
+            "DELETE",
+            stream=True,
+        )

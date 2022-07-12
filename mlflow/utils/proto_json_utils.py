@@ -344,8 +344,9 @@ def parse_tf_serving_input(inp_dict, schema=None):
             " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
         )
 
-    # Sanity check inputted data
-    if isinstance(data, dict):
+    # Sanity check inputted data. This check will only be applied when the row-format `instances`
+    # is used since it requires same 0-th dimension for all items.
+    if isinstance(data, dict) and "instances" in inp_dict:
         # ensure all columns have the same number of items
         expected_len = len(list(data.values())[0])
         if not all(len(v) == expected_len for v in data.values()):

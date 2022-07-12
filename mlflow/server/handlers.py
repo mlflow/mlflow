@@ -72,6 +72,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     DownloadArtifact,
     UploadArtifact,
     ListArtifacts as ListArtifactsMlflowArtifacts,
+    DeleteArtifact,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -415,10 +416,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     schema = schema or {}
     for schema_key, schema_validation_fns in schema.items():
         if schema_key in request_json or _assert_required in schema_validation_fns:
+            value = request_json.get(schema_key)
+            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
+                value = request_json.get("run_uuid")
             _validate_param_against_schema(
                 schema=schema_validation_fns,
                 param=schema_key,
-                value=request_json.get(schema_key),
+                value=value,
                 proto_parsing_succeeded=proto_parsing_succeeded,
             )
 
@@ -739,7 +743,7 @@ def _log_param():
         schema={
             "run_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     param = Param(request_message.key, request_message.value)
@@ -759,7 +763,7 @@ def _set_experiment_tag():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
@@ -778,7 +782,7 @@ def _set_tag():
         schema={
             "run_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = RunTag(request_message.key, request_message.value)
@@ -977,10 +981,9 @@ def _log_batch():
             _assert_required(m["timestamp"])
             _assert_required(m["step"])
 
-    def _assert_params_tags_fields_present(params):
-        for p in params:
-            _assert_required(p["key"])
-            _assert_required(p["value"])
+    def _assert_params_tags_fields_present(params_or_tags):
+        for param_or_tag in params_or_tags:
+            _assert_required(param_or_tag["key"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1200,7 +1203,7 @@ def _set_registered_model_tag():
         schema={
             "name": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
@@ -1370,7 +1373,7 @@ def _set_model_version_tag():
             "name": [_assert_string, _assert_required],
             "version": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
@@ -1473,6 +1476,22 @@ def _list_artifacts_mlflow_artifacts():
     return response
 
 
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _delete_artifact_mflflow_artifacts(artifact_path):
+    """
+    A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
+    `path` (a relative path from the root artifact directory).
+    """
+    _get_request_message(DeleteArtifact())
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    artifact_repo.delete_artifacts(artifact_path)
+    response_message = DeleteArtifact.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -1567,4 +1586,5 @@ HANDLERS = {
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
+    DeleteArtifact: _delete_artifact_mflflow_artifacts,
 }

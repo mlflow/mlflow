@@ -28,6 +28,7 @@ def commands():
 @cli_args.MODEL_URI
 @cli_args.PORT
 @cli_args.HOST
+@cli_args.TIMEOUT
 @cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
@@ -37,6 +38,7 @@ def serve(
     model_uri,
     port,
     host,
+    timeout,
     workers,
     no_conda,  # pylint: disable=unused-argument
     env_manager=None,
@@ -65,7 +67,9 @@ def serve(
     env_manager = env_manager or _EnvManager.CONDA
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host, enable_mlserver=enable_mlserver)
+    ).serve(
+        model_uri=model_uri, port=port, host=host, timeout=timeout, enable_mlserver=enable_mlserver
+    )
 
 
 @commands.command("predict")

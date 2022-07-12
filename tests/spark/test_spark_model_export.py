@@ -38,8 +38,6 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -157,7 +155,6 @@ def model_path(tmpdir):
     return str(tmpdir.mkdir("model"))
 
 
-@pytest.mark.large
 def test_hadoop_filesystem(tmpdir):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
@@ -200,7 +197,6 @@ def test_hadoop_filesystem(tmpdir):
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
-@pytest.mark.large
 def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
@@ -218,7 +214,6 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(sparkm.DFS_TMP)
 
 
-@pytest.mark.large
 def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
     _, _, iris_spark_df = iris_df
     signature_ = infer_signature(iris_spark_df)
@@ -238,7 +233,6 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
     _, _, iris_spark_df = iris_df
     signature_ = infer_signature(iris_spark_df)
@@ -263,7 +257,6 @@ def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
                     assert all((_read_example(mlflow_model, model_path) == example).all())
 
 
-@pytest.mark.large
 def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_env):
     sparkm.save_model(spark_model_estimator.model, path=model_path, conda_env=spark_custom_env)
     # score and compare the reloaded sparkml model
@@ -277,7 +270,6 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
     assert spark_model_estimator.predictions == preds2
 
 
-@pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
     sparkm.save_model(spark_model_transformer.model, path=model_path, conda_env=spark_custom_env)
     # score and compare the reloaded sparkml model
@@ -291,7 +283,6 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
     assert spark_model_transformer.predictions == preds2
 
 
-@pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
         spark_model_iris.model,
@@ -309,7 +300,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     )
 
 
-@pytest.mark.large
 @pytest.mark.skipif(
     "dev" in pyspark.__version__,
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
@@ -330,7 +320,6 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_tmpdir):
@@ -364,7 +353,6 @@ def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_t
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_estimator_model_log(
@@ -400,7 +388,6 @@ def test_sparkml_estimator_model_log(
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-@pytest.mark.large
 def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
@@ -424,7 +411,6 @@ def test_log_model_calls_register_model(tmpdir, spark_model_iris):
         shutil.rmtree(x)
 
 
-@pytest.mark.large
 def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
@@ -442,7 +428,6 @@ def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
         shutil.rmtree(x)
 
 
-@pytest.mark.large
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -458,7 +443,6 @@ def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_pat
     assert spark_model_iris.predictions == preds
 
 
-@pytest.mark.large
 def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -478,7 +462,6 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
-@pytest.mark.large
 def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -490,7 +473,6 @@ def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -521,7 +503,6 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     default_reqs = mlflow.spark.get_default_pip_requirements()
 
@@ -555,7 +536,6 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_path):
     conda_env = dict(mlflow.spark.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -570,7 +550,6 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -599,7 +578,6 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
-@pytest.mark.large
 def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -619,7 +597,6 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris, model_path
 ):
@@ -627,7 +604,6 @@ def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_ex
     _assert_pip_requirements(model_path, sparkm.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris,
 ):
@@ -639,7 +615,6 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     _assert_pip_requirements(model_uri, sparkm.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
@@ -655,7 +630,6 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
 
 
-@pytest.mark.large
 def test_model_is_recorded_when_using_direct_save(spark_model_iris):
     # Patch `is_local_uri` to enforce direct model serialization to DFS
     with mock.patch("mlflow.spark.is_local_uri", return_value=False):

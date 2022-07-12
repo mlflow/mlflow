@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import yaml from 'js-yaml';
-import { css } from 'emotion';
 import '../../../common/styles/CodeSnippet.css';
 import { MLMODEL_FILE_NAME } from '../../constants';
 import { getSrc } from './ShowArtifactPage';
@@ -15,6 +14,8 @@ import {
 } from '../../../common/constants';
 import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+
+import './ShowArtifactLoggedModelView.css';
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -147,7 +148,7 @@ class ShowArtifactLoggedModelView extends Component {
           />
         </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Paragraph
               dangerouslySetAntdProps={{
                 copyable: { text: this.loadModelCodeText(modelPath, flavor) },
@@ -206,7 +207,7 @@ class ShowArtifactLoggedModelView extends Component {
           />
         </Title>
         <div className='artifact-logged-model-view-code-content'>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Spark DataFrame:'
@@ -257,7 +258,7 @@ class ShowArtifactLoggedModelView extends Component {
               </pre>
             </Paragraph>
           </div>
-          <div className={css(styles.item)}>
+          <div css={styles.item}>
             <Text>
               <FormattedMessage
                 defaultMessage='Predict on a Pandas DataFrame:' // eslint-disable-next-line max-len
@@ -331,77 +332,79 @@ class ShowArtifactLoggedModelView extends Component {
     } else {
       return (
         <div className='ShowArtifactPage'>
-          <div
-            className='artifact-logged-model-view-header'
-            style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
-          >
-            <Title level={2}>
-              <FormattedMessage
-                defaultMessage='MLflow Model'
-                description='Heading text for mlflow model artifact'
-              />
-            </Title>
-            {this.state.flavor === 'pyfunc' ? (
-              <FormattedMessage
-                // eslint-disable-next-line max-len
-                defaultMessage='The code snippets below demonstrate how to make predictions using the logged model.'
-                // eslint-disable-next-line max-len
-                description='Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model'
-              />
-            ) : (
-              <FormattedMessage
-                // eslint-disable-next-line max-len
-                defaultMessage='The code snippets below demonstrate how to load the logged model.'
-                // eslint-disable-next-line max-len
-                description='Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model'
-              />
-            )}{' '}
-            {this.renderModelRegistryText()}
-          </div>
-          <hr />
-          <div
-            className='artifact-logged-model-view-schema-table'
-            style={{ width: '35%', marginLeft: 16, float: 'left' }}
-          >
-            <Title level={3}>
-              <FormattedMessage
-                defaultMessage='Model schema'
-                // eslint-disable-next-line max-len
-                description='Heading text for the model schema of the registered model from the experiment run'
-              />
-            </Title>
-            <div className='content'>
-              <Text>
+          <div className='show-artifact-logged-model-view'>
+            <div
+              className='artifact-logged-model-view-header'
+              style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
+            >
+              <Title level={2}>
                 <FormattedMessage
-                  defaultMessage='Input and output schema for your model. <link>Learn more</link>'
-                  // eslint-disable-next-line max-len
-                  description='Input and output params of the model that is registered from the experiment run'
-                  values={{
-                    link: (chunks) => (
-                      // Reported during ESLint upgrade
-                      // eslint-disable-next-line react/jsx-no-target-blank
-                      <a href={ModelSignatureUrl} target='_blank'>
-                        {chunks}
-                      </a>
-                    ),
-                  }}
+                  defaultMessage='MLflow Model'
+                  description='Heading text for mlflow model artifact'
                 />
-              </Text>
+              </Title>
+              {this.state.flavor === 'pyfunc' ? (
+                <FormattedMessage
+                  // eslint-disable-next-line max-len
+                  defaultMessage='The code snippets below demonstrate how to make predictions using the logged model.'
+                  // eslint-disable-next-line max-len
+                  description='Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model'
+                />
+              ) : (
+                <FormattedMessage
+                  // eslint-disable-next-line max-len
+                  defaultMessage='The code snippets below demonstrate how to load the logged model.'
+                  // eslint-disable-next-line max-len
+                  description='Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model'
+                />
+              )}{' '}
+              {this.renderModelRegistryText()}
             </div>
-            <div style={{ marginTop: 12 }}>
-              <SchemaTable
-                schema={{ inputs: this.state.inputs, outputs: this.state.outputs }}
-                defaultExpandAllRows
-              />
+            <hr />
+            <div
+              className='artifact-logged-model-view-schema-table'
+              style={{ width: '35%', marginLeft: 16, float: 'left' }}
+            >
+              <Title level={3}>
+                <FormattedMessage
+                  defaultMessage='Model schema'
+                  // eslint-disable-next-line max-len
+                  description='Heading text for the model schema of the registered model from the experiment run'
+                />
+              </Title>
+              <div className='content'>
+                <Text>
+                  <FormattedMessage
+                    defaultMessage='Input and output schema for your model. <link>Learn more</link>'
+                    // eslint-disable-next-line max-len
+                    description='Input and output params of the model that is registered from the experiment run'
+                    values={{
+                      link: (chunks) => (
+                        // Reported during ESLint upgrade
+                        // eslint-disable-next-line react/jsx-no-target-blank
+                        <a href={ModelSignatureUrl} target='_blank'>
+                          {chunks}
+                        </a>
+                      ),
+                    }}
+                  />
+                </Text>
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <SchemaTable
+                  schema={{ inputs: this.state.inputs, outputs: this.state.outputs }}
+                  defaultExpandAllRows
+                />
+              </div>
             </div>
-          </div>
-          <div
-            className='artifact-logged-model-view-code-group'
-            style={{ width: '60%', marginRight: 16, float: 'right' }}
-          >
-            {this.state.flavor === 'pyfunc'
-              ? this.renderPyfuncCodeSnippet()
-              : this.renderNonPyfuncCodeSnippet()}
+            <div
+              className='artifact-logged-model-view-code-group'
+              style={{ width: '60%', marginRight: 16, float: 'right' }}
+            >
+              {this.state.flavor === 'pyfunc'
+                ? this.renderPyfuncCodeSnippet()
+                : this.renderNonPyfuncCodeSnippet()}
+            </div>
           </div>
         </div>
       );

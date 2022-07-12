@@ -82,8 +82,7 @@ def _get_root_uri_and_artifact_path(artifact_uri):
     # For models:/ URIs, it doesn't make sense to initialize a ModelsArtifactRepository with only
     # the model name portion of the URI, then call download_artifacts with the version info.
     if ModelsArtifactRepository.is_models_uri(artifact_uri):
-        root_uri = artifact_uri
-        artifact_path = ""
+        root_uri, artifact_path = ModelsArtifactRepository.split_models_uri(artifact_uri)
     else:
         artifact_path = posixpath.basename(parsed_uri.path)
         parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))

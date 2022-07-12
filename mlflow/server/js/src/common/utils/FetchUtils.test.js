@@ -32,15 +32,12 @@ describe('FetchUtils', () => {
       expect(getDefaultHeaders('')).toEqual({});
     });
 
-    it('cookies prefixed with appName should be returned', () => {
-      ['mlflow', 'feature-store'].forEach((appName) => {
-        expect(
-          getDefaultHeaders(
-            `a=b; ${appName}-request-header-My-CSRF=1; ${appName}-request-header-Hello=World; c=d`,
-            appName,
-          ),
-        ).toEqual({ 'My-CSRF': '1', Hello: 'World' });
-      });
+    it('cookies from static service are parsed correctly', () => {
+      expect(
+        getDefaultHeaders(
+          `a=b; mlflow-request-header-My-CSRF=1; mlflow-request-header-Hello=World; c=d`,
+        ),
+      ).toEqual({ 'My-CSRF': '1', Hello: 'World' });
     });
   });
 

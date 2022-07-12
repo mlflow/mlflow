@@ -295,7 +295,7 @@ class TestRestStore(unittest.TestCase):
         )
 
     @mock_http_request
-    def test_update_model_version_decription(self, mock_http):
+    def test_update_model_version_description(self, mock_http):
         name = "model_1"
         version = "5"
         description = "test model version"

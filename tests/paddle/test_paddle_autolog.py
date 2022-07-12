@@ -1,9 +1,8 @@
 import pytest
 import paddle
 import mlflow
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 
-pytestmark = pytest.mark.large
 
 NUM_EPOCHS = 6
 
@@ -94,7 +93,6 @@ def test_autolog_log_models_configuration(log_models):
     assert any(x.path == "model" for x in artifacts) == log_models
 
 
-@pytest.mark.large
 def test_autolog_registering_model():
     registered_model_name = "test_autolog_registered_model"
     mlflow.paddle.autolog(registered_model_name=registered_model_name)

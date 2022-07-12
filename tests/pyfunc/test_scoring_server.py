@@ -12,10 +12,7 @@ import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -115,7 +112,6 @@ def model_path(tmpdir):
     return str(os.path.join(tmpdir.strpath, "model"))
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -146,7 +142,6 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     assert "stack_trace" in response_json
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -165,7 +160,6 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     assert "stack_trace" in response_json
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -186,7 +180,6 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     assert "stack_trace" in response_json
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -205,7 +198,6 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
     assert "stack_trace" in response_json
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
@@ -225,7 +217,6 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     assert "stack_trace" in response_json
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
     sklearn_model, model_path
 ):
@@ -262,7 +253,6 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     assert response_records_content_type.status_code == 200
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
     sklearn_model, model_path
 ):
@@ -284,7 +274,6 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
     assert response.status_code == 200
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
@@ -297,7 +286,6 @@ def test_scoring_server_successfully_evaluates_correct_split_to_numpy(sklearn_mo
     assert response_records_content_type.status_code == 200
 
 
-@pytest.mark.large
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
     sklearn_model, model_path
 ):
@@ -312,7 +300,6 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
     assert response.status_code == 415
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
     sklearn_model, model_path
 ):
@@ -327,7 +314,6 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
     assert response_records_content_type.status_code == 200
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
     keras_model, model_path
 ):
@@ -347,7 +333,6 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instance
     assert response_records_content_type.status_code == 200
 
 
-@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
     keras_model, model_path
 ):
@@ -367,7 +352,6 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
     assert response_records_content_type.status_code == 200
 
 
-@pytest.mark.large
 def test_parse_json_input_records_oriented():
     size = 2
     data = {
@@ -382,7 +366,6 @@ def test_parse_json_input_records_oriented():
         assert all(p1[col] == p2[col])
 
 
-@pytest.mark.large
 def test_parse_json_input_split_oriented():
     size = 200
     data = {
@@ -395,7 +378,6 @@ def test_parse_json_input_split_oriented():
     assert all(p1 == p2)
 
 
-@pytest.mark.large
 def test_parse_json_input_split_oriented_to_numpy_array():
     size = 200
     data = OrderedDict(
@@ -414,7 +396,6 @@ def test_parse_json_input_split_oriented_to_numpy_array():
     np.testing.assert_array_equal(p1, p2)
 
 
-@pytest.mark.large
 def test_records_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = (
@@ -436,7 +417,6 @@ def _shuffle_pdf(pdf):
     return pdf[cols]
 
 
-@pytest.mark.large
 def test_split_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = (
@@ -546,7 +526,6 @@ def test_infer_and_parse_json_input():
         pyfunc_scoring_server.infer_and_parse_json_input("(not a json string)")
 
 
-@pytest.mark.large
 def test_serving_model_with_schema(pandas_df_with_all_types):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
@@ -580,7 +559,6 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
 
 
-@pytest.mark.large
 def test_split_oriented_json_to_numpy_array():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = (
@@ -603,7 +581,6 @@ def test_get_jsonnable_obj():
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
 
 
-@pytest.mark.large
 def test_parse_json_input_including_path():
     class TestModel(PythonModel):
         def predict(self, context, model_input):
@@ -630,11 +607,14 @@ def test_parse_json_input_including_path():
 @pytest.mark.parametrize(
     "args, expected",
     [
-        ({"port": 5000, "host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0:5000 -w 4"),
-        ({"host": "0.0.0.0", "nworkers": 4}, "--timeout=60 -b 0.0.0.0 -w 4"),
-        ({"port": 5000, "nworkers": 4}, "--timeout=60 -w 4"),
-        ({"nworkers": 4}, "--timeout=60 -w 4"),
-        ({}, "--timeout=60"),
+        (
+            {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
+            "--timeout=60 -b 0.0.0.0:5000 -w 4",
+        ),
+        ({"host": "0.0.0.0", "nworkers": 4, "timeout": 60}, "--timeout=60 -b 0.0.0.0 -w 4"),
+        ({"port": 5000, "nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
+        ({"nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
+        ({"timeout": 60}, "--timeout=60"),
     ],
 )
 def test_get_cmd(args: dict, expected: str):
@@ -645,7 +625,6 @@ def test_get_cmd(args: dict, expected: str):
     )
 
 
-@pytest.mark.large
 def test_scoring_server_client(sklearn_model, model_path):
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
     from mlflow.utils import find_free_port
@@ -655,7 +634,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
 
     port = find_free_port()
-
+    timeout = 60
     server_proc = None
     try:
         server_proc = _get_flavor_backend(
@@ -664,6 +643,7 @@ def test_scoring_server_client(sklearn_model, model_path):
             model_uri=model_path,
             port=port,
             host="127.0.0.1",
+            timeout=timeout,
             enable_mlserver=False,
             synchronous=False,
         )

@@ -16,6 +16,7 @@ import pandas.testing
 import tensorflow as tf
 from tensorflow import estimator as tf_estimator
 import iris_data_utils
+from packaging.version import Version
 
 import mlflow
 import mlflow.tensorflow
@@ -38,12 +39,14 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _is_available_on_pypi,
     _compare_logged_code_paths,
+    PROTOBUF_REQUIREMENT,
 )
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
+)
+extra_pip_requirements = (
+    [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
 )
 
 SavedModelInfo = collections.namedtuple(
@@ -235,7 +238,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-@pytest.mark.large
 def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
     mlflow.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
@@ -264,7 +266,6 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
         )
 
 
-@pytest.mark.large
 def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
@@ -317,7 +318,6 @@ def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
     saved_tf_iris_model, model_path
 ):
@@ -354,7 +354,6 @@ def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exc
         )
 
 
-@pytest.mark.large
 def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
@@ -383,7 +382,6 @@ def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
             )
 
 
-@pytest.mark.large
 def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
@@ -433,7 +431,6 @@ def test_log_model_no_registered_model_name(saved_tf_iris_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     saved_tf_iris_model, model_path, tf_custom_env
 ):
@@ -456,7 +453,6 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == tf_custom_env_text
 
 
-@pytest.mark.large
 def test_save_model_persists_requirements_in_mlflow_model_directory(
     saved_tf_iris_model, model_path, tf_custom_env
 ):
@@ -472,7 +468,6 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(tf_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(saved_tf_iris_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -517,7 +512,6 @@ def test_log_model_with_pip_requirements(saved_tf_iris_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(saved_tf_iris_model, tmpdir):
     default_reqs = mlflow.tensorflow.get_default_pip_requirements()
 
@@ -563,7 +557,6 @@ def test_log_model_with_extra_pip_requirements(saved_tf_iris_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
     conda_env = dict(mlflow.tensorflow.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -584,7 +577,6 @@ def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     saved_tf_iris_model, tf_custom_env
 ):
@@ -614,7 +606,6 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == tf_custom_env_text
 
 
-@pytest.mark.large
 def test_log_model_persists_requirements_in_mlflow_model_directory(
     saved_tf_iris_model, tf_custom_env
 ):
@@ -636,7 +627,6 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(tf_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     saved_tf_iris_model, model_path
 ):
@@ -649,7 +639,6 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.tensorflow.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     saved_tf_iris_model,
 ):
@@ -666,7 +655,6 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.tensorflow.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
@@ -700,7 +688,6 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
         results = pyfunc_wrapper.predict(inp_list)
 
 
-@pytest.mark.large
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     saved_tf_categorical_model, model_path
 ):
@@ -740,7 +727,6 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
         results = pyfunc_wrapper.predict(inp_list)
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(saved_tf_iris_model):
     artifact_path = "model"
 
@@ -750,6 +736,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
+            extra_pip_requirements=extra_pip_requirements,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -768,7 +755,6 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
     np.testing.assert_array_almost_equal(actual, expected)
 
 
-@pytest.mark.large
 def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     tf.random.set_seed(1337)
 
@@ -796,7 +782,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         mlflow_model = mlflow.pyfunc.load_model(model_uri)
         feed_dict = {"feature1": tf.constant([[2.0]])}
         predictions = mlflow_model.predict(feed_dict)
-        assert np.allclose(predictions["dense"], np.asarray([-0.09599352]))
+        assert np.allclose(predictions["dense"], model.predict(feed_dict))
 
     load_and_predict()
 

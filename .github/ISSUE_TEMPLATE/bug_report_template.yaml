@@ -1,0 +1,152 @@
+name: Bug Report
+description: Create a report to help us reproduce and correct the bug
+labels: 'bug'
+title: '[BUG]'
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md) for additional information about bug reports. For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
+        #### Please fill in this bug report template to ensure a timely and thorough response.
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Willingness to contribute
+      description: The MLflow Community encourages bug fix contributions. Would you or another member of your organization be willing to contribute a fix for this bug to the MLflow code base?
+      options:
+        - Yes. I can contribute a fix for this bug independently.
+        - Yes. I would be willing to contribute a fix for this bug with guidance from the MLflow community.
+        - No. I cannot contribute a bug fix at this time.
+    validations:
+      required: true
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: MLflow version
+      description: MLflow version (run `mlflow --version`) or commit SHA if you have MLflow installed from source (run `pip freeze | grep mlflow`).
+
+  - type: textarea
+    attributes:
+      label: System information
+      description: |
+        Describe the system where you encountered the bug.
+      value: |
+        - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
+        - **Python version**:
+        - **yarn version, if running the dev UI**:
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Describe the problem
+      description: |
+        Describe the problem clearly here. Include descriptions of the expected behavior and the actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Tracking information
+      description: |
+        For bugs related to the tracking features (e.g. mlflow should log a run in my database but it doesn't), please insert the following code in your python script / notebook where you encountered the bug and run it:
+        ```python
+        print("MLflow version:", mlflow.__version__)
+        print("Tracking URI:", mlflow.get_tracking_uri())
+        print("Artifact URI:", mlflow.get_artifact_uri())
+        ```
+        Then, make sure the printed out information matches what you expect and paste it (with sensitive information masked) in the box below. If you know the command that was used to launch your tracking server (e.g. `mlflow server -h 0.0.0.0 -p 5000`), please provide it.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Code to reproduce issue
+      description: |
+        Provide a reproducible test case that is the bare minimum necessary to generate the problem.
+      placeholder: |
+        ```python
+        # code to reproduce issue
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Other info / logs
+      description: |
+        Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
+      placeholder: |
+        ```python-traceback
+        Traceback (most recent call last):
+          File "example.py", line 1, in <module>
+            raise Exception("something went wrong")
+        Exception: something went wrong
+        ```
+    validations:
+      required: false
+  - type: checkboxes
+    id: component
+    attributes:
+      label: What component(s) does this bug affect?
+      description: Please choose one or more components below.
+      options:
+        - label: "`area/artifacts`: Artifact stores and artifact logging"
+          required: false
+        - label: "`area/build`: Build and test infrastructure for MLflow"
+          required: false
+        - label: "`area/docs`: MLflow documentation pages"
+          required: false
+        - label: "`area/examples`: Example code"
+          required: false
+        - label: "`area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry"
+          required: false
+        - label: "`area/models`: MLmodel format, model serialization/deserialization, flavors"
+          required: false
+        - label: "`area/pipelines`: Pipelines, Pipeline APIs, Pipeline configs, Pipeline Templates"
+          required: false
+        - label: "`area/projects`: MLproject format, project running backends"
+          required: false
+        - label: "`area/scoring`: MLflow Model server, model deployment tools, Spark UDFs"
+          required: false
+        - label: "`area/server-infra`: MLflow Tracking server backend"
+          required: false
+        - label: "`area/tracking`: Tracking Service, tracking client APIs, autologging"
+          required: false
+  - type: checkboxes
+    id: interface
+    attributes:
+      description: Please choose one or more interfaces below.
+      label: What interface(s) does this bug affect?
+      options:
+        - label: "`area/uiux`: Front-end, user experience, plotting, JavaScript, JavaScript dev server"
+          required: false
+        - label: "`area/docker`: Docker use across MLflow's components, such as MLflow Projects and MLflow Models"
+          required: false
+        - label: "`area/sqlalchemy`: Use of SQLAlchemy in the Tracking Service or Model Registry"
+          required: false
+        - label: "`area/windows`: Windows support"
+          required: false
+  - type: checkboxes
+    id: language
+    attributes:
+      description: Please choose one or more languages below.
+      label: What language(s) does this bug affect?
+      options:
+        - label: "`language/r`: R APIs and clients"
+          required: false
+        - label: "`language/java`: Java APIs and clients"
+          required: false
+        - label: "`language/new`: Proposals for new client languages"
+          required: false
+  - type: checkboxes
+    id: integration
+    attributes:
+      description: Please choose one or more cloud integrations below.
+      label: What integration(s) does this bug affect?
+      options:
+        - label: "`integrations/azure`: Azure and Azure ML integrations"
+          required: false
+        - label: "`integrations/sagemaker`: SageMaker integrations"
+          required: false
+        - label: "`integrations/databricks`: Databricks integrations"
+          required: false

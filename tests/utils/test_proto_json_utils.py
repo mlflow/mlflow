@@ -248,13 +248,14 @@ def test_back_compat():
     assert exp_json == in_json
 
 
-def test_parse_tf_serving_dictionary():
-    def assert_result(result, expected_result):
-        assert result.keys() == expected_result.keys()
-        for key in result:
-            assert (result[key] == expected_result[key]).all()
-            assert result[key].dtype == expected_result[key].dtype
+def assert_result(result, expected_result):
+    assert result.keys() == expected_result.keys()
+    for key in result:
+        assert (result[key] == expected_result[key]).all()
+        assert result[key].dtype == expected_result[key].dtype
 
+
+def test_parse_tf_serving_dictionary():
     # instances are correctly aggregated to dict of input name -> tensor
     tfserving_input = {
         "instances": [
@@ -313,6 +314,50 @@ def test_parse_tf_serving_dictionary():
     assert_result(result, expected_result_schema)
 
 
+def test_parse_tf_serving_arbitrary_input_dictionary():
+    # input provided as a columnar dict with an arbitrary shape for each input, specifically a
+    # different 0th dimension.
+    tfserving_input_arbitrary = {
+        "inputs": {
+            "a": [["s1", "s2", "s3"], ["s4", "s5", "s6"]],  # [2, 3]
+            "b": [1.1, 2.2, 3.3],  # [3,  ]
+            "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]],  # [4, 3]
+        }
+    }
+
+    schema = Schema(
+        [
+            TensorSpec(np.dtype("str"), [-1, 3], "a"),
+            TensorSpec(np.dtype("float32"), [-1], "b"),
+            TensorSpec(np.dtype("int32"), [-1, 4], "c"),
+        ]
+    )
+    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
+
+    expected_result_no_schema_arbitrary = {
+        "a": np.array([["s1", "s2", "s3"], ["s4", "s5", "s6"]]),
+        "b": np.array([1.1, 2.2, 3.3]),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]]),
+    }
+    expected_result_schema_arbitrary = {
+        "a": np.array([["s1", "s2", "s3"], ["s4", "s5", "s6"]], dtype=np.dtype("str")),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float32"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]], dtype="int32"),
+    }
+
+    # Without Schema
+    result = parse_tf_serving_input(tfserving_input_arbitrary)
+    assert_result(result, expected_result_no_schema_arbitrary)
+
+    # With Schema
+    result = parse_tf_serving_input(tfserving_input_arbitrary, schema)
+    assert_result(result, expected_result_schema_arbitrary)
+
+    # With df Schema
+    result = parse_tf_serving_input(tfserving_input_arbitrary, dfSchema)
+    assert_result(result, expected_result_schema_arbitrary)
+
+
 def test_parse_tf_serving_single_array():
     def assert_result(result, expected_result):
         assert (result == expected_result).all()
@@ -368,14 +413,6 @@ def test_parse_tf_serving_raises_expected_errors():
         MlflowException, match="The length of values for each input/column name are not the same"
     ):
         parse_tf_serving_input(tfserving_instances)
-
-    tfserving_inputs = {
-        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6]]}
-    }
-    with pytest.raises(
-        MlflowException, match="The length of values for each input/column name are not the same"
-    ):
-        parse_tf_serving_input(tfserving_inputs)
 
     # cannot specify both instance and inputs
     tfserving_input = {
@@ -470,7 +507,7 @@ def test_dataframe_from_json():
     # NB: tensor schema does not automatically decode base64 encoded bytes.
     assert parsed.equals(jsonable_df)
 
-    # Test parse with TesnorSchema with a single tensor
+    # Test parse with TensorSchema with a single tensor
     tensor_schema = Schema([TensorSpec(np.dtype("float32"), [-1, 3])])
     source = pd.DataFrame(
         {

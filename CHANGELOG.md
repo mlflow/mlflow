@@ -1,5 +1,102 @@
 # CHANGELOG
 
+## 1.27.0 (2022-06-27)
+
+MLflow 1.27.0 includes several major features and improvements:
+
+- [**Pipelines**] With MLflow 1.27.0, we are excited to announce the release of
+[**MLflow Pipelines**](https://mlflow.org/docs/latest/pipelines.html), an opinionated framework for
+structuring MLOps workflows that simplifies and standardizes machine learning application development
+and productionization. MLflow Pipelines makes it easy for data scientists to follow best practices
+for creating production-ready ML deliverables, allowing them to focus on developing excellent models.
+MLflow Pipelines also enables ML engineers and DevOps teams to seamlessly deploy models to production
+and incorporate them into applications. To get started with MLflow Pipelines, check out the docs at
+https://mlflow.org/docs/latest/pipelines.html. (#6115)
+
+- [UI] Introduce UI support for searching and comparing runs across multiple Experiments (#5971, @r3stl355)
+
+More features:
+
+- [Tracking] When using batch logging APIs, automatically split large sets of metrics, tags, and params into multiple requests (#6052, @nzw0301)
+- [Tracking] When an Experiment is deleted, SQL-based backends also move the associate Runs to the "deleted" lifecycle stage (#6064, @AdityaIyengar27)
+- [Tracking] Add support for logging single-element ``ndarray`` and tensor instances as metrics via the ``mlflow.log_metric()`` API (#5756, @ntakouris)
+- [Models] Add support for ``CatBoostRanker`` models to the ``mlflow.catboost`` flavor (#6032, @danielgafni)
+- [Models] Integrate SHAP's ``KernelExplainer`` with ``mlflow.evaluate()``, enabling model explanations on categorical data (#6044, #5920, @WeichenXu123)
+- [Models] Extend ``mlflow.evaluate()`` to automatically log the ``score()`` outputs of scikit-learn models as metrics (#5935, #5903, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- [UI] Fix broken model links in the Runs table on the MLflow Experiment Page (#6014, @hctpbl)
+- [Tracking/Installation] Require ``sqlalchemy>=1.4.0`` upon MLflow installation, which is necessary for usage of SQL-based MLflow Tracking backends (#6024, @sniafas)
+- [Tracking] Fix a regression that caused ``mlflow server`` to reject ``LogParam`` API requests containing empty string values (#6031, @harupy)
+- [Tracking] Fix a failure in scikit-learn autologging that occurred when ``matplotlib`` was not installed on the host system (#5995, @fa9r)
+- [Tracking] Fix a failure in TensorFlow autologging that occurred when training models on ``tf.data.Dataset`` inputs (#6061, @dbczumar)
+- [Artifacts] Address artifact download failures from SFTP locations that occurred due to mismanaged concurrency (#5840, @rsundqvist)
+- [Models] Fix a bug where MLflow Models did not restore bundled code properly if multiple models use the same code module name (#5926, @BFAnas)
+- [Models] Address an issue where ``mlflow.sklearn.model()`` did not properly restore bundled model code (#6037, @WeichenXu123)
+- [Models] Fix a bug in ``mlflow.evaluate()`` that caused input data objects to be mutated when evaluating certain scikit-learn models (#6141, @dbczumar)
+- [Models] Fix a failure in ``mlflow.pyfunc.spark_udf`` that occurred when the UDF was invoked on an empty RDD partition (#6063, @WeichenXu123)
+- [Models] Fix a failure in ``mlflow models build-docker`` that occurred when ``env-manager=local`` was specified (#6046, @bneijt)
+- [Projects] Improve robustness of the git repository check that occurs prior to MLflow Project execution (#6000, @dkapur17)
+- [Projects] Address a failure that arose when running a Project that does not have a ``master`` branch (#5889, @harupy)
+- [Docs] Correct several typos throughout the MLflow docs (#5959, @ryanrussell)
+
+Small bug fixes and doc updates (#6041, @drsantos89; #6138, #6137, #6132, @sunishsheth2009; #6144, #6124, #6125, #6123, #6057, #6060, #6050, #6038, #6029, #6030, #6025, #6018, #6019, #5962, #5974, #5972, #5957, #5947, #5907, #5938, #5906, #5932, #5919, #5914, #5888, #5890, #5886, #5873, #5865, #5843, @harupy; #6113, @comojin1994; #5930, @yashaswikakumanu; #5837, @shrinath-suresh; #6067, @deepyaman; #5997, @idlefella; #6021, @BenWilson2; #5984, @Sumanth077; #5929, @krunal16-c; #5879, @kugland; #5875, @ognis1205; #6006, @ryanrussell; #6140, @jinzhang21; #5983, @elk15; #6022, @apurva-koti; #5982, @EB-Joel; #5981, #5980, @punitkashyup; #6103, @ikrizanic; #5988, #5969, @SaumyaBhushan; #6020, #5991, @WeichenXu123; #5910, #5912, @Dark-Knight11; #6005, @Asinsa; #6023, @subramaniam02; #5999, @Regis-Caelum; #6007, @CaioCavalcanti; #5943, @kvaithin; #6017, #6002, @NeoKish; #6111, @T1b4lt; #5986, @seyyidibrahimgulec; #6053, @Zohair-coder; #6146, #6145, #6143, #6139, #6134, #6136, #6135, #6133, #6071, #6070, @dbczumar; #6026, @rotate2050)
+
+## 1.26.1 (2022-05-27)
+
+MLflow 1.26.1 is a patch release containing the following bug fixes:
+
+- [Installation] Fix compatibility issue with ``protobuf >= 4.21.0`` (#5945, @harupy)
+- [Models] Fix ``get_model_dependencies`` behavior for ``models:`` URIs containing artifact paths (#5921, @harupy)
+- [Models] Revert a problematic change to ``artifacts`` persistence in ``mlflow.pyfunc.log_model()`` that was introduced in MLflow 1.25.0 (#5891, @kyle-jarvis)
+- [Models] Close associated image files when ``EvaluationArtifact`` outputs from ``mlflow.evaluate()`` are garbage collected (#5900, @WeichenXu123)
+
+Small bug fixes and updates (#5874, #5942, #5941, #5940, #5938, @harupy; #5893, @PrajwalBorkar; #5909, @yashaswikakumanu; #5937, @BenWilson2)
+
+## 1.26.0 (2022-05-16)
+
+MLflow 1.26.0 includes several major features and improvements:
+
+Features:
+
+- [CLI] Add endpoint naming and options configuration to the deployment CLI (#5731, @trangevi)
+- [Build,Doc] Add development environment setup script for Linux and MacOS x86 Operating Systems (#5717, @BenWilson2)
+- [Tracking] Update `mlflow.set_tracking_uri` to add support for paths defined as `pathlib.Path` in addition to existing `str` path declarations (#5824, @cacharle)
+- [Scoring] Add custom timeout override option to the scoring server CLI to support high latency models (#5663, @sniafas)
+- [UI] Add sticky header to experiment run list table to support column name visibility when scrolling beyond page fold (#5818, @hubertzub-db)
+- [Artifacts] Add GCS support for MLflow garbage collection (#5811, @aditya-iyengar-rtl-de)
+- [Evaluate] Add `pos_label` argument for `eval_and_log_metrics` API to support accurate binary classifier evaluation metrics (#5807, @yxiong)
+- [UI] Add fields for latest, minimum and maximum metric values on metric display page (#5574, @adamreeve)
+- [Models] Add support for `input_example` and `signature` logging for pyspark ml flavor when using autologging (#5719, @bali0019)
+- [Models] Add `virtualenv` environment manager support for `mlflow models docker-build` CLI (#5728, @harupy)
+- [Models] Add support for wildcard module matching in log_model_allowlist for PySpark models (#5723, @serena-ruan)
+- [Projects] Add `virtualenv` environment manager support for MLflow projects (#5631, @harupy)
+- [Models] Add `virtualenv` environment manager support for MLflow Models (#5380, @harupy)
+- [Models] Add `virtualenv` environment manager support for `mlflow.pyfunc.spark_udf` (#5676, @WeichenXu123)
+- [Models] Add support for `input_example` and `signature` logging for `tensorflow` flavor when using autologging (#5510, @bali0019)
+- [Server-infra] Add JSON Schema Type Validation to enable raising 400 errors on malformed requests to REST API endpoints (#5458, @mrkaye97)
+- [Scoring] Introduce abstract `endpoint` interface for mlflow deployments (#5378, @trangevi)
+- [UI] Add `End Time` and `Duration` fields to run comparison page (#3378, @RealArpanBhattacharya)
+- [Serving] Add schema validation support when parsing input csv data for model serving (#5531, @vvijay-bolt)
+
+Bug fixes and documentation updates:
+
+- [Models] Fix REPL ID propagation from datasource listener to publisher for Spark data sources (#5826, @dbczumar)
+- [UI] Update `ag-grid` and implement `getRowId` to improve performance in the runs table visualization (#5725, @adamreeve)
+- [Serving] Fix `tf-serving` parsing to support columnar-based formatting (#5825, @arjundc-db)
+- [Artifacts] Update `log_artifact` to support models larger than 2GB in HDFS (#5812, @hitchhicker)
+- [Models] Fix autologging to support `lightgbm` metric names with "@" symbols within their names (#5785, @mengchendd)
+- [Models] Pyfunc: Fix code directory resolution of subdirectories (#5806, @dbczumar)
+- [Server-Infra] Fix mlflow-R server starting failure on windows (#5767, @serena-ruan)
+- [Docs] Add documentation for `virtualenv` environment manager support for MLflow projects (#5727, @harupy)
+- [UI] Fix artifacts display sizing to support full width rendering in preview pane (#5606, @szczeles)
+- [Models] Fix local hostname issues when loading spark model by binding driver address to localhost (#5753, @WeichenXu123)
+- [Models] Fix autologging validation and batch_size calculations for `tensorflow` flavor (#5683, @MarkYHZhang)
+- [Artifacts] Fix `SqlAlchemyStore.log_batch` implementation to make it log data in batches (#5460, @erensahin)
+
+Small bug fixes and doc updates (#5858, #5859, #5853, #5854, #5845, #5829, #5842, #5834, #5795, #5777, #5794, #5766, #5778, #5765, #5763, #5768, #5769, #5760, #5727, #5748, #5726, #5721, #5711, #5710, #5708, #5703, #5702, #5696, #5695, #5669, #5670, #5668, #5661, #5638, @harupy; #5749, @arpitjasa-db; #5675, @Davidswinkels; #5803, #5797, @ahlag; #5743, @kzhang01; #5650, #5805, #5724, #5720, #5662, @BenWilson2; #5627, @cterrelljones; #5646, @kutal10; #5758, @davideli-db; #5810, @rahulporuri; #5816, #5764, @shrinath-suresh; #5869, #5715, #5737, #5752, #5677, #5636, @WeichenXu123; #5735, @subramaniam02; #5746, @akaigraham; #5734, #5685, @lucalves; #5761, @marcelatoffernet; #5707, @aashish-khub; #5808, @ketangangal; #5730, #5700, @shaikmoeed; #5775, @dbczumar; #5747, @zhixuanevelynwu)
+
 ## 1.25.1 (2022-04-13)
 
 MLflow 1.25.1 is a patch release containing the following bug fixes:

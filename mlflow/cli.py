@@ -9,6 +9,7 @@ from click import UsageError
 import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
+import mlflow.pipelines.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
@@ -18,10 +19,12 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import resolve_default_artifact_root
+from mlflow.utils.server_cli_utils import (
+    resolve_default_artifact_root,
+    artifacts_only_config_validation,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
@@ -269,7 +272,7 @@ def ui(
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at http://localhost:5000 by default, and only accept connections
+    The UI will be visible at http://localhost:5000 by default, and only accepts connections
     from the local machine. To let the UI server accept connections from other machines, you will
     need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
     address).
@@ -400,7 +403,7 @@ def server(
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections
+    The server listens on http://localhost:5000 by default and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
@@ -417,6 +420,7 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
+    artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -463,7 +467,6 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-@experimental
 def gc(backend_store_uri, run_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
@@ -497,20 +500,32 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+cli.add_command(mlflow.pipelines.cli.commands)
 
+# We are conditional loading these commands since the skinny client does
+# not support them due to the pandas and numpy dependencies of MLflow Models
 try:
-    # pylint: disable=unused-import
-    import mlflow.models.cli
-    import mlflow.azureml.cli
-    import mlflow.sagemaker.cli
+    import mlflow.models.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.azureml.cli.commands)
-    cli.add_command(mlflow.sagemaker.cli.commands)
     cli.add_command(mlflow.models.cli.commands)
 except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
     pass
+
+
+try:
+    import mlflow.azureml.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.azureml.cli.commands)
+except ImportError as e:
+    pass
+
+try:
+    import mlflow.sagemaker.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.sagemaker.cli.commands)
+except ImportError as e:
+    pass
+
 
 if __name__ == "__main__":
     cli()

@@ -201,15 +201,8 @@ export class RunViewImpl extends Component {
   }
 
   render() {
-    const {
-      runUuid,
-      run,
-      params,
-      tags,
-      latestMetrics,
-      getMetricPagePath,
-      modelVersions,
-    } = this.props;
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath, modelVersions } =
+      this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
@@ -260,6 +253,16 @@ export class RunViewImpl extends Component {
 
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
+          {
+            <Descriptions.Item
+              label={this.props.intl.formatMessage({
+                defaultMessage: 'Run ID',
+                description: 'Label for displaying the ID of the experiment run',
+              })}
+            >
+              {runUuid}
+            </Descriptions.Item>
+          }
           <Descriptions.Item
             label={this.props.intl.formatMessage({
               defaultMessage: 'Date',
@@ -397,7 +400,7 @@ export class RunViewImpl extends Component {
           ) : null}
           <CollapsibleSection
             title={
-              <span>
+              <span className='RunView-editDescriptionHeader'>
                 <FormattedMessage
                   defaultMessage='Description'
                   description='Label for the notes editable content for the experiment run'

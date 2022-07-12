@@ -948,7 +948,7 @@ def autolog(
             from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         # For brevity, here is the simplest most minimal example with just a training
         # loop step, (no validation, no testing). It illustrates how you can use MLflow
@@ -964,8 +964,10 @@ def autolog(
 
             def training_step(self, batch, batch_nb):
                 x, y = batch
-                loss = F.cross_entropy(self(x), y)
-                acc = accuracy(loss, y)
+                logits = self(x)
+                loss = F.cross_entropy(logits, y)
+                pred = logits.argmax(dim=1)
+                acc = accuracy(pred, y)
 
                 # Use the current of PyTorch logger
                 self.log("train_loss", loss, on_epoch=True)

@@ -54,16 +54,21 @@ mlflow_cli_param <- function(args, param, value) {
 #' @param static_prefix A prefix which will be prepended to the path of all static paths.
 #' @export
 mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
-                          host = "127.0.0.1", port = 5000, workers = 4, static_prefix = NULL) {
+                          host = "127.0.0.1", port = 5000, workers = NULL, static_prefix = NULL) {
   file_store <- fs::path_abs(file_store)
+  if (.Platform$OS.type == "windows") file_store <- paste0("file://", file_store)
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
     mlflow_cli_param("--backend-store-uri", file_store) %>%
     mlflow_cli_param("--default-artifact-root", default_artifact_root) %>%
     mlflow_cli_param("--host", host) %>%
     mlflow_cli_param("--port", port) %>%
-    mlflow_cli_param("--workers", workers) %>%
     mlflow_cli_param("--static-prefix", static_prefix)
+
+  if (.Platform$OS.type != "windows") {
+    workers <- workers %||% 4
+    args <- args %>% mlflow_cli_param("--workers", workers)
+  }
 
   mlflow_verbose_message("MLflow starting: http://", host, ":", port)
 
