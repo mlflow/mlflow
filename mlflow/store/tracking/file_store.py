@@ -979,7 +979,7 @@ def _like_pattern_to_regex(pattern):
     return "^" + pattern.replace("%", ".*") + "$"
 
 
-def _comparator_to_func(comparator, value):
+def _create_matcher(comparator, value):
     if comparator == "=":
         return value.__eq__
     elif comparator == "!=":
@@ -988,24 +988,28 @@ def _comparator_to_func(comparator, value):
         flag = re.IGNORECASE if comparator == "ILIKE" else 0
         regex = re.compile(_like_pattern_to_regex(value), flag)
         return regex.match
-    raise MlflowException.invalid_parameter_value(f"Invalid comparator for attribute: {comparator}")
+    raise MlflowException.invalid_parameter_value(f"Invalid comparator: {comparator}")
 
 
 def filter_by_attribute(key, comparator, value):
-    f = _comparator_to_func(comparator, value)
-    return lambda exp: f(getattr(exp, key))
+    matcher = _create_matcher(comparator, value)
+
+    def matched(experiment):
+        return matcher(getattr(experiment, key))
+
+    return matched
 
 
 def filter_by_tags(key, comparator, value):
-    f = _comparator_to_func(comparator, value)
+    matcher = _create_matcher(comparator, value)
 
-    def func(exp):
-        val = exp.tags.get(key)
+    def has_tag_and_matched(experiment):
+        val = experiment.tags.get(key)
         if val is not None:
-            return f(val)
+            return matcher(val)
         return False
 
-    return func
+    return has_tag_and_matched
 
 
 def _get_search_experiments_filters(parsed_filters):
@@ -1029,6 +1033,7 @@ class _Reversor:
     def __init__(self, obj):
         self.obj = obj
 
+    # Only need < and == are needed for use as a key parameter in the sorted function
     def __eq__(self, other):
         return other.obj == self.obj
 
