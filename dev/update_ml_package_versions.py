@@ -9,44 +9,31 @@ $ python dev/update_ml_package_versions.py
 """
 import argparse
 import json
+from packaging.version import Version
 import re
 import sys
 import urllib.request
 import yaml
-from packaging.version import Version
 
 
 def read_file(path):
-    """
-    Reads a file from a path and returns its contents
-    :param path: path to read file from
-    """
-    with open(path, encoding="utf-8") as file:
-        return file.read()
+    with open(path) as f:
+        return f.read()
 
 
 def save_file(src, path):
-    """
-    Saves a file to a path
-    :param src: source to get file from
-    :param path: destination path to store file to
-    """
-    with open(path, "w", encoding="utf-8") as file:
-        file.write(src)
+    with open(path, "w") as f:
+        f.write(src)
 
 
 def get_package_versions(package_name):
-    """
-    Get all the available package versions
-    :param package_name: Name of the package
-    """
-    url = f"https://pypi.python.org/pypi/{package_name}/json"
+    url = "https://pypi.python.org/pypi/{}/json".format(package_name)
     with urllib.request.urlopen(url) as res:
         data = json.load(res)
 
     def is_dev_or_pre_release(version_str):
-        ver = Version(version_str)
-        return ver.is_devrelease or ver.is_prerelease
+        v = Version(version_str)
+        return v.is_devrelease or v.is_prerelease
 
     return [
         version
@@ -56,21 +43,11 @@ def get_package_versions(package_name):
 
 
 def get_latest_version(candidates):
-    """
-    Get latest version of a package from candidates
-    :param candidates: Candidates to calculate latest version from
-    """
     return sorted(candidates, key=Version, reverse=True)[0]
 
 
 def update_max_version(src, key, new_max_version, category):
     """
-    Updates to max version from a source.
-    :param src: Source
-    :param key: Key to which max version to update to
-    :param new_max_version: New maximum version
-    :param category: Categories to update version to
-
     Examples
     ========
     >>> src = '''
@@ -99,7 +76,9 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = rf"({re.escape(key)}:.+?{category}:.+?maximum: )\".+?\""
+    pattern = r"({key}:.+?{category}:.+?maximum: )\".+?\"".format(
+        key=re.escape(key), category=category
+    )
     # Matches the following pattern:
     #
     # <key>:
@@ -107,14 +86,10 @@ def update_max_version(src, key, new_max_version, category):
     #   <category>:
     #     ...
     #     maximum: "1.2.3"
-    return re.sub(pattern, rf'\g<1>"{new_max_version}"', src, flags=re.DOTALL)
+    return re.sub(pattern, r'\g<1>"{}"'.format(new_max_version), src, flags=re.DOTALL)
 
 
 def parse_args(args):
-    """
-    A function to parse arguments
-    :param args: arguments to parse
-    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-p",
@@ -127,10 +102,6 @@ def parse_args(args):
 
 
 def main(args):
-    """
-    Main function to update ml package versions
-    :param args: arguments to parse
-    """
     args = parse_args(args)
 
     yml_path = args.path
