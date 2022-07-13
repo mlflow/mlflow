@@ -1,10 +1,11 @@
 import React from 'react';
-import { mountWithIntl, shallowWithIntl, mockAjax } from '../../common/utils/TestUtils';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { ErrorWrapper, pending } from '../../common/utils/ActionUtils';
+import { pending } from '../../common/utils/ActionUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import {
   ModelVersionStatus,
@@ -27,7 +28,10 @@ describe('ArtifactPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -51,12 +55,7 @@ describe('ArtifactPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': mockModelVersionDetailed(
-              'Model A',
-              1,
-              Stages.PRODUCTION,
-              ModelVersionStatus.READY,
-            ),
+            1: mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
           },
         },
       },
@@ -126,9 +125,10 @@ describe('ArtifactPage', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     const props = { ...minimalProps, apis: {}, searchModelVersionsApi: jest.fn() };
     wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
-    const responseErrorWrapper = new ErrorWrapper({
-      responseText: `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
-    });
+    const responseErrorWrapper = new ErrorWrapper(
+      `{'error_code': '${ErrorCodes.PERMISSION_DENIED}', 'message': 'request failed'}`,
+      403,
+    );
     const artifactPageInstance = wrapper.instance();
     const listArtifactsErrorRequest = {
       id: artifactPageInstance.listArtifactsRequestId,
@@ -166,7 +166,7 @@ describe('ArtifactPage', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 
     getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
@@ -178,7 +178,7 @@ describe('ArtifactPage', () => {
     const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
     expect(Utils.isModelRegistryEnabled()).toEqual(false);
     getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
@@ -191,11 +191,62 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
     expect(getArtifactPageInstance().state.activeNodeIsDirectory).toEqual(false);
 
-    jest.runTimersToTime(POLL_INTERVAL * 3);
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
     const expectedActions = minimalStore.getActions().filter((action) => {
       return action.type === pending(SEARCH_MODEL_VERSIONS);
     });
     expect(expectedActions).toHaveLength(0);
+  });
+
+  test('should not report multiple errors', () => {
+    jest.useFakeTimers();
+    Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
+    Utils.logErrorAndNotifyUser = jest.fn();
+
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(0);
+    const props = {
+      ...minimalProps,
+      apis: {},
+      searchModelVersionsApi: jest.fn(() => {
+        throw Error('err');
+      }),
+    };
+
+    // Create our wrapper with the intial props
+    wrapper = mountWithIntl(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ArtifactPageImpl {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    wrapper.find(ArtifactPageImpl).setState({ activeNodeIsDirectory: true });
+
+    // Wait multiple poll intervals
+    jest.advanceTimersByTime(POLL_INTERVAL * 3);
+
+    // We should have only one error call
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
+
+    // Let's change the run uuid now by changing the props
+    // sadly, enzyme provides no convenient method to change
+    // the deeply nested component props so we need to
+    // improvise: https://github.com/enzymejs/enzyme/issues/1925
+    wrapper.setProps({
+      children: (
+        <BrowserRouter>
+          <ArtifactPageImpl {...props} runUuid='anotherFakeUuid' />
+        </BrowserRouter>
+      ),
+    });
+
+    // Wait another multiple poll intervals
+    jest.advanceTimersByTime(POLL_INTERVAL * 5);
+
+    // We should have only one more error call
+    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(2);
+
+    jest.clearAllMocks();
   });
 
   describe('autoselect logged model', () => {

@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to 
+recommend waiting for feedback from an MLflow committer or community member before proceeding to
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -36,12 +36,13 @@ and will typically be labeled during triage with ``needs design``.
 After you have agreed upon an implementation strategy for your feature or patch with an MLflow
 committer, the next step is to introduce your changes (see `developing changes
 <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#developing-and-testing-mlflow>`_)
-as a pull request against the MLflow Repository or as a standalone MLflow Plugin. MLflow committers
+as a pull request against the MLflow Repository (we recommend pull requests be filed from a
+non-master branch on a repository fork) or as a standalone MLflow Plugin. MLflow committers
 actively review pull requests and are also happy to provide implementation guidance for Plugins.
 
 Once your pull request against the MLflow Repository has been merged, your corresponding changes
 will be automatically included in the next MLflow release. Every change is listed in the MLflow
-release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.rst>`_.
+release notes and `Changelog <https://github.com/mlflow/mlflow/blob/master/CHANGELOG.md>`_.
 
 Congratulations, you have just contributed to MLflow. We appreciate your contribution!
 
@@ -55,7 +56,7 @@ Write designs for significant changes
 
 For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
 an MLflow committer before investing heavily in implementation. During issue triage, we try to proactively
-identify issues require design by labeling them with ``needs design``. This is particularly important if your 
+identify issues require design by labeling them with ``needs design``. This is particularly important if your
 proposed implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
@@ -114,8 +115,66 @@ The majority of the MLflow codebase is developed in Python. This includes the CL
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
 
-Common prerequisites and dependencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Environment Setup and Python configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Having a standardized development environment is advisable when working on MLflow. Creating an environment that contains
+the required Python packages (and versions), linting tools, and environment configurations will help to
+prevent unnecessary CI failures when filing a PR. A correctly configured local environment will also allow you to
+run tests locally in an environment that mimics that of the CI execution environment.
+
+There are two means of setting up a base Python development environment for MLflow: automated (through the
+`dev-env-setup.sh <https://github.com/mlflow/mlflow/tree/master/dev/dev-env-setup.sh>`_ script) or manual. Even in a
+manual-based approach (i.e., testing functionality of a specific version of a model flavor's package version), the
+automated script can save a great deal of time and reduce errors in creating the environment.
+
+Automated Python development environment configuration
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+The automated development environment setup script
+(`dev-env-setup.sh <https://github.com/mlflow/mlflow/tree/master/dev/dev-env-setup.sh>`_) can be used to setup a development
+environment that is configured with all of the dependencies required and the environment configuration needed to develop and locally
+test the Python code portions of MLflow. This CLI tool's readme can be accessed via the root of the mlflow repository as follows:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -h
+
+An example usage of this script that will build a development environment using ``virtualenv`` and the minimum supported
+Python version (to ensure compatibility) is:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -d .venvs/mlflow-dev -q
+
+The ``-q`` parameter is to "quiet" the pip install processes preventing stdout printing during installation.
+
+It is advised to follow all of the prompts to ensure that the configuration of the environment, as well as git, are completed
+so that your PR process is as effortless as possible.
+
+.. note::
+    Frequently, a specific version of a library is required in order to validate a feature's compatibility with older
+    versions. Modifying your primary development environment to test one-off compatibility can be very error-prone and
+    result in an environment that is significantly different from that of the CI test environment. To support this
+    use case, the automated script can be used to create an environment that can be easily modified to support testing
+    a particular version of a model flavor in an isolated environment. Simply run the ``dev-env-setup.sh`` script,
+    activate the new environment, and install the required version for testing.
+
+Example of installing an older version of ``scikit-learn`` to perform isolated testing:
+
+.. code-block:: bash
+
+    dev/dev-env-setup.sh -d ~/.venvs/sklearn-test -q
+    source ~/.venvs/sklearn-test/bin/activate
+    pip freeze | grep "scikit-learn"
+    >> scikit-learn==1.0.2
+    pip install scikit-learn==1.0.1
+    pip freeze | grep "scikit-learn"
+    >> scikit-learn==1.0.1
+
+Manual Python development environment configuration
++++++++++++++++++++++++++++++++++++++++++++++++++++
+The manual process is recommended if you are going to use Conda or if you are fond of terminal setup processes.
+To start with the manual process, ensure that you have either conda or virtualenv installed.
+
 First, ensure that your name and email are
 `configured in git <https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup>`_ so that
 you can `sign your work`_ when committing code changes and opening pull requests:
@@ -139,16 +198,16 @@ by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env python=3.6
+    conda create --name mlflow-dev-env python=3.7
     conda activate mlflow-dev-env
-    pip install -e .[extras] # installs mlflow from current checkout with some useful extra utilities
+    pip install -e '.[extras]' # installs mlflow from current checkout with some useful extra utilities
 
 If you plan on doing development and testing, you will also need to install the following into the conda environment:
 
 .. code-block:: bash
 
     pip install -r requirements/dev-requirements.txt
-    pip install -e .[extras]  # installs mlflow from current checkout
+    pip install -e '.[extras]'  # installs mlflow from current checkout
     pip install -e tests/resources/mlflow-test-plugin # installs `mlflow-test-plugin` that is required for running certain MLflow tests
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
@@ -164,9 +223,9 @@ Finally, we use ``pytest`` to test all Python contributed code. Install ``pytest
 JavaScript and UI
 ~~~~~~~~~~~~~~~~~
 
-The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
-You can verify that ``npm`` is on the PATH by running ``npm -v``, and
-`install npm <https://www.npmjs.com/get-npm>`_ if needed.
+The MLflow UI is written in JavaScript. ``yarn`` is required to run the Javascript dev server and the tracking UI.
+You can verify that ``yarn`` is on the PATH by running ``yarn -v``, and
+`install yarn <https://classic.yarnpkg.com/lang/en/docs/install>`_ if needed.
 
 Install Node Module Dependencies
 ++++++++++++++++++++++++++++++++
@@ -187,10 +246,10 @@ dependencies via:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm install
+   yarn install
    cd - # return to root repository directory
 
-If modifying dependencies in ``mlflow/server/js/package.json``, run ``npm update`` within
+If modifying dependencies in ``mlflow/server/js/package.json``, run ``yarn upgrade`` within
 ``mlflow/server/js`` to install the updated dependencies.
 
 Launching the Development UI
@@ -216,7 +275,7 @@ In another shell:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm start
+   yarn start
 
 The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
@@ -344,32 +403,20 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 .. code-block:: bash
 
     ./dev/lint.sh
-    ./dev/run-small-python-tests.sh
-    # Optionally, run large tests as well. Github actions will run large tests on your pull request once
-    # small tests pass. Note: models and model deployment tests are considered "large" tests. If
-    # making changes to these components, we recommend running the relevant tests (e.g. tests under
-    # tests/keras for changes to Keras model support) locally before submitting a pull request.
-    ./dev/run-large-python-tests.sh
-
-Python tests are split into "small" & "large" categories, with new tests falling into the "small"
-category by default. Tests that take 10 or more seconds to run should be marked as large tests
-via the ``@pytest.mark.large`` annotation. Dependencies for small and large tests can be added to
-``requirements/small-requirements.txt`` and ``requirements/large-requirements.txt``, respectively.
+    ./dev/run-python-tests.sh
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
-``pytest [--large] [file_or_dir] ... [file_or_dir]``, where specifying ``--large`` tells pytest to
-run tests annotated with @pytest.mark.large. For example, to run all pyfunc tests
-(including large tests), you can run:
+``pytest [file_or_dir] ... [file_or_dir]``. For example, to run all pyfunc tests, you can run:
 
 .. code-block:: bash
 
-    pytest tests/pyfunc --large
+    pytest tests/pyfunc
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
 process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you'd like to
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
-``pytest tests/sklearn --large && pytest tests/tensorflow --large``
+``pytest tests/sklearn && pytest tests/tensorflow``
 
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
@@ -384,13 +431,12 @@ Python Model Flavors
 
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Github action configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
-1. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
-2. ``dev/run-large-python-tests.sh``:
+1. ``dev/run-python-tests.sh``:
 
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``requirements/large-requirements.txt``: add your framework and version to the list of requirements
+2. ``requirements/test-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
@@ -449,6 +495,8 @@ checkout of MLflow:
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
     $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
+    # Update schema files
+    $ ./tests/db/update_schemas.sh
 
 
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
@@ -493,7 +541,7 @@ Generate JS files in ``mlflow/server/js/build``:
 .. code-block:: bash
 
    cd mlflow/server/js
-   npm run build
+   yarn build
 
 Build a pip-installable wheel in ``dist/``:
 
@@ -553,7 +601,7 @@ for an example.
 Sign your work
 ~~~~~~~~~~~~~~
 
-In order to commit your work, you need to sign that you wrote the patch or otherwise have the right 
+In order to commit your work, you need to sign that you wrote the patch or otherwise have the right
 to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
 
   Developer Certificate of Origin
@@ -599,7 +647,7 @@ Then add a line to every git commit message::
 
   Signed-off-by: Jane Smith <jane.smith@email.com>
 
-Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
+Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
 
 Code of Conduct

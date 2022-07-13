@@ -16,17 +16,17 @@ def main():
     svc = svm.SVC()
     clf = GridSearchCV(svc, parameters)
 
-    with mlflow.start_run() as run:
-        clf.fit(iris.data, iris.target)
+    clf.fit(iris.data, iris.target)
+    run_id = mlflow.last_active_run().info.run_id
 
     # show data logged in the parent run
     print("========== parent run ==========")
-    for key, data in fetch_logged_data(run.info.run_id).items():
+    for key, data in fetch_logged_data(run_id).items():
         print("\n---------- logged {} ----------".format(key))
         pprint(data)
 
     # show data logged in the child runs
-    filter_child_runs = "tags.mlflow.parentRunId = '{}'".format(run.info.run_id)
+    filter_child_runs = "tags.mlflow.parentRunId = '{}'".format(run_id)
     runs = mlflow.search_runs(filter_string=filter_child_runs)
     param_cols = ["params.{}".format(p) for p in parameters.keys()]
     metric_cols = ["metrics.mean_test_score"]

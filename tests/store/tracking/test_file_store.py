@@ -135,7 +135,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # Test removing root
         second_file_store = FileStore(self.test_root)
         shutil.rmtree(self.test_root)
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, r"does not exist"):
             second_file_store._check_root_dir()
 
     def test_list_experiments(self):
@@ -176,8 +176,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # test that fake experiments dont exist.
         # look for random experiment ids between 8000, 15000 since created ones are (100, 2000)
         for exp_id in set(random_int(8000, 15000) for x in range(20)):
-            with self.assertRaises(Exception):
-                fs.get_experiment(exp_id)
+            with self.assertRaisesRegex(Exception, f"Could not find experiment with ID {exp_id}"):
+                fs.get_experiment(str(exp_id))
 
     def test_get_experiment_int_experiment_id_backcompat(self):
         fs = FileStore(self.test_root)
@@ -214,9 +214,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
 
         # Error cases
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, "Invalid experiment name: 'None'"):
             fs.create_experiment(None)
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, "Invalid experiment name: ''"):
             fs.create_experiment("")
 
         exp_id_ints = (int(exp_id) for exp_id in self.experiments)
@@ -296,7 +296,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             name = self.exp_data[exp_id]["name"]
-            with self.assertRaises(Exception):
+            with self.assertRaisesRegex(Exception, f"Experiment '{name}' already exists"):
                 fs.create_experiment(name)
 
     def _extract_ids(self, experiments):
@@ -332,16 +332,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
 
         # Error cases
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(Exception, "Invalid experiment name: 'None'"):
             fs.rename_experiment(exp_id, None)
-        with self.assertRaises(Exception):
-            # test that names of existing experiments are checked before renaming
-            other_exp_id = None
-            for exp in self.experiments:
-                if exp != exp_id:
-                    other_exp_id = exp
-                    break
-            fs.rename_experiment(exp_id, fs.get_experiment(other_exp_id).name)
+        # test that names of existing experiments are checked before renaming
+        other_exp_id = None
+        for exp in self.experiments:
+            if exp != exp_id:
+                other_exp_id = exp
+                break
+        name = fs.get_experiment(other_exp_id).name
+        with self.assertRaisesRegex(Exception, f"Experiment '{name}' already exists"):
+            fs.rename_experiment(exp_id, name)
 
         exp_name = self.exp_data[exp_id]["name"]
         new_name = exp_name + "!!!"
@@ -381,13 +382,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]["runs"][0]
         fs._hard_delete_run(run_id)
-        with self.assertRaises(MlflowException):
+        with self.assertRaisesRegex(MlflowException, f"Run '{run_id}' not found"):
             fs.get_run(run_id)
-        with self.assertRaises(MlflowException):
+        with self.assertRaisesRegex(MlflowException, f"Run '{run_id}' not found"):
             fs.get_all_tags(run_id)
-        with self.assertRaises(MlflowException):
+        with self.assertRaisesRegex(MlflowException, f"Run '{run_id}' not found"):
             fs.get_all_metrics(run_id)
-        with self.assertRaises(MlflowException):
+        with self.assertRaisesRegex(MlflowException, f"Run '{run_id}' not found"):
             fs.get_all_params(run_id)
 
     def test_get_deleted_runs(self):
@@ -665,15 +666,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         runs = [fs.create_run(exp, "user", r, []).info.run_id for r in range(10)]
         runs.reverse()
 
-        print(runs)
-        print(self._search(fs, exp))
         assert runs[:10] == self._search(fs, exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
             assert runs[: min(1200, n)] == self._search(fs, exp, max_results=n)
 
-        with self.assertRaises(MlflowException) as e:
+        with self.assertRaisesRegex(
+            MlflowException, "Invalid value for request parameter max_results. It "
+        ):
             self._search(fs, exp, None, max_results=int(1e10))
-        self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
 
     def test_search_with_deterministic_max_results(self):
         fs = FileStore(self.test_root)
@@ -1015,19 +1015,16 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             ]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
-                print(log_batch_kwargs)
-                with self.assertRaises(MlflowException) as e:
+                with self.assertRaisesRegex(MlflowException, "Some internal error") as e:
                     fs.log_batch(run.info.run_id, **log_batch_kwargs)
-                self.assertIn(str(e.exception.message), "Some internal error")
                 assert e.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_log_batch_nonexistent_run(self):
         fs = FileStore(self.test_root)
         nonexistent_uuid = uuid.uuid4().hex
-        with self.assertRaises(MlflowException) as e:
+        with self.assertRaisesRegex(MlflowException, f"Run '{nonexistent_uuid}' not found") as e:
             fs.log_batch(nonexistent_uuid, [], [], [])
         assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        assert ("Run '%s' not found" % nonexistent_uuid) in e.exception.message
 
     def test_log_batch_params_idempotency(self):
         fs = FileStore(self.test_root)

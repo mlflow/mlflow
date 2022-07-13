@@ -12,7 +12,9 @@ import {
   CHART_TYPE_LINE,
   METRICS_PLOT_POLLING_INTERVAL_MS,
   METRICS_PLOT_HANGING_RUN_THRESHOLD_MS,
+  convertMetricsToCsv,
 } from './MetricsPlotPanel';
+import MetricsSummaryTable from './MetricsSummaryTable';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
@@ -23,13 +25,14 @@ describe('unit tests', () => {
   let instance;
   let minimalPropsForLineChart;
   let minimalPropsForBarChart;
+  let minimalStore;
   let getMetricHistoryApi;
   let getRunApi;
 
   beforeEach(() => {
     const location = {
       search:
-        '?runs=["runUuid1","runUuid2"]&experiment=0' +
+        '?runs=["runUuid1","runUuid2"]&experiments=["1"]' +
         '&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
     const history = {
@@ -41,7 +44,7 @@ describe('unit tests', () => {
     getRunApi = jest.fn(() => Promise.resolve());
     const now = new Date().getTime();
     minimalPropsForLineChart = {
-      experimentId: '1',
+      experimentIds: ['1'],
       runUuids: ['runUuid1', 'runUuid2'],
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
@@ -106,7 +109,7 @@ describe('unit tests', () => {
     };
 
     minimalPropsForBarChart = {
-      experimentId: '1',
+      experimentIds: ['1'],
       runUuids: ['runUuid1', 'runUuid2'],
       completedRunUuids: ['runUuid1', 'runUuid2'],
       metricKey: 'metric_1',
@@ -157,6 +160,16 @@ describe('unit tests', () => {
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
       deselectedCurves: [],
     };
+
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    minimalStore = mockStore({
+      entities: {
+        runInfosByUuid: {},
+        latestMetricsByRunUuid: {},
+        minMetricsByRunUuid: {},
+        maxMetricsByRunUuid: {},
+      },
+    });
   });
 
   test('should render with minimal props without exploding', () => {
@@ -221,7 +234,9 @@ describe('unit tests', () => {
     // Test converting to & from log scale for an empty layout (e.g. a layout without any
     // user-specified zoom)
     instance.handleYAxisLogScaleChange(true);
-    expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'log', autorange: true } });
+    expect(instance.getUrlState().layout).toEqual({
+      yaxis: { type: 'log', autorange: true, exponentformat: 'e' },
+    });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({ yaxis: { type: 'linear', autorange: true } });
     // Test converting to & from log scale for a layout with specified y axis range bounds
@@ -234,7 +249,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [2, 4], autorange: false },
-      yaxis: { range: [0, 2], type: 'log' },
+      yaxis: { range: [0, 2], type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -251,7 +266,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -263,7 +278,7 @@ describe('unit tests', () => {
     instance.handleYAxisLogScaleChange(true);
     expect(instance.getUrlState().layout).toEqual({
       xaxis: { range: [-5, 5], autorange: false },
-      yaxis: { autorange: true, type: 'log' },
+      yaxis: { autorange: true, type: 'log', exponentformat: 'e' },
     });
     instance.handleYAxisLogScaleChange(false);
     expect(instance.getUrlState().layout).toEqual({
@@ -377,7 +392,7 @@ describe('unit tests', () => {
       ],
     };
     const props = {
-      experimentId: '1',
+      experimentIds: ['1'],
       visible: true,
       x: 1,
       y: 1,
@@ -407,16 +422,16 @@ describe('unit tests', () => {
       expect(popover.props().x).toEqual(props.x);
       expect(popover.props().y).toEqual(props.y);
       expect(popover.props().visible).toEqual(props.visible);
-      expect(popover.props().experimentId).toEqual(props.experimentId);
+      expect(popover.props().experimentIds).toEqual(props.experimentId);
       expect(popover.props().runItems).toEqual(props.runItems);
       done();
     }, 1000);
   });
+
   test('should render the number of completed runs correctly', () => {
     const mountWithProps = (props) => {
-      const mockStore = configureStore([thunk, promiseMiddleware()]);
       return mountWithIntl(
-        <Provider store={mockStore({})}>
+        <Provider store={minimalStore}>
           <BrowserRouter>
             <MetricsPlotPanel {...props} />
           </BrowserRouter>
@@ -444,6 +459,28 @@ describe('unit tests', () => {
     });
     wrapper.update();
     expect(wrapper.find(Progress).text()).toContain('2/2');
+  });
+
+  test('should render the metrics summary table correctly', () => {
+    const mountWithProps = (props) => {
+      return mountWithIntl(
+        <Provider store={minimalStore}>
+          <BrowserRouter>
+            <MetricsPlotPanel {...props} />
+          </BrowserRouter>
+        </Provider>,
+      );
+    };
+    wrapper = mountWithProps({
+      ...minimalPropsForLineChart,
+    });
+    wrapper.update();
+
+    const summaryTable = wrapper.find(MetricsSummaryTable);
+    expect(summaryTable.length).toBe(1);
+    expect(summaryTable.props().runUuids).toEqual(minimalPropsForLineChart.runUuids);
+    // Selected metric keys are set by location.search
+    expect(summaryTable.props().metricKeys).toEqual(['metric_1', 'metric_2']);
   });
 
   test('should not poll if all runs already completed', () => {
@@ -574,4 +611,64 @@ describe('unit tests', () => {
     jest.advanceTimersByTime(METRICS_PLOT_POLLING_INTERVAL_MS);
     expect(getRunApi).toHaveBeenCalledTimes(1);
   });
+});
+
+test('convertMetricsToCsv', () => {
+  const metrics = [
+    {
+      metricKey: 'metric1',
+      history: [
+        {
+          key: 'metric1',
+          value: 0,
+          step: 0,
+          timestamp: 0,
+        },
+        {
+          key: 'metric1',
+          value: 1,
+          step: 1,
+          timestamp: 1,
+        },
+        {
+          key: 'metric1',
+          value: 2,
+          step: 2,
+          timestamp: 2,
+        },
+      ],
+      runUuid: '1',
+      runDisplayName: 'Run 1',
+    },
+    {
+      metricKey: 'metric2',
+      history: [
+        {
+          key: 'metric2',
+          value: 0,
+          step: 0,
+          timestamp: 0,
+        },
+        {
+          key: 'metric2',
+          value: 1,
+          step: 1,
+          timestamp: 1,
+        },
+      ],
+      runUuid: '2',
+      runDisplayName: 'Run 2',
+    },
+  ];
+  const csv = convertMetricsToCsv(metrics);
+  expect(csv).toBe(
+    `
+run_id,key,value,step,timestamp
+1,metric1,0,0,0
+1,metric1,1,1,1
+1,metric1,2,2,2
+2,metric2,0,0,0
+2,metric2,1,1,1
+`.trim(),
+  );
 });

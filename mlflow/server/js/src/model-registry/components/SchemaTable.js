@@ -1,7 +1,6 @@
 import React from 'react';
 import { Table } from 'antd';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
 import { LogModelWithSignatureUrl } from '../../common/constants';
 import { gray800 } from '../../common/styles/color';
 import { spacingMedium } from '../../common/styles/spacing';
@@ -76,8 +75,6 @@ export class SchemaTableImpl extends React.PureComponent {
 
   render() {
     const { schema } = this.props;
-    const plusIcon = <i className='far fa-plus-square' />;
-    const minusIcon = <i className='far fa-minus-square' />;
     const hasSchema = schema.inputs.length || schema.outputs.length;
     const sectionHeaders = hasSchema
       ? [
@@ -113,7 +110,7 @@ export class SchemaTableImpl extends React.PureComponent {
       : [];
 
     return (
-      <div className={`${schemaTableClassName}`}>
+      <div css={schemaTableStyles}>
         <Table
           key='schema-table'
           className='outer-table'
@@ -123,7 +120,17 @@ export class SchemaTableImpl extends React.PureComponent {
           defaultExpandAllRows={this.props.defaultExpandAllRows}
           expandRowByClick
           expandedRowRender={(record) => record.table}
-          expandIcon={({ expanded }) => (expanded ? minusIcon : plusIcon)}
+          expandIcon={({ expanded, onExpand, record }) =>
+            expanded ? (
+              <span onClick={(e) => onExpand(record, e)}>
+                <i className='far fa-minus-square' />
+              </span>
+            ) : (
+              <span onClick={(e) => onExpand(record, e)}>
+                <i className='far fa-plus-square' />
+              </span>
+            )
+          }
           locale={{
             emptyText: (
               <div>
@@ -134,7 +141,11 @@ export class SchemaTableImpl extends React.PureComponent {
                   description='Text for schema table when no schema exists in the model version
                      page'
                   values={{
-                    link: (chunks) => <a href={LogModelWithSignatureUrl}>{chunks}</a>,
+                    link: (chunks) => (
+                      <a href={LogModelWithSignatureUrl} target='_blank' rel='noreferrer'>
+                        {chunks}
+                      </a>
+                    ),
                   }}
                 />
               </div>
@@ -172,7 +183,7 @@ export class SchemaTableImpl extends React.PureComponent {
 export const SchemaTable = injectIntl(SchemaTableImpl);
 
 const antTable = '.ant-table-middle>.ant-table-content>.ant-table-scroll>.ant-table-body>table';
-const schemaTableClassName = css({
+const schemaTableStyles = {
   [`${antTable}>.ant-table-thead>tr>th.ant-table-expand-icon-th`]: {
     padding: `${spacingMedium}px 0`,
     width: '32px',
@@ -217,4 +228,4 @@ const schemaTableClassName = css({
     lineHeight: '32px',
     cursor: 'pointer',
   },
-});
+};

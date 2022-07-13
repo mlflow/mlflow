@@ -1,3 +1,5 @@
+import Immutable from 'immutable';
+
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import {
   experimentsById,
@@ -128,6 +130,42 @@ describe('test experimentsById', () => {
       [preserved.getExperimentId()]: preserved,
       [replacedNew.getExperimentId()]: replacedNew,
     });
+  });
+
+  test('getExperiment correctly updates tags', () => {
+    const tag1 = { key: 'key1', value: 'value1' };
+    const tag2 = { key: 'key2', value: 'value2' };
+
+    const experiment1 = mockExperiment('experiment1', 'some name');
+
+    const action1 = {
+      type: fulfilled(GET_EXPERIMENT_API),
+      payload: {
+        experiment: {
+          experiment_id: experiment1.getExperimentId(),
+          tags: [tag1],
+        },
+      },
+    };
+
+    const state1 = experimentsById(undefined, action1);
+
+    expect(state1.experiment1.tags).toEqual(Immutable.List([ExperimentTag.fromJs(tag1)]));
+
+    const action2 = {
+      type: fulfilled(GET_EXPERIMENT_API),
+      payload: {
+        experiment: {
+          experiment_id: experiment1.getExperimentId(),
+          tags: [tag1, tag2],
+        },
+      },
+    };
+
+    const state2 = experimentsById(state1, action2);
+    const { tags } = state2.experiment1;
+
+    expect(tags).toEqual(Immutable.List([ExperimentTag.fromJs(tag1), ExperimentTag.fromJs(tag2)]));
   });
 });
 

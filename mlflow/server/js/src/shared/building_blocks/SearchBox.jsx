@@ -1,9 +1,7 @@
 import React from 'react';
-import { css } from 'emotion';
 import PropTypes from 'prop-types';
-import { Button } from './Button';
-import { Spacer } from './Spacer';
-import { Input } from './antd/Input';
+import { Spacer } from '../../shared/building_blocks/Spacer';
+import { Input, Button } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 /**
@@ -65,11 +63,10 @@ export class SearchBox extends React.Component {
         <Input
           value={this.getInputValue(value, this.state)}
           onChange={(e) => this.triggerChange(e, value, onChange)}
+          prefix={<i className='fas fa-search' style={{fontStyle: 'normal'}} />}
           onPressEnter={this.triggerSearch}
           placeholder={placeholder}
-          prefix={<i className='fas fa-search' style={{ fontStyle: 'normal' }} />}
           data-test-id='search-box'
-          className={css(styles.searchBox)}
         />
         <span data-test-id='search-button'>
           <Button onClick={this.triggerSearch} data-test-id='search-button'>
@@ -83,18 +80,3 @@ export class SearchBox extends React.Component {
     );
   }
 }
-
-const styles = {
-  searchBox: {
-    height: '40px',
-    padding: 0,
-    borderRadius: 4,
-    boxSizing: 'border-box',
-    '.ant-input-prefix': {
-      marginLeft: '16px',
-      marginBottom: '2px',
-      marginRight: '12px',
-      left: 0,
-    },
-  },
-};

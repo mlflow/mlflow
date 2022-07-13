@@ -3,6 +3,8 @@ import os
 import git
 import shutil
 import yaml
+import uuid
+import subprocess
 
 import pytest
 from unittest import mock
@@ -10,7 +12,7 @@ from unittest import mock
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
-
+from mlflow import MlflowClient
 from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _parse_kubernetes_config
@@ -29,6 +31,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_BACKEND,
     MLFLOW_PROJECT_ENV,
 )
+from mlflow.utils.process import ShellCommandException
+from mlflow.utils.conda import get_or_create_conda_env
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -86,18 +90,16 @@ def test_invalid_run_mode():
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-@pytest.mark.large
 def test_use_conda():
     """Verify that we correctly handle the `use_conda` argument."""
     # Verify we throw an exception when conda is unavailable
-    with mock.patch("mlflow.utils.process.exec_cmd", side_effect=EnvironmentError):
+    with mock.patch("mlflow.utils.process._exec_cmd", side_effect=EnvironmentError):
         with pytest.raises(ExecutionException, match="Could not find Conda executable"):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
 
 
-@pytest.mark.large
 def test_expected_tags_logged_when_using_conda():
-    with mock.patch.object(mlflow.tracking.MlflowClient, "set_tag") as tag_mock:
+    with mock.patch.object(MlflowClient, "set_tag") as tag_mock:
         try:
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
         finally:
@@ -137,7 +139,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
@@ -198,7 +200,7 @@ def test_run(use_start_run):
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
-    mlflow_service = mlflow.tracking.MlflowClient()
+    mlflow_service = MlflowClient()
 
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
@@ -236,7 +238,7 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     run_id = submitted_run.run_id
-    run = mlflow.tracking.MlflowClient().get_run(run_id)
+    run = MlflowClient().get_run(run_id)
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
@@ -336,11 +338,13 @@ def test_create_env_with_mamba():
 
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
-            return None, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            return subprocess.CompletedProcess(
+                cmd, 0, json.dumps({"envs": ["mlflow-mock-environment"]}), None
+            )
         else:
             # Here we are creating the environment, no need to return
             # anything
-            return None
+            return subprocess.CompletedProcess(cmd, 0)
 
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
 
@@ -352,16 +356,48 @@ def test_create_env_with_mamba():
     with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
 
         # Simulate success
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
             mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
 
         # Simulate a non-working or non-existent mamba
-        with mock.patch("mlflow.utils.process.exec_cmd", side_effect=exec_cmd_mock_raise):
+        with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock_raise):
             with pytest.raises(
                 ExecutionException,
                 match="You have set the env variable MLFLOW_CONDA_CREATE_ENV_CMD",
             ):
                 mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
+
+
+def test_conda_environment_cleaned_up_when_pip_fails(tmp_path, capfd):
+    conda_yaml = tmp_path / "conda.yaml"
+    content = """
+name: {name}
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7.12
+  - pip
+  - pip:
+      - mlflow==999.999.999
+""".format(
+        # Enforce creating a new environment
+        name=uuid.uuid4().hex
+    )
+    conda_yaml.write_text(content)
+    envs_before = mlflow.utils.conda._list_conda_environments()
+
+    # `conda create` should fail because mlflow 999.999.999 doesn't exist
+    with pytest.raises(ShellCommandException, match=r".*"):
+        mlflow.utils.conda.get_or_create_conda_env(conda_yaml)
+
+    # Ensure `conda create` failed because of pip failure
+    captured = capfd.readouterr()
+    assert "ERROR: No matching distribution found for mlflow==999.999.999" in captured.err
+    assert "CondaEnvException: Pip failed" in captured.err
+
+    # Ensure the environment is cleaned up
+    envs_after = mlflow.utils.conda._list_conda_environments()
+    assert envs_before == envs_after
 
 
 def test_cancel_run():
@@ -475,7 +511,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
 @pytest.mark.parametrize("synchronous", [True, False])
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_credential_propagation(get_config, synchronous):
-    class DummyProcess(object):
+    class DummyProcess:
         def wait(self):
             return 0
 
@@ -503,3 +539,21 @@ def test_credential_propagation(get_config, synchronous):
         env = kwargs["env"]
         assert env["DATABRICKS_HOST"] == "host"
         assert env["DATABRICKS_TOKEN"] == "mytoken"
+
+
+def test_get_or_create_conda_env_capture_output_mode(tmp_path):
+    conda_yaml_file = tmp_path / "conda.yaml"
+    conda_yaml_file.write_text(
+        """
+channels:
+- conda-forge
+dependencies:
+- pip:
+  - scikit-learn==99.99.99
+"""
+    )
+    with pytest.raises(
+        ShellCommandException,
+        match="Could not find a version that satisfies the requirement scikit-learn==99.99.99",
+    ):
+        get_or_create_conda_env(str(conda_yaml_file), capture_output=True)

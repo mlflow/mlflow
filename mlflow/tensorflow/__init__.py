@@ -20,19 +20,19 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
-
+import numpy as np
 
 import mlflow
 import mlflow.keras
 from mlflow import pyfunc
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
-from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
+from mlflow.utils import is_iterator
 from mlflow.utils.annotations import keyword_only
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -42,22 +42,32 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir, write_to
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
+    resolve_input_example_and_signature,
     picklable_exception_safe_function,
     PatchFunction,
     log_fn_args_as_params,
     batch_metrics_logger,
+    get_autologging_config,
+    AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.models import infer_signature
 
 FLAVOR_NAME = "tensorflow"
 
@@ -112,6 +122,7 @@ def log_model(
     tf_signature_def_key,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     registered_model_name=None,
@@ -149,11 +160,14 @@ def log_model(
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
     :param artifact_path: The run-relative path to which to log model artifacts.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-        :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
@@ -177,7 +191,21 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
+    if signature is not None:
+        warnings.warn(
+            "The pyfunc inference behavior of TensorFlow models logged "
+            "with signatures differs from the behavior of TensorFlow "
+            "models logged without signatures. Specifically, when a "
+            "signature is present, passing a Pandas DataFrame as "
+            "input to the pyfunc `predict()` API produces an `ndarray` "
+            "(for single-output models) or a dictionary of `str -> ndarray`: "
+            "(for multi-output models). In contrast, when a signature "
+            "is *not* present, `predict()` produces "
+            "a Pandas DataFrame output in response to a Pandas DataFrame input."
+        )
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.tensorflow,
@@ -185,6 +213,7 @@ def log_model(
         tf_meta_graph_tags=tf_meta_graph_tags,
         tf_signature_def_key=tf_signature_def_key,
         conda_env=conda_env,
+        code_paths=code_paths,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
@@ -203,6 +232,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -229,6 +259,9 @@ def save_model(
     :param path: Local path where the MLflow model is to be saved.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -264,9 +297,9 @@ def save_model(
     )
     _logger.info("Validation succeeded!")
 
-    if os.path.exists(path):
-        raise MlflowException("Path '{}' already exists".format(path), DIRECTORY_NOT_EMPTY)
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -283,8 +316,14 @@ def save_model(
         meta_graph_tags=tf_meta_graph_tags,
         signature_def_key=tf_signature_def_key,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_conf)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.tensorflow", env=_CONDA_ENV_FILE_NAME)
+
+    mlflow_model.add_flavor(FLAVOR_NAME, code=code_dir_subpath, **flavor_conf)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.tensorflow",
+        env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -317,6 +356,8 @@ def save_model(
 
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
@@ -369,11 +410,13 @@ def load_model(model_uri, dst_path=None):
                                 for _, output_signature in signature_definition.outputs.items()]
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
         tf_signature_def_key,
-    ) = _get_and_parse_flavor_configuration(model_path=local_model_path)
+    ) = _parse_flavor_configuration(flavor_conf, local_model_path)
     return _load_tensorflow_saved_model(
         tf_saved_model_dir=tf_saved_model_dir,
         tf_meta_graph_tags=tf_meta_graph_tags,
@@ -413,7 +456,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
     return loaded_sig[tf_signature_def_key]
 
 
-def _get_and_parse_flavor_configuration(model_path):
+def _parse_flavor_configuration(flavor_conf, model_path):
     """
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     :return: A triple containing the following elements:
@@ -426,7 +469,6 @@ def _get_and_parse_flavor_configuration(model_path):
                                          with the model. This is a key within the serialized
                                          ``SavedModel``'s signature definition mapping.
     """
-    flavor_conf = _get_flavor_configuration(model_path=model_path, flavor_name=FLAVOR_NAME)
     tf_saved_model_dir = os.path.join(model_path, flavor_conf["saved_model_dir"])
     tf_meta_graph_tags = flavor_conf["meta_graph_tags"]
     tf_signature_def_key = flavor_conf["signature_def_key"]
@@ -435,7 +477,7 @@ def _get_and_parse_flavor_configuration(model_path):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``. This function loads an MLflow
+    Load PyFunc implementation. Called by ``pyfunc.load_model``. This function loads an MLflow
     model with the TensorFlow flavor into a new TensorFlow graph and exposes it behind the
     ``pyfunc.predict`` interface.
 
@@ -443,11 +485,12 @@ def _load_pyfunc(path):
     """
     import tensorflow
 
+    flavor_conf = _get_flavor_configuration(path, FLAVOR_NAME)
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
         tf_signature_def_key,
-    ) = _get_and_parse_flavor_configuration(model_path=path)
+    ) = _parse_flavor_configuration(flavor_conf, path)
 
     loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
         export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
@@ -455,7 +498,7 @@ def _load_pyfunc(path):
     return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
 
 
-class _TF2Wrapper(object):
+class _TF2Wrapper:
     """
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.
@@ -488,6 +531,8 @@ class _TF2Wrapper(object):
                 val = data[df_col_name]
                 if isinstance(val, pandas.DataFrame):
                     val = val.values
+                else:
+                    val = np.array(val.to_list())
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
             raise TypeError("Only dict and DataFrame input types are supported")
@@ -528,7 +573,7 @@ def _flush_queue():
         # flush operation should proceed; all others are redundant and should be dropped
         acquired_lock = _metric_queue_lock.acquire(blocking=False)
         if acquired_lock:
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             # For thread safety and to avoid modifying a list while iterating over it, we record a
             # separate list of the items being flushed and remove each one from the metric queue,
             # rather than clearing the metric queue or reassigning it (clearing / reassigning is
@@ -596,7 +641,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst, log_models, metrics_logger):
+def _setup_callbacks(lst, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -612,7 +657,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    out_list += [__MLflowTfKeras2Callback(log_models, metrics_logger, _LOG_EVERY_N_STEPS)]
+    out_list += [__MLflowTfKeras2Callback(metrics_logger, _LOG_EVERY_N_STEPS)]
     return out_list, log_dir
 
 
@@ -624,6 +669,9 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
+    log_input_examples=False,
+    log_model_signatures=False,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -690,6 +738,23 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow
                    autologging. If ``False``, show all events and warnings during TensorFlow
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with tf/keras model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with tf/keras model artifacts during training. If ``False``,
+                                 signatures are not logged. ``False`` by default because
+                                 logging TensorFlow models with signatures changes their pyfunc
+                                 inference behavior when Pandas DataFrames are passed to
+                                 ``predict()``: when a signature is present, an ``np.ndarray``
+                                 (for single-output models) or a mapping from
+                                 ``str`` -> ``np.ndarray`` (for multi-output models) is returned;
+                                 when a signature is not present, a Pandas DataFrame is returned.
     """
     import tensorflow
 
@@ -711,6 +776,29 @@ def autolog(
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
+    input_example_slice = None
+
+    def _should_log_model_signatures():
+        return (
+            log_model_signatures
+            and
+            # `log_model_signatures` is `False` by default for
+            # `mlflow.tensorflow.autolog()` in order to to preserve
+            # backwards-compatible inference behavior with older versions of MLflow
+            # that did not support signature autologging for TensorFlow (
+            # unfortunately, adding a signature to a TensorFlow model has the
+            # unintended consequence of changing the output type produced by
+            # inference with pyfunc `predict()` for Pandas DataFrame inputs).
+            # However, `log_model_signatures` is `True` by default for
+            # `mlflow.autolog()`. To ensure that we maintain backwards compatibility
+            # when TensorFlow autologging is enabled via `mlflow.autolog()`,
+            # we only enable signature logging if `mlflow.tensorflow.autolog()` is
+            # called explicitly with `log_model_signatures=True`
+            not get_autologging_config(
+                FLAVOR_NAME, AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED, False
+            )
+        )
+
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
         global _AUTOLOG_RUN_ID
@@ -727,6 +815,12 @@ def autolog(
             mlflow.log_param("max_steps", kwargs["max_steps"])
 
         result = original(self, *args, **kwargs)
+
+        if log_input_examples:
+            nonlocal input_example_slice
+            from mlflow.tensorflow._autolog import extract_input_example_from_tf_input_fn
+
+            input_example_slice = extract_input_example_from_tf_input_fn(kwargs.get("input_fn"))
 
         # Flush the metrics queue after training completes
         _flush_queue()
@@ -764,9 +858,59 @@ def autolog(
                         tf_meta_graph_tags=[tag_constants.SERVING],
                         tf_signature_def_key="predict",
                     )
-                    save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
-                    client = MlflowClient()
-                    client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
+
+                    input_example = None
+                    signature = None
+                    if log_input_examples:
+
+                        def predict_input_fn():
+                            """
+                            Builds an input function to be used for tf's predict
+                            in order to get predicted values required
+                            for the model signature inference.
+                            """
+                            input_slices = input_example_slice
+                            if isinstance(input_example_slice, dict):
+                                input_slices = {
+                                    k: tensorflow.convert_to_tensor(v)
+                                    for k, v in input_example_slice.items()
+                                }
+                            return tensorflow.data.Dataset.from_tensor_slices(input_slices).batch(1)
+
+                        predicted_values = list(self.predict(predict_input_fn))
+
+                        def _get_input_example_slice():
+                            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+                            if input_example_slice is None:
+                                raise MlflowException(
+                                    "Cannot log input example or model signature. "
+                                    "TensorFlow autologging can only log input "
+                                    "examples and model signatures for the following"
+                                    " input types: `tuple`, `tensorflow.data.Dataset` "
+                                    "(TensorFlow >= 2.1.0 required) or `tensorflow.Tensor`",
+                                    INVALID_PARAMETER_VALUE,
+                                )
+                            return input_example_slice
+
+                        input_example, signature = resolve_input_example_and_signature(
+                            _get_input_example_slice,
+                            lambda in_ex: infer_signature(input_example_slice, predicted_values[0]),
+                            log_input_examples,
+                            _should_log_model_signatures(),
+                            _logger,
+                        )
+
+                    if log_models:
+                        save_model(
+                            path=local_path,
+                            mlflow_model=mlflow_model,
+                            input_example=input_example,
+                            signature=signature,
+                            **save_model_kwargs,
+                        )
+                        client = MlflowClient()
+                        client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
 
                     try:
                         client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
@@ -846,6 +990,52 @@ def autolog(
         if metric_key is not None:
             metrics_logger.record_metrics(restored_metrics, stopped_epoch + 1)
 
+    def _log_keras_model(history, args):
+        def _infer_model_signature(input_data_slice):
+            # In certain TensorFlow versions, calling `predict()` on model  may modify
+            # the `stop_training` attribute, so we save and restore it accordingly
+            original_stop_training = history.model.stop_training
+            model_output = history.model.predict(input_data_slice)
+            history.model.stop_training = original_stop_training
+            return infer_signature(input_data_slice, model_output)
+
+        from mlflow.tensorflow._autolog import extract_tf_keras_input_example
+
+        def _get_tf_keras_input_example_slice():
+            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+            input_training_data = args[0]
+            keras_input_example_slice = extract_tf_keras_input_example(input_training_data)
+            if keras_input_example_slice is None:
+                raise MlflowException(
+                    "Cannot log input example or model signature for input with type"
+                    f" {type(input_training_data)}. TensorFlow Keras autologging can"
+                    " only log input examples and model signatures for the following"
+                    " input types: numpy.ndarray, dict[string -> numpy.ndarray],"
+                    " tensorflow.keras.utils.Sequence, and"
+                    " tensorflow.data.Dataset (TensorFlow >= 2.1.0 required)",
+                    INVALID_PARAMETER_VALUE,
+                )
+            return keras_input_example_slice
+
+        input_example, signature = resolve_input_example_and_signature(
+            _get_tf_keras_input_example_slice,
+            _infer_model_signature,
+            log_input_examples,
+            _should_log_model_signatures(),
+            _logger,
+        )
+
+        mlflow.keras.log_model(
+            keras_model=history.model,
+            artifact_path="model",
+            input_example=input_example,
+            signature=signature,
+            registered_model_name=get_autologging_config(
+                FLAVOR_NAME, "registered_model_name", None
+            ),
+        )
+
     class FitPatch(PatchFunction):
         def __init__(self):
             self.log_dir = None
@@ -855,8 +1045,41 @@ def autolog(
         ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
+            batch_size = None
+            try:
+                training_data = kwargs["x"] if "x" in kwargs else args[0]
+                if isinstance(training_data, tensorflow.data.Dataset) and hasattr(
+                    training_data, "_batch_size"
+                ):
+                    batch_size = training_data._batch_size.numpy()
+                elif isinstance(training_data, tensorflow.keras.utils.Sequence):
+                    first_batch_inputs, _ = training_data[0]
+                    batch_size = len(first_batch_inputs)
+                elif is_iterator(training_data):
+                    peek = next(training_data)
+                    batch_size = len(peek[0])
+
+                    def __restore_generator(prev_generator):
+                        yield peek
+                        yield from prev_generator
+
+                    restored_generator = __restore_generator(training_data)
+                    if "x" in kwargs:
+                        kwargs["x"] = restored_generator
+                    else:
+                        args = (restored_generator,) + args[1:]
+            except Exception as e:
+                _logger.warning(
+                    "Encountered unexpected error while inferring batch size from training"
+                    " dataset: %s",
+                    e,
+                )
+
+            if batch_size is not None:
+                mlflow.log_param("batch_size", batch_size)
+                unlogged_params.append("batch_size")
+
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
-            early_stop_callback = None
 
             run_id = mlflow.active_run().info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
@@ -869,9 +1092,7 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[5])
-                    callbacks, self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
-                    )
+                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[5] = callbacks
@@ -880,14 +1101,15 @@ def autolog(
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
                     callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
-                    )
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
 
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
 
                 history = original(inst, *args, **kwargs)
+
+                if log_models:
+                    _log_keras_model(history, args)
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
@@ -895,14 +1117,13 @@ def autolog(
                     metrics_logger=metrics_logger,
                 )
 
-            _flush_queue()
-            mlflow.log_artifacts(
-                local_dir=self.log_dir.location,
-                artifact_path="tensorboard_logs",
-            )
+                _flush_queue()
+                mlflow.log_artifacts(
+                    local_dir=self.log_dir.location,
+                    artifact_path="tensorboard_logs",
+                )
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
-
             return history
 
         def _on_exception(self, exception):
@@ -943,9 +1164,7 @@ def autolog(
                     # modifying their contents for future training invocations. Introduce
                     # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[4])
-                    callbacks, self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
-                    )
+                    callbacks, self.log_dir = _setup_callbacks(callbacks, metrics_logger)
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
                     args[4] = callbacks
@@ -954,16 +1173,19 @@ def autolog(
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
                     callbacks = list(kwargs.get("callbacks") or [])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger
-                    )
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(callbacks, metrics_logger)
 
                 result = original(inst, *args, **kwargs)
 
-            _flush_queue()
-            mlflow.log_artifacts(local_dir=self.log_dir.location, artifact_path="tensorboard_logs")
-            if self.log_dir.is_temp:
-                shutil.rmtree(self.log_dir.location)
+                if log_models:
+                    _log_keras_model(result, args)
+
+                _flush_queue()
+                mlflow.log_artifacts(
+                    local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
+                )
+                if self.log_dir.is_temp:
+                    shutil.rmtree(self.log_dir.location)
 
             return result
 

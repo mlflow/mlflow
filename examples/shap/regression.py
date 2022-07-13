@@ -1,17 +1,17 @@
 import os
 
 import numpy as np
-from sklearn.datasets import load_boston
+from sklearn.datasets import load_diabetes
 from sklearn.linear_model import LinearRegression
 import shap
 
 import mlflow
-from utils import to_pandas_Xy
+from mlflow.tracking import MlflowClient
 
 
 # prepare training data
-X, y = to_pandas_Xy(load_boston())
-X = X.iloc[:50, :8]
+X, y = load_diabetes(return_X_y=True, as_frame=True)
+X = X.iloc[:50, :4]
 y = y.iloc[:50]
 
 # train a model
@@ -23,7 +23,7 @@ with mlflow.start_run() as run:
     mlflow.shap.log_explanation(model.predict, X)
 
 # list artifacts
-client = mlflow.tracking.MlflowClient()
+client = MlflowClient()
 artifact_path = "model_explanations_shap"
 artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
 print("# artifacts:")

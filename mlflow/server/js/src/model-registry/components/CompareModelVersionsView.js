@@ -14,13 +14,63 @@ import Utils from '../../common/utils/Utils';
 import { Tabs, Switch } from 'antd';
 import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
 import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
-import { css } from 'emotion';
 import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
 import { FormattedMessage } from 'react-intl';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { useDesignSystemTheme } from '@databricks/design-system';
 
 const { TabPane } = Tabs;
+
+function CenteredText(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        textAlign: 'center',
+        color: theme.colors.textSecondary,
+      }}
+      {...props}
+    />
+  );
+}
+
+function CompareTable(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <table
+      className='compare-table table'
+      css={{
+        'th.main-table-header': {
+          backgroundColor: theme.colors.white,
+          padding: 0,
+        },
+        'td.highlight-data': {
+          backgroundColor: theme.colors.backgroundValidationWarning,
+        },
+      }}
+      {...props}
+    />
+  );
+}
+
+function CollapseButton(props) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <button
+      css={{
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        border: 'none',
+        backgroundColor: theme.colors.white,
+        paddingLeft: 0,
+        cursor: 'pointer',
+      }}
+      {...props}
+    />
+  );
+}
 
 export class CompareModelVersionsViewImpl extends Component {
   static propTypes = {
@@ -102,13 +152,15 @@ export class CompareModelVersionsViewImpl extends Component {
 
     return (
       <div
-        className={`CompareModelVersionsView
-        ${compareModelVersionsViewClassName}
-        ${classNames.wrapper(runInfos.length)}`}
+        className='CompareModelVersionsView'
+        css={{
+          ...styles.compareModelVersionsView,
+          ...styles.wrapper(runInfos.length),
+        }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
-          <table className='compare-table table'>
+          <CompareTable>
             {this.renderTableHeader()}
             {this.renderModelVersionInfo()}
             {this.renderSectionHeader(
@@ -134,7 +186,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 style={{ marginLeft: 'auto' }}
                 onChange={() => this.onToggleClick('compareByColumnNameToggle')}
               />,
-              <div className='padding-left-text padding-right-text black-text'>
+              <div className='padding-left-text padding-right-text'>
                 <span>
                   <FormattedMessage
                     defaultMessage='Ignore column ordering'
@@ -185,7 +237,7 @@ export class CompareModelVersionsViewImpl extends Component {
               />,
             )}
             {this.renderMetrics()}
-          </table>
+          </CompareTable>
         </div>
         <Tabs>
           <TabPane
@@ -339,10 +391,10 @@ export class CompareModelVersionsViewImpl extends Component {
             colSpan={runInfos.length + 1}
           >
             <div className='switch-button-container'>
-              <button className='collapse-button' onClick={() => this.onToggleClick(activeSection)}>
+              <CollapseButton onClick={() => this.onToggleClick(activeSection)}>
                 {isActive ? downIcon : rightIcon}
                 <span className='header'>{sectionName}</span>
-              </button>
+              </CollapseButton>
               {additionalSwitch}
               {additionalSwitchText}
               <Switch
@@ -352,7 +404,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 style={leftToggle ? { marginLeft: 'auto' } : {}}
                 onChange={() => this.onToggleClick(toggleSection)}
               />
-              <div className='padding-left-text black-text'>
+              <div className='padding-left-text'>
                 <span>
                   <FormattedMessage
                     defaultMessage='Show diff only'
@@ -403,9 +455,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 onClick={() => this.onToggleClick(activeSection)}
               >
                 {isActive ? minusIcon : plusIcon}
-                <strong className='black-text' style={{ paddingLeft: 4 }}>
-                  {sectionName}
-                </strong>
+                <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
               </button>
             </th>
           </tr>
@@ -468,7 +518,7 @@ export class CompareModelVersionsViewImpl extends Component {
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
-            runInfos[0].experiment_id,
+            [runInfos[0].experiment_id],
           )}
           target='_blank'
           title='Plot chart'
@@ -515,14 +565,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope='row' className='rowHeader block-content'>
-            <h2 className='center-text'>
+            <CenteredText>
               <FormattedMessage
                 defaultMessage='{fieldName} are empty'
                 description='Default text in data table where items are empty in the model
                   comparison page'
                 values={{ fieldName: fieldName }}
               />
-            </h2>
+            </CenteredText>
           </th>
         </tr>
       );
@@ -562,16 +612,14 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
           <th scope='row' className='rowHeader block-content'>
-            <div className='center-text'>
-              <span>
-                <FormattedMessage
-                  defaultMessage='{fieldName} are identical'
-                  description='Default text in data table where items are identical in the model
-                    comparison page'
-                  values={{ fieldName: fieldName }}
-                />
-              </span>
-            </div>
+            <CenteredText>
+              <FormattedMessage
+                defaultMessage='{fieldName} are identical'
+                // eslint-disable-next-line max-len
+                description='Default text in data table where items are identical in the model comparison page'
+                values={{ fieldName: fieldName }}
+              />
+            </CenteredText>
           </th>
         </tr>
       );
@@ -669,100 +717,85 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const DEFAULT_COLUMN_WIDTH = 200;
-const classNames = {
-  wrapper: (numRuns) =>
-    css({
-      '.compare-table': {
-        // 1 extra unit for header column
-        minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-      },
-    }),
-};
 
-const compareModelVersionsViewClassName = css({
-  'button:focus': {
-    outline: 'none',
-    boxShadow: 'none',
+const styles = {
+  wrapper: (numRuns) => ({
+    '.compare-table': {
+      // 1 extra unit for header column
+      minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
+    },
+  }),
+  compareModelVersionsView: {
+    'button:focus': {
+      outline: 'none',
+      boxShadow: 'none',
+    },
+    'td.block-content th.block-content': {
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      tableLayout: 'fixed',
+      boxSizing: 'content-box',
+    },
+    'th.schema-table-header': {
+      height: 28,
+      padding: 0,
+    },
+    'tr.table-row': {
+      display: 'table',
+      width: '100%',
+      tableLayout: 'fixed',
+    },
+    'tr.hidden-row': {
+      display: 'none',
+    },
+    'tbody.scrollable-table': {
+      width: '100%',
+      display: 'block',
+      border: 'none',
+      maxHeight: 400,
+      overflowY: 'auto',
+    },
+    'tbody.schema-scrollable-table': {
+      maxHeight: 200,
+    },
+    '.switch-button-container': {
+      display: 'flex',
+      paddingTop: 16,
+      paddingBottom: 16,
+    },
+    'button.schema-collapse-button': {
+      textAlign: 'left',
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+    },
+    '.collapse-button': {
+      textAlign: 'left',
+      display: 'flex',
+      alignItems: 'center',
+      border: 'none',
+      backgroundColor: 'white',
+      paddingLeft: 0,
+    },
+    '.cell-content': {
+      maxWidth: '200px',
+      minWidth: '100px',
+    },
+    '.padding-left-text': {
+      paddingLeft: 8,
+    },
+    '.padding-right-text': {
+      paddingRight: 16,
+    },
+    '.toggle-switch': {
+      marginTop: 2,
+    },
+    '.header': {
+      paddingLeft: 8,
+      fontSize: 16,
+    },
   },
-  'td.block-content th.block-content': {
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
-    tableLayout: 'fixed',
-    boxSizing: 'content-box',
-  },
-  'th.main-table-header': {
-    backgroundColor: 'white',
-    padding: '16px 0 0',
-  },
-  'th.schema-table-header': {
-    height: 28,
-    padding: 0,
-  },
-  'tr.table-row': {
-    display: 'table',
-    width: '100%',
-    tableLayout: 'fixed',
-  },
-  'tr.hidden-row': {
-    display: 'none',
-  },
-  'tbody.scrollable-table': {
-    width: '100%',
-    display: 'block',
-    border: 'none',
-    maxHeight: 400,
-    overflowY: 'auto',
-  },
-  'tbody.schema-scrollable-table': {
-    maxHeight: 200,
-  },
-  'td.highlight-data': {
-    backgroundColor: 'rgba(249, 237, 190, 0.5)',
-  },
-  '.switch-button-container': {
-    display: 'flex',
-    paddingBottom: 16,
-  },
-  'button.schema-collapse-button': {
-    textAlign: 'left',
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    border: 'none',
-  },
-  '.collapse-button': {
-    textAlign: 'left',
-    display: 'flex',
-    alignItems: 'center',
-    border: 'none',
-    backgroundColor: 'white',
-    paddingLeft: 0,
-  },
-  '.cell-content': {
-    maxWidth: '200px',
-    minWidth: '100px',
-  },
-  '.padding-left-text': {
-    paddingLeft: 8,
-  },
-  '.padding-right-text': {
-    paddingRight: 16,
-  },
-  '.black-text': {
-    color: '#333333',
-  },
-  '.toggle-switch': {
-    marginTop: 2,
-  },
-  '.center-text': {
-    textAlign: 'center',
-    color: '#6B6B6B',
-    marginBottom: 0,
-  },
-  '.header': {
-    paddingLeft: 8,
-    fontSize: 16,
-  },
-});
+};
 
 export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);

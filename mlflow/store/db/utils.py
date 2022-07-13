@@ -10,7 +10,7 @@ import sqlalchemy
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR
 from mlflow.store.db.db_types import SQLITE
 
 _logger = logging.getLogger(__name__)
@@ -81,6 +81,9 @@ def _get_managed_session_maker(SessionMaker, db_type):
         except MlflowException:
             session.rollback()
             raise
+        except sqlalchemy.exc.SQLAlchemyError as e:
+            session.rollback()
+            raise MlflowException(message=e, error_code=BAD_REQUEST)
         except Exception as e:
             session.rollback()
             raise MlflowException(message=e, error_code=INTERNAL_ERROR)
@@ -161,7 +164,7 @@ def create_sqlalchemy_engine_with_retry(db_uri):
             return engine
         except Exception as e:
             if attempts < MAX_RETRY_COUNT:
-                sleep_duration = 0.1 * ((2 ** attempts) - 1)
+                sleep_duration = 0.1 * ((2**attempts) - 1)
                 _logger.warning(
                     "SQLAlchemy engine could not be created. The following exception is caught.\n"
                     "%s\nOperation will be retried in %.1f seconds",

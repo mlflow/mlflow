@@ -4,6 +4,7 @@ from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
 
 plugin_store = DeploymentPlugins()
+plugin_store.register("sagemaker", "mlflow.sagemaker")
 
 
 def get_deploy_client(target_uri):

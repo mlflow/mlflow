@@ -2,7 +2,7 @@ div.artifact-view {
   height: 690px;
   border: solid 1px #ccc;
   display: flex;
-  overflow-x: scroll;
+  overflow: hidden;
 }
 
 .artifact-left {
@@ -19,6 +19,11 @@ div.artifact-view {
   flex: 3;
   min-width: 400px;
   max-width: calc(100% - 200px); /* 200px is the min-width of .artifact-left */
+
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .artifact-info {
@@ -39,6 +44,7 @@ div.artifact-view {
 
 .artifact-info-path {
   display: flex;
+  align-items: center;
 }
 
 .artifact-info-text {

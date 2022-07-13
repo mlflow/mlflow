@@ -13,13 +13,13 @@ mxnet!=1.8.0
 # Required by mlflow.fastai
 fastai>=2.4.1
 # Required by mlflow.spacy
-spacy
+spacy>=3.3.0
 # Required by mlflow.tensorflow
-tensorflow
+tensorflow>=2.8.0
 # Required by mlflow.pytorch
-torch
-torchvision
-pytorch_lightning>=1.0.2
+torch>=1.11.0
+torchvision>=0.12.0
+pytorch_lightning>=1.5.10
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm
@@ -31,8 +31,9 @@ statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
-onnx
+onnx>=1.11.0
 onnxruntime
+tf2onnx
 # Required by mlflow.spark
 pyspark
 # Required by mlflow.shap
@@ -45,3 +46,7 @@ paddlepaddle
 #   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
 #   to compile the model binaries. See: https://gcc.gnu.org/install/
 prophet
+# Required by mlflow.pmdarima
+pmdarima
+# Required by mlflow.diviner
+diviner

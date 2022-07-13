@@ -6,6 +6,13 @@ configure({ adapter: new Adapter() });
 // https://www.npmjs.com/package/jest-localstorage-mock#in-create-react-app
 require('jest-localstorage-mock');
 
+global.setImmediate = (cb) => {
+  return setTimeout(cb, 0);
+};
+global.clearImmediate = (id) => {
+  return clearTimeout(id);
+};
+
 // for plotly.js to work
 //
 window.URL.createObjectURL = function createObjectURL() {};
@@ -27,6 +34,13 @@ jest.mock('./i18n/loadMessages', () => ({
 }));
 
 beforeEach(() => {
+  // Prevent unit tests making actual fetch calls,
+  // every test should explicitly mock all the API calls for the tested component.
+  global.fetch = jest.fn(() => {
+    throw new Error(
+      'No API calls should be made from unit tests. Please explicitly mock all API calls.',
+    );
+  });
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: jest.fn().mockImplementation((query) => ({

@@ -13,14 +13,16 @@ import Immutable from 'immutable';
 import { RecordUtils } from '../../common/sdk/RecordUtils';
 import { ModelBuilder } from '../../common/sdk/ModelBuilder';
 
+export const RegisteredModelTag = Immutable.Record(
+  {
+    // optional STRING
+    key: undefined,
 
-export const RegisteredModelTag = Immutable.Record({
-  // optional STRING
-  key: undefined,
-
-  // optional STRING
-  value: undefined,
-}, 'RegisteredModelTag');
+    // optional STRING
+    value: undefined,
+  },
+  'RegisteredModelTag',
+);
 
 /**
  * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
@@ -35,7 +37,6 @@ RegisteredModelTag.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_RegisteredModelTag = ModelBuilder.extend(RegisteredModelTag, {
-
   getKey() {
     return this.key !== undefined ? this.key : '';
   },
@@ -56,13 +57,16 @@ RegisteredModelTag.fromJs = function fromJs(pojo) {
   return new extended_RegisteredModelTag(pojoWithNestedImmutables);
 };
 
-export const ModelVersionTag = Immutable.Record({
-  // optional STRING
-  key: undefined,
+export const ModelVersionTag = Immutable.Record(
+  {
+    // optional STRING
+    key: undefined,
 
-  // optional STRING
-  value: undefined,
-}, 'ModelVersionTag');
+    // optional STRING
+    value: undefined,
+  },
+  'ModelVersionTag',
+);
 
 /**
  * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
@@ -77,7 +81,6 @@ ModelVersionTag.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_ModelVersionTag = ModelBuilder.extend(ModelVersionTag, {
-
   getKey() {
     return this.key !== undefined ? this.key : '';
   },

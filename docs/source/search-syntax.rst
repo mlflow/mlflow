@@ -142,17 +142,24 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Use the :py:func:`mlflow.tracking.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
+Use the :py:func:`mlflow.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to
 search programmatically. You can specify the list of columns to order by
 (for example, "metrics.rmse") in the ``order_by`` column. The column can contain an
 optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by
 ``start_time DESC``, then ``run_id``.
 
+The :py:func:`mlflow.search_runs` API can be used to search for runs within specific experiments which
+can be identified by experiment IDs or experiment names, but not both at the same time.
+
+.. warning:: Using both ``experiment_ids`` and ``experiment_names`` in the same call will result
+    in error unless one of them is ``None`` or ``[]``
+
+
 For example, if you'd like to identify the best `active` run from experiment ID 0 by accuracy, use:
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   run = MlflowClient().search_runs(
@@ -169,7 +176,7 @@ with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.`prediction accuracy` >= 0.945"
@@ -179,11 +186,19 @@ To search all known experiments for any MLflow runs created using the Inception 
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient
+  from mlflow import MlflowClient
   from mlflow.entities import ViewType
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
   runs = MlflowClient().search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
+
+To get all runs from the experiment named "Social NLP Experiments", use:
+
+.. code-block:: py
+
+  import mlflow
+
+  runs = mlflow.search_runs(experiment_names=["Social NLP Experiments"])
 
 R
 ^^^^^^

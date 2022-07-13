@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import { AllHtmlEntities } from 'html-entities';
-import { css } from 'emotion';
 import { Switch, Row, Col, Select } from 'antd';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
@@ -150,23 +149,12 @@ export class CompareRunContour extends Component {
       tooltips.push(this.getPlotlyTooltip(index));
     });
 
-    // array.sort() doesn't sort negative values correctly.
-    const xsSorted = [...new Set(xs)].sort((a, b) => a - b);
-    const ysSorted = [...new Set(ys)].sort((a, b) => a - b);
-    const z = ysSorted.map(() => xsSorted.map(() => null));
-
-    xs.forEach((_, index) => {
-      const xi = xsSorted.indexOf(xs[index]);
-      const yi = ysSorted.indexOf(ys[index]);
-      z[yi][xi] = zs[index];
-    });
-
     const maybeRenderPlot = () => {
       const invalidAxes = [];
-      if (xsSorted.length < 2) {
+      if (new Set(xs).size < 2) {
         invalidAxes.push('X');
       }
-      if (ysSorted.length < 2) {
+      if (new Set(ys).size < 2) {
         invalidAxes.push('Y');
       }
       if (invalidAxes.length > 0) {
@@ -182,9 +170,9 @@ export class CompareRunContour extends Component {
           data={[
             // contour plot
             {
-              z,
-              x: xsSorted,
-              y: ysSorted,
+              z: zs,
+              x: xs,
+              y: ys,
               type: 'contour',
               hoverinfo: 'none',
               colorscale: this.getColorscale(),
@@ -195,8 +183,8 @@ export class CompareRunContour extends Component {
             },
             // scatter plot
             {
-              x: xsSorted,
-              y: ysSorted,
+              x: xs,
+              y: ys,
               text: tooltips,
               hoverinfo: 'text',
               type: 'scattergl',
@@ -245,7 +233,7 @@ export class CompareRunContour extends Component {
         <div className='container-fluid'>
           <Row>
             <Col span={6}>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='x-axis-selector'>
                   <FormattedMessage
                     defaultMessage='X-axis:'
@@ -254,7 +242,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('xaxis')}
               </div>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='y-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Y-axis:'
@@ -263,7 +251,7 @@ export class CompareRunContour extends Component {
                 </label>
                 {this.renderSelect('yaxis')}
               </div>
-              <div className={css(styles.group)}>
+              <div css={styles.group}>
                 <label htmlFor='z-axis-selector'>
                   <FormattedMessage
                     defaultMessage='Z-axis:'
@@ -310,7 +298,7 @@ export class CompareRunContour extends Component {
   renderSelect(axis) {
     return (
       <Select
-        className={css(styles.select)}
+        css={styles.select}
         id={axis + '-axis-selector'}
         aria-label={`${axis} axis`}
         onChange={(value) => {

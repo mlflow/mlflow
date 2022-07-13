@@ -54,6 +54,8 @@ class CreateModelFormImpl extends Component {
             description='Learn more link on the form for creating model in the model registry'
             values={{
               link: (chunks) => (
+                // Reported during ESLint upgrade
+                // eslint-disable-next-line react/jsx-no-target-blank
                 <a href={learnMoreLinkUrl} target='_blank'>
                   {chunks}
                 </a>

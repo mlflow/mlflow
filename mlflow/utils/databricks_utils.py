@@ -1,7 +1,7 @@
-import os
-import logging
-import subprocess
 import functools
+import logging
+import os
+import subprocess
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -119,14 +119,23 @@ def is_in_databricks_job():
         return False
 
 
-def is_in_databricks_runtime():
+def is_in_databricks_repo():
     try:
-        # pylint: disable=unused-import,import-error,no-name-in-module,unused-variable
-        import pyspark.databricks
-
-        return True
-    except ModuleNotFoundError:
+        return get_git_repo_relative_path() is not None
+    except Exception:
         return False
+
+
+def is_in_databricks_repo_notebook():
+    try:
+        path = get_notebook_path()
+        return path is not None and path.startswith("/Repos")
+    except Exception:
+        return False
+
+
+def is_in_databricks_runtime():
+    return "DATABRICKS_RUNTIME_VERSION" in os.environ
 
 
 def is_dbfs_fuse_available():
@@ -261,6 +270,18 @@ def get_job_type():
         return _get_context_tag("jobTaskType")
 
 
+@_use_repl_context_if_available("jobType")
+def get_job_type_info():
+    try:
+        return _get_context_tag("jobType")
+    except Exception:
+        return None
+
+
+def get_experiment_name_from_job_id(job_id):
+    return "jobs:/" + job_id
+
+
 @_use_repl_context_if_available("commandRunId")
 def get_command_run_id():
     try:
@@ -299,13 +320,26 @@ def get_browser_hostname():
 
 
 def get_workspace_info_from_dbutils():
-    dbutils = _get_dbutils()
-    if dbutils:
-        browser_hostname = get_browser_hostname()
-        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
-        workspace_id = get_workspace_id()
-        return workspace_host, workspace_id
+    try:
+        dbutils = _get_dbutils()
+        if dbutils:
+            browser_hostname = get_browser_hostname()
+            workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
+            workspace_id = get_workspace_id()
+            return workspace_host, workspace_id
+    except Exception:
+        pass
     return None, None
+
+
+@_use_repl_context_if_available("workspaceUrl")
+def get_workspace_url():
+    try:
+        spark_session = _get_active_spark_session()
+        if spark_session is not None:
+            return "https://" + spark_session.conf.get("spark.databricks.workspaceUrl")
+    except Exception:
+        return None
 
 
 def get_workspace_info_from_databricks_secrets(tracking_uri):
@@ -383,3 +417,68 @@ def get_databricks_host_creds(server_uri=None):
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
+
+
+@_use_repl_context_if_available("mlflowGitRepoUrl")
+def get_git_repo_url():
+    try:
+        return _get_command_context().mlflowGitRepoUrl().get()
+    except Exception:
+        return _get_extra_context("mlflowGitUrl")
+
+
+@_use_repl_context_if_available("mlflowGitRepoProvider")
+def get_git_repo_provider():
+    try:
+        return _get_command_context().mlflowGitRepoProvider().get()
+    except Exception:
+        return _get_extra_context("mlflowGitProvider")
+
+
+@_use_repl_context_if_available("mlflowGitRepoCommit")
+def get_git_repo_commit():
+    try:
+        return _get_command_context().mlflowGitRepoCommit().get()
+    except Exception:
+        return _get_extra_context("mlflowGitCommit")
+
+
+@_use_repl_context_if_available("mlflowGitRelativePath")
+def get_git_repo_relative_path():
+    try:
+        return _get_command_context().mlflowGitRelativePath().get()
+    except Exception:
+        return _get_extra_context("mlflowGitRelativePath")
+
+
+@_use_repl_context_if_available("mlflowGitRepoReference")
+def get_git_repo_reference():
+    try:
+        return _get_command_context().mlflowGitRepoReference().get()
+    except Exception:
+        return _get_extra_context("mlflowGitReference")
+
+
+@_use_repl_context_if_available("mlflowGitRepoReferenceType")
+def get_git_repo_reference_type():
+    try:
+        return _get_command_context().mlflowGitRepoReferenceType().get()
+    except Exception:
+        return _get_extra_context("mlflowGitReferenceType")
+
+
+@_use_repl_context_if_available("mlflowGitRepoStatus")
+def get_git_repo_status():
+    try:
+        return _get_command_context().mlflowGitRepoStatus().get()
+    except Exception:
+        return _get_extra_context("mlflowGitStatus")
+
+
+def is_running_in_ipython_environment():
+    try:
+        from IPython import get_ipython
+
+        return get_ipython() is not None
+    except (ImportError, ModuleNotFoundError):
+        return False

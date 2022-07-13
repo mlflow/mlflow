@@ -51,4 +51,15 @@ describe('unit tests', () => {
     instance.setState({ collapsed: false });
     expect(wrapper.find('.tag-cell-item')).toHaveLength(numTags);
   });
+
+  test('tooltip should contain tag name and value', () => {
+    const numTags = 1;
+    const props = setupProps(numTags);
+    wrapper = shallow(<CollapsibleTagsCell {...props} />);
+    instance = wrapper.instance();
+    expect(wrapper.find('.tag-cell-item')).toHaveLength(1);
+    const tooltip = wrapper.find('Tooltip');
+    expect(tooltip).toHaveLength(1);
+    expect(tooltip.props().title).toBe('tag0: value0');
+  });
 });

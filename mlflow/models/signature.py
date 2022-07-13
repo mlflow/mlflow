@@ -24,7 +24,7 @@ if TYPE_CHECKING:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 
-class ModelSignature(object):
+class ModelSignature:
     """
     ModelSignature specifies schema of model's inputs and outputs.
 
@@ -53,7 +53,7 @@ class ModelSignature(object):
         Input and output schema are represented as json strings. This is so that the
         representation is compact when embedded in a MLmofel yaml file.
 
-        :return: dictionary representation with input and output shcema represented as json strings.
+        :return: dictionary representation with input and output schema represented as json strings.
         """
 
         return {

@@ -34,33 +34,6 @@ entry_points:
                                              --metric {metric}
                                              --seed {seed}"
 
-
-
-  # Use GPyOpt to optimize hyperparams of the train entry_point.
-  gpyopt:
-    parameters:
-      training_data: {type: string, default: "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"}
-      max_runs: {type: int, default: 8}
-      batch_size: {type: int, default: 2}
-      max_p: {type: int, default: 2}
-      epochs: {type: int, default: 32}
-      metric: {type: string, default: "rmse"}
-      gpy_model: {type: string, default: "GP"}
-      gpy_acquisition: {type: string, default: "EI"}
-      initial_design: {type: string, default: "random"}
-      seed: {type: int, default: 97531}
-
-    command: "python search_gpyopt.py  {training_data}
-                                             --max-runs {max_runs}
-                                             --batch-size {batch_size}
-                                             --max-p {max_p}
-                                             --epochs {epochs}
-                                             --metric {metric}
-                                             --gpy-model {gpy_model}
-                                             --gpy-acquisition {gpy_acquisition}
-                                             --initial-design {initial_design}
-                                             --seed {seed}"
-
   # Use Hyperopt to optimize hyperparams of the train entry_point.
   hyperopt:
     parameters:

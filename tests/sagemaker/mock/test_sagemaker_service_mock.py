@@ -43,7 +43,7 @@ def test_created_model_is_listed_by_list_models_function(sagemaker_client):
     models_response = sagemaker_client.list_models()
     assert "Models" in models_response
     models = models_response["Models"]
-    assert all(["ModelName" in model for model in models])
+    assert all("ModelName" in model for model in models)
     assert model_name in [model["ModelName"] for model in models]
 
 
@@ -142,7 +142,7 @@ def test_created_endpoint_config_is_listed_by_list_endpoints_function(sagemaker_
     endpoint_configs_response = sagemaker_client.list_endpoint_configs()
     assert "EndpointConfigs" in endpoint_configs_response
     endpoint_configs = endpoint_configs_response["EndpointConfigs"]
-    assert all(["EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs])
+    assert all("EndpointConfigName" in endpoint_config for endpoint_config in endpoint_configs)
     assert endpoint_config_name in [
         endpoint_config["EndpointConfigName"] for endpoint_config in endpoint_configs
     ]
@@ -289,7 +289,7 @@ def test_created_endpoint_is_listed_by_list_endpoints_function(sagemaker_client)
     endpoints_response = sagemaker_client.list_endpoints()
     assert "Endpoints" in endpoints_response
     endpoints = endpoints_response["Endpoints"]
-    assert all(["EndpointName" in endpoint for endpoint in endpoints])
+    assert all("EndpointName" in endpoint for endpoint in endpoints)
     assert endpoint_name in [endpoint["EndpointName"] for endpoint in endpoints]
 
 
@@ -531,7 +531,7 @@ def test_created_transform_job_is_listed_by_list_transform_jobs_function(sagemak
     transform_jobs_response = sagemaker_client.list_transform_jobs()
     assert "TransformJobSummaries" in transform_jobs_response
     transform_jobs = transform_jobs_response["TransformJobSummaries"]
-    assert all(["TransformJobName" in transform_job for transform_job in transform_jobs])
+    assert all("TransformJobName" in transform_job for transform_job in transform_jobs)
     assert job_name in [transform_job["TransformJobName"] for transform_job in transform_jobs]
 
 

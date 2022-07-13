@@ -10,7 +10,6 @@ import mlflow
 import types
 import mlflow.utils.autologging_utils
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.models import Model
@@ -28,11 +27,18 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
+from mlflow.utils.requirements_utils import _get_package_name
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "shap"
@@ -105,7 +111,7 @@ def get_default_conda_env():
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
     """
     return _SHAPWrapper(path)
 
@@ -206,13 +212,14 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         import numpy as np
         import pandas as pd
-        from sklearn.datasets import load_boston
+        from sklearn.datasets import load_diabetes
         from sklearn.linear_model import LinearRegression
 
         import mlflow
+        from mlflow import MlflowClient
 
         # prepare training data
-        dataset = load_boston()
+        X, y = dataset = load_diabetes(return_X_y=True, as_frame=True)
         X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
         y = dataset.target[:50]
 
@@ -225,7 +232,7 @@ def log_explanation(predict_function, features, artifact_path=None):
             mlflow.shap.log_explanation(model.predict, X)
 
         # list artifacts
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         artifact_path = "model_explanations_shap"
         artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
         print("# artifacts:")
@@ -289,6 +296,7 @@ def log_explainer(
     artifact_path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -308,6 +316,9 @@ def log_explainer(
                                         models of 'sklearn' or 'pytorch' flavors.
 
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -342,6 +353,7 @@ def log_explainer(
         flavor=mlflow.shap,
         explainer=explainer,
         conda_env=conda_env,
+        code_paths=code_paths,
         serialize_model_using_mlflow=serialize_model_using_mlflow,
         registered_model_name=registered_model_name,
         signature=signature,
@@ -359,6 +371,7 @@ def save_explainer(
     path,
     serialize_model_using_mlflow=True,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -381,6 +394,9 @@ def save_explainer(
                                          models of 'sklearn' or 'pytorch' flavors.
 
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -407,13 +423,9 @@ def save_explainer(
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if os.path.exists(path):
-        raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS,
-        )
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
-    os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -457,6 +469,7 @@ def save_explainer(
         model_path=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
 
     mlflow_model.add_flavor(
@@ -464,6 +477,7 @@ def save_explainer(
         shap_version=shap.__version__,
         serialized_explainer=explainer_data_subpath,
         underlying_model_flavor=underlying_model_flavor,
+        code=code_dir_subpath,
     )
 
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -504,6 +518,8 @@ def save_explainer(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
 
 # Defining save_model (Required by Model.log) to refer to save_explainer
 save_model = save_explainer
@@ -525,7 +541,8 @@ def _get_conda_and_pip_dependencies(conda_env):
                 if pip_dependency != "mlflow":
                     pip_deps.append(pip_dependency)
         else:
-            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
+            package_name = _get_package_name(dependency)
+            if package_name is not None and package_name not in ["python", "pip"]:
                 conda_deps.append(dependency)
 
     return conda_deps, pip_deps
@@ -587,6 +604,7 @@ def load_explainer(model_uri):
 
     explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=explainer_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(explainer_path, flavor_conf)
     explainer_artifacts_path = os.path.join(explainer_path, flavor_conf["serialized_explainer"])
     underlying_model_flavor = flavor_conf["underlying_model_flavor"]
     model = None

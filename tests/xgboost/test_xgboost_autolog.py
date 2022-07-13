@@ -10,19 +10,21 @@ from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
+from unittest import mock
 
 import mlflow
 import mlflow.xgboost
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
 mpl.use("Agg")
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -31,7 +33,7 @@ def get_model_conf(artifact_uri, model_subpath="model"):
     return Model.load(model_conf_path)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def bst_params():
     return {
         "objective": "multi:softprob",
@@ -40,7 +42,7 @@ def bst_params():
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def dtrain():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
@@ -48,14 +50,12 @@ def dtrain():
     return xgb.DMatrix(X, y)
 
 
-@pytest.mark.large
 def test_xgb_autolog_ends_auto_created_run(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
     mlflow.xgboost.autolog()
     with mlflow.start_run() as run:
@@ -64,7 +64,6 @@ def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_default_params(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
@@ -108,7 +107,6 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
         assert param not in params
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
     mlflow.xgboost.autolog()
     expected_params = {
@@ -141,7 +139,40 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
         assert param not in params
 
 
-@pytest.mark.large
+def test_xgb_autolog_atsign_metrics():
+    mlflow.xgboost.autolog()
+    xgb_metrics = ["ndcg@2", "map@3-", "error@0.4"]
+    expected_metrics = {"train-ndcg_at_2", "train-map_at_3-", "train-error_at_0.4"}
+
+    params = {"objective": "rank:pairwise", "eval_metric": xgb_metrics}
+    dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+    xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+    run = get_latest_run()
+    assert set(run.data.metrics) == expected_metrics
+
+
+@pytest.mark.parametrize("xgb_metric", ["ndcg@2", "error"])
+def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
+    mlflow.xgboost.autolog()
+
+    with mock.patch("mlflow.xgboost._autolog._logger.info") as mock_info_log:
+        params = {"objective": "rank:pairwise", "eval_metric": [xgb_metric, "map"]}
+        dtrain = xgb.DMatrix(np.array([[0], [1]]), label=[1, 0])
+        xgb.train(params, dtrain, evals=[(dtrain, "train")], num_boost_round=1)
+
+    if "@" in xgb_metric:
+        mock_info_log.assert_called_once()
+        (
+            first_pos_arg,
+            second_pos_arg,
+        ) = mock_info_log.call_args[0]
+        assert "metric names have been sanitized" in first_pos_arg
+        assert xgb_metric.replace("@", "_at_") in second_pos_arg
+        assert "map" not in second_pos_arg
+    else:
+        mock_info_log.assert_not_called()
+
+
 def test_xgb_autolog_sklearn():
 
     mlflow.xgboost.autolog()
@@ -154,7 +185,7 @@ def test_xgb_autolog_sklearn():
         model.fit(X, y)
         model_uri = mlflow.get_artifact_uri("model")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run.info.run_id)
     assert run.data.metrics.items() <= params.items()
     artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
@@ -163,7 +194,6 @@ def test_xgb_autolog_sklearn():
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -173,14 +203,13 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     run = get_latest_run()
     data = run.data
     metric_key = "train-mlogloss"
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
     assert len(metric_history) == 20
     assert metric_history == evals_result["train"]["mlogloss"]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -188,7 +217,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
     xgb.train(bst_params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for eval_name in [e[1] for e in evals]:
         metric_key = "{}-mlogloss".format(eval_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -197,7 +226,6 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
         assert metric_history == evals_result[eval_name]["mlogloss"]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -207,7 +235,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     )
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for metric_name in params["eval_metric"]:
         metric_key = "train-{}".format(metric_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
@@ -216,7 +244,6 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
         assert metric_history == evals_result["train"][metric_name]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -225,7 +252,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
     xgb.train(params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
     data = run.data
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for eval_name in [e[1] for e in evals]:
         for metric_name in params["eval_metric"]:
             metric_key = "{}-{}".format(eval_name, metric_name)
@@ -237,7 +264,6 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_history == evals_result[eval_name][metric_name]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -258,7 +284,7 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     assert int(data.metrics["best_iteration"]) == model.best_iteration
     assert "stopped_iteration" in data.metrics
     assert int(data.metrics["stopped_iteration"]) == len(evals_result["train"]["merror"]) - 1
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
 
     for eval_name in [e[1] for e in evals]:
         for metric_name in params["eval_metric"]:
@@ -273,14 +299,13 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
             assert metric_history == evals_result[eval_name][metric_name] + [best_metrics]
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     mlflow.xgboost.autolog()
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = "weight"
@@ -297,7 +322,6 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
     assert loaded_imp == model.get_score(importance_type=importance_type)
 
 
-@pytest.mark.large
 def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     importance_types = ["weight", "total_gain"]
     mlflow.xgboost.autolog(importance_types=importance_types)
@@ -305,7 +329,7 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     for imp_type in importance_types:
@@ -322,7 +346,6 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
         assert loaded_imp == model.get_score(importance_type=imp_type)
 
 
-@pytest.mark.large
 @pytest.mark.skipif(
     Version(xgb.__version__) <= Version("1.4.2"),
     reason=(
@@ -339,7 +362,7 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
     importance_type = "weight"
@@ -356,14 +379,12 @@ def test_xgb_autolog_logs_feature_importance_for_linear_boosters(dtrain):
     assert loaded_imp == model.get_score(importance_type=importance_type)
 
 
-@pytest.mark.large
 def test_no_figure_is_opened_after_logging(bst_params, dtrain):
     mlflow.xgboost.autolog()
     xgb.train(bst_params, dtrain)
     assert mpl.pyplot.get_fignums() == []
 
 
-@pytest.mark.large
 def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
     mlflow.xgboost.autolog()
     model = xgb.train(bst_params, dtrain)
@@ -374,7 +395,6 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
     np.testing.assert_array_almost_equal(model.predict(dtrain), loaded_model.predict(dtrain))
 
 
-@pytest.mark.large
 @pytest.mark.skipif(
     Version(xgb.__version__) > Version("1.4.2"),
     reason=(
@@ -397,7 +417,6 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
         model.get_score(importance_type="weight")
 
 
-@pytest.mark.large
 def test_xgb_autolog_gets_input_example(bst_params):
     mlflow.xgboost.autolog(log_input_examples=True)
 
@@ -424,7 +443,6 @@ def test_xgb_autolog_gets_input_example(bst_params):
     pyfunc_model.predict(input_example)
 
 
-@pytest.mark.large
 def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     mlflow.xgboost.autolog(log_model_signatures=True)
 
@@ -439,7 +457,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -467,7 +485,6 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     ]
 
 
-@pytest.mark.large
 def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
@@ -485,7 +502,6 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
     assert model.get_score(importance_type="weight") == {}
 
 
-@pytest.mark.large
 def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_params, tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
@@ -502,7 +518,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
@@ -518,7 +534,6 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     assert "signature" not in data
 
 
-@pytest.mark.large
 def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     mlflow.xgboost.autolog()
 
@@ -535,7 +550,6 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     xgb.DMatrix(save_path)  # deserialization also should not throw
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_model_signatures):
@@ -554,7 +568,6 @@ def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     iris = datasets.load_iris()
@@ -567,7 +580,7 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
         xgb.train(bst_params, dataset)
 
     run_id = run.info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 
@@ -598,3 +611,29 @@ def test_callback_class_is_pickable():
 
     cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
     pickle.dumps(cb)
+
+
+def test_sklearn_api_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    X, y = datasets.load_iris(return_X_y=True)
+    params = {"n_estimators": 10, "reg_lambda": 1}
+    model = xgb.XGBRegressor(**params)
+
+    with mlflow.start_run():
+        model.fit(X, y)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name
+
+
+def test_xgb_api_autolog_registering_model(bst_params, dtrain):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.xgboost.autolog(registered_model_name=registered_model_name)
+
+    with mlflow.start_run():
+        xgb.train(bst_params, dtrain)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

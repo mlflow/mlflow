@@ -23,10 +23,8 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-
 from tests.statsmodels.model_fixtures import (
     ols_model,
     arma_model,
@@ -40,7 +38,9 @@ from tests.statsmodels.model_fixtures import (
     wls_model,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("statsmodels") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("statsmodels") else ["--env-manager", "local"]
+)
 
 # The code in this file has been adapted from the test cases of the lightgbm flavor.
 
@@ -115,12 +115,13 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             conda_env = os.path.join(tmp.path(), "conda_env.yaml")
             _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
-            mlflow.statsmodels.log_model(
+            model_info = mlflow.statsmodels.log_model(
                 statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
             )
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
             if hasattr(model, "predict"):
@@ -138,12 +139,10 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
             mlflow.end_run()
 
 
-@pytest.mark.large
 def test_models_save_load(tmpdir):
     _test_models_list(tmpdir, _test_model_save_load)
 
 
-@pytest.mark.large
 def test_models_log(tmpdir):
     _test_models_list(tmpdir, _test_model_log)
 
@@ -253,7 +252,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(statsmodels_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(tmpdir):
     ols = ols_model()
     # Path to a requirements file
@@ -285,7 +283,6 @@ def test_log_model_with_pip_requirements(tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(tmpdir):
     ols = ols_model()
     default_reqs = mlflow.statsmodels.get_default_pip_requirements()
@@ -407,5 +404,18 @@ def test_pyfunc_serve_and_score():
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
+
+
+def test_log_model_with_code_paths():
+    artifact_path = "model"
+    ols = ols_model()
+    with mlflow.start_run(), mock.patch(
+        "mlflow.statsmodels._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.statsmodels.log_model(ols.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.statsmodels.FLAVOR_NAME)
+        mlflow.statsmodels.load_model(model_uri)
+        add_mock.assert_called()

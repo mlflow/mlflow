@@ -32,7 +32,7 @@ def _cached_get_s3_client(
     This method is outside of the S3ArtifactRepository as it is
     agnostic and could be used by other instances.
 
-    `maxsize` set to avoid excessive memory consmption in the case
+    `maxsize` set to avoid excessive memory consumption in the case
     a user has dynamic endpoints (intentionally or as a bug).
 
     Some of the boto3 endpoint urls, in very edge cases, might expire

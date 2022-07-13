@@ -1,6 +1,5 @@
 import Utils from './Utils';
 import React from 'react';
-import { shallow } from 'enzyme';
 import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
@@ -100,13 +99,15 @@ test('renderNotebookSource', () => {
   const nameOverride = 'some feature';
   const queryParams = '?o=123456789';
 
-  expect(Utils.renderNotebookSource(null, null, null, null, sourceName)).toEqual('iris_feature');
-  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual(
+    'iris_feature',
+  );
+  expect(Utils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
     <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target='_top'>
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName)).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`}
@@ -115,7 +116,9 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName)).toEqual(
+  expect(
+    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null),
+  ).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -124,7 +127,7 @@ test('renderNotebookSource', () => {
       iris_feature
     </a>,
   );
-  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null)).toEqual(
+  expect(Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toEqual(
     <a
       title={Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
       href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
@@ -134,7 +137,15 @@ test('renderNotebookSource', () => {
     </a>,
   );
   expect(
-    Utils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, nameOverride),
+    Utils.renderNotebookSource(
+      null,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      null,
+      nameOverride,
+    ),
   ).toEqual(
     <a
       title={sourceName}
@@ -145,11 +156,30 @@ test('renderNotebookSource', () => {
     </a>,
   );
   expect(
-    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName),
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null),
   ).toEqual(
     <a
       title={sourceName}
       href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      target='_top'
+    >
+      iris_feature
+    </a>,
+  );
+  expect(
+    Utils.renderNotebookSource(
+      queryParams,
+      notebookId,
+      revisionId,
+      runUuid,
+      sourceName,
+      'http://databricks',
+      null,
+    ),
+  ).toEqual(
+    <a
+      title={sourceName}
+      href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
       target='_top'
     >
       iris_feature
@@ -164,23 +194,23 @@ test('renderJobSource', () => {
   const nameOverride = 'random text';
   const queryParams = '?o=123456789';
 
-  expect(Utils.renderJobSource(null, null, null, jobName)).toEqual(jobName);
-  expect(Utils.renderJobSource(null, jobId, null, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
+  expect(Utils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, null, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, null, null, null)).toEqual(
     <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target='_top'>
       {`job ${jobId}`}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
       {jobName}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, null)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, null, null)).toEqual(
     <a
       title={Utils.getDefaultJobRunName(jobId, jobRunId)}
       href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
@@ -189,15 +219,26 @@ test('renderJobSource', () => {
       {Utils.getDefaultJobRunName(jobId, jobRunId)}
     </a>,
   );
-  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, nameOverride)).toEqual(
+  expect(Utils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
     <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target='_top'>
       {nameOverride}
     </a>,
   );
-  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName)).toEqual(
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
     <a
       title={jobName}
       href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`}
+      target='_top'
+    >
+      {jobName}
+    </a>,
+  );
+  expect(
+    Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
+  ).toEqual(
+    <a
+      title={jobName}
+      href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`}
       target='_top'
     >
       {jobName}
@@ -273,52 +314,6 @@ test('formatSource & renderSource', () => {
       mlflow-apps:entry
     </a>,
   );
-
-  const databricksRunTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper = shallow(Utils.renderSource(databricksRunTags));
-  expect(wrapper.is('a')).toEqual(true);
-  expect(wrapper.props().href).toEqual('http://localhost/#notebook/13');
-
-  const databricksRunRevisionTags = {
-    'mlflow.source.name': { value: '/Users/admin/test' },
-    'mlflow.source.type': { value: 'NOTEBOOK' },
-    'mlflow.databricks.notebookRevisionID': { value: '42' },
-    'mlflow.databricks.notebookID': { value: '13' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  const wrapper2 = shallow(Utils.renderSource(databricksRunRevisionTags));
-  expect(wrapper2.is('a')).toEqual(true);
-  expect(wrapper2.props().href).toEqual('http://localhost/#notebook/13/revision/42');
-
-  const wrapper3 = shallow(Utils.renderSource(databricksRunRevisionTags, '?o=123'));
-  expect(wrapper3.is('a')).toEqual(true);
-  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
-  // and https://stackoverflow.com/a/34772568
-  expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
-
-  const wrapper4 = shallow(Utils.renderSource(databricksRunRevisionTags, '', 'abcd123456'));
-  expect(wrapper4.is('a')).toEqual(true);
-  expect(wrapper4.props().href).toEqual(
-    'http://localhost/#notebook/13/revision/42/mlflow/run/abcd123456',
-  );
-
-  const databricksJobTags = {
-    'mlflow.source.name': { value: 'job/70/run/5' },
-    'mlflow.source.type': { value: 'JOB' },
-    'mlflow.databricks.jobID': { value: '70' },
-    'mlflow.databricks.jobRunID': { value: '5' },
-    'mlflow.databricks.jobType': { value: 'NOTEBOOK' },
-    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
-  };
-  expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
-  const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
-  expect(wrapper5.is('a')).toEqual(true);
-  expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
 test('setQueryParams', () => {
@@ -331,6 +326,54 @@ test('setQueryParams', () => {
   expect(Utils.setQueryParams('http://localhost/foo?param=val', '?param=newval')).toEqual(
     'http://localhost/foo?param=newval',
   );
+  expect(Utils.setQueryParams('https://localhost/foo?param=val', '?param=newval')).toEqual(
+    'https://localhost/foo?param=newval',
+  );
+  expect(Utils.setQueryParams('localhost/foo?param=val', '?param=newval')).toEqual(
+    'https://localhost/foo?param=newval',
+  );
+});
+
+test('ensureUrlScheme', () => {
+  expect(Utils.ensureUrlScheme('http://localhost/xyz/abc?o=123')).toEqual(
+    'http://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('HTTPS://localhost/xyz/abc?o=123')).toEqual(
+    'HTTPS://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('localhost/xyz/abc?o=123', 'http')).toEqual(
+    'http://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('user:pass@localhost/xyz/abc?o=123')).toEqual(
+    'https://user:pass@localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://user:pass@localhost/xyz/abc?o=123')).toEqual(
+    'https://user:pass@localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('https://localhost/xyz/abc?o=123', 'http')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'https')).toEqual(
+    'https://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('://localhost/xyz/abc?o=123', 'ws')).toEqual(
+    'ws://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('wss://localhost/xyz/abc?o=123')).toEqual(
+    'wss://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('scheme-with+symbols.123x://localhost/xyz/abc?o=123')).toEqual(
+    'scheme-with+symbols.123x://localhost/xyz/abc?o=123',
+  );
+  expect(Utils.ensureUrlScheme('legal-schema://abc')).toEqual('legal-schema://abc');
+  expect(Utils.ensureUrlScheme('illegal_schema://abc')).toEqual('https://illegal_schema://abc');
+  expect(Utils.ensureUrlScheme(undefined)).toEqual(undefined);
 });
 
 test('addQueryParams', () => {
@@ -463,6 +506,17 @@ test('getSearchParamsFromUrl', () => {
   const url2 = '?';
   const url3 = '?searchInput=some-Input';
   const url4 = '?boolVal1=true&boolVal2=false';
+  // old style for arrays
+  const url5 =
+    'categorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=1&categorizedUncheckedKeys%5Bmetrics%5D%5B1%5D=%F0%9F%99%82';
+  const url6 = 'categorizedUncheckedKeys[metrics]=1,%F0%9F%99%82'; // new style for arrays
+  const url7 = 'a[b][]=c'; // single item array
+  const url8 = 'a[]='; // empty array
+  const bigArray = [...Array(501).keys()].map((x) => x.toString());
+  const bigArrayParams = 'arr=' + bigArray.join(',');
+  const bigArrayParamsOldStyle = bigArray.map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
+  const tooBigArrayParams = [...Array(502).keys()].map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
+  const uncheckedKeysObj = { categorizedUncheckedKeys: { metrics: ['1', '🙂'] } };
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
     searchInput: '',
   });
@@ -475,6 +529,13 @@ test('getSearchParamsFromUrl', () => {
     boolVal1: true,
     boolVal2: false,
   });
+  expect(Utils.getSearchParamsFromUrl(url5)).toEqual(uncheckedKeysObj);
+  expect(Utils.getSearchParamsFromUrl(url6)).toEqual(uncheckedKeysObj);
+  expect(Utils.getSearchParamsFromUrl(url7)).toEqual({ a: { b: ['c'] } });
+  expect(Utils.getSearchParamsFromUrl(url8)).toEqual({ a: [''] });
+  expect(Utils.getSearchParamsFromUrl(bigArrayParams)).toEqual({ arr: bigArray });
+  expect(Utils.getSearchParamsFromUrl(bigArrayParamsOldStyle)).toEqual({ arr: bigArray });
+  expect(Array.isArray(Utils.getSearchParamsFromUrl(tooBigArrayParams).arr)).toBe(false);
 });
 
 test('getSearchUrlFromState', () => {
@@ -482,12 +543,20 @@ test('getSearchUrlFromState', () => {
   const st1 = { a: 'example' };
   const st2 = { b: 'bbbbbb' };
   const st3 = { param: 'params', metrics: undefined, searchInput: 'someExpression' };
+  const st4 = { categorizedUncheckedKeys: { metrics: ['1', '2'] } };
+  const st5 = { a: [undefined] }; // array with undefined item
+  const st6 = { a: ['b'] }; // array with one item
+  const st7 = { a: ['🙂'] }; // array with emoji
   expect(Utils.getSearchUrlFromState(st0)).toEqual('');
   expect(Utils.getSearchUrlFromState(st1)).toEqual('a=example');
   expect(Utils.getSearchUrlFromState(st2)).toEqual('b=bbbbbb');
   expect(Utils.getSearchUrlFromState(st3)).toEqual(
     'param=params&metrics=&searchInput=someExpression',
   );
+  expect(Utils.getSearchUrlFromState(st4)).toEqual('categorizedUncheckedKeys[metrics]=1,2');
+  expect(Utils.getSearchUrlFromState(st5)).toEqual('a[]=');
+  expect(Utils.getSearchUrlFromState(st6)).toEqual('a[]=b');
+  expect(Utils.getSearchUrlFromState(st7)).toEqual('a[]=%F0%9F%99%82');
 });
 
 test('compareExperiments', () => {

@@ -3,7 +3,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Alert, Button, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
+import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
 import './EditableNote.css';
 import { FormattedMessage, injectIntl } from 'react-intl';
@@ -136,7 +136,11 @@ export class EditableNoteImpl extends Component {
 
   getSanitizedHtmlContent() {
     const { markdown } = this.state;
-    return markdown ? sanitizeConvertedHtml(this.converter.makeHtml(markdown)) : null;
+    if (markdown) {
+      const sanitized = sanitizeConvertedHtml(this.converter.makeHtml(markdown));
+      return forceAnchorTagNewTab(sanitized);
+    }
+    return null;
   }
 
   render() {

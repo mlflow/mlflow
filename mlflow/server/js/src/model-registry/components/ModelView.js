@@ -243,6 +243,8 @@ export class ModelViewImpl extends React.Component {
           >
             {Utils.formatTimestamp(model.last_updated_timestamp)}
           </Descriptions.Item>
+          {/* Reported during ESLint upgrade */}
+          {/* eslint-disable-next-line react/prop-types */}
           {model.user_id && (
             <Descriptions.Item
               label={this.props.intl.formatMessage({
@@ -250,6 +252,8 @@ export class ModelViewImpl extends React.Component {
                 description: 'Lable name for the creator under details tab on the model view page',
               })}
             >
+              {/* Reported during ESLint upgrade */}
+              {/* eslint-disable-next-line react/prop-types */}
               {model.user_id}
             </Descriptions.Item>
           )}
@@ -268,10 +272,14 @@ export class ModelViewImpl extends React.Component {
             </span>
           }
           forceOpen={showDescriptionEditor}
+          // Reported during ESLint upgrade
+          // eslint-disable-next-line react/prop-types
           defaultCollapsed={!model.description}
           data-test-id='model-description-section'
         >
           <EditableNote
+            // Reported during ESLint upgrade
+            // eslint-disable-next-line react/prop-types
             defaultMarkdown={model.description}
             onSubmit={this.handleSubmitEditDescription}
             onCancel={this.handleCancelEditDescription}

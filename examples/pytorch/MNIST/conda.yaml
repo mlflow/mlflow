@@ -7,4 +7,5 @@ dependencies:
   - mlflow
   - torchvision>=0.9.1
   - torch>=1.9.0
-  - pytorch-lightning==1.5.1
+  - pytorch-lightning==1.6.1
+  - protobuf<4.0.0

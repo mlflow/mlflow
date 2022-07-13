@@ -31,7 +31,8 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     The artifact_uri is expected to be of the form
     - `models:/<model_name>/<model_version>`
     - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models://<profile>/<model_name>/<model_version or stage>`
+    - `models:/<model_name>/latest`  (refers to the latest of all model versions)
+    - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the client is pointing to a Databricks-hosted model registry.
@@ -44,7 +45,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
-        from mlflow.tracking import MlflowClient
+        from mlflow.tracking.client import MlflowClient
 
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
@@ -71,8 +72,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             json_body = self._make_json_body(path, page_token)
             response = self._call_endpoint(json_body, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
             try:
+                response.raise_for_status()
                 json_response = json.loads(response.text)
-            except ValueError:
+            except Exception:
                 raise MlflowException(
                     "API request to list files under path `%s` failed with status code %s. "
                     "Response body: %s" % (path, response.status_code, response.text)

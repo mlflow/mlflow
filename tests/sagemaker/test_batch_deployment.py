@@ -91,7 +91,6 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
-@pytest.mark.large
 def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
     match = "The specified flavor: `this is not a valid flavor` is not supported for deployment"
@@ -109,7 +108,6 @@ def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_mo
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 def test_batch_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
     with pytest.raises(
@@ -129,7 +127,6 @@ def test_batch_deployment_with_missing_flavor_raises_exception(pretrained_model)
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-@pytest.mark.large
 def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
     logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
@@ -152,7 +149,6 @@ def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pr
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-@pytest.mark.large
 def test_deploy_sagemaker_transform_job_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
 ):
@@ -171,7 +167,6 @@ def test_deploy_sagemaker_transform_job_in_asynchronous_mode_without_archiving_t
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_local(
     pretrained_model, sagemaker_client
@@ -196,14 +191,13 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_local(
     pretrained_model, sagemaker_client
@@ -239,14 +233,13 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_s3(
     pretrained_model, sagemaker_client
@@ -280,14 +273,13 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_s3(
     pretrained_model, sagemaker_client
@@ -333,14 +325,13 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploying_sagemaker_transform_job_with_preexisting_name_in_create_mode_throws_exception(
     pretrained_model,
@@ -370,7 +361,6 @@ def test_deploying_sagemaker_transform_job_with_preexisting_name_in_create_mode_
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_synchronous_mode_waits_for_transform_job_creation_to_complete_before_returning(
     pretrained_model, sagemaker_client
@@ -398,7 +388,6 @@ def test_deploy_in_synchronous_mode_waits_for_transform_job_creation_to_complete
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_COMPLETED
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_create_in_asynchronous_mode_returns_before_transform_job_creation_completes(
     pretrained_model, sagemaker_client
@@ -427,7 +416,6 @@ def test_deploy_create_in_asynchronous_mode_returns_before_transform_job_creatio
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_IN_PROGRESS
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_throw_exception_after_transform_job_creation_fails(
     pretrained_model, sagemaker_client
@@ -471,7 +459,6 @@ def test_deploy_in_throw_exception_after_transform_job_creation_fails(
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
@@ -496,7 +483,6 @@ def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_e
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_before_returning(
     pretrained_model, sagemaker_client
@@ -527,7 +513,6 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_STOPPED
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination_completes(
     pretrained_model, sagemaker_client

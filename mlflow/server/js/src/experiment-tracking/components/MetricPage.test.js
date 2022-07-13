@@ -5,7 +5,6 @@ import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 import { MetricPageImpl, MetricPage } from './MetricPage';
 import NotFoundPage from './NotFoundPage';
@@ -20,7 +19,10 @@ describe('MetricPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       dispatch: jest.fn(),
       location: {
@@ -34,7 +36,7 @@ describe('MetricPage', () => {
     };
     commonProps = {
       ...minimalProps,
-      experimentId: 0,
+      experimentIds: [0],
     };
 
     minimalStore = mockStore({

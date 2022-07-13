@@ -5,6 +5,7 @@ from unittest import mock
 from contextlib import ExitStack, contextmanager
 
 
+import logging
 import requests
 import time
 import signal
@@ -14,12 +15,9 @@ import uuid
 import sys
 import yaml
 
-import pandas as pd
 import pytest
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-import mlflow.pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import (
@@ -28,9 +26,12 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.utils.requirements_utils import _get_installed_version
 
+AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
+PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
+
+_logger = logging.getLogger(__name__)
 
 
 def get_safe_port():
@@ -64,7 +65,7 @@ def score_model_in_sagemaker_docker_container(
     model_uri,
     data,
     content_type,
-    flavor=mlflow.pyfunc.FLAVOR_NAME,
+    flavor="python_function",
     activity_polling_timeout_seconds=500,
 ):
     """
@@ -94,6 +95,9 @@ def pyfunc_build_image(model_uri, extra_args=None):
     """
     name = uuid.uuid4().hex
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+    if mlflow_home:
+        cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
     p = subprocess.Popen(cmd)
@@ -154,9 +158,9 @@ def pyfunc_serve_and_score_model(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
-                       flag to the scoring server to ensure that conda environment activation
-                       is skipped.
+                       example, passing ``extra_args=["--env-manager", "local"]`` will pass the
+                       ``--env-manager local`` flag to the scoring server to ensure that conda
+                       environment activation is skipped.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -194,7 +198,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # Assign the scoring process to a process group. All child processes of the
             # scoring process will be assigned to this group as well. This allows child
@@ -206,7 +210,7 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             cmd,
             stdout=stdout,
             stderr=stderr,
-            universal_newlines=True,
+            text=True,
             env=env,
             # On Windows, `os.setsid` and `preexec_fn` are unavailable
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
@@ -220,20 +224,20 @@ class RestEndpoint:
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
-        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+        for i in range(self._activity_polling_timeout_seconds):
             assert self._proc.poll() is None, "scoring process died"
-            time.sleep(5)
+            time.sleep(1)
             # noinspection PyBroadException
             try:
                 ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
-                print("connection attempt", i, "server is up! ping status", ping_status)
+                _logger.info(f"connection attempt {i} server is up! ping status {ping_status}")
                 if ping_status.status_code == 200:
                     break
             except Exception:
-                print("connection attempt", i, "failed, server is not up yet")
+                _logger.info(f"connection attempt {i} failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
-        print("server up, ping status", ping_status)
+        _logger.info(f"server up, ping status {ping_status}")
         return self
 
     def __exit__(self, tp, val, traceback):
@@ -249,6 +253,9 @@ class RestEndpoint:
                 self._proc.kill()
 
     def invoke(self, data, content_type):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        import pandas as pd
+
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
@@ -280,31 +287,14 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+@pytest.fixture(scope="function", autouse=True)
+def set_boto_credentials(monkeypatch):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "NotARealAccessKey")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "NotARealSecretAccessKey")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "NotARealSessionToken")
 
 
-@pytest.fixture
-def mock_s3_bucket():
-    """
-    Creates a mock S3 bucket using moto
-
-    :return: The name of the mock bucket
-    """
-    import boto3
-    import moto
-
-    with moto.mock_s3():
-        bucket_name = "mock-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield bucket_name
-
-
-class safe_edit_yaml(object):
+class safe_edit_yaml:
     def __init__(self, root, file_name, edit_func):
         self._root = root
         self._file_name = file_name
@@ -321,11 +311,11 @@ class safe_edit_yaml(object):
 
 def create_mock_response(status_code, text):
     """
-    Create a mock resposne object with the status_code and text
+    Create a mock response object with the status_code and text
 
     :param: status_code int HTTP status code
     :param: text message from the response
-    :reutrn: mock HTTP Response
+    :return: mock HTTP Response
     """
     response = mock.MagicMock()
     response.status_code = status_code
@@ -341,6 +331,23 @@ def _read_yaml(path):
 def _read_lines(path):
     with open(path, "r") as f:
         return f.read().splitlines()
+
+
+def _compare_logged_code_paths(code_path, model_path, flavor_name):
+    import mlflow.pyfunc
+    from mlflow.utils.model_utils import _get_flavor_configuration, FLAVOR_CONFIG_CODE
+
+    pyfunc_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    )
+    flavor_conf = _get_flavor_configuration(model_path, flavor_name=flavor_name)
+    assert pyfunc_conf[mlflow.pyfunc.CODE] == flavor_conf[FLAVOR_CONFIG_CODE]
+    saved_code_path = os.path.join(model_path, pyfunc_conf[mlflow.pyfunc.CODE])
+    assert os.path.exists(saved_code_path)
+
+    with open(os.path.join(saved_code_path, os.path.basename(code_path)), "r") as f1:
+        with open(code_path, "r") as f2:
+            assert f1.read() == f2.read()
 
 
 def _compare_conda_env_requirements(env_path, req_path):
@@ -383,6 +390,8 @@ def _is_available_on_pypi(package, version=None, module=None):
                    if `package` is 'scikit-learn', `module` should be 'sklearn'. If None, defaults
                    to `package`.
     """
+    from mlflow.utils.requirements_utils import _get_installed_version
+
     resp = requests.get("https://pypi.python.org/pypi/{}/json".format(package))
     if not resp.ok:
         return False
@@ -453,3 +462,8 @@ class StartsWithMatcher:
 
     def __eq__(self, other):
         return isinstance(other, str) and other.startswith(self.prefix)
+
+
+class AnyStringWith(str):
+    def __eq__(self, other):
+        return self in other

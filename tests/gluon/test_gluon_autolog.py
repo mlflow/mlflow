@@ -1,7 +1,6 @@
 from packaging.version import Version
 import pickle
 import random
-import warnings
 
 import mxnet as mx
 import numpy as np
@@ -12,6 +11,7 @@ from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
+from mlflow import MlflowClient
 from mlflow.gluon._autolog import __MLflowGluonCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
@@ -64,10 +64,8 @@ def get_gluon_random_data_run(log_models=True):
         )
         est = get_estimator(model, trainer)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            est.fit(data, epochs=3, val_data=validation)
-    client = mlflow.tracking.MlflowClient()
+        est.fit(data, epochs=3, val_data=validation)
+    client = MlflowClient()
     return client.get_run(run.info.run_id)
 
 
@@ -76,7 +74,6 @@ def gluon_random_data_run(log_models=True):
     return get_gluon_random_data_run(log_models)
 
 
-@pytest.mark.large
 def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     data = gluon_random_data_run.data
     train_prefix = get_train_prefix()
@@ -96,7 +93,6 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     assert data.params["epsilon"] == "1e-07"
 
 
-@pytest.mark.large
 def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
     patched_metrics_data = []
 
@@ -126,9 +122,8 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
     assert "{} accuracy".format(train_prefix) in patched_metrics_data
 
 
-@pytest.mark.large
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(gluon_random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert "model" in artifacts
@@ -137,17 +132,15 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
     model(array_module.array(np.random.rand(1000, 1, 32)))
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_gluon_autolog_log_models_configuration(log_models):
     random_data_run = get_gluon_random_data_run(log_models)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(random_data_run.info.run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert ("model" in artifacts) == log_models
 
 
-@pytest.mark.large
 def test_autolog_ends_auto_created_run():
     mlflow.gluon.autolog()
 
@@ -165,14 +158,11 @@ def test_autolog_ends_auto_created_run():
     )
     est = get_estimator(model, trainer)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        est.fit(data, epochs=3)
+    est.fit(data, epochs=3)
 
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 def test_autolog_persists_manually_created_run():
     mlflow.gluon.autolog()
 
@@ -193,9 +183,7 @@ def test_autolog_persists_manually_created_run():
         )
         est = get_estimator(model, trainer)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            est.fit(data, epochs=3)
+        est.fit(data, epochs=3)
 
         assert mlflow.active_run().info.run_id == run.info.run_id
 
@@ -203,3 +191,27 @@ def test_autolog_persists_manually_created_run():
 def test_callback_is_callable():
     cb = __MLflowGluonCallback(log_models=True, metrics_logger=BatchMetricsLogger(run_id="1234"))
     pickle.dumps(cb)
+
+
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.gluon.autolog(registered_model_name=registered_model_name)
+
+    data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
+
+    model = HybridSequential()
+    model.add(Dense(64, activation="relu"))
+    model.add(Dense(10))
+    model.initialize()
+    model.hybridize()
+
+    trainer = Trainer(
+        model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
+    )
+    est = get_estimator(model, trainer)
+
+    with mlflow.start_run():
+        est.fit(data, epochs=3)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

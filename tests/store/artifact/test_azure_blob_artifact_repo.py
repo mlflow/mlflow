@@ -15,7 +15,7 @@ TEST_BLOB_CONTAINER_ROOT = "wasbs://container@account.blob.core.windows.net/"
 TEST_URI = os.path.join(TEST_BLOB_CONTAINER_ROOT, TEST_ROOT_PATH)
 
 
-class MockBlobList(object):
+class MockBlobList:
     def __init__(self, items, next_marker=None):
         self.items = items
         self.next_marker = next_marker

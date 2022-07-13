@@ -1,7 +1,7 @@
 from mlflow.protos import service_pb2
 
 
-class ViewType(object):
+class ViewType:
     """Enum to filter requested experiment types."""
 
     ACTIVE_ONLY, DELETED_ONLY, ALL = range(1, 4)

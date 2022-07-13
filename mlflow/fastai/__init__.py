@@ -22,7 +22,6 @@ import numpy as np
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature, ModelInputExample
 import mlflow.tracking
-from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -34,11 +33,18 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     safe_patch,
@@ -76,6 +82,7 @@ def save_model(
     fastai_learner,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -89,6 +96,9 @@ def save_model(
     :param fastai_learner: fastai Learner to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -141,12 +151,11 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException("Path '{}' already exists".format(path))
+    _validate_and_prepare_target_save_path(path)
     model_data_subpath = "model.fastai"
     model_data_path = os.path.join(path, model_data_subpath)
     model_data_path = Path(model_data_path)
-    os.makedirs(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -166,9 +175,15 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.fastai",
         data=model_data_subpath,
+        code=code_dir_subpath,
         env=_CONDA_ENV_FILE_NAME,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        fastai_version=fastai.__version__,
+        data=model_data_subpath,
+        code=code_dir_subpath,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -202,12 +217,15 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     fastai_learner,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -222,6 +240,9 @@ def log_model(
     :param fastai_learner: Fastai model (an instance of `fastai.Learner`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
@@ -252,13 +273,15 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
 
         import fastai.vision as vis
         import mlflow.fastai
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
@@ -287,12 +310,13 @@ def log_model(
 
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.fastai,
         registered_model_name=registered_model_name,
         fastai_learner=fastai_learner,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -315,12 +339,12 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
-        return pd.DataFrame(map(np.array, preds.numpy()), columns=["predictions"])
+        return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")
 
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``fastai`` flavor.
     """
@@ -367,6 +391,8 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
     return _load_model(path=model_file_path)
 
@@ -378,6 +404,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    registered_model_name=None,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -402,17 +429,20 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
                    autologging. If ``False``, show all events and warnings during Fastai
                    autologging.
+    :param registered_model_name: If given, each time a model is trained, it is registered as a
+                                  new model version of the registered model with this name.
+                                  The registered model is created if it does not already exist.
 
     .. code-block:: python
         :caption: Example
 
         # This is a modified example from
         # https://github.com/mlflow/mlflow/tree/master/examples/fastai
-        # demonstrating autolog capabilites.
+        # demonstrating autolog capabilities.
 
         import fastai.vision as vis
         import mlflow.fastai
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
@@ -502,7 +532,7 @@ def autolog(
                 return
 
     def _log_model_info(learner):
-        # The process excuted here, are incompatible with TrackerCallback
+        # The process executed here, are incompatible with TrackerCallback
         # Hence it is removed and add again after the execution
         remove_cbs = [cb for cb in learner.cbs if isinstance(cb, TrackerCallback)]
         if remove_cbs:

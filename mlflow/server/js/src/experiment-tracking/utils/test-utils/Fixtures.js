@@ -21,8 +21,10 @@ const createRunInfo = () => {
   return RunInfo.fromJs({ run_uuid: 0 });
 };
 
-export default {
+const fixtures = {
   createExperiment,
   createRunInfo,
   experiments: [createExperiment(), createExperiment({ experiment_id: '1', name: 'Test' })],
 };
+
+export default fixtures;

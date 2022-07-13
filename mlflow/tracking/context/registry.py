@@ -8,12 +8,14 @@ from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebo
 from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
 from mlflow.tracking.context.databricks_command_context import DatabricksCommandRunContext
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
+from mlflow.tracking.context.system_environment_context import SystemEnvironmentContext
 
 
 _logger = logging.getLogger(__name__)
 
 
-class RunContextProviderRegistry(object):
+class RunContextProviderRegistry:
     """Registry for run context provider implementations
 
     This class allows the registration of a run context provider which can be used to infer meta
@@ -55,6 +57,8 @@ _run_context_provider_registry.register(DatabricksNotebookRunContext)
 _run_context_provider_registry.register(DatabricksJobRunContext)
 _run_context_provider_registry.register(DatabricksClusterRunContext)
 _run_context_provider_registry.register(DatabricksCommandRunContext)
+_run_context_provider_registry.register(DatabricksRepoRunContext)
+_run_context_provider_registry.register(SystemEnvironmentContext)
 
 _run_context_provider_registry.register_entrypoints()
 
@@ -69,7 +73,7 @@ def resolve_tags(tags=None):
 
     :param tags: A dictionary of tags to override. If specified, tags passed in this argument will
                  override those inferred from the context.
-    :return: A dicitonary of resolved tags.
+    :return: A dictionary of resolved tags.
     """
 
     all_tags = {}

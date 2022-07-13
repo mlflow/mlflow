@@ -15,6 +15,7 @@ from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 
 import mlflow
 import mlflow.fastai
+from mlflow import MlflowClient
 from mlflow.fastai.callback import __MlflowFastaiCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
@@ -32,7 +33,7 @@ def iris_dataframe():
     return pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def iris_data():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
@@ -71,7 +72,6 @@ def fastai_tabular_model(data, **kwargs):
     return Learner(data, Model(), loss_func=nn.MSELoss(), splitter=splitter, **kwargs)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
@@ -85,7 +85,6 @@ def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     assert mlflow.active_run() is None
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
@@ -118,11 +117,10 @@ def fastai_random_tabular_data_run(iris_data, fit_variant):
     else:
         model.fit(NUM_EPOCHS)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_variant):
     # pylint: disable=unused-argument
@@ -173,13 +171,12 @@ def test_fastai_autolog_logs_expected_data(fastai_random_tabular_data_run, fit_v
         assert "mom" in data.params
 
     # Testing model_summary.txt is saved
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "module_summary.txt" in artifacts
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
     # pylint: disable=unused-argument
@@ -193,7 +190,7 @@ def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
     else:
         model.fit(NUM_EPOCHS)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     data = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id).data
 
     assert "opt_func" in data.params
@@ -205,25 +202,23 @@ def test_fastai_autolog_opt_func_expected_data(iris_data, fit_variant):
         assert data.params[freeze_prefix + "opt_func"] == "Adam"
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_fastai_autolog_log_models_configuration(log_models, iris_data):
     mlflow.fastai.autolog(log_models=log_models)
     model = fastai_tabular_model(iris_data)
     model.fit(NUM_EPOCHS)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_id = client.list_run_infos(experiment_id="0")[0].run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
     assert ("model" in artifacts) == log_models
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit_one_cycle", "fine_tune"])
 def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_variant):
     # pylint: disable=unused-argument
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_id = client.list_run_infos(experiment_id="0")[0].run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = list(map(lambda x: x.path, artifacts))
@@ -237,11 +232,10 @@ def test_fastai_autolog_logs_default_params(fastai_random_tabular_data_run, fit_
                 assert any(a.startswith(prefix + param + ".") for a in artifacts)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_run):
     run_id = fastai_random_tabular_data_run[1].info.run_id
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
@@ -271,7 +265,7 @@ def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, p
     else:
         model.fit(NUM_EPOCHS)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -282,14 +276,13 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patie
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["save_and_early_stop"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
 def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_callback):
     model, run = fastai_random_data_run_with_callback
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
     num_of_epochs = len(model.recorder.values)
 
@@ -309,7 +302,6 @@ def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_cal
     np.testing.assert_array_almost_equal(model_result, reloaded_result)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -325,14 +317,13 @@ def test_fastai_autolog_early_stop_logs(fastai_random_data_run_with_callback, pa
     assert "early_stop_min_delta" in params
     assert params["early_stop_min_delta"] == "-{}".format(MIN_DELTA)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
     num_of_epochs = len(model.recorder.values)
 
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
@@ -350,14 +341,13 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     assert params["early_stop_min_delta"] == "-{}".format(MIN_DELTA)
 
     num_of_epochs = len(model.recorder.values)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == NUM_EPOCHS
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -372,14 +362,13 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
     assert "restored_epoch" not in metrics
     assert "early_stop_min_delta" not in params
     num_of_epochs = len(model.recorder.values)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == NUM_EPOCHS
     assert len(metric_history) == num_of_epochs
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -420,3 +409,14 @@ def test_callback_is_picklable():
         BatchMetricsLogger(run_id="1234"), log_models=True, is_fine_tune=False
     )
     pickle.dumps(cb)
+
+
+def test_autolog_registering_model(iris_data):
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.fastai.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        model = fastai_tabular_model(iris_data)
+        model.fit(NUM_EPOCHS)
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

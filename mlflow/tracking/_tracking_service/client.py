@@ -6,30 +6,33 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
+from itertools import zip_longest
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
+from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils.validation import (
-    _validate_param_name,
-    _validate_tag_name,
     _validate_run_id,
     _validate_experiment_artifact_location,
-    _validate_experiment_name,
-    _validate_metric,
-    _validate_param_keys_unique,
     PARAM_VALIDATION_MSG,
 )
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_ENTITIES_PER_BATCH,
+)
 from collections import OrderedDict
 
 
-class TrackingServiceClient(object):
+class TrackingServiceClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
@@ -152,6 +155,61 @@ class TrackingServiceClient(object):
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        """
+        Search for experiments that match the specified search query.
+
+        :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                          defined in :py:class:`mlflow.entities.ViewType`.
+        :param max_results: Maximum number of experiments desired. Certain server backend may apply
+                            its own limit.
+        :param filter_string:
+            Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
+            experiments. The following fields, comparators, and logical operators are supported.
+
+            Fields
+              - ``name``: Experiment name.
+              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive sensitive pattern match.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+        :param order_by:
+            List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
+            equivalent to ``"name ASC"``. The following fields are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a ``search_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+        """
+        return self.store.search_experiments(
+            view_type=view_type,
+            max_results=max_results,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
     def get_experiment(self, experiment_id):
         """
         :param experiment_id: The experiment ID returned from ``create_experiment``.
@@ -176,7 +234,6 @@ class TrackingServiceClient(object):
                                   :py:class:`mlflow.entities.ExperimentTag` objects.
         :return: Integer ID of the created experiment.
         """
-        _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
 
         return self.store.create_experiment(
@@ -218,7 +275,8 @@ class TrackingServiceClient(object):
                     underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
                     All backend stores will support keys up to length 250, but some may
                     support larger keys.
-        :param value: Metric value (float). Note that some special values such
+        :param value: Metric value (float) or single-item ndarray / tensor.
+                      Note that some special values such
                       as +/- Infinity may be replaced by other values depending on the store. For
                       example, the SQLAlchemy store replaces +/- Inf with max / min float values.
                       All backend stores will support values up to length 5000, but some
@@ -228,15 +286,14 @@ class TrackingServiceClient(object):
         """
         timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
-        _validate_metric(key, value, timestamp, step)
-        metric = Metric(key, value, timestamp, step)
+        metric_value = convert_metric_value_to_float_if_possible(value)
+        metric = Metric(key, metric_value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param_name(key)
         param = Param(key, str(value))
         try:
             self.store.log_param(run_id, param)
@@ -255,7 +312,6 @@ class TrackingServiceClient(object):
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
         """
-        _validate_tag_name(key)
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
@@ -272,7 +328,6 @@ class TrackingServiceClient(object):
                       All backend stores will support values up to length 5000, but some
                       may support larger values.
         """
-        _validate_tag_name(key)
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
@@ -299,15 +354,25 @@ class TrackingServiceClient(object):
         """
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
-        if len(params) > 1:
-            _validate_param_keys_unique(params)
-        for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        for param in params:
-            _validate_param_name(param.key)
-        for tag in tags:
-            _validate_tag_name(tag.key)
-        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+        param_batches = chunk_list(params, MAX_PARAMS_TAGS_PER_BATCH)
+        tag_batches = chunk_list(tags, MAX_PARAMS_TAGS_PER_BATCH)
+
+        for params_batch, tags_batch in zip_longest(param_batches, tag_batches, fillvalue=[]):
+            metrics_batch_size = min(
+                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
+                MAX_METRICS_PER_BATCH,
+            )
+            metrics_batch_size = max(metrics_batch_size, 0)
+            metrics_batch = metrics[:metrics_batch_size]
+            metrics = metrics[metrics_batch_size:]
+
+            self.store.log_batch(
+                run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch
+            )
+
+        for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
+            self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model

@@ -13,11 +13,13 @@ import {
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
 } from './MetricsPlotControls';
+import MetricsSummaryTable from './MetricsSummaryTable';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { saveAs } from 'file-saver';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -27,9 +29,20 @@ export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
 // prior to this threshold. The metrics plot doesn't automatically update hanging runs.
 export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
 
+export const convertMetricsToCsv = (metrics) => {
+  const header = ['run_id', ...Object.keys(metrics[0].history[0])];
+  const rows = metrics.flatMap(({ runUuid, history }) =>
+    history.map((metric) => [runUuid, ...Object.values(metric)]),
+  );
+  return [header]
+    .concat(rows)
+    .map((row) => row.join(','))
+    .join('\n');
+};
+
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     completedRunUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
@@ -85,6 +98,10 @@ export class MetricsPlotPanel extends React.Component {
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
+  hasMultipleExperiments() {
+    return this.props.experimentIds && this.props.experimentIds.length > 1;
+  }
+
   onFocus = () => {
     this.setState({ focused: true });
   };
@@ -104,6 +121,7 @@ export class MetricsPlotPanel extends React.Component {
     // `clearInterval` does nothing when called with `null` or `undefine`:
     // https://www.w3.org/TR/2011/WD-html5-20110525/timers.html#dom-windowtimers-cleartimeout
     clearInterval(this.intervalId);
+    this.intervalId = null;
   };
 
   allRunsCompleted = () => {
@@ -183,7 +201,7 @@ export class MetricsPlotPanel extends React.Component {
   // state updates, e.g. in a setState callback
   updateUrlState = (updatedState) => {
     const { runUuids, metricKey, location, history } = this.props;
-    const experimentId = qs.parse(location.search)['experiment'];
+    const experimentIds = JSON.parse(qs.parse(location.search)['experiments']);
     const newState = {
       ...this.getUrlState(),
       ...updatedState,
@@ -202,7 +220,7 @@ export class MetricsPlotPanel extends React.Component {
       Routes.getMetricPageRoute(
         runUuids,
         metricKey,
-        experimentId,
+        experimentIds,
         selectedMetricKeys,
         layout,
         selectedXAxis,
@@ -286,7 +304,11 @@ export class MetricsPlotPanel extends React.Component {
     // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
     // log or linear scale appropriately
     if (!state.layout.yaxis || !state.layout.yaxis.range) {
-      newLayout.yaxis = { type: newAxisType, autorange: true };
+      newLayout.yaxis = {
+        type: newAxisType,
+        autorange: true,
+        ...(newAxisType === 'log' ? { exponentformat: 'e' } : {}),
+      };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
@@ -315,11 +337,13 @@ export class MetricsPlotPanel extends React.Component {
         newLayout.yaxis = {
           type: 'log',
           autorange: true,
+          exponentformat: 'e',
         };
       } else {
         newLayout.yaxis = {
           type: 'log',
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+          exponentformat: 'e',
         };
       }
     } else {
@@ -422,6 +446,9 @@ export class MetricsPlotPanel extends React.Component {
       newYAxis.autorange = true;
       newYAxis.type = axisType;
     }
+    if (newYAxis.type === 'log') {
+      newYAxis.exponentformat = 'e';
+    }
     // Merge new X & Y axis info into layout
     mergedLayout = {
       ...mergedLayout,
@@ -429,6 +456,12 @@ export class MetricsPlotPanel extends React.Component {
       yaxis: newYAxis,
     };
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
+  };
+
+  handleDownloadCsv = () => {
+    const csv = convertMetricsToCsv(this.props.metricsWithRunInfoAndHistory);
+    const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+    saveAs(blob, 'metrics.csv');
   };
 
   // Return unique key identifying the curve or bar chart corresponding to the specified
@@ -551,7 +584,7 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   render() {
-    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
     const state = this.getUrlState();
     const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
@@ -576,42 +609,52 @@ export class MetricsPlotPanel extends React.Component {
           initialLineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
+          handleDownloadCsv={this.handleDownloadCsv}
         />
-        <RequestStateWrapper
-          requestIds={historyRequestIds}
-          // In this case where there are no history request IDs (e.g. on the
-          // initial page load / before we try to load additional metrics),
-          // optimistically render the children
-          shouldOptimisticallyRender={historyRequestIds.length === 0}
-        >
-          <RunLinksPopover
-            experimentId={experimentId}
-            visible={popoverVisible}
-            x={popoverX}
-            y={popoverY}
-            runItems={popoverRunItems}
-            handleKeyDown={this.handleKeyDownOnPopover}
-            handleClose={() => this.setState({ popoverVisible: false })}
-            handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
-          />
-          <MetricsPlotView
-            runUuids={runUuids}
-            runDisplayNames={runDisplayNames}
-            xAxis={selectedXAxis}
-            metrics={this.getMetrics()}
-            metricKeys={selectedMetricKeys}
-            showPoint={showPoint}
-            chartType={chartType}
-            isComparing={MetricsPlotPanel.isComparing(location.search)}
-            lineSmoothness={lineSmoothness}
-            extraLayout={state.layout}
-            deselectedCurves={state.deselectedCurves}
-            onLayoutChange={this.handleLayoutChange}
-            onClick={this.updatePopover}
-            onLegendClick={this.handleLegendClick}
-            onLegendDoubleClick={this.handleLegendDoubleClick}
-          />
-        </RequestStateWrapper>
+        <div className='metrics-plot-data'>
+          <RequestStateWrapper
+            requestIds={historyRequestIds}
+            // In this case where there are no history request IDs (e.g. on the
+            // initial page load / before we try to load additional metrics),
+            // optimistically render the children
+            shouldOptimisticallyRender={historyRequestIds.length === 0}
+          >
+            {this.hasMultipleExperiments() ? null : (
+              <RunLinksPopover
+                experimentId={experimentIds[0]}
+                visible={popoverVisible}
+                x={popoverX}
+                y={popoverY}
+                runItems={popoverRunItems}
+                handleKeyDown={this.handleKeyDownOnPopover}
+                handleClose={() => this.setState({ popoverVisible: false })}
+                handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+              />
+            )}
+            <MetricsPlotView
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              xAxis={selectedXAxis}
+              metrics={this.getMetrics()}
+              metricKeys={selectedMetricKeys}
+              showPoint={showPoint}
+              chartType={chartType}
+              isComparing={MetricsPlotPanel.isComparing(location.search)}
+              lineSmoothness={lineSmoothness}
+              extraLayout={state.layout}
+              deselectedCurves={state.deselectedCurves}
+              onLayoutChange={this.handleLayoutChange}
+              onClick={this.updatePopover}
+              onLegendClick={this.handleLegendClick}
+              onLegendDoubleClick={this.handleLegendDoubleClick}
+            />
+            <MetricsSummaryTable
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              metricKeys={selectedMetricKeys}
+            />
+          </RequestStateWrapper>
+        </div>
       </div>
     );
   }

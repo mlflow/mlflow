@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 from shlex import quote
@@ -7,8 +6,6 @@ import subprocess
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
-_logger = logging.getLogger(__name__)
-
 
 class RFuncBackend(FlavorBackend):
     """
@@ -16,7 +13,7 @@ class RFuncBackend(FlavorBackend):
     Predict and serve locally models with 'crate' flavor.
     """
 
-    version_pattern = re.compile("version ([0-9]+[.][0-9]+[.][0-9]+)")
+    version_pattern = re.compile(r"version ([0-9]+\.[0-9]+\.[0-9]+)")
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
@@ -37,7 +34,17 @@ class RFuncBackend(FlavorBackend):
         )
         _execute(command)
 
-    def serve(self, model_uri, port, host, enable_mlserver):
+    def serve(
+        self,
+        model_uri,
+        port,
+        host,
+        timeout,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
+    ):
         """
         Generate R model locally.
 
@@ -48,6 +55,15 @@ class RFuncBackend(FlavorBackend):
         if enable_mlserver:
             raise Exception("The MLServer inference server is not yet supported in the R backend.")
 
+        if timeout:
+            raise Exception("Timeout is not yet supported in the R backend.")
+
+        if not synchronous:
+            raise Exception("RBackend does not support call with synchronous=False")
+
+        if stdout is not None or stderr is not None:
+            raise Exception("RBackend does not support redirect stdout/stderr.")
+
         model_path = _download_artifact_from_uri(model_uri)
         command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
             quote(model_path), port, host
@@ -55,14 +71,18 @@ class RFuncBackend(FlavorBackend):
         _execute(command)
 
     def can_score_model(self):
+        # `Rscript --version` writes to stderr in R < 4.2.0 but stdout in R >= 4.2.0.
         process = subprocess.Popen(
-            ["Rscript", "--version"], close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            ["Rscript", "--version"],
+            close_fds=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
-        _, stderr = process.communicate()
+        stdout, _ = process.communicate()
         if process.wait() != 0:
             return False
 
-        version = self.version_pattern.search(stderr.decode("utf-8"))
+        version = self.version_pattern.search(stdout.decode("utf-8"))
         if not version:
             return False
         version = [int(x) for x in version.group(1).split(".")]

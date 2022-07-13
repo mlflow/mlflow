@@ -80,3 +80,7 @@ const sanitizerOptions = {
 export const sanitizeConvertedHtml = (dirtyHtml) => {
   return sanitizeHtml(dirtyHtml, sanitizerOptions);
 };
+
+export const forceAnchorTagNewTab = (html) => {
+  return html.replace(new RegExp('<a', 'g'), '<a target="_blank"');
+};

@@ -1,6 +1,7 @@
 export const modelListPageRoute = '/models';
 export const modelPageRoute = '/models/:modelName';
 export const modelSubpageRoute = '/models/:modelName/:subpage';
+export const modelSubpageRouteWithName = '/models/:modelName/:subpage/:name';
 export const modelVersionPageRoute = '/models/:modelName/versions/:version';
 export const compareModelVersionsPageRoute = '/compare-model-versions';
 export const getModelPageRoute = (modelName) => `/models/${encodeURIComponent(modelName)}`;
@@ -10,3 +11,7 @@ export const getModelVersionPageRoute = (modelName, version) =>
 export const getCompareModelVersionsPageRoute = (modelName, runsToVersions) =>
   `/compare-model-versions?name=${JSON.stringify(encodeURIComponent(modelName))}` +
   `&runs=${JSON.stringify(runsToVersions, (k, v) => (v === undefined ? null : v))}`;
+export const PANES = Object.freeze({
+  DETAILS: 'details',
+  SERVING: 'serving',
+});

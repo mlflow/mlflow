@@ -1,8 +1,9 @@
 import React from 'react';
-import { Tag } from 'antd';
+import { Tag } from '@databricks/design-system';
 // eslint-disable-next-line
 import * as overrides from './constant-overrides'; // eslint-disable-line import/no-namespace
 import { FormattedMessage } from 'react-intl';
+import { ReadyIcon } from './utils';
 
 export const Stages = {
   NONE: 'None',
@@ -21,22 +22,10 @@ export const StageLabels = {
 };
 
 export const StageTagComponents = {
-  [Stages.NONE]: <Tag key='none'>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: (
-    <Tag key='staging' className='staging-tag'>
-      {StageLabels[Stages.STAGING]}
-    </Tag>
-  ),
-  [Stages.PRODUCTION]: (
-    <Tag key='production' className='production-tag'>
-      {StageLabels[Stages.PRODUCTION]}
-    </Tag>
-  ),
-  [Stages.ARCHIVED]: (
-    <Tag key='archived' color='#eee' style={{ color: '#333' }}>
-      {StageLabels[Stages.ARCHIVED]}
-    </Tag>
-  ),
+  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
+  [Stages.STAGING]: <Tag color='lemon'>{StageLabels[Stages.STAGING]}</Tag>,
+  [Stages.PRODUCTION]: <Tag color='lime'>{StageLabels[Stages.PRODUCTION]}</Tag>,
+  [Stages.ARCHIVED]: <Tag color='charcoal'>{StageLabels[Stages.ARCHIVED]}</Tag>,
 };
 
 export const ActivityTypes = {
@@ -74,9 +63,7 @@ export const modelVersionStatusIconTooltips = {
 };
 
 export const ModelVersionStatusIcons = {
-  [ModelVersionStatus.READY]: (
-    <i className='far fa-check-circle icon-ready model-version-status-icon' />
-  ),
+  [ModelVersionStatus.READY]: <ReadyIcon />,
 };
 
 export const MODEL_VERSION_STATUS_POLL_INTERVAL = 10000;

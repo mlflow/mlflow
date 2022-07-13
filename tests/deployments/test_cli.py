@@ -46,10 +46,10 @@ def test_update_no_flavor():
 
 def test_list():
     res = runner.invoke(cli.list_deployment, ["--target", f_target])
-    assert "['{}']".format(f_name) in res.stdout
+    assert "[{{'name': '{f_name}'}}]".format(f_name=f_name) in res.stdout
 
 
-def test_custom_args():
+def test_create_deployment_with_custom_args():
     res = runner.invoke(
         cli.create_deployment,
         [
@@ -62,6 +62,14 @@ def test_custom_args():
             "-C",
             "raiseError=True",
         ],
+    )
+    assert isinstance(res.exception, RuntimeError)
+
+
+def test_delete_deployment_with_custom_args():
+    res = runner.invoke(
+        cli.delete_deployment,
+        ["--target", f_target, "--name", f_name, "-C", "raiseError=True"],
     )
     assert isinstance(res.exception, RuntimeError)
 

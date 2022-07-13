@@ -18,6 +18,7 @@ describe('HomePage', () => {
 
   beforeEach(() => {
     minimalProps = {
+      history: {},
       dispatchListExperimentsApi: jest.fn(),
     };
     minimalStore = mockStore({

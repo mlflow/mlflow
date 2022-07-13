@@ -23,7 +23,6 @@ import logging
 import posixpath
 import re
 import shutil
-import traceback
 import uuid
 import yaml
 
@@ -44,6 +43,8 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -57,7 +58,11 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration_from_uri,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -69,10 +74,6 @@ DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
-
-
-def _format_exception(ex):
-    return "".join(traceback.format_exception(type(ex), ex, ex.__traceback__))
 
 
 def get_default_pip_requirements():
@@ -105,6 +106,7 @@ def log_model(
     spark_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     registered_model_name=None,
@@ -121,7 +123,8 @@ def log_model(
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
@@ -175,6 +178,8 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
 
     .. code-block:: python
         :caption: Example
@@ -214,6 +219,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -234,6 +240,7 @@ def log_model(
             flavor=mlflow.spark,
             spark_model=spark_model,
             conda_env=conda_env,
+            code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
             sample_input=sample_input,
             registered_model_name=registered_model_name,
@@ -254,16 +261,19 @@ def log_model(
             mlflow_model,
             sample_input,
             conda_env,
+            code_paths,
             signature=signature,
             input_example=input_example,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
                 "runs:/%s/%s" % (run_id, artifact_path),
                 registered_model_name,
                 await_registration_for,
             )
+        return mlflow_model.get_model_info()
 
 
 def _tmp_path(dfs_tmp):
@@ -348,7 +358,7 @@ class _HadoopFileSystem:
             # Log a debug-level message, since existence checks may raise exceptions
             # in normal operating circumstances that do not warrant warnings
             _logger.debug(
-                "Unexpected exception while checking if model uri is visible on " "DFS: %s", ex
+                "Unexpected exception while checking if model uri is visible on DFS: %s", ex
             )
         return False
 
@@ -382,6 +392,7 @@ def _save_model_metadata(
     mlflow_model,
     sample_input,
     conda_env,
+    code_paths,
     signature=None,
     input_example=None,
     pip_requirements=None,
@@ -406,14 +417,19 @@ def _save_model_metadata(
     if input_example is not None:
         _save_example(mlflow_model, input_example, dst_dir)
 
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, dst_dir)
     mlflow_model.add_flavor(
-        FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
+        FLAVOR_NAME,
+        pyspark_version=pyspark.__version__,
+        model_data=_SPARK_MODEL_PATH_SUB,
+        code=code_dir_subpath,
     )
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.spark",
         data=_SPARK_MODEL_PATH_SUB,
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(dst_dir, MLMODEL_FILE_NAME))
 
@@ -448,19 +464,25 @@ def _save_model_metadata(
     # Save `requirements.txt`
     write_to(os.path.join(dst_dir, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    _PythonEnv.current().to_yaml(os.path.join(dst_dir, _PYTHON_ENV_FILE_NAME))
+
 
 def _validate_model(spark_model):
     from pyspark.ml.util import MLReadable, MLWritable
     from pyspark.ml import Model as PySparkModel
+    from pyspark.ml import Transformer as PySparkTransformer
 
     if (
-        not isinstance(spark_model, PySparkModel)
+        (
+            not isinstance(spark_model, PySparkModel)
+            and not isinstance(spark_model, PySparkTransformer)
+        )
         or not isinstance(spark_model, MLReadable)
         or not isinstance(spark_model, MLWritable)
     ):
         raise MlflowException(
-            "Cannot serialize this model. MLflow can only save descendants of pyspark.Model"
-            "that implement MLWritable and MLReadable.",
+            "Cannot serialize this model. MLflow can only save descendants of pyspark.ml.Model "
+            "or pyspark.ml.Transformer that implement MLWritable and MLReadable.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -471,6 +493,7 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
+    code_paths=None,
     dfs_tmpdir=None,
     sample_input=None,
     signature: ModelSignature = None,
@@ -486,7 +509,8 @@ def save_model(
     is also serialized in MLeap format and the MLeap flavor is added.
 
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model which implement MLReadable and MLWritable.
+                        pyspark.ml.Model or pyspark.ml.Transformer which implement
+                        MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -580,6 +604,7 @@ def save_model(
         mlflow_model=mlflow_model,
         sample_input=sample_input,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         pip_requirements=pip_requirements,
@@ -616,7 +641,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
     fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
-    os.mkdir(fuse_dfs_tmpdir)
+    os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
     _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
@@ -680,12 +705,15 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
+    local_model_path = _download_artifact_from_uri(model_uri)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
     return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
@@ -707,13 +735,66 @@ def _load_pyfunc(path):
             # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
             # a SparkSession on the workers
             .config("spark.executor.allowSparkContext", "true")
+            # Binding "spark.driver.bindAddress" to 127.0.0.1 helps avoiding some local hostname
+            # related issues (e.g. https://github.com/mlflow/mlflow/issues/5733).
+            .config("spark.driver.bindAddress", "127.0.0.1")
             .master("local[1]")
             .getOrCreate()
         )
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
-class _PyFuncModelWrapper(object):
+def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
+    """
+    Finds the `featuresCol` column in spark_model and
+    then tries to cast that column to `vector` type.
+    This method is noop if the `featuresCol` is already of type `vector`
+    or if it can't be cast to `vector` type
+    Note:
+    If a spark ML pipeline contains a single Estimator stage, it requires
+    the input dataframe to contain features column of vector type.
+    But the autologging for pyspark ML casts vector column to array<double> type
+    for parity with the pd Dataframe. The following fix is required, which transforms
+    that features column back to vector type so that the pipeline stages can correctly work.
+    A valid scenario is if the auto-logged input example is directly used
+    for prediction, which would otherwise fail without this transformation.
+
+    :param spark_df: Input dataframe that contains `featuresCol`
+    :param spark_model: A pipeline model or a single transformer that contains `featuresCol` param
+    :return: A spark dataframe that contains features column of `vector` type.
+    """
+    from pyspark.sql.functions import udf
+    from pyspark.ml.linalg import Vectors, VectorUDT
+    from pyspark.sql import types as t
+
+    def _find_stage_with_features_col(stage):
+        if stage.hasParam("featuresCol"):
+
+            def _array_to_vector(input_array):
+                return Vectors.dense(input_array)
+
+            array_to_vector_udf = udf(f=_array_to_vector, returnType=VectorUDT())
+            features_col_name = stage.extractParamMap().get(stage.featuresCol)
+            features_col_type = [
+                _field
+                for _field in spark_df.schema.fields
+                if _field.name == features_col_name
+                and _field.dataType
+                in [t.ArrayType(t.DoubleType(), True), t.ArrayType(t.DoubleType(), False)]
+            ]
+            if len(features_col_type) == 1:
+                return spark_df.withColumn(
+                    features_col_name, array_to_vector_udf(features_col_name)
+                )
+        return spark_df
+
+    if hasattr(spark_model, "stages"):
+        for stage in reversed(spark_model.stages):
+            return _find_stage_with_features_col(stage)
+    return _find_stage_with_features_col(spark_model)
+
+
+class _PyFuncModelWrapper:
     """
     Wrapper around Spark MLlib PipelineModel providing interface for scoring pandas DataFrame.
     """
@@ -729,10 +810,28 @@ class _PyFuncModelWrapper(object):
         :param pandas_df: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
-        spark_df = self.spark.createDataFrame(pandas_df)
+        from pyspark.ml import PipelineModel
+
+        spark_df = _find_and_set_features_col_as_vector_if_needed(
+            self.spark.createDataFrame(pandas_df), self.spark_model
+        )
+        prediction_column = "prediction"
+        if isinstance(self.spark_model, PipelineModel) and self.spark_model.stages[-1].hasParam(
+            "outputCol"
+        ):
+            from pyspark.sql import SparkSession
+
+            spark = SparkSession.builder.getOrCreate()
+            # do a transform with an empty input DataFrame
+            # to get the schema of the transformed DataFrame
+            transformed_df = self.spark_model.transform(spark.createDataFrame([], spark_df.schema))
+            # Ensure prediction column doesn't already exist
+            if prediction_column not in transformed_df.columns:
+                # make sure predict work by default for Transformers
+                self.spark_model.stages[-1].setOutputCol(prediction_column)
         return [
             x.prediction
-            for x in self.spark_model.transform(spark_df).select("prediction").collect()
+            for x in self.spark_model.transform(spark_df).select(prediction_column).collect()
         ]
 
 

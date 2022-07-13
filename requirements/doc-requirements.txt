@@ -2,5 +2,6 @@
 # sphinx >= 4.0.0 is incompatible with our custom CSS styles and renders the documents improperly.
 # See https://github.com/mlflow/mlflow/pull/4480
 sphinx==3.5.4
+jinja2==3.0.3
 sphinx-autobuild
 sphinx-click

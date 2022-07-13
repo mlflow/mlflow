@@ -20,11 +20,12 @@ from sqlparse.tokens import Token as TokenType
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.db.db_types import MYSQL, MSSQL
 
 import math
 
 
-class SearchUtils(object):
+class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
     ASC_OPERATOR = "asc"
@@ -89,8 +90,29 @@ class SearchUtils(object):
     }
 
     @classmethod
-    def get_sql_filter_ops(cls, column, operator):
-        sql_filter_ops = {"LIKE": column.like, "ILIKE": column.ilike}
+    def get_sql_filter_ops(cls, column, operator, dialect):
+        import sqlalchemy as sa
+
+        # Use case-sensitive collation for MSSQL
+        if dialect == MSSQL:
+            column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
+
+        # Use non-binary ahead of binary comparison for runtime performance
+        def case_sensitive_mysql_eq(value):
+            return sa.and_(column.__eq__(value), column.op("= BINARY", is_comparison=True)(value))
+
+        def case_sensitive_mysql_ne(value):
+            return sa.or_(column.__ne__(value), column.op("!= BINARY", is_comparison=True)(value))
+
+        def case_sensitive_mysql_like(value):
+            return sa.and_(column.like(value), column.op("LIKE BINARY", is_comparison=True)(value))
+
+        sql_filter_ops = {
+            "=": case_sensitive_mysql_eq if dialect == MYSQL else column.__eq__,
+            "!=": case_sensitive_mysql_ne if dialect == MYSQL else column.__ne__,
+            "LIKE": case_sensitive_mysql_like if dialect == MYSQL else column.like,
+            "ILIKE": column.ilike,
+        }
         return sql_filter_ops[operator]
 
     @classmethod
@@ -163,9 +185,9 @@ class SearchUtils(object):
         identifier = cls._valid_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_attributes)
+                "are '{}'".format(key, valid_attributes)
             )
         return {"type": identifier, "key": key}
 
@@ -174,7 +196,7 @@ class SearchUtils(object):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. " "Found {}".format(token.value),
+                    "Expected numeric value type for metric. Found {}".format(token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
@@ -310,7 +332,7 @@ class SearchUtils(object):
                 "Provide AND-ed expression list." % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return SearchUtils._process_statement(parsed[0])
+        return cls._process_statement(parsed[0])
 
     @classmethod
     def is_metric(cls, key_type, comparator):
@@ -420,7 +442,7 @@ class SearchUtils(object):
         parsed = cls.parse_search_filter(filter_string)
 
         def run_matches(run):
-            return all([cls._does_run_match_clause(run, s) for s in parsed])
+            return all(cls._does_run_match_clause(run, s) for s in parsed)
 
         return [run for run in runs if run_matches(run)]
 
@@ -447,7 +469,7 @@ class SearchUtils(object):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
             statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
-            and all([token.is_whitespace for token in statement.tokens[1:-1]])
+            and all(token.is_whitespace for token in statement.tokens[1:-1])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP + " " + statement.tokens[-1].value
@@ -666,7 +688,7 @@ class SearchUtils(object):
         if key not in valid_search_keys:
             raise MlflowException(
                 "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_search_keys),
+                "are '{}'".format(key, valid_search_keys),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         value_token = stripped_comparison[2]
@@ -783,7 +805,7 @@ class SearchUtils(object):
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                "Invalid clause(s) in filter string: %s. %s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         token_list = cls._process_statement_tokens(statement.tokens, filter_string)
@@ -804,3 +826,69 @@ class SearchUtils(object):
         return cls._parse_filter_for_model_registry(
             filter_string, cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS
         )
+
+
+class SearchExperimentsUtils(SearchUtils):
+    VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
+
+    @classmethod
+    def _invalid_statement_token_search_experiments(cls, token):
+        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+            return False
+        elif token.is_whitespace:
+            return False
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
+            return False
+        else:
+            return True
+
+    @classmethod
+    def _process_statement(cls, statement):
+        invalids = list(filter(cls._invalid_statement_token_search_experiments, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                "Invalid clause(s) in filter string: %s" % invalid_clauses
+            )
+        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _get_identifier(cls, identifier, valid_attributes):
+        tokens = identifier.split(".", maxsplit=1)
+        if len(tokens) == 1:
+            key = tokens[0]
+            identifier = cls._ATTRIBUTE_IDENTIFIER
+        else:
+            entity_type, key = tokens
+            valid_entity_types = ("attribute", "tag", "tags")
+            if entity_type not in valid_entity_types:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid entity type '{entity_type}'. "
+                    f"Valid entity types are {valid_entity_types}"
+                )
+            identifier = cls._valid_entity_type(entity_type)
+
+        key = cls._trim_backticks(cls._strip_quotes(key))
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid attribute key '{}' specified. Valid keys "
+                "are '{}'".format(key, valid_attributes)
+            )
+        return {"type": identifier, "key": key}
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        left, comparator, right = stripped_comparison
+        comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
+        comp["comparator"] = comparator.value
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
+        return comp
+
+    @classmethod
+    def parse_order_by_for_search_experiments(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return identifier["type"], identifier["key"], is_ascending

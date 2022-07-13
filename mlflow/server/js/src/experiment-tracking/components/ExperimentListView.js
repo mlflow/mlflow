@@ -1,29 +1,29 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { connect } from 'react-redux';
-import { Input } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
-import './ExperimentListView.css';
-import { getExperiments } from '../reducers/Reducers';
+import {
+  EditOutlined,
+  LeftSquareFilled,
+  RightSquareFilled,
+  PlusSquareFilled,
+} from '@ant-design/icons';
+import { Tree, Input, Typography } from '@databricks/design-system';
+import { Link, withRouter } from 'react-router-dom';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
-import { Link } from 'react-router-dom';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
-import Utils from '../../common/utils/Utils';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    onClickListExperiments: PropTypes.func.isRequired,
-    // If activeExperimentId is undefined, then the active experiment is the first one.
-    activeExperimentId: PropTypes.string,
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     experiments: PropTypes.arrayOf(Experiment).isRequired,
+    history: PropTypes.object.isRequired,
   };
 
   state = {
-    height: undefined,
+    hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
@@ -32,22 +32,9 @@ export class ExperimentListView extends Component {
     selectedExperimentName: '',
   };
 
-  componentDidMount() {
-    this.resizeListener = () => {
-      this.setState({ height: window.innerHeight });
-    };
-    window.addEventListener('resize', this.resizeListener);
-  }
-
-  componentWillUnmount() {
-    window.removeEventListener('resize', this.resizeListener);
-  }
-
   handleSearchInputChange = (event) => {
     this.setState({ searchInput: event.target.value });
   };
-
-  preventDefault = (ev) => ev.preventDefault();
 
   updateSelectedExperiment = (experimentId, experimentName) => {
     this.setState({
@@ -62,22 +49,18 @@ export class ExperimentListView extends Component {
     });
   };
 
-  handleDeleteExperiment = (ev) => {
+  handleDeleteExperiment = (experimentId, experimentName) => () => {
     this.setState({
       showDeleteExperimentModal: true,
     });
-
-    const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(data.experimentid, data.experimentname);
+    this.updateSelectedExperiment(experimentId, experimentName);
   };
 
-  handleRenameExperiment = (ev) => {
+  handleRenameExperiment = (experimentId, experimentName) => () => {
     this.setState({
       showRenameExperimentModal: true,
     });
-
-    const data = ev.currentTarget.dataset;
-    this.updateSelectedExperiment(data.experimentid, data.experimentname);
+    this.updateSelectedExperiment(experimentId, experimentName);
   };
 
   handleCloseCreateExperimentModal = () => {
@@ -102,15 +85,75 @@ export class ExperimentListView extends Component {
     this.updateSelectedExperiment('0', '');
   };
 
-  render() {
-    const height = this.state.height || window.innerHeight;
-    // 60 pixels for the height of the top bar.
-    // 100 for the experiments header and some for bottom padding.
-    const experimentListHeight = height - 60 - 100;
-    // get searchInput from state
-    const { searchInput } = this.state;
+  handleCheck = (checkedKeys) => {
+    if (checkedKeys.length > 0) {
+      const route =
+        checkedKeys.length === 1
+          ? Routes.getExperimentPageRoute(checkedKeys[0])
+          : Routes.getCompareExperimentsPageRoute(checkedKeys);
+      this.props.history.push(route);
+    }
+  };
+
+  renderListItem = ({ title, key }) => {
+    const { activeExperimentIds } = this.props;
+    const isActive = activeExperimentIds.includes(key);
+    const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
-      <div className='experiment-list-outer-container'>
+      <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
+        <Link
+          to={Routes.getExperimentPageRoute(key)}
+          style={{
+            width: '180px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </Link>
+        <IconButton
+          icon={<EditOutlined />}
+          onClick={this.handleRenameExperiment(key, title)}
+          style={{ marginRight: 5 }}
+          data-test-id='rename-experiment-button'
+        />
+        <IconButton
+          icon={<i className='far fa-trash-alt' />}
+          onClick={this.handleDeleteExperiment(key, title)}
+          // Use a larger margin to avoid overlapping the vertical scrollbar
+          style={{ marginRight: 15 }}
+          data-test-id='delete-experiment-button'
+        />
+      </div>
+    );
+  };
+
+  render() {
+    const { hidden } = this.state;
+    if (hidden) {
+      return (
+        <RightSquareFilled
+          onClick={() => this.setState({ hidden: false })}
+          style={{ fontSize: '24px' }}
+          title='Show experiment list'
+        />
+      );
+    }
+
+    const { searchInput } = this.state;
+    const { experiments, activeExperimentIds } = this.props;
+    const lowerCasedSearchInput = searchInput.toLowerCase();
+    const filteredExperiments = experiments.filter(({ name }) =>
+      name.toLowerCase().includes(lowerCasedSearchInput),
+    );
+    const treeData = filteredExperiments.map(({ name, experiment_id }) => ({
+      title: name,
+      key: experiment_id,
+    }));
+
+    return (
+      <div css={classNames.experimentListOuterContainer}>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
@@ -118,7 +161,7 @@ export class ExperimentListView extends Component {
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
           onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentId={this.props.activeExperimentId}
+          activeExperimentIds={activeExperimentIds}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
@@ -129,74 +172,52 @@ export class ExperimentListView extends Component {
           experimentName={this.state.selectedExperimentName}
         />
         <div>
-          <h1 className='experiments-header'>Experiments</h1>
-          <div className='experiment-list-create-btn-container'>
-            <i
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '8px',
+            }}
+          >
+            <Typography.Title level={2} style={{ margin: 0 }}>
+              Experiments
+            </Typography.Title>
+            <PlusSquareFilled
               onClick={this.handleCreateExperiment}
+              style={{
+                fontSize: '24px',
+                marginLeft: 'auto',
+              }}
               title='New Experiment'
-              className='fas fa-plus fa-border experiment-list-create-btn'
+              data-test-id='create-experiment-button'
             />
-          </div>
-          <div className='collapser-container'>
-            <i
-              onClick={this.props.onClickListExperiments}
+            <LeftSquareFilled
+              onClick={() => this.setState({ hidden: true })}
+              style={{ fontSize: '24px' }}
               title='Hide experiment list'
-              className='collapser fa fa-chevron-left login-icon'
             />
           </div>
           <Input
-            className='experiment-list-search-input'
-            type='text'
             placeholder='Search Experiments'
             aria-label='search experiments'
             value={searchInput}
             onChange={this.handleSearchInputChange}
+            data-test-id='search-experiment-input'
           />
-          <div className='experiment-list-container' style={{ height: experimentListHeight }}>
-            {this.props.experiments
-              // filter experiments based on searchInput
-              .filter((exp) =>
-                exp
-                  .getName()
-                  .toLowerCase()
-                  .includes(searchInput.toLowerCase()),
-              )
-              .map((exp, idx) => {
-                const { name, experiment_id } = exp;
-                const active =
-                  this.props.activeExperimentId !== undefined
-                    ? experiment_id === this.props.activeExperimentId
-                    : idx === 0;
-                const className = `experiment-list-item ${
-                  active ? 'active-experiment-list-item' : ''
-                }`;
-                return (
-                  <div key={experiment_id} title={name} className={`header-container ${className}`}>
-                    <Link
-                      style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
-                      to={Routes.getExperimentPageRoute(experiment_id)}
-                      onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
-                    >
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-                    </Link>
-                    {/* Edit/Rename Experiment Option */}
-                    <IconButton
-                      icon={<EditOutlined />}
-                      onClick={this.handleRenameExperiment}
-                      data-experimentid={experiment_id}
-                      data-experimentname={name}
-                      style={{ marginRight: 10 }}
-                    />
-                    {/* Delete Experiment option */}
-                    <IconButton
-                      icon={<i className='far fa-trash-alt' />}
-                      onClick={this.handleDeleteExperiment}
-                      data-experimentid={experiment_id}
-                      data-experimentname={name}
-                    />
-                  </div>
-                );
-              })}
+          <div css={classNames.experimentListContainer}>
+            <Tree
+              treeData={treeData}
+              dangerouslySetAntdProps={{
+                selectable: true,
+                checkable: true,
+                multiple: true,
+                selectedKeys: activeExperimentIds,
+                checkedKeys: activeExperimentIds,
+                onCheck: this.handleCheck,
+                titleRender: this.renderListItem,
+              }}
+            />
           </div>
         </div>
       </div>
@@ -204,10 +225,27 @@ export class ExperimentListView extends Component {
   }
 }
 
-const mapStateToProps = (state) => {
-  const experiments = getExperiments(state);
-  experiments.sort(Utils.compareExperiments);
-  return { experiments };
+const classNames = {
+  experimentListOuterContainer: {
+    boxSizing: 'border-box',
+    marginLeft: '64px',
+    width: '220px',
+  },
+  experimentListContainer: {
+    overflowY: 'scroll',
+    overflowX: 'hidden',
+    width: ' 100%',
+    height: '90vh',
+    marginTop: '8px',
+    // Remove an empty space (transparent switcher) in the tree node to align the experiment name
+    // to the left.
+    '.du-bois-light-tree-switcher': {
+      display: 'none',
+    },
+    '.du-bois-light-tree-checkbox': {
+      marginLeft: '4px',
+    },
+  },
 };
 
-export default connect(mapStateToProps)(ExperimentListView);
+export default withRouter(ExperimentListView);

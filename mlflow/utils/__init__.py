@@ -123,6 +123,23 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
     return truncated
 
 
+def merge_dicts(dict_a, dict_b, raise_on_duplicates=True):
+    """
+    This function takes two dictionaries and returns one singular merged dictionary.
+
+    :param dict_a: The first dictionary.
+    :param dict_b: The second dictonary.
+    :param raise_on_duplicates: If True, the function raises ValueError if there are duplicate keys.
+                                Otherwise, duplicate keys in `dict_b` will override the ones in
+                                `dict_a`.
+    :return: A merged dictionary.
+    """
+    duplicate_keys = dict_a.keys() & dict_b.keys()
+    if raise_on_duplicates and len(duplicate_keys) > 0:
+        raise ValueError(f"The two merging dictionaries contains duplicate keys: {duplicate_keys}.")
+    return {**dict_a, **dict_b}
+
+
 def _get_fully_qualified_class_name(obj):
     """
     Obtains the fully qualified class name of the given object.
@@ -172,3 +189,33 @@ def _inspect_original_var_name(var, fallback_name):
 
     except Exception:
         return fallback_name
+
+
+def find_free_port():
+    """
+    Find free socket port on local machine.
+    """
+    import socket
+    from contextlib import closing
+
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        s.bind(("", 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
+
+
+def is_iterator(obj):
+    """
+    :param obj: any object.
+    :return: boolean representing whether or not 'obj' is an iterator.
+    """
+    return (hasattr(obj, "__next__") or hasattr(obj, "next")) and hasattr(obj, "__iter__")
+
+
+def _is_in_ipython_notebook():
+    try:
+        from IPython import get_ipython
+
+        return get_ipython() is not None
+    except Exception:
+        return False

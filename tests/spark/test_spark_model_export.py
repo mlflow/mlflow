@@ -9,19 +9,18 @@ import pyspark
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
-from pyspark.ml.wrapper import JavaModel
 import pytest
 from sklearn import datasets
 import shutil
 from collections import namedtuple
 import yaml
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
-from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -36,10 +35,9 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _get_pip_deps,
     _assert_pip_requirements,
+    _compare_logged_code_paths,
 )
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -56,18 +54,11 @@ SparkModelWithData = namedtuple(
 )
 
 
-# Specify `autouse=True` to ensure that a context is created
-# before any tests are executed. This ensures that the Hadoop filesystem
-# does not create its own SparkContext without the MLeap libraries required by
-# other tests.
-@pytest.fixture(scope="session", autouse=True)
-def spark_context():
+def _get_spark_session_with_retry(max_tries=3):
     conf = pyspark.SparkConf()
-    max_tries = 3
     for num_tries in range(max_tries):
         try:
-            spark = get_spark_session(conf)
-            return spark.sparkContext
+            return get_spark_session(conf)
         except Exception as e:
             if num_tries >= max_tries - 1:
                 raise
@@ -76,7 +67,34 @@ def spark_context():
             )
 
 
-@pytest.fixture(scope="session")
+# Specify `autouse=True` to ensure that a context is created
+# before any tests are executed. This ensures that the Hadoop filesystem
+# does not create its own SparkContext without the MLeap libraries required by
+# other tests.
+@pytest.fixture(scope="module", autouse=True)
+def spark_context():
+    if Version(pyspark.__version__) < Version("3.1"):
+        # A workaround for this issue:
+        # https://stackoverflow.com/questions/62109276/errorjava-lang-unsupportedoperationexception-for-pyspark-pandas-udf-documenta
+        spark_home = (
+            os.environ.get("SPARK_HOME")
+            if "SPARK_HOME" in os.environ
+            else os.path.dirname(pyspark.__file__)
+        )
+        conf_dir = os.path.join(spark_home, "conf")
+        os.makedirs(conf_dir, exist_ok=True)
+        with open(os.path.join(conf_dir, "spark-defaults.conf"), "w") as f:
+            conf = """
+spark.driver.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
+"""
+            f.write(conf)
+    spark = _get_spark_session_with_retry()
+    yield spark.sparkContext
+    spark.stop()
+
+
+@pytest.fixture(scope="module")
 def iris_df(spark_context):
     iris = datasets.load_iris()
     X = iris.data  # we only take the first two features.
@@ -89,7 +107,7 @@ def iris_df(spark_context):
     return feature_names, iris_pandas_df, iris_spark_df
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_iris(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -104,7 +122,7 @@ def spark_model_iris(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_transformer(iris_df):
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
@@ -116,7 +134,7 @@ def spark_model_transformer(iris_df):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def spark_model_estimator(iris_df, spark_context):
     # pylint: disable=unused-argument
     feature_names, iris_pandas_df, iris_spark_df = iris_df
@@ -137,7 +155,6 @@ def model_path(tmpdir):
     return str(tmpdir.mkdir("model"))
 
 
-@pytest.mark.large
 def test_hadoop_filesystem(tmpdir):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
@@ -180,7 +197,6 @@ def test_hadoop_filesystem(tmpdir):
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
-@pytest.mark.large
 def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
@@ -188,7 +204,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     # 2. score and compare reloaded pyfunc
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
@@ -198,7 +214,6 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(sparkm.DFS_TMP)
 
 
-@pytest.mark.large
 def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
     _, _, iris_spark_df = iris_df
     signature_ = infer_signature(iris_spark_df)
@@ -218,7 +233,6 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
     _, _, iris_spark_df = iris_df
     signature_ = infer_signature(iris_spark_df)
@@ -243,7 +257,6 @@ def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
                     assert all((_read_example(mlflow_model, model_path) == example).all())
 
 
-@pytest.mark.large
 def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_env):
     sparkm.save_model(spark_model_estimator.model, path=model_path, conda_env=spark_custom_env)
     # score and compare the reloaded sparkml model
@@ -252,20 +265,24 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
     preds = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_estimator.predictions == preds
     # 2. score and compare reloaded pyfunc
-    m = pyfunc.load_pyfunc(model_path)
+    m = pyfunc.load_model(model_path)
     preds2 = m.predict(spark_model_estimator.spark_df.toPandas())
     assert spark_model_estimator.predictions == preds2
 
 
-@pytest.mark.large
 def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.save_model(
-            spark_model_transformer.model, path=model_path, conda_env=spark_custom_env
-        )
+    sparkm.save_model(spark_model_transformer.model, path=model_path, conda_env=spark_custom_env)
+    # score and compare the reloaded sparkml model
+    reloaded_model = sparkm.load_model(model_uri=model_path)
+    preds_df = reloaded_model.transform(spark_model_transformer.spark_df)
+    preds = [x.features for x in preds_df.select("features").collect()]
+    assert spark_model_transformer.predictions == preds
+    # 2. score and compare reloaded pyfunc
+    m = pyfunc.load_model(model_path)
+    preds2 = m.predict(spark_model_transformer.spark_df.toPandas())
+    assert spark_model_transformer.predictions == preds2
 
 
-@pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
         spark_model_iris.model,
@@ -283,7 +300,6 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     )
 
 
-@pytest.mark.large
 @pytest.mark.skipif(
     "dev" in pyspark.__version__,
     reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
@@ -304,7 +320,6 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
     )
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_tmpdir):
@@ -338,7 +353,6 @@ def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_t
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_estimator_model_log(
@@ -374,14 +388,6 @@ def test_sparkml_estimator_model_log(
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-@pytest.mark.large
-def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
-    # pylint: disable=unused-argument
-    with pytest.raises(MlflowException, match="Cannot serialize this model"):
-        sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
-
-
-@pytest.mark.large
 def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
@@ -405,7 +411,6 @@ def test_log_model_calls_register_model(tmpdir, spark_model_iris):
         shutil.rmtree(x)
 
 
-@pytest.mark.large
 def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
@@ -423,7 +428,6 @@ def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
         shutil.rmtree(x)
 
 
-@pytest.mark.large
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -439,7 +443,6 @@ def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_pat
     assert spark_model_iris.predictions == preds
 
 
-@pytest.mark.large
 def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -459,7 +462,6 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
-@pytest.mark.large
 def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -471,7 +473,6 @@ def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -502,7 +503,6 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     default_reqs = mlflow.spark.get_default_pip_requirements()
 
@@ -536,7 +536,6 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_path):
     conda_env = dict(mlflow.spark.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -551,13 +550,12 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        sparkm.log_model(
+        model_info = sparkm.log_model(
             spark_model=spark_model_iris.model,
             artifact_path=artifact_path,
             conda_env=spark_custom_env,
@@ -565,6 +563,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
+        assert model_info.model_uri == model_uri
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -579,7 +578,6 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
-@pytest.mark.large
 def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
     spark_model_iris, model_path, spark_custom_env
 ):
@@ -599,7 +597,6 @@ def test_sparkml_model_log_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris, model_path
 ):
@@ -607,7 +604,6 @@ def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_ex
     _assert_pip_requirements(model_path, sparkm.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     spark_model_iris,
 ):
@@ -619,7 +615,6 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     _assert_pip_requirements(model_uri, sparkm.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
@@ -635,21 +630,13 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
 
 
-@pytest.mark.large
-def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
-    spark_model_iris, model_path
-):
-    class CustomTransformer(JavaModel):
-        def _transform(self, dataset):
-            return dataset
-
-    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
-    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
-
-    with pytest.raises(ValueError, match="CustomTransformer"):
-        sparkm.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
+def test_model_is_recorded_when_using_direct_save(spark_model_iris):
+    # Patch `is_local_uri` to enforce direct model serialization to DFS
+    with mock.patch("mlflow.spark.is_local_uri", return_value=False):
+        with mlflow.start_run():
+            sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
+            current_tags = mlflow.get_run(mlflow.active_run().info.run_id).data.tags
+            assert mlflow.utils.mlflow_tags.MLFLOW_LOGGED_MODELS in current_tags
 
 
 def test_shutil_copytree_without_file_permissions(tmpdir):
@@ -666,3 +653,17 @@ def test_shutil_copytree_without_file_permissions(tmpdir):
     assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
     assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
     assert dst_dir.join("top-level-file.txt").read() == "hi"
+
+
+def test_log_model_with_code_paths(spark_model_iris):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.spark._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        sparkm.log_model(
+            spark_model=spark_model_iris.model, artifact_path=artifact_path, code_paths=[__file__]
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.spark.FLAVOR_NAME)
+        sparkm.load_model(model_uri)
+        add_mock.assert_called()

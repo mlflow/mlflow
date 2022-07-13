@@ -94,7 +94,6 @@ class TestRestStore(unittest.TestCase):
         return res
 
     def _verify_requests(self, http_request, endpoint, method, proto_message):
-        print(http_request.call_args_list)
         json_body = message_to_json(proto_message)
         http_request.assert_any_call(**(self._args(self.creds, endpoint, method, json_body)))
 
@@ -296,7 +295,7 @@ class TestRestStore(unittest.TestCase):
         )
 
     @mock_http_request
-    def test_update_model_version_decription(self, mock_http):
+    def test_update_model_version_description(self, mock_http):
         name = "model_1"
         version = "5"
         description = "test model version"

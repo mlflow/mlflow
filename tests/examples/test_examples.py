@@ -20,7 +20,7 @@ def hash_conda_env(conda_env_path):
 
 
 def get_conda_envs():
-    stdout = process.exec_cmd(["conda", "env", "list", "--json"])[1]
+    stdout = process._exec_cmd(["conda", "env", "list", "--json"]).stdout
     return [os.path.basename(env) for env in json.loads(stdout)["envs"]]
 
 
@@ -29,12 +29,12 @@ def is_mlflow_conda_env(env_name):
 
 
 def remove_conda_env(env_name):
-    process.exec_cmd(["conda", "remove", "--name", env_name, "--yes", "--all"])
+    process._exec_cmd(["conda", "remove", "--name", env_name, "--yes", "--all"])
 
 
 def get_free_disk_space():
     # https://stackoverflow.com/a/48929832/6943581
-    return shutil.disk_usage("/")[-1] / (2 ** 30)
+    return shutil.disk_usage("/")[-1] / (2**30)
 
 
 def is_conda_yaml(path):
@@ -61,7 +61,7 @@ def clean_envs_and_cache():
     yield
 
     if get_free_disk_space() < 7.0:  # unit: GiB
-        process.exec_cmd(["./dev/remove-conda-envs.sh"])
+        process._exec_cmd(["./dev/remove-conda-envs.sh"])
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -69,22 +69,23 @@ def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
+        # pylint: disable-next=print-function
         print(" | Free disk space: {:.1f} GiB".format(get_free_disk_space()), end="")
 
 
-@pytest.mark.large
+@pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, params",
     [
         ("h2o", []),
         ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
-        ("hyperparam", ["-e", "gpyopt", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
-            "lightgbm",
+            os.path.join("lightgbm", "lightgbm_native"),
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
+        (os.path.join("lightgbm", "lightgbm_sklearn"), []),
         ("statsmodels", ["-P", "inverse_method=qr"]),
         ("pytorch", ["-P", "epochs=2"]),
         ("sklearn_logistic_regression", []),
@@ -132,7 +133,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
     invoke_cli_runner(cli.run, cli_run_list)
 
 
-@pytest.mark.large
+@pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
     "directory, command",
     [
@@ -140,7 +141,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (
-            "lightgbm",
+            os.path.join("lightgbm", "lightgbm_native"),
             [
                 "python",
                 "train.py",
@@ -152,6 +153,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        (os.path.join("lightgbm", "lightgbm_sklearn"), ["python", "train.py"]),
         ("statsmodels", ["python", "train.py", "--inverse-method", "qr"]),
         ("quickstart", ["python", "mlflow_tracking.py"]),
         ("remote_store", ["python", "remote_server.py"]),
@@ -184,8 +186,15 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("ray_serve", ["python", "train_model.py"]),
         ("pip_requirements", ["python", "pip_requirements.py"]),
         ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
+        ("pmdarima", ["python", "train.py"]),
+        ("evaluation", ["python", "evaluate_on_binary_classifier.py"]),
+        ("evaluation", ["python", "evaluate_on_multiclass_classifier.py"]),
+        ("evaluation", ["python", "evaluate_on_regressor.py"]),
+        ("evaluation", ["python", "evaluate_with_custom_metrics.py"]),
+        ("evaluation", ["python", "evaluate_with_custom_metrics_comprehensive.py"]),
+        ("diviner", ["python", "train.py"]),
     ],
 )
 def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
-    process.exec_cmd(command, cwd=cwd_dir)
+    process._exec_cmd(command, cwd=cwd_dir)

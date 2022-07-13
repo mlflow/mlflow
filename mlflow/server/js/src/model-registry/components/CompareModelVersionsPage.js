@@ -14,9 +14,8 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { CompareModelVersionsView } from './CompareModelVersionsView';
 import _ from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
-
 // TODO: Write integration tests for this component
-class CompareModelVersionsPage extends Component {
+export class CompareModelVersionsPageImpl extends Component {
   static propTypes = {
     modelName: PropTypes.string.isRequired,
     versionsToRuns: PropTypes.object.isRequired,
@@ -40,6 +39,7 @@ class CompareModelVersionsPage extends Component {
       this.versionRequestId,
       this.getMlModelFileRequestId,
     ],
+    requestIdsWith404ErrorsToIgnore: [this.runRequestId, this.getMlModelFileRequestId],
   };
 
   removeRunRequestId() {
@@ -90,7 +90,10 @@ class CompareModelVersionsPage extends Component {
   render() {
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={this.state.requestIds}>
+        <RequestStateWrapper
+          requestIds={this.state.requestIds}
+          requestIdsWith404sToIgnore={this.state.requestIdsWith404ErrorsToIgnore}
+        >
           <CompareModelVersionsView
             modelName={this.props.modelName}
             versionsToRuns={this.props.versionsToRuns}
@@ -117,4 +120,7 @@ const mapDispatchToProps = {
   parseMlModelFile,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(CompareModelVersionsPage);
+export const CompareModelVersionsPage = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(CompareModelVersionsPageImpl);

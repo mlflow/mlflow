@@ -24,7 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port
+from tests.helper_functions import pyfunc_serve_and_score_model, get_safe_port, PROTOBUF_REQUIREMENT
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -135,7 +135,7 @@ def file_store():
     shutil.rmtree(ROOT_LOCATION)
 
 
-def _create_run_in_store(store):
+def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
         "user_id": "Anderson",
@@ -143,15 +143,17 @@ def _create_run_in_store(store):
         "tags": {},
     }
     run = store.create_run(**config)
-    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
-    if not os.path.exists(artifact_path):
-        os.makedirs(artifact_path)
+    if create_artifacts:
+        artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+        if not os.path.exists(artifact_path):
+            os.makedirs(artifact_path)
     return run
 
 
-def test_mlflow_gc_sqlite(sqlite_store):
+@pytest.mark.parametrize("create_artifacts_in_run", [True, False])
+def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     store = sqlite_store[0]
-    run = _create_run_in_store(store)
+    run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -159,16 +161,23 @@ def test_mlflow_gc_sqlite(sqlite_store):
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
         store.get_run(run.info.run_uuid)
 
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    assert not os.path.exists(artifact_path)
 
-def test_mlflow_gc_file_store(file_store):
+
+@pytest.mark.parametrize("create_artifacts_in_run", [True, False])
+def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
-    run = _create_run_in_store(store)
+    run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
         store.get_run(run.info.run_uuid)
+
+    artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
+    assert not os.path.exists(artifact_path)
 
 
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
@@ -225,7 +234,7 @@ def test_mlflow_models_serve(enable_mlserver):
                 mlflow.pyfunc.log_model(
                     artifact_path="model",
                     python_model=model,
-                    extra_pip_requirements=["mlserver", "mlserver-mlflow"],
+                    extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
                 )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
@@ -233,7 +242,7 @@ def test_mlflow_models_serve(enable_mlserver):
 
     data = pd.DataFrame({"a": [0]})
 
-    extra_args = ["--no-conda"]
+    extra_args = ["--env-manager", "local"]
     if enable_mlserver:
         # When MLServer is enabled, we want to use Conda to ensure Python 3.7
         # is used
@@ -294,3 +303,22 @@ def test_mlflow_artifact_service_unavailable_without_config():
         )
     finally:
         process.kill()
+
+
+def test_mlflow_artifact_only_prints_warning_for_configs():
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
+    ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
+        result = CliRunner(mix_stderr=False).invoke(
+            server,
+            ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+            catch_exceptions=False,
+        )
+        assert result.stderr.startswith(
+            "Usage: server [OPTIONS]\nTry 'server --help' for help.\n\nError: You are starting a "
+            "tracking server in `--artifacts-only` mode and have provided a value for "
+            "`--backend_store_uri`"
+        )
+        assert result.exit_code != 0
+        run_server_mock.assert_not_called()

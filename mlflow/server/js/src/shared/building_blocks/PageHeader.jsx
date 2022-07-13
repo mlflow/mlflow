@@ -1,12 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
-import { Title } from './Title';
-import { Dropdown, Menu } from 'antd';
+import { Typography, Spacer as DbSpacer, Dropdown, Menu } from '@databricks/design-system';
 import { Breadcrumb } from './antd/Breadcrumb';
 import { Button } from './antd/Button';
 import { RightChevron } from '../icons/RightChevron';
-import { grayRule } from '../colors';
 import { PreviewIcon } from './PreviewIcon';
 import { Spacer } from './Spacer';
 
@@ -45,6 +42,8 @@ OverflowMenu.propTypes = {
   ),
 };
 
+const { Title } = Typography;
+
 /**
  * A page header that includes a title, optional breadcrumb content, and a divider.
  * @param props title: Title text.
@@ -64,11 +63,11 @@ export class PageHeader extends React.Component {
     let feedbackLink = null;
     return (
       <>
-        {breadcrumbs && (
+        {breadcrumbs.length > 0 && (
           <Breadcrumb
-            className={css(styles.breadcrumbOverride)}
+            css={styles.breadcrumbOverride}
             separator={
-              <span className={css(styles.iconWrapper)}>
+              <span css={styles.iconWrapper}>
                 <RightChevron />
               </span>
             }
@@ -78,21 +77,19 @@ export class PageHeader extends React.Component {
             ))}
           </Breadcrumb>
         )}
-        <div className={css(styles.titleContainer)}>
-          <div className={css(styles.title)}>
+        <div css={styles.titleContainer}>
+          <div css={styles.title}>
             <Spacer size={1} direction='horizontal'>
-              <Title level={3}>{title}</Title>
+              <Title level={2}>{title}</Title>
               {preview && <PreviewIcon />}
               {feedbackLink}
             </Spacer>
           </div>
-          <div className={css(styles.buttonGroup)}>
+          <div css={styles.buttonGroup}>
             <Spacer direction='horizontal'>{children}</Spacer>
           </div>
         </div>
-        <div className={css(styles.hrWrapper)}>
-          <hr className={css(styles.hr)} />
-        </div>
+        <DbSpacer size='medium' />
       </>
     );
   }
@@ -102,7 +99,6 @@ export class PageHeader extends React.Component {
 const antButtonHeight = '32px';
 const styles = {
   titleContainer: {
-    marginBottom: 8,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -112,21 +108,12 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     minHeight: antButtonHeight,
+    'h1, h2, h3': { marginTop: 0, marginBottom: 0 },
   },
   buttonGroup: {
     flexShrink: 1,
     display: 'flex',
     alignItems: 'flex-end',
-  },
-  hr: {
-    marginTop: 0, // hr margin comes from bootstrap. Must override.
-    marginBottom: 24,
-    height: '1px',
-    backgroundColor: grayRule,
-    border: 'none',
-  },
-  hrWrapper: {
-    margin: 0,
   },
   iconWrapper: {
     display: 'inline-block',

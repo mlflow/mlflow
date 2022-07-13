@@ -25,6 +25,7 @@ from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -38,7 +39,7 @@ pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("onnx") else ["--env-manager", "local"]
 
 
 @pytest.fixture(scope="module")
@@ -105,7 +106,7 @@ def onnx_model(model, sample_input, tmpdir):
 def multi_tensor_model(dataset):
     class MyModel(nn.Module):
         def __init__(self, n):
-            super(MyModel, self).__init__()
+            super().__init__()
             self.linear = torch.nn.Linear(n, 1)
             self._train = True
 
@@ -230,7 +231,6 @@ def onnx_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(onnx_model, model_path):
     mlflow.onnx.save_model(onnx_model, model_path)
 
@@ -240,7 +240,6 @@ def test_model_save_load(onnx_model, model_path):
     assert onnx.checker.check_model.called
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custom_env):
     model = onnx_model
     signature_ = infer_signature(*data)
@@ -264,13 +263,12 @@ def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custo
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
     x = data[0]
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05)
 
     # pyfunc serve
@@ -281,7 +279,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records")
+        pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
         .values.flatten()
         .astype(np.float32),
         predicted,
@@ -290,7 +288,6 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     )
 
 
-@pytest.mark.large
 def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, model_path):
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
@@ -300,14 +297,13 @@ def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, mod
     assert onnx.checker.check_model.called
 
 
-@pytest.mark.large
 def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     onnx_model_multiple_inputs_float64, data_multiple_inputs, predicted_multiple_inputs, model_path
 ):
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs).values,
         predicted_multiple_inputs.values,
@@ -323,7 +319,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records").values,
+        pd.read_json(scoring_response.content.decode("utf-8"), orient="records").values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
         atol=1e-05,
@@ -332,7 +328,8 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
 
 # TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286
 # is fixed.
-@pytest.mark.large
+
+
 def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
     onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs, predicted_multiple_inputs
 ):
@@ -348,7 +345,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(
         pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
         predicted_multiple_inputs.astype("float32").values,
@@ -360,7 +357,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
         pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
 
-@pytest.mark.large
 def test_model_log(onnx_model):
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
@@ -368,10 +364,11 @@ def test_model_log(onnx_model):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "onnx_model"
-            mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+            model_info = mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
+            assert model_info.model_uri == model_uri
 
             # Load model
             onnx.checker.check_model = mock.Mock()
@@ -409,7 +406,6 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
     x = data[0]
 
@@ -421,7 +417,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         )
 
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
         assert np.allclose(
             pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
         )
@@ -438,7 +434,6 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         assert np.allclose(get_ary_output({"input": np_ary}), predicted, rtol=1e-05, atol=1e-05)
 
 
-@pytest.mark.large
 def test_model_save_evaluate_pyfunc_format_multi_tensor(
     multi_tensor_onnx_model, data, multi_tensor_model_prediction
 ):
@@ -446,7 +441,7 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
         path = "onnx_model"
         mlflow.onnx.save_model(onnx_model=multi_tensor_onnx_model, path=path)
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=path)
+        pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=path)
         data, _ = data
         # get prediction
         feeds = {
@@ -457,12 +452,11 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
         assert np.allclose(preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05)
         # single numpy array input should fail with the right error message:
         with pytest.raises(
-            MlflowException, match="Unable to map numpy array input to the expected model " "input."
+            MlflowException, match="Unable to map numpy array input to the expected model input."
         ):
             pyfunc_loaded.predict(data.values)
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     onnx_model, model_path, onnx_custom_env
 ):
@@ -479,7 +473,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == onnx_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     onnx_model, model_path, onnx_custom_env
 ):
@@ -488,7 +481,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(onnx_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -515,7 +507,6 @@ def test_log_model_with_pip_requirements(onnx_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
     default_reqs = mlflow.onnx.get_default_pip_requirements()
 
@@ -547,7 +538,6 @@ def test_log_model_with_extra_pip_requirements(onnx_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
     conda_env = dict(mlflow.onnx.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -562,7 +552,6 @@ def test_model_save_accepts_conda_env_as_dict(onnx_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     onnx_model, onnx_custom_env
 ):
@@ -589,7 +578,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == onnx_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, onnx_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -606,7 +594,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, o
     _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     onnx_model, model_path
 ):
@@ -614,7 +601,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.onnx.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     onnx_model,
 ):
@@ -625,7 +611,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.onnx.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, model_path, data):
     """
     https://github.com/mlflow/mlflow/issues/2499
@@ -637,3 +622,15 @@ def test_pyfunc_predict_supports_models_with_list_outputs(onnx_sklearn_model, mo
     mlflow.onnx.save_model(onnx_sklearn_model, model_path)
     wrapper = mlflow.pyfunc.load_model(model_path)
     wrapper.predict(pd.DataFrame(x))
+
+
+def test_log_model_with_code_paths(onnx_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.onnx._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.onnx.log_model(onnx_model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.onnx.FLAVOR_NAME)
+        mlflow.onnx.load_model(model_uri)
+        add_mock.assert_called()

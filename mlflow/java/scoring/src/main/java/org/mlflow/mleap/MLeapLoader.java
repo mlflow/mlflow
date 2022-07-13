@@ -18,7 +18,7 @@ public class MLeapLoader extends LoaderModule<MLeapFlavor> {
           String.format(
               "Failed to read model files from the supplied model root path: %s."
                   + "Please ensure that this is the path to a valid MLflow model.",
-              modelRootPath));
+              modelRootPath), e);
     }
   }
 

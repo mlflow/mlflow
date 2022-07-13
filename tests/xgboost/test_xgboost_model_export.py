@@ -23,21 +23,22 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
     _assert_pip_requirements,
     _is_available_on_pypi,
+    _compare_logged_code_paths,
 )
 
-EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if _is_available_on_pypi("xgboost") else ["--no-conda"]
+EXTRA_PYFUNC_SERVING_TEST_ARGS = (
+    [] if _is_available_on_pypi("xgboost") else ["--env-manager", "local"]
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "inference_dmatrix"])
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def xgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
@@ -49,7 +50,7 @@ def xgb_model():
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def xgb_sklearn_model():
     wine = datasets.load_wine()
     X = pd.DataFrame(wine.data, columns=wine.feature_names)
@@ -71,13 +72,12 @@ def xgb_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
 def test_model_save_load(xgb_model, model_path):
     model = xgb_model.model
 
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
     reloaded_model = mlflow.xgboost.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(xgb_model.inference_dmatrix),
@@ -90,12 +90,11 @@ def test_model_save_load(xgb_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     model = xgb_sklearn_model.model
     mlflow.xgboost.save_model(xgb_model=model, path=model_path)
     reloaded_model = mlflow.xgboost.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
         model.predict(xgb_sklearn_model.inference_dataframe),
@@ -108,7 +107,6 @@ def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     )
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(xgb_model):
     model = xgb_model.model
     for signature in (None, infer_signature(xgb_model.inference_dataframe)):
@@ -126,7 +124,6 @@ def test_signature_and_examples_are_saved_correctly(xgb_model):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(xgb_model, model_path, mock_s3_bucket):
     mlflow.xgboost.save_model(xgb_model=xgb_model.model, path=model_path)
 
@@ -143,14 +140,11 @@ def test_model_load_from_remote_uri_succeeds(xgb_model, model_path, mock_s3_buck
     )
 
 
-@pytest.mark.large
 def test_model_log(xgb_model, model_path):
-    old_uri = mlflow.get_tracking_uri()
     model = xgb_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
-                mlflow.set_tracking_uri("test")
                 if should_start_run:
                     mlflow.start_run()
 
@@ -158,12 +152,13 @@ def test_model_log(xgb_model, model_path):
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
                 _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
 
-                mlflow.xgboost.log_model(
+                model_info = mlflow.xgboost.log_model(
                     xgb_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
                 )
+                assert model_info.model_uri == model_uri
 
                 reloaded_model = mlflow.xgboost.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
@@ -180,7 +175,6 @@ def test_model_log(xgb_model, model_path):
 
             finally:
                 mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
 
 
 def test_log_model_calls_register_model(xgb_model):
@@ -215,7 +209,6 @@ def test_log_model_no_registered_model_name(xgb_model):
         mlflow.register_model.assert_not_called()
 
 
-@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     xgb_model, model_path, xgb_custom_env
 ):
@@ -233,7 +226,6 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == xgb_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     xgb_model, model_path, xgb_custom_env
 ):
@@ -243,7 +235,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_save_model_with_pip_requirements(xgb_model, tmpdir):
     # Path to a requirements file
     tmpdir1 = tmpdir.join("1")
@@ -269,7 +260,6 @@ def test_save_model_with_pip_requirements(xgb_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
@@ -299,7 +289,6 @@ def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
     )
 
 
-@pytest.mark.large
 def test_log_model_with_pip_requirements(xgb_model, tmpdir):
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -330,7 +319,6 @@ def test_log_model_with_pip_requirements(xgb_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
@@ -362,7 +350,6 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
         )
 
 
-@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     conda_env = dict(mlflow.xgboost.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -377,7 +364,6 @@ def test_model_save_accepts_conda_env_as_dict(xgb_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
-@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     xgb_model, xgb_custom_env
 ):
@@ -403,7 +389,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == xgb_custom_env_parsed
 
 
-@pytest.mark.large
 def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xgb_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
@@ -419,7 +404,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(xgb_model, xg
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
-@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model, model_path
 ):
@@ -427,7 +411,6 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     _assert_pip_requirements(model_path, mlflow.xgboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     xgb_model,
 ):
@@ -439,7 +422,6 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     _assert_pip_requirements(model_uri, mlflow.xgboost.get_default_pip_requirements())
 
 
-@pytest.mark.large
 def test_pyfunc_serve_and_score(xgb_model):
     model, inference_dataframe, inference_dmatrix = xgb_model
     artifact_path = "model"
@@ -453,7 +435,7 @@ def test_pyfunc_serve_and_score(xgb_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dmatrix))
 
 
@@ -478,11 +460,10 @@ def test_pyfunc_serve_and_score_sklearn(model):
         pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content, orient="records").values.squeeze()
+    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_equal(scores, model.predict(X.head(3)))
 
 
-@pytest.mark.large
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model, model_path):
     """
     This test verifies that xgboost models saved in older versions of MLflow are loaded
@@ -526,3 +507,15 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(xgb_model,
         reloaded_xgb.predict(xgb_model.inference_dmatrix),
         reloaded_pyfunc.predict(xgb_model.inference_dataframe),
     )
+
+
+def test_log_model_with_code_paths(xgb_model):
+    artifact_path = "model"
+    with mlflow.start_run(), mock.patch(
+        "mlflow.xgboost._add_code_from_conf_to_system_path"
+    ) as add_mock:
+        mlflow.xgboost.log_model(xgb_model.model, artifact_path, code_paths=[__file__])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.xgboost.FLAVOR_NAME)
+        mlflow.xgboost.load_model(model_uri=model_uri)
+        add_mock.assert_called()

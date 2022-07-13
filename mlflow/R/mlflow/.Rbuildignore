@@ -25,3 +25,4 @@ Reference_Manual_mlflow.md
 ^\.build-doc\.R$
 ^build-package\.sh$
 ^Dockerfile\.dev$
+^Dockerfile\.r-devel$

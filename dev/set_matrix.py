@@ -17,7 +17,7 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
 
 CHANGED_FILES="
 mlflow/keras.py
-mlflow/tensorlfow/__init__.py
+mlflow/tensorflow/__init__.py
 "
 python dev/set_matrix.py --changed-files $CHANGED_FILES
 
@@ -36,8 +36,8 @@ pytest dev/set_matrix.py --doctest-modules
 import sys
 import argparse
 from packaging.version import Version
+from packaging.specifiers import SpecifierSet
 import json
-import operator
 import os
 import re
 import shutil
@@ -48,6 +48,8 @@ import yaml
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
+# Treat "dev" as "newer than any existing versions"
+DEV_NUMERIC = "9999.9999.9999"
 
 
 def read_yaml(location, if_error=None):
@@ -222,59 +224,12 @@ def get_changed_flavors(changed_files, flavors):
     return changed_flavors
 
 
-def str_to_operator(s):
-    """
-    Turns a string into the corresponding operator.
-
-    Examples
-    --------
-    >>> str_to_operator("<")(1, 2)  # equivalent to '1 < 2'
-    True
-    """
-    return {
-        # https://docs.python.org/3/library/operator.html#mapping-operators-to-functions
-        "<": operator.lt,
-        "<=": operator.le,
-        "==": operator.eq,
-        "!=": operator.ne,
-        ">=": operator.ge,
-        ">": operator.gt,
-    }[s]
-
-
-def get_operator_and_version(ver_spec):
-    """
-    Converts a version specifier (e.g. "< 3") to a tuple of (operator, version).
-
-    Examples
-    --------
-    >>> get_operator_and_version("< 3")
-    (<built-in function lt>, '3')
-    >>> get_operator_and_version("!= dev")
-    (<built-in function ne>, 'dev')
-    """
-    regexp = r"([<>=!]+)([\w\.]+)"
-    m = re.search(regexp, ver_spec.replace(" ", ""))
-
-    if m is None:
-        raise ValueError(
-            "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
-                ver_spec,
-                regexp,
-            )
-        )
-
-    return str_to_operator(m.group(1)), m.group(2)
-
-
 def process_requirements(requirements, version=None):
     """
     Examples
     --------
     >>> process_requirements(None)
     []
-    >>> process_requirements(["foo"])
-    ['foo']
     >>> process_requirements({"== 0.1": ["foo"]}, "0.1")
     ['foo']
     >>> process_requirements({"< 0.2": ["foo"]}, "0.1")
@@ -283,6 +238,8 @@ def process_requirements(requirements, version=None):
     ['foo']
     >>> process_requirements({"== 0.1": ["foo"], "== 0.2": ["bar"]}, "0.2")
     ['bar']
+    >>> process_requirements({">= 0.1": ["foo"], ">= 0.2": ["bar"]}, "0.2")
+    ['bar', 'foo']
     >>> process_requirements({"== dev": ["foo"]}, "0.1")
     []
     >>> process_requirements({"< dev": ["foo"]}, "0.1")
@@ -301,24 +258,12 @@ def process_requirements(requirements, version=None):
         return requirements
 
     if isinstance(requirements, dict):
-        # The version "dev" should always compare as greater than any exisiting versions.
-        dev_numeric = "9999.9999.9999"
-
-        if version == DEV_VERSION:
-            version = dev_numeric
-
-        for ver_spec, packages in requirements.items():
-            op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
-            match_all = all(
-                comp_op(
-                    Version(version),
-                    Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
-                )
-                for comp_op, req_ver in op_and_ver_pairs
-            )
-            if match_all:
-                return packages
-        return []
+        reqs = set()
+        for specifier, packages in requirements.items():
+            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+                reqs = reqs.union(packages)
+        return sorted(reqs)
 
     raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 

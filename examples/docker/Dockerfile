@@ -1,4 +1,4 @@
-FROM continuumio/miniconda3:4.10.3
+FROM condaforge/miniforge3
 
 RUN pip install mlflow>=1.0 \
     && pip install azure-storage-blob==12.3.0 \

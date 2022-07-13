@@ -116,7 +116,7 @@ class AbstractStore:
 
         :param name: Registered model name.
         :param stages: List of desired stages. If input list is None, return latest versions for
-                       for 'Staging' and 'Production' stages.
+                       each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
         pass
@@ -185,7 +185,7 @@ class AbstractStore:
         :param version: Registered model version.
         :param new_stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set to ``True``, all existing model
-            versions in the stage will be automically moved to the "archived" stage. Only valid
+            versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.

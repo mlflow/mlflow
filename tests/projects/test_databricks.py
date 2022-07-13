@@ -9,13 +9,12 @@ import databricks_cli
 import pytest
 
 import mlflow
-from mlflow import cli
+from mlflow import cli, MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
-from mlflow.tracking import MlflowClient
 from mlflow.utils import file_utils
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.mlflow_tags import (
@@ -23,7 +22,9 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID,
     MLFLOW_DATABRICKS_WEBAPP_URL,
 )
-from mlflow.utils.rest_utils import _DEFAULT_HEADERS
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
+)
 from mlflow.utils.uri import construct_db_uri_from_profile
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
@@ -230,7 +231,7 @@ def test_run_databricks_validations(
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
-        mlflow_service = mlflow.tracking.MlflowClient()
+        mlflow_service = MlflowClient()
         assert (
             len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)) == 0
         )
@@ -440,7 +441,7 @@ def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
 
     def confirm_request_params(*args, **kwargs):
-        headers = dict(_DEFAULT_HEADERS)
+        headers = DefaultRequestHeaderProvider().request_headers()
         headers["Authorization"] = "Basic dXNlcjpwYXNz"
         assert args == ("PUT", "host/clusters/list")
         assert kwargs == {
@@ -483,7 +484,11 @@ def test_run_databricks_failed(_):
 
 def test_run_databricks_generates_valid_mlflow_run_cmd():
     cmd = _get_cluster_mlflow_run_cmd(
-        project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"}
+        project_dir="my_project_dir",
+        run_id="hi",
+        entry_point="main",
+        parameters={"a": "b"},
+        env_manager="conda",
     )
     assert cmd[0] == "mlflow"
     with mock.patch("mlflow.projects.run"):

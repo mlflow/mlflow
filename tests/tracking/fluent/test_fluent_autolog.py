@@ -89,12 +89,14 @@ def only_register(callback_fn, module, overwrite):  # pylint: disable=unused-arg
 
 
 @pytest.fixture(autouse=True)
-def disable_new_import_hook_firing_if_module_already_exists():
-    with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+def disable_new_import_hook_firing_if_module_already_exists(request):
+    if "do_not_disable_new_import_hook_firing_if_module_already_exists" in request.keywords:
         yield
+    else:
+        with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+            yield
 
 
-@pytest.mark.large
 @pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
@@ -119,7 +121,6 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
         autolog_mock.assert_called_once()
 
 
-@pytest.mark.large
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
 def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(library, mlflow_module):
@@ -148,7 +149,6 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
         autolog_mock.assert_called_once()
 
 
-@pytest.mark.large
 @pytest.mark.parametrize(
     "library,mlflow_module", library_to_mlflow_module_without_spark_datasource.items()
 )
@@ -181,7 +181,6 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         )
 
 
-@pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
     mlflow.autolog()
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
@@ -199,7 +198,6 @@ def test_universal_autolog_calls_pyspark_immediately():
         autolog_mock.assert_not_called()
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
@@ -220,7 +218,6 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
         assert autolog_mock.call_args_list[1] == config
 
 
-@pytest.mark.large
 def test_universal_autolog_makes_expected_event_logging_calls():
     class TestLogger(AutologgingEventLogger):
 
@@ -299,7 +296,6 @@ def test_autolog_success_message_obeys_disabled():
         autolog_logger_mock.assert_called()
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("library", library_to_mlflow_module.keys())
 @pytest.mark.parametrize("disable", [False, True])
 @pytest.mark.parametrize("exclusive", [False, True])
@@ -332,3 +328,18 @@ def test_autolog_obeys_silent_mode(
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     assert not stream.getvalue()
+
+
+@pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
+def test_last_active_run_retrieves_autologged_run():
+    from sklearn.ensemble import RandomForestRegressor
+
+    mlflow.autolog()
+
+    rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
+    rf.fit([[1, 2]], [[3]])
+    rf.predict([[2, 1]])
+
+    autolog_run = mlflow.last_active_run()
+    assert autolog_run is not None
+    assert autolog_run.info.run_id is not None

@@ -1,5 +1,6 @@
 import React from 'react';
-import { mountWithIntl, shallowWithIntl, mockAjax } from '../../common/utils/TestUtils';
+import { Typography } from '@databricks/design-system';
+import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
 import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageView';
@@ -14,7 +15,6 @@ import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
 import Utils from '../../common/utils/Utils';
-import { Typography } from '../../shared/building_blocks/antd/Typography';
 
 const { Text } = Typography;
 
@@ -44,7 +44,10 @@ describe('ArtifactView', () => {
     );
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const node = getTestArtifactNode();
     minimalProps = {
       runUuid: 'fakeUuid',
@@ -234,7 +237,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: 'test_root/dir2',
           },
@@ -277,7 +280,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: modelVersionSource,
           },
@@ -309,7 +312,7 @@ describe('ArtifactView', () => {
       ...minimalEntities,
       modelVersionsByModel: {
         'Model A': {
-          '1': {
+          1: {
             ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
             source: 'test_root/dir2',
           },

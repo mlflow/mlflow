@@ -3,6 +3,7 @@ import os
 
 
 import pytest
+import logging
 
 from mlflow.utils.file_utils import TempDir, _copy_project
 
@@ -13,11 +14,17 @@ from mlflow.projects import _project_spec
 TEST_DIR = "tests"
 TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
 TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_project")
+TEST_VIRTUALENV_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_virtualenv_project")
+TEST_VIRTUALENV_CONDA_PROJECT_DIR = os.path.join(
+    TEST_DIR, "resources", "example_virtualenv_conda_project"
+)
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 GIT_PROJECT_BRANCH = "test-branch"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+
+_logger = logging.getLogger(__name__)
 
 
 def load_project():
@@ -37,7 +44,7 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="package")
 def docker_example_base_image():
     import docker
     from docker.errors import BuildError, APIError
@@ -72,8 +79,7 @@ def docker_example_base_image():
             )
         except BuildError as build_error:
             for chunk in build_error.build_log:
-                print(chunk)
+                _logger.info(chunk)
             raise build_error
         except APIError as api_error:
-            print(api_error.explanation)
             raise api_error

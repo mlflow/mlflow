@@ -19,6 +19,10 @@ describe('RunView', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       runUuid: 'uuid-1234-5678-9012',
       experimentId: '12345',
@@ -47,7 +51,7 @@ describe('RunView', () => {
         },
         artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
-          '12345': Experiment.fromJs({
+          12345: Experiment.fromJs({
             experiment_id: '12345',
             name: 'my experiment',
             artifact_location: 'dbfs:/databricks/abc',
@@ -59,7 +63,7 @@ describe('RunView', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': modelVersion,
+            1: modelVersion,
           },
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
@@ -68,6 +72,7 @@ describe('RunView', () => {
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },
       apis: {},
+      compareExperiments: {},
     };
     minimalStore = mockStore(minimalStoreRaw);
   });
@@ -199,14 +204,8 @@ describe('RunView', () => {
     );
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
-    wrapper
-      .find("[data-test-id='overflow-menu-trigger']")
-      .at(0)
-      .simulate('click');
-    wrapper
-      .find('[data-test-id="overflow-rename-button"]')
-      .hostNodes()
-      .simulate('click');
+    wrapper.find("[data-test-id='overflow-menu-trigger']").at(0).simulate('click');
+    wrapper.find('[data-test-id="overflow-rename-button"]').hostNodes().simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);
   });
 });

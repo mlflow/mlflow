@@ -1,10 +1,8 @@
 import pytest
 
-from tests.helper_functions import _is_importable
+from tests.pylint_plugins.utils import create_message, extract_node, skip_if_pylint_unavailable
 
-pytestmark = pytest.mark.skipif(
-    not _is_importable("pylint"), reason="pylint is required to run tests in this module"
-)
+pytestmark = skip_if_pylint_unavailable()
 
 
 @pytest.fixture(scope="module")
@@ -19,18 +17,6 @@ def test_case():
     test_case = TestPytestRaisesWithoutMatch()
     test_case.setup_method()
     return test_case
-
-
-def create_message(msg_id, node):
-    import pylint.testutils
-
-    return pylint.testutils.Message(msg_id=msg_id, node=node)
-
-
-def extract_node(code):
-    import astroid
-
-    return astroid.extract_node(code)
 
 
 def iter_bad_cases():

@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import { css } from 'emotion';
 import { LoggingRunsDocUrl } from '../constants';
 import { FormattedMessage } from 'react-intl';
 
@@ -13,7 +12,7 @@ export class ExperimentRunsTableEmptyOverlay extends Component {
   render() {
     const learnMoreLinkUrl = this.getLearnMoreLinkUrl();
     return (
-      <div className={`experiment-runs-table-empty-overlay ${classNames.wrapper}`}>
+      <div className='experiment-runs-table-empty-overlay' css={classNames.wrapper}>
         <span>
           <FormattedMessage
             // eslint-disable-next-line max-len
@@ -22,6 +21,8 @@ export class ExperimentRunsTableEmptyOverlay extends Component {
             description='Empty state text for experiment runs page'
             values={{
               link: (chunks) => (
+                // Reported during ESLint upgrade
+                // eslint-disable-next-line react/jsx-no-target-blank
                 <a target='_blank' href={learnMoreLinkUrl}>
                   {chunks}
                 </a>
@@ -36,12 +37,12 @@ export class ExperimentRunsTableEmptyOverlay extends Component {
 }
 
 const classNames = {
-  wrapper: css({
+  wrapper: {
     position: 'relative',
     top: '10px',
     fontSize: '13px',
     padding: '30px',
     width: '100 %',
     pointerEvents: 'all',
-  }),
+  },
 };

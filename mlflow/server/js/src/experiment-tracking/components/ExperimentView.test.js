@@ -74,8 +74,8 @@ const getDefaultExperimentViewProps = () => {
         lifecycle_stage: 'active',
       }),
     ],
-    experiment: Fixtures.createExperiment(),
-    experimentId: EXPERIMENT_ID,
+    experiments: [Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID })],
+    experimentIds: [EXPERIMENT_ID],
     history: {
       location: {
         pathname: '/',
@@ -106,6 +106,8 @@ const getDefaultExperimentViewProps = () => {
     setExperimentTagApi: jest.fn(),
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
+    compareExperiments: false,
+    numberOfNewRuns: 0,
   };
 };
 
@@ -187,14 +189,15 @@ test('Page title is set', () => {
 test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const searchRunsId = getUUID();
   let state = emptyState;
-  const experiment = Fixtures.createExperiment();
+  const experiment = Fixtures.createExperiment({ experiment_id: EXPERIMENT_ID });
   state = addApiToState(state, createPendingApi(searchRunsId));
   state = addExperimentToState(state, experiment);
   state = addExperimentTagsToState(state, experiment.experiment_id, []);
   const newProps = mapStateToProps(state, {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
-    experimentId: experiment.experiment_id,
+    experiments: [experiment],
+    experimentIds: [experiment.experiment_id],
   });
   expect(newProps).toEqual({
     runInfos: [],
@@ -322,15 +325,6 @@ describe('ExperimentView event handlers', () => {
     });
   });
 
-  test('onShare copies state to clipboard', () => {
-    const writeTextSpy = jest.spyOn(navigator.clipboard, 'writeText');
-
-    instance.onShare();
-
-    expect(updateUrlWithViewStateSpy).toHaveBeenCalledTimes(1);
-    expect(writeTextSpy).toHaveBeenCalledTimes(1);
-  });
-
   test('search filters are correctly applied', () => {
     instance.onSearchInput({
       target: {
@@ -380,10 +374,9 @@ describe('Sort by dropdown', () => {
     );
     expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
 
-    wrapper
-      .find("Select [data-test-id='sort-select-dropdown']")
-      .first()
-      .prop('onChange')('attributes.start_time');
+    wrapper.find("Select[data-test-id='sort-select-dropdown']").first().prop('onChange')(
+      'attributes.start_time',
+    );
 
     expect(onSearchSpy).toBeCalledWith({
       orderByAsc: false,
@@ -412,10 +405,9 @@ describe('Start time dropdown', () => {
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"]')).toBe(true);
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"]')).toBe(true);
 
-    wrapper
-      .find("Select [data-test-id='start-time-select-dropdown']")
-      .first()
-      .prop('onChange')('LAST_7_DAYS');
+    wrapper.find("Select[data-test-id='start-time-select-dropdown']").first().prop('onChange')(
+      'LAST_7_DAYS',
+    );
 
     expect(onSearchSpy).toBeCalledWith({
       startTime: 'LAST_7_DAYS',

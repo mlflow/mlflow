@@ -26,6 +26,8 @@ export class RunViewImpl extends Component {
     run: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     experimentId: PropTypes.string.isRequired,
+    comparedExperimentIds: PropTypes.arrayOf(PropTypes.string),
+    hasComparedExperimentsBefore: PropTypes.bool,
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
@@ -176,16 +178,31 @@ export class RunViewImpl extends Component {
     );
   }
 
+  getExperimentPageLink() {
+    return this.props.hasComparedExperimentsBefore ? (
+      <Link to={Routes.getCompareExperimentsPageRoute(this.props.comparedExperimentIds)}>
+        <FormattedMessage
+          defaultMessage='Displaying Runs from {numExperiments} Experiments'
+          // eslint-disable-next-line max-len
+          description='Breadcrumb nav item to link to the compare-experiments page on compare runs page'
+          values={{
+            numExperiments: this.props.comparedExperimentIds.length,
+          }}
+        />
+      </Link>
+    ) : (
+      <Link
+        to={Routes.getExperimentPageRoute(this.props.experiment.experiment_id)}
+        data-test-id='experiment-runs-link'
+      >
+        {this.props.experiment.getName()}
+      </Link>
+    );
+  }
+
   render() {
-    const {
-      runUuid,
-      run,
-      params,
-      tags,
-      latestMetrics,
-      getMetricPagePath,
-      modelVersions,
-    } = this.props;
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath, modelVersions } =
+      this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
@@ -195,15 +212,7 @@ export class RunViewImpl extends Component {
     const queryParams = window.location && window.location.search ? window.location.search : '';
     const runCommand = this.getRunCommand();
     const noteContent = noteInfo && noteInfo.content;
-    const breadcrumbs = [
-      <Link
-        to={Routes.getExperimentPageRoute(this.props.experiment.experiment_id)}
-        data-test-id='experiment-runs-link'
-      >
-        {this.props.experiment.getName()}
-      </Link>,
-      this.props.runDisplayName,
-    ];
+    const breadcrumbs = [this.getExperimentPageLink(), this.props.runDisplayName];
     /* eslint-disable prefer-const */
     let feedbackForm;
     const plotTitle = this.props.intl.formatMessage({
@@ -244,6 +253,16 @@ export class RunViewImpl extends Component {
 
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
+          {
+            <Descriptions.Item
+              label={this.props.intl.formatMessage({
+                defaultMessage: 'Run ID',
+                description: 'Label for displaying the ID of the experiment run',
+              })}
+            >
+              {runUuid}
+            </Descriptions.Item>
+          }
           <Descriptions.Item
             label={this.props.intl.formatMessage({
               defaultMessage: 'Date',
@@ -348,6 +367,8 @@ export class RunViewImpl extends Component {
                 description: 'Label for displaying the output logs for the experiment run job',
               })}
             >
+              {/* Reported during ESLint upgrade */}
+              {/* eslint-disable-next-line react/jsx-no-target-blank */}
               <a
                 href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
                 target='_blank'
@@ -379,7 +400,7 @@ export class RunViewImpl extends Component {
           ) : null}
           <CollapsibleSection
             title={
-              <span>
+              <span className='RunView-editDescriptionHeader'>
                 <FormattedMessage
                   defaultMessage='Description'
                   description='Label for the notes editable content for the experiment run'
@@ -544,6 +565,7 @@ export class RunViewImpl extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
+  const { comparedExperimentIds, hasComparedExperimentsBefore } = state.compareExperiments;
   const { runUuid, experimentId } = ownProps;
   const run = getRunInfo(runUuid, state);
   const experiment = getExperiment(experimentId, state);
@@ -552,7 +574,17 @@ const mapStateToProps = (state, ownProps) => {
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
   const runName = Utils.getRunName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName };
+  return {
+    run,
+    experiment,
+    params,
+    tags,
+    latestMetrics,
+    runDisplayName,
+    runName,
+    comparedExperimentIds,
+    hasComparedExperimentsBefore,
+  };
 };
 const mapDispatchToProps = { setTagApi, deleteTagApi };
 

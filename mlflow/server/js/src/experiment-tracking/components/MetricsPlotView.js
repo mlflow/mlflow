@@ -2,8 +2,10 @@ import React from 'react';
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
+import { saveAs } from 'file-saver';
+import { Icons } from 'plotly.js';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
-import { CHART_TYPE_BAR } from './MetricsPlotPanel';
+import { CHART_TYPE_BAR, convertMetricsToCsv } from './MetricsPlotPanel';
 import { LazyPlot } from './LazyPlot';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
@@ -181,6 +183,17 @@ export class MetricsPlotView extends React.Component {
             displaylogo: false,
             scrollZoom: true,
             modeBarButtonsToRemove: ['sendDataToCloud'],
+            modeBarButtonsToAdd: [
+              {
+                name: 'Download plot data as CSV',
+                icon: Icons.disk,
+                click: () => {
+                  const csv = convertMetricsToCsv(this.props.metrics);
+                  const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+                  saveAs(blob, 'metrics.csv');
+                },
+              },
+            ],
           }}
         />
       </div>

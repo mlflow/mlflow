@@ -22,8 +22,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 0)), reason="Tests require Python 3 to run!"
@@ -94,7 +92,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_with_absolute_model_path_calls_expected_azure_routines(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -106,7 +103,6 @@ def test_deploy_with_absolute_model_path_calls_expected_azure_routines(sklearn_m
         assert aml_mocks["model_deploy"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
@@ -120,7 +116,6 @@ def test_deploy_with_relative_model_path_calls_expected_azure_routines(sklearn_m
             assert aml_mocks["model_deploy"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_with_runs_uri_calls_expected_azure_routines(sklearn_model):
     artifact_path = "model"
@@ -139,7 +134,6 @@ def test_deploy_with_runs_uri_calls_expected_azure_routines(sklearn_model):
         assert aml_mocks["model_deploy"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_with_remote_uri_calls_expected_azure_routines(
     sklearn_model, model_path, mock_s3_bucket
@@ -159,7 +153,6 @@ def test_deploy_with_remote_uri_calls_expected_azure_routines(
         assert aml_mocks["model_deploy"].call_count == 1
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_synchronous_deploy_awaits_azure_service_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -171,7 +164,6 @@ def test_synchronous_deploy_awaits_azure_service_creation(sklearn_model, model_p
         service.wait_for_deployment.assert_called_once()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_asynchronous_deploy_does_not_await_azure_service_creation(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -183,7 +175,6 @@ def test_asynchronous_deploy_does_not_await_azure_service_creation(sklearn_model
         service.wait_for_deployment.assert_not_called()
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_registers_model_and_creates_service_with_specified_names(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -209,7 +200,6 @@ def test_deploy_registers_model_and_creates_service_with_specified_names(sklearn
         assert model_deploy_call_kwargs["name"] == service_name
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_generates_model_and_service_names_meeting_azureml_resource_naming_requirements(
     sklearn_model, model_path
@@ -234,7 +224,6 @@ def test_deploy_generates_model_and_service_names_meeting_azureml_resource_namin
         assert len(called_service_name) <= aml_resource_name_max_length
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_passes_model_conda_environment_to_azure_service_creation_routine(
     sklearn_model, model_path
@@ -278,7 +267,6 @@ def test_deploy_passes_model_conda_environment_to_azure_service_creation_routine
             assert "scikit-learn" in conda_deps.conda_packages
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_throws_exception_if_model_does_not_contain_pyfunc_flavor(sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -295,7 +283,6 @@ def test_deploy_throws_exception_if_model_does_not_contain_pyfunc_flavor(sklearn
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
-@pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_deploy_throws_exception_if_model_python_version_is_less_than_three(
     sklearn_model, model_path
@@ -312,7 +299,6 @@ def test_deploy_throws_exception_if_model_python_version_is_less_than_three(
         assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
-@pytest.mark.large
 def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
     sklearn_model, model_path
 ):
@@ -357,13 +343,12 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         assert get_model_path_call_kwargs["version"] == model_version
 
 
-@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_numpy_arrays(
     sklearn_model, sklearn_data, model_path
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, np.ndarray)
 
@@ -403,12 +388,11 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
 
-@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
     sklearn_pd_model, sklearn_data, model_path
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_pd_model, path=model_path)
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_path)
     pyfunc_outputs = pyfunc_model.predict(sklearn_data[0])
     assert isinstance(pyfunc_outputs, pd.DataFrame)
 

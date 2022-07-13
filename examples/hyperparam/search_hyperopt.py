@@ -17,13 +17,13 @@ import numpy as np
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
-from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
 
 @click.command(
-    help="Perform hyperparameter search with Hyperopt library." "Optimize dl_train target."
+    help="Perform hyperparameter search with Hyperopt library. Optimize dl_train target."
 )
 @click.option("--max-runs", type=click.INT, default=10, help="Maximum number of runs to evaluate.")
 @click.option("--epochs", type=click.INT, default=500, help="Number of epochs")
@@ -36,7 +36,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     Run hyperparameter optimization.
     """
     # create random file to store run ids of the training tasks
-    tracking_client = mlflow.tracking.MlflowClient()
+    tracking_client = MlflowClient()
 
     def new_eval(
         nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
@@ -85,6 +85,8 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                     synchronous=False,  # Allow the run to fail if a model is not properly created
                 )
                 succeeded = p.wait()
+                mlflow.log_params({"lr": lr, "momentum": momentum})
+
             if succeeded:
                 training_run = tracking_client.get_run(p.run_id)
                 metrics = training_run.data.metrics

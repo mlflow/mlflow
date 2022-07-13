@@ -26,7 +26,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import _assert_pip_requirements
 
 
-class TestModel(object):
+class TestModel:
     @staticmethod
     def predict(pdf):
         return pdf
@@ -85,7 +85,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -104,13 +103,12 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     assert model_config.__dict__ == reloaded_model_config.__dict__
     assert mlflow.pyfunc.FLAVOR_NAME in reloaded_model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in reloaded_model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(model_path)
+    reloaded_model = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
 
 
-@pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data):
     data = iris_data
     signature_ = infer_signature(*data)
@@ -158,7 +156,7 @@ def test_column_schema_enforcement():
     pdf = pd.DataFrame(
         data=[[1, 2, 3, 4, True, "x", bytes([1]), "2021-01-01 00:00:00.1234567"]],
         columns=["b", "d", "a", "c", "e", "g", "f", "h"],
-        dtype=np.object,
+        dtype=object,
     )
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
@@ -180,9 +178,9 @@ def test_column_schema_enforcement():
     expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
     # MLflow datetime type in input_schema does not encode precision, so add it for assertions
     expected_types["h"] = np.dtype("datetime64[ns]")
-    # np.object cannot be converted to pandas Strings at the moment
-    expected_types["f"] = np.object
-    expected_types["g"] = np.object
+    # object cannot be converted to pandas Strings at the moment
+    expected_types["f"] = object
+    expected_types["g"] = object
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 
@@ -267,11 +265,11 @@ def test_column_schema_enforcement():
     pdf["b"] = pdf["b"].astype(np.int64)
 
     # 11. objects work
-    pdf["b"] = pdf["b"].astype(np.object)
-    pdf["d"] = pdf["d"].astype(np.object)
-    pdf["e"] = pdf["e"].astype(np.object)
-    pdf["f"] = pdf["f"].astype(np.object)
-    pdf["g"] = pdf["g"].astype(np.object)
+    pdf["b"] = pdf["b"].astype(object)
+    pdf["d"] = pdf["d"].astype(object)
+    pdf["e"] = pdf["e"].astype(object)
+    pdf["f"] = pdf["f"].astype(object)
+    pdf["g"] = pdf["g"].astype(object)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 
@@ -607,7 +605,6 @@ def test_tensor_schema_enforcement_no_col_names():
         pyfunc_model.predict(np.ndarray([]))
 
 
-@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -630,14 +627,13 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    reloaded_model = mlflow.pyfunc.load_model(pyfunc_model_path)
     assert model_config.to_yaml() == reloaded_model.metadata.to_yaml()
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
 
 
-@pytest.mark.large
 def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -660,14 +656,13 @@ def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
     assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
     assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
-    reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    reloaded_model = mlflow.pyfunc.load_model(pyfunc_model_path)
     np.testing.assert_array_equal(
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0])
     )
     mlflow.end_run()
 
 
-@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(
         MlflowException, match="Either `loader_module` or `python_model` must be specified"
@@ -675,7 +670,6 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
         mlflow.pyfunc.save_model(path=model_path, data_path="/path/to/data")
 
 
-@pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(
         MlflowException, match="Either `loader_module` or `python_model` must be specified"
@@ -683,7 +677,6 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", data_path="/path/to/data")
 
 
-@pytest.mark.large
 def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_file
 ):
@@ -720,7 +713,6 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
 
-@pytest.mark.large
 def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
 ):
@@ -754,7 +746,6 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_dict
 
 
-@pytest.mark.large
 def test_log_model_persists_requirements_in_mlflow_model_directory(
     sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
 ):
@@ -786,7 +777,6 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
     assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements
 
 
-@pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sklearn_knn_model, tmpdir
 ):

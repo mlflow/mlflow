@@ -2,6 +2,9 @@
 Definitions of click options shared by several CLI commands.
 """
 import click
+import warnings
+
+from mlflow.utils import env_manager as _EnvManager
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -45,19 +48,80 @@ RUN_ID = click.option(
 NO_CONDA = click.option(
     "--no-conda",
     is_flag=True,
-    help="If specified, will assume that MLmodel/MLproject is running within "
+    help="This flag is deprecated. Use `--env-manager=local` instead. "
+    "If specified, will assume that MLmodel/MLproject is running within "
     "a Conda environment with the necessary dependencies for "
     "the current project instead of attempting to create a new "
     "conda environment.",
 )
 
+
+def _resolve_env_manager(ctx, _, env_manager):
+    no_conda = ctx.params.get("no_conda", False)
+    # Both `--no-conda` and `--env-manager` are specified
+    if no_conda and env_manager is not None:
+        raise click.BadParameter(
+            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
+        )
+
+    # Only `--no-conda` is specified
+    if no_conda:
+        warnings.warn(
+            (
+                "`--no-conda` is deprecated and will be removed in a future MLflow release. "
+                "Use `--env-manager=local` instead."
+            ),
+            FutureWarning,
+            stacklevel=2,
+        )
+        return _EnvManager.LOCAL
+
+    # Only `--env-manager` is specified
+    if env_manager is not None:
+        _EnvManager.validate(env_manager)
+        if env_manager == _EnvManager.VIRTUALENV:
+            warnings.warn(
+                (
+                    "Virtualenv support is still experimental and may be changed in a future "
+                    "release without warning."
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+        return env_manager
+
+    # Neither `--no-conda` nor `--env-manager` is specified
+    return None
+
+
+ENV_MANAGER = click.option(
+    "--env-manager",
+    default=None,
+    type=click.UNPROCESSED,
+    callback=_resolve_env_manager,
+    # '\b' prevents rewrapping text:
+    # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
+    help="""
+If specified, create an environment for MLmodel/MLproject using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- conda: use conda
+- virtualenv: use virtualenv (and pyenv for Python version management)
+
+If unspecified, default to conda.
+""",
+)
+
+
 INSTALL_MLFLOW = click.option(
     "--install-mlflow",
     is_flag=True,
     default=False,
-    help="If specified and there is a conda environment to be activated "
-    "mlflow will be installed into the environment after it has been"
-    " activated. The version of installed mlflow will be the same as"
+    help="If specified and there is a conda or virtualenv environment to be activated "
+    "mlflow will be installed into the environment after it has been "
+    "activated. The version of installed mlflow will be the same as "
     "the one used to invoke this command.",
 )
 
@@ -72,6 +136,10 @@ HOST = click.option(
 )
 
 PORT = click.option("--port", "-p", default=5000, help="The port to listen on (default: 5000).")
+
+TIMEOUT = click.option(
+    "--timeout", "-t", help="Timeout in seconds to serve a request (default: 60)."
+)
 
 # We use None to disambiguate manually selecting "4"
 WORKERS = click.option(

@@ -13,6 +13,8 @@ CatBoost (native) format
     https://catboost.ai/docs/concepts/python-reference_catboost_save_model.html
 .. _CatBoostClassifier:
     https://catboost.ai/docs/concepts/python-reference_catboostclassifier.html
+.. _CatBoostRanker:
+    https://catboost.ai/docs/concepts/python-reference_catboostranker.html
 .. _CatBoostRegressor:
     https://catboost.ai/docs/concepts/python-reference_catboostregressor.html
 """
@@ -35,12 +37,18 @@ from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _PythonEnv,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.exceptions import MlflowException
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _add_code_from_conf_to_system_path,
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "catboost"
@@ -72,6 +80,7 @@ def save_model(
     cb_model,
     path,
     conda_env=None,
+    code_paths=None,
     mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -83,9 +92,12 @@ def save_model(
     Save a CatBoost model to a path on the local file system.
 
     :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                     or `CatBoostRegressor`_) to be saved.
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -115,9 +127,9 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
-    if os.path.exists(path):
-        raise MlflowException("Path '{}' already exists".format(path))
-    os.makedirs(path)
+    _validate_and_prepare_target_save_path(path)
+    code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
@@ -133,6 +145,7 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.catboost",
         env=_CONDA_ENV_FILE_NAME,
+        code=code_dir_subpath,
         **model_bin_kwargs,
     )
 
@@ -141,7 +154,9 @@ def save_model(
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
         **model_bin_kwargs,
     }
-    mlflow_model.add_flavor(FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, catboost_version=cb.__version__, code=code_dir_subpath, **flavor_conf
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -175,12 +190,15 @@ def save_model(
     # Save `requirements.txt`
     write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
 
+    _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     cb_model,
     artifact_path,
     conda_env=None,
+    code_paths=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -193,9 +211,12 @@ def log_model(
     Log a CatBoost model as an MLflow artifact for the current run.
 
     :param cb_model: CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
-                     or `CatBoostRegressor`_) to be saved.
+                    `CatBoostRanker`_, or `CatBoostRegressor`_) to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
+    :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
+                       containing file dependencies). These files are *prepended* to the system
+                       path when the model is loaded.
     :param registered_model_name: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
@@ -226,13 +247,16 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param kwargs: kwargs to pass to `CatBoost.save_model`_ method.
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+             metadata of the logged model.
     """
-    Model.log(
+    return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.catboost,
         registered_model_name=registered_model_name,
         cb_model=cb_model,
         conda_env=conda_env,
+        code_paths=code_paths,
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
@@ -246,6 +270,13 @@ def _init_model(model_type):
     from catboost import CatBoost, CatBoostClassifier, CatBoostRegressor
 
     model_types = {c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]}
+
+    try:
+        from catboost import CatBoostRanker
+
+        model_types[CatBoostRanker.__name__] = CatBoostRanker
+    except ImportError:
+        pass
 
     if model_type not in model_types:
         raise TypeError(
@@ -265,7 +296,7 @@ def _load_model(path, model_type, save_format):
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    Load PyFunc implementation. Called by ``pyfunc.load_model``.
 
     :param path: Local filesystem path to the MLflow Model with the ``catboost`` flavor.
     """
@@ -295,11 +326,12 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_,
+    :return: A CatBoost model (an instance of `CatBoost`_, `CatBoostClassifier`_, `CatBoostRanker`_,
              or `CatBoostRegressor`_)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     cb_model_file_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )

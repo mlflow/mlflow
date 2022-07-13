@@ -60,7 +60,7 @@ export class RunPageImpl extends Component {
       <RunView
         runUuid={this.props.runUuid}
         getMetricPagePath={(key) =>
-          Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+          Routes.getMetricPageRoute([this.props.runUuid], key, [this.props.experimentId])
         }
         experimentId={this.props.experimentId}
         modelVersions={this.props.modelVersions}
@@ -73,7 +73,12 @@ export class RunPageImpl extends Component {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
+        <RequestStateWrapper
+          requestIds={requestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
+          {this.renderRunView}
+        </RequestStateWrapper>
       </PageContainer>
     );
   }

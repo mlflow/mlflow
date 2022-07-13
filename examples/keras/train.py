@@ -34,7 +34,7 @@ x_test = tokenizer.sequences_to_matrix(x_test, mode="binary")
 print("x_train shape:", x_train.shape)
 print("x_test shape:", x_test.shape)
 
-print("Convert class vector to binary class matrix " "(for use with categorical_crossentropy)")
+print("Convert class vector to binary class matrix (for use with categorical_crossentropy)")
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 print("y_train shape:", y_train.shape)

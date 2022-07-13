@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, csr_matrix, csc_matrix]
 
 
-class _Example(object):
+class _Example:
     """
     Represents an input example for MLflow model.
 
@@ -51,7 +51,7 @@ class _Example(object):
           encoded strings.
         - numpy types: Numpy types are converted to the corresponding python types or their closest
           equivalent.
-        - csc/csr matric: similar to 2 dims numpy array, csc/csr matric are converted to
+        - csc/csr matrix: similar to 2 dims numpy array, csc/csr matrix are converted to
           corresponding python types or their closest equivalent.
     """
 
@@ -95,7 +95,7 @@ class _Example(object):
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
-                if all([_is_scalar(x) for x in input_ex.values()]):
+                if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
                 else:
                     raise TypeError(
@@ -107,7 +107,7 @@ class _Example(object):
                         raise TensorsNotSupportedException(
                             "Row '{0}' has shape {1}".format(i, x.shape)
                         )
-                if all([_is_scalar(x) for x in input_ex]):
+                if all(_is_scalar(x) for x in input_ex):
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
@@ -192,8 +192,8 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
 def _read_example(mlflow_model: Model, path: str):
     """
     Read example from a model directory. Returns None if there is no example metadata (i.e. the
-    model was saved without example). Raises IO Exception if there is model metadata but the example
-    file is missing.
+    model was saved without example). Raises FileNotFoundError if there is model metadata but the
+    example file is missing.
 
     :param mlflow_model: Model metadata.
     :param path: Path to the model directory.
@@ -234,3 +234,22 @@ def _read_sparse_matrix_from_json(path, example_type):
             return csc_matrix((data, indices, indptr), shape=shape)
         else:
             return csr_matrix((data, indices, indptr), shape=shape)
+
+
+def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots()
+
+    if line_kwargs is None:
+        line_kwargs = {}
+
+    for label, data_x, data_y in data_series:
+        ax.plot(data_x, data_y, label=label, **line_kwargs)
+
+    if legend_loc:
+        ax.legend(loc=legend_loc)
+
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+
+    return fig, ax

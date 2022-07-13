@@ -1,7 +1,6 @@
 import React from 'react';
-import { css } from 'emotion';
 import { SettingOutlined } from '@ant-design/icons';
-import { Dropdown, Menu } from 'antd';
+import { Dropdown, Menu } from '@databricks/design-system';
 import { Button } from '../../shared/building_blocks/Button';
 import { SearchTree } from '../../common/components/SearchTree';
 import PropTypes from 'prop-types';
@@ -114,7 +113,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
     const { menuVisible } = this.state;
     const content = (
       <Menu style={{ maxHeight: 480, overflowY: 'scroll' }}>
-        <Menu.Item className={styles.menuItem} key='this-menu-needs-at-least-1-menu-item'>
+        <Menu.Item css={styles.menuItem} key='this-menu-needs-at-least-1-menu-item'>
           <SearchTree
             data={this.getData()}
             onCheck={this.handleCheck}
@@ -172,9 +171,9 @@ export function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
 }
 
 const styles = {
-  menuItem: css({
+  menuItem: {
     '&:hover': {
       backgroundColor: 'inherit !important;',
     },
-  }),
+  },
 };

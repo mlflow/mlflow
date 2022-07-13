@@ -47,7 +47,10 @@ from mlflow.store.tracking.rest_store import (
     DatabricksRestStore,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
+from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.tracking.request_header.default_request_header_provider import (
+    DefaultRequestHeaderProvider,
+)
 
 
 class MyCoolException(Exception):
@@ -58,6 +61,10 @@ class CustomErrorHandlingRestStore(RestStore):
     def _call_endpoint(self, api, json_body):
         raise MyCoolException("cool")
 
+    # Implement search_experiments to suppress pylint abstract-method error
+    def search_experiments(self, *args, **kwargs):
+        return super().search_experiments(*args, **kwargs)
+
 
 def mock_http_request():
     return mock.patch(
@@ -66,7 +73,7 @@ def mock_http_request():
     )
 
 
-class TestRestStore(object):
+class TestRestStore:
     @mock.patch("requests.Session.request")
     def test_successful_http_request(self, request):
         def mock_request(*args, **kwargs):
@@ -75,7 +82,7 @@ class TestRestStore(object):
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "params": {"view_type": "ACTIVE_ONLY"},
-                "headers": _DEFAULT_HEADERS,
+                "headers": DefaultRequestHeaderProvider().request_headers(),
                 "verify": True,
                 "timeout": 120,
             }

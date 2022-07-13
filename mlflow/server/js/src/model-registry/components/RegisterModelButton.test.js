@@ -1,5 +1,5 @@
 import React from 'react';
-import { mountWithIntl, shallowWithInjectIntl, mockAjax } from '../../common/utils/TestUtils';
+import { mountWithIntl, shallowWithInjectIntl } from '../../common/utils/TestUtils';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
 import thunk from 'redux-thunk';
@@ -13,7 +13,6 @@ describe('RegisterModelButton', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     minimalProps = {
       disabled: false,
       runUuid: 'runUuid',

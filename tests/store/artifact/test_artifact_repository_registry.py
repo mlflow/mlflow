@@ -14,7 +14,7 @@ def test_standard_artifact_registry():
     with mock.patch("entrypoints.get_group_all", return_value=[mock_entrypoint]):
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
-        # extrypoints.get_group_all
+        # entrypoints.get_group_all
         reload(artifact_repository_registry)
 
         expected_artifact_repository_registry = {
@@ -33,7 +33,6 @@ def test_standard_artifact_registry():
     )
 
 
-@pytest.mark.large
 def test_plugin_registration_via_installed_package():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 

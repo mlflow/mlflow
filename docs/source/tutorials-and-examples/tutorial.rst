@@ -65,7 +65,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
   .. container:: python
 
     The code is located at ``examples/sklearn_elasticnet_wine/train.py`` and is reproduced below.
-    
+
     .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/train.py
 
     This example uses the familiar pandas, numpy, and sklearn APIs to create a simple machine learning
@@ -128,7 +128,7 @@ Comparing the Models
 --------------------
 
 
-Next, use the MLflow UI to compare the models that you have produced. In the same current working directory 
+Next, use the MLflow UI to compare the models that you have produced. In the same current working directory
 as the one that contains the ``mlruns`` run:
 
 .. code-section::
@@ -387,7 +387,7 @@ Deploy the Model to Seldon Core or KServe (experimental)
 --------------------------------------------------------
 
 After training and testing our model, we are now ready to deploy it to
-production. 
+production.
 MLflow allows you to :ref:`serve your model using
 MLServer<serving_with_mlserver>`, which is already used as the core Python
 inference server in Kubernetes-native frameworks including `Seldon Core
@@ -417,7 +417,7 @@ For example, to build a image named ``my-docker-image``, we could do:
     --enable-mlserver
 
 Once we have our image built, the next step will be to deploy it to our
-cluster. 
+cluster.
 One way to do this is by applying the respective Kubernetes manifests through
 the ``kubectl`` CLI:
 

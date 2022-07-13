@@ -119,7 +119,7 @@ def main(args):
             max_ver = config[category]["maximum"]
             versions = get_package_versions(package_name)
             unsupported = config[category].get("unsupported", [])
-            versions = set(versions).difference(unsupported)  # exlucde unsupported versions
+            versions = set(versions).difference(unsupported)  # exclude unsupported versions
             latest_version = get_latest_version(versions)
 
             if max_ver == latest_version:

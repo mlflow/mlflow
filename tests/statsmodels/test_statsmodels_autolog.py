@@ -3,6 +3,7 @@ from unittest import mock
 import numpy as np
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 import mlflow
+from mlflow import MlflowClient
 import mlflow.statsmodels
 from tests.statsmodels.model_fixtures import (
     arma_model,
@@ -24,7 +25,7 @@ from tests.statsmodels.test_statsmodels_model_export import _get_dates_from_df
 
 
 def get_latest_run():
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -163,18 +164,16 @@ def test_statsmodels_autolog_works_after_exception():
     np.testing.assert_array_almost_equal(model_predictions, loaded_model_predictions)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_statsmodels_autolog_respects_log_models_flag(log_models):
     mlflow.statsmodels.autolog(log_models=log_models)
     ols_model()
     run = get_latest_run()
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
     assert ("model" in artifact_paths) == log_models
 
 
-@pytest.mark.large
 def test_statsmodels_autolog_loads_model_from_artifact():
     mlflow.statsmodels.autolog()
     fixtures = [
@@ -211,3 +210,13 @@ def test_statsmodels_autolog_loads_model_from_artifact():
                 )
 
             np.testing.assert_array_almost_equal(model_predictions, loaded_model_predictions)
+
+
+def test_autolog_registering_model():
+    registered_model_name = "test_autolog_registered_model"
+    mlflow.statsmodels.autolog(registered_model_name=registered_model_name)
+    with mlflow.start_run():
+        ols_model()
+
+        registered_model = MlflowClient().get_registered_model(registered_model_name)
+        assert registered_model.name == registered_model_name

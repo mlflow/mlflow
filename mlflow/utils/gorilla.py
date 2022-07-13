@@ -92,7 +92,7 @@ def default_filter(name, obj):
     return not (isinstance(obj, types.ModuleType) or name.startswith("_"))
 
 
-class DecoratorData(object):
+class DecoratorData:
 
     """Decorator data.
 
@@ -115,7 +115,7 @@ class DecoratorData(object):
         self.filter = None
 
 
-class Settings(object):
+class Settings:
 
     """Define the patching behaviour.
 
@@ -171,7 +171,7 @@ class Settings(object):
         self.__dict__.update(**kwargs)
 
 
-class Patch(object):
+class Patch:
 
     """Describe all the information required to apply a patch.
 
@@ -564,7 +564,7 @@ def find_patches(modules, recursive=True):
 
 
 def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
-    """Retrieve an overriden attribute that has been stored.
+    """Retrieve an overridden attribute that has been stored.
 
     Parameters
     ----------

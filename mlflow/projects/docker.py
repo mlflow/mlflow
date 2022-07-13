@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import urllib.parse
 import urllib.request
+import subprocess
 
 import docker
 
@@ -12,10 +13,10 @@ from mlflow import tracking
 from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
-from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.utils import process, file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
+from mlflow.utils.git_utils import get_git_commit
 
 _logger = logging.getLogger(__name__)
 
@@ -26,23 +27,35 @@ _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
 
 def validate_docker_installation():
     """
-    Verify if Docker is installed on host machine.
+    Verify if Docker is installed and running on host machine.
     """
-    try:
-        docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
+    if shutil.which("docker") is None:
         raise ExecutionException(
             "Could not find Docker executable. "
             "Ensure Docker is installed as per the instructions "
             "at https://docs.docker.com/install/overview/."
         )
 
+    cmd = ["docker", "info"]
+    prc = process._exec_cmd(
+        cmd,
+        throw_on_error=False,
+        capture_output=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    if prc.returncode != 0:
+        joined_cmd = " ".join(cmd)
+        raise ExecutionException(
+            f"Ran `{joined_cmd}` to ensure docker daemon is running but it failed "
+            f"with the following output:\n{prc.stdout}"
+        )
+
 
 def validate_docker_env(project):
     if not project.name:
         raise ExecutionException(
-            "Project name in MLProject must be specified when using docker " "for image tagging."
+            "Project name in MLProject must be specified when using docker for image tagging."
         )
     if not project.docker_env.get("image"):
         raise ExecutionException(
@@ -57,7 +70,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
-        "FROM {imagename}\n" "COPY {build_context_path}/ {workdir}\n" "WORKDIR {workdir}\n"
+        "FROM {imagename}\n COPY {build_context_path}/ {workdir}\n WORKDIR {workdir}\n"
     ).format(
         imagename=base_image,
         build_context_path=_PROJECT_TAR_ARCHIVE_NAME,
@@ -95,7 +108,7 @@ def _get_docker_image_uri(repository_uri, work_dir):
     """
     repository_uri = repository_uri if repository_uri else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
-    git_commit = _get_git_commit(work_dir)
+    git_commit = get_git_commit(work_dir)
     version_string = ":" + git_commit[:7] if git_commit else ""
     return repository_uri + version_string
 

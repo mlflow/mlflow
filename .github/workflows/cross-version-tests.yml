@@ -25,15 +25,15 @@ on:
         required: false
         default: ""
   schedule:
-    # Run this workflow daily at 7:00 UTC
-    - cron: "0 7 * * *"
+    # Run this workflow daily at 13:00 UTC
+    - cron: "0 13 * * *"
   pull_request:
     branches:
       - master
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -46,16 +46,17 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v3
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Install dependencies
         run: |
-          pip install packaging requests pyyaml pytest
+          pip install packaging requests pyyaml pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v4
         id: enable-dev-tests
@@ -99,28 +100,34 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
+          submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-java@v2
+      - name: Get Java version
+        id: get-java-version
+        run: |
+          if [ "${{ matrix.package }}" = "mleap" ]
+          then
+            java_version=8
+          else
+            java_version=11
+          fi
+          echo "::set-output name=version::$java_version"
+      - uses: actions/setup-java@v3
         with:
-          # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-          # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-          java-version: 8
+          java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
       - name: Get python version
         id: get-python-version
         run: |
-          if [[ "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && ! "${{ matrix.version }}" =~ ^0\.* ]] || \
-             [[ "${{ matrix.package }}" = "statsmodels" ]] || \
-             [[ "${{ matrix.package }}" = "tensorflow" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]] || \
-             [[ "${{ matrix.package }}" = "keras" && ! "${{ matrix.version }}" =~ ^2\.[0-6] ]]
+          if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
+             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]
           then
-            python_version=3.7
+            python_version=3.8
           else
-            python_version=3.6
+            python_version=$(python dev/get_minimum_required_python.py -p ${{ matrix.package }} -v ${{ matrix.version }} --python-versions "3.7,3.8")
           fi
           echo "::set-output name=version::$python_version"
       - uses: ./.github/actions/setup-python
@@ -134,7 +141,7 @@ jobs:
           date=$(date -u "+%Y%m%d")
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         # We only cache wheels that take long (> 10 min) to build
         if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
         with:
@@ -147,7 +154,7 @@ jobs:
           python --version
           pip install --upgrade pip wheel
           pip install -e .
-          pip install -r requirements/small-requirements.txt
+          pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
           CACHE_DIR: /home/runner/.cache/wheels

@@ -9,7 +9,7 @@ import { RunPage, RunPageImpl } from './RunPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
-import { ErrorWrapper } from '../../common/utils/ActionUtils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { ErrorCodes } from '../../common/constants';
 import { RunNotFoundView } from './RunNotFoundView';
 
@@ -20,6 +20,10 @@ describe('RunPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const modelVersion = mockModelVersionDetailed(
       'Model A',
       1,
@@ -59,7 +63,7 @@ describe('RunPage', () => {
         },
         artifactsByRunUuid: { 'uuid-1234-5678-9012': new ArtifactNode(true) },
         experimentsById: {
-          '12345': {
+          12345: {
             experiment_id: '12345',
             name: 'my experiment',
             artifact_location: 'dbfs:/databricks/abc',
@@ -71,7 +75,7 @@ describe('RunPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': modelVersion,
+            1: modelVersion,
           },
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
@@ -100,9 +104,10 @@ describe('RunPage', () => {
       </Provider>,
     ).find(RunPage);
     const runPageInstance = wrapper.find(RunPageImpl).instance();
-    const responseErrorWrapper = new ErrorWrapper({
-      responseText: `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}", "message": "Not found."}`,
-    });
+    const responseErrorWrapper = new ErrorWrapper(
+      `{"error_code": "${ErrorCodes.RESOURCE_DOES_NOT_EXIST}", "message": "Not found."}`,
+      404,
+    );
     const getRunErrorRequest = {
       id: runPageInstance.getRunRequestId,
       active: false,

@@ -9,7 +9,7 @@ from unittest import mock
 
 import mlflow
 from mlflow.utils import gorilla
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     log_fn_args_as_params,
@@ -34,9 +34,6 @@ from mlflow.utils.autologging_utils.versioning import (
 )
 
 from tests.autologging.fixtures import test_mode_off
-
-
-pytestmark = pytest.mark.large
 
 
 # Example function signature we are testing on
@@ -115,7 +112,7 @@ log_test_args = [
 @pytest.mark.parametrize("args,kwargs,expected", log_test_args)
 def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
     log_fn_args_as_params(dummy_fn, args, kwargs)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
     for arg, value in zip(["arg1", "arg2", "arg3"], expected):
         assert arg in params
@@ -125,7 +122,7 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
 def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
     assert len(params.keys()) == 0
 
@@ -267,7 +264,7 @@ def test_batch_metrics_logger_logs_all_metrics(start_run):
         for i in range(100):
             metrics_logger.record_metrics({hex(i): i}, i)
 
-    metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+    metrics_on_run = MlflowClient().get_run(run_id).data.metrics
 
     for i in range(100):
         assert hex(i) in metrics_on_run
@@ -285,13 +282,13 @@ def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):
         metrics_logger.record_metrics({"my_metric": 10}, 5)
 
         # Recorded metrics should not be logged to mlflow run before flushing BatchMetricsLogger
-        metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+        metrics_on_run = MlflowClient().get_run(run_id).data.metrics
         assert "my_metric" not in metrics_on_run
 
         metrics_logger.flush()
 
         # Recorded metric should be logged to mlflow run after flushing BatchMetricsLogger
-        metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+        metrics_on_run = MlflowClient().get_run(run_id).data.metrics
         assert "my_metric" in metrics_on_run
         assert metrics_on_run["my_metric"] == 10
 
@@ -575,15 +572,14 @@ def test_autologging_is_disabled_returns_expected_values():
 
 
 def test_autologging_disable_restores_behavior():
-    import pandas as pd
-    from sklearn.datasets import load_boston
+    from sklearn.datasets import load_diabetes
     from sklearn.linear_model import LinearRegression
 
     mlflow.sklearn.autolog()
 
-    dataset = load_boston()
-    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
-    y = dataset.target[:50]
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    X = X.iloc[:50, :4]
+    y = y.iloc[:50]
 
     # train a model
     model = LinearRegression()
@@ -795,8 +791,10 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
 @pytest.mark.parametrize(
     "flavor,module_version,expected_result",
     [
-        ("pyspark.ml", "3.1.2.dev0", False),
-        ("pyspark.ml", "3.1.1.dev0", True),
+        ("pyspark.ml", "3.10.1.dev0", False),
+        ("pyspark.ml", "3.3.0.dev0", True),
+        ("pyspark.ml", "3.2.1.dev0", True),
+        ("pyspark.ml", "3.1.2.dev0", True),
         ("pyspark.ml", "3.0.1.dev0", True),
         ("pyspark.ml", "3.0.0.dev0", False),
     ],
