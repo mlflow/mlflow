@@ -4,7 +4,6 @@ import operator
 import re
 import ast
 import shlex
-import functools
 
 import sqlparse
 from sqlparse.sql import (
@@ -24,6 +23,14 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MYSQL, MSSQL
 
 import math
+
+
+def _case_sensitive_match(string, pattern):
+    return re.match(pattern, string) is not None
+
+
+def _case_insensitive_match(string, pattern):
+    return re.match(pattern, string, flags=re.IGNORECASE) is not None
 
 
 class SearchUtils:
@@ -86,8 +93,8 @@ class SearchUtils:
         "!=": operator.ne,
         "<=": operator.le,
         "<": operator.lt,
-        "LIKE": re.match,
-        "ILIKE": functools.partial(re.match, flags=re.IGNORECASE),
+        "LIKE": _case_sensitive_match,
+        "ILIKE": _case_insensitive_match,
     }
 
     @classmethod
@@ -427,8 +434,9 @@ class SearchUtils:
             return False
 
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            return cls.filter_ops.get(comparator)(cls._convert_like_pattern_to_regex(value), lhs)
-        elif comparator in cls.filter_ops.keys():
+            value = cls._convert_like_pattern_to_regex(value)
+
+        if comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
@@ -924,8 +932,9 @@ class SearchExperimentsUtils(SearchUtils):
             )
 
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            return cls.filter_ops.get(comparator)(cls._convert_like_pattern_to_regex(value), lhs)
-        elif comparator in cls.filter_ops.keys():
+            value = cls._convert_like_pattern_to_regex(value)
+
+        if comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
