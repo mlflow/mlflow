@@ -125,7 +125,6 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
             posixpath.join("/", *paths),
             "PUT",
             data=FileObjectMatcher(tmp_path, "rb"),
-            timeout=mock.ANY,
         )
 
     with mock.patch(
@@ -151,7 +150,6 @@ def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir,
             posixpath.join("/", *paths),
             "PUT",
             data=FileObjectMatcher(tmp_path, "rb"),
-            timeout=mock.ANY,
         )
 
     with mock.patch(
@@ -202,7 +200,6 @@ def test_list_artifacts(mlflow_artifact_repo):
             endpoint,
             "GET",
             params={"path": ""},
-            timeout=mock.ANY,
         )
 
     with mock.patch(
@@ -262,7 +259,6 @@ def test_download_file(mlflow_artifact_repo, tmpdir, remote_file_path):
             posixpath.join("/", remote_file_path),
             "GET",
             stream=True,
-            timeout=mock.ANY,
         )
         with open(tmp_path) as f:
             assert f.read() == "data"

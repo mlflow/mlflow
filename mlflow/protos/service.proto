@@ -75,6 +75,18 @@ service MlflowService {
     };
   }
 
+  rpc searchExperiments (SearchExperiments) returns (SearchExperiments.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/experiments/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Search Experiments",
+    };
+  }
+
   // Get metadata for an experiment. This method works on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
@@ -703,6 +715,52 @@ message ListExperiments {
     repeated Experiment experiments = 1;
 
     // Pagination token to request next page of experiments for the same query.
+    optional string next_page_token = 2;
+  }
+}
+
+message SearchExperiments {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Maximum number of experiments desired.
+  // Servers may select a desired default `max_results` value. All servers are
+  // guaranteed to support a `max_results` threshold of at least 1,000 but may
+  // support more. Callers of this endpoint are encouraged to pass max_results
+  // explicitly and leverage page_token to iterate through experiments.
+  optional int64 max_results = 1;
+
+  // Token indicating the page of experiments to fetch
+  optional string page_token = 2;
+
+  // A filter expression over experiment attributes and tags that allows returning a subset of
+  // experiments. The syntax is a subset of SQL that supports ANDing together binary operations
+  // between an attribute or tag, and a constant.
+  //
+  // Example: ``name LIKE 'test-%' AND tags.key = 'value'``
+  //
+  // You can select columns with special characters (hyphen, space, period, etc.) by using
+  // double quotes or backticks.
+  //
+  // Example: ``tags."extra-key" = 'value'`` or ``tags.`extra-key` = 'value'``
+  //
+  // Supported operators are ``=``, ``!=``, ``LIKE``, and ``ILIKE``.
+  optional string filter = 3;
+
+  // List of columns for ordering search results, which can include experiment name and id
+  // with an optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by experiment id DESC.
+  repeated string order_by = 4;
+
+  // Qualifier for type of experiments to be returned.
+  // If unspecified, return only active experiments.
+  optional ViewType view_type = 5;
+
+  message Response {
+    // Experiments that match the search criteria
+    repeated Experiment experiments = 1;
+
+    // Token that can be used to retrieve the next page of experiments.
+    // An empty token means that no more experiments are available for retrieval.
     optional string next_page_token = 2;
   }
 }

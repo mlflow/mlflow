@@ -83,6 +83,16 @@ class RestStore(AbstractStore):
         )
         return PagedList(experiments, token)
 
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        raise NotImplementedError("Not implemented yet")
+
     def create_experiment(self, name, artifact_location=None, tags=None):
         """
         Create a new experiment.
@@ -348,3 +358,7 @@ class DatabricksRestStore(RestStore):
             if not experiments.token:
                 break
             page_token = experiments.token
+
+    # Implement search_experiments to suppress pylint abstract-method error
+    def search_experiments(self, *args, **kwargs):
+        super().search_experiments(*args, **kwargs)
