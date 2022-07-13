@@ -373,59 +373,53 @@ def test_search_experiments(tmp_path):
         else:
             tags = None
         mlflow.create_experiment(active_experiment_name, tags=tags)
+
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
     for deleted_experiment_name in deleted_experiment_names:
         exp_id = mlflow.create_experiment(deleted_experiment_name)
         mlflow.delete_experiment(exp_id)
 
-    url, process = _init_server(sqlite_uri, root_artifact_uri=tmp_path.as_uri())
-    mlflow.set_tracking_uri(url)
-    try:
-        # max_results is unspecified
-        experiments = mlflow.search_experiments(view_type=ViewType.ALL)
-        assert len(experiments) == num_all_experiments
-        # max_results is larger than the number of experiments
-        experiments = mlflow.search_experiments(
-            view_type=ViewType.ALL, max_results=num_all_experiments + 1
-        )
-        assert len(experiments) == num_all_experiments
-        # max_results is equal to the number of experiments
-        experiments = mlflow.search_experiments(
-            view_type=ViewType.ALL, max_results=num_all_experiments
-        )
-        assert len(experiments) == num_all_experiments
-        # max_results is smaller than the number of experiments
-        experiments = mlflow.search_experiments(
-            view_type=ViewType.ALL, max_results=num_all_experiments - 1
-        )
-        assert len(experiments) == num_all_experiments - 1
+    # max_results is unspecified
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+    assert len(experiments) == num_all_experiments
+    # max_results is larger than the number of experiments in the database
+    experiments = mlflow.search_experiments(
+        view_type=ViewType.ALL, max_results=num_all_experiments + 1
+    )
+    assert len(experiments) == num_all_experiments
+    # max_results is equal to the number of experiments in the database
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL, max_results=num_all_experiments)
+    assert len(experiments) == num_all_experiments
+    # max_results is smaller than the number of experiments in the database
+    experiments = mlflow.search_experiments(
+        view_type=ViewType.ALL, max_results=num_all_experiments - 1
+    )
+    assert len(experiments) == num_all_experiments - 1
 
-        # Filter by view_type
-        experiments = mlflow.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        assert [e.name for e in experiments] == active_experiment_names[::-1] + ["Default"]
-        experiments = mlflow.search_experiments(view_type=ViewType.DELETED_ONLY)
-        assert [e.name for e in experiments] == deleted_experiment_names[::-1]
-        experiments = mlflow.search_experiments(view_type=ViewType.ALL)
-        assert [e.name for e in experiments] == (
-            deleted_experiment_names[::-1] + active_experiment_names[::-1] + ["Default"]
-        )
-        # Filter by name
-        experiments = mlflow.search_experiments(filter_string="name = 'active_1'")
-        assert [e.name for e in experiments] == ["active_1"]
-        experiments = mlflow.search_experiments(filter_string="name ILIKE 'active_%'")
-        assert [e.name for e in experiments] == active_experiment_names[::-1]
+    # Filter by view_type
+    experiments = mlflow.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == active_experiment_names[::-1] + ["Default"]
+    experiments = mlflow.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == deleted_experiment_names[::-1]
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == (
+        deleted_experiment_names[::-1] + active_experiment_names[::-1] + ["Default"]
+    )
+    # Filter by name
+    experiments = mlflow.search_experiments(filter_string="name = 'active_1'")
+    assert [e.name for e in experiments] == ["active_1"]
+    experiments = mlflow.search_experiments(filter_string="name ILIKE 'active_%'")
+    assert [e.name for e in experiments] == active_experiment_names[::-1]
 
-        # Filter by tags
-        experiments = mlflow.search_experiments(filter_string="tags.tag = 'x'")
-        assert [e.name for e in experiments] == active_experiment_names[:2][::-1]
-        experiments = mlflow.search_experiments(filter_string="tags.tag = 'y'")
-        assert [e.experiment_id for e in experiments] == ["3"]
+    # Filter by tags
+    experiments = mlflow.search_experiments(filter_string="tags.tag = 'x'")
+    assert [e.name for e in experiments] == active_experiment_names[:2][::-1]
+    experiments = mlflow.search_experiments(filter_string="tags.tag = 'y'")
+    assert [e.experiment_id for e in experiments] == ["3"]
 
-        # Order by name
-        experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)
-        assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
-    finally:
-        process.terminate()
+    # Order by name
+    experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)
+    assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
 
 
 @pytest.fixture
