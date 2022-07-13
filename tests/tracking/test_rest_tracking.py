@@ -57,9 +57,7 @@ def mlflow_client(request, tmp_path):
         path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
         uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
 
-    root_artifact_dir = tmp_path.joinpath("artifacts")
-    root_artifact_dir.mkdir()
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(root_artifact_dir))
+    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(tmp_path))
 
     yield MlflowClient(url)
 
