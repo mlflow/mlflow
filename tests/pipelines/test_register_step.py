@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import pytest
+import shutil
+import os
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.pipelines.steps.register import RegisterStep
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -15,6 +18,21 @@ from tests.pipelines.helper_functions import (
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
 )  # pylint: enable=unused-import
+
+
+@pytest.fixture
+def registry_uri_path(tmp_path) -> Path:
+    previousRegistryUri = ""
+    try:
+        previousRegistryUri = mlflow.get_registry_uri()
+        path = tmp_path.joinpath("registry.db")
+        db_url = "sqlite:///%s" % path
+        SqlAlchemyStore(db_url, "register_model")
+        yield db_url
+    finally:
+        os.remove(path)
+        shutil.rmtree("register_model")
+        mlflow.set_registry_uri(previousRegistryUri)
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -32,11 +50,13 @@ def test_register_step_run(
     tmp_pipeline_exec_path: Path,
     mae_threshold: int,
     register_flag: str,
+    registry_uri_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
         tmp_pipeline_exec_path
     )
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    registry_uri = registry_uri_path
     pipeline_yaml.write_text(
         """
 template: "regression/v1"
@@ -54,7 +74,7 @@ steps:
         threshold: 1_000_000
   register:
     model_name: "demo_model"
-    registry_uri: "sqlite:////tmp/registry.db"
+    registry_uri: {registry_uri}
     {allow_non_validated_model}
 metrics:
   custom:
@@ -65,6 +85,7 @@ metrics:
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
             allow_non_validated_model=register_flag,
+            registry_uri=registry_uri,
         )
     )
     pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
@@ -93,7 +114,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
-    assert mlflow.get_registry_uri() == "sqlite:////tmp/registry.db"
+    if expected_status == "VALIDATED":
+        assert mlflow.get_registry_uri() == registry_uri
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         1 if expected_status == "VALIDATED" else 0
     )
