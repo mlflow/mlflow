@@ -17,7 +17,7 @@ from mlflow.pipelines.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
+from typing import List, Union
 
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class _BasePipeline:
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str) -> None:
+    def __init__(self, pipeline_root_path: str, profile: str, template: str = None) -> None:
         """
         Pipeline base class.
 
@@ -44,6 +44,7 @@ class _BasePipeline:
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
+        self._template = template
 
     @experimental
     @property
@@ -77,6 +78,7 @@ class _BasePipeline:
             self._steps,
             # Runs the last step of the pipeline if no step is specified.
             self._get_step(step) if step else self._steps[-1],
+            self._template,
         )
 
         self.inspect(last_executed_step.name)
@@ -185,6 +187,7 @@ class _BasePipeline:
 
 
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
+from mlflow.pipelines.batch_scoring.v1.pipeline import BatchScoringPipeline
 
 
 @experimental
@@ -206,7 +209,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str) -> Union[RegressionPipeline, BatchScoringPipeline, _BasePipeline]:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -269,4 +272,4 @@ class Pipeline:
 
         pipeline_name = get_pipeline_name(pipeline_root_path)
         _logger.info(f"Creating MLflow Pipeline '{pipeline_name}' with profile: '{profile}'")
-        return pipeline_class_module(pipeline_root_path, profile)
+        return pipeline_class_module(pipeline_root_path, profile, template)
