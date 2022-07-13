@@ -945,9 +945,8 @@ class SearchExperimentsUtils(SearchUtils):
                 return other.obj < self.obj
 
         order_by = []
-        for type_, key, ascending in map(
-            cls.parse_order_by_for_search_experiments, order_by_list or []
-        ):
+        parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
             if type_ == "attribute":
                 order_by.append((key, ascending))
             else:
@@ -957,8 +956,12 @@ class SearchExperimentsUtils(SearchUtils):
         if not any(key == "experiment_id" for key, _ in order_by):
             order_by.append(("experiment_id", False))
 
-        return lambda exp: tuple(
-            getattr(exp, k) if asc else _Reversor(getattr(exp, k)) for k, asc in order_by
+        def _apply_reversor(experiment, key, ascending):
+            attr = getattr(experiment, key)
+            return attr if ascending else _Reversor(attr)
+
+        return lambda experiment: tuple(
+            _apply_reversor(experiment, k, asc) for (k, asc) in order_by
         )
 
     @classmethod
