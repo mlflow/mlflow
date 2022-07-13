@@ -25,6 +25,14 @@ from mlflow.store.db.db_types import MYSQL, MSSQL
 import math
 
 
+def _case_sensitive_match(string, pattern):
+    return re.match(pattern, string) is not None
+
+
+def _case_insensitive_match(string, pattern):
+    return re.match(pattern, string, flags=re.IGNORECASE) is not None
+
+
 class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
@@ -85,8 +93,8 @@ class SearchUtils:
         "!=": operator.ne,
         "<=": operator.le,
         "<": operator.lt,
-        "LIKE": re.match,
-        "ILIKE": re.match,
+        "LIKE": _case_sensitive_match,
+        "ILIKE": _case_insensitive_match,
     }
 
     @classmethod
@@ -392,6 +400,14 @@ class SearchUtils:
         return False
 
     @classmethod
+    def _convert_like_pattern_to_regex(cls, pattern):
+        if not pattern.startswith("%"):
+            pattern = "^" + pattern
+        if not pattern.endswith("%"):
+            pattern = pattern + "$"
+        return pattern.replace("_", ".").replace("%", ".*")
+
+    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -418,18 +434,9 @@ class SearchUtils:
             return False
 
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            # Change value from sql syntax to regex syntax
-            if comparator == "ILIKE":
-                value = value.lower()
-                lhs = lhs.lower()
-            if not value.startswith("%"):
-                value = "^" + value
-            if not value.endswith("%"):
-                value = value + "$"
-            value = value.replace("_", ".").replace("%", ".*")
-            return cls.filter_ops.get(comparator)(value, lhs)
+            value = cls._convert_like_pattern_to_regex(value)
 
-        elif comparator in cls.filter_ops.keys():
+        if comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
@@ -892,3 +899,91 @@ class SearchExperimentsUtils(SearchUtils):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
         return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def is_attribute(cls, key_type, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def _does_experiment_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
+        key_type = sed.get("type")
+        key = sed.get("key")
+        value = sed.get("value")
+        comparator = sed.get("comparator").upper()
+
+        if cls.is_attribute(key_type, comparator):
+            lhs = getattr(experiment, key)
+        elif cls.is_tag(key_type, comparator):
+            if key not in experiment.tags:
+                return False
+            lhs = experiment.tags.get(key, None)
+            if lhs is None:
+                return experiment
+        else:
+            raise MlflowException(
+                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+            )
+
+        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+            value = cls._convert_like_pattern_to_regex(value)
+
+        if comparator in cls.filter_ops.keys():
+            return cls.filter_ops.get(comparator)(lhs, value)
+        else:
+            return False
+
+    @classmethod
+    def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed
+        if not filter_string:
+            return experiments
+        parsed = cls.parse_search_filter(filter_string)
+
+        def experiment_matches(experiment):
+            return all(cls._does_experiment_match_clause(experiment, s) for s in parsed)
+
+        return list(filter(experiment_matches, experiments))
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        order_by = []
+        parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
+            if type_ == "attribute":
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "experiment_id" for key, _ in order_by):
+            order_by.append(("experiment_id", False))
+
+        # https://stackoverflow.com/a/56842689
+        class _Reversor:
+            def __init__(self, obj):
+                self.obj = obj
+
+            # Only need < and == are needed for use as a key parameter in the sorted function
+            def __eq__(self, other):
+                return other.obj == self.obj
+
+            def __lt__(self, other):
+                return other.obj < self.obj
+
+        def _apply_reversor(experiment, key, ascending):
+            attr = getattr(experiment, key)
+            return attr if ascending else _Reversor(attr)
+
+        return lambda experiment: tuple(
+            _apply_reversor(experiment, k, asc) for (k, asc) in order_by
+        )
+
+    @classmethod
+    def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
+        return sorted(experiments, key=cls._get_sort_key(order_by_list))
