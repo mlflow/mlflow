@@ -4,6 +4,7 @@ import operator
 import re
 import ast
 import shlex
+import functools
 
 import sqlparse
 from sqlparse.sql import (
@@ -86,7 +87,7 @@ class SearchUtils:
         "<=": operator.le,
         "<": operator.lt,
         "LIKE": re.match,
-        "ILIKE": re.match,
+        "ILIKE": functools.partial(re.match, flags=re.IGNORECASE),
     }
 
     @classmethod
@@ -392,23 +393,31 @@ class SearchUtils:
         return False
 
     @classmethod
-    def _does_run_match_clause(cls, run, sed):
+    def _convert_like_pattern_to_regex(cls, pattern):
+        if not pattern.startswith("%"):
+            pattern = "^" + pattern
+        if not pattern.endswith("%"):
+            pattern = pattern + "$"
+        return pattern.replace("_", ".").replace("%", ".*")
+
+    @classmethod
+    def _does_match_clause(cls, item, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
         if cls.is_metric(key_type, comparator):
-            lhs = run.data.metrics.get(key, None)
+            lhs = item.data.metrics.get(key, None)
             value = float(value)
         elif cls.is_param(key_type, comparator):
-            lhs = run.data.params.get(key, None)
+            lhs = item.data.params.get(key, None)
         elif cls.is_tag(key_type, comparator):
-            lhs = run.data.tags.get(key, None)
+            lhs = item.data.tags.get(key, None)
         elif cls.is_string_attribute(key_type, key, comparator):
-            lhs = getattr(run.info, key)
+            lhs = getattr(item.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
-            lhs = getattr(run.info, key)
+            lhs = getattr(item.info, key)
             value = int(value)
         else:
             raise MlflowException(
@@ -418,33 +427,23 @@ class SearchUtils:
             return False
 
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            # Change value from sql syntax to regex syntax
-            if comparator == "ILIKE":
-                value = value.lower()
-                lhs = lhs.lower()
-            if not value.startswith("%"):
-                value = "^" + value
-            if not value.endswith("%"):
-                value = value + "$"
-            value = value.replace("_", ".").replace("%", ".*")
-            return cls.filter_ops.get(comparator)(value, lhs)
-
+            return cls.filter_ops.get(comparator)(cls._convert_like_pattern_to_regex(value), lhs)
         elif comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
 
     @classmethod
-    def filter(cls, runs, filter_string):
-        """Filters a set of runs based on a search filter string."""
+    def filter(cls, items, filter_string):
+        """Filters a set of items based on a search filter string."""
         if not filter_string:
-            return runs
+            return items
         parsed = cls.parse_search_filter(filter_string)
 
-        def run_matches(run):
-            return all(cls._does_run_match_clause(run, s) for s in parsed)
+        def matches(item):
+            return all(cls._does_match_clause(item, s) for s in parsed)
 
-        return [run for run in runs if run_matches(run)]
+        return list(filter(matches, items))
 
     @classmethod
     def _validate_order_by_and_generate_token(cls, order_by):
@@ -892,3 +891,41 @@ class SearchExperimentsUtils(SearchUtils):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
         return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def is_attribute(cls, key_type, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def _does_match_clause(cls, item, sed):
+        key_type = sed.get("type")
+        key = sed.get("key")
+        value = sed.get("value")
+        comparator = sed.get("comparator").upper()
+
+        if cls.is_attribute(key_type, comparator):
+            lhs = getattr(item, key)
+        elif cls.is_tag(key_type, comparator):
+            if key not in item.tags:
+                return False
+            lhs = item.tags.get(key, None)
+            if lhs is None:
+                return item
+        else:
+            raise MlflowException(
+                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+            )
+
+        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+            return cls.filter_ops.get(comparator)(cls._convert_like_pattern_to_regex(value), lhs)
+        elif comparator in cls.filter_ops.keys():
+            return cls.filter_ops.get(comparator)(lhs, value)
+        else:
+            return False

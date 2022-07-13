@@ -3,7 +3,6 @@ import logging
 import os
 import sys
 import shutil
-import re
 
 import uuid
 
@@ -313,18 +312,15 @@ class FileStore(AbstractStore):
             experiment_ids += self._get_deleted_experiments(full_path=False)
 
         experiments = []
-        parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
-        filters = _get_search_experiments_filters(parsed_filters)
         for exp_id in experiment_ids:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
-                experiment = self._get_experiment(exp_id, view_type)
-                if experiment and all(f(experiment) for f in filters):
-                    experiments.append(experiment)
+                experiments.append(self._get_experiment(exp_id, view_type))
             except MissingConfigException as e:
                 logging.warning(
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
+        experiments = SearchExperimentsUtils.filter(experiments, filter_string)
         experiments = sorted(experiments, key=_get_search_experiments_sort_key(order_by))
         experiments, next_page_token = SearchUtils.paginate(experiments, page_token, max_results)
         return PagedList(experiments, next_page_token)
@@ -970,62 +966,6 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
-
-
-def _like_pattern_to_regex(pattern):
-    """
-    Convert a pattern string for LIKE and ILIKE to the equivalent regular expression.
-    """
-    return "^" + pattern.replace("%", ".*") + "$"
-
-
-def _create_matcher(comparator, value):
-    if comparator == "=":
-        return value.__eq__
-    elif comparator == "!=":
-        return value.__ne__
-    elif comparator in ("LIKE", "ILIKE"):
-        flag = re.IGNORECASE if comparator == "ILIKE" else 0
-        regex = re.compile(_like_pattern_to_regex(value), flag)
-        return regex.match
-    raise MlflowException.invalid_parameter_value(f"Invalid comparator: {comparator}")
-
-
-def filter_by_attribute(key, comparator, value):
-    matcher = _create_matcher(comparator, value)
-
-    def matched(experiment):
-        return matcher(getattr(experiment, key))
-
-    return matched
-
-
-def filter_by_tags(key, comparator, value):
-    matcher = _create_matcher(comparator, value)
-
-    def has_tag_and_matched(experiment):
-        val = experiment.tags.get(key)
-        if val is not None:
-            return matcher(val)
-        return False
-
-    return has_tag_and_matched
-
-
-def _get_search_experiments_filters(parsed_filters):
-    filters = []
-    for f in parsed_filters:
-        type_ = f["type"]
-        key = f["key"]
-        comparator = f["comparator"]
-        value = f["value"]
-        if type_ == "attribute":
-            filters.append(filter_by_attribute(key, comparator, value))
-        elif type_ == "tag":
-            filters.append(filter_by_tags(key, comparator, value))
-        else:
-            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
-    return filters
 
 
 # https://stackoverflow.com/a/56842689
