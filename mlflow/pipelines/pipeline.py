@@ -209,7 +209,9 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> Union[RegressionPipeline, BatchScoringPipeline, _BasePipeline]:
+    def __new__(
+        cls, profile: str
+    ) -> Union[RegressionPipeline, BatchScoringPipeline, _BasePipeline]:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory

@@ -49,8 +49,7 @@ class PredictStep(BaseStep):
                 {{ EXE_DURATION}}
                 {{ LAST_UPDATE_TIME }}
                 """,
-            )
-            .add_markdown(
+            ).add_markdown(
                 "SCORED_DATA_NUM_ROWS", f"**Number of scored dataset rows:** `{len(scored_df)}`"
             )
         )

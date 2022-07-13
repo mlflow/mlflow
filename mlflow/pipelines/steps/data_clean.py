@@ -49,8 +49,7 @@ class DataCleanStep(BaseStep):
                 {{ EXE_DURATION}}
                 {{ LAST_UPDATE_TIME }}
                 """,
-            )
-            .add_markdown(
+            ).add_markdown(
                 "CLEAN_DATA_NUM_ROWS", f"**Number of cleaned dataset rows:** `{len(clean_df)}`"
             )
         )
@@ -75,9 +74,7 @@ class DataCleanStep(BaseStep):
         if clean_config is not None:
             (clean_module_name, clean_fn_name) = clean_config.rsplit(".", 1)
             sys.path.append(self.pipeline_root)
-            clean_fn = getattr(
-                importlib.import_module(clean_module_name), clean_fn_name
-            )
+            clean_fn = getattr(importlib.import_module(clean_module_name), clean_fn_name)
             clean_df = clean_fn(input_df)
 
         # Output train / validation / test splits

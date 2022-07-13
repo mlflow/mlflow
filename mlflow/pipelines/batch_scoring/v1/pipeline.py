@@ -41,14 +41,8 @@ import mlflow.pipelines.batch_scoring.v1.dag_help_strings as dag_help_strings
 from mlflow.tracking.client import MlflowClient
 from mlflow.pipelines.pipeline import _BasePipeline
 from mlflow.pipelines.steps.ingest import IngestStep
-from mlflow.pipelines.steps.data_clean import (
-    _CLEANED_OUTPUT_FILE_NAME,
-    DataCleanStep
-)
-from mlflow.pipelines.steps.predict import (
-    _SCORED_OUTPUT_FILE_NAME,
-    PredictStep
-)
+from mlflow.pipelines.steps.data_clean import _CLEANED_OUTPUT_FILE_NAME, DataCleanStep
+from mlflow.pipelines.steps.predict import _SCORED_OUTPUT_FILE_NAME, PredictStep
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
 from mlflow.pipelines.utils import get_pipeline_root_path
@@ -225,10 +219,10 @@ class BatchScoringPipeline(_BasePipeline):
         ingest_step, data_clean_step, predict_step = self._steps
 
         ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
-        data_clean_output_dir = get_step_output_path(self._pipeline_root_path, data_clean_step.name, "")
-        predict_output_dir = get_step_output_path(
-            self._pipeline_root_path, predict_step.name, ""
+        data_clean_output_dir = get_step_output_path(
+            self._pipeline_root_path, data_clean_step.name, ""
         )
+        predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
 
         def log_artifact_not_found_warning(artifact_name, step_name):
             _logger.warning(
@@ -258,7 +252,10 @@ class BatchScoringPipeline(_BasePipeline):
 
         elif artifact_name == "cleaned_data":
             return read_dataframe(
-                "cleaned_data", data_clean_output_dir, _CLEANED_OUTPUT_FILE_NAME, data_clean_step.name
+                "cleaned_data",
+                data_clean_output_dir,
+                _CLEANED_OUTPUT_FILE_NAME,
+                data_clean_step.name,
             )
 
         elif artifact_name == "scored_data":

@@ -19,7 +19,7 @@ def run_pipeline_step(
     pipeline_root_path: str,
     pipeline_steps: List[BaseStep],
     target_step: BaseStep,
-    template: str = None
+    template: str = None,
 ) -> BaseStep:
     """
     Runs the specified step in the specified pipeline, as well as all dependent steps.
@@ -35,7 +35,9 @@ def run_pipeline_step(
              unsuccessful, this corresponds to the step that failed.
     """
     target_step_index = pipeline_steps.index(target_step)
-    execution_dir_path = _get_or_create_execution_directory(pipeline_root_path, pipeline_steps, template)
+    execution_dir_path = _get_or_create_execution_directory(
+        pipeline_root_path, pipeline_steps, template
+    )
 
     def get_execution_state(step):
         return step.get_execution_state(
@@ -148,9 +150,7 @@ def get_step_output_path(pipeline_root_path: str, step_name: str, relative_path:
 
 
 def _get_or_create_execution_directory(
-    pipeline_root_path: str,
-    pipeline_steps: List[BaseStep],
-    template: str = None
+    pipeline_root_path: str, pipeline_steps: List[BaseStep], template: str = None
 ) -> str:
     """
     Obtains the path of the execution directory on the local filesystem corresponding to the
@@ -303,7 +303,7 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template=None
     :param template: The MLP template being run
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
-    if (template == "batch_scoring/v1"):
+    if template == "batch_scoring/v1":
         makefile_to_use = _BATCH_SCORING_MAKEFILE_FORMAT_STRING
     else:
         makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
