@@ -594,29 +594,46 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     pickle.dumps(client)
 
 
-def test_set_model_version_tag(mock_registry_store):
-
+@pytest.fixture
+def mock_registry_store_with_get_latest_version(mock_registry_store):
     mock_get_latest_versions = mock.Mock()
     mock_get_latest_versions.return_value = [
         ModelVersion(
-            "test_model_name",
-            "1",
+            "model_name",
+            1,
             0,
         )
     ]
 
     mock_registry_store.get_latest_versions = mock_get_latest_versions
+    yield mock_registry_store
 
-    MlflowClient().set_model_version_tag("model_name", "1", "tag1", "foobar")
-    mock_registry_store.set_model_version_tag.assert_called_once_with(
-        "model_name", "1", ModelVersionTag(key="tag1", value="foobar")
+
+def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
     )
 
-    mock_registry_store.reset_mock()
+    mock_registry_store_with_get_latest_version.reset_mock()
 
-    MlflowClient().set_model_version_tag(
-        "model_name", version=None, key="tag1", value="foobar", stage="Staging"
+    MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
     )
-    mock_registry_store.set_model_version_tag.assert_called_once_with(
-        "model_name", "1", ModelVersionTag(key="tag1", value="foobar")
+
+
+def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    MlflowClient().delete_model_version_tag("model_name", 1, "tag1")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
+    )
+
+    mock_registry_store_with_get_latest_version.reset_mock()
+
+    MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="Staging")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
     )

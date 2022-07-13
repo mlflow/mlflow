@@ -2755,7 +2755,9 @@ class MlflowClient:
 
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
+    def delete_model_version_tag(
+        self, name: str, version: str = None, key: str = None, stage: str = None
+    ) -> None:
         """
         Delete a tag associated with the model version.
 
@@ -2798,6 +2800,9 @@ class MlflowClient:
             print_model_version_info(mv)
             print("--")
             client.delete_model_version_tag(name, mv.version, "t")
+
+            #using stage to delete tag
+            client.delete_model_version_tag(name, key="t", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2812,4 +2817,8 @@ class MlflowClient:
             Version: 1
             Tags: {}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            version = latest_versions[0].version if latest_versions else None
         self._get_registry_client().delete_model_version_tag(name, version, key)
