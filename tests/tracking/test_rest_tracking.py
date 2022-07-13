@@ -735,123 +735,46 @@ def test_get_experiment(mlflow_client):
     assert res.name == name
 
 
-def test_search_experiments_view_type(mlflow_client):
-    experiment_names = ["a", "b"]
-    experiment_ids = create_experiments(mlflow_client, experiment_names)
-    mlflow_client.delete_experiment(experiment_ids[1])
+def test_search_experiments(mlflow_client):
+    experiments = [
+        ("a", {"key": "value"}),
+        ("ab", {"key": "vaLue"}),
+        ("Abc", None),
+    ]
+    experiment_ids = [
+        mlflow_client.create_experiment(name, tags=tags) for name, tags in experiments
+    ]
 
-    experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    assert [e.name for e in experiments] == ["a", "Default"]
-    experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
-    assert [e.name for e in experiments] == ["b"]
-    experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
-    assert [e.name for e in experiments] == ["b", "a", "Default"]
-
-
-def test_search_experiments_filter_by_attribute(mlflow_client):
-    experiment_names = ["a", "ab", "Abc"]
-    create_experiments(mlflow_client, experiment_names)
-
-    experiments = mlflow_client.search_experiments(filter_string="name = 'a'")
-    assert [e.name for e in experiments] == ["a"]
+    # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
     assert [e.name for e in experiments] == ["a"]
-    experiments = mlflow_client.search_experiments(filter_string="attribute.`name` = 'a'")
-    assert [e.name for e in experiments] == ["a"]
-    experiments = mlflow_client.search_experiments(filter_string="attribute.`name` != 'a'")
+    experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
     experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
     assert [e.name for e in experiments] == ["ab", "a"]
-    experiments = mlflow_client.search_experiments(filter_string="name ILIKE 'a%'")
-    assert [e.name for e in experiments] == ["Abc", "ab", "a"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
-    )
-    assert [e.name for e in experiments] == ["ab"]
-
-
-def test_search_experiments_filter_by_tag(mlflow_client):
-    experiments = [
-        ("exp1", {"key": "value"}),
-        ("exp2", {"key": "vaLue"}),
-        ("exp3", {"k e y": "value"}),
-    ]
-    for name, tags in experiments:
-        mlflow_client.create_experiment(name, tags=tags)
-
     experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
-    assert [e.name for e in experiments] == ["exp1"]
-    experiments = mlflow_client.search_experiments(filter_string="tag.`k e y` = 'value'")
-    assert [e.name for e in experiments] == ["exp3"]
-    experiments = mlflow_client.search_experiments(filter_string="tag.\"k e y\" = 'value'")
-    assert [e.name for e in experiments] == ["exp3"]
+    assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
-    assert [e.name for e in experiments] == ["exp2"]
-    experiments = mlflow_client.search_experiments(filter_string="tag.key LIKE 'val%'")
-    assert [e.name for e in experiments] == ["exp1"]
-    experiments = mlflow_client.search_experiments(filter_string="tag.key LIKE '%Lue'")
-    assert [e.name for e in experiments] == ["exp2"]
+    assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
-    assert [e.name for e in experiments] == ["exp2", "exp1"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
-    )
-    assert [e.name for e in experiments] == ["exp2"]
+    assert [e.name for e in experiments] == ["ab", "a"]
 
-
-def test_search_experiments_filter_by_attribute_and_tag(mlflow_client):
-    mlflow_client.create_experiment("exp1", tags={"a": "1", "b": "2"})
-    mlflow_client.create_experiment("exp2", tags={"a": "3", "b": "4"})
-    experiments = mlflow_client.search_experiments(
-        filter_string="name ILIKE 'exp%' AND tags.a = '1'"
-    )
-    assert [e.name for e in experiments] == ["exp1"]
-
-
-def test_search_experiments_order_by(mlflow_client):
-    experiment_names = ["x", "y", "z"]
-    create_experiments(mlflow_client, experiment_names)
-
-    experiments = mlflow_client.search_experiments(order_by=["name"])
-    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
-    experiments = mlflow_client.search_experiments(order_by=["name ASC"])
-    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
+    # order_by
     experiments = mlflow_client.search_experiments(order_by=["name DESC"])
-    assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+    assert [e.name for e in experiments] == ["ab", "a", "Default", "Abc"]
 
-    experiments = mlflow_client.search_experiments(order_by=["experiment_id DESC"])
-    assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+    # max_results
+    experiments = mlflow_client.search_experiments(max_results=2)
+    assert [e.name for e in experiments] == ["Abc", "ab"]
+    # page_token
+    experiments = mlflow_client.search_experiments(page_token=experiments.token)
+    assert [e.name for e in experiments] == ["a", "Default"]
 
-    experiments = mlflow_client.search_experiments(order_by=["name", "experiment_id"])
-    assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
-
-
-def test_search_experiments_max_results(mlflow_client):
-    experiment_names = list(map(str, range(9)))
-    create_experiments(mlflow_client, experiment_names)
-    reversed_experiment_names = experiment_names[::-1]
-
-    experiments = mlflow_client.search_experiments()
-    assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
-    experiments = mlflow_client.search_experiments(max_results=3)
-    assert [e.name for e in experiments] == reversed_experiment_names[:3]
-
-
-def test_search_experiments_pagination(mlflow_client):
-    experiment_names = list(map(str, range(9)))
-    create_experiments(mlflow_client, experiment_names)
-    reversed_experiment_names = experiment_names[::-1]
-
-    experiments = mlflow_client.search_experiments(max_results=4)
-    assert [e.name for e in experiments] == reversed_experiment_names[:4]
-    assert experiments.token is not None
-
-    experiments = mlflow_client.search_experiments(max_results=4, page_token=experiments.token)
-    assert [e.name for e in experiments] == reversed_experiment_names[4:8]
-    assert experiments.token is not None
-
-    experiments = mlflow_client.search_experiments(max_results=4, page_token=experiments.token)
-    assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
-    assert experiments.token is None
+    # view_type
+    mlflow_client.delete_experiment(experiment_ids[1])
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == ["Abc", "a", "Default"]
+    experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == ["ab"]
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]
