@@ -401,7 +401,7 @@ class SearchUtils:
         return pattern.replace("_", ".").replace("%", ".*")
 
     @classmethod
-    def _does_match_clause(cls, run, sed):
+    def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
@@ -904,7 +904,7 @@ class SearchExperimentsUtils(SearchUtils):
         return False
 
     @classmethod
-    def _does_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
+    def _does_experiment_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
@@ -929,6 +929,17 @@ class SearchExperimentsUtils(SearchUtils):
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
+
+    @classmethod
+    def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed
+        if not filter_string:
+            return experiments
+        parsed = cls.parse_search_filter(filter_string)
+
+        def experiment_matches(experiment):
+            return all(cls._does_experiment_match_clause(experiment, s) for s in parsed)
+
+        return list(filter(experiment_matches, experiments))
 
     @classmethod
     def _get_sort_key(cls, order_by_list):
