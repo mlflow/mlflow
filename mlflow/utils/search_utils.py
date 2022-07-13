@@ -401,23 +401,23 @@ class SearchUtils:
         return pattern.replace("_", ".").replace("%", ".*")
 
     @classmethod
-    def _does_match_clause(cls, item, sed):
+    def _does_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
         if cls.is_metric(key_type, comparator):
-            lhs = item.data.metrics.get(key, None)
+            lhs = run.data.metrics.get(key, None)
             value = float(value)
         elif cls.is_param(key_type, comparator):
-            lhs = item.data.params.get(key, None)
+            lhs = run.data.params.get(key, None)
         elif cls.is_tag(key_type, comparator):
-            lhs = item.data.tags.get(key, None)
+            lhs = run.data.tags.get(key, None)
         elif cls.is_string_attribute(key_type, key, comparator):
-            lhs = getattr(item.info, key)
+            lhs = getattr(run.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
-            lhs = getattr(item.info, key)
+            lhs = getattr(run.info, key)
             value = int(value)
         else:
             raise MlflowException(
@@ -904,20 +904,20 @@ class SearchExperimentsUtils(SearchUtils):
         return False
 
     @classmethod
-    def _does_match_clause(cls, item, sed):
+    def _does_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
         key_type = sed.get("type")
         key = sed.get("key")
         value = sed.get("value")
         comparator = sed.get("comparator").upper()
 
         if cls.is_attribute(key_type, comparator):
-            lhs = getattr(item, key)
+            lhs = getattr(experiment, key)
         elif cls.is_tag(key_type, comparator):
-            if key not in item.tags:
+            if key not in experiment.tags:
                 return False
-            lhs = item.tags.get(key, None)
+            lhs = experiment.tags.get(key, None)
             if lhs is None:
-                return item
+                return experiment
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
@@ -929,3 +929,38 @@ class SearchExperimentsUtils(SearchUtils):
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        # https://stackoverflow.com/a/56842689
+        class _Reversor:
+            def __init__(self, obj):
+                self.obj = obj
+
+            # Only need < and == are needed for use as a key parameter in the sorted function
+            def __eq__(self, other):
+                return other.obj == self.obj
+
+            def __lt__(self, other):
+                return other.obj < self.obj
+
+        order_by = []
+        for type_, key, ascending in map(
+            cls.parse_order_by_for_search_experiments, order_by_list or []
+        ):
+            if type_ == "attribute":
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "experiment_id" for key, _ in order_by):
+            order_by.append(("experiment_id", False))
+
+        return lambda exp: tuple(
+            getattr(exp, k) if asc else _Reversor(getattr(exp, k)) for k, asc in order_by
+        )
+
+    @classmethod
+    def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
+        return sorted(experiments, key=cls._get_sort_key(order_by_list))

@@ -320,9 +320,11 @@ class FileStore(AbstractStore):
                 logging.warning(
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
                 )
-        experiments = SearchExperimentsUtils.filter(experiments, filter_string)
-        experiments = sorted(experiments, key=_get_search_experiments_sort_key(order_by))
-        experiments, next_page_token = SearchUtils.paginate(experiments, page_token, max_results)
+        filtered = SearchExperimentsUtils.filter(experiments, filter_string)
+        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        experiments, next_page_token = SearchUtils.paginate(
+            sorted_experiments, page_token, max_results
+        )
         return PagedList(experiments, next_page_token)
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
@@ -966,35 +968,3 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
-
-
-# https://stackoverflow.com/a/56842689
-class _Reversor:
-    def __init__(self, obj):
-        self.obj = obj
-
-    # Only need < and == are needed for use as a key parameter in the sorted function
-    def __eq__(self, other):
-        return other.obj == self.obj
-
-    def __lt__(self, other):
-        return other.obj < self.obj
-
-
-def _get_search_experiments_sort_key(order_by):
-    order_bys = []
-    for type_, key, ascending in map(
-        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
-    ):
-        if type_ == "attribute":
-            order_bys.append((key, ascending))
-        else:
-            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
-
-    # Add a tie-breaker
-    if not any(key == "experiment_id" for key, _ in order_bys):
-        order_bys.append(("experiment_id", False))
-
-    return lambda exp: tuple(
-        getattr(exp, k) if asc else _Reversor(getattr(exp, k)) for k, asc in order_bys
-    )
