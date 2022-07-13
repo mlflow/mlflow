@@ -2225,8 +2225,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run_results = self.store.search_runs(
             [experiment_id],
-            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 " 
-            "and tags.tkey_0 = 'tval_0' ",
+            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 and tags.tkey_0 = 'tval_0' ",
             ViewType.ALL,
             max_results=10,
         )
