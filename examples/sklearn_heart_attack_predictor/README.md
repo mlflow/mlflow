@@ -14,6 +14,9 @@ This example trains an sklearn regression model for predicting heart attack posi
    ```
    mlflow models serve -m models:/heart-attack-prediction-model/production -p 2000 --env-manager=local
    ```
+   **Note :** If you are facing error in serving then try set the MLFLOW_TRACKING_URI on your terminal
+
+   (For linux) export MLFLOW_TRACKING_URI="sqlite:///mlruns.db"
 
 4. Finally you can hit the curl command and get the prediction
 
