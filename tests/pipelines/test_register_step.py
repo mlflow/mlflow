@@ -54,6 +54,7 @@ steps:
         threshold: 1_000_000
   register:
     model_name: "demo_model"
+    registry_uri: "sqlite:////tmp/registry.db"
     {allow_non_validated_model}
 metrics:
   custom:
@@ -92,6 +93,7 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
+    assert mlflow.get_registry_uri() == "sqlite:////tmp/registry.db"
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         1 if expected_status == "VALIDATED" else 0
     )
