@@ -74,6 +74,10 @@ class MlflowClient:
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
 
+    @property
+    def tracking_uri(self):
+        return self._tracking_client.tracking_uri
+
     def _get_registry_client(self):
         """
         Attempts to create a py:class:`ModelRegistryClient` if one does not already exist.
