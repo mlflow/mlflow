@@ -12,7 +12,7 @@ This example trains an sklearn regression model for predicting heart attack posi
 3. Now serve the model using mlflow serve command
 
    ```
-   mlflow models serve -m models:/heart-attack-prediction-model/production -p 2000 --env-manager=local
+   mlflow models serve -m models:/heart-attack-prediction-model/production -p 2000 --no-conda
    ```
    **Note :** If you are facing error in serving then try set the MLFLOW_TRACKING_URI on your terminal
 
