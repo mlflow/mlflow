@@ -434,16 +434,16 @@ class SearchUtils:
             return False
 
     @classmethod
-    def filter(cls, items, filter_string):
-        """Filters a set of items based on a search filter string."""
+    def filter(cls, runs, filter_string):
+        """Filters a set of runs based on a search filter string."""
         if not filter_string:
-            return items
+            return runs
         parsed = cls.parse_search_filter(filter_string)
 
-        def matches(item):
-            return all(cls._does_match_clause(item, s) for s in parsed)
+        def run_matches(run):
+            return all(cls._does_run_match_clause(run, s) for s in parsed)
 
-        return list(filter(matches, items))
+        return [run for run in runs if run_matches(run)]
 
     @classmethod
     def _validate_order_by_and_generate_token(cls, order_by):
