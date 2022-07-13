@@ -952,18 +952,6 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _get_sort_key(cls, order_by_list):
-        # https://stackoverflow.com/a/56842689
-        class _Reversor:
-            def __init__(self, obj):
-                self.obj = obj
-
-            # Only need < and == are needed for use as a key parameter in the sorted function
-            def __eq__(self, other):
-                return other.obj == self.obj
-
-            def __lt__(self, other):
-                return other.obj < self.obj
-
         order_by = []
         parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list or [])
         for type_, key, ascending in parsed_order_by:
@@ -975,6 +963,18 @@ class SearchExperimentsUtils(SearchUtils):
         # Add a tie-breaker
         if not any(key == "experiment_id" for key, _ in order_by):
             order_by.append(("experiment_id", False))
+
+        # https://stackoverflow.com/a/56842689
+        class _Reversor:
+            def __init__(self, obj):
+                self.obj = obj
+
+            # Only need < and == are needed for use as a key parameter in the sorted function
+            def __eq__(self, other):
+                return other.obj == self.obj
+
+            def __lt__(self, other):
+                return other.obj < self.obj
 
         def _apply_reversor(experiment, key, ascending):
             attr = getattr(experiment, key)
