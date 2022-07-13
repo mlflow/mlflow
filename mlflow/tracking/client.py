@@ -586,7 +586,11 @@ class MlflowClient:
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
-            experiment_id = client.create_experiment("Social NLP Experiments")
+            experiment_id = client.create_experiment(
+                "Social NLP Experiments",
+                artifact_location="file:///absolute-path/mlruns",
+                tags={"version": "v1", "priority": "P1"},
+            )
             client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
 
             # Fetch experiment metadata information

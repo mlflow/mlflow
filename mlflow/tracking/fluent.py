@@ -218,9 +218,20 @@ def start_run(
         import mlflow
 
         # Create nested runs
-        with mlflow.start_run(run_name='PARENT_RUN') as parent_run:
+        experiment_id = mlflow.create_experiment("experiment1")
+        with mlflow.start_run(
+            run_name="PARENT_RUN",
+            experiment_id=experiment_id,
+            tags={"version": "v1", "priority": "P1"},
+            description="starting a parent for experiment {}".format(experiment_id),
+        ) as parent_run:
             mlflow.log_param("parent", "yes")
-            with mlflow.start_run(run_name='CHILD_RUN', nested=True) as child_run:
+            with mlflow.start_run(
+                run_name="CHILD_RUN",
+                experiment_id=experiment_id,
+                description="child run of parent run: {}".format(parent_run.info.run_id),
+                nested=True,
+            ) as child_run:
                 mlflow.log_param("child", "yes")
 
         print("parent run_id: {}".format(parent_run.info.run_id))
@@ -1166,7 +1177,11 @@ def create_experiment(
         import mlflow
 
         # Create an experiment name, which must be unique and case sensitive
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_id = mlflow.create_experiment(
+            "Social NLP Experiments",
+            artifact_location="file:///absolute-path/mlruns",
+            tags={"version": "v1", "priority": "P1"},
+        )
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
         print("Experiment_id: {}".format(experiment.experiment_id))
