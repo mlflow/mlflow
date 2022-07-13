@@ -342,8 +342,8 @@ def test_list_experiments(view_type, tmpdir):
         ]
         session.add_all(experiments)
 
+    url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
     try:
-        url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
         mlflow.set_tracking_uri(url)
         # `max_results` is unspecified
         assert len(mlflow.list_experiments(view_type)) == num_experiments
