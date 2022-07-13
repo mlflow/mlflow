@@ -2687,6 +2687,7 @@ class MlflowClient:
     ) -> None:
         """
         Set a tag for the model version.
+        When stage is set, tag will be set only for latest model version of the stage.
 
         :param name: Registered model name.
         :param version: Registered model version.
@@ -2760,10 +2761,12 @@ class MlflowClient:
     ) -> None:
         """
         Delete a tag associated with the model version.
+        When stage is set, tag will be deleted only for latest model version of the stage.
 
         :param name: Registered model name.
         :param version: Registered model version.
         :param key: Tag key.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
