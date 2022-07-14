@@ -296,6 +296,7 @@ jobs:
           pip install -e .[pipelines]
           # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
           pip install 'pyspark<3.3'
+          python dev/sample_data.py
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
