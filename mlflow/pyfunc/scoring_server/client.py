@@ -2,15 +2,19 @@ import requests
 import time
 from mlflow.pyfunc import scoring_server
 import json
+import datetime
 
-
-class PandasTimeStampEncoder(json.JSONEncoder):
+# Extend `DateTimeEncoder` in https://stackoverflow.com/a/12126976 to support `pandas.TimeStamp`
+class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
         import pandas as pd
 
-        if isinstance(o, pd.Timestamp):
-            return str(o)
-        return json.JSONEncoder.default(self, o)
+        if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
+            return o.isoformat()
+        elif isinstance(o, datetime.timedelta):
+            return (datetime.datetime.min + o).time().isoformat()
+
+        return super(DateTimeEncoder, self).default(o)
 
 
 class ScoringServerClient:
@@ -47,7 +51,7 @@ class ScoringServerClient:
         content_type = scoring_server.CONTENT_TYPE_JSON
         post_data = json.dumps(
             scoring_server._get_jsonable_obj(data, pandas_orient="split"),
-            cls=PandasTimeStampEncoder,
+            cls=DateTimeEncoder,
         )
 
         response = requests.post(
