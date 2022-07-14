@@ -26,7 +26,7 @@ def main():
     # Add a datetime column
     months = X.index.to_series() % 12 + 1
     timestamp = pd.to_datetime(months.map("2022-{:02d}-01 02:03:04".format))
-    X = X.assign(timestamp=timestamp), y
+    X = X.assign(timestamp=timestamp)
     print_with_title("Ran input", X.head(30), X.dtypes)
 
     signature = mlflow.models.infer_signature(X, y)
@@ -52,7 +52,7 @@ def main():
         infer_spark_df = spark.createDataFrame(X.sample(n=10, random_state=42))
         print_with_title(
             "Inference input",
-            infer_spark_df._jdf.showString(5, 1, False),
+            infer_spark_df._jdf.showString(5, 20, False),  # numRows, truncate, vertical
             infer_spark_df._jdf.schema().treeString(),
         )
 
