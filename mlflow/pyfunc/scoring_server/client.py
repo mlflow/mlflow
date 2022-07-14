@@ -4,6 +4,15 @@ from mlflow.pyfunc import scoring_server
 import json
 
 
+class PandasTimeStampEncoder(json.JSONEncoder):
+    def default(self, o):
+        import pandas as pd
+
+        if isinstance(o, pd.Timestamp):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
+
 class ScoringServerClient:
     def __init__(self, host, port):
         self.url_prefix = f"http://{host}:{port}"
@@ -36,7 +45,10 @@ class ScoringServerClient:
         Invoke inference on input data. The input data must be pandas dataframe or json instance.
         """
         content_type = scoring_server.CONTENT_TYPE_JSON
-        post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient="split"))
+        post_data = json.dumps(
+            scoring_server._get_jsonable_obj(data, pandas_orient="split"),
+            cls=PandasTimeStampEncoder,
+        )
 
         response = requests.post(
             url=self.url_prefix + "/invocations",
