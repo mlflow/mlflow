@@ -19,6 +19,7 @@ def run_pipeline_step(
     pipeline_root_path: str,
     pipeline_steps: List[BaseStep],
     target_step: BaseStep,
+    template: str = None,
 ) -> BaseStep:
     """
     Runs the specified step in the specified pipeline, as well as all dependent steps.
@@ -34,7 +35,9 @@ def run_pipeline_step(
              unsuccessful, this corresponds to the step that failed.
     """
     target_step_index = pipeline_steps.index(target_step)
-    execution_dir_path = _get_or_create_execution_directory(pipeline_root_path, pipeline_steps)
+    execution_dir_path = _get_or_create_execution_directory(
+        pipeline_root_path, pipeline_steps, template
+    )
 
     def get_execution_state(step):
         return step.get_execution_state(
@@ -147,7 +150,7 @@ def get_step_output_path(pipeline_root_path: str, step_name: str, relative_path:
 
 
 def _get_or_create_execution_directory(
-    pipeline_root_path: str, pipeline_steps: List[BaseStep]
+    pipeline_root_path: str, pipeline_steps: List[BaseStep], template: str = None
 ) -> str:
     """
     Obtains the path of the execution directory on the local filesystem corresponding to the
@@ -164,7 +167,7 @@ def _get_or_create_execution_directory(
         pipeline_root_path=pipeline_root_path
     )
 
-    _create_makefile(pipeline_root_path, execution_dir_path)
+    _create_makefile(pipeline_root_path, execution_dir_path, template)
     for step in pipeline_steps:
         step_output_subdir_path = _get_step_output_directory_path(execution_dir_path, step.name)
         os.makedirs(step_output_subdir_path, exist_ok=True)
@@ -286,7 +289,9 @@ def _run_make(execution_directory_path, rule_name: str, extra_env: Dict[str, str
     )
 
 
-def _create_makefile(pipeline_root_path, execution_directory_path) -> None:
+def _create_makefile(
+    pipeline_root_path: str, execution_directory_path: str, template: str = None
+) -> None:
     """
     Creates a Makefile with a set of relevant MLflow Pipelines targets for the specified pipeline,
     overwriting the preexisting Makefile if one exists. The Makefile is created in the specified
@@ -297,9 +302,14 @@ def _create_makefile(pipeline_root_path, execution_directory_path) -> None:
     :param execution_directory_path: The absolute path of the execution directory on the local
                                      filesystem for the specified pipeline. The Makefile is created
                                      in this directory.
+    :param template: The template to use to generate the makefile
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
-    makefile_contents = _MAKEFILE_FORMAT_STRING.format(
+
+    # TODO: As new templates become available, switch the makefile to use based on the template
+    makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+
+    makefile_contents = makefile_to_use.format(
         path=_MakefilePathFormat(
             os.path.abspath(pipeline_root_path),
             execution_directory_path=os.path.abspath(execution_directory_path),
@@ -388,7 +398,7 @@ class _MakefilePathFormat:
 # Makefile contents for cache-aware pipeline execution. These contents include variable placeholders
 # that need to be formatted (substituted) with the pipeline root directory in order to produce a
 # valid Makefile
-_MAKEFILE_FORMAT_STRING = r"""
+_REGRESSION_MAKEFILE_FORMAT_STRING = r"""
 # Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
 # invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
 ingest:
