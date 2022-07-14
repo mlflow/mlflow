@@ -30,6 +30,7 @@ def run_pipeline_step(
                            steps must be provided in the order that they are intended to be
                            executed.
     :param target_step: The step to run.
+    :param template: The template of the pipeline being executed.
     :return: The last step that successfully completed during the pipeline execution. If execution
              was successful, this always corresponds to the supplied target step. If execution was
              unsuccessful, this corresponds to the step that failed.
@@ -160,6 +161,7 @@ def _get_or_create_execution_directory(
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem.
     :param pipeline_steps: A list of all the steps contained in the specified pipeline.
+    :param template: The template of the pipeline that will control which makefile to generate.
     :return: The absolute path of the execution directory on the local filesystem for the specified
              pipeline.
     """
