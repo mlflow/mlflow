@@ -12,11 +12,8 @@ This examples contains a ``train.py`` file that trains a scikit-learn model with
 Then a nested **mlflow run** delivers the packaging of ``pyfunc`` model and ``custom_code`` module is attached
 to act as a custom inference logic layer in inference time.
 ```
-├── custom_code
-│   ├── __init__.py
-│   └── custom_code.py
 ├── train.py
-├── __init__.py
+└── custom_code.py
 ```
 
 # Steps to reproduce

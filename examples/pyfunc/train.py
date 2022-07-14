@@ -2,7 +2,7 @@ import os
 
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
-from custom_code.custom_code import iris_classes
+from custom_code import iris_classes
 
 import mlflow
 import mlflow.sklearn
@@ -24,9 +24,6 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
 X, y = load_iris(return_X_y=True, as_frame=True)
 params = {"C": 1.0, "random_state": 42}
 
-model_name = "base_model"
-custom_model_name = "custom_model"
-
 with mlflow.start_run(run_name="test_pyfunc") as train_run:
 
     regression_model = LogisticRegression(**params).fit(X, y)
@@ -39,9 +36,7 @@ with mlflow.start_run(run_name="test_pyfunc") as train_run:
         # log a custom model
         mlflow.pyfunc.log_model(
             artifact_path="artifacts",
-            code_path=[
-                os.path.join(os.getcwd(), "custom_code/"),
-            ],
-            artifacts={custom_model_name: model_info.model_uri},
+            code_path=[os.getcwd()],
+            artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),
         )
