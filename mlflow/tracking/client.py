@@ -28,6 +28,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -400,6 +401,7 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
+    @experimental
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
