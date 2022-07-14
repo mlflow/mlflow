@@ -1,7 +1,3 @@
-import random
-from datetime import datetime
-from time import time
-
 import mlflow
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -18,13 +14,6 @@ def print_with_title(title, *args):
         print(a)
 
 
-def get_timestamped_iris():
-    X, y = load_iris(as_frame=True, return_X_y=True)
-    months = X.index.to_series() % 12 + 1
-    timestamp = pd.to_datetime(months.map("2022-{:02d}-01 02:03:04".format))
-    return X.assign(timestamp=timestamp.values), y
-
-
 def extract_month(df):
     print_with_title("extract_month input", df.head(), df.dtypes)
     transformed = df.assign(month=df["timestamp"].dt.month)
@@ -33,20 +22,24 @@ def extract_month(df):
 
 
 def main():
-    X, y = get_timestamped_iris()
+    X, y = load_iris(as_frame=True, return_X_y=True)
+    # Add a datetime column
+    months = X.index.to_series() % 12 + 1
+    timestamp = pd.to_datetime(months.map("2022-{:02d}-01 02:03:04".format))
+    X = X.assign(timestamp=timestamp), y
     print_with_title("Ran input", X.head(30), X.dtypes)
 
     signature = mlflow.models.infer_signature(X, y)
     print_with_title("Signature", signature)
 
     month_extractor = FunctionTransformer(extract_month, validate=False)
-    column_selector = ColumnTransformer(
+    timestamp_remover = ColumnTransformer(
         [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
     )
     model = Pipeline(
         [
             ("month_extractor", month_extractor),
-            ("column_selector", column_selector),
+            ("timestamp_remover", timestamp_remover),
             ("knn", KNeighborsClassifier()),
         ]
     )
@@ -56,7 +49,7 @@ def main():
         model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
 
     with SparkSession.builder.getOrCreate() as spark:
-        infer_spark_df = spark.createDataFrame(X)
+        infer_spark_df = spark.createDataFrame(X.sample(n=10, random_state=42))
         print_with_title(
             "Inference input",
             infer_spark_df._jdf.showString(5, 1, False),
