@@ -39,6 +39,7 @@ class _BasePipeline:
         :param profile: String specifying the profile name, with which
                         {pipeline_root_path}/profiles/{profile}.yaml is read and merged with
                         pipeline.yaml to generate the configuration to run the pipeline.
+        :param template: String specifying the template used to generate the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
         self._profile = profile
