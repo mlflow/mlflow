@@ -15,6 +15,7 @@ from tests.spark.autologging.utils import spark_session  # pylint: disable=unuse
 from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark.autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark.autologging.utils import file_path  # pylint: disable=unused-import
+from tests.tracking.integration_test_utils import _init_server
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
@@ -61,29 +62,33 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
 
-def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path):
+def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-
-    mlflow.set_tracking_uri("http://localhost:1234")
-
-    with mlflow.start_run():
-        with mock.patch(
-            "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
-        ) as http_request_mock:
-            data_format = list(format_to_file_path.keys())[0]
-            file_path = format_to_file_path[data_format]
-            df = (
-                spark_session.read.format(data_format)
-                .option("header", "true")
-                .option("inferSchema", "true")
-                .load(file_path)
-            )
-            http_request_mock.assert_called_once()
-            df.collect()
-            df.filter("number1 > 0").collect()
-            df.limit(2).collect()
-            df.collect()
-            time.sleep(1)
+    url, process = _init_server(
+        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()
+    )
+    mlflow.set_tracking_uri(url)
+    try:
+        with mlflow.start_run():
+            with mock.patch(
+                "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
+            ) as http_request_mock:
+                data_format = list(format_to_file_path.keys())[0]
+                file_path = format_to_file_path[data_format]
+                df = (
+                    spark_session.read.format(data_format)
+                    .option("header", "true")
+                    .option("inferSchema", "true")
+                    .load(file_path)
+                )
+                http_request_mock.assert_called_once()
+                df.collect()
+                df.filter("number1 > 0").collect()
+                df.limit(2).collect()
+                df.collect()
+                time.sleep(1)
+    finally:
+        process.terminate()
 
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
