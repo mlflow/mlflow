@@ -11,30 +11,11 @@ import mlflow.spark
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
-from tests.tracking.test_rest_tracking import BACKEND_URIS
-from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
-from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
 from tests.spark.autologging.utils import _assert_spark_data_logged
 from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark.autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark.autologging.utils import file_path  # pylint: disable=unused-import
-
-
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
-    list of backend store URIs.
-    """
-    if "backend_store_uri" in metafunc.fixturenames:
-        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
-
-
-@pytest.fixture()
-def http_tracking_uri_mock():
-    mlflow.set_tracking_uri("http://some-cool-uri")
-    yield
-    mlflow.set_tracking_uri(None)
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
@@ -81,18 +62,13 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
 
-def test_autologging_does_not_throw_on_api_failures(
-    spark_session, format_to_file_path, mlflow_client
-):
-    # pylint: disable=unused-argument
+def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path):
     mlflow.spark.autolog()
 
-    def failing_req_mock(*args, **kwargs):
-        raise Exception("API request failed!")
-
     with mlflow.start_run():
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
-            http_request_mock.side_effect = failing_req_mock
+        with mock.patch(
+            "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
+        ) as http_request_mock:
             data_format = list(format_to_file_path.keys())[0]
             file_path = format_to_file_path[data_format]
             df = (
@@ -101,6 +77,7 @@ def test_autologging_does_not_throw_on_api_failures(
                 .option("inferSchema", "true")
                 .load(file_path)
             )
+            http_request_mock.assert_called_once()
             df.collect()
             df.filter("number1 > 0").collect()
             df.limit(2).collect()
