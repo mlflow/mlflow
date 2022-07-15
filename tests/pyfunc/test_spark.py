@@ -492,12 +492,12 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         client.ping()
 
 
-@pytest.mark.parametrize("datetime_type", [pd.Timestamp, datetime.datetime, datetime.date])
-def test_spark_udf_datetime_with_model_schema(spark, datetime_type):
+def test_spark_udf_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
     # Add a datetime column
-    timestamp = pd.Series(datetime_type(2022, random.randint(1, 12), 1) for _ in range(len(X)))
-    X = X.assign(timestamp=timestamp)
+    X = X.assign(
+        timestamp=[datetime.datetime(2022, random.randint(1, 12), 1) for _ in range(len(X))]
+    )
 
     month_extractor = FunctionTransformer(
         lambda df: df.assign(month=df["timestamp"].map(lambda d: d.month)), validate=False
