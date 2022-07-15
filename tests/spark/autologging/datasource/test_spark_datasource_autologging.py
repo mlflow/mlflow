@@ -65,6 +65,8 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
 def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path):
     mlflow.spark.autolog()
 
+    mlflow.set_tracking_uri("http://localhost:1234")
+
     with mlflow.start_run():
         with mock.patch(
             "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
