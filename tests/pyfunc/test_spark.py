@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import random
+import datetime
 from typing import Iterator
 import threading
 from unittest import mock
@@ -490,15 +492,15 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         client.ping()
 
 
-def test_spark_udf_datetime_with_model_schema(spark):
+@pytest.mark.parametrize("datetime_type", [pd.Timestamp, datetime.datetime, datetime.date])
+def test_spark_udf_datetime_with_model_schema(spark, datetime_type):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
     # Add a datetime column
-    months = X.index.to_series() % 12 + 1
-    timestamp = pd.to_datetime(months.map("2022-{:02d}-01 02:03:04".format))
+    timestamp = pd.Series(datetime_type(2022, random.randint(1, 12), 1) for _ in range(len(X)))
     X = X.assign(timestamp=timestamp)
 
     month_extractor = FunctionTransformer(
-        lambda df: df.assign(month=df["timestamp"].dt.month), validate=False
+        lambda df: df.assign(month=df["timestamp"].map(lambda d: d.month)), validate=False
     )
     timestamp_remover = ColumnTransformer(
         [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
@@ -512,12 +514,13 @@ def test_spark_udf_datetime_with_model_schema(spark):
     )
     model.fit(X, y)
 
+    timestamp_dtype = {"timestamp": "datetime64[ns]"}
     with mlflow.start_run():
-        signature = mlflow.models.infer_signature(X, y)
+        signature = mlflow.models.infer_signature(X.astype(timestamp_dtype), y)
         model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
 
     inference_sample = X.sample(n=10, random_state=42)
-    infer_spark_df = spark.createDataFrame(inference_sample)
+    infer_spark_df = spark.createDataFrame(inference_sample.astype(timestamp_dtype))
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
     result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
