@@ -15,10 +15,10 @@ _logger = logging.getLogger(__name__)
 
 
 _INPUT_FILE_NAME = "dataset.parquet"
-_CLEANED_OUTPUT_FILE_NAME = "dataset_clean.parquet"
+_CLEANED_OUTPUT_FILE_NAME = "dataset_preprocessed.parquet"
 
 
-class DataCleanStep(BaseStep):
+class PreprocessingStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
 
@@ -29,13 +29,13 @@ class DataCleanStep(BaseStep):
         # Build profiles for input dataset, and train / validation / test splits
         clean_data_profile = get_pandas_data_profile(
             clean_df.reset_index(drop=True),
-            "Profile of Cleaned Dataset",
+            "Profile of Preprocessed Dataset",
         )
 
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
         # Tab #1: data profile for cleaned data:
-        card.add_tab("Cleaned Data Profile", "{{PROFILE}}").add_pandas_profile(
+        card.add_tab("Preprocessed Data Profile", "{{PROFILE}}").add_pandas_profile(
             "PROFILE", clean_data_profile
         )
         # Tab #2: run summary.
@@ -44,12 +44,12 @@ class DataCleanStep(BaseStep):
                 "Run Summary",
                 """
                 {{ SCHEMA_LOCATION }}
-                {{ CLEAN_DATA_NUM_ROWS }}
+                {{ PREPROCESS_DATA_NUM_ROWS }}
                 {{ EXE_DURATION}}
                 {{ LAST_UPDATE_TIME }}
                 """,
             ).add_markdown(
-                "CLEAN_DATA_NUM_ROWS", f"**Number of cleaned dataset rows:** `{len(clean_df)}`"
+                "PREPROCESS_DATA_NUM_ROWS", f"**Number of preprocessed dataset rows:** `{len(clean_df)}`"
             )
         )
 
@@ -69,7 +69,7 @@ class DataCleanStep(BaseStep):
         input_df = pd.read_parquet(ingested_data_path)
 
         # Import from user function module to process dataframes
-        clean_config = self.step_config.get("clean_method", None)
+        clean_config = self.step_config.get("preprocess_method", None)
         if clean_config is not None:
             (clean_module_name, clean_fn_name) = clean_config.rsplit(".", 1)
             sys.path.append(self.pipeline_root)
@@ -85,9 +85,9 @@ class DataCleanStep(BaseStep):
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config.get("steps", {}).get("data_clean", {})
+        step_config = pipeline_config.get("steps", {}).get("preprocessing", {})
         return cls(step_config, pipeline_root)
 
     @property
     def name(self):
-        return "data_clean"
+        return "preprocessing"

@@ -12,7 +12,8 @@ from mlflow.pipelines.utils.step import get_pandas_data_profile
 _logger = logging.getLogger(__name__)
 
 
-_INPUT_FILE_NAME = "dataset.parquet"
+# This should maybe imported from the preprocessing step for consistency
+_INPUT_FILE_NAME = "dataset_preprocessed.parquet"
 _SCORED_OUTPUT_FILE_NAME = "dataset_scored.parquet"
 
 
@@ -24,33 +25,9 @@ class PredictStep(BaseStep):
         self.execution_duration = None
 
     def _build_profiles_and_card(self, scored_df) -> BaseCard:
-        # Build profiles for input dataset, and train / validation / test splits
-        scored_data_profile = get_pandas_data_profile(
-            scored_df.reset_index(drop=True),
-            "Profile of Scored Dataset",
-        )
 
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
-        # Tab #1: data profile for cleaned data:
-        card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", scored_data_profile
-        )
-        # Tab #2: run summary.
-        (
-            card.add_tab(
-                "Run Summary",
-                """
-                {{ SCHEMA_LOCATION }}
-                {{ SCORED_DATA_NUM_ROWS }}
-                {{ EXE_DURATION}}
-                {{ LAST_UPDATE_TIME }}
-                """,
-            ).add_markdown(
-                "SCORED_DATA_NUM_ROWS", f"**Number of scored dataset rows:** `{len(scored_df)}`"
-            )
-        )
-
         return card
 
     def _run(self, output_directory):
@@ -61,7 +38,7 @@ class PredictStep(BaseStep):
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
             pipeline_root_path=self.pipeline_root,
-            step_name="data_clean",
+            step_name="preprocessing",
             relative_path=_INPUT_FILE_NAME,
         )
         input_df = pd.read_parquet(ingested_data_path)
