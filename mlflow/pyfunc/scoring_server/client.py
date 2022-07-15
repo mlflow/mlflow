@@ -4,7 +4,7 @@ from mlflow.pyfunc import scoring_server
 import json
 import datetime
 
-# Modified `DateTimeEncoder` in https://stackoverflow.com/a/12126976 to support `pandas.TimeStamp`
+# Reference: https://stackoverflow.com/a/12126976
 class DateTimeEncoder(json.JSONEncoder):
     def default(self, o):
         import pandas as pd
