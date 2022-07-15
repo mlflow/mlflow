@@ -490,7 +490,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
         client.ping()
 
 
-def test_spark_udf_datetime_conversion_using_model_schema(spark):
+def test_spark_udf_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
     # Add a datetime column
     months = X.index.to_series() % 12 + 1
@@ -523,9 +523,9 @@ def test_spark_udf_datetime_conversion_using_model_schema(spark):
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
 
 
-def test_spark_udf_string_datetime(spark):
+def test_spark_udf_string_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
-    # Add a datetime column
+    # Add a string datetime column
     months = X.index.to_series() % 12 + 1
     string_timestamp = months.map("2022-{:02d}-01 02:03:04".format)
     X = X.assign(timestamp=string_timestamp)
