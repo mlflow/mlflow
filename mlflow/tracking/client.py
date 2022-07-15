@@ -799,15 +799,15 @@ class MlflowClient:
 
     def log_param(self, run_id: str, key: str, value: Any) -> None:
         """
-        Log a parameter against the run ID.
+        Log a parameter (e.g. model hyperparameter) against the run ID.
 
         :param run_id: The run id to which the param should be logged.
         :param key: Parameter name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
+                    All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some
+                      All backend stores support values up to length 250, but some
                       may support larger values.
 
         .. code-block:: python
