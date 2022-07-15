@@ -1,7 +1,9 @@
 import requests
 import time
-from mlflow.pyfunc import scoring_server
 import json
+
+from mlflow.pyfunc import scoring_server
+from mlflow.utils.proto_json_utils import _DateTimeEncoder
 
 
 class ScoringServerClient:
@@ -36,7 +38,10 @@ class ScoringServerClient:
         Invoke inference on input data. The input data must be pandas dataframe or json instance.
         """
         content_type = scoring_server.CONTENT_TYPE_JSON
-        post_data = json.dumps(scoring_server._get_jsonable_obj(data, pandas_orient="split"))
+        post_data = json.dumps(
+            scoring_server._get_jsonable_obj(data, pandas_orient="split"),
+            cls=_DateTimeEncoder,
+        )
 
         response = requests.post(
             url=self.url_prefix + "/invocations",
