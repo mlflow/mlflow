@@ -474,7 +474,6 @@ def test_dataframe_from_json():
             ColSpec("long", "long"),
             ColSpec("binary", "binary"),
             ColSpec("string", "date_string"),
-            ColSpec("datetime", "datetime"),
         ]
     )
     parsed = _dataframe_from_json(
@@ -531,22 +530,9 @@ def test_dataframe_from_json():
         )
     )
 
-    schema = Schema(
-        [
-            ColSpec("datetime", "datetime"),
-        ]
-    )
-
+    schema = Schema([ColSpec("datetime", "datetime")])
     parsed = _dataframe_from_json(
-        """
-{
-  "datetime": [
-    "2022-01-01T00:00:00",
-    "2022-01-02T03:04:05",
-    "00:00:00"
-  ]
-}
-""",
+        '{"datetime": ["2022-01-01T00:00:00", "2022-01-02T03:04:05", "00:00:00"]}',
         pandas_orient="records",
         schema=schema,
     )
