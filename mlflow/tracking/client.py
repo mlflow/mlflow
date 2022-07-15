@@ -28,6 +28,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -73,6 +74,10 @@ class MlflowClient:
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
+
+    @property
+    def tracking_uri(self):
+        return self._tracking_client.tracking_uri
 
     def _get_registry_client(self):
         """
@@ -396,6 +401,7 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
+    @experimental
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
@@ -793,15 +799,15 @@ class MlflowClient:
 
     def log_param(self, run_id: str, key: str, value: Any) -> None:
         """
-        Log a parameter against the run ID.
+        Log a parameter (e.g. model hyperparameter) against the run ID.
 
         :param run_id: The run id to which the param should be logged.
         :param key: Parameter name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
+                    All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some
+                      All backend stores support values up to length 250, but some
                       may support larger values.
 
         .. code-block:: python

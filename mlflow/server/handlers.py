@@ -34,6 +34,7 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     SetTag,
     ListExperiments,
+    SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,
     RestoreRun,
@@ -967,6 +968,35 @@ def _list_experiments():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_experiments():
+    request_message = _get_request_message(
+        SearchExperiments(),
+        schema={
+            "view_type": [_assert_intlike],
+            "max_results": [_assert_intlike],
+            "order_by": [_assert_array],
+            "filter": [_assert_string],
+            "page_token": [_assert_string],
+        },
+    )
+    experiment_entities = _get_tracking_store().search_experiments(
+        view_type=request_message.view_type,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        filter_string=request_message.filter,
+        page_token=request_message.page_token,
+    )
+    response_message = SearchExperiments.Response()
+    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
+    if experiment_entities.token:
+        response_message.next_page_token = experiment_entities.token
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
@@ -1562,6 +1592,7 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    SearchExperiments: _search_experiments,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

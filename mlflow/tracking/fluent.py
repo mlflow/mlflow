@@ -41,6 +41,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
+from mlflow.utils.annotations import experimental
+
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -494,15 +496,15 @@ def get_run(run_id: str) -> Run:
 
 def log_param(key: str, value: Any) -> None:
     """
-    Log a parameter under the current run. If no run is active, this method will create
-    a new active run.
+    Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
+    this method will create a new active run.
 
     :param key: Parameter name (string). This string may only contain alphanumerics,
                 underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
+                All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some
+                  All backend stores support values up to length 250, but some
                   may support larger values.
 
     .. code-block:: python
@@ -1041,6 +1043,7 @@ def list_experiments(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
+@experimental
 def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
