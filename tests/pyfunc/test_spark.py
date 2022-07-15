@@ -494,7 +494,6 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
 
 def test_spark_udf_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
-    # Add a datetime column
     X = X.assign(
         timestamp=[datetime.datetime(2022, random.randint(1, 12), 1) for _ in range(len(X))]
     )
@@ -528,10 +527,7 @@ def test_spark_udf_datetime_with_model_schema(spark):
 
 def test_spark_udf_string_datetime_with_model_schema(spark):
     X, y = datasets.load_iris(as_frame=True, return_X_y=True)
-    # Add a string datetime column
-    months = X.index.to_series() % 12 + 1
-    string_timestamp = months.map("2022-{:02d}-01 02:03:04".format)
-    X = X.assign(timestamp=string_timestamp)
+    X = X.assign(timestamp=["2022-{:02d}-01".format(random.randint(1, 12)) for _ in range(len(X))])
 
     month_extractor = FunctionTransformer(
         lambda df: df.assign(month=df["timestamp"].str.extract(r"^2022-0?(\d{1,2})-").astype(int)),
