@@ -521,3 +521,37 @@ def test_spark_udf_datetime_conversion_using_model_schema(spark):
     pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
     result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
     np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
+
+
+def test_spark_udf_string_datetime(spark):
+    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+    # Add a datetime column
+    months = X.index.to_series() % 12 + 1
+    string_timestamp = months.map("2022-{:02d}-01 02:03:04".format)
+    X = X.assign(timestamp=string_timestamp)
+
+    month_extractor = FunctionTransformer(
+        lambda df: df.assign(month=df["timestamp"].str.extract(r"^2022-0?(\d{1,2})-").astype(int)),
+        validate=False,
+    )
+    timestamp_remover = ColumnTransformer(
+        [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
+    )
+    model = Pipeline(
+        [
+            ("month_extractor", month_extractor),
+            ("timestamp_remover", timestamp_remover),
+            ("knn", KNeighborsClassifier()),
+        ]
+    )
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        signature = mlflow.models.infer_signature(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    inference_sample = X.sample(n=10, random_state=42)
+    infer_spark_df = spark.createDataFrame(inference_sample)
+    pyfunc_udf = mlflow.pyfunc.spark_udf(spark, model_info.model_uri, env_manager="conda")
+    result = infer_spark_df.select(pyfunc_udf(*X.columns).alias("predictions")).toPandas()
+    np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(inference_sample))
