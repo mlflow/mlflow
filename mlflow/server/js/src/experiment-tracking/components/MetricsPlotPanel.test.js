@@ -4,7 +4,6 @@ import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
-import { Progress } from 'antd';
 import { shallow } from 'enzyme';
 import {
   MetricsPlotPanel,
@@ -19,6 +18,8 @@ import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { RunLinksPopover } from './RunLinksPopover';
+import { Progress } from '../../common/components/Progress';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('unit tests', () => {
   let wrapper;
@@ -433,7 +434,9 @@ describe('unit tests', () => {
       return mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>
-            <MetricsPlotPanel {...props} />
+            <DesignSystemProvider>
+              <MetricsPlotPanel {...props} />
+            </DesignSystemProvider>
           </BrowserRouter>
         </Provider>,
       );
@@ -466,7 +469,9 @@ describe('unit tests', () => {
       return mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>
-            <MetricsPlotPanel {...props} />
+            <DesignSystemProvider>
+              <MetricsPlotPanel {...props} />
+            </DesignSystemProvider>
           </BrowserRouter>
         </Provider>,
       );

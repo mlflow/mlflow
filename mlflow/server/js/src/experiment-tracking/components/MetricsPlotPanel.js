@@ -527,15 +527,18 @@ export class MetricsPlotPanel extends React.Component {
     return false;
   };
 
-  handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
-    const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
+  handleMetricsSelectChange = (metricKeys) => {
+    const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
+    const newMetricKeys = metricKeys.filter((k) => !existingMetricKeys.includes(k));
+
+    const requestIds = this.loadMetricHistory(this.props.runUuids, newMetricKeys);
     this.setState(
       (prevState) => ({
         historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
       }),
       () => {
         this.updateUrlState({
-          selectedMetricKeys: metricValues,
+          selectedMetricKeys: metricKeys,
         });
       },
     );

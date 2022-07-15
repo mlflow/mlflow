@@ -32,6 +32,7 @@ import {
 } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
+import Utils from '../../common/utils/Utils';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -343,7 +344,7 @@ export const artifactsByRunUuid = (state = {}, action) => {
             curArtifactNode.setChildren(files);
           }
         } catch (err) {
-          console.error(err);
+          Utils.logErrorAndNotifyUser(`Unable to construct the artifact tree.`);
         }
       }
       return {
