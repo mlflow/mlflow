@@ -72,7 +72,7 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
         with mlflow.start_run():
             with mock.patch(
                 "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
-            ) as http_request_mock:
+            ):
                 data_format = list(format_to_file_path.keys())[0]
                 file_path = format_to_file_path[data_format]
                 df = (
@@ -81,7 +81,6 @@ def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_fil
                     .option("inferSchema", "true")
                     .load(file_path)
                 )
-                http_request_mock.assert_called_once()
                 df.collect()
                 df.filter("number1 > 0").collect()
                 df.limit(2).collect()
