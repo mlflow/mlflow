@@ -50,13 +50,11 @@ def test_register_step_run(
     tmp_pipeline_exec_path: Path,
     mae_threshold: int,
     register_flag: str,
-    registry_uri_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
         tmp_pipeline_exec_path
     )
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    registry_uri = registry_uri_path
     pipeline_yaml.write_text(
         """
 template: "regression/v1"
@@ -74,7 +72,6 @@ steps:
         threshold: 1_000_000
   register:
     model_name: "demo_model"
-    registry_uri: {registry_uri}
     {allow_non_validated_model}
 metrics:
   custom:
@@ -85,7 +82,6 @@ metrics:
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
             allow_non_validated_model=register_flag,
-            registry_uri=registry_uri,
         )
     )
     pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
@@ -114,8 +110,6 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
-    if expected_status == "VALIDATED":
-        assert mlflow.get_registry_uri() == registry_uri
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         1 if expected_status == "VALIDATED" else 0
     )
@@ -221,3 +215,65 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     latest_tag = registered_models[0].latest_versions[0].tags
     assert latest_tag["mlflow.source.type"] == "PIPELINE"
     assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
+
+
+def test_register_uri(
+    tmp_pipeline_root_path: Path,
+    tmp_pipeline_exec_path: Path,
+    registry_uri_path: Path,
+):
+    evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
+        tmp_pipeline_exec_path
+    )
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    registry_uri = registry_uri_path
+    pipeline_yaml.write_text(
+        """
+template: "regression/v1"
+target_col: "y"
+experiment:
+  tracking_uri: {tracking_uri}
+steps:
+  evaluate:
+    validation_criteria:
+      - metric: root_mean_squared_error
+        threshold: 1_000_000
+      - metric: mean_absolute_error
+        threshold: 1_000_000
+      - metric: weighted_mean_squared_error
+        threshold: 1_000_000
+  register:
+    model_name: "demo_model"
+    registry_uri: {registry_uri}
+metrics:
+  custom:
+    - name: weighted_mean_squared_error
+      function: weighted_mean_squared_error
+      greater_is_better: False
+""".format(
+            tracking_uri=mlflow.get_tracking_uri(),
+            registry_uri=registry_uri,
+        )
+    )
+    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+    pipeline_steps_dir.mkdir(parents=True)
+    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+        """
+def weighted_mean_squared_error(eval_df, builtin_metrics):
+    from sklearn.metrics import mean_squared_error
+
+    return {
+        "weighted_mean_squared_error": mean_squared_error(
+            eval_df["prediction"],
+            eval_df["target"],
+            sample_weight=1 / eval_df["prediction"].values,
+        )
+    }
+"""
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step._run(str(evaluate_step_output_dir))
+    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step._run(str(register_step_output_dir))
+    assert mlflow.get_registry_uri() == registry_uri
