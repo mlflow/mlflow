@@ -271,4 +271,4 @@ class Pipeline:
 
         pipeline_name = get_pipeline_name(pipeline_root_path)
         _logger.info(f"Creating MLflow Pipeline '{pipeline_name}' with profile: '{profile}'")
-        return pipeline_class_module(pipeline_root_path, profile, template)
+        return pipeline_class_module(pipeline_root_path, profile)
