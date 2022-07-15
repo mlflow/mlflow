@@ -1,5 +1,6 @@
 import base64
 import json
+import datetime
 import numpy as np
 import pandas as pd
 import pytest
@@ -20,6 +21,7 @@ from mlflow.utils.proto_json_utils import (
     _stringify_all_experiment_ids,
     parse_tf_serving_input,
     _dataframe_from_json,
+    _DateTimeEncoder,
 )
 
 # Prevent pytest from trying to collect TestMessage as a test class:
@@ -472,6 +474,7 @@ def test_dataframe_from_json():
             ColSpec("long", "long"),
             ColSpec("binary", "binary"),
             ColSpec("string", "date_string"),
+            ColSpec("datetime", "datetime"),
         ]
     )
     parsed = _dataframe_from_json(
@@ -527,3 +530,47 @@ def test_dataframe_from_json():
             source.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
         )
     )
+
+    schema = Schema(
+        [
+            ColSpec("datetime", "datetime"),
+        ]
+    )
+
+    parsed = _dataframe_from_json(
+        """
+{
+  "datetime": [
+    "2022-01-01T00:00:00",
+    "2022-01-02T03:04:05",
+    "00:00:00"
+  ]
+}
+""",
+        pandas_orient="records",
+        schema=schema,
+    )
+    expected = pd.DataFrame(
+        {
+            "datetime": [
+                pd.Timestamp("2022-01-01T00:00:00"),
+                pd.Timestamp("2022-01-02T03:04:05"),
+                pd.Timestamp("00:00:00"),
+            ]
+        },
+    )
+    pd.testing.assert_frame_equal(parsed, expected)
+
+
+@pytest.mark.parametrize(
+    "dt, expected",
+    [
+        (datetime.datetime(2022, 1, 1), '"2022-01-01T00:00:00"'),
+        (datetime.datetime(2022, 1, 2, 3, 4, 5), '"2022-01-02T03:04:05"'),
+        (datetime.date(2022, 1, 1), '"2022-01-01"'),
+        (datetime.time(0, 0, 0), '"00:00:00"'),
+        (pd.Timestamp(2022, 1, 1), '"2022-01-01T00:00:00"'),
+    ],
+)
+def test_datetime_encoder(dt, expected):
+    assert json.dumps(dt, cls=_DateTimeEncoder) == expected
