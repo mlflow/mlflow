@@ -1,5 +1,7 @@
+import random
+import datetime
+
 import mlflow
-import pandas as pd
 from pyspark.sql import SparkSession
 from sklearn.datasets import load_iris
 from sklearn.neighbors import KNeighborsClassifier
@@ -23,10 +25,9 @@ def extract_month(df):
 
 def main():
     X, y = load_iris(as_frame=True, return_X_y=True)
-    # Add a datetime column
-    months = X.index.to_series() % 12 + 1
-    timestamp = pd.to_datetime(months.map("2022-{:02d}-01 02:03:04".format))
-    X = X.assign(timestamp=timestamp)
+    X = X.assign(
+        timestamp=[datetime.datetime(2022, random.randint(1, 12), 1) for _ in range(len(X))]
+    )
     print_with_title("Ran input", X.head(30), X.dtypes)
 
     signature = mlflow.models.infer_signature(X, y)
