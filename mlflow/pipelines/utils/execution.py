@@ -304,7 +304,7 @@ def _create_makefile(
     :param execution_directory_path: The absolute path of the execution directory on the local
                                      filesystem for the specified pipeline. The Makefile is created
                                      in this directory.
-    :param template: The template to use to generate the makefile
+    :param template: The template to use to generate the makefile.
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
 

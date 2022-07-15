@@ -29,7 +29,7 @@ class _BasePipeline:
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str, template: str = None) -> None:
+    def __init__(self, pipeline_root_path: str, profile: str) -> None:
         """
         Pipeline base class.
 
@@ -39,13 +39,12 @@ class _BasePipeline:
         :param profile: String specifying the profile name, with which
                         {pipeline_root_path}/profiles/{profile}.yaml is read and merged with
                         pipeline.yaml to generate the configuration to run the pipeline.
-        :param template: String specifying the template used to generate the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
-        self._template = template
+        self._template = get_pipeline_config(self._pipeline_root_path, self._profile)["template"]
 
     @experimental
     @property
@@ -209,7 +208,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> Union[RegressionPipeline, _BasePipeline]:
+    def __new__(cls, profile: str) -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
