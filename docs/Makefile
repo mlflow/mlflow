@@ -51,10 +51,12 @@ help:
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 	@echo "  dummy      to check syntax errors of document sources"
+	@echo "  test-examples    to run all doctests embedded in the documentation (if enabled)"
 
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
+	rm -rf tests
 
 .PHONY: javadocs
 javadocs:
@@ -225,6 +227,11 @@ doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
+
+.PHONY: test-examples
+test-examples:
+	pytest --no-cov tests
+	@echo "Finished testing examples"
 
 .PHONY: coverage
 coverage:
