@@ -1086,6 +1086,7 @@ def search_experiments(
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
     .. test-code::
+
         import mlflow
 
         def assert_experiment_names_equal(experiments, expected_names):
