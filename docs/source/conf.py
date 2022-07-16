@@ -37,7 +37,7 @@ import languagesections
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "test_code",
+    "test_code_block",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
