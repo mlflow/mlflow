@@ -24,14 +24,14 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
 X, y = load_iris(return_X_y=True, as_frame=True)
 params = {"C": 1.0, "random_state": 42}
 
-with mlflow.start_run(run_name="test_pyfunc") as train_run:
+with mlflow.start_run(run_name="test_pyfunc"):
 
     regression_model = LogisticRegression(**params).fit(X, y)
 
     model_info = mlflow.sklearn.log_model(sk_model=regression_model, artifact_path="model")
 
     # start a child run to create custom imagine model
-    with mlflow.start_run(run_name="test_custom_model", nested=True) as run:
+    with mlflow.start_run(run_name="test_custom_model", nested=True):
 
         # log a custom model
         mlflow.pyfunc.log_model(
