@@ -51,7 +51,7 @@ help:
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 	@echo "  dummy      to check syntax errors of document sources"
-	@echo "  test-examples    to run all doctests embedded in the documentation (if enabled)"
+	@echo "  test-examples    to run inline code examples in the documentation"
 
 .PHONY: clean
 clean:
