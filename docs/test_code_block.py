@@ -65,7 +65,7 @@ def parse_object_name(fq_obj_name: str, repo_root: Path) -> t.Tuple[t.List[str],
 PROCESSED_OBJECTS = {}
 
 
-class TestCodeDirective(SphinxDirective):
+class TestCodeBlockDirective(SphinxDirective):
     """
     Custom Sphinx directive to store test-code blocks in python scripts that can be run with pytest.
     """
@@ -104,7 +104,7 @@ class TestCodeDirective(SphinxDirective):
                 PROCESSED_OBJECTS[fq_obj_name] = [directive_lineno]
                 script_path.write_text(f"# Object: {fq_obj_name}" + "\n\n" + test_code)
         else:
-            # TODO: Support test-code directives in a .rst file
+            # TODO: Support test-code blocks in a .rst file
             pass
 
         node = nodes.literal_block(code, code)
@@ -112,5 +112,5 @@ class TestCodeDirective(SphinxDirective):
 
 
 def setup(app):
-    app.add_directive("test-code", TestCodeDirective)
+    app.add_directive("test-code-block", TestCodeBlockDirective)
     return {"version": "0.1"}
