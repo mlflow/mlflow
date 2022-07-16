@@ -418,6 +418,18 @@ process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
 ``pytest tests/sklearn && pytest tests/tensorflow``
 
+Testing example code in documentation
++++++++++++++++++++++++++++++++++++++
+
+The MLflow documentation has inline code examples that demonstrate how to use MLflow APIs. They can
+be tested by running:
+
+.. code-block::
+
+    cd docs
+    make clean rsthtml
+    make test-examples
+
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.
 
