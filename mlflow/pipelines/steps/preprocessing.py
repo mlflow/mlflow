@@ -49,7 +49,8 @@ class PreprocessingStep(BaseStep):
                 {{ LAST_UPDATE_TIME }}
                 """,
             ).add_markdown(
-                "PREPROCESS_DATA_NUM_ROWS", f"**Number of preprocessed dataset rows:** `{len(clean_df)}`"
+                "PREPROCESS_DATA_NUM_ROWS",
+                f"**Number of preprocessed dataset rows:** `{len(clean_df)}`"
             )
         )
 
@@ -75,6 +76,8 @@ class PreprocessingStep(BaseStep):
             sys.path.append(self.pipeline_root)
             clean_fn = getattr(importlib.import_module(clean_module_name), clean_fn_name)
             clean_df = clean_fn(input_df)
+        else:
+            clean_df = input_df
 
         # Output train / validation / test splits
         clean_df.to_parquet(os.path.join(output_directory, _CLEANED_OUTPUT_FILE_NAME))

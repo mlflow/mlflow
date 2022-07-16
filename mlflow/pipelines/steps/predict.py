@@ -25,7 +25,8 @@ class PredictStep(BaseStep):
         self.execution_duration = None
 
     def _build_profiles_and_card(self, scored_df) -> BaseCard:
-
+        # do something with this to make the linter happy
+        len(scored_df)
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
         return card
