@@ -450,7 +450,7 @@ class MlflowClient:
                  :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
                  for the next page can be obtained via the ``token`` attribute of the object.
 
-        .. test-code::
+        .. test-code-block::
 
             import mlflow
 

@@ -1085,7 +1085,7 @@ def search_experiments(
 
     :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
 
-    .. test-code::
+    .. test-code-block::
 
         import mlflow
 
