@@ -50,7 +50,7 @@ class PreprocessingStep(BaseStep):
                 """,
             ).add_markdown(
                 "PREPROCESS_DATA_NUM_ROWS",
-                f"**Number of preprocessed dataset rows:** `{len(clean_df)}`",
+                f"**Number of preprocessed dataset rows:** `{len(clean_df)}`"
             )
         )
 
