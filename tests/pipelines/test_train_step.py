@@ -116,3 +116,4 @@ def test_train_steps_with_correct_source_type(tmp_pipeline_root_path):
 
     tags = MlflowClient().get_run(run_id).data.tags
     assert tags["mlflow.source.type"] == "PIPELINE"
+    assert tags["mlflow.pipeline.template.name"] == "regression/v1"

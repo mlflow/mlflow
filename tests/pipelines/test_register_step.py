@@ -92,9 +92,12 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
-    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
-        1 if expected_status == "VALIDATED" else 0
-    )
+    registered_models = mlflow.tracking.MlflowClient().list_registered_models()
+    assert len(registered_models) == (1 if expected_status == "VALIDATED" else 0)
+    if expected_status == "VALIDATED":
+        latest_tag = registered_models[0].latest_versions[0].tags
+        assert latest_tag["mlflow.source.type"] == "PIPELINE"
+        assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
