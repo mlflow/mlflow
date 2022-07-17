@@ -119,6 +119,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         except ImportError:
             from azure.storage.blob._models import BlobPrefix
 
+        def is_dir(result):
+            return isinstance(result, BlobPrefix)
+
         (container, _, artifact_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         dest_path = artifact_path
@@ -127,21 +130,29 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         infos = []
         prefix = dest_path if dest_path.endswith("/") else dest_path + "/"
         results = container_client.walk_blobs(name_starts_with=prefix)
-        for r in results:
-            if not r.name.startswith(artifact_path):
+
+        for result in results:
+            if (
+                dest_path == result.name
+            ):  # result isn't actually a child of the path we're interested in, so skip it
+                continue
+
+            if not result.name.startswith(artifact_path):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
                     " artifact path. Artifact path: {artifact_path}. Blob name:"
-                    " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name)
+                    " {blob_name}".format(artifact_path=artifact_path, blob_name=result.name)
                 )
-            if isinstance(r, BlobPrefix):  # This is a prefix for items in a subdirectory
-                subdir = posixpath.relpath(path=r.name, start=artifact_path)
+
+            if is_dir(result):
+                subdir = posixpath.relpath(path=result.name, start=artifact_path)
                 if subdir.endswith("/"):
                     subdir = subdir[:-1]
-                infos.append(FileInfo(subdir, True, None))
+                infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:  # Just a plain old blob
-                file_name = posixpath.relpath(path=r.name, start=artifact_path)
-                infos.append(FileInfo(file_name, False, r.size))
+                file_name = posixpath.relpath(path=result.name, start=artifact_path)
+                infos.append(FileInfo(file_name, is_dir=False, file_size=result.size))
+
         # The list_artifacts API expects us to return an empty list if the
         # the path references a single file.
         rel_path = dest_path[len(artifact_path) + 1 :]
