@@ -10,19 +10,19 @@ from docutils import nodes
 from sphinx.util.docutils import SphinxDirective
 
 
-def create_test_code(code: str, location: str, id: int) -> str:
+def to_test_function(code: str, directive_location: str, name: str) -> str:
     """
-    Create a test function code that can be executed using pytest.
+    Create a test function that runs the given code.
     """
     template = """
-# Location: {location}
-def test_{id}():
+# Location: {directive_location}
+def test_{name}():
 {code}
 """
     return template.format(
-        location=location,
+        directive_location=directive_location,
         code=textwrap.indent(code, " " * 4),
-        id=id,
+        name=name,
     ).lstrip()
 
 
@@ -94,15 +94,15 @@ class TestCodeBlockDirective(SphinxDirective):
 
             directive_lineno = get_directive_lineno(mod, mod_file, obj_name, lineno_in_docstring)
             directive_loc = f" {mod_file}:{directive_lineno}"
+            test_function = to_test_function(code, directive_loc, name=str(directive_lineno))
             directive_ids = PROCESSED_OBJECTS.get(fq_obj_name, [])
-            test_code = create_test_code(code, directive_loc, id=directive_lineno)
             if directive_ids:
                 if directive_lineno not in directive_ids:
                     PROCESSED_OBJECTS[fq_obj_name].append(directive_lineno)
-                    script_path.write_text(script_path.read_text() + "\n\n" + test_code)
+                    script_path.write_text(script_path.read_text() + "\n\n" + test_function)
             else:
                 PROCESSED_OBJECTS[fq_obj_name] = [directive_lineno]
-                script_path.write_text(f"# Object: {fq_obj_name}" + "\n\n" + test_code)
+                script_path.write_text(f"# Object: {fq_obj_name}" + "\n\n" + test_function)
         else:
             # TODO: Support test-code blocks in a .rst file
             pass
