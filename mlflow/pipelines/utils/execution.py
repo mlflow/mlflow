@@ -19,7 +19,7 @@ def run_pipeline_step(
     pipeline_root_path: str,
     pipeline_steps: List[BaseStep],
     target_step: BaseStep,
-    template: str = None
+    template: str = None,
 ) -> BaseStep:
     """
     Runs the specified step in the specified pipeline, as well as all dependent steps.
@@ -35,7 +35,9 @@ def run_pipeline_step(
              unsuccessful, this corresponds to the step that failed.
     """
     target_step_index = pipeline_steps.index(target_step)
-    execution_dir_path = _get_or_create_execution_directory(pipeline_root_path, pipeline_steps, template)
+    execution_dir_path = _get_or_create_execution_directory(
+        pipeline_root_path, pipeline_steps, template
+    )
 
     def get_execution_state(step):
         return step.get_execution_state(

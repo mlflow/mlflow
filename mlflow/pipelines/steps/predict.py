@@ -6,7 +6,6 @@ from typing import Dict, Any
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
-from mlflow.pipelines.utils.step import get_pandas_data_profile
 
 
 _logger = logging.getLogger(__name__)
