@@ -44,6 +44,7 @@ class _BasePipeline:
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
+        self._template = get_pipeline_config(self._pipeline_root_path, self._profile).get("template")
 
     @experimental
     @property
@@ -77,6 +78,7 @@ class _BasePipeline:
             self._steps,
             # Runs the last step of the pipeline if no step is specified.
             self._get_step(step) if step else self._steps[-1],
+            self._template
         )
 
         self.inspect(last_executed_step.name)
