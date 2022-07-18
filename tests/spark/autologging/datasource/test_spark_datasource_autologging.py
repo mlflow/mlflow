@@ -1,6 +1,5 @@
 import time
 
-import pytest
 from unittest import mock
 
 from pyspark.sql import Row
@@ -11,30 +10,12 @@ import mlflow.spark
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
-from tests.tracking.test_rest_tracking import BACKEND_URIS
-from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
-from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
 from tests.spark.autologging.utils import _assert_spark_data_logged
 from tests.spark.autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark.autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark.autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark.autologging.utils import file_path  # pylint: disable=unused-import
-
-
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
-    list of backend store URIs.
-    """
-    if "backend_store_uri" in metafunc.fixturenames:
-        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
-
-
-@pytest.fixture()
-def http_tracking_uri_mock():
-    mlflow.set_tracking_uri("http://some-cool-uri")
-    yield
-    mlflow.set_tracking_uri(None)
+from tests.tracking.integration_test_utils import _init_server
 
 
 def _get_expected_table_info_row(path, data_format, version=None):
@@ -81,31 +62,32 @@ def test_autologging_of_datasources_with_different_formats(spark_session, format
             _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
 
 
-def test_autologging_does_not_throw_on_api_failures(
-    spark_session, format_to_file_path, mlflow_client
-):
-    # pylint: disable=unused-argument
+def test_autologging_does_not_throw_on_api_failures(spark_session, format_to_file_path, tmp_path):
     mlflow.spark.autolog()
-
-    def failing_req_mock(*args, **kwargs):
-        raise Exception("API request failed!")
-
-    with mlflow.start_run():
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
-            http_request_mock.side_effect = failing_req_mock
-            data_format = list(format_to_file_path.keys())[0]
-            file_path = format_to_file_path[data_format]
-            df = (
-                spark_session.read.format(data_format)
-                .option("header", "true")
-                .option("inferSchema", "true")
-                .load(file_path)
-            )
-            df.collect()
-            df.filter("number1 > 0").collect()
-            df.limit(2).collect()
-            df.collect()
-            time.sleep(1)
+    url, process = _init_server(
+        f"sqlite:///{tmp_path}/test.db", root_artifact_uri=tmp_path.as_uri()
+    )
+    mlflow.set_tracking_uri(url)
+    try:
+        with mlflow.start_run():
+            with mock.patch(
+                "mlflow.utils.rest_utils.http_request", side_effect=Exception("API request failed!")
+            ):
+                data_format = list(format_to_file_path.keys())[0]
+                file_path = format_to_file_path[data_format]
+                df = (
+                    spark_session.read.format(data_format)
+                    .option("header", "true")
+                    .option("inferSchema", "true")
+                    .load(file_path)
+                )
+                df.collect()
+                df.filter("number1 > 0").collect()
+                df.limit(2).collect()
+                df.collect()
+                time.sleep(1)
+    finally:
+        process.terminate()
 
 
 def test_autologging_dedups_multiple_reads_of_same_datasource(spark_session, format_to_file_path):
@@ -197,7 +179,6 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
         mlflow.end_run()
 
 
-@pytest.mark.usefixtures("mlflow_client")
 def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     import mlflow.utils.rest_utils
 

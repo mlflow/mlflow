@@ -1,9 +1,11 @@
-#!/usr/bin/env python
-
+import os
 from unittest import mock
+import re
 import numpy
 import pytest
+import requests
 
+from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
@@ -397,3 +399,55 @@ def test_can_parse_as_json_object():
     assert not _can_parse_as_json_object("[0, 1, 2]")
     assert not _can_parse_as_json_object('"abc"')
     assert not _can_parse_as_json_object("123")
+
+
+def test_http_request_customize_config():
+    with mock.patch(
+        "mlflow.utils.rest_utils._get_http_response_with_retries"
+    ) as mock_get_http_response_with_retries:
+        host_only = MlflowHostCreds("http://my-host")
+        with mock.patch.dict(os.environ, {}, clear=True):
+            http_request(host_only, "/my/endpoint", "GET")
+            mock_get_http_response_with_retries.assert_called_with(
+                mock.ANY,
+                mock.ANY,
+                5,
+                2,
+                mock.ANY,
+                headers=mock.ANY,
+                verify=mock.ANY,
+                timeout=120,
+            )
+        mock_get_http_response_with_retries.reset_mock()
+        with mock.patch.dict(
+            os.environ,
+            {
+                "MLFLOW_HTTP_REQUEST_MAX_RETRIES": "8",
+                "MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR": "3",
+                "MLFLOW_HTTP_REQUEST_TIMEOUT": "300",
+            },
+            clear=True,
+        ):
+            http_request(host_only, "/my/endpoint", "GET")
+            mock_get_http_response_with_retries.assert_called_with(
+                mock.ANY,
+                mock.ANY,
+                8,
+                3,
+                mock.ANY,
+                headers=mock.ANY,
+                verify=mock.ANY,
+                timeout=300,
+            )
+
+
+def test_http_request_explains_how_to_increase_timeout_in_error_message():
+    with mock.patch("requests.Session.request", side_effect=requests.exceptions.Timeout):
+        with pytest.raises(
+            MlflowException,
+            match=(
+                r"To increase the timeout, set the environment variable "
+                + re.escape(str(MLFLOW_HTTP_REQUEST_TIMEOUT))
+            ),
+        ):
+            http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")

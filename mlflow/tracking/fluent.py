@@ -41,6 +41,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
+from mlflow.utils.annotations import experimental
+
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -494,15 +496,15 @@ def get_run(run_id: str) -> Run:
 
 def log_param(key: str, value: Any) -> None:
     """
-    Log a parameter under the current run. If no run is active, this method will create
-    a new active run.
+    Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
+    this method will create a new active run.
 
     :param key: Parameter name (string). This string may only contain alphanumerics,
                 underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
+                All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some
+                  All backend stores support values up to length 250, but some
                   may support larger values.
 
     .. code-block:: python
@@ -1039,6 +1041,111 @@ def list_experiments(
         )
 
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+
+
+@experimental
+def search_experiments(
+    view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: Optional[int] = None,
+    filter_string: Optional[str] = None,
+    order_by: Optional[List[str]] = None,
+) -> List[Experiment]:
+    """
+    Search for experiments that match the specified search query.
+
+    :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                      defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                        passed, all experiments will be returned.
+    :param filter_string:
+        Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
+        experiments. The following fields, comparators, and logical operators are supported.
+
+        Fields
+          - ``name``: Experiment name.
+          - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+            spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+        Comparators
+          - ``=``: Equal to.
+          - ``!=``: Not equal to.
+          - ``LIKE``: Case-sensitive pattern match.
+          - ``ILIKE``: Case-insensitive sensitive pattern match.
+
+        Logical operators
+          - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+    :param order_by:
+        List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+        ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is equivalent to
+        ``"name ASC"``. The following fields are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
+    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+
+        def assert_experiment_names_equal(experiments, expected_names):
+            actual_names = [e.name for e in experiments if e.name != "Default"]
+            assert actual_names == expected_names, (actual_names, expected_names)
+
+
+        mlflow.set_tracking_uri("sqlite:///:memory:")
+
+        # Create experiments
+        for name, tags in [
+            ("a", None),
+            ("b", None),
+            ("ab", {"k": "v"}),
+            ("bb", {"k": "V"}),
+        ]:
+            mlflow.create_experiment(name, tags=tags)
+
+        # Search for experiments with name "a"
+        experiments = mlflow.search_experiments(filter_string="name = 'a'")
+        assert_experiment_names_equal(experiments, ["a"])
+
+        # Search for experiments with name starting with "a"
+        experiments = mlflow.search_experiments(filter_string="name LIKE 'a%'")
+        assert_experiment_names_equal(experiments, ["ab", "a"])
+
+        # Search for experiments with tag key "k" and value ending with "v" or "V"
+        experiments = mlflow.search_experiments(filter_string="tags.k ILIKE '%v'")
+        assert_experiment_names_equal(experiments, ["bb", "ab"])
+
+        # Search for experiments with name ending with "b" and tag {"k": "v"}
+        experiments = mlflow.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
+        assert_experiment_names_equal(experiments, ["ab"])
+
+        # Sort experiments by name in ascending order
+        experiments = mlflow.search_experiments(order_by=["name"])
+        assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
+
+        # Sort experiments by ID in descending order
+        experiments = mlflow.search_experiments(order_by=["experiment_id DESC"])
+        assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
+    """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_experiments(
+            view_type=view_type,
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return _paginate(
+        pagination_wrapper_func,
+        SEARCH_MAX_RESULTS_DEFAULT,
+        max_results,
+    )
 
 
 def create_experiment(

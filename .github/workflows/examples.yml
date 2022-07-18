@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [ master ]
   schedule:
-    # Run this action daily at 7:00 UTC
-    - cron: "0 7 * * *"
+    # Run this action daily at 13:00 UTC
+    - cron: "0 13 * * *"
   workflow_dispatch:
     inputs:
       repository:

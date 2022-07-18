@@ -8,6 +8,7 @@ from mlflow.protos.service_pb2 import (
     GetRun,
     SearchRuns,
     ListExperiments,
+    SearchExperiments,
     GetMetricHistory,
     LogMetric,
     LogParam,
@@ -78,6 +79,30 @@ class RestStore(AbstractStore):
         experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
         # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
         # returns an empty string (default value for a string proto field).
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
+
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        req_body = message_to_json(
+            SearchExperiments(
+                view_type=view_type,
+                max_results=max_results,
+                page_token=page_token,
+                order_by=order_by,
+                filter=filter_string,
+            )
+        )
+        response_proto = self._call_endpoint(SearchExperiments, req_body)
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
         token = (
             response_proto.next_page_token if response_proto.HasField("next_page_token") else None
         )

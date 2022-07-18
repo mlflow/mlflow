@@ -1,5 +1,6 @@
 import base64
 import json
+
 import requests
 import urllib3
 from contextlib import contextmanager
@@ -9,12 +10,17 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from requests.exceptions import HTTPError
 
-from mlflow import __version__
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import get_error_code, MlflowException, RestException
+
+from mlflow.environment_variables import (
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
+    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
+)
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
@@ -95,10 +101,10 @@ def http_request(
     host_creds,
     endpoint,
     method,
-    max_retries=5,
-    backoff_factor=2,
+    max_retries=None,
+    backoff_factor=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=120,
+    timeout=None,
     **kwargs,
 ):
     """
@@ -122,6 +128,9 @@ def http_request(
 
     :return: requests.Response object.
     """
+    max_retries = max_retries or MLFLOW_HTTP_REQUEST_MAX_RETRIES.get()
+    backoff_factor = backoff_factor or MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get()
+    timeout = timeout or MLFLOW_HTTP_REQUEST_TIMEOUT.get()
     hostname = host_creds.host
     auth_str = None
     if host_creds.username and host_creds.password:
@@ -158,6 +167,12 @@ def http_request(
             verify=verify,
             timeout=timeout,
             **kwargs,
+        )
+    except requests.exceptions.Timeout as to:
+        raise MlflowException(
+            f"API request to {url} failed with timeout exception {to}."
+            f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
+            " to a larger value."
         )
     except Exception as e:
         raise MlflowException("API request to %s failed with exception %s" % (url, e))

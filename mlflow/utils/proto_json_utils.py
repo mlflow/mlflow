@@ -220,7 +220,6 @@ def _dataframe_from_json(
                 dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-
         df = pd.read_json(
             path_or_str,
             orient=pandas_orient,
@@ -356,3 +355,14 @@ def parse_tf_serving_input(inp_dict, schema=None):
             )
 
     return data
+
+
+# Reference: https://stackoverflow.com/a/12126976
+class _DateTimeEncoder(json.JSONEncoder):
+    def default(self, o):
+        import pandas as pd
+
+        if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
+            return o.isoformat()
+
+        return super().default(o)

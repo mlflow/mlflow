@@ -23,12 +23,18 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    RESOURCE_DOES_NOT_EXIST,
+    INVALID_PARAMETER_VALUE,
+)
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_param_name,
@@ -61,6 +67,7 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     path_to_local_file_uri,
 )
+from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -244,9 +251,6 @@ class FileStore(AbstractStore):
                  :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
                  for the next page can be obtained via the ``token`` attribute of the object.
         """
-        from mlflow.utils.search_utils import SearchUtils
-        from mlflow.store.entities.paged_list import PagedList
-
         _validate_list_experiments_max_results(max_results)
         self._check_root_dir()
         rsl = []
@@ -277,6 +281,51 @@ class FileStore(AbstractStore):
             return PagedList(experiments, next_page_token)
         else:
             return PagedList(experiments, None)
+
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+
+        if not isinstance(max_results, int) or max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                f"Invalid value for max_results. It must be at most {SEARCH_MAX_RESULTS_THRESHOLD},"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        self._check_root_dir()
+        experiment_ids = []
+        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+            experiment_ids += self._get_active_experiments(full_path=False)
+        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+            experiment_ids += self._get_deleted_experiments(full_path=False)
+
+        experiments = []
+        for exp_id in experiment_ids:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                experiments.append(self._get_experiment(exp_id, view_type))
+            except MissingConfigException as e:
+                logging.warning(
+                    f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
+                )
+        filtered = SearchExperimentsUtils.filter(experiments, filter_string)
+        sorted_experiments = SearchExperimentsUtils.sort(filtered, order_by)
+        experiments, next_page_token = SearchUtils.paginate(
+            sorted_experiments, page_token, max_results
+        )
+        return PagedList(experiments, next_page_token)
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
@@ -749,8 +798,6 @@ class FileStore(AbstractStore):
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
-        from mlflow.utils.search_utils import SearchUtils
-
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
