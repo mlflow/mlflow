@@ -49,11 +49,13 @@ def test_register_step_run(
     tmp_pipeline_exec_path: Path,
     mae_threshold: int,
     register_flag: str,
+    registry_uri_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
         tmp_pipeline_exec_path
     )
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    registry_uri = registry_uri_path
     pipeline_yaml.write_text(
         """
 template: "regression/v1"
@@ -71,6 +73,7 @@ steps:
         threshold: 1_000_000
   register:
     model_name: "demo_model"
+    registry_uri: {registry_uri}
     {allow_non_validated_model}
 metrics:
   custom:
@@ -81,6 +84,7 @@ metrics:
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
             allow_non_validated_model=register_flag,
+            registry_uri=registry_uri,
         )
     )
     pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
