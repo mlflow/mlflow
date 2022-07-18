@@ -36,6 +36,7 @@ class RegisterStep(BaseStep):
             )
         self.register_model_name = self.step_config["model_name"]
         self.allow_non_validated_model = self.step_config.get("allow_non_validated_model", False)
+        self.registry_uri = self.step_config.get("registry_uri", None)
 
     def _run(self, output_directory):
         apply_pipeline_tracking_config(self.tracking_config)
@@ -60,6 +61,8 @@ class RegisterStep(BaseStep):
             self.model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=run_id, artifact_path=artifact_path
             )
+            if self.registry_uri:
+                mlflow.set_registry_uri(self.registry_uri)
             self.model_details = mlflow.register_model(
                 model_uri=self.model_uri,
                 name=self.register_model_name,

@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import pytest
+import shutil
+import os
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.evaluate import EvaluateStep
 from mlflow.pipelines.steps.register import RegisterStep
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -16,6 +19,20 @@ from tests.pipelines.helper_functions import (
     tmp_pipeline_root_path,
 )  # pylint: enable=unused-import
 
+
+@pytest.fixture
+def registry_uri_path(tmp_path) -> Path:
+    previousRegistryUri = ""
+    try:
+        previousRegistryUri = mlflow.get_registry_uri()
+        path = tmp_path.joinpath("registry.db")
+        db_url = "sqlite:///%s" % path
+        SqlAlchemyStore(db_url, "register_model")
+        yield db_url
+    finally:
+        os.remove(path)
+        shutil.rmtree("register_model")
+        mlflow.set_registry_uri(previousRegistryUri)
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 @pytest.mark.parametrize(
@@ -95,6 +112,8 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         1 if expected_status == "VALIDATED" else 0
     )
+    if expected_status == "VALIDATED":
+        assert tmp_pipeline_root_path == tmp_pipeline_root_path
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
