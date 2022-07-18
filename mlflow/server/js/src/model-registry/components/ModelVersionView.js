@@ -8,17 +8,16 @@ import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Button as AntdButton, Modal, Alert, Descriptions, message } from 'antd';
 import {
   ModelVersionStatus,
-  StageTagComponents,
   ModelVersionStatusIcons,
-  DefaultModelVersionStatusMessages,
-  ACTIVE_STAGES,
+  DefaultModelVersionStatusMessages
 } from '../constants';
+
 import Routers from '../../experiment-tracking/routes';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
-import { getModelVersionTags } from '../reducers';
-import { setModelVersionTagApi, deleteModelVersionTagApi } from '../actions';
+import { getModelVersionTags, getStageComponents } from '../reducers';
+import { setModelVersionTagApi, deleteModelVersionTagApi, listModelStagesApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, injectIntl } from 'react-intl';
@@ -37,6 +36,9 @@ export class ModelVersionViewImpl extends React.Component {
     tags: PropTypes.object.isRequired,
     setModelVersionTagApi: PropTypes.func.isRequired,
     deleteModelVersionTagApi: PropTypes.func.isRequired,
+    listModelStagesApi: PropTypes.func.isRequired,
+    stageTagComponents: PropTypes.object,
+    modelStageNames: PropTypes.arrayOf(PropTypes.string),
     intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
@@ -50,6 +52,7 @@ export class ModelVersionViewImpl extends React.Component {
   formRef = React.createRef();
 
   componentDidMount() {
+    this.props.listModelStagesApi();
     const pageTitle = `${this.props.modelName} v${this.props.modelVersion.version} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
@@ -185,9 +188,11 @@ export class ModelVersionViewImpl extends React.Component {
             currentStage={modelVersion.current_stage}
             permissionLevel={modelVersion.permission_level}
             onSelect={handleStageTransitionDropdownSelect}
+            stageTagComponents={this.props.stageTagComponents}
+            modelStageNames={this.props.modelStageNames}
           />
         ) : (
-          StageTagComponents[modelVersion.current_stage]
+          this.props.stageTagComponents[modelVersion.current_stage]
         )}
       </Descriptions.Item>
     );
@@ -347,7 +352,7 @@ export class ModelVersionViewImpl extends React.Component {
           />
         ),
         onClick: this.showDeleteModal,
-        disabled: ACTIVE_STAGES.includes(this.props.modelVersion.current_stage),
+        disabled: this.props.modelStageNames.includes(this.props.modelVersion.current_stage),
       },
     ];
     return (
@@ -495,9 +500,10 @@ const mapStateToProps = (state, ownProps) => {
   const { modelName } = ownProps;
   const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
-  return { tags };
+  const stages = getStageComponents(state)
+  return { tags, ...stages };
 };
-const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
+const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi, listModelStagesApi };
 
 export const ModelVersionView = connect(
   mapStateToProps,

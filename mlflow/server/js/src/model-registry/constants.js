@@ -1,32 +1,7 @@
 import React from 'react';
-import { Tag } from '@databricks/design-system';
 // eslint-disable-next-line
-import * as overrides from './constant-overrides'; // eslint-disable-line import/no-namespace
 import { FormattedMessage } from 'react-intl';
 import { ReadyIcon } from './utils';
-
-export const Stages = {
-  NONE: 'None',
-  STAGING: 'Staging',
-  PRODUCTION: 'Production',
-  ARCHIVED: 'Archived',
-};
-
-export const ACTIVE_STAGES = [Stages.STAGING, Stages.PRODUCTION];
-
-export const StageLabels = {
-  [Stages.NONE]: 'None',
-  [Stages.STAGING]: 'Staging',
-  [Stages.PRODUCTION]: 'Production',
-  [Stages.ARCHIVED]: 'Archived',
-};
-
-export const StageTagComponents = {
-  [Stages.NONE]: <Tag>{StageLabels[Stages.NONE]}</Tag>,
-  [Stages.STAGING]: <Tag color='lemon'>{StageLabels[Stages.STAGING]}</Tag>,
-  [Stages.PRODUCTION]: <Tag color='lime'>{StageLabels[Stages.PRODUCTION]}</Tag>,
-  [Stages.ARCHIVED]: <Tag color='charcoal'>{StageLabels[Stages.ARCHIVED]}</Tag>,
-};
 
 export const ActivityTypes = {
   APPLIED_TRANSITION: 'APPLIED_TRANSITION',

@@ -28,7 +28,7 @@ Model Version
     Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
 
 Model Stage
-    Each distinct model version can be assigned one stage at any given time. MLflow provides predefined stages for common use-cases such as *Staging*, *Production* or *Archived*. You can transition a model version from one stage to another stage.
+    Each distinct model version can be assigned one stage at any given time. Model stages can be configured using the MLflow config file. By default, available stages are *Staging* and *Production*, as well es *Archived* and *None*. You can transition a model version from one stage to another stage.
 
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.

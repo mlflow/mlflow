@@ -1,0 +1,12 @@
+{
+  "model_stages": [
+      {
+        "name":  "Staging",
+        "color": "lemon"
+      },
+      {
+        "name":  "Production",
+        "color": "lime"
+      }
+    ]
+}

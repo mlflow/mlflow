@@ -9,11 +9,10 @@ import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import {
   ModelVersionStatus,
-  Stages,
   MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
 } from '../../model-registry/constants';
 import Utils from '../../common/utils/Utils';
-import { mockModelVersionDetailed } from '../../model-registry/test-utils';
+import { mockModelVersionDetailed, Stages } from '../../model-registry/test-utils';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';

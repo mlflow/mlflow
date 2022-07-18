@@ -3,8 +3,8 @@ import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, Stages, stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus } from '../constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionPage, ModelVersionPageImpl } from './ModelVersionPage';
@@ -30,6 +30,7 @@ describe('ModelVersionPage', () => {
           version: '1',
         },
       },
+      listModelStagesApi: jest.fn(() => Promise.resolve()),
       history: {
         push: jest.fn(),
       },
@@ -52,6 +53,10 @@ describe('ModelVersionPage', () => {
               ModelVersionStatus.READY,
             ),
           },
+        },
+        listModelStages: {
+          'stageTagComponents': stageTagComponents(),
+          'modelStageNames': modelStageNames
         },
         activitiesByModelVersion: {},
         transitionRequestsByModelVersion: {},

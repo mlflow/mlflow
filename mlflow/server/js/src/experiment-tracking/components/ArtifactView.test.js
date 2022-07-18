@@ -7,8 +7,8 @@ import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageV
 import ShowArtifactMapView from './artifact-view-components/ShowArtifactMapView';
 import ShowArtifactHtmlView from './artifact-view-components/ShowArtifactHtmlView';
 import { ArtifactNode } from '../utils/ArtifactUtils';
-import { mockModelVersionDetailed } from '../../model-registry/test-utils';
-import { ModelVersionStatus, Stages } from '../../model-registry/constants';
+import { mockModelVersionDetailed, Stages } from '../../model-registry/test-utils';
+import { ModelVersionStatus } from '../../model-registry/constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import configureStore from 'redux-mock-store';

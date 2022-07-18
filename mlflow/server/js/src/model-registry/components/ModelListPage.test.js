@@ -10,6 +10,8 @@ import {
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
   Stages,
 } from '../constants';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed, Stages,  stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus, REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelListPageImpl } from './ModelListPage';
@@ -25,6 +27,10 @@ describe('ModelListPage', () => {
   const loadPageMock = (page, callback, errorCallback, isInitialLoading) => {};
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     const location = {};
 
     pushSpy = jest.fn();
@@ -42,6 +48,7 @@ describe('ModelListPage', () => {
       listEndpointsV2Api: jest.fn(() => Promise.resolve({})),
       getRegistryWidePermissionsApi: jest.fn(() => Promise.resolve({})),
       apis: {},
+      listModelStagesApi: jest.fn(() => Promise.resolve()),
       history,
       location,
     };
@@ -53,6 +60,10 @@ describe('ModelListPage', () => {
       entities: {
         modelByName: {
           [name]: mockRegisteredModelDetailed(name, versions),
+        },
+        listModelStages: {
+          'stageTagComponents': stageTagComponents(),
+          'modelStageNames': modelStageNames
         },
       },
       apis: {},

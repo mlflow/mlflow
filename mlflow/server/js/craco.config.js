@@ -212,6 +212,11 @@ module.exports = function({ env }) {
         },
       },
       configure: (webpackConfig, { env, paths }) => {
+        const scopePluginIndex = webpackConfig.resolve.plugins.findIndex(
+          ({ constructor }) => constructor && constructor.name === 'ModuleScopePlugin'
+        );
+  
+        webpackConfig.resolve.plugins.splice(scopePluginIndex, 1);
         webpackConfig.output.publicPath = 'static-files/';
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = enableOptionalTypescript(webpackConfig);

@@ -1,9 +1,9 @@
 import React from 'react';
 import { DirectTransitionForm } from './DirectTransitionForm';
-import { ACTIVE_STAGES, Stages } from '../constants';
 import { Checkbox } from 'antd';
 import _ from 'lodash';
 import { mountWithIntl } from '../../common/utils/TestUtils';
+import { Stages, stageTagComponents, modelStageNames } from '../test-utils';
 
 describe('DirectTransitionForm', () => {
   let wrapper;
@@ -12,6 +12,8 @@ describe('DirectTransitionForm', () => {
   beforeEach(() => {
     minimalProps = {
       innerRef: React.createRef(),
+      stageTagComponents: stageTagComponents(),
+      availableStages: modelStageNames
     };
   });
 
@@ -21,7 +23,7 @@ describe('DirectTransitionForm', () => {
   });
 
   test('should render checkbox only for active stage', () => {
-    const [activeStages, nonActiveStages] = _.partition(Stages, (s) => ACTIVE_STAGES.includes(s));
+    const [activeStages, nonActiveStages] = _.partition(Stages, (s) => modelStageNames.includes(s));
 
     activeStages.forEach((toStage) => {
       const props = { ...minimalProps, toStage };

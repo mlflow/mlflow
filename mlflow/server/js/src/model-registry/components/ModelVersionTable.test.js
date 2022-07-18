@@ -1,10 +1,11 @@
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
-import { mockModelVersionDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { mockModelVersionDetailed, stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus } from '../constants';
 import { Table } from 'antd';
 import { RegisteringModelDocUrl } from '../../common/constants';
 import { mountWithIntl } from '../../common/utils/TestUtils';
+import { Stages } from '../test-utils';
 import { BrowserRouter } from 'react-router-dom';
 
 describe('ModelVersionTable', () => {
@@ -16,6 +17,8 @@ describe('ModelVersionTable', () => {
       modelName: 'Model A',
       modelVersions: [],
       onChange: jest.fn(),
+      stageTagComponents: stageTagComponents(),
+      allStagesAvailable: modelStageNames
     };
   });
 

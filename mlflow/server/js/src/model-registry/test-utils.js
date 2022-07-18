@@ -1,3 +1,5 @@
+import { createTag } from './reducers';
+
 export const mockRegisteredModelDetailed = (name, latestVersions = [], tags = []) => {
   return {
     creation_timestamp: 1571344731467,
@@ -7,6 +9,34 @@ export const mockRegisteredModelDetailed = (name, latestVersions = [], tags = []
     tags,
   };
 };
+
+export const mockStage = (name, color) => {
+  return {"name": name, "color": color}
+};
+
+export const Stages = {
+    NONE: 'None',
+    ARCHIVED: 'Archived',
+    STAGING: 'Staging',
+    PRODUCTION: 'Production'
+}
+
+export const ACTIVE_STAGES = ["Staging", "Production"]
+
+export const modelStageNames = ["Staging", "Production"]
+
+export const stageTagComponents = (data = [mockStage("Staging", "lemon"), mockStage("Production", "lime")]) => {
+  let customStages = {}
+  for (let i = 0; i < data.length; i++) {
+    customStages[data[i].name] = createTag(data[i])
+  }
+  return  {
+    "None": createTag({"name":'None'}),
+    ...customStages,
+    "Archived": createTag({"name": 'Archived'})
+    };
+};
+
 
 export const mockModelVersionDetailed = (
   name,
