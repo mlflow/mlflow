@@ -258,13 +258,14 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   key <- cast_string(key)
-  value <- cast_string(value)
+  value <- cast_string(value, allow_na = TRUE)
+  value <- ifelse(is.na(value), "NA", value)
 
   data <- list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
-    value = cast_string(value)
+    value = value
   )
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = data)
   mlflow_register_tracking_event("log_param", data)
