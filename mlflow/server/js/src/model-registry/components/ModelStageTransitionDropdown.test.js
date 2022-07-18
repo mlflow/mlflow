@@ -1,7 +1,6 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Stages } from '../constants';
 import { Dropdown } from 'antd';
 import { mockGetFieldValue, stageTagComponents, modelStageNames } from '../test-utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
