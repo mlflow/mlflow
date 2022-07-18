@@ -10,7 +10,7 @@ import os
 
 
 import mlflow
-from mlflow import MlflowClient
+from mlflow.tracking import MlflowClient
 from mlflow.utils import mlflow_tags
 from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint

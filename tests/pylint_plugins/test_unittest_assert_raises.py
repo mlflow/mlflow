@@ -20,7 +20,9 @@ def test_case():
 
 def test_unittest_assert_raises(test_case):
     node = extract_node("self.assertRaises(Exception)")
-    with test_case.assertAddsMessages(create_message(test_case.CHECKER_CLASS.name, node)):
+    with test_case.assertAddsMessages(
+        create_message(test_case.CHECKER_CLASS.name, node, line=1, col_offset=0)
+    ):
         test_case.walk(node)
 
     node = extract_node("self.assertRaisesRegex(Exception, 'error message')")

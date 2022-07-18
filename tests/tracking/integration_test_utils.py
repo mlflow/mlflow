@@ -53,7 +53,7 @@ def _await_server_down_or_die(process, timeout=60):
         raise Exception("Server failed to shutdown after %s seconds" % timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri):
+def _init_server(backend_uri, root_artifact_uri, additional_env_variables = dict()):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -67,6 +67,7 @@ def _init_server(backend_uri, root_artifact_uri):
         ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
             tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))
         ),
+        **additional_env_variables
     }
     with mock.patch.dict(os.environ, env):
         cmd = [

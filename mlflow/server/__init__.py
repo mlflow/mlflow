@@ -22,6 +22,7 @@ ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
+MLFLOW_CONFIG_PATH = "_MLFLOW_CONFIG_PATH"
 
 REL_STATIC_DIR = "js/build"
 
@@ -118,6 +119,7 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
+    mlflow_config=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -142,6 +144,9 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
+    if mlflow_config:
+        env_map[MLFLOW_CONFIG_PATH] = mlflow_config
+    
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
         full_command = _build_waitress_command(waitress_opts, host, port)

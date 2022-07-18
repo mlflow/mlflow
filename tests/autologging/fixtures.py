@@ -37,8 +37,8 @@ def patch_destination():
 
 @pytest.fixture
 def test_mode_off():
+    prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
     try:
-        prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
         os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "false"
         assert not is_testing()
         yield
@@ -50,8 +50,8 @@ def test_mode_off():
 
 
 def enable_test_mode():
+    prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
     try:
-        prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
         os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
         assert is_testing()
         yield

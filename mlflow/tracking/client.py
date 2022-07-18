@@ -28,6 +28,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -73,6 +74,10 @@ class MlflowClient:
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
+
+    @property
+    def tracking_uri(self):
+        return self._tracking_client.tracking_uri
 
     def _get_registry_client(self):
         """
@@ -396,6 +401,109 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
+    @experimental
+    def search_experiments(
+        self,
+        view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: Optional[int] = SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string: Optional[str] = None,
+        order_by: Optional[List[str]] = None,
+        page_token=None,
+    ) -> PagedList[Experiment]:
+        """
+        Search for experiments that match the specified search query.
+
+        :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                          defined in :py:class:`mlflow.entities.ViewType`.
+        :param max_results: Maximum number of experiments desired. Certain server backend may apply
+                            its own limit.
+        :param filter_string:
+            Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
+            experiments. The following fields, comparators, and logical operators are supported.
+
+            Fields
+              - ``name``: Experiment name.
+              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive sensitive pattern match.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+        :param order_by:
+            List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
+            equivalent to ``"name ASC"``. The following fields are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a ``search_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+
+
+            def assert_experiment_names_equal(experiments, expected_names):
+                actual_names = [e.name for e in experiments if e.name != "Default"]
+                assert actual_names == expected_names, (actual_names, expected_names)
+
+
+            mlflow.set_tracking_uri("sqlite:///:memory:")
+            client = mlflow.MlflowClient()
+
+            # Create experiments
+            for name, tags in [
+                ("a", None),
+                ("b", None),
+                ("ab", {"k": "v"}),
+                ("bb", {"k": "V"}),
+            ]:
+                client.create_experiment(name, tags=tags)
+
+            # Search for experiments with name "a"
+            experiments = client.search_experiments(filter_string="name = 'a'")
+            assert_experiment_names_equal(experiments, ["a"])
+
+            # Search for experiments with name starting with "a"
+            experiments = client.search_experiments(filter_string="name LIKE 'a%'")
+            assert_experiment_names_equal(experiments, ["ab", "a"])
+
+            # Search for experiments with tag key "k" and value ending with "v" or "V"
+            experiments = client.search_experiments(filter_string="tags.k ILIKE '%v'")
+            assert_experiment_names_equal(experiments, ["bb", "ab"])
+
+            # Search for experiments with name ending with "b" and tag {"k": "v"}
+            experiments = client.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
+            assert_experiment_names_equal(experiments, ["ab"])
+
+            # Sort experiments by name in ascending order
+            experiments = client.search_experiments(order_by=["name"])
+            assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
+
+            # Sort experiments by ID in descending order
+            experiments = client.search_experiments(order_by=["experiment_id DESC"])
+            assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
+        """
+        return self._tracking_client.search_experiments(
+            view_type=view_type,
+            max_results=max_results,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
     def get_experiment(self, experiment_id: str) -> Experiment:
         """
         Retrieve an experiment by experiment_id from the backend store
@@ -691,15 +799,15 @@ class MlflowClient:
 
     def log_param(self, run_id: str, key: str, value: Any) -> None:
         """
-        Log a parameter against the run ID.
+        Log a parameter (e.g. model hyperparameter) against the run ID.
 
         :param run_id: The run id to which the param should be logged.
         :param key: Parameter name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
+                    All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some
+                      All backend stores support values up to length 250, but some
                       may support larger values.
 
         .. code-block:: python

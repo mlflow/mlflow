@@ -1,7 +1,7 @@
 import React from 'react';
 import { ModelVersionView, ModelVersionViewImpl } from './ModelVersionView';
-import { mockModelVersionDetailed } from '../test-utils';
-import { Stages, ModelVersionStatus, ACTIVE_STAGES } from '../constants';
+import { mockModelVersionDetailed, Stages, ACTIVE_STAGES, stageTagComponents, modelStageNames } from '../test-utils';
+import { ModelVersionStatus } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import configureStore from 'redux-mock-store';
@@ -21,6 +21,10 @@ describe('ModelVersionView', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       modelName: 'Model A',
       modelVersion: mockModelVersionDetailed(
@@ -32,14 +36,15 @@ describe('ModelVersionView', () => {
       handleStageTransitionDropdownSelect: jest.fn(),
       deleteModelVersionApi: jest.fn(() => Promise.resolve()),
       handleEditDescription: jest.fn(() => Promise.resolve()),
-      setModelVersionTagApi: jest.fn(),
-      deleteModelVersionTagApi: jest.fn(),
+      listModelStagesApi: jest.fn(),
       history: { push: jest.fn() },
       tags: {},
       schema: {
         inputs: [],
         outputs: [],
       },
+      stageTagComponents: stageTagComponents(),
+      modelStageNames: modelStageNames,
     };
     minimalStoreRaw = {
       entities: {
@@ -53,6 +58,10 @@ describe('ModelVersionView', () => {
             },
           },
         },
+        listModelStages: {
+          'stageTagComponents': stageTagComponents(),
+          'modelStageNames': modelStageNames
+        }
       },
       apis: {},
     };

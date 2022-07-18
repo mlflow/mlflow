@@ -11,7 +11,7 @@ import {
   REGISTERED_MODELS_PER_PAGE,
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
 } from '../constants';
-import { searchRegisteredModelsApi } from '../actions';
+import { searchRegisteredModelsApi, listModelStagesApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 
 export class ModelListPageImpl extends React.Component {
@@ -30,6 +30,9 @@ export class ModelListPageImpl extends React.Component {
   static propTypes = {
     models: PropTypes.arrayOf(PropTypes.object),
     searchRegisteredModelsApi: PropTypes.func.isRequired,
+    listModelStagesApi: PropTypes.func.isRequired,
+    stageTagComponents: PropTypes.object,
+    modelStageNames: PropTypes.array,
     // react-router props
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
@@ -45,6 +48,7 @@ export class ModelListPageImpl extends React.Component {
   }
 
   componentDidMount() {
+    this.props.listModelStagesApi();
     const urlState = this.getUrlState();
     const persistedPageTokens = this.getPersistedPageTokens();
     const maxResultsForTokens = this.getPersistedMaxResults();
@@ -274,15 +278,9 @@ export class ModelListPageImpl extends React.Component {
   }
 
   render() {
-    const {
-      orderByKey,
-      orderByAsc,
-      currentPage,
-      pageTokens,
-      searchInput,
-      // eslint-disable-nextline
-    } = this.state;
-    const { models } = this.props;
+    const { orderByKey, orderByAsc, currentPage, pageTokens } = this.state;
+    const { models, stageTagComponents, modelStageNames } = this.props;
+    const urlState = this.getUrlState();
     return (
       <RequestStateWrapper
         requestIds={[this.criticalInitialRequestIds]}
@@ -304,6 +302,8 @@ export class ModelListPageImpl extends React.Component {
           onClickSortableColumn={this.handleClickSortableColumn}
           onSetMaxResult={this.handleMaxResultsChange}
           getMaxResultValue={this.getMaxResultsSelection}
+          stageTagComponents={stageTagComponents}
+          modelStageNames={modelStageNames}
         />
       </RequestStateWrapper>
     );
@@ -312,13 +312,17 @@ export class ModelListPageImpl extends React.Component {
 
 const mapStateToProps = (state) => {
   const models = Object.values(state.entities.modelByName);
+
+  const stageTagComponents = state.entities.listModelStages["stageTagComponents"] || {}
+  const modelStageNames = state.entities.listModelStages["modelStageNames"] || []
   return {
-    models,
+    models, stageTagComponents, modelStageNames
   };
 };
 
 const mapDispatchToProps = {
   searchRegisteredModelsApi,
+  listModelStagesApi,
 };
 
 export const ModelListPage = connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl);
