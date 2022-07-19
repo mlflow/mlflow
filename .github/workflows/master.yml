@@ -1,11 +1,8 @@
 name: MLflow tests
 
 on:
-  push:
-    branches:
-      - master
-      - branch-[0-9]+.[0-9]+
   pull_request:
+  push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
@@ -26,7 +23,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.run_number || github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
