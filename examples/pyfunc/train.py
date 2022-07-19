@@ -5,7 +5,6 @@ from sklearn.linear_model import LogisticRegression
 from custom_code import iris_classes
 
 import mlflow
-import mlflow.sklearn
 
 
 class CustomPredict(mlflow.pyfunc.PythonModel):
