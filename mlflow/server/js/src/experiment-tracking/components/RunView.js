@@ -253,16 +253,14 @@ export class RunViewImpl extends Component {
 
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
-          {
-            <Descriptions.Item
-              label={this.props.intl.formatMessage({
-                defaultMessage: 'Run ID',
-                description: 'Label for displaying the ID of the experiment run',
-              })}
-            >
-              {runUuid}
-            </Descriptions.Item>
-          }
+          <Descriptions.Item
+            label={this.props.intl.formatMessage({
+              defaultMessage: 'Run ID',
+              description: 'Label for displaying the ID of the experiment run',
+            })}
+          >
+            {runUuid}
+          </Descriptions.Item>
           <Descriptions.Item
             label={this.props.intl.formatMessage({
               defaultMessage: 'Date',
@@ -608,7 +606,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath, plotTitle) => {
         name: (
           <Link to={getMetricPagePath(key)} title={plotTitle}>
             {key}
-            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+            <i className='fas fa-line-chart' style={{ paddingLeft: '6px' }} />
           </Link>
         ),
         value: <span title={value}>{Utils.formatMetric(value)}</span>,

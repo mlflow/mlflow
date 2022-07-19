@@ -119,7 +119,7 @@ export class ExperimentListView extends Component {
           data-test-id='rename-experiment-button'
         />
         <IconButton
-          icon={<i className='far fa-trash-alt' />}
+          icon={<i className='far fa-trash-o' />}
           onClick={this.handleDeleteExperiment(key, title)}
           // Use a larger margin to avoid overlapping the vertical scrollbar
           style={{ marginRight: 15 }}
