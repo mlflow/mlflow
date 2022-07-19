@@ -738,6 +738,8 @@ def evaluate(
           larger than the configured maximum, these curves are not logged.
 
      - Limitations of evaluation dataset:
+        - If using spark dataframe as evaluation dataset, only the first 10000 rows in the
+          dataframe will be used as evaluation data.
         - For classification tasks, dataset labels are used to infer the total number of classes.
         - For binary classification tasks, the negative label value must be 0 or -1 or False, and
           the positive label value must be 1 or True.
