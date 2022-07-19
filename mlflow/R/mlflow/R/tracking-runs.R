@@ -5,9 +5,9 @@ NULL
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)
-  } else if (value == Inf) {
+  } else if (is.infinite(value) & value > 0) {
     "Infinity"
-  } else if (value == -Inf) {
+  } else if (is.infinite(value) & value < 0) {
     "-Infinity"
   } else {
     as.character(value)
