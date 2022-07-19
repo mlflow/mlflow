@@ -1,5 +1,4 @@
 const path = require('path');
-const util = require('util');
 
 module.exports = {
   stories: ['../src/**/*.stories.@(js|jsx|ts|tsx)'],
@@ -21,16 +20,14 @@ module.exports = {
     );
     if (ForkTsCheckerPlugin) {
       ForkTsCheckerPlugin.options.typescript.configOverwrite.include = [
-        path.resolve(__dirname, '../src/**/*'),
-      ];
-      ForkTsCheckerPlugin.options.typescript.configOverwrite.exclude = [
-        path.resolve(__dirname, '../src/**/*.test.tsx'),
-        path.resolve(__dirname, '../src/**/*.test.ts'),
+        path.resolve(__dirname, '../src/**/*.d.ts'),
+        path.resolve(__dirname, '../src/**/*.stories.tsx'),
       ];
     }
 
     /**
-     * @emotion/react support.
+     * Adding @emotion/react and formatjs support here.
+     *
      * We're pushing additional babel-loader rule to the end of
      * the processing chain instead of messing up with existing
      * entry due to importance of the loader precedence.
@@ -42,6 +39,15 @@ module.exports = {
       loader: require.resolve('babel-loader'),
       options: {
         presets: [require.resolve('@emotion/babel-preset-css-prop')],
+        plugins: [
+          ['react-require'],
+          [
+            require.resolve('babel-plugin-formatjs'),
+            {
+              idInterpolationPattern: '[sha512:contenthash:base64:6]',
+            },
+          ],
+        ],
         overrides: [
           {
             test: /\.tsx?$/,

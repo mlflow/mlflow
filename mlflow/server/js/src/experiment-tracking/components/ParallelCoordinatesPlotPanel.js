@@ -11,8 +11,6 @@ import {
 import _ from 'lodash';
 import { Empty } from 'antd';
 
-import './ParallelCoordinatesPlotPanel.css';
-
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -52,7 +50,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     const { runUuids, allParamKeys, allMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
-      <div className='parallel-coordinates-plot-panel'>
+      <div css={styles.wrapper}>
         <ParallelCoordinatesPlotControls
           paramKeys={allParamKeys}
           metricKeys={allMetricKeys}
@@ -62,15 +60,17 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
           handleParamsSelectChange={this.handleParamsSelectChange}
           onClearAllSelect={this.onClearAllSelect}
         />
-        {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
-          <ParallelCoordinatesPlotView
-            runUuids={runUuids}
-            paramKeys={selectedParamKeys}
-            metricKeys={selectedMetricKeys}
-          />
-        ) : (
-          <Empty style={{ width: '100%', height: '100%' }} />
-        )}
+        <div css={styles.plotArea}>
+          {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
+            <ParallelCoordinatesPlotView
+              runUuids={runUuids}
+              paramKeys={selectedParamKeys}
+              metricKeys={selectedMetricKeys}
+            />
+          ) : (
+            <Empty style={{ width: '100%', height: '100%' }} />
+          )}
+        </div>
       </div>
     );
   }
@@ -102,6 +102,11 @@ const mapStateToProps = (state, ownProps) => {
     sharedMetricKeys,
     diffParamKeys,
   };
+};
+
+const styles = {
+  wrapper: { display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 3fr' },
+  plotArea: { minHeight: 450, overflow: 'hidden' },
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);

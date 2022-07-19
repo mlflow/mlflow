@@ -36,7 +36,7 @@ export class RunLinksPopover extends React.Component {
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
-                <i className='fas fa-external-link-alt' style={{ marginRight: 5 }} />
+                <i className='fas fa-external-link-o' style={{ marginRight: 5 }} />
                 {`${name}, ${Utils.formatMetric(y)}`}
               </p>
             </Link>
