@@ -1,4 +1,3 @@
-name: pyfunc_model
 channels:
   - conda-forge
 dependencies:

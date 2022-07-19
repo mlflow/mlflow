@@ -1,6 +1,6 @@
 # Pyfunc model examples
 
-This examples demonstrates the use of a pyfunc model with custom inference logic.
+This example demonstrates the use of a pyfunc model with custom inference logic.
 More specifically:
  - train a simple regression model
  - create a *pyfunc* model that encapsulates the regression model with an attached module for custom inference logic
@@ -18,22 +18,22 @@ to act as a custom inference logic layer in inference time.
 
 # Steps to reproduce
 
-1. Start an mlflow server
+1. Set MLFLOW_TRACKING_URI
 ```
-(terminal1) $ mlflow server  --default-artifact-root mlruns
+$ export MLFLOW_TRACKING_URI=mlruns
 ```
 
 2. Train and log the model
 ```
-(terminal2) $ python train.py
+$ python train.py
 ```
 
 3. Serve pyfunc model
 ```
-(terminal3) $ mlflow models serve -m "runs:/<pyfunc_runid>/model" -p 5001 --no-conda
+$ mlflow models serve -m "runs:/<pyfunc_runid>/model" -p 5001
 ```
 
 4. Send a request 
 ```
-(terminal2) $ curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1,1,1,1]]'
+$ curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1,1,1,1]]'
 ```
