@@ -92,12 +92,9 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert model_validation_status_path.exists()
     expected_status = "REJECTED" if mae_threshold < 0 else "VALIDATED"
     assert model_validation_status_path.read_text() == expected_status
-    registered_models = mlflow.tracking.MlflowClient().list_registered_models()
-    assert len(registered_models) == (1 if expected_status == "VALIDATED" else 0)
-    if expected_status == "VALIDATED":
-        latest_tag = registered_models[0].latest_versions[0].tags
-        assert latest_tag["mlflow.source.type"] == "PIPELINE"
-        assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
+    assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
+        1 if expected_status == "VALIDATED" else 0
+    )
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
@@ -139,3 +136,64 @@ steps:
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         0 if register_flag == "" else 1
     )
+
+
+def test_usage_tracking_correctly_added(
+    tmp_pipeline_root_path: Path,
+    tmp_pipeline_exec_path: Path,
+):
+    evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
+        tmp_pipeline_exec_path
+    )
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    pipeline_yaml.write_text(
+        """
+template: "regression/v1"
+target_col: "y"
+experiment:
+  tracking_uri: {tracking_uri}
+steps:
+  evaluate:
+    validation_criteria:
+      - metric: root_mean_squared_error
+        threshold: 1_000_000
+      - metric: mean_absolute_error
+        threshold: 1_000_000
+      - metric: weighted_mean_squared_error
+        threshold: 1_000_000
+  register:
+    model_name: "demo_model"
+metrics:
+  custom:
+    - name: weighted_mean_squared_error
+      function: weighted_mean_squared_error
+      greater_is_better: False
+""".format(
+            tracking_uri=mlflow.get_tracking_uri(),
+        )
+    )
+    pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
+    pipeline_steps_dir.mkdir(parents=True)
+    pipeline_steps_dir.joinpath("custom_metrics.py").write_text(
+        """
+def weighted_mean_squared_error(eval_df, builtin_metrics):
+    from sklearn.metrics import mean_squared_error
+
+    return {
+        "weighted_mean_squared_error": mean_squared_error(
+            eval_df["prediction"],
+            eval_df["target"],
+            sample_weight=1 / eval_df["prediction"].values,
+        )
+    }
+"""
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step._run(str(evaluate_step_output_dir))
+    register_step = RegisterStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    register_step._run(str(register_step_output_dir))
+    registered_models = mlflow.tracking.MlflowClient().list_registered_models()
+    latest_tag = registered_models[0].latest_versions[0].tags
+    assert latest_tag["mlflow.source.type"] == "PIPELINE"
+    assert latest_tag["mlflow.pipeline.template.name"] == "regression/v1"
