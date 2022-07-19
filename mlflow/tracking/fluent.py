@@ -263,8 +263,7 @@ def start_run(
         child run:
         run_id : 7d175204675e40328e46d9a6a5a7ee6a
         --
-        Child runs of parent run_id: 8979459433a24a52ab3be87a229a9cdf
-        --
+        child runs:
                                      run_id params.child tags.mlflow.runName
         0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
