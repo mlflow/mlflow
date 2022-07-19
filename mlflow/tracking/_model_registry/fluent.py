@@ -12,6 +12,7 @@ def register_model(
     model_uri,
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    *,
     tags: Optional[Dict[str, Any]] = None,
 ) -> ModelVersion:
     """
