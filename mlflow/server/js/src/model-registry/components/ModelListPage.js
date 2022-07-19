@@ -249,10 +249,10 @@ export class ModelListPageImpl extends React.Component {
     this.updateUrlWithSearchFilter(searchInput, orderByKey, orderByAsc, page);
     this.props
       .searchRegisteredModelsApi(
-        getCombinedSearchFilter(
-          searchInput,
+        getCombinedSearchFilter({
+          query: searchInput,
           // eslint-disable-nextline
-        ),
+        }),
         this.state.maxResultsSelection,
         ModelListPageImpl.getOrderByExpr(orderByKey, orderByAsc),
         pageTokens[page],

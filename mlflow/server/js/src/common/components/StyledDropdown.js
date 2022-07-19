@@ -15,7 +15,7 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
         trigger={triggers}
         overlay={dropdownOptions}
       >
-        <Button className='StyledDropdown-button' size={buttonSize}>
+        <Button className='StyledDropdown-button' size={buttonSize} css={classNames.button}>
           <div className='StyledDropdown-button-content'>
             <span>{title}</span>{' '}
             <img className='StyledDropdown-chevron' src={expandIcon} alt='Expand' />
@@ -27,6 +27,9 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
 };
 
 const classNames = {
+  button: (theme) => ({
+    fontSize: theme.typography.fontSizeBase,
+  }),
   wrapper: {
     display: 'inline-block',
     '.StyledDropdown-button': {

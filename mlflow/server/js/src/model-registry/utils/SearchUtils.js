@@ -9,17 +9,14 @@ export function getModelNameFilter(query) {
   }
 }
 
-export function getCombinedSearchFilter(
-  query,
+export function getCombinedSearchFilter({
+  query = '',
   // eslint-disable-nextline
-) {
-  let filter = '';
-  if (query.includes('tags.')) {
-    filter = query;
-  } else {
-    filter = getModelNameFilter(query);
-  }
-  return filter;
+} = {}) {
+  const filters = [];
+  const initialFilter = query.includes('tags.') ? query : getModelNameFilter(query);
+  if (initialFilter) filters.push(initialFilter);
+  return filters.join(' AND ');
 }
 
 export function constructSearchInputFromURLState(urlState) {

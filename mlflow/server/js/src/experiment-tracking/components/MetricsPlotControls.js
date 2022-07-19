@@ -1,7 +1,8 @@
 import React from 'react';
 import _ from 'lodash';
 import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Radio, Switch, TreeSelect, Tooltip, Progress } from 'antd';
+import { Select, Switch, Tooltip, Radio } from '@databricks/design-system';
+import { Progress } from '../../common/components/Progress';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -58,7 +59,7 @@ export class MetricsPlotControlsImpl extends React.Component {
       numRuns,
       numCompletedRuns,
     } = this.props;
-    const wrapperStyle = chartType === CHART_TYPE_LINE ? styles.linechartControlsWrapper : {};
+
     const lineSmoothnessTooltipText = (
       <FormattedMessage
         // eslint-disable-next-line max-len
@@ -75,14 +76,19 @@ export class MetricsPlotControlsImpl extends React.Component {
       />
     );
     return (
-      <div className='plot-controls' style={wrapperStyle}>
+      <div
+        className='plot-controls'
+        css={[
+          styles.controlsWrapper,
+          chartType === CHART_TYPE_LINE && styles.centeredControlsWrapper,
+        ]}
+      >
         {chartType === CHART_TYPE_LINE ? (
           <div>
             <div className='inline-control'>
               <div className='control-label'>
                 <FormattedMessage
                   defaultMessage='Completed Runs'
-                  // eslint-disable-next-line max-len
                   description='Label for the progress bar to show the number of completed runs'
                 />{' '}
                 <Tooltip title={completedRunsTooltipText}>
@@ -91,7 +97,6 @@ export class MetricsPlotControlsImpl extends React.Component {
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
                   format={() => `${numCompletedRuns}/${numRuns}`}
-                  status='normal'
                 />
               </div>
             </div>
@@ -104,15 +109,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                 />
               </div>
               <Switch
-                className='show-point-toggle'
-                checkedChildren={this.props.intl.formatMessage({
-                  defaultMessage: 'On',
-                  description: 'Toggle on option to toggle show points for metric experiment run',
-                })}
-                unCheckedChildren={this.props.intl.formatMessage({
-                  defaultMessage: 'Off',
-                  description: 'Toggle off option to toggle show points for metric experiment run',
-                })}
+                data-testid='show-point-toggle'
                 defaultChecked={showPoint}
                 onChange={this.props.handleShowPointChange}
               />
@@ -128,7 +125,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                 </Tooltip>
               </div>
               <LineSmoothSlider
-                className='smoothness-toggle'
+                data-testid='smoothness-toggle'
                 min={1}
                 max={MAX_LINE_SMOOTHNESS}
                 handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
@@ -143,22 +140,26 @@ export class MetricsPlotControlsImpl extends React.Component {
                   description='Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment'
                 />
               </div>
-              <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
-                <Radio className='x-axis-radio' value={X_AXIS_STEP}>
+              <RadioGroup
+                css={styles.xAxisControls}
+                onChange={this.props.handleXAxisChange}
+                value={this.props.selectedXAxis}
+              >
+                <Radio value={X_AXIS_STEP} data-testid='x-axis-radio'>
                   <FormattedMessage
                     defaultMessage='Step'
                     // eslint-disable-next-line max-len
                     description='Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs'
                   />
                 </Radio>
-                <Radio className='x-axis-radio' value={X_AXIS_WALL}>
+                <Radio value={X_AXIS_WALL} data-testid='x-axis-radio'>
                   <FormattedMessage
                     defaultMessage='Time (Wall)'
                     // eslint-disable-next-line max-len
                     description='Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs'
                   />
                 </Radio>
-                <Radio className='x-axis-radio' value={X_AXIS_RELATIVE}>
+                <Radio value={X_AXIS_RELATIVE} data-testid='x-axis-radio'>
                   <FormattedMessage
                     defaultMessage='Time (Relative)'
                     // eslint-disable-next-line max-len
@@ -177,8 +178,7 @@ export class MetricsPlotControlsImpl extends React.Component {
               description='Label where the users can choose the metric of the experiment run to be plotted on the Y-axis'
             />
           </div>
-          <TreeSelect
-            className='metrics-select'
+          <Select
             placeholder={this.props.intl.formatMessage({
               defaultMessage: 'Please select metric',
               description:
@@ -186,12 +186,16 @@ export class MetricsPlotControlsImpl extends React.Component {
                 'Placeholder text where one can select metrics from the list of available metrics to render on the graph',
             })}
             value={this.props.selectedMetricKeys}
-            showCheckedStrategy={TreeSelect.SHOW_PARENT}
-            treeCheckable
-            treeData={this.getAllMetricKeys()}
             onChange={this.props.handleMetricsSelectChange}
-            filterTreeNode={this.handleMetricsSelectFilterChange}
-          />
+            mode='multiple'
+            css={styles.axisSelector}
+          >
+            {this.getAllMetricKeys().map((key) => (
+              <Select.Option value={key.value} key={key.key}>
+                {key.title}
+              </Select.Option>
+            ))}
+          </Select>
         </div>
         <div className='inline-control'>
           <div className='control-label'>
@@ -201,18 +205,7 @@ export class MetricsPlotControlsImpl extends React.Component {
               description='Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment'
             />
           </div>
-          <Switch
-            checkedChildren={this.props.intl.formatMessage({
-              defaultMessage: 'On',
-              description: 'Toggle on option to toggle log scale graph for metric experiment run',
-            })}
-            unCheckedChildren={this.props.intl.formatMessage({
-              defaultMessage: 'Off',
-              description: 'Toggle off option to toggle log scale graph for metric experiment run',
-            })}
-            defaultChecked={yAxisLogScale}
-            onChange={this.props.handleYAxisLogScaleChange}
-          />
+          <Switch defaultChecked={yAxisLogScale} onChange={this.props.handleYAxisLogScaleChange} />
         </div>
         <div className='inline-control'>
           <Button
@@ -236,7 +229,12 @@ export class MetricsPlotControlsImpl extends React.Component {
 }
 
 const styles = {
-  linechartControlsWrapper: {
+  xAxisControls: (theme) => ({
+    label: { marginTop: theme.spacing.xs, marginBottom: theme.spacing.xs },
+  }),
+  controlsWrapper: { minWidth: 300 },
+  axisSelector: { width: '100%' },
+  centeredControlsWrapper: {
     // Make controls aligned to plotly line chart
     justifyContent: 'center',
   },

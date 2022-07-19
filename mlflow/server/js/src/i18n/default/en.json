@@ -383,10 +383,6 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
-  "FBsWC+": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle show points for metric experiment run"
-  },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
@@ -634,10 +630,6 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
-  },
-  "Te670G": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle log scale graph for metric experiment run"
   },
   "ThrXMh": {
     "defaultMessage": "Inputs",
@@ -971,10 +963,6 @@
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
   },
-  "kU2h2z": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle show points for metric experiment run"
-  },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
@@ -1154,10 +1142,6 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
-  },
-  "tUSlmi": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle log scale graph for metric experiment run"
   },
   "tc9+eK": {
     "defaultMessage": "Register Model",

@@ -1,9 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 import { injectIntl, FormattedMessage } from 'react-intl';
+import { Tooltip, Switch } from 'antd';
+import { Tabs } from '@databricks/design-system';
+
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter } from './CompareRunScatter';
@@ -13,7 +16,6 @@ import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';
-import { Tabs, Tooltip, Switch } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
