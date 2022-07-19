@@ -575,13 +575,13 @@ export default class ExperimentViewUtil {
     if (expanderOpen) {
       return (
         <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid} style={{ padding: 8 }}>
-          <i className='ExperimentView-expander far fa-minus-square' />
+          <i className='ExperimentView-expander far fa-minus-square-o' />
         </CellComponent>
       );
     } else {
       return (
         <CellComponent onClick={onExpandBound} key={'Expander-' + runUuid} style={{ padding: 8 }}>
-          <i className='ExperimentView-expander far fa-plus-square' />
+          <i className='ExperimentView-expander far fa-plus-square-o' />
         </CellComponent>
       );
     }

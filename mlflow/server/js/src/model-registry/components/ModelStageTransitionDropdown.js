@@ -74,7 +74,7 @@ export class ModelStageTransitionDropdown extends React.Component {
                  dropdown menu in model version page'
             />
             &nbsp;&nbsp;&nbsp;&nbsp;
-            <i className='fas fa-long-arrow-alt-right' />
+            <i className='fas fa-long-arrow-right' />
             &nbsp;&nbsp;&nbsp;&nbsp;
             {StageTagComponents[stage]}
           </Menu.Item>
@@ -156,7 +156,7 @@ export const renderActivityDescription = (activity) => {
              version stage transition'
         />
         &nbsp;&nbsp;&nbsp;
-        <i className='fas fa-long-arrow-alt-right' />
+        <i className='fas fa-long-arrow-right' />
         &nbsp;&nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}
       </div>

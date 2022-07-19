@@ -907,7 +907,12 @@ class Utils {
     });
   }
 
-  static logErrorAndNotifyUser(e, passErrorToParentFrame = false) {
+  static logErrorAndNotifyUser(
+    // Prevent formatting after edge block removal
+    // prettier-ignore
+    e,
+    passErrorToParentFrame = false,
+  ) {
     console.error(e);
     if (typeof e === 'string') {
       message.error(e);
@@ -985,15 +990,8 @@ class Utils {
     return true;
   }
 
+  // eslint-disable-next-line prettier/prettier
   static updatePageTitle(title) {
-    window.parent.postMessage(
-      {
-        // Please keep this type name in sync with PostMessage.js
-        type: 'UPDATE_TITLE',
-        title,
-      },
-      window.parent.location.origin,
-    );
   }
 
   /**

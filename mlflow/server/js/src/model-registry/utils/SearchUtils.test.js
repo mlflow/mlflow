@@ -12,15 +12,15 @@ describe('getModelNameFilter', () => {
 
 describe('getCombinedSearchFilter', () => {
   it('should return filter string correctly with plain name strings', () => {
-    expect(getCombinedSearchFilter('xyz')).toBe("name ilike '%xyz%'");
+    expect(getCombinedSearchFilter({ query: 'xyz' })).toBe("name ilike '%xyz%'");
   });
 
   it('should return filter string correctly with MLflow Search Syntax string with tags.', () => {
-    expect(getCombinedSearchFilter("tags.k = 'v'")).toBe("tags.k = 'v'");
+    expect(getCombinedSearchFilter({ query: "tags.k = 'v'" })).toBe("tags.k = 'v'");
   });
 
   it('should return filter string correctly with MLflow Search Syntax string with tags. and name', () => {
-    expect(getCombinedSearchFilter("name ilike '%abc%' AND tags.k = 'v'")).toBe(
+    expect(getCombinedSearchFilter({ query: "name ilike '%abc%' AND tags.k = 'v'" })).toBe(
       "name ilike '%abc%' AND tags.k = 'v'",
     );
   });

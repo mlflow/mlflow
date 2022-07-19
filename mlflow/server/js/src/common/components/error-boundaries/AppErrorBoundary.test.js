@@ -8,7 +8,9 @@ describe('AppErrorBoundary', () => {
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = { children: 'testChild', service: 'mlflow' };
+    minimalProps = {
+      children: 'testChild',
+    };
     wrapper = shallow(<AppErrorBoundary {...minimalProps} />);
     jest.spyOn(console, 'error').mockImplementation(() => {});
   });
