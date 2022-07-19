@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 import shutil
 import os
+import tempfile
 
 import mlflow
 from mlflow.utils.file_utils import read_yaml
@@ -21,11 +22,12 @@ from tests.pipelines.helper_functions import (
 
 
 @pytest.fixture
-def registry_uri_path(tmp_path) -> Path:
+def registry_uri_path() -> Path:
     previousRegistryUri = ""
     try:
+        db_tmpdir = tempfile.mkdtemp()
         previousRegistryUri = mlflow.get_registry_uri()
-        path = tmp_path.joinpath("registry.db")
+        path = os.path.join(db_tmpdir, "registry.db")
         db_url = "sqlite:///%s" % path
         SqlAlchemyStore(db_url, "register_model")
         yield db_url
@@ -33,6 +35,7 @@ def registry_uri_path(tmp_path) -> Path:
         os.remove(path)
         shutil.rmtree("register_model")
         mlflow.set_registry_uri(previousRegistryUri)
+
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 @pytest.mark.parametrize(
@@ -47,15 +50,14 @@ def registry_uri_path(tmp_path) -> Path:
 def test_register_step_run(
     tmp_pipeline_root_path: Path,
     tmp_pipeline_exec_path: Path,
+    registry_uri_path: Path,
     mae_threshold: int,
     register_flag: str,
-    registry_uri_path: Path,
 ):
     evaluate_step_output_dir, register_step_output_dir = setup_model_and_evaluate(
         tmp_pipeline_exec_path
     )
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
-    registry_uri = registry_uri_path
     pipeline_yaml.write_text(
         """
 template: "regression/v1"
@@ -84,7 +86,7 @@ metrics:
             tracking_uri=mlflow.get_tracking_uri(),
             mae_threshold=mae_threshold,
             allow_non_validated_model=register_flag,
-            registry_uri=registry_uri,
+            registry_uri=registry_uri_path,
         )
     )
     pipeline_steps_dir = tmp_pipeline_root_path.joinpath("steps")
@@ -116,8 +118,6 @@ def weighted_mean_squared_error(eval_df, builtin_metrics):
     assert len(mlflow.tracking.MlflowClient().list_registered_models()) == (
         1 if expected_status == "VALIDATED" else 0
     )
-    if expected_status == "VALIDATED":
-        assert tmp_pipeline_root_path == tmp_pipeline_root_path
 
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
