@@ -8,5 +8,5 @@ from tests.pipelines.helper_functions import (
 
 
 def test_always_pass(tmp_pipeline_root_path, tmp_pipeline_exec_path):
-    assert tmp_pipeline_exec_path != tmp_pipeline_exec_path
+    assert tmp_pipeline_root_path != tmp_pipeline_exec_path
     assert True
