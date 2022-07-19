@@ -223,13 +223,13 @@ def start_run(
             run_name="PARENT_RUN",
             experiment_id=experiment_id,
             tags={"version": "v1", "priority": "P1"},
-            description="starting a parent for experiment {}".format(experiment_id),
+            description="parent",
         ) as parent_run:
             mlflow.log_param("parent", "yes")
             with mlflow.start_run(
                 run_name="CHILD_RUN",
                 experiment_id=experiment_id,
-                description="child run of parent run: {}".format(parent_run.info.run_id),
+                description="child",
                 nested=True,
             ) as child_run:
                 mlflow.log_param("child", "yes")
@@ -1212,7 +1212,7 @@ def create_experiment(
         Name: Social NLP Experiments
         Experiment_id: 1
         Artifact Location: file:///.../mlruns
-        Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
+        Tags: {'version': 'v1', 'priority': 'P1'}
         Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
