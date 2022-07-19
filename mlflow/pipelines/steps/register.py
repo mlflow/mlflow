@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 import mlflow
+from mlflow.entities import SourceType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
@@ -15,6 +16,7 @@ from mlflow.pipelines.utils.tracking import (
 )
 from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLATE_NAME
 
 _logger = logging.getLogger(__name__)
 
@@ -54,6 +56,10 @@ class RegisterStep(BaseStep):
         )
         model_validation = Path(model_validation_path).read_text()
         artifact_path = "train/model"
+        tags = {
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
+            MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+        }
         if model_validation == "VALIDATED" or (
             model_validation == "UNKNOWN" and self.allow_non_validated_model
         ):
@@ -63,6 +69,7 @@ class RegisterStep(BaseStep):
             self.model_details = mlflow.register_model(
                 model_uri=self.model_uri,
                 name=self.register_model_name,
+                tags=tags,
                 await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
             )
             self.version = self.model_details.version
@@ -105,6 +112,7 @@ class RegisterStep(BaseStep):
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
         try:
             step_config = pipeline_config["steps"]["register"]
+            step_config["template_name"] = pipeline_config.get("template")
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
