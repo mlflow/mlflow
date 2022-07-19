@@ -52,8 +52,7 @@ beforeEach(() => {
   dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => 0);
   localStorage.clear();
   searchRunsApi = jest.fn(() => Promise.resolve());
-  getExperimentApi = jest.fn(() => Promise.resolve());
-  batchGetExperimentsApi = jest.fn(() => Promise.resolve());
+  getExperimentApi = jest.fn(() => Promise.resolve({ action: { payload: {} } }));
   searchModelVersionsApi = jest.fn(() => Promise.resolve());
   loadMoreRunsApi = jest.fn(() => Promise.resolve());
   searchForNewRuns = jest.fn(() => Promise.resolve());
@@ -1391,28 +1390,33 @@ describe('handleDiffSwitchChange', () => {
   });
 });
 
-describe('sortByPrimaryMetric', () => {
-  test('sortByPrimaryMetric sets state correctly', () => {
-    const wrapper = getExperimentPageMock({
-      experiments: [
-        Fixtures.createExperiment({
-          experiment_id: EXPERIMENT_ID,
-          tags: [
-            {
-              key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
-              value: 'metric1',
-            },
-            {
-              key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
-              value: 'True',
-            },
-          ],
-        }),
+describe('sortRunsByPrimaryMetric', () => {
+  test('sortRunsByPrimaryMetric sets state correctly', () => {
+    const experiment = Fixtures.createExperiment({
+      experiment_id: EXPERIMENT_ID,
+      tags: [
+        {
+          key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+          value: 'metric1',
+        },
+        {
+          key: MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
+          value: 'True',
+        },
       ],
     });
+    const wrapper = getExperimentPageMock({
+      getExperimentApi: () =>
+        Promise.resolve({
+          action: {
+            payload: {
+              experiment,
+            },
+          },
+        }),
+    });
     const instance = wrapper.instance();
-
-    return Promise.resolve(instance.sortByPrimaryMetric()).then(() => {
+    return instance.loadData().then(() => {
       expect(instance.state.persistedState.orderByKey).toEqual('metrics.`metric1`');
       expect(instance.state.persistedState.orderByAsc).toEqual(false);
     });

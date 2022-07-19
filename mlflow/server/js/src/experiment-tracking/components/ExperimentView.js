@@ -7,8 +7,21 @@ import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
 import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
-import { Alert, Badge, Descriptions, Menu, Select, Tooltip, Switch } from 'antd';
-import { Popover, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, Badge, Descriptions, Menu, Tooltip, Switch } from 'antd';
+import {
+  Popover,
+  Typography,
+  useDesignSystemTheme,
+  Select,
+  Button,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  SyncIcon,
+  FilterIcon,
+  TableIcon,
+  ListBorderIcon,
+  DownloadIcon,
+} from '@databricks/design-system';
 
 import './ExperimentView.css';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -36,16 +49,12 @@ import {
   ExperimentTrackingDocUrl,
   onboarding,
 } from '../../common/constants';
-import filterIcon from '../../common/static/filter-icon.svg';
 import { StyledDropdown } from '../../common/components/StyledDropdown';
 import { ExperimentNoteSection, ArtifactLocation } from './ExperimentViewHelpers';
 import { OverflowMenu, PageHeader, HeaderButton } from '../../shared/building_blocks/PageHeader';
 import { FlexBar } from '../../shared/building_blocks/FlexBar';
-import { Button } from '../../shared/building_blocks/Button';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
-import { Radio } from '../../shared/building_blocks/Radio';
-import syncSvg from '../../common/static/sync.svg';
 import { middleTruncateStr } from '../../common/utils/StringUtils';
 import {
   COLUMN_TYPES,
@@ -711,212 +720,226 @@ export class ExperimentView extends Component {
             <FlexBar
               left={
                 <Spacer size='small' direction='horizontal'>
-                  <RefreshBadge count={numberOfNewRuns}>
-                    <Button className='refresh-button' onClick={this.initiateSearch}>
-                      <img alt='' title='Refresh runs' src={syncSvg} height={24} width={24} />
-                      <FormattedMessage
-                        defaultMessage='Refresh'
-                        description='refresh button text to refresh the experiment runs'
-                      />
-                    </Button>
-                  </RefreshBadge>
-                  <Button
-                    className='compare-button'
-                    disabled={Object.keys(this.state.runsSelected).length < 2}
-                    onClick={this.onCompare}
-                  >
-                    <FormattedMessage
-                      defaultMessage='Compare'
-                      // eslint-disable-next-line max-len
-                      description='String for the compare button to compare experiment runs to find an ideal model'
-                    />
-                  </Button>
-                  {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
+                  <div css={styles.controlBar}>
+                    <RefreshBadge count={numberOfNewRuns}>
+                      <Button
+                        onClick={this.initiateSearch}
+                        className='refresh-button'
+                        icon={<SyncIcon />}
+                      >
+                        <FormattedMessage
+                          defaultMessage='Refresh'
+                          description='refresh button text to refresh the experiment runs'
+                        />
+                      </Button>
+                    </RefreshBadge>
                     <Button
-                      className='delete-restore-button'
-                      disabled={Object.keys(this.state.runsSelected).length < 1}
-                      onClick={this.onDeleteRun}
+                      disabled={Object.keys(this.state.runsSelected).length < 2}
+                      onClick={this.onCompare}
                     >
                       <FormattedMessage
-                        defaultMessage='Delete'
+                        defaultMessage='Compare'
                         // eslint-disable-next-line max-len
-                        description='String for the delete button to delete a particular experiment run'
+                        description='String for the compare button to compare experiment runs to find an ideal model'
                       />
                     </Button>
-                  ) : null}
-                  {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
-                    <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+                    {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
+                      <Button
+                        disabled={Object.keys(this.state.runsSelected).length < 1}
+                        onClick={this.onDeleteRun}
+                      >
+                        <FormattedMessage
+                          defaultMessage='Delete'
+                          // eslint-disable-next-line max-len
+                          description='String for the delete button to delete a particular experiment run'
+                        />
+                      </Button>
+                    ) : null}
+                    {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
+                      <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+                        <FormattedMessage
+                          defaultMessage='Restore'
+                          // eslint-disable-next-line max-len
+                          description='String for the restore button to undo the experiments that were deleted'
+                        />
+                      </Button>
+                    ) : null}
+                    <Button onClick={this.onDownloadCsv} icon={<DownloadIcon />}>
                       <FormattedMessage
-                        defaultMessage='Restore'
+                        defaultMessage='Download CSV'
                         // eslint-disable-next-line max-len
-                        description='String for the restore button to undo the experiments that were deleted'
+                        description='String for the download csv button to download experiments offline in a CSV format'
                       />
                     </Button>
-                  ) : null}
-                  <Button className='csv-button' onClick={this.onDownloadCsv}>
-                    <FormattedMessage
-                      defaultMessage='Download CSV'
-                      // eslint-disable-next-line max-len
-                      description='String for the download csv button to download experiments offline in a CSV format'
-                    />
-                    <i className='fas fa-download' />
-                  </Button>
-                  <Tooltip
-                    title={this.props.intl.formatMessage({
-                      defaultMessage: 'Sort by',
-                      description:
-                        'Sort label for the sort select dropdown for experiment runs view',
-                    })}
-                  >
-                    <Select
-                      className='sort-select'
-                      value={
-                        orderByKey
-                          ? `${orderByKey}${SORT_DELIMITER_SYMBOL}${
-                              orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
-                            }`
-                          : this.props.intl.formatMessage({
-                              defaultMessage: 'Sort by',
-                              description:
-                                // eslint-disable-next-line max-len
-                                'Sort by default option for sort by select dropdown for experiment runs',
-                            })
-                      }
-                      virtual={false}
-                      size='large'
-                      onChange={this.onHandleSortByDropdown}
-                      data-test-id='sort-select-dropdown'
-                      dropdownStyle={{ minWidth: '30%' }}
+                    <Tooltip
+                      title={this.props.intl.formatMessage({
+                        defaultMessage: 'Sort by',
+                        description:
+                          'Sort label for the sort select dropdown for experiment runs view',
+                      })}
                     >
-                      {sortOptions.map((sortOption) => (
-                        <Option
-                          key={sortOption.value}
-                          title={sortOption.label}
-                          data-test-id={`sort-select-${sortOption.label}-${sortOption.order}`}
-                          value={sortOption.value}
-                        >
-                          {sortOption.order === COLUMN_SORT_BY_ASC ? (
-                            <ArrowUpOutlined />
-                          ) : (
-                            <ArrowDownOutlined />
-                          )}{' '}
-                          {middleTruncateStr(sortOption.label, 50)}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Tooltip>
-                  <Tooltip
-                    title={this.props.intl.formatMessage({
-                      defaultMessage: 'Started during',
-                      description:
-                        'Label for the start time select dropdown for experiment runs view',
-                    })}
-                  >
-                    <Select
-                      className='start-time-select'
-                      value={startTime}
-                      size='large'
-                      onChange={this.onHandleStartTimeDropdown}
-                      data-test-id='start-time-select-dropdown'
+                      <Select
+                        className='sort-select'
+                        value={
+                          orderByKey
+                            ? `${orderByKey}${SORT_DELIMITER_SYMBOL}${
+                                orderByAsc ? COLUMN_SORT_BY_ASC : COLUMN_SORT_BY_DESC
+                              }`
+                            : this.props.intl.formatMessage({
+                                defaultMessage: 'Sort by',
+                                description:
+                                  // eslint-disable-next-line max-len
+                                  'Sort by default option for sort by select dropdown for experiment runs',
+                              })
+                        }
+                        // Temporarily we're disabling virtualized list to maintain
+                        // backwards compatiblity. Functional unit tests rely heavily
+                        // on non-virtualized values.
+                        dangerouslySetAntdProps={{ virtual: false }}
+                        onChange={this.onHandleSortByDropdown}
+                        data-test-id='sort-select-dropdown'
+                        dropdownStyle={{ minWidth: '30%' }}
+                      >
+                        {sortOptions.map((sortOption) => (
+                          <Option
+                            key={sortOption.value}
+                            title={sortOption.label}
+                            data-test-id={`sort-select-${sortOption.label}-${sortOption.order}`}
+                            value={sortOption.value}
+                          >
+                            {sortOption.order === COLUMN_SORT_BY_ASC ? (
+                              <ArrowUpOutlined />
+                            ) : (
+                              <ArrowDownOutlined />
+                            )}{' '}
+                            {middleTruncateStr(sortOption.label, 50)}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Tooltip>
+                    <Tooltip
+                      title={this.props.intl.formatMessage({
+                        defaultMessage: 'Started during',
+                        description:
+                          'Label for the start time select dropdown for experiment runs view',
+                      })}
                     >
-                      {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
-                        <Option
-                          key={startTimeKey}
-                          title={startTimeColumnLabels[startTimeKey]}
-                          data-test-id={`start-time-select-${startTimeKey}`}
-                          value={startTimeKey}
-                        >
-                          {startTimeColumnLabels[startTimeKey]}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Tooltip>
+                      <Select
+                        className='start-time-select'
+                        value={startTime}
+                        onChange={this.onHandleStartTimeDropdown}
+                        data-test-id='start-time-select-dropdown'
+                        // Temporarily we're disabling virtualized list to maintain
+                        // backwards compatiblity. Functional unit tests rely heavily
+                        // on non-virtualized values.
+                        dangerouslySetAntdProps={{ virtual: false }}
+                      >
+                        {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
+                          <Option
+                            key={startTimeKey}
+                            title={startTimeColumnLabels[startTimeKey]}
+                            data-test-id={`start-time-select-${startTimeKey}`}
+                            value={startTimeKey}
+                          >
+                            {startTimeColumnLabels[startTimeKey]}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Tooltip>
+                  </div>
                 </Spacer>
               }
               right={
-                <Spacer size='large' direction='horizontal'>
-                  <Spacer size='medium' direction='horizontal'>
-                    <Radio
-                      defaultValue={showMultiColumns ? 'gridView' : 'compactView'}
-                      items={[
-                        {
-                          value: 'compactView',
-                          itemContent: <i className={'fas fa-list'} />,
-                          onClick: (e) => this.props.setShowMultiColumns(false),
-                          dataTestId: 'compact-runs-table-view-button',
-                        },
-                        {
-                          value: 'gridView',
-                          itemContent: <i className={'fas fa-table'} />,
-                          onClick: (e) => this.props.setShowMultiColumns(true),
-                          dataTestId: 'detailed-runs-table-view-button',
-                        },
-                      ]}
-                    />
-                    <RunsTableColumnSelectionDropdown
-                      paramKeyList={paramKeyList}
-                      metricKeyList={metricKeyList}
-                      visibleTagKeyList={visibleTagKeyList}
-                      categorizedUncheckedKeys={categorizedUncheckedKeys}
-                      onCheck={this.props.handleColumnSelectionCheck}
-                    />
-                  </Spacer>
-                  <Spacer size='small' direction='horizontal'>
-                    {this.props.intl.formatMessage({
-                      defaultMessage: 'Only show differences',
-                      description:
-                        'Switch to select only columns with different values across runs',
-                    })}
-                    <Tooltip
-                      title={this.props.intl.formatMessage({
-                        defaultMessage: 'Only show columns with differences',
+                <div css={styles.controlBar}>
+                  <Spacer size='large' direction='horizontal'>
+                    <Spacer size='medium' direction='horizontal'>
+                      <SegmentedControlGroup
+                        defaultValue={showMultiColumns ? 'gridView' : 'compactView'}
+                        onChange={({ target }) => {
+                          this.props.setShowMultiColumns(target.value === 'gridView');
+                        }}
+                        css={styles.displaySwitch}
+                      >
+                        <SegmentedControlButton
+                          value='compactView'
+                          data-test-id='compact-runs-table-view-button'
+                        >
+                          <ListBorderIcon />
+                        </SegmentedControlButton>
+                        <SegmentedControlButton
+                          value='gridView'
+                          data-test-id='detailed-runs-table-view-button'
+                        >
+                          <TableIcon />
+                        </SegmentedControlButton>
+                      </SegmentedControlGroup>
+
+                      <RunsTableColumnSelectionDropdown
+                        paramKeyList={paramKeyList}
+                        metricKeyList={metricKeyList}
+                        visibleTagKeyList={visibleTagKeyList}
+                        categorizedUncheckedKeys={categorizedUncheckedKeys}
+                        onCheck={this.props.handleColumnSelectionCheck}
+                      />
+                    </Spacer>
+                    <Spacer size='small' direction='horizontal'>
+                      {this.props.intl.formatMessage({
+                        defaultMessage: 'Only show differences',
                         description:
                           'Switch to select only columns with different values across runs',
                       })}
-                    >
-                      <Switch
-                        css={styles.columnSwitch}
-                        // dataTestId='diff-switch'
-                        checked={diffSwitchSelected}
-                        onChange={this.handleDiffSwitchChange}
-                      />
-                    </Tooltip>
-                  </Spacer>
-                  <Spacer direction='horizontal' size='small'>
-                    <Popover
-                      overlayClassName='search-input-tooltip'
-                      content={searchInputHelpTooltipContent}
-                      placement='bottom'
-                    >
-                      <QuestionCircleFilled className='ExperimentView-search-help' />
-                    </Popover>
-                    <div css={styles.searchBox}>
-                      <SearchBox
-                        onChange={this.onSearchInput}
-                        value={this.state.searchInput}
-                        onSearch={this.onSearch}
-                        placeholder='metrics.rmse < 1 and params.model = "tree"'
-                      />
-                    </div>
-                    <Button dataTestId='filter-button' onClick={this.handleFilterToggle}>
-                      <div css={styles.filterButtonWrapper}>
-                        <img className='filterIcon' src={filterIcon} alt='Filter' />
+                      <Tooltip
+                        title={this.props.intl.formatMessage({
+                          defaultMessage: 'Only show columns with differences',
+                          description:
+                            'Switch to select only columns with different values across runs',
+                        })}
+                      >
+                        <Switch
+                          css={styles.columnSwitch}
+                          // dataTestId='diff-switch'
+                          checked={diffSwitchSelected}
+                          onChange={this.handleDiffSwitchChange}
+                        />
+                      </Tooltip>
+                    </Spacer>
+                    <Spacer direction='horizontal' size='small'>
+                      <Popover
+                        overlayClassName='search-input-tooltip'
+                        content={searchInputHelpTooltipContent}
+                        placement='bottom'
+                      >
+                        <QuestionCircleFilled className='ExperimentView-search-help' />
+                      </Popover>
+                      <div css={styles.searchBox}>
+                        <SearchBox
+                          onChange={this.onSearchInput}
+                          value={this.state.searchInput}
+                          onSearch={this.onSearch}
+                          placeholder='metrics.rmse < 1 and params.model = "tree"'
+                        />
+                      </div>
+                      <Button
+                        dataTestId='filter-button'
+                        onClick={this.handleFilterToggle}
+                        icon={<FilterIcon />}
+                      >
                         <FormattedMessage
                           defaultMessage='Filter'
                           // eslint-disable-next-line max-len
                           description='String for the filter button to filter experiment runs table which match the search criteria'
                         />
-                      </div>
-                    </Button>
-                    <Button dataTestId='clear-button' onClick={this.onClear}>
-                      <FormattedMessage
-                        defaultMessage='Clear'
-                        // eslint-disable-next-line max-len
-                        description='String for the clear button to clear any filters or sorting that we may have applied on the experiment table'
-                      />
-                    </Button>
+                      </Button>
+                      <Button dataTestId='clear-button' onClick={this.onClear}>
+                        <FormattedMessage
+                          defaultMessage='Clear'
+                          // eslint-disable-next-line max-len
+                          description='String for the clear button to clear any filters or sorting that we may have applied on the experiment table'
+                        />
+                      </Button>
+                    </Spacer>
                   </Spacer>
-                </Spacer>
+                </div>
               }
             />
             <CSSTransition
@@ -1359,6 +1382,10 @@ const styles = {
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',
   },
+  controlBar: (theme) => ({
+    display: 'flex',
+    gap: theme.spacing.sm,
+  }),
   searchBox: {
     width: '446px',
   },
@@ -1370,6 +1397,7 @@ const styles = {
     boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.12)' /* Dropshadow */,
     borderRadius: 4,
   },
+  displaySwitch: (theme) => ({ svg: { width: theme.spacing.md, height: theme.spacing.md } }),
   columnSwitch: { margin: '5px' },
   filterButtonWrapper: { display: 'flex', alignItems: 'center' },
 };

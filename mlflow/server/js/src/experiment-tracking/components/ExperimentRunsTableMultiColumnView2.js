@@ -9,12 +9,9 @@ import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
 
-import { AgGridReact } from '@ag-grid-community/react/main';
-import { Grid } from '@ag-grid-community/core';
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import { RunsTableCustomHeader } from '../../common/components/ag-grid/RunsTableCustomHeader';
-import '@ag-grid-community/core/dist/styles/ag-grid.css';
-import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
+import { MLFlowAgGridLoader } from '../../common/components/ag-grid/AgGridLoader';
+
 import registeredModelSvg from '../../common/static/registered-model.svg';
 import loggedModelSvg from '../../common/static/logged-model.svg';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -581,12 +578,11 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
         css={agGridOverrides}
         data-test-id='detailed-runs-table-view'
       >
-        <AgGridReact
+        <MLFlowAgGridLoader
           defaultColDef={defaultColDef}
           columnDefs={this.state.columnDefs}
           rowData={this.getRowData()}
           domLayout='autoHeight'
-          modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
