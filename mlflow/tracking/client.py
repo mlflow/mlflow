@@ -581,6 +581,7 @@ class MlflowClient:
 
         .. code-block:: python
             :caption: Example
+
             from pathlib import Path
             from mlflow import MlflowClient
 

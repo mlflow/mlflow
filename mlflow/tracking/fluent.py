@@ -244,7 +244,7 @@ def start_run(
         print("child run:")
         print("run_id : {}".format(child_run.info.run_id))
         print("--")
-        print("Child runs of parent run_id: {}".format(parent_run.info.run_id))
+        print("Child runs of parent run")
 
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
