@@ -123,7 +123,8 @@ jobs:
         id: get-python-version
         run: |
           if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]
+             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
+             [[ "${{ matrix.package }}" = "xgboost" && "${{ matrix.version }}" = "dev" ]]
           then
             python_version=3.8
           else
