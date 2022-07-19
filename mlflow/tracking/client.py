@@ -581,14 +581,14 @@ class MlflowClient:
 
         .. code-block:: python
             :caption: Example
-
+            from pathlib import Path
             from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
             experiment_id = client.create_experiment(
                 "Social NLP Experiments",
-                artifact_location="file:///absolute-path/mlruns",
+                artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
                 tags={"version": "v1", "priority": "P1"},
             )
             client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
@@ -606,8 +606,8 @@ class MlflowClient:
 
             Name: Social NLP Experiments
             Experiment_id: 1
-            Artifact Location: file:///.../mlruns/1
-            Tags: {'nlp.framework': 'Spark NLP'}
+            Artifact Location: file:///.../mlruns
+            Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
         return self._tracking_client.create_experiment(name, artifact_location, tags)

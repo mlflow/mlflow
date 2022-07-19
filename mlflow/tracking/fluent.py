@@ -234,9 +234,17 @@ def start_run(
             ) as child_run:
                 mlflow.log_param("child", "yes")
 
-        print("parent run_id: {}".format(parent_run.info.run_id))
-        print("child run_id : {}".format(child_run.info.run_id))
+        print("parent run:")
+
+        print("run_id: {}".format(parent_run.info.run_id))
+        print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
+        print("version tag value: {}".format(parent_run.data.tags.get("version")))
+        print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
+        print("child run:")
+        print("run_id : {}".format(child_run.info.run_id))
+        print("--")
+        print("Child runs of parent run_id: {}".format(parent_run.info.run_id))
 
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
@@ -246,11 +254,19 @@ def start_run(
     .. code-block:: text
         :caption: Output
 
-        parent run_id: 5ec0e7ae18f54c2694ffb48c2fccf25c
-        child run_id : 78b3b0d264b44cd29e8dc389749bb4be
+        parent run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+        description: starting a parent for experiment 7
+        version tag value: v1
+        priority tag value: P1
+        --
+        child run:
+        run_id : 7d175204675e40328e46d9a6a5a7ee6a
+        --
+        Child runs of parent run_id: 8979459433a24a52ab3be87a229a9cdf
         --
                                      run_id params.child tags.mlflow.runName
-        0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
+        0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
@@ -1175,11 +1191,12 @@ def create_experiment(
         :caption: Example
 
         import mlflow
+        from pathlib import Path
 
         # Create an experiment name, which must be unique and case sensitive
         experiment_id = mlflow.create_experiment(
             "Social NLP Experiments",
-            artifact_location="file:///absolute-path/mlruns",
+            artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
             tags={"version": "v1", "priority": "P1"},
         )
         experiment = mlflow.get_experiment(experiment_id)
@@ -1194,8 +1211,8 @@ def create_experiment(
 
         Name: Social NLP Experiments
         Experiment_id: 1
-        Artifact Location: file:///.../mlruns/1
-        Tags= {}
+        Artifact Location: file:///.../mlruns
+        Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
         Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
