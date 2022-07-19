@@ -7,7 +7,7 @@ import yaml
 from unittest import mock
 
 import mlflow
-from mlflow.entities import Run
+from mlflow.entities import Run, SourceType
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.pipeline import Pipeline
@@ -21,6 +21,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
     MLFLOW_GIT_REPO_URL,
     LEGACY_MLFLOW_GIT_REPO_URL,
+    MLFLOW_SOURCE_TYPE,
 )
 
 # pylint: disable=unused-import
@@ -135,7 +136,8 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
         "train/model",
     }
     run_tags = MlflowClient(tracking_uri).get_run(run_id=logged_run.info.run_id).data.tags
-    assert resolve_tags().items() <= run_tags.items()
+    pipelineSourceTag = {MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE)}
+    assert resolve_tags(pipelineSourceTag).items() <= run_tags.items()
 
     pipeline.run()
     logged_runs = mlflow.search_runs(experiment_names=[experiment_name], output_format="list")
