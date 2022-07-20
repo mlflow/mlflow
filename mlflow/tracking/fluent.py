@@ -1059,9 +1059,9 @@ def search_experiments(
                         passed, all experiments will be returned.
     :param filter_string:
         Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-        experiments. The following fields, comparators, and logical operators are supported.
+        experiments. The following identifiers, comparators, and logical operators are supported.
 
-        Fields
+        Identifiers
           - ``name``: Experiment name.
           - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
             spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
