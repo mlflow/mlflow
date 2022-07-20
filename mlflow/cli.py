@@ -255,8 +255,8 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
-    "(e.g. 'sqlite:///path/to/file.db')."
-    "By default, data will be logged same to 'backend-store-uri'",
+    "(e.g. 'sqlite:///path/to/file.db'). "
+    "If not specified, `backend-store-uri` is used.",
 )
 @click.option(
     "--default-artifact-root",
