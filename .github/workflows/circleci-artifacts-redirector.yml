@@ -1,12 +1,17 @@
-name: CircleCI Artifacts Redirector
-on:
-  - status
+name: CircleCI artifacts redirector
+
+on: [status]
 jobs:
   main:
     runs-on: ubuntu-latest
+    if: "github.event.context == 'ci/circleci: build_doc'"
     steps:
-      - uses: larsoner/circleci-artifacts-redirector-action@0.2.0
+      - uses: larsoner/circleci-artifacts-redirector-action@0.3
+        id: create-link
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          artifact-path: 0/html/index.html
+          artifact-path: 0/docs/build/html/index.html
           circleci-jobs: build_doc
+          job-title: View docs on CircleCI
+      - run: |
+          curl --fail ${{ steps.create-link.outputs.url }}
