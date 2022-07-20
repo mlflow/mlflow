@@ -3,8 +3,8 @@ name: CircleCI artifacts redirector
 on: [status]
 jobs:
   main:
-    runs-on: ubuntu-latest
     if: "github.event.context == 'ci/circleci: build_doc'"
+    runs-on: ubuntu-latest
     steps:
       - uses: larsoner/circleci-artifacts-redirector-action@0.3
         id: create-link
