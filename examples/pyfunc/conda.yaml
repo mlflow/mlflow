@@ -1,7 +1,0 @@
-channels:
-  - conda-forge
-dependencies:
-  - pip=20.0.2
-  - pip:
-    - mlflow>=1.12
-    - scikit-learn==1.1.1
