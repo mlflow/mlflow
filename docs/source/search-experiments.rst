@@ -42,14 +42,17 @@ Examples
 
 .. code-block:: python
 
-  # Matches experiments with name equal to "x"
+  # Matches experiments with name equal to 'x'
   "attributes.name = 'x'"  # or "name = 'x'"
 
-  # Matches experiments with name starting with "x"
+  # Matches experiments with name starting with 'x'
   "attributes.name LIKE 'x%'"
 
-  # Matches experiments that have a tag "type" and its value is NOT equal to "x"
-  "tags.type != 'x'"
+  # Matches experiments with 'group' tag value not equal to 'x'
+  "tags.group != 'x'"
 
-  # Matches experiments that have a tag "type" and its value contains "x" or "X"
-  "tags.type ILIKE '%x%'"
+  # Matches experiments with 'group' tag value containing 'x' or 'X'
+  "tags.group ILIKE '%x%'"
+
+  # Matches experiments with name starting with 'x' and 'group' tag value equal to 'y'
+  "attributes.name LIKE 'x%' AND tags.group = 'y'"
