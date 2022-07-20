@@ -241,9 +241,6 @@ def start_run(
         print("version tag value: {}".format(parent_run.data.tags.get("version")))
         print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
-        print("child run:")
-        print("run_id : {}".format(child_run.info.run_id))
-        print("--")
 
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
@@ -259,9 +256,6 @@ def start_run(
         description: starting a parent for experiment 7
         version tag value: v1
         priority tag value: P1
-        --
-        child run:
-        run_id : 7d175204675e40328e46d9a6a5a7ee6a
         --
         child runs:
                                      run_id params.child tags.mlflow.runName
