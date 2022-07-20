@@ -34,7 +34,6 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 #  - Tracking RestStore & Model Registry RestStore that use different credentials.
 
 _registry_uri = None
-REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_REGISTRY_STORE"
 
 
 def set_registry_uri(uri: str) -> None:
@@ -80,9 +79,8 @@ def set_registry_uri(uri: str) -> None:
 
 def _get_registry_uri_from_context():
     global _registry_uri
-    if _registry_uri is not None:
-        return _registry_uri
-    return os.environ.get(REGISTRY_STORE_URI_ENV_VAR, None)
+    # in the future, REGISTRY_URI env var support can go here
+    return _registry_uri
 
 
 def get_registry_uri() -> str:
