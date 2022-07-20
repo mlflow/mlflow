@@ -1,7 +1,7 @@
-.. _search-syntax:
+.. _search-runs:
 
-Search
-======
+Search Runs
+===========
 
 The MLflow UI and API support searching runs within a single experiment or a group of experiments
 using a search filter API. This API is a simplified version of the SQL ``WHERE`` clause.
@@ -9,6 +9,9 @@ using a search filter API. This API is a simplified version of the SQL ``WHERE``
 .. contents:: Table of Contents
   :local:
   :depth: 3
+
+
+.. _search-runs-syntax:
 
 Syntax
 ------
