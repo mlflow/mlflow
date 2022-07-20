@@ -250,6 +250,16 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
 )
 @click.option(
+    "--registry-store-uri",
+    metavar="URI",
+    default=None,
+    help="URI to which to persist registered models. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings "
+    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+    "same to 'backend-store-uri'",
+)
+@click.option(
     "--default-artifact-root",
     metavar="URI",
     default=None,
@@ -266,7 +276,13 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli_args.PORT
 @cli_args.HOST
 def ui(
-    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+    backend_store_uri,
+    registry_store_uri,
+    default_artifact_root,
+    serve_artifacts,
+    artifacts_destination,
+    port,
+    host,
 ):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
@@ -284,12 +300,16 @@ def ui(
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
+
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
     )
 
     try:
-        initialize_backend_stores(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
     except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -299,6 +319,7 @@ def ui(
     try:
         _run_server(
             backend_store_uri,
+            registry_store_uri,
             default_artifact_root,
             serve_artifacts,
             False,
@@ -337,6 +358,16 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
     "to the ./mlruns directory.",
+)
+@click.option(
+    "--registry-store-uri",
+    metavar="URI",
+    default=None,
+    help="URI to which to persist registered models. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings "
+    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+    "(e.g. 'file-plugin:///absolute/path/to/directory'). By default, data will be logged "
+    "same to 'backend-store-uri'",
 )
 @click.option(
     "--default-artifact-root",
@@ -388,6 +419,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 def server(
     backend_store_uri,
+    registry_store_uri,
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
@@ -417,13 +449,17 @@ def server(
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
+
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
     try:
-        initialize_backend_stores(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
     except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -432,6 +468,7 @@ def server(
     try:
         _run_server(
             backend_store_uri,
+            registry_store_uri,
             default_artifact_root,
             serve_artifacts,
             artifacts_only,
