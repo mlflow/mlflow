@@ -2733,7 +2733,7 @@ class MlflowClient:
             client.set_model_version_tag(name, mv.version, "t", "1")
 
             # Tag using model stage
-            client.set_model_version_tag(name, key="t", value="1", stage=mv.current_stage)
+            client.set_model_version_tag(name, key="t1", value="1", stage=mv.current_stage)
 
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
@@ -2747,7 +2747,7 @@ class MlflowClient:
             --
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': '1'}
+            Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
         if stage:
@@ -2765,7 +2765,7 @@ class MlflowClient:
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key.
+        :param key: Tag key. key is required.
         :param stage: Registered model stage.
         :return: None
 
@@ -2798,7 +2798,7 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "t1"}
+            tags = {'t': "1", "t1" : "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
@@ -2806,7 +2806,7 @@ class MlflowClient:
             client.delete_model_version_tag(name, mv.version, "t")
 
             #using stage to delete tag
-            client.delete_model_version_tag(name, key="t", stage=mv.current_stage)
+            client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2815,7 +2815,7 @@ class MlflowClient:
 
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': 't1'}
+            Tags: {'t': '1', 't1': '2'}
             --
             Name: RandomForestRegression
             Version: 1
