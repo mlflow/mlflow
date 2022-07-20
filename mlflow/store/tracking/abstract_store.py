@@ -54,9 +54,10 @@ class AbstractStore:
                             its own limit.
         :param filter_string:
             Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following fields, comparators, and logical operators are supported.
+            experiments. The following identifiers, comparators, and logical operators are
+            supported.
 
-            Fields
+            Identifiers
               - ``name``: Experiment name.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
@@ -73,7 +74,7 @@ class AbstractStore:
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
             ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following fields are supported.
+            equivalent to ``"name ASC"``. The following identifiers are supported.
 
             - ``name``: Experiment name.
             - ``experiment_id``: Experiment ID.
