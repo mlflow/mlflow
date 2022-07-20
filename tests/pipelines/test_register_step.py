@@ -233,6 +233,8 @@ template: "regression/v1"
 target_col: "y"
 experiment:
   tracking_uri: {tracking_uri}
+model_registry:
+  uri: {registry_uri}
 steps:
   evaluate:
     validation_criteria:
@@ -244,7 +246,6 @@ steps:
         threshold: 1_000_000
   register:
     model_name: "demo_model"
-    registry_uri: {registry_uri}
 metrics:
   custom:
     - name: weighted_mean_squared_error
