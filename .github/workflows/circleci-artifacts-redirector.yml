@@ -1,0 +1,12 @@
+name: CircleCI Artifacts Redirector
+on:
+  - status
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: larsoner/circleci-artifacts-redirector-action@0.2.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          artifact-path: 0/html/index.html
+          circleci-jobs: build_doc
