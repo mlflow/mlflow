@@ -13,5 +13,6 @@ jobs:
           artifact-path: 0/docs/build/html/index.html
           circleci-jobs: build_doc
           job-title: Preview docs on CircleCI
-      - run: |
+      - name: Check URL
+        run: |
           curl --fail ${{ steps.create-link.outputs.url }}
