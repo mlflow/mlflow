@@ -1,4 +1,4 @@
-name: CircleCI artifacts redirector
+name: Preview docs
 
 on: [status]
 jobs:
@@ -6,7 +6,7 @@ jobs:
     if: "github.event.context == 'ci/circleci: build_doc'"
     runs-on: ubuntu-latest
     steps:
-      - uses: larsoner/circleci-artifacts-redirector-action@0.3
+      - uses: larsoner/circleci-artifacts-redirector-action@0.3.1
         id: create-link
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
