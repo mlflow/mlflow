@@ -40,6 +40,27 @@ def _use_repl_context_if_available(name):
     return decorator
 
 
+class MlflowCredentialContext:
+    """Sets and clears credentials on a context using the provided profile URL."""
+
+    def __init__(self, databricks_profile_url):
+        self.databricks_profile_url = databricks_profile_url or "databricks"
+        self.db_utils = _get_dbutils()
+
+    def __enter__(self):
+        db_creds = get_databricks_host_creds(self.databricks_profile_url)
+        self.db_utils.notebook.entry_point.putMlflowProperties(
+            db_creds.host,
+            db_creds.ignore_tls_verification,
+            db_creds.token,
+            db_creds.username,
+            db_creds.password,
+        )
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.db_utils.notebook.entry_point.clearMlflowProperties()
+
+
 def _get_dbutils():
     try:
         import IPython

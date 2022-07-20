@@ -639,6 +639,43 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             assert mlflow.utils.mlflow_tags.MLFLOW_LOGGED_MODELS in current_tags
 
 
+@pytest.mark.parametrize(
+    "db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
+    [
+        ("12.0", "", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
+        ("12.0", "false", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
+        ("12.0", "", False, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("12.0", "1", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("", "", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+    ],
+)
+def test_model_logged_via_mlflowdbfs_when_appropriate(
+    monkeypatch,
+    spark_model_iris,
+    db_runtime_version,
+    mlflowdbfs_disabled,
+    mlflowdbfs_available,
+    expectedURI,
+):
+    with mock.patch(
+        "mlflow.get_artifact_uri",
+        return_value="dbfs:/databricks/mlflow-tracking/a/b",
+    ), mock.patch(
+        "mlflow.spark._HadoopFileSystem.is_filesystem_available",
+        return_value=mlflowdbfs_available,
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch.object(
+        spark_model_iris.model, "save"
+    ) as mock_save:
+        with mlflow.start_run():
+            if db_runtime_version:
+                monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
+            monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
+            sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
+            mock_save.assert_called_once_with(expectedURI.format(mlflow.active_run().info.run_id))
+
+
 def test_shutil_copytree_without_file_permissions(tmpdir):
     src_dir = tmpdir.mkdir("src-dir")
     dst_dir = tmpdir.mkdir("dst-dir")
