@@ -2802,6 +2802,7 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
+            #using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
 
             #using stage to delete tag

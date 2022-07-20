@@ -633,15 +633,6 @@ def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
     with pytest.raises(MlflowException, match="version or stage must be set"):
         MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar")
 
-    # set_model_version_tag with invalid stage value
-    with pytest.raises(
-        MlflowException,
-        match="Invalid stage value: staging. Must be one of None, Staging, Production, Archived",
-    ):
-        MlflowClient().set_model_version_tag(
-            "model_name", key="tag1", value="foobar", stage="staging"
-        )
-
 
 def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
 
@@ -668,10 +659,3 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
     # delete_model_version_tag with version and stage not set
     with pytest.raises(MlflowException, match="version or stage must be set"):
         MlflowClient().delete_model_version_tag("model_name", key="tag1")
-
-    # delete_model_version_tag with invalid stage value
-    with pytest.raises(
-        MlflowException,
-        match="Invalid stage value: staging. Must be one of None, Staging, Production, Archived",
-    ):
-        MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="staging")
