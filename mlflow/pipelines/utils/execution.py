@@ -307,8 +307,10 @@ def _create_makefile(pipeline_root_path, execution_directory_path, template: str
 
     if template == "regression/v1":
         makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+    elif template == "batch_scoring/v1":
+        makefile_to_use = _BATCH_SCORING_MAKEFILE_FORMAT_STRING
     else:
-        makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+        raise ValueError(f"Invalid template: {template}")
 
     makefile_contents = makefile_to_use.format(
         path=_MakefilePathFormat(
@@ -455,4 +457,37 @@ steps/%/outputs/registered_model_version.json: steps/train/outputs/run_id steps/
 
 clean:
 	rm -rf $(split_objects) $(transform_objects) $(train_objects) $(evaluate_objects)
+"""
+
+_BATCH_SCORING_MAKEFILE_FORMAT_STRING = r"""
+# Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
+# invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
+ingest:
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.ingest import IngestStep; IngestStep.from_step_config_path(step_config_path='{path:exe/steps/ingest/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest/outputs}')"
+
+# Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
+# target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
+# ensuring that data is only ingested for downstream steps if it is not already present on the
+# local filesystem
+steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
+	$(MAKE) ingest
+
+preprocessing_objects = steps/preprocessing/outputs/dataset_preprocessed.parquet
+
+preprocessing: $(preprocessing_objects)
+steps/%/outputs/dataset_preprocessed.parquet: {path:prp/steps/preprocessing.py} steps/ingest/outputs/dataset.parquet steps/preprocessing/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.preprocessing import PreprocessingStep; PreprocessingStep.from_step_config_path(step_config_path='{path:exe/steps/preprocessing/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/preprocessing/outputs}')"
+
+predict_objects = steps/predict/outputs/dataset_scored.parquet
+
+predict: $(predict_objects)
+
+steps/%/outputs/dataset_scored.parquet: {path:prp/steps/predict.py} steps/preprocessing/outputs/dataset_preprocessed.parquet steps/predict/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
+
+clean:
+	rm -rf $(data_clean_objects) $(predict_objects)
 """
