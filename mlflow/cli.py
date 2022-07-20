@@ -254,10 +254,8 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
-    "SQLAlchemy-compatible database connection strings "
-    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "same to 'backend-store-uri'",
+    "SQLAlchemy-compatible database connection strings (e.g. 'sqlite:///path/to/file.db'). "
+    "If not specified, `backend-store-uri` is used.",
 )
 @click.option(
     "--default-artifact-root",
@@ -364,10 +362,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     metavar="URI",
     default=None,
     help="URI to which to persist registered models. Acceptable URIs are "
-    "SQLAlchemy-compatible database connection strings "
-    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file-plugin:///absolute/path/to/directory'). By default, data will be logged "
-    "same to 'backend-store-uri'",
+    "SQLAlchemy-compatible database connection strings (e.g. 'sqlite:///path/to/file.db'). "
+    "If not specified, `backend-store-uri` is used.",
 )
 @click.option(
     "--default-artifact-root",
