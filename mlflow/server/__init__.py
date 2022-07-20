@@ -17,7 +17,6 @@ from mlflow.utils.process import _exec_cmd
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
-REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_REGISTRY_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
@@ -127,6 +126,8 @@ def _run_server(
                           If left None, the index.html asset will be served from the root path.
     :return: None
     """
+    from mlflow.tracking._model_registry.utils import REGISTRY_STORE_URI_ENV_VAR
+
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
