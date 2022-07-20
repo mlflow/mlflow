@@ -116,6 +116,7 @@ class RegisterStep(BaseStep):
         try:
             step_config = pipeline_config["steps"]["register"]
             step_config["template_name"] = pipeline_config.get("template")
+            step_config["registry_uri"] = pipeline_config.get("model_registry", {}).get("uri", None)
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
