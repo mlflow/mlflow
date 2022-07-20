@@ -9,9 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
-from mlflow.entities.model_registry.model_version_stages import (
-    ALL_STAGES,
-)
 
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
@@ -398,12 +395,6 @@ def _validate_model_version_or_stage_exists(version, stage):
 
     if not (version or stage):
         raise MlflowException("version or stage must be set", INVALID_PARAMETER_VALUE)
-
-    if stage and stage not in ALL_STAGES:
-        raise MlflowException(
-            "Invalid stage value: %s. Must be one of %s" % (stage, ", ".join(ALL_STAGES)),
-            INVALID_PARAMETER_VALUE,
-        )
 
 
 def _validate_tag_value(value):

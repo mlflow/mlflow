@@ -2691,8 +2691,8 @@ class MlflowClient:
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key to log.
-        :param value: Tag value to log.
+        :param key: Tag key to log. key is required.
+        :param value: Tag value to log. value is required.
         :param stage: Registered model stage.
         :return: None
 
