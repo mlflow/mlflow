@@ -110,8 +110,8 @@ jobs:
         with:
           requirements-yaml-location: requirements/core-requirements.yaml
           requirements-txt-output-location: requirements/core-requirements.txt
+      # If there are no changes, the create-pull-request action exits silently
       - uses: peter-evans/create-pull-request@v4
-        if: steps.skinny.outputs.updated == 'true' || steps.core.outputs.updated == 'true'
         with:
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           add-paths: requirements
