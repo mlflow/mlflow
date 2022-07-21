@@ -1,3 +1,8 @@
+"""
+This script updates the `max_major_version` attribute of each package in a YAML dependencies
+specification (e.g. requirements/core-requirements.yaml) to the maximum available version on PyPI.
+"""
+
 import argparse
 import difflib
 import re
@@ -51,7 +56,10 @@ def replace_max_major_version(yaml_string: str, pip_release: str, max_major_vers
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Update max major versions in the requirements.yaml specification"
+        description=(
+            "Update the `max_major_version` attribute of each package in a YAML dependencies"
+            " specification"
+        )
     )
     parser.add_argument(
         "--requirements-yaml-location",
