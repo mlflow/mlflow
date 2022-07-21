@@ -34,7 +34,7 @@ jobs:
       - run: |
           pip install pyyaml requests packaging
 
-      - name: Update requirements YAML
+      - name: Update requirements
         id: update-requirements
         run: |
           python dev/update_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
