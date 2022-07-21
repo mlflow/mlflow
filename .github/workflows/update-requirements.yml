@@ -41,10 +41,10 @@ jobs:
           if [ -z "$(git status --porcelain)" ]; then
             echo "::set-output name=updated::false"
           else
-            git diff
             python dev/generate_requirements.py \
               --requirements-yaml-location requirements/core-requirements.yaml \
               --requirements-txt-output-location requirements/core-requirements.txt
+            git diff
             echo "::set-output name=updated::true"
           fi
 
