@@ -67,15 +67,19 @@ def enter_pipeline_example_directory():
     with chdir(pipeline_example_path):
         yield pipeline_example_path
 
+
 @pytest.fixture
 def enter_batch_scoring_pipeline_example_directory():
     pipeline_example_path = os.environ.get(PIPELINE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS)
     if pipeline_example_path is None:
         mlflow_repo_root_directory = pathlib.Path(mlflow.__file__).parent.parent
-        pipeline_example_path = mlflow_repo_root_directory / BATCH_SCORING_PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
+        pipeline_example_path = (
+            mlflow_repo_root_directory / BATCH_SCORING_PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT
+        )
 
     with chdir(pipeline_example_path):
         yield pipeline_example_path
+
 
 @pytest.fixture
 def enter_test_pipeline_directory(enter_pipeline_example_directory):

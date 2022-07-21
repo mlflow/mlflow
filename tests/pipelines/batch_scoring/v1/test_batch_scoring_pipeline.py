@@ -43,7 +43,7 @@ def test_create_pipeline_fails_with_invalid_input(
         BatchScoringPipeline(pipeline_root_path=pipeline_root_path, profile=profile)
 
 
-#def test_pipeline_run_and_clean_the_whole_pipeline_works(create_pipeline):
+# def test_pipeline_run_and_clean_the_whole_pipeline_works(create_pipeline):
 #    p = create_pipeline
 #    p.run()
 #    p.clean()
