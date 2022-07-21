@@ -32,6 +32,7 @@ jobs:
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
+        id: update-requirements
         with:
           requirements-yaml-location: requirements/skinny-requirements.yaml
           requirements-txt-output-location: requirements/skinny-requirements.txt
@@ -69,6 +70,7 @@ jobs:
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
+        id: update-requirements
         with:
           requirements-yaml-location: requirements/core-requirements.yaml
           requirements-txt-output-location: requirements/core-requirements.txt
