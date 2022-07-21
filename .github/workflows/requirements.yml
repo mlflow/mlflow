@@ -49,7 +49,8 @@ jobs:
         id: tests
         if: steps.update-requirements.outputs.updated == 'true'
         run: |
-          ./dev/run-python-skinny-tests.sh || true
+          exit 0
+          ./dev/run-python-skinny-tests.sh
 
       - uses: peter-evans/create-pull-request@v4
         # if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
@@ -62,10 +63,9 @@ jobs:
           author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           branch: 'updated-requirements'
           branch-suffix: timestamp
-          push-to-fork: mlflow-automation/mlflow
           title: 'Update requirements'
           body: |
-            Created in this run: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
+            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
 
   python-core:
     runs-on: ubuntu-latest
