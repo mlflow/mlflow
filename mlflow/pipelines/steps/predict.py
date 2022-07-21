@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from typing import Dict, Any
 
@@ -56,17 +57,14 @@ class PredictStep(BaseStep):
         input_sdf = spark.read.parquet(ingested_data_path)
 
         # score dataset
-        stage_or_version = self.step_config.get(
-            "model_stage", self.step_config.get("model_version", "latest")
-        )
-        model_uri = f"models:/{self.step_config['model_name']}/{stage_or_version}"
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager="conda")
+        model_uri = self.step_config["model_uri"]
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri)
         scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
         # save predictions
         # TODO: add Delta and Table output formats
         scored_pdf = scored_sdf.toPandas()
-        scored_pdf.to_parquet(self.step_config["output_location"], engine="pyarrow")
+        scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time

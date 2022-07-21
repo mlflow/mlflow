@@ -1,24 +1,78 @@
 import os
+from pathlib import Path
 import pytest
+from pyspark.sql import SparkSession
+from sklearn.datasets import load_diabetes
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.file_utils import read_yaml
+from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.predict import PredictStep
+from mlflow.pipelines.steps.preprocessing import _CLEANED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
     enter_test_pipeline_directory,
     enter_pipeline_example_directory,
+    tmp_pipeline_exec_path,
+    tmp_pipeline_root_path,
+    train_and_log_model,
 )  # pylint: enable=unused-import
+
+
+@pytest.fixture(scope="module", autouse=True)
+def spark_session():
+    session = (
+        SparkSession.builder.master("local[*]")
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
+        .getOrCreate()
+    )
+    yield session
+    session.stop()
+
+
+@pytest.fixture(autouse=True)
+def predict_input(tmp_pipeline_exec_path: Path):
+    proprocessing_step_output_dir = tmp_pipeline_exec_path.joinpath(
+        "steps", "preprocessing", "outputs"
+    )
+    proprocessing_step_output_dir.mkdir(parents=True)
+    X, _ = load_diabetes(as_frame=True, return_X_y=True)
+    X.to_parquet(proprocessing_step_output_dir.joinpath(_CLEANED_OUTPUT_FILE_NAME))
+
+
+def test_predict_step_run(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
+    run_id, _ = train_and_log_model()
+    model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path="train/model")
+
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    pipeline_yaml.write_text(
+        """
+template: "batch_scoring/v1"
+steps:
+  predict:
+    model_uri: {model_uri}
+    output_format: parquet
+""".format(
+            model_uri=model_uri,
+        )
+    )
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    predict_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "predict", "outputs")
+    predict_step_output_dir.mkdir(parents=True)
+
+    predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    predict_step._run(str(predict_step_output_dir))
+
+    (predict_step_output_dir / "scored.parquet").exists()
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
 def test_predict_throws_when_improperly_configured():
-    from os import listdir
-    from os.path import isfile, join
-
-    onlyfiles = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f))]
-    print(onlyfiles)
-
     with pytest.raises(MlflowException, match="Config for predict step is not found"):
         PredictStep.from_pipeline_config(
             pipeline_config={},
