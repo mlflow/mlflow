@@ -26,7 +26,8 @@ jobs:
         with:
           python-version: '3.8'
 
-      - run: |
+      - name: Install dev script dependencies
+        run: |
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
@@ -60,7 +61,8 @@ jobs:
           java-version: 11
           distribution: 'adopt'
 
-      - run: |
+      - name: Install dev script dependencies
+        run: |
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
