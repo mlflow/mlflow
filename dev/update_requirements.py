@@ -38,18 +38,20 @@ def replace_max_major_version(yaml_string: str, pip_release: str, max_major_vers
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Update a requirements YAML file")
+    parser = argparse.ArgumentParser(
+        description="Update max major versions in the requirements.yaml specification"
+    )
     parser.add_argument(
-        "--requirements-yaml",
-        default="requirements/core-requirements.yaml",
-        help="Path to the requirements YAML file",
+        "--requirements-yaml-location",
+        required=True,
+        help="Local file path of the requirements.yaml specification.",
     )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    with open(args.requirements_yaml, "r") as f:
+    with open(args.requirements_yaml_location, "r") as f:
         core_requirements_src = f.read()
         core_requirements = yaml.safe_load(core_requirements_src)
 
@@ -68,7 +70,7 @@ def main():
                 f" {max_major_version} -> {latest_major_version}"
             )
 
-    with open(args.requirements_yaml, "w") as f:
+    with open(args.requirements_yaml_location, "w") as f:
         f.write(core_requirements_src)
 
 

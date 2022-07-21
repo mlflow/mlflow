@@ -1,0 +1,70 @@
+name: Update requirements
+
+on:
+  pull_request:
+  push:
+schedule:
+  - cron: '0 13 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  # python-skinny:
+  python-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+
+      - run: |
+          pip install pyyaml requests packaging
+
+      - name: Update requirements YAML
+        id: update-requirements
+        run: |
+          python dev/update_core_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "::set-output name=updated::false"
+          else
+            git diff
+            python dev/generate_requirements.py \
+              --requirements-yaml-location requirements/core-requirements.yaml \
+              --requirements-txt-output-location requirements/core-requirements.txt
+            echo "::set-output name=updated::true"
+          fi
+
+      - name: Install dependencies
+        if: steps.update-requirements.outputs.has_diff == 'true'
+        env:
+          INSTALL_ML_DEPENDENCIES: true
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - name: Run tests
+        if: steps.update-requirements.outputs.has_diff == 'true'
+        env:
+          # Fix for https://github.com/mlflow/mlflow/issues/4229
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          # Establish SSH to localhost for test_sftp_artifact_repo.py
+          ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
+
+          cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+          ssh-keyscan -H localhost >> ~/.ssh/known_hosts
+          ssh $(whoami)@localhost exit
+          export LOGNAME=$(whoami)
+
+          ./dev/run-python-tests.sh
