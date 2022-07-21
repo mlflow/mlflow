@@ -34,8 +34,7 @@ jobs:
       - uses: ./.github/actions/update-requirements
         id: update-requirements
         with:
-          requirements-yaml-location: requirements/skinny-requirements.yaml
-          requirements-txt-output-location: requirements/skinny-requirements.txt
+          skinny: true
 
       - name: Install dependencies
         if: steps.update-requirements.outputs.updated == 'true'
@@ -50,22 +49,6 @@ jobs:
         if: steps.update-requirements.outputs.updated == 'true'
         run: |
           ./dev/run-python-skinny-tests.sh
-
-      - uses: peter-evans/create-pull-request@v4
-        if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
-        with:
-          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
-          add-paths: requirements
-          commit-message: 'Update requirements'
-          signoff: true
-          committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
-          author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
-          base: ${{ github.head_ref }}
-          branch: 'updated-requirements'
-          branch-suffix: timestamp
-          title: 'Update requirements'
-          body: |
-            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
 
   python-core:
     runs-on: ubuntu-latest
@@ -88,9 +71,6 @@ jobs:
 
       - uses: ./.github/actions/update-requirements
         id: update-requirements
-        with:
-          requirements-yaml-location: requirements/core-requirements.yaml
-          requirements-txt-output-location: requirements/core-requirements.txt
 
       - name: Install dependencies
         if: steps.update-requirements.outputs.updated == 'true'
@@ -107,3 +87,19 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+
+      - uses: peter-evans/create-pull-request@v4
+        if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
+        with:
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          add-paths: requirements
+          commit-message: 'Update requirements'
+          signoff: true
+          committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          base: ${{ github.head_ref }}
+          branch: 'updated-requirements'
+          branch-suffix: timestamp
+          title: 'Update requirements'
+          body: |
+            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
