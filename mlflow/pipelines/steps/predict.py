@@ -1,19 +1,21 @@
 import logging
-import os
 import time
 from typing import Dict, Any
 
+import mlflow
+from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.utils._spark_utils import _get_active_spark_session
 
+from pyspark.sql.functions import struct
 
 _logger = logging.getLogger(__name__)
 
 
 # This should maybe imported from the preprocessing step for consistency
 _INPUT_FILE_NAME = "dataset_preprocessed.parquet"
-_SCORED_OUTPUT_FILE_NAME = "dataset_scored.parquet"
 
 
 class PredictStep(BaseStep):
@@ -31,9 +33,19 @@ class PredictStep(BaseStep):
         return card
 
     def _run(self, output_directory):
-        import pandas as pd
-
         run_start_time = time.time()
+
+        # Get or create spark session
+        try:
+            spark = _get_active_spark_session()
+        except Exception as e:
+            raise MlflowException(
+                message=(
+                    "Encountered an error while searching for an active Spark session to"
+                    " score dataset with spark UDF. Please create a Spark session and try again."
+                ),
+                error_code=BAD_REQUEST,
+            ) from e
 
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
@@ -41,25 +53,45 @@ class PredictStep(BaseStep):
             step_name="preprocessing",
             relative_path=_INPUT_FILE_NAME,
         )
-        input_df = pd.read_parquet(ingested_data_path)
+        input_sdf = spark.read.parquet(ingested_data_path)
 
-        # TODO: Read the model specified from YAML using the
-        #  tracking/model_registry URI also specified in the YAML
+        # score dataset
+        stage_or_version = self.step_config.get(
+            "model_stage", self.step_config.get("model_version", "latest")
+        )
+        model_uri = f"models:/{self.step_config['model_name']}/{stage_or_version}"
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager="conda")
+        scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
-        # TODO: Score the input_df against the specified model
-        scored_df = input_df
-        scored_df["score"] = 1
-
-        # TODO: Account for the 3 different types of output formats
-        scored_df.to_parquet(os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME))
+        # save predictions
+        # TODO: add Delta and Table output formats
+        scored_pdf = scored_sdf.toPandas()
+        scored_pdf.to_parquet(self.step_config["output_location"], engine="pyarrow")
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
-        return self._build_profiles_and_card(scored_df)
+        return self._build_profiles_and_card(scored_pdf)
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
-        step_config = pipeline_config.get("steps", {}).get("predict", {})
+        try:
+            step_config = pipeline_config["steps"]["predict"]
+        except KeyError:
+            raise MlflowException(
+                "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
+            )
+        required_configuration_keys = ["model_uri", "output_format"]
+        for key in required_configuration_keys:
+            if key not in step_config:
+                raise MlflowException(
+                    f"The `{key}` configuration key must be specified for the predict step.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if step_config["output_format"] not in {"parquet", "delta", "table"}:
+            raise MlflowException(
+                "Invalid `output_format` in predict step configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return cls(step_config, pipeline_root)
 
     @property
