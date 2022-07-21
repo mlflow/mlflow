@@ -95,6 +95,7 @@ def main():
         )
         print("========== Diff ==========")
         print("".join(diff), end="")
+        print("==========================")
         if args.check:
             exit(1)
 
