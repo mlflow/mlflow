@@ -1,7 +1,7 @@
 name: Requirements
 
 on:
-  pull_request_target:
+  pull_request:
     paths:
       - requirements/core-requirements.yaml
       - requirements/skinny-requirements.yaml
