@@ -3,7 +3,7 @@ import re
 
 import yaml
 import requests
-from packaging.version import Version
+from packaging.version import Version, InvalidVersion
 
 
 def get_latest_major_version(package_name: str, minium_version: str = None) -> int:
@@ -11,15 +11,24 @@ def get_latest_major_version(package_name: str, minium_version: str = None) -> i
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
-    versions = {
-        Version(version)
-        for version, distributions in data["releases"].items()
-        if len(distributions) > 0 and (not distributions[0].get("yanked", False))
-    }
     min_ver = Version(minium_version if minium_version else "0.0.0")
-    return (
-        max(filter(lambda v: v >= min_ver, versions)).major + 1
-    )  # +1 for testing, will be removed
+    versions = []
+    for version, distributions in data["releases"].items():
+        if len(distributions) > 0 and (not distributions[0].get("yanked", False)):
+            continue
+
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
+            pass
+
+        if version.is_devrelease or version.is_prerelease or version < min_ver:
+            continue
+
+        versions.append(version)
+
+    return max(versions).major + 1  # +1 for testing, will be removed
 
 
 def replace_max_major_version(yaml_string: str, pip_release: str, max_major_version: int) -> str:
