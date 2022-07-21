@@ -97,6 +97,7 @@ def main():
         print("".join(diff), end="")
         print("==========================")
         if args.check:
+            print(f"{args.requirements_yaml_location} is not up to date")
             exit(1)
 
         with open(args.requirements_yaml_location, "w") as f:
