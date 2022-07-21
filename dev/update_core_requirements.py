@@ -1,3 +1,4 @@
+import argparse
 import re
 
 import yaml
@@ -36,9 +37,19 @@ def replace_max_major_version(yaml_string: str, pip_release: str, max_major_vers
     return re.sub(pattern, repl, yaml_string, flags=re.DOTALL)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Update a requirements YAML file")
+    parser.add_argument(
+        "--requirements-yaml",
+        default="requirements/core-requirements.yaml",
+        help="Path to the requirements YAML file",
+    )
+    return parser.parse_args()
+
+
 def main():
-    core_requirements_yaml = "requirements/core-requirements.yaml"
-    with open(core_requirements_yaml, "r") as f:
+    args = parse_args()
+    with open(args.requirements_yaml, "r") as f:
         core_requirements_src = f.read()
         core_requirements = yaml.safe_load(core_requirements_src)
 
@@ -57,7 +68,7 @@ def main():
                 f" {max_major_version} -> {latest_major_version}"
             )
 
-    with open(core_requirements_yaml, "w") as f:
+    with open(args.requirements_yaml, "w") as f:
         f.write(core_requirements_src)
 
 
