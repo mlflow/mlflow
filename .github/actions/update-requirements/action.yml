@@ -2,9 +2,11 @@ name: 'update-requirements'
 description: 'Update requirements.yaml'
 
 inputs:
-  skinny:
-    description: 'If True, only update the skinny requirements'
-    default: false
+  requirements-yaml-location:
+    description: 'Local file path of the requirements.yaml specification'
+    required: true
+  requirements-txt-output-location:
+    description: 'Local output path for the generated requirements.txt file'
     required: true
 
 outputs:
@@ -19,19 +21,13 @@ runs:
       id: update-requirements
       shell: bash --noprofile --norc -exo pipefail {0}
       run: |
-        python dev/update_requirements.py --requirements-yaml-location requirements/skinny-requirements.yaml
-        if [ "${{ inputs.skinny }}" == "false" ]; then
-          python dev/update_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
-        fi
+        python dev/update_requirements.py --requirements-yaml-location ${{ inputs.requirements-yaml-location }}
         if [ -z "$(git status --porcelain)" ]; then
           echo "::set-output name=updated::false"
         else
           python dev/generate_requirements.py \
-            --requirements-yaml-location requirements/skinny-requirements.yaml \
-            --requirements-txt-output-location requirements/skinny-requirements.txt
-          python dev/generate_requirements.py \
-            --requirements-yaml-location requirements/core-requirements.yaml \
-            --requirements-txt-output-location requirements/core-requirements.txt
+            --requirements-yaml-location ${{ inputs.requirements-yaml-location }} \
+            --requirements-txt-output-location ${{ inputs.requirements-txt-output-location }}
           git diff --color=always
           echo "::set-output name=updated::true"
         fi

@@ -29,22 +29,20 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: '3.8'
-
       - name: Install dev script dependencies
         run: |
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
         with:
-          skinny: true
-
+          requirements-yaml-location: requirements/skinny-requirements.yaml
+          requirements-txt-output-location: requirements/skinny-requirements.txt
       - name: Install dependencies
         env:
           INSTALL_SKINNY_PYTHON_DEPS: true
           MLFLOW_SKINNY: true
         run: |
           source ./dev/install-common-deps.sh
-
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -63,20 +61,22 @@ jobs:
         with:
           java-version: 11
           distribution: 'adopt'
-
       - name: Install dev script dependencies
         run: |
           pip install -r dev/requirements.txt
-
       - uses: ./.github/actions/update-requirements
-        id: update-requirements
-
+        with:
+          requirements-yaml-location: requirements/skinny-requirements.yaml
+          requirements-txt-output-location: requirements/skinny-requirements.txt
+      - uses: ./.github/actions/update-requirements
+        with:
+          requirements-yaml-location: requirements/core-requirements.yaml
+          requirements-txt-output-location: requirements/core-requirements.txt
       - name: Install dependencies
         env:
           INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
-
       - name: Run tests
         id: tests
         env:
@@ -86,8 +86,33 @@ jobs:
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
 
+  create-pr:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    needs: [skinny, core]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.8'
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        id: skinny
+        with:
+          requirements-yaml-location: requirements/skinny-requirements.yaml
+          requirements-txt-output-location: requirements/skinny-requirements.txt
+      - uses: ./.github/actions/update-requirements
+        id: core
+        update: update-core
+        with:
+          requirements-yaml-location: requirements/core-requirements.yaml
+          requirements-txt-output-location: requirements/core-requirements.txt
       - uses: peter-evans/create-pull-request@v4
-        if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
+        if: steps.skinny.outputs.updated == 'true' || steps.core.outputs.updated == 'true'
         with:
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           add-paths: requirements
