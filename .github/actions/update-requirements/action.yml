@@ -19,6 +19,7 @@ runs:
   steps:
     - name: Update requirements
       id: update-requirements
+      shell: bash --noprofile --norc -exo pipefail {0}
       run: |
         python dev/update_requirements.py --requirements-yaml-location ${{ inputs.requirements-yaml-location }}
         if [ -z "$(git status --porcelain)" ]; then
