@@ -909,16 +909,16 @@ def test_autolog_logs_signature_and_input_example(data_type):
 def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
     from sklearn.base import BaseEstimator, TransformerMixin
 
-    X_train = pd.DataFrame.from_dict(
+    X_train = pd.DataFrame(
         {
-            "Total Volume": {0: 64236.62, 1: 54876.98, 2: 118220.22},
-            "Total Bags": {0: 8696.87, 1: 9505.56, 2: 8145.35},
-            "Small Bags": {0: 8603.62, 1: 9408.07, 2: 8042.21},
-            "Large Bags": {0: 93.25, 1: 97.49, 2: 103.14},
-            "XLarge Bags": {0: 0.0, 1: 0.0, 2: 0.0},
+            "Total Volume": [64236.62, 54876.98, 118220.22],
+            "Total Bags": [8696.87, 9505.56, 8145.35],
+            "Small Bags": [8603.62, 9408.07, 8042.21],
+            "Large Bags": [93.25, 97.49, 103.14],
+            "XLarge Bags": [0.0, 0.0, 0.0],
         }
     )
-    y_train = pd.Series({0: 1.33, 1: 1.35, 2: 0.93})
+    y_train = pd.Series([1.33, 1.35, 0.93])
 
     class CustomTransformer(BaseEstimator, TransformerMixin):
         def fit(self, X, y=None):  # pylint: disable=unused-argument

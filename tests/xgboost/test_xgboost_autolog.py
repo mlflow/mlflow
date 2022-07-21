@@ -198,33 +198,34 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
     original_xgb_regressor_fit = xgb.XGBRegressor.fit
     original_xgb_regressor_predict = xgb.XGBRegressor.predict
 
-    try:
+    def patched_xgb_regressor_fit(self, *args, **kwargs):
+        X = args[0]
+        X["TESTCOL"] = 5
+        return original_xgb_regressor_fit(self, *args, **kwargs)
 
-        def patched_xgb_regressor_fit(self, *args, **kwargs):
-            X = args[0]
-            X["TESTCOL"] = 5
-            return original_xgb_regressor_fit(self, *args, **kwargs)
+    def patched_xgb_regressor_predict(self, *args, **kwargs):
+        X = args[0]
+        X["TESTCOL"] = 5
+        return original_xgb_regressor_predict(self, *args, **kwargs)
 
-        def patched_xgb_regressor_predict(self, *args, **kwargs):
-            X = args[0]
-            X["TESTCOL"] = 5
-            return original_xgb_regressor_predict(self, *args, **kwargs)
-
+    with mock.patch("xgboost.XGBRegressor.fit", patched_xgb_regressor_fit), mock.patch(
+        "xgboost.XGBRegressor.predict", patched_xgb_regressor_predict
+    ):
         xgb.XGBRegressor.fit = patched_xgb_regressor_fit
         xgb.XGBRegressor.predict = patched_xgb_regressor_predict
 
         mlflow.xgboost.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
-        X = pd.DataFrame.from_dict(
+        X = pd.DataFrame(
             {
-                "Total Volume": {0: 64236.62, 1: 54876.98, 2: 118220.22},
-                "Total Bags": {0: 8696.87, 1: 9505.56, 2: 8145.35},
-                "Small Bags": {0: 8603.62, 1: 9408.07, 2: 8042.21},
-                "Large Bags": {0: 93.25, 1: 97.49, 2: 103.14},
-                "XLarge Bags": {0: 0.0, 1: 0.0, 2: 0.0},
+                "Total Volume": [64236.62, 54876.98, 118220.22],
+                "Total Bags": [8696.87, 9505.56, 8145.35],
+                "Small Bags": [8603.62, 9408.07, 8042.21],
+                "Large Bags": [93.25, 97.49, 103.14],
+                "XLarge Bags": [0.0, 0.0, 0.0],
             }
         )
-        y = pd.Series({0: 1.33, 1: 1.35, 2: 0.93})
+        y = pd.Series([1.33, 1.35, 0.93])
 
         params = {"n_estimators": 10, "reg_lambda": 1}
         model = xgb.XGBRegressor(**params)
@@ -240,9 +241,6 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
         assert "XLarge Bags" in input_example.columns
         assert "TESTCOL" not in model_signature_input_names
         assert "TESTCOL" not in input_example.columns
-    finally:
-        xgb.XGBRegressor.fit = original_xgb_regressor_fit
-        xgb.XGBRegressor.predict = original_xgb_regressor_predict
 
 
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
