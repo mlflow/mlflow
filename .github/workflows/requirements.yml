@@ -32,7 +32,6 @@ jobs:
       - name: Install dev script dependencies
         run: |
           pip install -r dev/requirements.txt
-
       - uses: ./.github/actions/update-requirements
         with:
           requirements-yaml-location: requirements/skinny-requirements.yaml
@@ -78,9 +77,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
-        id: tests
         env:
-          # Fix for https://github.com/mlflow/mlflow/issues/4229
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           source dev/setup-ssh.sh
