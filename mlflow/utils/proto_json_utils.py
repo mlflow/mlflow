@@ -105,7 +105,11 @@ def message_to_json(message):
     # Google's MessageToJson API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
     json_dict_with_int64_as_str = json.loads(
-        MessageToJson(message, preserving_proto_field_name=True)
+        MessageToJson(
+            message,
+            preserving_proto_field_name=True,
+            including_default_value_fields=True,
+        )
     )
     # We convert this proto message into a JSON dict where only int64 proto fields
     # are preserved, and they are treated as JSON numbers, not strings.
