@@ -52,10 +52,8 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
         echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
-      env:
-        INSTALL_ML_DEPENDENCIES: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --ml
         pip install -r requirements/lint-requirements.txt
     - name: Test custom pylint-plugins
       run : |
@@ -78,11 +76,8 @@ jobs:
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
     - name: Install dependencies
-      env:
-        INSTALL_SKINNY_PYTHON_DEPS: true
-        MLFLOW_SKINNY: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --skinny
     - name: Run tests
       run: |
         ./dev/run-python-skinny-tests.sh
@@ -108,10 +103,8 @@ jobs:
         distribution: 'adopt'
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
-      env:
-        INSTALL_ML_DEPENDENCIES: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --ml
     - name: Run tests
       env:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
@@ -221,10 +214,8 @@ jobs:
           distribution: 'adopt'
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --ml
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
@@ -265,9 +256,6 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .[pipelines]
@@ -344,10 +332,8 @@ jobs:
           java-version: 11
           distribution: 'adopt'
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --ml
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1

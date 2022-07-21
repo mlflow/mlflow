@@ -12,6 +12,33 @@ function retry-with-backoff() {
     return 1
 }
 
+while :
+do
+  case "$1" in
+    # Install skinny dependencies
+    --skinny)
+      SKINNY="true"
+      shift
+      ;;
+    # Install ML dependencies
+    --ml)
+      ML="true"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 # Cleanup apt repository to make room for tests.
 sudo apt clean
 df -h
@@ -20,7 +47,7 @@ python --version
 pip install --upgrade pip wheel
 pip --version
 
-if [[ "$MLFLOW_SKINNY" == "true" ]]; then
+if [[ "$SKINNY" == "true" ]]; then
   pip install . --upgrade
 else
   pip install .[extras] --upgrade
@@ -29,12 +56,12 @@ export MLFLOW_HOME=$(pwd)
 
 req_files=""
 # Install Python test dependencies only if we're running Python tests
-if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
+if [[ "$SKINNY" == "true" ]]; then
   req_files+=" -r requirements/skinny-test-requirements.txt"
 else
   req_files+=" -r requirements/test-requirements.txt"
 fi
-if [[ "$INSTALL_ML_DEPENDENCIES" == "true" ]]; then
+if [[ "$ML" == "true" ]]; then
   req_files+=" -r requirements/extra-ml-requirements.txt"
 fi
 

@@ -68,10 +68,8 @@ jobs:
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
-      env:
-        INSTALL_ML_DEPENDENCIES: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --ml
 
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
