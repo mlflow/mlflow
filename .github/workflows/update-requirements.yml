@@ -83,12 +83,5 @@ jobs:
           # Fix for https://github.com/mlflow/mlflow/issues/4229
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          # Establish SSH to localhost for test_sftp_artifact_repo.py
-          ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-
-          cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-          ssh-keyscan -H localhost >> ~/.ssh/known_hosts
-          ssh $(whoami)@localhost exit
-          export LOGNAME=$(whoami)
-
+          source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
