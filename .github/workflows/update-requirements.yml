@@ -30,19 +30,10 @@ jobs:
       - run: |
           pip install pyyaml requests packaging
 
-      - name: Update requirements
-        id: update-requirements
-        run: |
-          python dev/update_requirements.py --requirements-yaml-location requirements/skinny-requirements.yaml
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "::set-output name=updated::false"
-          else
-            python dev/generate_requirements.py \
-              --requirements-yaml-location requirements/skinny-requirements.yaml \
-              --requirements-txt-output-location requirements/skinny-requirements.txt
-            git diff
-            echo "::set-output name=updated::true"
-          fi
+      - uses: ./.github/actions/update-requirements
+        with:
+          requirements-yaml-location: requirements/skinny-requirements.yaml
+          requirements-txt-output-location: requirements/skinny-requirements.txt
 
       - name: Install dependencies
         env:
@@ -73,19 +64,10 @@ jobs:
       - run: |
           pip install pyyaml requests packaging
 
-      - name: Update requirements
-        id: update-requirements
-        run: |
-          python dev/update_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "::set-output name=updated::false"
-          else
-            python dev/generate_requirements.py \
-              --requirements-yaml-location requirements/core-requirements.yaml \
-              --requirements-txt-output-location requirements/core-requirements.txt
-            git diff
-            echo "::set-output name=updated::true"
-          fi
+      - uses: ./.github/actions/update-requirements
+        with:
+          requirements-yaml-location: requirements/core-requirements.yaml
+          requirements-txt-output-location: requirements/core-requirements.txt
 
       - name: Install dependencies
         if: steps.update-requirements.outputs.updated == 'true'
