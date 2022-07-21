@@ -15,7 +15,44 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  # python-skinny:
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.8'
+
+      - run: |
+          pip install pyyaml requests packaging
+
+      - name: Update requirements
+        id: update-requirements
+        run: |
+          python dev/update_requirements.py --requirements-yaml-location requirements/skinny-requirements.yaml
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "::set-output name=updated::false"
+          else
+            python dev/generate_requirements.py \
+              --requirements-yaml-location requirements/skinny-requirements.yaml \
+              --requirements-txt-output-location requirements/skinny-requirements.txt
+            git diff
+            echo "::set-output name=updated::true"
+          fi
+
+      - name: Install dependencies
+        env:
+          INSTALL_SKINNY_PYTHON_DEPS: true
+          MLFLOW_SKINNY: true
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
   python-core:
     runs-on: ubuntu-latest
     steps:
