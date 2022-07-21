@@ -21,7 +21,7 @@ def get_latest_major_version(package_name: str, minium_version: str = None) -> i
             version = Version(version)
         except InvalidVersion:
             # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
-            pass
+            continue
 
         if version.is_devrelease or version.is_prerelease or version < min_ver:
             continue
