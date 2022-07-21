@@ -28,7 +28,7 @@ jobs:
           python-version: '3.8'
 
       - run: |
-          pip install pyyaml requests packaging
+          pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
         with:
@@ -62,7 +62,7 @@ jobs:
           distribution: 'adopt'
 
       - run: |
-          pip install pyyaml requests packaging
+          pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
         with:

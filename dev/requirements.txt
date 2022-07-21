@@ -1,0 +1,4 @@
+# Dev script dependencies
+pyyaml
+requests
+packaging
