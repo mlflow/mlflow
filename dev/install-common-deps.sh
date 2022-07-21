@@ -48,7 +48,7 @@ pip install --upgrade pip wheel
 pip --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  pip install . --upgrade
+  MLFLOW_SKINNY=true pip install . --upgrade
 else
   pip install .[extras] --upgrade
 fi
