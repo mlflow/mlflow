@@ -141,8 +141,8 @@ class BatchScoringPipeline(_BasePipeline):
                        format.
                      - ``"preprocessing"``: cleans the ingested dataset produced by the **ingest**
                        step into a cleaned dataset for batch scoring.
-                     - ``"predict"``: uses the cleaned dataset created by the **data_clean** step and
-                       applies the specified model to the dataset.
+                     - ``"predict"``: uses the cleaned dataset created by the **data_clean** step
+                       and applies the specified model to the dataset.
         .. code-block:: python
             :caption: Example
             import os
@@ -263,8 +263,9 @@ class BatchScoringPipeline(_BasePipeline):
             regression_pipeline.run(step="ingest")
             # Run the 'preprocessing' step again and run the 'predict' step; the 'preprocessing'
             # step is re-executed because:
-            # 1. the cache of the preceding 'preprocessing' step was cleaned and 2. 'predict' occurs after
-            # 'preprocessing'. The 'ingest' step is not re-executed because its output is still cached
+            # 1. the cache of the preceding 'preprocessing' step was cleaned and 2. 'predict'
+            # occurs after 'preprocessing'. The 'ingest' step is not re-executed because its
+            # output is still cached
             batch_scoring_pipeline.run(step="predict")
         """
         super().clean(step=step)
