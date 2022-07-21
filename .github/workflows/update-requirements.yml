@@ -37,7 +37,7 @@ jobs:
       - name: Update requirements YAML
         id: update-requirements
         run: |
-          python dev/update_core_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
+          python dev/update_requirements.py --requirements-yaml-location requirements/core-requirements.yaml
           if [ -z "$(git status --porcelain)" ]; then
             echo "::set-output name=updated::false"
           else
