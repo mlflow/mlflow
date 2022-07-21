@@ -17,7 +17,9 @@ def get_latest_major_version(package_name: str, minium_version: str = None) -> i
         if len(distributions) > 0 and (not distributions[0].get("yanked", False))
     }
     min_ver = Version(minium_version if minium_version else "0.0.0")
-    return max(filter(lambda v: v >= min_ver, versions)).major
+    return (
+        max(filter(lambda v: v >= min_ver, versions)).major + 1
+    )  # +1 for testing, will be removed
 
 
 def replace_max_major_version(yaml_string: str, pip_release: str, max_major_version: int) -> str:
