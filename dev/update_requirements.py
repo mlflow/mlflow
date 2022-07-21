@@ -63,18 +63,18 @@ def parse_args():
 def main():
     args = parse_args()
     with open(args.requirements_yaml_location, "r") as f:
-        core_requirements_src = f.read()
-        core_requirements = yaml.safe_load(core_requirements_src)
+        requirements = f.read()
+        core_requirements = yaml.safe_load(requirements)
 
-    for package_info in core_requirements.values():
-        pip_release = package_info["pip_release"]
-        max_major_version = package_info["max_major_version"]
-        minium_version = package_info.get("minium_version")
+    for req_info in core_requirements.values():
+        pip_release = req_info["pip_release"]
+        max_major_version = req_info["max_major_version"]
+        minium_version = req_info.get("minium_version")
         latest_major_version = get_latest_major_version(pip_release, minium_version)
         assert latest_major_version >= max_major_version
         if latest_major_version != max_major_version:
-            core_requirements_src = replace_max_major_version(
-                core_requirements_src, pip_release, latest_major_version
+            requirements = replace_max_major_version(
+                requirements, pip_release, latest_major_version
             )
             print(
                 f"Updated {pip_release} max_major_version"
@@ -82,7 +82,7 @@ def main():
             )
 
     with open(args.requirements_yaml_location, "w") as f:
-        f.write(core_requirements_src)
+        f.write(requirements)
 
 
 if __name__ == "__main__":
