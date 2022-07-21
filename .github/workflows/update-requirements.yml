@@ -23,6 +23,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-python
+        with:
+          python-version: "3.8"
       - uses: ./.github/actions/setup-pyenv
       - uses: actions/setup-java@v3
         with:
