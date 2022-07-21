@@ -97,7 +97,6 @@ jobs:
           signoff: true
           committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
-          base: ${{ github.head_ref }}
           branch: 'updated-requirements'
           branch-suffix: timestamp
           title: 'Update requirements'
