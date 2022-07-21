@@ -28,6 +28,6 @@ runs:
           python dev/generate_requirements.py \
             --requirements-yaml-location ${{ inputs.requirements-yaml-location }} \
             --requirements-txt-output-location ${{ inputs.requirements-txt-output-location }}
-          git diff
+          git diff --color=always
           echo "::set-output name=updated::true"
         fi
