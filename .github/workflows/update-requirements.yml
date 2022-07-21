@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - requirements/**
-  push:
   schedule:
     - cron: '0 13 * * *'
 
