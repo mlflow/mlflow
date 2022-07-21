@@ -14,7 +14,7 @@ def get_latest_major_version(package_name: str, minium_version: str = None) -> i
     min_ver = Version(minium_version if minium_version else "0.0.0")
     versions = []
     for version, distributions in data["releases"].items():
-        if len(distributions) == 0 or any(lambda d: d.get("yanked", False), distributions):
+        if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
             continue
 
         try:
