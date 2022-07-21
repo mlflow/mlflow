@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
 _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 1000000  # 1M Cols
+_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
@@ -126,6 +126,18 @@ def get_pandas_data_profile(data_frame, title: str):
     truncated_df = data_frame.drop(columns=data_frame.columns[max_cols:]).sample(
         n=max_rows, ignore_index=True, random_state=42
     )
+    if (
+        data_frame.size != max_cells
+        or data_frame.columns.size != max_cols
+        or max(max_cells // max_cols, 1) != max_rows
+    ):
+        _logger.info(
+            "Truncating the data frame for %s to %d cells, %d columns and %d rows",
+            title,
+            max_cells,
+            max_cols,
+            max_rows,
+        )
     return ProfileReport(
         truncated_df,
         title=title,
