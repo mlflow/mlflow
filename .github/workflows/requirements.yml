@@ -46,9 +46,26 @@ jobs:
           source ./dev/install-common-deps.sh
 
       - name: Run tests
+        id: tests
         if: steps.update-requirements.outputs.updated == 'true'
         run: |
-          ./dev/run-python-skinny-tests.sh
+          ./dev/run-python-skinny-tests.sh || true
+
+      - uses: peter-evans/create-pull-request@v4
+        # if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
+        with:
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          add-paths: requirements
+          commit-message: 'Update requirements'
+          signoff: true
+          committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          branch: 'updated-requirements'
+          branch-suffix: timestamp
+          push-to-fork: mlflow-automation/mlflow
+          title: 'Update requirements'
+          body: |
+            Created in this run: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
 
   python-core:
     runs-on: ubuntu-latest
