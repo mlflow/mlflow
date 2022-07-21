@@ -3,4 +3,4 @@
 	url = https://github.com/mlflow/mlp-regression-template.git
 [submodule "examples/pipelines/batch_scoring"]
         path = examples/pipelines/batch_scoring
-        url = https://github.com/mlflow/mlp-batch-scoring-template.git
+        url = https://github.com/kriscon-db/mlp-batch-scoring-template.git
