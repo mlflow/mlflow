@@ -17,7 +17,7 @@ defaults:
     shell: bash --noprofile --norc -exo pipefail {0}
 
 jobs:
-  python-skinny:
+  skinny:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -32,12 +32,10 @@ jobs:
           pip install -r dev/requirements.txt
 
       - uses: ./.github/actions/update-requirements
-        id: update-requirements
         with:
           skinny: true
 
       - name: Install dependencies
-        if: steps.update-requirements.outputs.updated == 'true'
         env:
           INSTALL_SKINNY_PYTHON_DEPS: true
           MLFLOW_SKINNY: true
@@ -45,12 +43,10 @@ jobs:
           source ./dev/install-common-deps.sh
 
       - name: Run tests
-        id: tests
-        if: steps.update-requirements.outputs.updated == 'true'
         run: |
           ./dev/run-python-skinny-tests.sh
 
-  python-core:
+  core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -73,14 +69,13 @@ jobs:
         id: update-requirements
 
       - name: Install dependencies
-        if: steps.update-requirements.outputs.updated == 'true'
         env:
           INSTALL_ML_DEPENDENCIES: true
         run: |
           source ./dev/install-common-deps.sh
 
       - name: Run tests
-        if: steps.update-requirements.outputs.updated == 'true'
+        id: tests
         env:
           # Fix for https://github.com/mlflow/mlflow/issues/4229
           SPARK_LOCAL_IP: 127.0.0.1
