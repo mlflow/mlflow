@@ -49,9 +49,7 @@ def test_pipeline_run_and_clean_the_whole_pipeline_works(create_pipeline):
     p.clean()
 
 
-@pytest.mark.parametrize(
-    "step", ["ingest", "preprocessing"]  # exclude predict for now
-)
+@pytest.mark.parametrize("step", ["ingest", "preprocessing"])  # exclude predict for now
 def test_pipeline_run_and_clean_individual_step_works(step, create_pipeline):
     p = create_pipeline
     p.run(step)
