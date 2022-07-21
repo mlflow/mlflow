@@ -88,7 +88,7 @@ def main():
                 f" {max_major_version} -> {latest_major_version}"
             )
 
-    if requirements_src != new_requirements_src:
+    if new_requirements_src != requirements_src:
         diff = difflib.ndiff(
             requirements_src.splitlines(keepends=True),
             new_requirements_src.splitlines(keepends=True),
@@ -99,7 +99,7 @@ def main():
             exit(1)
 
         with open(args.requirements_yaml_location, "w") as f:
-            f.write(requirements)
+            f.write(new_requirements_src)
     else:
         print(f"{args.requirements_yaml_location} is up to date!")
 
