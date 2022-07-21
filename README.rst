@@ -16,7 +16,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |labeling| |examples| |cross-version-tests| |r-devel| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
+|docs| |labeling| |examples| |cross-version-tests| |requirements| |r-devel| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge
     :target: https://mlflow.org/docs/latest/index.html
@@ -29,6 +29,8 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :alt: Examples Action Status
 .. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
+.. |requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Requirements?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ARequirements+event%3Aschedule
 .. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
     :alt: Examples Action Status

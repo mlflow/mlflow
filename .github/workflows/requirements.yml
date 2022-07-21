@@ -1,0 +1,109 @@
+name: Requirements
+
+on:
+  pull_request:
+    paths:
+      - requirements/core-requirements.yaml
+      - requirements/skinny-requirements.yaml
+  schedule:
+    - cron: '0 13 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.8'
+
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+
+      - uses: ./.github/actions/update-requirements
+        id: update-requirements
+        with:
+          requirements-yaml-location: requirements/skinny-requirements.yaml
+          requirements-txt-output-location: requirements/skinny-requirements.txt
+
+      - name: Install dependencies
+        if: steps.update-requirements.outputs.updated == 'true'
+        env:
+          INSTALL_SKINNY_PYTHON_DEPS: true
+          MLFLOW_SKINNY: true
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - name: Run tests
+        id: tests
+        if: steps.update-requirements.outputs.updated == 'true'
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
+      - uses: peter-evans/create-pull-request@v4
+        if: steps.update-requirements.outputs.updated == 'true' && github.event_name == 'schedule' && steps.tests.outcome == 'success'
+        with:
+          token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          add-paths: requirements
+          commit-message: 'Update requirements'
+          signoff: true
+          committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
+          base: ${{ github.head_ref }}
+          branch: 'updated-requirements'
+          branch-suffix: timestamp
+          title: 'Update requirements'
+          body: |
+            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
+
+  python-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: '3.8'
+      - uses: ./.github/actions/setup-pyenv
+      - uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+
+      - uses: ./.github/actions/update-requirements
+        id: update-requirements
+        with:
+          requirements-yaml-location: requirements/core-requirements.yaml
+          requirements-txt-output-location: requirements/core-requirements.txt
+
+      - name: Install dependencies
+        if: steps.update-requirements.outputs.updated == 'true'
+        env:
+          INSTALL_ML_DEPENDENCIES: true
+        run: |
+          source ./dev/install-common-deps.sh
+
+      - name: Run tests
+        if: steps.update-requirements.outputs.updated == 'true'
+        env:
+          # Fix for https://github.com/mlflow/mlflow/issues/4229
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          source dev/setup-ssh.sh
+          ./dev/run-python-tests.sh
