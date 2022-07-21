@@ -89,11 +89,11 @@ def main():
             )
 
     if requirements_src != new_requirements_src:
-        print("===== Diff =====")
         diff = difflib.ndiff(
             requirements_src.splitlines(keepends=True),
             new_requirements_src.splitlines(keepends=True),
         )
+        print("========== Diff ==========")
         print("".join(diff), end="")
         if args.check:
             exit(1)
