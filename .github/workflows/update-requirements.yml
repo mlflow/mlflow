@@ -36,6 +36,7 @@ jobs:
           requirements-txt-output-location: requirements/skinny-requirements.txt
 
       - name: Install dependencies
+        if: steps.update-requirements.outputs.updated == 'true'
         env:
           INSTALL_SKINNY_PYTHON_DEPS: true
           MLFLOW_SKINNY: true
@@ -43,6 +44,7 @@ jobs:
           source ./dev/install-common-deps.sh
 
       - name: Run tests
+        if: steps.update-requirements.outputs.updated == 'true'
         run: |
           ./dev/run-python-skinny-tests.sh
 
