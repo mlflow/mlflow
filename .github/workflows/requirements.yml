@@ -107,7 +107,6 @@ jobs:
           requirements-txt-output-location: requirements/skinny-requirements.txt
       - uses: ./.github/actions/update-requirements
         id: core
-        update: update-core
         with:
           requirements-yaml-location: requirements/core-requirements.yaml
           requirements-txt-output-location: requirements/core-requirements.txt
