@@ -1,4 +1,5 @@
 import argparse
+import difflib
 import re
 
 import yaml
@@ -57,32 +58,50 @@ def parse_args():
         required=True,
         help="Local file path of the requirements.yaml specification.",
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="If specified, only check if the requirements.yaml specification is up to date.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
     with open(args.requirements_yaml_location, "r") as f:
-        requirements = f.read()
-        core_requirements = yaml.safe_load(requirements)
+        requirements_src = f.read()
+        requirements = yaml.safe_load(requirements_src)
 
-    for req_info in core_requirements.values():
+    new_requirements_src = requirements_src
+    for req_info in requirements.values():
         pip_release = req_info["pip_release"]
         max_major_version = req_info["max_major_version"]
         minium_version = req_info.get("minium_version")
         latest_major_version = get_latest_major_version(pip_release, minium_version)
         assert latest_major_version >= max_major_version
         if latest_major_version != max_major_version:
-            requirements = replace_max_major_version(
-                requirements, pip_release, latest_major_version
+            new_requirements_src = replace_max_major_version(
+                new_requirements_src, pip_release, latest_major_version
             )
             print(
                 f"Updated {pip_release} max_major_version"
                 f" {max_major_version} -> {latest_major_version}"
             )
 
-    with open(args.requirements_yaml_location, "w") as f:
-        f.write(requirements)
+    if requirements_src != new_requirements_src:
+        print("===== Diff =====")
+        diff = difflib.ndiff(
+            requirements_src.splitlines(keepends=True),
+            new_requirements_src.splitlines(keepends=True),
+        )
+        print("".join(diff), end="")
+        if args.check:
+            exit(1)
+
+        with open(args.requirements_yaml_location, "w") as f:
+            f.write(requirements)
+    else:
+        print(f"{args.requirements_yaml_location} is up to date!")
 
 
 if __name__ == "__main__":
