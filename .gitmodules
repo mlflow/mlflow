@@ -2,5 +2,5 @@
 	path = examples/pipelines/sklearn_regression
 	url = https://github.com/mlflow/mlp-regression-template.git
 [submodule "examples/pipelines/batch_scoring"]
-        path = examples/pipelines/batch_scoring
-        url = https://github.com/kriscon-db/mlp-batch-scoring-template.git
+	path = examples/pipelines/batch_scoring
+	url = https://github.com/kriscon-db/mlp-batch-scoring-template.git
