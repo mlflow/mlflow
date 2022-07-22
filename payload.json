@@ -1,6 +1,0 @@
-{
-  "inputs": {
-    "repository": "mlflow/mlp-regression-template",
-    "ref": "refs/heads/main"
-  }
-}

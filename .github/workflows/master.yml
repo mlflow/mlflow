@@ -230,51 +230,6 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
-  pipelines:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-python
-      - name: Install dependencies
-        run: |
-          source ./dev/install-common-deps.sh
-          pip install -e .[pipelines]
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
-      - name: Run tests
-        run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/pipelines
-
-  pipelines-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-python
-      - name: Install python dependencies
-        run: |
-          pip install -r requirements/test-requirements.txt
-          pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
-          pip install -e .[pipelines]
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
-      - name: Download Hadoop winutils for Spark
-        run: |
-          git clone https://github.com/cdarlint/winutils
-      - name: Run tests
-        run: |
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
-          export PATH=$PATH:$HADOOP_HOME/bin
-          # Run pipelines tests
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/pipelines
-
   pyfunc:
     runs-on: ubuntu-latest
     steps:
