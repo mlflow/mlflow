@@ -20,7 +20,7 @@ Regression Pipeline
     :undoc-members:
 
 Batch Scoring Pipeline
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. automodule:: mlflow.pipelines.batch_scoring.v1.pipeline
 

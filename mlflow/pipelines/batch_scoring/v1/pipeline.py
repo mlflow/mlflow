@@ -18,6 +18,7 @@ The pipeline steps are defined as follows:
         and converts it to parquet format, leveraging the custom dataset parsing code defined in
         |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
+
         .. note::
             If you make changes to the dataset referenced by the **ingest** step (e.g. by adding
             new records or columns), you must manually re-run the **ingest** step in order to
@@ -35,9 +36,10 @@ The pipeline steps are defined as follows:
    .. _mlflow-batch-scoring-pipeline-predict-step:
 
    - **predict**
-      - The **predict** step ...
+      - The **predict** step
 
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/ingest.py>`__
+.. |steps/preprocessing.py| replace:: `steps/preprocessing.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/preprocessing.py>`__
 """
 
 import os
@@ -314,7 +316,7 @@ class BatchScoringPipeline(_BasePipeline):
 
             import os
             from mlflow.pipelines import Pipeline
-            
+
             os.chdir("~/mlp-batch_scoring-template")
             batch_scoring_pipeline = Pipeline(profile="local")
             # Display a visual overview of the pipeline graph.
