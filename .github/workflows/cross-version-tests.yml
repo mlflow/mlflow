@@ -113,7 +113,7 @@ jobs:
             java_version=11
           fi
           echo "::set-output name=version::$java_version"
-      - uses: actions/setup-java@v3
+      - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
