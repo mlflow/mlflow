@@ -165,7 +165,7 @@ jobs:
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
-          SPARK_LOCAL_IP: 127.0.0.1
+          SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
         run: |
           ${{ matrix.run }}
