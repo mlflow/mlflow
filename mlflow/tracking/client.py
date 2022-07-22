@@ -2688,6 +2688,7 @@ class MlflowClient:
         """
         Set a tag for the model version.
         When stage is set, tag will be set for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
@@ -2768,6 +2769,7 @@ class MlflowClient:
         """
         Delete a tag associated with the model version.
         When stage is set, tag will be deleted for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
