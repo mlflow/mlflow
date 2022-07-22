@@ -1,13 +1,18 @@
 """
 .. _mlflow-batch-scoring-pipeline:
+
 The MLflow Batch Scoring Pipeline is an MLflow Pipeline for applying existing models against new
 datasets.  The corresponding pipeline template repository is available at
 https://github.com/mlflow/mlp-batch-scoring-template, and the :py:class:` BatchScoringPipeline
 API Documentation <BatchScoringPipeline>` provides instructions for executing the pipeline and
 inspecting its results.
+
 The pipeline contains the following sequential steps:
+
 **ingest** -> **preprocessing** -> **predict**
+
 The pipeline steps are defined as follows:
+
    - **ingest**
       - The **ingest** step resolves the dataset specified by the |'data' section in pipeline.yaml|
         and converts it to parquet format, leveraging the custom dataset parsing code defined in
@@ -28,8 +33,10 @@ The pipeline steps are defined as follows:
         user specified model.
 
    .. _mlflow-batch-scoring-pipeline-predict-step:
+
    - **predict**
       - The **predict** step ...
+
 .. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/ingest.py>`__
 """
 
@@ -58,11 +65,15 @@ class BatchScoringPipeline(_BasePipeline):
     pipeline template repository is available at
     https://github.com/mlflow/mlp-batch-scoring-template.
     The pipeline contains the following sequential steps:
+
     **ingest** -> **preprocess** -> **predict**
+
     .. code-block:: python
         :caption: Example
+
         import os
         from mlflow.pipelines import Pipeline
+
         os.chdir("~/mlp-batch-scoring-template")
         batch_scoring_pipeline = Pipeline(profile="local")
         # Display a visual overview of the pipeline graph
@@ -133,20 +144,27 @@ class BatchScoringPipeline(_BasePipeline):
         steps are only re-executed if configuration or code changes have been made to the step or
         to any of its dependent steps (e.g. changes to the pipeline's ``pipeline.yaml`` file or
         ``steps/ingest.py`` file) since the previous execution.
+
         :param step: String name of the step to run within the batch scoring pipeline. The step and
                      its dependencies are executed sequentially. If a step is not specified, the
                      entire pipeline is executed. Supported steps, in their order of execution, are:
+
                      - ``"ingest"``: resolves the dataset specified by the ``data`` section in the
                        pipeline's configuration file (``pipeline.yaml``) and converts it to parquet
                        format.
+
                      - ``"preprocessing"``: cleans the ingested dataset produced by the **ingest**
                        step into a cleaned dataset for batch scoring.
+
                      - ``"predict"``: uses the cleaned dataset created by the **data_clean** step
                        and applies the specified model to the dataset.
+
         .. code-block:: python
             :caption: Example
+
             import os
             from mlflow.pipelines import Pipeline
+
             os.chdir("~/mlp-batch-scoring-template")
             batch_scoring_pipeline = Pipeline(profile="local")
             # Run the 'ingest' step and preceding steps
@@ -166,23 +184,31 @@ class BatchScoringPipeline(_BasePipeline):
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
         :py:func:`BatchScoringPipeline.inspect()`.
+
         :param artifact_name: The string name of the artifact. Supported artifact values are:
+
                          - ``"ingested_data"``: returns the ingested dataset created in the
                            **ingest** step as a pandas DataFrame.
+
                          - ``"preprocessed_data"``: returns the cleaned dataset created in the
                            **preprocessing** step as a pandas DataFrame.
+
                          - ``"scored_data"``: returns the scored dataset created in the
                            **predict** step as a pandas DataFrame.
+
         :return: An object representation of the artifact corresponding to the specified name,
                  as described in the ``artifact_name`` parameter docstring. If the artifact is
                  not present because its corresponding step has not been executed or its output
                  cache has been cleaned, ``None`` is returned.
+
         .. code-block:: python
             :caption: Example
+
             import os
             import pandas as pd
             from mlflow.pipelines import Pipeline
             from mlflow.pyfunc import PyFuncModel
+
             os.chdir("~/mlp-batch-scoring-template")
             batch_scoring_pipeline = Pipeline(profile="local")
             batch_scoring_pipeline.run()
@@ -246,12 +272,16 @@ class BatchScoringPipeline(_BasePipeline):
         Removes all pipeline outputs from the cache, or removes the cached outputs of a particular
         pipeline step if specified. After cached outputs are cleaned for a particular step, the
         step will be re-executed in its entirety the next time it is run.
+
         :param step: String name of the step to clean within the pipeline. If not specified,
                      cached outputs are removed for all pipeline steps.
+
         .. code-block:: python
             :caption: Example
+
             import os
             from mlflow.pipelines import Pipeline
+
             os.chdir("~/mlp-batch-scoring-template")
             batch_scoring_pipeline = Pipeline(profile="local")
             # Run the 'preprocessing' step and preceding steps
@@ -275,12 +305,16 @@ class BatchScoringPipeline(_BasePipeline):
         Displays a visual overview of the pipeline graph, or displays a summary of results from
         a particular pipeline step if specified. If the specified step has not been executed,
         nothing is displayed.
+
         :param step: String name of the pipeline step for which to display a results summary. If
                      unspecified, a visual overview of the pipeline graph is displayed.
+
         .. code-block:: python
             :caption: Example
+
             import os
             from mlflow.pipelines import Pipeline
+            
             os.chdir("~/mlp-batch_scoring-template")
             batch_scoring_pipeline = Pipeline(profile="local")
             # Display a visual overview of the pipeline graph.
