@@ -419,9 +419,10 @@ class MlflowClient:
                             its own limit.
         :param filter_string:
             Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following fields, comparators, and logical operators are supported.
+            experiments. The following identifiers, comparators, and logical operators are
+            supported.
 
-            Fields
+            Identifiers
               - ``name``: Experiment name.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
@@ -438,7 +439,7 @@ class MlflowClient:
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
             ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following fields are supported.
+            equivalent to ``"name ASC"``. The following identifiers are supported.
 
             - ``name``: Experiment name.
             - ``experiment_id``: Experiment ID.
@@ -588,11 +589,16 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
+            from pathlib import Path
             from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
-            experiment_id = client.create_experiment("Social NLP Experiments")
+            experiment_id = client.create_experiment(
+                "Social NLP Experiments",
+                artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+                tags={"version": "v1", "priority": "P1"},
+            )
             client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
 
             # Fetch experiment metadata information
@@ -608,8 +614,8 @@ class MlflowClient:
 
             Name: Social NLP Experiments
             Experiment_id: 1
-            Artifact Location: file:///.../mlruns/1
-            Tags: {'nlp.framework': 'Spark NLP'}
+            Artifact Location: file:///.../mlruns
+            Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
         return self._tracking_client.create_experiment(name, artifact_location, tags)

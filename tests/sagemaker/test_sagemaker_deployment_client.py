@@ -1372,7 +1372,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
         result = sagemaker_deployment_client.predict("test", df)
 
         assert isinstance(result, pd.DataFrame)
-        assert result.equals(output_df)
+        pd.testing.assert_frame_equal(result, output_df)
 
 
 @mock_sagemaker_aws_services

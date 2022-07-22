@@ -525,17 +525,21 @@ def test_column_schema_enforcement_no_col_names():
     test_data = [[1.0, 2.0, 3.0]]
 
     # Can call with just a list
-    assert pyfunc_model.predict(test_data).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(pyfunc_model.predict(test_data), pd.DataFrame(test_data))
 
     # Or can call with a DataFrame without column names
-    assert pyfunc_model.predict(pd.DataFrame(test_data)).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(
+        pyfunc_model.predict(pd.DataFrame(test_data)), pd.DataFrame(test_data)
+    )
 
     # # Or can call with a np.ndarray
-    assert pyfunc_model.predict(pd.DataFrame(test_data).values).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(
+        pyfunc_model.predict(pd.DataFrame(test_data).values), pd.DataFrame(test_data)
+    )
 
     # Or with column names!
     pdf = pd.DataFrame(data=test_data, columns=["a", "b", "c"])
-    assert pyfunc_model.predict(pdf).equals(pdf)
+    pd.testing.assert_frame_equal(pyfunc_model.predict(pdf), pdf)
 
     # Must provide the right number of arguments
     with pytest.raises(MlflowException, match="the provided value only has 2 inputs."):
@@ -551,7 +555,7 @@ def test_column_schema_enforcement_no_col_names():
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}
-    assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
+    pd.testing.assert_frame_equal(pyfunc_model.predict(d), pd.DataFrame(d))
 
 
 def test_tensor_schema_enforcement_no_col_names():

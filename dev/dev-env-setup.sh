@@ -220,11 +220,12 @@ echo "$(tput setaf 3)Activated environment is located: $(tput bold) $directory/b
 
 echo "Installing pip dependencies for development environment."
 
+# Install current checked out version of MLflow (local)
+pip install $(quiet_command) -e .[extras]
+
 if [[ -n "$full" ]]; then
   # Install dev requirements and test plugin
   pip install $(quiet_command) -r "$MLFLOW_HOME/requirements/dev-requirements.txt"
-  # Install current checked out version of MLflow (local)
-  pip install $(quiet_command) -e .[extras]
   # Install test plugin
   pip install $(quiet_command) -e "$MLFLOW_HOME/tests/resources//mlflow-test-plugin"
   echo "Finished installing pip dependencies."

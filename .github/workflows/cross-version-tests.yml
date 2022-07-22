@@ -113,7 +113,7 @@ jobs:
             java_version=11
           fi
           echo "::set-output name=version::$java_version"
-      - uses: actions/setup-java@v3
+      - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
@@ -165,7 +165,7 @@ jobs:
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
-          SPARK_LOCAL_IP: 127.0.0.1
+          SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
         run: |
           ${{ matrix.run }}
