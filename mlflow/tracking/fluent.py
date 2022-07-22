@@ -220,28 +220,48 @@ def start_run(
         import mlflow
 
         # Create nested runs
-        with mlflow.start_run(run_name='PARENT_RUN') as parent_run:
+        experiment_id = mlflow.create_experiment("experiment1")
+        with mlflow.start_run(
+            run_name="PARENT_RUN",
+            experiment_id=experiment_id,
+            tags={"version": "v1", "priority": "P1"},
+            description="parent",
+        ) as parent_run:
             mlflow.log_param("parent", "yes")
-            with mlflow.start_run(run_name='CHILD_RUN', nested=True) as child_run:
+            with mlflow.start_run(
+                run_name="CHILD_RUN",
+                experiment_id=experiment_id,
+                description="child",
+                nested=True,
+            ) as child_run:
                 mlflow.log_param("child", "yes")
 
-        print("parent run_id: {}".format(parent_run.info.run_id))
-        print("child run_id : {}".format(child_run.info.run_id))
+        print("parent run:")
+
+        print("run_id: {}".format(parent_run.info.run_id))
+        print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
+        print("version tag value: {}".format(parent_run.data.tags.get("version")))
+        print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
 
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
-        results = mlflow.search_runs(filter_string=query)
+        results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
+        print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
 
     .. code-block:: text
         :caption: Output
 
-        parent run_id: 5ec0e7ae18f54c2694ffb48c2fccf25c
-        child run_id : 78b3b0d264b44cd29e8dc389749bb4be
+        parent run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+        description: starting a parent for experiment 7
+        version tag value: v1
+        priority tag value: P1
         --
+        child runs:
                                      run_id params.child tags.mlflow.runName
-        0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
+        0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
@@ -1059,9 +1079,9 @@ def search_experiments(
                         passed, all experiments will be returned.
     :param filter_string:
         Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-        experiments. The following fields, comparators, and logical operators are supported.
+        experiments. The following identifiers, comparators, and logical operators are supported.
 
-        Fields
+        Identifiers
           - ``name``: Experiment name.
           - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
             spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
@@ -1167,9 +1187,14 @@ def create_experiment(
         :caption: Example
 
         import mlflow
+        from pathlib import Path
 
         # Create an experiment name, which must be unique and case sensitive
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_id = mlflow.create_experiment(
+            "Social NLP Experiments",
+            artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+            tags={"version": "v1", "priority": "P1"},
+        )
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
         print("Experiment_id: {}".format(experiment.experiment_id))
@@ -1182,8 +1207,8 @@ def create_experiment(
 
         Name: Social NLP Experiments
         Experiment_id: 1
-        Artifact Location: file:///.../mlruns/1
-        Tags= {}
+        Artifact Location: file:///.../mlruns
+        Tags: {'version': 'v1', 'priority': 'P1'}
         Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)

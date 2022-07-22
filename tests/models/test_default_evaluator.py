@@ -770,8 +770,8 @@ def test_evaluate_custom_metric_success():
     # pylint: disable=unsupported-membership-test
     assert isinstance(res_artifacts_2, dict)
     assert "pred_target_abs_diff" in res_artifacts_2
-    assert res_artifacts_2["pred_target_abs_diff"].equals(
-        np.abs(eval_df["prediction"] - eval_df["target"])
+    pd.testing.assert_series_equal(
+        res_artifacts_2["pred_target_abs_diff"], np.abs(eval_df["prediction"] - eval_df["target"])
     )
 
     assert "example_dictionary_artifact" in res_artifacts_2
@@ -957,13 +957,15 @@ def test_custom_metric_logs_artifacts_from_paths(
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_parquet_artifact" in result.artifacts
     assert "test_parquet_artifact_on_data_breast_cancer_dataset.parquet" in artifacts
     assert isinstance(result.artifacts["test_parquet_artifact"], ParquetEvaluationArtifact)
-    assert result.artifacts["test_parquet_artifact"].content.equals(
-        pd.DataFrame({"test": [1, 2, 3]})
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_parquet_artifact"].content, pd.DataFrame({"test": [1, 2, 3]})
     )
 
     assert "test_text_artifact" in result.artifacts
@@ -1032,7 +1034,9 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_json_text_artifact" in result.artifacts
     assert "test_json_text_artifact_on_data_breast_cancer_dataset.json" in artifacts
