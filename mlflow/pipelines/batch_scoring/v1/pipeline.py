@@ -16,7 +16,7 @@ The pipeline steps are defined as follows:
    - **ingest**
       - The **ingest** step resolves the dataset specified by the |'data' section in pipeline.yaml|
         and converts it to parquet format, leveraging the custom dataset parsing code defined in
-        |./steps/bs_ingest.py| if necessary. Subsequent steps convert this dataset into training,
+        |./steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
 
         .. note::
