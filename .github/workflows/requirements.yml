@@ -55,7 +55,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: ./.github/actions/setup-pyenv
-      - uses: ./.github/actions/setup-java@v3
+      - uses: ./.github/actions/setup-java
       - name: Install dev script dependencies
         run: |
           pip install -r dev/requirements.txt
