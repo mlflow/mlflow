@@ -22,7 +22,7 @@ Regression Pipeline
 Batch Scoring Pipeline
 ~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: mlflow.pipelines.batch_scoringv1.pipeline
+.. automodule:: mlflow.pipelines.batch_scoring.v1.pipeline
 
 .. autoclass:: mlflow.pipelines.batch_scoring.v1.pipeline.BatchScoringPipeline()
     :members:

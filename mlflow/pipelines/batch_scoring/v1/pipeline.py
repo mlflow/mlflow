@@ -19,7 +19,7 @@ The pipeline steps are defined as follows:
             use the updated dataset in the pipeline. The **ingest** step does *not* automatically
             detect changes in the dataset.
 
-   .. _mlflow-regression-pipeline-preprocessing-step:
+   .. _mlflow-batch-scoring-pipeline-preprocessing-step:
 
    - **preprocessing**
       - The **preprocessing** step applies logic defined in |steps/preprocessing.py| against the
@@ -64,7 +64,7 @@ class BatchScoringPipeline(_BasePipeline):
         import os
         from mlflow.pipelines import Pipeline
         os.chdir("~/mlp-batch-scoring-template")
-        regression_pipeline = Pipeline(profile="local")
+        batch_scoring_pipeline = Pipeline(profile="local")
         # Display a visual overview of the pipeline graph
         batch_scoring_pipeline.inspect()
         # Run the full pipeline
@@ -133,7 +133,7 @@ class BatchScoringPipeline(_BasePipeline):
         steps are only re-executed if configuration or code changes have been made to the step or
         to any of its dependent steps (e.g. changes to the pipeline's ``pipeline.yaml`` file or
         ``steps/ingest.py`` file) since the previous execution.
-        :param step: String name of the step to run within the regression pipeline. The step and
+        :param step: String name of the step to run within the batch scoring pipeline. The step and
                      its dependencies are executed sequentially. If a step is not specified, the
                      entire pipeline is executed. Supported steps, in their order of execution, are:
                      - ``"ingest"``: resolves the dataset specified by the ``data`` section in the
@@ -165,7 +165,7 @@ class BatchScoringPipeline(_BasePipeline):
         """
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
-        :py:func:`RegressionPipeline.inspect()`.
+        :py:func:`BatchScoringPipeline.inspect()`.
         :param artifact_name: The string name of the artifact. Supported artifact values are:
                          - ``"ingested_data"``: returns the ingested dataset created in the
                            **ingest** step as a pandas DataFrame.
@@ -260,7 +260,7 @@ class BatchScoringPipeline(_BasePipeline):
             batch_scoring_pipeline.clean(step="preprocessing")
             # Run the 'ingest' step; outputs are still cached because 'ingest' precedes
             # 'preprocessing'
-            regression_pipeline.run(step="ingest")
+            batch_scoring_pipeline.run(step="ingest")
             # Run the 'preprocessing' step again and run the 'predict' step; the 'preprocessing'
             # step is re-executed because:
             # 1. the cache of the preceding 'preprocessing' step was cleaned and 2. 'predict'
