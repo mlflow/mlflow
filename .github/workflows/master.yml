@@ -36,6 +36,7 @@ env:
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
 
 jobs:
   lint:
@@ -113,9 +114,6 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
-      env:
-        # Fix for https://github.com/mlflow/mlflow/issues/4229
-        SPARK_LOCAL_IP: 127.0.0.1
       run: |
         # Establish SSH to localhost for test_sftp_artifact_repo.py
         ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
@@ -169,8 +167,6 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
-      env:
-        SPARK_LOCAL_IP: 127.0.0.1
       run: |
         cd mlflow/java
         mvn clean package -q
@@ -226,8 +222,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ./dev/run-python-flavor-tests.sh;
 
@@ -251,8 +245,6 @@ jobs:
           source ./dev/install-common-deps.sh
           pip install pyspark
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
@@ -324,8 +316,6 @@ jobs:
           source ./dev/install-common-deps.sh
           pip install keras tensorflow pyspark
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
@@ -349,8 +339,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ./dev/run-python-sagemaker-tests.sh;
 

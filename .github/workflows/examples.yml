@@ -76,7 +76,7 @@ jobs:
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
-        SPARK_LOCAL_IP: 127.0.0.1
+        SPARK_LOCAL_IP: localhost
       run: |
         pytest tests/examples --durations=30
 
