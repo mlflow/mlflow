@@ -435,7 +435,7 @@ def test_xgb_autolog_gets_input_example(bst_params):
 
     input_example = _read_example(model_conf, model_path)
 
-    assert input_example.equals(X[:5])
+    pd.testing.assert_frame_equal(input_example, X[:5])
 
     pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
 
