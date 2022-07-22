@@ -32,26 +32,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
 
 jobs:
-  test-pipeline:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        path: mlflow
-    - name: Check mlflow
-      run: |
-        cd mlflow && ls . && pwd
-    - uses: actions/checkout@v3
-      with:
-        path: ${{ github.event.inputs.repository }}
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-    # - uses: ./.github/actions/setup-python
-    # - uses: ./.github/actions/cache-pip
-    - name: Check mlp-repo
-      run: |
-        cd  ${{ github.event.inputs.repository }} && ls . && pwd
-  lint-pipeline:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -61,8 +42,6 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-      with:
-        python-version: "3.7"
     - uses: ./.github/actions/cache-pip
     - name: Add problem matchers
       run: |
@@ -70,11 +49,11 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
       run: |
-        pip install -r requirements/lint-requirements.txt
+        pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/lint-requirements.txt
     - name: Run lint checks
       run: |
-        cd ${{ github.event.inputs.repository }} && ../.././dev/lint.sh
-  regression_pipelines:
+        cd ${{ github.event.inputs.repository }} && .github/workflows/scripts/lint.sh
+  pipeline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -84,17 +63,15 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-        with:
-          python-version: "3.7"
       - name: Install dependencies
         run: |
-          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
           pip install -e .[pipelines]
-          pip install -r requirements/test-requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/test-requirements.txt
       - name: Run tests
         run: |
           cd ${{ github.event.inputs.repository }} && pytest tests
-  regression_pipelines-windows:
+  test-pipeline-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -104,13 +81,11 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: actions/setup-python
-        with:
-          python-version: "3.7"
       - name: Install dependencies
         run: |
-          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
           pip install -e .[pipelines]
-          pip install -r requirements/test-requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/test-requirements.txt
       - name: Run tests
         run: |
           cd ${{ github.event.inputs.repository }} &&  pytest tests
