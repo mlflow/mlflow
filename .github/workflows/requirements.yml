@@ -14,6 +14,7 @@ concurrency:
 
 env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
 
 defaults:
   run:
@@ -40,11 +41,8 @@ jobs:
           requirements-yaml-location: requirements/skinny-requirements.yaml
           requirements-txt-output-location: requirements/skinny-requirements.txt
       - name: Install dependencies
-        env:
-          INSTALL_SKINNY_PYTHON_DEPS: true
-          MLFLOW_SKINNY: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --skinny
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -59,10 +57,7 @@ jobs:
         with:
           python-version: '3.8'
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java@v3
       - name: Install dev script dependencies
         run: |
           pip install -r dev/requirements.txt
@@ -75,13 +70,9 @@ jobs:
           requirements-yaml-location: requirements/core-requirements.yaml
           requirements-txt-output-location: requirements/core-requirements.txt
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --ml
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
