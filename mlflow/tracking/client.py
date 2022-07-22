@@ -38,6 +38,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -2795,14 +2796,19 @@ class MlflowClient:
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
+    def set_model_version_tag(
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+    ) -> None:
         """
         Set a tag for the model version.
+        When stage is set, tag will be set for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key to log.
-        :param value: Tag value to log.
+        :param key: Tag key to log. key is required.
+        :param value: Tag value to log. value is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2837,7 +2843,13 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
+
+            # Tag using model version
             client.set_model_version_tag(name, mv.version, "t", "1")
+
+            # Tag using model stage
+            client.set_model_version_tag(name, key="t1", value="1", stage=mv.current_stage)
+
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2850,17 +2862,33 @@ class MlflowClient:
             --
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': '1'}
+            Tags: {'t': '1', 't1': '1'}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
+
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
+    def delete_model_version_tag(
+        self, name: str, version: str = None, key: str = None, stage: str = None
+    ) -> None:
         """
         Delete a tag associated with the model version.
+        When stage is set, tag will be deleted for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key.
+        :param key: Tag key. key is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2892,11 +2920,15 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "t1"}
+            tags = {'t': "1", "t1" : "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
+            #using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
+
+            #using stage to delete tag
+            client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2905,10 +2937,20 @@ class MlflowClient:
 
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': 't1'}
+            Tags: {'t': '1', 't1': '2'}
             --
             Name: RandomForestRegression
             Version: 1
             Tags: {}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)
