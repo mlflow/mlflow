@@ -102,7 +102,7 @@ jobs:
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
     - uses: ./.github/actions/setup-pyenv
-    - uses: actions/setup-java@v3
+    - uses: ./.github/actions/setup-java
       with:
         java-version: 11
         distribution: 'adopt'
@@ -160,11 +160,7 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-    - name: Set up Java
-      uses: actions/setup-java@v3
-      with:
-        java-version: 11
-        distribution: 'adopt'
+    - uses: ./.github/actions/setup-java
     - name: Install dependencies
       run: |
         source ./dev/install-common-deps.sh
@@ -215,10 +211,7 @@ jobs:
           rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         env:
@@ -242,10 +235,7 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -315,10 +305,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -339,10 +326,7 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         env:
           INSTALL_ML_DEPENDENCIES: true
@@ -364,10 +348,7 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install python dependencies
         run: |
           pip install -r requirements/test-requirements.txt
