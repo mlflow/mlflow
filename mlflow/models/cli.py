@@ -193,7 +193,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     If ``--model-uri`` is NOT specified:
 
     Builds a Docker image that can serve an arbitrary MLflow model. When launching a container with
-    the generated image, the model artifacts directory must be mounted as a volume into
+    the built image, the model artifacts directory must be mounted as a volume into
     the ``/opt/ml/model`` directory in the container as shown in the example below.
 
     .. code:: bash
