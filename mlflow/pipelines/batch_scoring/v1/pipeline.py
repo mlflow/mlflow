@@ -16,7 +16,7 @@ The pipeline steps are defined as follows:
    - **ingest**
       - The **ingest** step resolves the dataset specified by the |'data' section in pipeline.yaml|
         and converts it to parquet format, leveraging the custom dataset parsing code defined in
-        |steps/ingest.py| if necessary. Subsequent steps convert this dataset into training,
+        |./steps/bs_ingest.py| if necessary. Subsequent steps convert this dataset into training,
         validation, & test sets and use them to develop a model.
 
         .. note::
@@ -28,7 +28,7 @@ The pipeline steps are defined as follows:
    .. _mlflow-batch-scoring-pipeline-preprocessing-step:
 
    - **preprocessing**
-      - The **preprocessing** step applies logic defined in |steps/preprocessing.py| against the
+      - The **preprocessing** step applies logic defined in |./steps/preprocessing.py| against the
         data produced by the **ingest** step into a 'cleaned' dataset for scoring.  The subsequent
         'predict' step will use this processed dataset as the data it will process against the
         user specified model.
@@ -38,8 +38,8 @@ The pipeline steps are defined as follows:
    - **predict**
       - The **predict** step
 
-.. |steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/ingest.py>`__
-.. |steps/preprocessing.py| replace:: `steps/preprocessing.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/preprocessing.py>`__
+.. |./steps/ingest.py| replace:: `steps/ingest.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/ingest.py>`__
+.. |./steps/preprocessing.py| replace:: `steps/preprocessing.py <https://github.com/mlflow/mlp-batch-scoring-template/blob/main/steps/preprocessing.py>`__
 """
 
 import os
