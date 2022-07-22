@@ -83,8 +83,28 @@ jobs:
         run: |
           pip install -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
+      - name: Create PR branch name
+        id: pr-branch
+        run: |
+          echo "::set-output name=name::update-requirements-$(git diff | sha256sum | head -c 8)"
+      - uses: actions/github-script@v6
+        id: pr-exists
+        with:
+          script: |
+            const recentPrs = await github.rest.pulls.list({
+              owner: 'mlflow',
+              repo: 'mlflow',
+              per_page: 100,
+              sort: 'created',
+              direction: 'desc',
+            });
+            const exists = recentPrs.data.some(
+              pr => pr.head.ref === '${{ steps.pr-branch.outputs.name }}'
+            )
+            core.setOutput('exists', exists.toString())
       # If there are no changes, the create-pull-request action exits silently
       - uses: peter-evans/create-pull-request@v4
+        if: steps.pr-exists.outputs.exists != 'true'
         with:
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           add-paths: requirements
@@ -92,8 +112,7 @@ jobs:
           signoff: true
           committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
-          branch: 'updated-requirements'
-          branch-suffix: timestamp
+          branch: ${{ steps.pr-branch.outputs.name }}
           title: 'Update requirements'
           body: |
             Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
