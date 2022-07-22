@@ -593,3 +593,70 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     client.create_experiment("test_experiment")
     client.create_registered_model("test_model")
     pickle.dumps(client)
+
+
+@pytest.fixture
+def mock_registry_store_with_get_latest_version(mock_registry_store):
+    mock_get_latest_versions = mock.Mock()
+    mock_get_latest_versions.return_value = [
+        ModelVersion(
+            "model_name",
+            1,
+            0,
+        )
+    ]
+
+    mock_registry_store.get_latest_versions = mock_get_latest_versions
+    yield mock_registry_store
+
+
+def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    # set_model_version_tag using version
+    MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
+    )
+
+    mock_registry_store_with_get_latest_version.reset_mock()
+
+    # set_model_version_tag using stage
+    MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
+    )
+
+    # set_model_version_tag with version and stage set
+    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
+        MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar", stage="Staging")
+
+    # set_model_version_tag with version and stage not set
+    with pytest.raises(MlflowException, match="version or stage must be set"):
+        MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar")
+
+
+def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    # delete_model_version_tag using version
+    MlflowClient().delete_model_version_tag("model_name", 1, "tag1")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
+    )
+
+    mock_registry_store_with_get_latest_version.reset_mock()
+
+    # delete_model_version_tag using stage
+    MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="Staging")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
+    )
+
+    # delete_model_version_tag with version and stage set
+    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
+        MlflowClient().delete_model_version_tag(
+            "model_name", version=1, key="tag1", stage="staging"
+        )
+
+    # delete_model_version_tag with version and stage not set
+    with pytest.raises(MlflowException, match="version or stage must be set"):
+        MlflowClient().delete_model_version_tag("model_name", key="tag1")
