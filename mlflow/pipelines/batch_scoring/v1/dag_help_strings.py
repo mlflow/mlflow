@@ -5,6 +5,7 @@ def format_help_string(help_string):
     """
     Formats the specified ``help_string`` to obtain a Mermaid-compatible help string. For example,
     this method replaces quotation marks with their HTML representation.
+
     :param help_string: The raw help string.
     :return: A Mermaid-compatible help string.
     """
@@ -24,9 +25,9 @@ steps:
     preprocess_method: steps.preprocessing.process_data
   predict:
     model_name: "taxi_fare_regressor"
-    model_stage: “Production”
+    model_stage: "Production"
     output_location: {{OUTPUT_PATH}}
-    output_format: “parquet”
+    output_format: "parquet"
 """
 )
 
