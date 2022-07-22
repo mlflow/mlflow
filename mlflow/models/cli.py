@@ -156,7 +156,7 @@ def prepare_env(
 
 
 @commands.command("build-docker")
-@cli_args.MODEL_URI
+@cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
@@ -164,11 +164,13 @@ def prepare_env(
 @cli_args.ENABLE_MLSERVER
 def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
+    If ``--model-uri`` is specified:
+
     Builds a Docker image whose default entrypoint serves the specified MLflow
     model at port 8080 within the container, using the 'python_function' flavor.
 
-    For example, the following command builds a docker image named 'my-image-name' that serves the
-    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
+    For example, the following command builds a docker image named 'my-image-name' that serves
+    the model from run 'some-run-uuid' at run-relative artifact path 'my-model':
 
     .. code:: bash
 
@@ -188,6 +190,16 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
 
+    If ``--model-uri`` is NOT specified:
+
+    Builds a Docker image that can serve an arbitrary MLflow model. When launching a container with
+    the generated image, the model artifacts directory must be mounted as a volume into
+    the ``/opt/ml/model`` directory in the container as shown in the example below.
+
+    .. code:: bash
+
+        mlflow models build-docker -n my-image-name
+        docker run --rm -p 5001:8080 -v /path/to/artifacts/model:/opt/ml/model my-image-name
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
@@ -205,15 +217,18 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 def _get_flavor_backend(model_uri, **kwargs):
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-    with TempDir() as tmp:
-        if ModelsArtifactRepository.is_models_uri(model_uri):
-            underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        else:
-            underlying_model_uri = model_uri
-        local_path = _download_artifact_from_uri(
-            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
-        )
-        model = Model.load(local_path)
+    if model_uri:
+        with TempDir() as tmp:
+            if ModelsArtifactRepository.is_models_uri(model_uri):
+                underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+            else:
+                underlying_model_uri = model_uri
+            local_path = _download_artifact_from_uri(
+                append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
+            )
+            model = Model.load(local_path)
+    else:
+        model = None
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
