@@ -468,7 +468,16 @@ class ModelEvaluator(metaclass=ABCMeta):
 
     @abstractmethod
     def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, custom_metrics=None, **kwargs
+        self,
+        *,
+        model,
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        custom_metrics=None,
+        is_baseline_model=False,
+        **kwargs,
     ):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
@@ -607,6 +616,7 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
+    is_baseline_model,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -641,6 +651,7 @@ def _evaluate(
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
+                is_baseline_model=is_baseline_model,
             )
             eval_results.append(result)
 
@@ -932,4 +943,5 @@ def evaluate(
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
             custom_metrics=custom_metrics,
+            is_baseline_model=False,
         )

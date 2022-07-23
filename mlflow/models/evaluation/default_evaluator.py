@@ -459,7 +459,8 @@ class DefaultEvaluator(ModelEvaluator):
         finally:
             pyplot.close(pyplot.gcf())
 
-        mlflow.log_artifact(artifact_file_local_path)
+        if not self.is_baseline_model:
+            mlflow.log_artifact(artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
@@ -468,7 +469,8 @@ class DefaultEvaluator(ModelEvaluator):
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
-        mlflow.log_artifact(artifact_file_local_path)
+        if not self.is_baseline_model:
+            mlflow.log_artifact(artifact_file_local_path)
         artifact = CsvEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name),
             content=pandas_df,
@@ -636,9 +638,10 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            mlflow.shap.log_explainer(
-                explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
-            )
+            if not self.is_baseline_model:
+                mlflow.shap.log_explainer(
+                    explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
+                )
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
@@ -842,7 +845,8 @@ class DefaultEvaluator(ModelEvaluator):
                     "- Other objects will be attempted to be pickled with default protocol."
                 )
 
-        mlflow.log_artifact(artifact_file_local_path)
+        if not self.is_baseline_model:
+            mlflow.log_artifact(artifact_file_local_path)
         artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact._load(artifact_file_local_path)
         return artifact
@@ -883,8 +887,9 @@ class DefaultEvaluator(ModelEvaluator):
         :return:
         """
         self._evaluate_custom_metrics_and_log_produced_artifacts()
-        self._log_metrics()
-        self._log_model_explainability()
+        if not self.is_baseline_model:
+            self._log_metrics()
+            self._log_model_explainability()
         return EvaluationResult(self.metrics, self.artifacts)
 
     def _evaluate_classifier(self):
@@ -990,6 +995,7 @@ class DefaultEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        is_baseline_model=False,
         **kwargs,
     ):
         import matplotlib
@@ -1006,6 +1012,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
             self.custom_metrics = custom_metrics
+            self.is_baseline_model = is_baseline_model
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
