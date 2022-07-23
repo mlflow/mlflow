@@ -7,6 +7,7 @@ import { injectIntl, FormattedMessage } from 'react-intl';
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter } from './CompareRunScatter';
+import { CompareRunBox } from './CompareRunBox';
 import CompareRunContour from './CompareRunContour';
 import Routes from '../routes';
 import { Link } from 'react-router-dom';
@@ -366,7 +367,7 @@ export class CompareRunView extends Component {
 
   render() {
     const { experimentIds } = this.props;
-    const { runInfos, runNames } = this.props;
+    const { runInfos, runNames, paramLists, metricLists, runUuids } = this.props;
 
     const colWidth = this.getTableColumnWidth();
     const colWidthStyle = this.genWidthStyle(colWidth);
@@ -413,11 +414,27 @@ export class CompareRunView extends Component {
             <TabPane
               tab={
                 <FormattedMessage
+                  defaultMessage='Box Plot'
+                  description='Tab pane title for box plot on the compare runs page'
+                />
+              }
+              key='3'
+            >
+              <CompareRunBox
+                runUuids={runUuids}
+                runInfos={runInfos}
+                paramLists={paramLists}
+                metricLists={metricLists}
+              />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
                   defaultMessage='Contour Plot'
                   description='Tab pane title for contour plots on the compare runs page'
                 />
               }
-              key='3'
+              key='4'
             >
               <CompareRunContour
                 runUuids={this.props.runUuids}
