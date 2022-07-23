@@ -5,12 +5,19 @@ import { Row, Col, Select } from 'antd';
 import { Typography } from '@databricks/design-system';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { LazyPlot } from './LazyPlot';
+import CompareRunUtil from './CompareRunUtil';
 
 const { Option, OptGroup } = Select;
 
 export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) => {
-  const [xAxis, setXAxis] = useState({ key: undefined, isParam: undefined });
-  const [yAxis, setYAxis] = useState({ key: undefined, isParam: undefined });
+
+  const parameter = CompareRunUtil.getKeys(paramLists, true)[0];
+  const metric = CompareRunUtil.getKeys(metricLists, true)[0];
+  console.log(parameter);
+  console.log(metric);
+
+  const [xAxis, setXAxis] = useState({ key: parameter, isParam: true });
+  const [yAxis, setYAxis] = useState({ key: metric, isParam: true });
 
   const paramKeys = Array.from(new Set(paramLists.flat().map(({ key }) => key))).sort();
   const metricKeys = Array.from(new Set(metricLists.flat().map(({ key }) => key))).sort();
@@ -159,6 +166,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
               defaultMessage='Y-axis:'
               description='Label text for x-axis in box plot comparison in MLflow'
             />
+            yAxis
           </label>
         </div>
         {renderSelector(handleYAxisChange, yAxis.value)}

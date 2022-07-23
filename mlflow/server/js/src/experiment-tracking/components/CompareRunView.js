@@ -421,10 +421,10 @@ export class CompareRunView extends Component {
               key='3'
             >
               <CompareRunBox
-                runUuids={runUuids}
-                runInfos={runInfos}
-                paramLists={paramLists}
-                metricLists={metricLists}
+                runUuids={this.props.runUuids}
+                runInfos={this.props.runInfos}
+                paramLists={this.props.paramLists}
+                metricLists={this.props.metricLists}
               />
             </TabPane>
             <TabPane
