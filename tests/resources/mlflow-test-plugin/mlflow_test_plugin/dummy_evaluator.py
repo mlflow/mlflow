@@ -24,6 +24,7 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 
 class DummyEvaluator(ModelEvaluator):
+    is_baseline_model = False
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -44,8 +45,9 @@ class DummyEvaluator(ModelEvaluator):
 
     # pylint: disable=unused-argument
     def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
+        self, *, model, model_type, dataset, run_id, evaluator_config, is_baseline_model, **kwargs
     ) -> EvaluationResult:
+        self.is_baseline_model = is_baseline_model
         client = MlflowClient()
         X = dataset.features_data
         y = dataset.labels_data
@@ -54,7 +56,8 @@ class DummyEvaluator(ModelEvaluator):
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
 
             metrics = {"accuracy_score": accuracy_score}
-            self._log_metrics(run_id, metrics, dataset.name)
+            if not self.is_baseline_model:
+                self._log_metrics(run_id, metrics, dataset.name)
             confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
             confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}"
             confusion_matrix_artifact = Array2DEvaluationArtifact(
@@ -63,11 +66,12 @@ class DummyEvaluator(ModelEvaluator):
             )
             confusion_matrix_csv_buff = io.StringIO()
             confusion_matrix_artifact._save(confusion_matrix_csv_buff)
-            client.log_text(
-                run_id,
-                confusion_matrix_csv_buff.getvalue(),
-                confusion_matrix_artifact_name + ".csv",
-            )
+            if not self.is_baseline_model:
+                client.log_text(
+                    run_id,
+                    confusion_matrix_csv_buff.getvalue(),
+                    confusion_matrix_artifact_name + ".csv",
+                )
 
             confusion_matrix_figure = sk_metrics.ConfusionMatrixDisplay.from_predictions(
                 y, y_pred
@@ -83,9 +87,10 @@ class DummyEvaluator(ModelEvaluator):
                 content=confusion_matrix_image,
             )
             confusion_matrix_image_artifact._save(confusion_matrix_image_artifact_name + ".png")
-            client.log_image(
-                run_id, confusion_matrix_image, confusion_matrix_image_artifact_name + ".png"
-            )
+            if not self.is_baseline_model:
+                client.log_image(
+                    run_id, confusion_matrix_image, confusion_matrix_image_artifact_name + ".png"
+                )
 
             artifacts = {
                 confusion_matrix_artifact_name: confusion_matrix_artifact,
@@ -98,7 +103,8 @@ class DummyEvaluator(ModelEvaluator):
                 "mean_absolute_error": mean_absolute_error,
                 "mean_squared_error": mean_squared_error,
             }
-            self._log_metrics(run_id, metrics, dataset.name)
+            if not self.is_baseline_model:
+                self._log_metrics(run_id, metrics, dataset.name)
             artifacts = {}
         else:
             raise ValueError(f"Unsupported model type {model_type}")

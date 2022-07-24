@@ -447,6 +447,8 @@ class DefaultEvaluator(ModelEvaluator):
         do_plot,
         artifact_name,
     ):
+        if self.is_baseline_model:
+            return
         import matplotlib.pyplot as pyplot
 
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".png"
@@ -459,18 +461,17 @@ class DefaultEvaluator(ModelEvaluator):
         finally:
             pyplot.close(pyplot.gcf())
 
-        if not self.is_baseline_model:
-            mlflow.log_artifact(artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
+        if self.is_baseline_model:
+            return
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
-        if not self.is_baseline_model:
-            mlflow.log_artifact(artifact_file_local_path)
+        mlflow.log_artifact(artifact_file_local_path)
         artifact = CsvEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name),
             content=pandas_df,
@@ -845,8 +846,7 @@ class DefaultEvaluator(ModelEvaluator):
                     "- Other objects will be attempted to be pickled with default protocol."
                 )
 
-        if not self.is_baseline_model:
-            mlflow.log_artifact(artifact_file_local_path)
+        mlflow.log_artifact(artifact_file_local_path)
         artifact = inferred_type(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact._load(artifact_file_local_path)
         return artifact
@@ -872,7 +872,7 @@ class DefaultEvaluator(ModelEvaluator):
                     copy.deepcopy(builtin_metrics),
                 )
                 self.metrics.update(metric_results)
-                if artifact_results is not None:
+                if artifact_results is not None and not self.is_baseline_model:
                     for artifact_name, raw_artifact in artifact_results.items():
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
@@ -949,7 +949,9 @@ class DefaultEvaluator(ModelEvaluator):
                 lambda: plot_lift_curve(self.y, self.y_probs),
                 "lift_curve_plot",
             )
-
+        # Skip confusion matrix for baseline model evaluation
+        if self.is_baseline_model:
+            return self._log_and_return_evaluation_result()
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
             self.y, self.y_pred, labels=self.label_list, normalize="true"

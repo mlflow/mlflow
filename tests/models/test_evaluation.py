@@ -710,6 +710,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
+                    is_baseline_model=False
                 )
 
 

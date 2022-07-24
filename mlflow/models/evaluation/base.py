@@ -491,6 +491,8 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
         :param custom_metrics: A list of callable custom metric functions.
+        :param is_baseline_model: A boolean indicating whether the evaulation is for baseline model.
+           For baseline model, no artifact will be generated and no metric will be logged.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
