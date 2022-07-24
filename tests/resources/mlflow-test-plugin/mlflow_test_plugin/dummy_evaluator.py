@@ -58,44 +58,43 @@ class DummyEvaluator(ModelEvaluator):
             metrics = {"accuracy_score": accuracy_score}
             if not self.is_baseline_model:
                 self._log_metrics(run_id, metrics, dataset.name)
-            confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
-            confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}"
-            confusion_matrix_artifact = Array2DEvaluationArtifact(
-                uri=get_artifact_uri(run_id, confusion_matrix_artifact_name + ".csv"),
-                content=confusion_matrix,
-            )
-            confusion_matrix_csv_buff = io.StringIO()
-            confusion_matrix_artifact._save(confusion_matrix_csv_buff)
-            if not self.is_baseline_model:
-                client.log_text(
-                    run_id,
-                    confusion_matrix_csv_buff.getvalue(),
-                    confusion_matrix_artifact_name + ".csv",
+                confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
+                confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}"
+                confusion_matrix_artifact = Array2DEvaluationArtifact(
+                    uri=get_artifact_uri(run_id, confusion_matrix_artifact_name + ".csv"),
+                    content=confusion_matrix,
                 )
+                confusion_matrix_csv_buff = io.StringIO()
+                confusion_matrix_artifact._save(confusion_matrix_csv_buff)
+                if not self.is_baseline_model:
+                    client.log_text(
+                        run_id,
+                        confusion_matrix_csv_buff.getvalue(),
+                        confusion_matrix_artifact_name + ".csv",
+                    )
 
-            confusion_matrix_figure = sk_metrics.ConfusionMatrixDisplay.from_predictions(
-                y, y_pred
-            ).figure_
-            img_buf = io.BytesIO()
-            confusion_matrix_figure.savefig(img_buf)
-            img_buf.seek(0)
-            confusion_matrix_image = Image.open(img_buf)
+                confusion_matrix_figure = sk_metrics.ConfusionMatrixDisplay.from_predictions(
+                    y, y_pred
+                ).figure_
+                img_buf = io.BytesIO()
+                confusion_matrix_figure.savefig(img_buf)
+                img_buf.seek(0)
+                confusion_matrix_image = Image.open(img_buf)
 
-            confusion_matrix_image_artifact_name = f"confusion_matrix_image_on_{dataset.name}"
-            confusion_matrix_image_artifact = ImageEvaluationArtifact(
-                uri=get_artifact_uri(run_id, confusion_matrix_image_artifact_name + ".png"),
-                content=confusion_matrix_image,
-            )
-            confusion_matrix_image_artifact._save(confusion_matrix_image_artifact_name + ".png")
-            if not self.is_baseline_model:
+                confusion_matrix_image_artifact_name = f"confusion_matrix_image_on_{dataset.name}"
+                confusion_matrix_image_artifact = ImageEvaluationArtifact(
+                    uri=get_artifact_uri(run_id, confusion_matrix_image_artifact_name + ".png"),
+                    content=confusion_matrix_image,
+                )
+                confusion_matrix_image_artifact._save(confusion_matrix_image_artifact_name + ".png")
                 client.log_image(
                     run_id, confusion_matrix_image, confusion_matrix_image_artifact_name + ".png"
                 )
 
-            artifacts = {
-                confusion_matrix_artifact_name: confusion_matrix_artifact,
-                confusion_matrix_image_artifact_name: confusion_matrix_image_artifact,
-            }
+                artifacts = {
+                    confusion_matrix_artifact_name: confusion_matrix_artifact,
+                    confusion_matrix_image_artifact_name: confusion_matrix_image_artifact,
+                }
         elif model_type == "regressor":
             mean_absolute_error = sk_metrics.mean_absolute_error(y, y_pred)
             mean_squared_error = sk_metrics.mean_squared_error(y, y_pred)

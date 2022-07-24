@@ -710,7 +710,7 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     run_id=run.info.run_id,
                     evaluator_config=evaluator1_config,
                     custom_metrics=None,
-                    is_baseline_model=False
+                    is_baseline_model=False,
                 )
 
 
@@ -774,6 +774,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator1_config,
                         custom_metrics=None,
+                        is_baseline_model=False,
                     )
                     mock_can_evaluate2.assert_called_once_with(
                         model_type="classifier",
@@ -786,6 +787,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         run_id=run.info.run_id,
                         evaluator_config=evaluator2_config,
                         custom_metrics=None,
+                        is_baseline_model=False,
                     )
 
 
