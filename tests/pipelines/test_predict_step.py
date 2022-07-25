@@ -1,4 +1,5 @@
 import os
+from xmlrpc.client import Boolean
 import pandas as pd
 from pathlib import Path
 import pytest
@@ -9,15 +10,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import read_yaml
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.predict import PredictStep
-from mlflow.pipelines.steps.preprocessing import _CLEANED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.preprocessing import _PREPROCESSED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
     enter_test_pipeline_directory,
     enter_pipeline_example_directory,
+    get_random_id,
     tmp_pipeline_exec_path,
     tmp_pipeline_root_path,
     train_and_log_model,
+    train_log_and_register_model,
 )  # pylint: enable=unused-import
 
 
@@ -43,12 +46,21 @@ def predict_input(tmp_pipeline_exec_path: Path):
     )
     proprocessing_step_output_dir.mkdir(parents=True)
     X, _ = load_diabetes(as_frame=True, return_X_y=True)
-    X.to_parquet(proprocessing_step_output_dir.joinpath(_CLEANED_OUTPUT_FILE_NAME))
+    X.to_parquet(proprocessing_step_output_dir.joinpath(_PREPROCESSED_OUTPUT_FILE_NAME))
 
 
-def test_predict_step_run(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
-    run_id, _ = train_and_log_model()
-    model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path="train/model")
+@pytest.mark.parametrize("register_model", [True, False])
+def test_predict_step_run(
+    tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path, register_model: Boolean
+):
+    if register_model:
+        rm_name = "model_" + get_random_id()
+        model_uri = train_log_and_register_model(rm_name)
+    else:
+        run_id, _ = train_and_log_model()
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=run_id, artifact_path="train/model"
+        )
 
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(

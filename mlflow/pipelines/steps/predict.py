@@ -17,6 +17,7 @@ _logger = logging.getLogger(__name__)
 
 # This should maybe imported from the preprocessing step for consistency
 _INPUT_FILE_NAME = "dataset_preprocessed.parquet"
+_SCORED_OUTPUT_FILE_NAME = "scored.parquet"
 
 
 class PredictStep(BaseStep):
