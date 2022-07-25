@@ -243,13 +243,24 @@ def spark_linear_regressor_model_uri():
 
 @pytest.fixture
 def multiclass_logistic_regressor_model_uri():
+    return multiclass_logistic_regressor_model_uri_by_max_iter(2)
+
+
+@pytest.fixture
+def multiclass_logistic_regressor_baseline_model_uri():
+    return multiclass_logistic_regressor_model_uri_by_max_iter(4)
+
+
+def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
     X, y = get_iris()
-    clf = sklearn.linear_model.LogisticRegression(max_iter=2)
+    clf = sklearn.linear_model.LogisticRegression(max_iter=max_iter)
     clf.fit(X, y)
 
     with mlflow.start_run() as run:
-        mlflow.sklearn.log_model(clf, "clf_model")
-        multiclass_logistic_regressor_model_uri = get_artifact_uri(run.info.run_id, "clf_model")
+        mlflow.sklearn.log_model(clf, f"clf_model_{max_iter}_iters")
+        multiclass_logistic_regressor_model_uri = get_artifact_uri(
+            run.info.run_id, f"clf_model_{max_iter}_iters"
+        )
 
     return multiclass_logistic_regressor_model_uri
 
@@ -648,7 +659,7 @@ class FakeArtifact2(EvaluationArtifact):
         raise RuntimeError()
 
 
-def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
+def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri, iris_dataset):
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
@@ -712,6 +723,150 @@ def test_evaluator_interface(multiclass_logistic_regressor_model_uri, iris_datas
                     custom_metrics=None,
                     is_baseline_model=False,
                 )
+
+
+@pytest.fixture
+def baseline_model_uri(request):
+    if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
+        return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
+    if request.param == "pyfunc":
+        return lambda x: x
+    if request.param == "invalid":
+        return "invalid_uri"
+    return None
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri,expected_error,valid_baseline_model_uri",
+    [
+        ("None", None, False),
+        ("multiclass_logistic_regressor_baseline_model_uri_4", None, True),
+        (
+            "pyfunc",
+            pytest.raises(
+                ValueError,
+                match="The baseline model argument must "
+                + "be a string URI referring to an MLflow model",
+            ),
+            False,
+        ),
+        (
+            "invalid",
+            pytest.raises(OSError, match="No such file or directory: 'invalid_uri'"),
+            False,
+        ),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_evaluator_validation_interface(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    baseline_model_uri,
+    expected_error,
+    valid_baseline_model_uri,
+):
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
+    ):
+        evaluator1_config = {"config": True}
+        evaluator1_return_value = EvaluationResult(metrics={}, artifacts={})
+        with mock.patch.object(
+            FakeEvauator1, "can_evaluate", return_value=True
+        ) as mock_can_evaluate, mock.patch.object(
+            FakeEvauator1, "evaluate", return_value=evaluator1_return_value
+        ) as mock_evaluate:
+            classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+            baseline_model = None
+            with mlflow.start_run() as run:
+                if valid_baseline_model_uri:
+                    # If baseline_model is a valid uri, MLflow.evaluate will call evaluator.evaluate
+                    # two times, one time for candidate model, one time for baseline model.
+                    eval1_result = evaluate(
+                        classifier_model,
+                        iris_dataset._constructor_args["data"],
+                        model_type="classifier",
+                        targets=iris_dataset._constructor_args["targets"],
+                        dataset_name=iris_dataset.name,
+                        evaluators="test_evaluator1",
+                        evaluator_config=evaluator1_config,
+                        custom_metrics=None,
+                        baseline_model=baseline_model_uri,
+                    )
+
+                    mock_can_evaluate.assert_has_calls(
+                        [
+                            mock.call(model_type="classifier", evaluator_config=evaluator1_config),
+                            mock.call(model_type="classifier", evaluator_config=evaluator1_config),
+                        ]
+                    )
+                    baseline_model = mlflow.pyfunc.load_model(baseline_model_uri)
+                    mock_evaluate.assert_has_calls(
+                        [
+                            mock.call(
+                                model=classifier_model,
+                                model_type="classifier",
+                                dataset=iris_dataset,
+                                run_id=run.info.run_id,
+                                evaluator_config=evaluator1_config,
+                                custom_metrics=None,
+                                is_baseline_model=False,
+                            ),
+                            mock.call(
+                                model=baseline_model,
+                                dataset=iris_dataset,
+                                model_type="classifier",
+                                run_id=run.info.run_id,
+                                evaluator_config=evaluator1_config,
+                                custom_metrics=None,
+                                is_baseline_model=True,
+                            ),
+                        ]
+                    )
+                elif baseline_model_uri is not None:
+                    # If baseline_model is present but not valid; there are two cases:
+                    # - baseline_model is not string, should throw ValueError
+                    # - baseline_model is not valid uri, should throw OSError
+                    with expected_error:
+                        eval1_result = evaluate(
+                            classifier_model,
+                            iris_dataset._constructor_args["data"],
+                            model_type="classifier",
+                            targets=iris_dataset._constructor_args["targets"],
+                            dataset_name=iris_dataset.name,
+                            evaluators="test_evaluator1",
+                            evaluator_config=evaluator1_config,
+                            custom_metrics=None,
+                            baseline_model=baseline_model_uri,
+                        )
+                else:
+                    # If baseline_model is not present; evaluate should call evaluator.evaluate
+                    # only one time; for baseline model.
+                    eval1_result = evaluate(
+                        classifier_model,
+                        iris_dataset._constructor_args["data"],
+                        model_type="classifier",
+                        targets=iris_dataset._constructor_args["targets"],
+                        dataset_name=iris_dataset.name,
+                        evaluators="test_evaluator1",
+                        evaluator_config=evaluator1_config,
+                        custom_metrics=None,
+                        baseline_model=baseline_model_uri,
+                    )
+                    assert eval1_result.metrics == evaluator1_return_value.metrics
+                    assert eval1_result.artifacts == evaluator1_return_value.artifacts
+
+                    mock_can_evaluate.assert_called_once_with(
+                        model_type="classifier", evaluator_config=evaluator1_config
+                    )
+                    mock_evaluate.assert_called_once_with(
+                        model=classifier_model,
+                        model_type="classifier",
+                        dataset=iris_dataset,
+                        run_id=run.info.run_id,
+                        evaluator_config=evaluator1_config,
+                        custom_metrics=None,
+                        is_baseline_model=False,
+                    )
 
 
 def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri, iris_dataset):

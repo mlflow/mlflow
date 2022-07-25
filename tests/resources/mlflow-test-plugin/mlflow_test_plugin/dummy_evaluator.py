@@ -58,6 +58,7 @@ class DummyEvaluator(ModelEvaluator):
             metrics = {"accuracy_score": accuracy_score}
             if not self.is_baseline_model:
                 self._log_metrics(run_id, metrics, dataset.name)
+            if not self.is_baseline_model:
                 confusion_matrix = sk_metrics.confusion_matrix(y, y_pred)
                 confusion_matrix_artifact_name = f"confusion_matrix_on_{dataset.name}"
                 confusion_matrix_artifact = Array2DEvaluationArtifact(

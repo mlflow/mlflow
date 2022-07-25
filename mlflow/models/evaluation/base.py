@@ -492,7 +492,8 @@ class ModelEvaluator(metaclass=ABCMeta):
                                  the evaluator.
         :param custom_metrics: A list of callable custom metric functions.
         :param is_baseline_model: A boolean indicating whether the evaulation is for baseline model.
-           For baseline model, no artifact will be generated and no metric will be logged.
+                                  For baseline model, no artifact will be generated
+                                  and no metric will be logged.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -686,6 +687,8 @@ def evaluate(
     evaluators=None,
     evaluator_config=None,
     custom_metrics=None,
+    validation_thresholds=None,
+    baseline_model=None,
 ):
     """
     Evaluate a PyFunc model on the specified dataset using one or more specified ``evaluators``, and
@@ -907,6 +910,10 @@ def evaluate(
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
+    :param validation_thresholds: (Optional) An array of MetricThreshold used for model validation.
+    :param baseline_model: (Optional) A string URI referring to a MLflow model as baseline model
+                                      to be compared with the candidate model for model validation.
+                                      (pyfunc model instance is not allowed)
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
@@ -921,6 +928,12 @@ def evaluate(
         raise ValueError(
             "The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`."
+        )
+    if isinstance(baseline_model, str):
+        baseline_model = mlflow.pyfunc.load_model(baseline_model)
+    elif baseline_model is not None:
+        raise ValueError(
+            "The baseline model argument must be a string URI referring to an MLflow model"
         )
 
     (
@@ -937,7 +950,7 @@ def evaluate(
     )
 
     with _start_run_or_reuse_active_run() as run_id:
-        return _evaluate(
+        candidate_model_eval_result = _evaluate(
             model=model,
             model_type=model_type,
             dataset=dataset,
@@ -947,3 +960,19 @@ def evaluate(
             custom_metrics=custom_metrics,
             is_baseline_model=False,
         )
+        if not baseline_model:
+            return candidate_model_eval_result
+        baseline_model_eval_result = _evaluate(
+            model=baseline_model,
+            model_type=model_type,
+            dataset=dataset,
+            run_id=run_id,
+            evaluator_name_list=evaluator_name_list,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            custom_metrics=custom_metrics,
+            is_baseline_model=True,
+        )
+        # TODO: Add Model Validation here
+        if validation_thresholds and baseline_model_eval_result:
+            pass
+        return candidate_model_eval_result
