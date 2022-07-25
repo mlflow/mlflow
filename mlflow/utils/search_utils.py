@@ -990,6 +990,7 @@ class SearchExperimentsUtils(SearchUtils):
 
 
 class SearchModelVersionsUtils(SearchUtils):
+    VALID_SEARCH_ATTRIBUTE_KEYS = ("name", "source_path", "run_id")
 
     @classmethod
     def _process_statement(cls, statement):
@@ -1000,3 +1001,38 @@ class SearchModelVersionsUtils(SearchUtils):
                 "Invalid clause(s) in filter string: %s" % invalid_clauses
             )
         return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _get_identifier(cls, identifier, valid_attributes):
+        tokens = identifier.split(".", maxsplit=1)
+        if len(tokens) == 1:
+            key = tokens[0]
+            identifier = cls._ATTRIBUTE_IDENTIFIER
+        else:
+            entity_type, key = tokens
+            valid_entity_types = ("attribute", "tag", "tags")
+            if entity_type not in valid_entity_types:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid entity type '{entity_type}'. "
+                    f"Valid entity types are {valid_entity_types}"
+                )
+            identifier = cls._TAG_IDENTIFIER if entity_type in ("tag", "tags") \
+                else cls._ATTRIBUTE_IDENTIFIER
+
+        key = cls._trim_backticks(cls._strip_quotes(key))
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid attribute key '{}' specified. Valid keys "
+                "are '{}'".format(key, valid_attributes)
+            )
+        return {"type": identifier, "key": key}
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        left, comparator, right = stripped_comparison
+        comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
+        comp["comparator"] = comparator.value
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
+        return comp

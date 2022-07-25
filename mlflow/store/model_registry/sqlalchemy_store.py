@@ -2,6 +2,9 @@ import time
 
 import logging
 import sqlalchemy
+from functools import reduce
+
+from sqlalchemy.future import select
 
 from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
@@ -62,8 +65,7 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
         "\"source_path = '<source_path>'\" " \
         'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)" ' \
         'or \"tags.<tag key>\" comparison filter ' \
-        'or "AND" expression composed of the above filters.' \
-        f"Invalid filter string: {filter_string}"
+        'or "AND" expression composed of the above filters.'
     attribute_filters = []
     non_attribute_filters = []
     for f in parsed_filters:
@@ -78,7 +80,7 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
                 raise MlflowException(
                     "Model Registry search filter only supports the equality(=) "
                     "comparator and the IN operator "
-                    "for the run_id parameter. Input filter string: %s" % filter_string,
+                    "for the run_id parameter.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             attr = getattr(SqlModelVersion, key)
