@@ -118,4 +118,4 @@ jobs:
           base: 'master'
           title: 'Update requirements'
           body: |
-            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
+            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_number }}
