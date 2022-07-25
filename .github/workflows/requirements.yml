@@ -70,7 +70,7 @@ jobs:
 
   create-pr:
     runs-on: ubuntu-latest
-    # if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule'
     needs: [skinny, core]
     steps:
       - uses: actions/checkout@v3
@@ -116,4 +116,4 @@ jobs:
           branch: ${{ steps.pr-branch.outputs.name }}
           title: 'Update requirements'
           body: |
-            Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_number }}
+            Build Log: https://github.com/mlflow/mlflow/actions/runs/${{ github.run_id }}
