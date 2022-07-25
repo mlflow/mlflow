@@ -23,7 +23,7 @@ _logger = logging.getLogger(__name__)
 
 class RegisterStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
-        super(RegisterStep, self).__init__(step_config, pipeline_root)
+        super().__init__(step_config, pipeline_root)
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.num_dropped_rows = None
         self.model_uri = None
