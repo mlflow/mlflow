@@ -26,7 +26,8 @@ module.exports = async ({ core, context, github }) => {
   // Fetch the release-note category labels applied on this PR
   const getAppliedLabels = async () => {
     const backoffs = [0, 1, 2, 4, 8, 16];
-    for (const backoff of backoffs) {
+    for (const [index, backoff] of backoffs.entries()) {
+      console.log(`Attempt ${index + 1}/${backoffs.length}`);
       await new Promise(r => setTimeout(r, backoff * 1000));
       const listLabelsOnIssueResp = await github.issues.listLabelsOnIssue({
         owner,
