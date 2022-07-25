@@ -11,11 +11,8 @@ const { Option, OptGroup } = Select;
 
 export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) => {
 
-  const parameters = CompareRunUtil.getKeys(paramLists, true);
-  const metrics = CompareRunUtil.getKeys(metricLists, true);
-
-  const [xAxis, setXAxis] = useState({ key: undefined, isParam: false });
-  const [yAxis, setYAxis] = useState({ key: undefined, isParam: false });
+  const [xAxis, setXAxis] = useState({ key: undefined, isParam: undefined });
+  const [yAxis, setYAxis] = useState({ key: undefined, isParam: undefined });
 
   const paramKeys = Array.from(new Set(paramLists.flat().map(({ key }) => key))).sort();
   const metricKeys = Array.from(new Set(metricLists.flat().map(({ key }) => key))).sort();
