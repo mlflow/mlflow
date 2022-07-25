@@ -337,11 +337,11 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
     assert eval_result.metrics == expected_metrics
     confusion_matrix_artifact = eval_result.artifacts[csv_artifact_name]
-    assert np.array_equal(confusion_matrix_artifact.content, expected_csv_artifact)
+    np.testing.assert_array_equal(confusion_matrix_artifact.content, expected_csv_artifact)
     assert confusion_matrix_artifact.uri == get_artifact_uri(
         run.info.run_id, csv_artifact_name + ".csv"
     )
-    assert np.array_equal(
+    np.testing.assert_array_equal(
         confusion_matrix_artifact._load(saved_csv_artifact_path), expected_csv_artifact
     )
     confusion_matrix_image_artifact = eval_result.artifacts[png_artifact_name]
@@ -392,7 +392,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
         assert loaded_eval_result.metrics == eval_result.metrics
         loaded_confusion_matrix_artifact = loaded_eval_result.artifacts[csv_artifact_name]
         assert confusion_matrix_artifact.uri == loaded_confusion_matrix_artifact.uri
-        assert np.array_equal(
+        np.testing.assert_array_equal(
             confusion_matrix_artifact.content,
             loaded_confusion_matrix_artifact.content,
         )
@@ -408,7 +408,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
 
         new_confusion_matrix_artifact = Array2DEvaluationArtifact(uri=confusion_matrix_artifact.uri)
         new_confusion_matrix_artifact._load()
-        assert np.array_equal(
+        np.testing.assert_array_equal(
             confusion_matrix_artifact.content,
             new_confusion_matrix_artifact.content,
         )
@@ -416,7 +416,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
             uri=confusion_matrix_image_artifact.uri
         )
         new_confusion_matrix_image_artifact._load()
-        assert np.array_equal(
+        np.testing.assert_array_equal(
             confusion_matrix_image_artifact.content,
             new_confusion_matrix_image_artifact.content,
         )
@@ -525,15 +525,15 @@ def test_dataset_with_pandas_dataframe():
     eval_dataset = EvaluationDataset(data=data, targets="label")
 
     assert list(eval_dataset.features_data.columns) == ["f1", "f2", "f3"]
-    assert np.array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
-    assert np.array_equal(eval_dataset.features_data.f2.to_numpy(), [3, 4])
-    assert np.array_equal(eval_dataset.features_data.f3.to_numpy(), [5, 6])
-    assert np.array_equal(eval_dataset.labels_data, [0, 1])
+    np.testing.assert_array_equal(eval_dataset.features_data.f1.to_numpy(), [1, 2])
+    np.testing.assert_array_equal(eval_dataset.features_data.f2.to_numpy(), [3, 4])
+    np.testing.assert_array_equal(eval_dataset.features_data.f3.to_numpy(), [5, 6])
+    np.testing.assert_array_equal(eval_dataset.labels_data, [0, 1])
 
     eval_dataset2 = EvaluationDataset(data=data, targets="label", feature_names=["f3", "f2"])
     assert list(eval_dataset2.features_data.columns) == ["f3", "f2"]
-    assert np.array_equal(eval_dataset2.features_data.f2.to_numpy(), [3, 4])
-    assert np.array_equal(eval_dataset2.features_data.f3.to_numpy(), [5, 6])
+    np.testing.assert_array_equal(eval_dataset2.features_data.f2.to_numpy(), [3, 4])
+    np.testing.assert_array_equal(eval_dataset2.features_data.f3.to_numpy(), [5, 6])
 
 
 def test_dataset_with_array_data():
@@ -542,8 +542,8 @@ def test_dataset_with_array_data():
 
     for input_data in [features, np.array(features)]:
         eval_dataset1 = EvaluationDataset(data=input_data, targets=labels)
-        assert np.array_equal(eval_dataset1.features_data, features)
-        assert np.array_equal(eval_dataset1.labels_data, labels)
+        np.testing.assert_array_equal(eval_dataset1.features_data, features)
+        np.testing.assert_array_equal(eval_dataset1.labels_data, labels)
         assert list(eval_dataset1.feature_names) == ["feature_1", "feature_2"]
 
     assert EvaluationDataset(
