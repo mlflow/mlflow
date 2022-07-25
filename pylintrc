@@ -173,7 +173,8 @@ disable=print-statement,
 # it should appear only once). See also the "--disable" option for examples.
 enable=c-extension-no-member,
        line-too-long,
-       use-a-generator
+       use-a-generator,
+       useless-object-inheritance
 
 
 [REPORTS]
