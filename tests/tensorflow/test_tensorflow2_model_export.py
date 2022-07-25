@@ -782,7 +782,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         mlflow_model = mlflow.pyfunc.load_model(model_uri)
         feed_dict = {"feature1": tf.constant([[2.0]])}
         predictions = mlflow_model.predict(feed_dict)
-        np.testing.assert_allclose(predictions["dense"], model.predict(feed_dict))
+        np.testing.assert_allclose(predictions["dense"], model.predict(feed_dict).squeeze())
 
     load_and_predict()
 
