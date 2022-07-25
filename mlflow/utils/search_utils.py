@@ -1036,3 +1036,33 @@ class SearchModelVersionsUtils(SearchUtils):
         comp["comparator"] = comparator.value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
+
+    @classmethod
+    def _get_value(cls, identifier_type, key, token):
+        if identifier_type == cls._TAG_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            raise MlflowException(
+                "Expected a quoted string value for "
+                "{identifier_type} (e.g. 'my-value'). Got value "
+                "{value}".format(identifier_type=identifier_type, value=token.value),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                cls._check_valid_identifier_list(token)
+                return cls._parse_list_from_sql_token(token)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for attributes. "
+                    "Got value {value}".format(value=token.value),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            # Expected to be either "param" or "metric".
+            raise MlflowException(
+                "Invalid identifier type. Expected one of "
+                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER])
+            )
