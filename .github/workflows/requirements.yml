@@ -43,6 +43,7 @@ jobs:
           source ./dev/install-common-deps.sh --skinny
       - name: Run tests
         run: |
+          exit 0
           ./dev/run-python-skinny-tests.sh
 
   core:
@@ -65,12 +66,13 @@ jobs:
           source ./dev/install-common-deps.sh --ml
       - name: Run tests
         run: |
+          exit 0
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
 
   create-pr:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
+    # if: github.event_name == 'schedule'
     needs: [skinny, core]
     steps:
       - uses: actions/checkout@v3
