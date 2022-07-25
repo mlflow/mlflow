@@ -76,10 +76,15 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         import shutil
         import subprocess
 
-        if os.path.exists(html_file_path) and shutil.which("open") is not None:
-            _logger.info(f"Opening HTML file at: '{html_file_path}'")
-            subprocess.run(["open", html_file_path], check=True)
+        # Use xdg-open in Linux environment
+        if shutil.which("xdg-open") is not None:
+            open_tool = "xdg-open"
+        elif shutil.which("open") is not None:
+            open_tool = "open"
 
+        if os.path.exists(html_file_path) and open_tool is not None:
+            _logger.info(f"Opening HTML file at: '{html_file_path}'")
+            subprocess.run([open_tool, html_file_path], check=True)
 
 def get_pandas_data_profile(data_frame, title: str):
     """Returns a data profiling object over input data frame.
