@@ -300,7 +300,7 @@ def predict(target, name, input_path, output_path, endpoint):
     import pandas as pd
 
     if (name, endpoint).count(None) != 1:
-        raise click.UsageError("Must specify exactly one of --name or --endpoint")
+        raise click.UsageError("Must specify exactly one of --name or --endpoint.")
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
@@ -337,7 +337,7 @@ def explain(target, name, input_path, output_path, endpoint):
     import pandas as pd
 
     if (name, endpoint).count(None) != 1:
-        raise click.UsageError("Must specify exactly one of --name or --endpoint")
+        raise click.UsageError("Must specify exactly one of --name or --endpoint.")
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
