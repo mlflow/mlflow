@@ -5,6 +5,7 @@ import { connect } from 'react-redux';
 import '../../experiment-tracking/components/CompareRunView.css';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
+import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
 import Routes from '../../experiment-tracking/routes';
 import { Link } from 'react-router-dom';
@@ -131,6 +132,8 @@ export class CompareModelVersionsViewImpl extends Component {
       runInfos,
       runUuids,
       runDisplayNames,
+      paramLists,
+      metricLists
     } = this.props;
     const title = (
       <FormattedMessage
@@ -272,6 +275,22 @@ export class CompareModelVersionsViewImpl extends Component {
             key='3'
           >
             <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Box Plot'
+                description='Tab pane title for box plot on the compare runs page'
+              />
+            }
+            key='4'
+          >
+            <CompareRunBox
+                runUuids={runUuids}
+                runInfos={runInfos}
+                paramLists={paramLists}
+                metricLists={metricLists}
+            />
           </TabPane>
         </Tabs>
       </div>
