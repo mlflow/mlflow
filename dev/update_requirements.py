@@ -12,12 +12,11 @@ import requests
 from packaging.version import Version, InvalidVersion
 
 
-def get_latest_major_version(package_name: str, minium_version: str = None) -> int:
+def get_latest_major_version(package_name: str) -> int:
     url = f"https://pypi.org/pypi/{package_name}/json"
     response = requests.get(url)
     response.raise_for_status()
     data = response.json()
-    min_ver = Version(minium_version if minium_version else "0.0.0")
     versions = []
     for version, distributions in data["releases"].items():
         if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
@@ -29,7 +28,7 @@ def get_latest_major_version(package_name: str, minium_version: str = None) -> i
             # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
             continue
 
-        if version.is_devrelease or version.is_prerelease or version < min_ver:
+        if version.is_devrelease or version.is_prerelease:
             continue
 
         versions.append(version)
@@ -84,8 +83,7 @@ def main():
     for req_info in requirements.values():
         pip_release = req_info["pip_release"]
         max_major_version = req_info["max_major_version"]
-        minium_version = req_info.get("minium_version")
-        latest_major_version = get_latest_major_version(pip_release, minium_version)
+        latest_major_version = get_latest_major_version(pip_release)
         assert latest_major_version >= max_major_version
         if latest_major_version != max_major_version:
             new_requirements_src = replace_max_major_version(
