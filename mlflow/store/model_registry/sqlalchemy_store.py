@@ -60,12 +60,6 @@ def now():
 
 
 def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
-    err_msg = \
-        "Model Registry expects filter to be one of \"name = '<model_name>'\" or " \
-        "\"source_path = '<source_path>'\" " \
-        'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)" ' \
-        'or \"tags.<tag key>\" comparison filter ' \
-        'or "AND" expression composed of the above filters.'
     attribute_filters = []
     non_attribute_filters = []
     for f in parsed_filters:
@@ -75,12 +69,13 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
         value = f["value"]
         if type_ == "attribute":
             if key not in ("name", "source_path", "run_id"):
-                raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    f"Invalid attribute name: {key}",
+                    error_code=INVALID_PARAMETER_VALUE
+                )
             if comparator not in ("=", "IN") or (comparator == "IN" and key != "run_id"):
                 raise MlflowException(
-                    "Model Registry search filter only supports the equality(=) "
-                    "comparator and the IN operator "
-                    "for the run_id parameter.",
+                    f"Invalid comparator for attribute: {comparator}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             attr = getattr(SqlModelVersion, key)
@@ -93,8 +88,8 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
         elif type_ == "tag":
             if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid comparator for tag: {comparator}, "
-                    "only '=', '!=', 'LIKE', 'ILIKE' comparators are supported."
+                    f"Invalid comparator for tag: {comparator}",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             val_filter = SearchUtils.get_sql_filter_ops(
                 SqlModelVersionTag.value, comparator, dialect
@@ -104,7 +99,10 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
                 select(SqlModelVersionTag).filter(key_filter, val_filter).subquery()
             )
         else:
-            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException(
+                f"Invalid token type: {type_}",
+                error_code=INVALID_PARAMETER_VALUE
+            )
 
     return attribute_filters, non_attribute_filters
 
