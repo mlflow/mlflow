@@ -78,7 +78,7 @@ def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
                     f"Invalid comparator for attribute: {comparator}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-            attr = getattr(SqlModelVersion, key)
+            attr = getattr(SqlModelVersion, "source" if key == "source_path" else key)
             if comparator == "IN":
                 # TODO: Make it case sensitive in MYSQL
                 f = attr.in_(value)
