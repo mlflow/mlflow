@@ -55,7 +55,7 @@ def main(args):
     }
 
     with open(args.path, "w") as f:
-        json.dump(formatted_package_index, f, indent=2)
+        json.dump(formatted_package_index, f, separators=(",", ":"))
 
 
 if __name__ == "__main__":
