@@ -876,6 +876,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             search_versions("run_id IN (")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+        # TODO: fix
         # with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
         #     search_versions("run_id IN")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
