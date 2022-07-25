@@ -1053,11 +1053,16 @@ class SearchModelVersionsUtils(SearchUtils):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
                 cls._check_valid_identifier_list(token)
+                if key != "run_id":
+                    raise MlflowException(
+                        "Only run_id attribute support compare with a list of quoted string values.",
+                        error_code = INVALID_PARAMETER_VALUE,
+                    )
                 return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
-                    "Expected a quoted string value for attributes. "
-                    "Got value {value}".format(value=token.value),
+                    "Expected a quoted string value or a list of quoted string values for "
+                    "attributes. Got value {value}".format(value=token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
