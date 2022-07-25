@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 from pathlib import Path
 import pytest
 from pyspark.sql import SparkSession
@@ -69,6 +70,7 @@ steps:
     predict_step._run(str(predict_step_output_dir))
 
     (predict_step_output_dir / "scored.parquet").exists()
+    assert "prediction" in pd.read_parquet(predict_step_output_dir / "scored.parquet")
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
