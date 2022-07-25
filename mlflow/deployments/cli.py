@@ -288,8 +288,15 @@ def predictions_to_json(raw_predictions, output):
 
 
 @commands.command("predict")
-@click.option("--name", "name", help="Name of the deployment. Exactly one of --name or --endpoint must be specified.")
-@click.option("--endpoint", help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.")
+@click.option(
+    "--name",
+    "name",
+    help="Name of the deployment. Exactly one of --name or --endpoint must be specified.",
+)
+@click.option(
+    "--endpoint",
+    help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.",
+)
 @target_details
 @parse_input
 @parse_output
@@ -318,8 +325,15 @@ def predict(target, name, input_path, output_path, endpoint):
 
 
 @commands.command("explain")
-@click.option("--name", "name", help="Name of the deployment. Exactly one of --name or --endpoint must be specified.")
-@click.option("--endpoint", help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.")
+@click.option(
+    "--name",
+    "name",
+    help="Name of the deployment. Exactly one of --name or --endpoint must be specified.",
+)
+@click.option(
+    "--endpoint",
+    help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.",
+)
 @target_details
 @parse_input
 @parse_output
