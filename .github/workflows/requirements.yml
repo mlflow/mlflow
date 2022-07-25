@@ -43,7 +43,6 @@ jobs:
           source ./dev/install-common-deps.sh --skinny
       - name: Run tests
         run: |
-          exit 0
           ./dev/run-python-skinny-tests.sh
 
   core:
@@ -66,7 +65,6 @@ jobs:
           source ./dev/install-common-deps.sh --ml
       - name: Run tests
         run: |
-          exit 0
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
 
@@ -116,7 +114,6 @@ jobs:
           committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           branch: ${{ steps.pr-branch.outputs.name }}
-          base: 'master'
           title: 'Update requirements'
           body: |
             Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_number }}
