@@ -876,8 +876,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             search_versions("run_id IN (")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
-            search_versions("run_id IN")
+        # with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
+        #     search_versions("run_id IN")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
@@ -900,17 +900,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ),
         ) as exception_context:
             search_versions("run_id IN ('runid1',,'runid2')")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # search using the IN operator is not allowed with other additional filters
-        with self.assertRaisesRegex(
-            MlflowException, r"Search filter '.+' contains multiple expressions"
-        ) as exception_context:
-            search_versions(
-                "name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(
-                    name=name, run_id_1=run_id_1, run_id_2=run_id_2
-                )
-            )
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # search using source_path "A/D" should return version 3 and 4
@@ -946,6 +935,40 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].run_id == run_id_1
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
+
+    def test_search_model_versions_by_tag(self):
+        # create some model versions
+        name = "test_for_search_MV_by_tag"
+        self._rm_maker(name)
+        run_id_1 = uuid.uuid4().hex
+        run_id_2 = uuid.uuid4().hex
+
+        mv1 = self._mv_maker(
+            name=name, source="A/B", run_id=run_id_1,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")]
+        )
+        self.assertEqual(mv1.version, 1)
+        mv2 = self._mv_maker(
+            name=name, source="A/C", run_id=run_id_2,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")]
+        )
+        self.assertEqual(mv2.version, 2)
+
+        def search_versions(filter_string):
+            return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
+
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2='xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name='wrong_name' and tag.t2='xyz'")), set())
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.`t2`='xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t3='xyz'")), set())
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2!='xy'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'xy%'")), {1})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'xY%'")), set())
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 ILIKE 'xY%'")), {1})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'x%'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2='xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2 LIKE 'x%'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2 LIKE 'y%'")), set())
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
