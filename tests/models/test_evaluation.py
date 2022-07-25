@@ -176,6 +176,10 @@ def get_pipeline_model_dataset():
 
 @pytest.fixture
 def pipeline_model_uri():
+    return get_pipeline_modlel_uri()
+
+
+def get_pipeline_modlel_uri():
     """
     Create a pipeline model that transforms and trains on the dataset returned by
     `get_pipeline_model_dataset`. The pipeline model imputes the missing values in
@@ -234,6 +238,10 @@ def get_linear_regressor_model_uri():
 
 @pytest.fixture
 def spark_linear_regressor_model_uri():
+    return get_spark_linear_regressor_model_uri()
+
+
+def get_spark_linear_regressor_model_uri():
     spark_df = get_diabetes_spark_dataset()
     reg = SparkLinearRegression()
     spark_reg_model = reg.fit(spark_df)
@@ -288,6 +296,10 @@ def get_binary_logistic_regressor_model_uri():
 
 @pytest.fixture
 def svm_model_uri():
+    return get_svm_model_url()
+
+
+def get_svm_model_url():
     X, y = get_breast_cancer_dataset()
     clf = sklearn.svm.LinearSVC()
     clf.fit(X, y)
@@ -321,6 +333,12 @@ def baseline_model_uri(request):
         return get_linear_regressor_model_uri()
     if request.param == "binary_logistic_regressor_model_uri":
         return get_binary_logistic_regressor_model_uri()
+    if request.param == "spark_linear_regressor_model_uri":
+        return get_spark_linear_regressor_model_uri()
+    if request.param == "pipeline_model_uri":
+        return get_pipeline_modlel_uri()
+    if request.param == "svm_model_uri":
+        return get_svm_model_url()
     if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
         return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
     if request.param == "pyfunc":
