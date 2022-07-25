@@ -1,7 +1,9 @@
 import mlflow
 import os
 import pathlib
+import random
 import shutil
+import string
 import sys
 from typing import Generator
 
@@ -21,6 +23,10 @@ PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/sklearn_regression"
 BATCH_SCORING_PIPELINE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/pipelines/batch_scoring"
 
 ## Methods
+def get_random_id(length=6):
+    return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
+
+
 def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
     split_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "split", "outputs")
     split_step_output_dir.mkdir(parents=True)
@@ -54,6 +60,17 @@ def train_and_log_model():
         model = LinearRegression().fit(X, y)
         mlflow.sklearn.log_model(model, artifact_path="train/model")
         return run.info.run_id, model
+
+
+def train_log_and_register_model(rm_name):
+    run_id, _ = train_and_log_model()
+    runs_uri = "runs:/{}/train/model".format(run_id)
+    mv = mlflow.register_model(runs_uri, rm_name)
+    client = mlflow.tracking.MlflowClient()
+    client.transition_model_version_stage(
+        name=rm_name, version=mv.version, stage="Production", archive_existing_versions=True
+    )
+    return "models:/{model_name}/Production".format(model_name=rm_name)
 
 
 ## Fixtures
