@@ -239,7 +239,7 @@ def log_model(
 
         class LinearNNModel(torch.nn.Module):
             def __init__(self):
-                super(LinearNNModel, self).__init__()
+                super().__init__()
                 self.linear = torch.nn.Linear(1, 1)  # One in and one out
 
             def forward(self, x):
@@ -956,7 +956,7 @@ def autolog(
 
         class MNISTModel(pl.LightningModule):
             def __init__(self):
-                super(MNISTModel, self).__init__()
+                super().__init__()
                 self.l1 = torch.nn.Linear(28 * 28, 10)
 
             def forward(self, x):

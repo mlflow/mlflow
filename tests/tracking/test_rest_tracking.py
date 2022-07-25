@@ -46,11 +46,6 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture(params=["file", "sqlalchemy"])
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-
-    # TODO: Remove this in https://github.com/mlflow/mlflow/pull/6227
-    if request.param == "file" and request.node.name.startswith("test_search_experiments"):
-        pytest.skip("FileStore does not yet support search_experiments")
-
     if request.param == "file":
         uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
     elif request.param == "sqlalchemy":

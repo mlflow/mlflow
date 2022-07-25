@@ -59,7 +59,7 @@ class NewsDataset(IterDataPipe):
         :param num_samples: number of samples to load
         :param dataset: Dataset type - 20newsgroups or ag_news
         """
-        super(NewsDataset, self).__init__()
+        super().__init__()
         self.source = source
         self.start = 0
         self.tokenizer = tokenizer
@@ -109,7 +109,7 @@ class BertDataModule(pl.LightningDataModule):
         """
         Initialization of inherited lightning data module
         """
-        super(BertDataModule, self).__init__()
+        super().__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.train_dataset = None
         self.val_dataset = None
@@ -258,7 +258,7 @@ class BertNewsClassifier(pl.LightningModule):
         """
         Initializes the network, optimizer and scheduler
         """
-        super(BertNewsClassifier, self).__init__()
+        super().__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         for param in self.bert_model.parameters():

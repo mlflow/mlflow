@@ -12,7 +12,7 @@ import mlflow.pytorch
 
 class IrisClassifier(nn.Module):
     def __init__(self):
-        super(IrisClassifier, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(4, 10)
         self.fc2 = nn.Linear(10, 10)
         self.fc3 = nn.Linear(10, 3)

@@ -180,6 +180,7 @@ def _validate_model_version_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
+    _validate_tag_value(value)
     _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
@@ -386,3 +387,16 @@ def _validate_db_type_string(db_type):
     if db_type not in DATABASE_ENGINES:
         error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_version_or_stage_exists(version, stage):
+    if version and stage:
+        raise MlflowException("version and stage cannot be set together", INVALID_PARAMETER_VALUE)
+
+    if not (version or stage):
+        raise MlflowException("version or stage must be set", INVALID_PARAMETER_VALUE)
+
+
+def _validate_tag_value(value):
+    if value == None:
+        raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)
