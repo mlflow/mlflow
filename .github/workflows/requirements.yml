@@ -115,6 +115,7 @@ jobs:
           committer: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           author: 'mlflow-automation <mlflow-automation@users.noreply.github.com>'
           branch: ${{ steps.pr-branch.outputs.name }}
+          base: 'master'
           title: 'Update requirements'
           body: |
             Run URL: https://github.com/mlflow/mlflow/runs/${{ github.run_id }}
