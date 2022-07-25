@@ -92,6 +92,7 @@ jobs:
       - uses: actions/github-script@v6
         id: pr-exists
         with:
+          result-encoding: string
           script: |
             const recentPrs = await github.rest.pulls.list({
               owner: 'mlflow',
@@ -103,10 +104,10 @@ jobs:
             const exists = recentPrs.data.some(
               pr => pr.head.ref === '${{ steps.pr-branch.outputs.name }}'
             );
-            core.setOutput('exists', exists.toString());
+            return exists.toString();
       # If there are no changes, the create-pull-request action exits silently
       - uses: peter-evans/create-pull-request@v4
-        if: steps.pr-exists.outputs.exists != 'true'
+        if: steps.pr-exists.outputs.result != 'true'
         with:
           token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
           add-paths: requirements
