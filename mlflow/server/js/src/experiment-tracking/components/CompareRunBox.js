@@ -11,13 +11,11 @@ const { Option, OptGroup } = Select;
 
 export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) => {
 
-  const parameter = CompareRunUtil.getKeys(paramLists, true)[0];
-  const metric = CompareRunUtil.getKeys(metricLists, true)[0];
-  console.log(parameter);
-  console.log(metric);
+  const parameters = CompareRunUtil.getKeys(paramLists, true);
+  const metrics = CompareRunUtil.getKeys(metricLists, true);
 
-  const [xAxis, setXAxis] = useState({ key: parameter, isParam: true });
-  const [yAxis, setYAxis] = useState({ key: metric, isParam: true });
+  const [xAxis, setXAxis] = useState({ key: undefined, isParam: false });
+  const [yAxis, setYAxis] = useState({ key: undefined, isParam: false });
 
   const paramKeys = Array.from(new Set(paramLists.flat().map(({ key }) => key))).sort();
   const metricKeys = Array.from(new Set(metricLists.flat().map(({ key }) => key))).sort();
@@ -166,7 +164,6 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
               defaultMessage='Y-axis:'
               description='Label text for x-axis in box plot comparison in MLflow'
             />
-            yAxis
           </label>
         </div>
         {renderSelector(handleYAxisChange, yAxis.value)}
