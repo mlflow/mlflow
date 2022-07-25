@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 
 _INPUT_FILE_NAME = "dataset.parquet"
-_CLEANED_OUTPUT_FILE_NAME = "dataset_preprocessed.parquet"
+_PREPROCESSED_OUTPUT_FILE_NAME = "dataset_preprocessed.parquet"
 
 
 class PreprocessingStep(BaseStep):
@@ -80,7 +80,7 @@ class PreprocessingStep(BaseStep):
             clean_df = input_df
 
         # Output train / validation / test splits
-        clean_df.to_parquet(os.path.join(output_directory, _CLEANED_OUTPUT_FILE_NAME))
+        clean_df.to_parquet(os.path.join(output_directory, _PREPROCESSED_OUTPUT_FILE_NAME))
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
