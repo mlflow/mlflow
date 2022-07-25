@@ -7,7 +7,13 @@ import pytest
 from contextlib import nullcontext as does_not_raise
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation import evaluate
+from mlflow.models.evaluation.base import (
+    evaluate,
+    _evaluate,
+    _normalize_evaluators_and_evaluator_config_args,
+    EvaluationDataset,
+    _start_run_or_reuse_active_run,
+)
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -44,6 +50,7 @@ import io
 # pylint: disable=unused-import
 from tests.models.test_evaluation import (
     get_run_data,
+    baseline_model_uri,
     linear_regressor_model_uri,
     diabetes_dataset,
     multiclass_logistic_regressor_model_uri,
@@ -65,20 +72,88 @@ def assert_dict_equal(d1, d2, rtol):
         assert np.isclose(d1[k], d2[k], rtol=rtol)
 
 
-def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
-    with mlflow.start_run() as run:
-        result = evaluate(
-            linear_regressor_model_uri,
-            diabetes_dataset._constructor_args["data"],
-            model_type="regressor",
-            targets=diabetes_dataset._constructor_args["targets"],
-            dataset_name=diabetes_dataset.name,
-            evaluators="default",
+def test_evaluation_for_baseline_model_helper(
+    baseline_model,
+    data,
+    *,
+    targets,
+    model_type: str,
+    dataset_name=None,
+    dataset_path=None,
+    feature_names: list = None,
+    evaluators=None,
+    evaluator_config=None,
+    custom_metrics=None,
+):
+    baseline_model = mlflow.pyfunc.load_model(baseline_model)
+    (
+        evaluator_name_list,
+        evaluator_name_to_conf_map,
+    ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
+    dataset = EvaluationDataset(
+        data,
+        targets=targets,
+        name=dataset_name,
+        path=dataset_path,
+        feature_names=feature_names,
+    )
+    with _start_run_or_reuse_active_run() as run_id:
+        eval_result = _evaluate(
+            model=baseline_model,
+            model_type=model_type,
+            dataset=dataset,
+            run_id=run_id,
+            evaluator_name_list=evaluator_name_list,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            custom_metrics=custom_metrics,
+            is_baseline_model=True,
         )
+        return eval_result
+
+
+@pytest.mark.parametrize(
+    "test_evaluation_for_baseline_model, baseline_model_uri",
+    [
+        (False, "None"),
+        (False, "linear_regressor_model_uri"),
+        (True, "linear_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_regressor_evaluation(
+    linear_regressor_model_uri,
+    diabetes_dataset,
+    test_evaluation_for_baseline_model,
+    baseline_model_uri,
+):
+    with mlflow.start_run() as run:
+        if test_evaluation_for_baseline_model:
+            result = test_evaluation_for_baseline_model_helper(
+                baseline_model_uri,
+                diabetes_dataset._constructor_args["data"],
+                model_type="regressor",
+                targets=diabetes_dataset._constructor_args["targets"],
+                dataset_name=diabetes_dataset.name,
+                evaluators="default",
+            )
+        else:
+            result = evaluate(
+                linear_regressor_model_uri,
+                diabetes_dataset._constructor_args["data"],
+                model_type="regressor",
+                targets=diabetes_dataset._constructor_args["targets"],
+                dataset_name=diabetes_dataset.name,
+                evaluators="default",
+                baseline_model=baseline_model_uri,
+            )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
-    model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
+    if test_evaluation_for_baseline_model:
+        model = mlflow.pyfunc.load_model(baseline_model_uri)
+    else:
+
+        model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
     y = diabetes_dataset.labels_data
     y_pred = model.predict(diabetes_dataset.features_data)
@@ -88,27 +163,36 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
     for metric_key in expected_metrics:
-        assert np.isclose(
-            expected_metrics[metric_key],
-            metrics[metric_key + "_on_data_diabetes_dataset"],
-            rtol=1e-3,
-        )
+        if not test_evaluation_for_baseline_model:
+            assert np.isclose(
+                expected_metrics[metric_key],
+                metrics[metric_key + "_on_data_diabetes_dataset"],
+                rtol=1e-3,
+            )
         assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
-    assert json.loads(tags["mlflow.datasets"]) == [
-        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
-    ]
+    if test_evaluation_for_baseline_model:
+        assert set(metrics) == set()
+        assert "mlflow.dataset" not in tags
+        assert set(metrics) == set()
+        assert set(artifacts) == set()
+        assert list(result.artifacts.keys()) == []
 
-    assert set(artifacts) == {
-        "shap_beeswarm_plot_on_data_diabetes_dataset.png",
-        "shap_feature_importance_plot_on_data_diabetes_dataset.png",
-        "shap_summary_plot_on_data_diabetes_dataset.png",
-    }
-    assert result.artifacts.keys() == {
-        "shap_beeswarm_plot",
-        "shap_feature_importance_plot",
-        "shap_summary_plot",
-    }
+    else:
+        assert json.loads(tags["mlflow.datasets"]) == [
+            {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
+        ]
+
+        assert set(artifacts) == {
+            "shap_beeswarm_plot_on_data_diabetes_dataset.png",
+            "shap_feature_importance_plot_on_data_diabetes_dataset.png",
+            "shap_summary_plot_on_data_diabetes_dataset.png",
+        }
+        assert result.artifacts.keys() == {
+            "shap_beeswarm_plot",
+            "shap_feature_importance_plot",
+            "shap_summary_plot",
+        }
 
 
 def test_regressor_evaluation_with_int_targets(
@@ -126,20 +210,48 @@ def test_regressor_evaluation_with_int_targets(
         result.save(tmp_path)
 
 
-def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, iris_dataset):
+@pytest.mark.parametrize(
+    "test_evaluation_for_baseline_model, baseline_model_uri",
+    [
+        (False, "None"),
+        (False, "multiclass_logistic_regressor_baseline_model_uri_4"),
+        (True, "multiclass_logistic_regressor_baseline_model_uri_4"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_multi_classifier_evaluation(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    test_evaluation_for_baseline_model,
+    baseline_model_uri,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
-            multiclass_logistic_regressor_model_uri,
-            iris_dataset._constructor_args["data"],
-            model_type="classifier",
-            targets=iris_dataset._constructor_args["targets"],
-            dataset_name=iris_dataset.name,
-            evaluators="default",
-        )
+        if test_evaluation_for_baseline_model:
+            result = test_evaluation_for_baseline_model_helper(
+                baseline_model_uri,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators="default",
+            )
+        else:
+            result = evaluate(
+                multiclass_logistic_regressor_model_uri,
+                iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators="default",
+                baseline_model=baseline_model_uri,
+            )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
-    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+    if test_evaluation_for_baseline_model:
+        model = mlflow.pyfunc.load_model(baseline_model_uri)
+    else:
+        model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
     predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
@@ -152,50 +264,85 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
         iris_dataset.features_data, iris_dataset.labels_data
     )
     for metric_key in expected_metrics:
-        assert np.isclose(
-            expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
-        )
+        if not test_evaluation_for_baseline_model:
+            assert np.isclose(
+                expected_metrics[metric_key],
+                metrics[metric_key + "_on_data_iris_dataset"],
+                rtol=1e-3,
+            )
         assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
-    assert json.loads(tags["mlflow.datasets"]) == [
-        {**iris_dataset._metadata, "model": model.metadata.model_uuid}
-    ]
+    if test_evaluation_for_baseline_model:
+        assert "mlflow.datasets" not in tags
+        assert set(metrics) == set()
+        assert set(artifacts) == set()
+        assert list(result.artifacts.keys()) == []
+    else:
+        assert json.loads(tags["mlflow.datasets"]) == [
+            {**iris_dataset._metadata, "model": model.metadata.model_uuid}
+        ]
+        assert set(artifacts) == {
+            "shap_beeswarm_plot_on_data_iris_dataset.png",
+            "per_class_metrics_on_data_iris_dataset.csv",
+            "roc_curve_plot_on_data_iris_dataset.png",
+            "precision_recall_curve_plot_on_data_iris_dataset.png",
+            "shap_feature_importance_plot_on_data_iris_dataset.png",
+            "explainer_on_data_iris_dataset",
+            "confusion_matrix_on_data_iris_dataset.png",
+            "shap_summary_plot_on_data_iris_dataset.png",
+        }
+        assert result.artifacts.keys() == {
+            "per_class_metrics",
+            "roc_curve_plot",
+            "precision_recall_curve_plot",
+            "confusion_matrix",
+            "shap_beeswarm_plot",
+            "shap_summary_plot",
+            "shap_feature_importance_plot",
+        }
 
-    assert set(artifacts) == {
-        "shap_beeswarm_plot_on_data_iris_dataset.png",
-        "per_class_metrics_on_data_iris_dataset.csv",
-        "roc_curve_plot_on_data_iris_dataset.png",
-        "precision_recall_curve_plot_on_data_iris_dataset.png",
-        "shap_feature_importance_plot_on_data_iris_dataset.png",
-        "explainer_on_data_iris_dataset",
-        "confusion_matrix_on_data_iris_dataset.png",
-        "shap_summary_plot_on_data_iris_dataset.png",
-    }
-    assert result.artifacts.keys() == {
-        "per_class_metrics",
-        "roc_curve_plot",
-        "precision_recall_curve_plot",
-        "confusion_matrix",
-        "shap_beeswarm_plot",
-        "shap_summary_plot",
-        "shap_feature_importance_plot",
-    }
 
-
-def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+@pytest.mark.parametrize(
+    "test_evaluation_for_baseline_model, baseline_model_uri",
+    [
+        (False, "None"),
+        (False, "binary_logistic_regressor_model_uri"),
+        (True, "binary_logistic_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_bin_classifier_evaluation(
+    binary_logistic_regressor_model_uri,
+    breast_cancer_dataset,
+    test_evaluation_for_baseline_model,
+    baseline_model_uri,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset._constructor_args["data"],
-            model_type="classifier",
-            targets=breast_cancer_dataset._constructor_args["targets"],
-            dataset_name=breast_cancer_dataset.name,
-            evaluators="default",
-        )
+        if test_evaluation_for_baseline_model:
+            result = test_evaluation_for_baseline_model_helper(
+                baseline_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                dataset_name=breast_cancer_dataset.name,
+                evaluators="default",
+            )
+        else:
+            result = evaluate(
+                binary_logistic_regressor_model_uri,
+                breast_cancer_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=breast_cancer_dataset._constructor_args["targets"],
+                dataset_name=breast_cancer_dataset.name,
+                evaluators="default",
+            )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
-    model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
+    if test_evaluation_for_baseline_model:
+        model = mlflow.pyfunc.load_model(baseline_model_uri)
+    else:
+        model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
     predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
@@ -208,35 +355,42 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
     for metric_key in expected_metrics:
-        assert np.isclose(
-            expected_metrics[metric_key],
-            metrics[metric_key + "_on_data_breast_cancer_dataset"],
-            rtol=1e-3,
-        )
+        if not test_evaluation_for_baseline_model:
+            assert np.isclose(
+                expected_metrics[metric_key],
+                metrics[metric_key + "_on_data_breast_cancer_dataset"],
+                rtol=1e-3,
+            )
         assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
-    assert json.loads(tags["mlflow.datasets"]) == [
-        {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
-    ]
+    if test_evaluation_for_baseline_model:
+        assert "mlflow.datasets" not in tags
+        assert set(metrics) == set()
+        assert set(artifacts) == set()
+        assert list(result.artifacts.keys()) == []
+    else:
+        assert json.loads(tags["mlflow.datasets"]) == [
+            {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
+        ]
 
-    assert set(artifacts) == {
-        "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
-        "lift_curve_plot_on_data_breast_cancer_dataset.png",
-        "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
-        "precision_recall_curve_plot_on_data_breast_cancer_dataset.png",
-        "confusion_matrix_on_data_breast_cancer_dataset.png",
-        "shap_summary_plot_on_data_breast_cancer_dataset.png",
-        "roc_curve_plot_on_data_breast_cancer_dataset.png",
-    }
-    assert result.artifacts.keys() == {
-        "roc_curve_plot",
-        "precision_recall_curve_plot",
-        "lift_curve_plot",
-        "confusion_matrix",
-        "shap_beeswarm_plot",
-        "shap_summary_plot",
-        "shap_feature_importance_plot",
-    }
+        assert set(artifacts) == {
+            "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
+            "lift_curve_plot_on_data_breast_cancer_dataset.png",
+            "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
+            "precision_recall_curve_plot_on_data_breast_cancer_dataset.png",
+            "confusion_matrix_on_data_breast_cancer_dataset.png",
+            "shap_summary_plot_on_data_breast_cancer_dataset.png",
+            "roc_curve_plot_on_data_breast_cancer_dataset.png",
+        }
+        assert result.artifacts.keys() == {
+            "roc_curve_plot",
+            "precision_recall_curve_plot",
+            "lift_curve_plot",
+            "confusion_matrix",
+            "shap_beeswarm_plot",
+            "shap_summary_plot",
+            "shap_feature_importance_plot",
+        }
 
 
 def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diabetes_spark_dataset):

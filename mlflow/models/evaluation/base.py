@@ -633,7 +633,8 @@ def _evaluate(
 
     client = MlflowClient()
     model_uuid = model.metadata.model_uuid
-    dataset._log_dataset_tag(client, run_id, model_uuid)
+    if not is_baseline_model:
+        dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
     for evaluator_name in evaluator_name_list:

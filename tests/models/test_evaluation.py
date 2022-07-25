@@ -271,6 +271,10 @@ def multiclass_logistic_regressor_model_uri_by_max_iter(max_iter):
 
 @pytest.fixture
 def binary_logistic_regressor_model_uri():
+    return get_binary_logistic_regressor_model_uri()
+
+
+def get_binary_logistic_regressor_model_uri():
     X, y = get_breast_cancer_dataset()
     clf = sklearn.linear_model.LogisticRegression()
     clf.fit(X, y)
@@ -315,6 +319,8 @@ def iris_pandas_df_dataset():
 def baseline_model_uri(request):
     if request.param == "linear_regressor_model_uri":
         return get_linear_regressor_model_uri()
+    if request.param == "binary_logistic_regressor_model_uri":
+        return get_binary_logistic_regressor_model_uri()
     if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
         return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
     if request.param == "pyfunc":

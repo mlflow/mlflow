@@ -461,6 +461,7 @@ class DefaultEvaluator(ModelEvaluator):
         finally:
             pyplot.close(pyplot.gcf())
 
+        mlflow.log_artifact(artifact_file_local_path)
         artifact = ImageEvaluationArtifact(uri=mlflow.get_artifact_uri(artifact_file_name))
         artifact._load(artifact_file_local_path)
         self.artifacts[artifact_name] = artifact
