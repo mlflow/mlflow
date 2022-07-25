@@ -162,6 +162,30 @@ def test_http_request_with_basic_auth(request):
 
 
 @mock.patch("requests.Session.request")
+def test_http_request_with_aws_sigv4(request):
+    """This test requires the "requests_auth_aws_sigv4" package to be installed"""
+
+    from requests_auth_aws_sigv4 import AWSSigV4
+
+    aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4="true")
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(aws_sigv4, "/my/endpoint", "GET")
+    headers = DefaultRequestHeaderProvider().request_headers()
+    _, kwargs = request.call_args_list[0]
+    request.assert_called_with(
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
+        auth=kwargs["auth"],
+    )
+    assert isinstance(kwargs["auth"], AWSSigV4)
+
+
+@mock.patch("requests.Session.request")
 def test_http_request_with_token(request):
     host_only = MlflowHostCreds("http://my-host", token="my-token")
     response = mock.MagicMock()

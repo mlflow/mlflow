@@ -154,6 +154,12 @@ def http_request(
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
 
+    if host_creds.aws_sigv4:
+        # will overwrite the Authorization header
+        from requests_auth_aws_sigv4 import AWSSigV4
+
+        kwargs["auth"] = AWSSigV4("execute-api")
+
     cleaned_hostname = strip_suffix(hostname, "/")
     url = "%s%s" % (cleaned_hostname, endpoint)
     try:
@@ -335,6 +341,9 @@ class MlflowHostCreds:
         If this is specified, username must also be specified.
     :param token: Token to use with Bearer authentication when talking to server.
         If provided, user/password authentication will be ignored.
+    :param aws_sigv4: If true, we will create a signature V4 to be added for any outgoing request.
+        Keys for signing the request can be passed via ENV variables,
+        or will be fetched via boto3 session.
     :param ignore_tls_verification: If true, we will not verify the server's hostname or TLS
         certificate. This is useful for certain testing situations, but should never be
         true in production.
@@ -354,6 +363,7 @@ class MlflowHostCreds:
         username=None,
         password=None,
         token=None,
+        aws_sigv4=None,
         ignore_tls_verification=False,
         client_cert_path=None,
         server_cert_path=None,
@@ -378,6 +388,7 @@ class MlflowHostCreds:
         self.username = username
         self.password = password
         self.token = token
+        self.aws_sigv4 = aws_sigv4
         self.ignore_tls_verification = ignore_tls_verification
         self.client_cert_path = client_cert_path
         self.server_cert_path = server_cert_path

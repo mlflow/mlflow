@@ -131,6 +131,8 @@ setup(
             "scikit-learn",
             # Required to log artifacts and models to HDFS artifact locations
             "pyarrow",
+            # Required to sign outgoing request with SigV4 signature
+            "requests-auth-aws-sigv4",
             # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             # Required to log artifacts and models to GCS artifact locations
