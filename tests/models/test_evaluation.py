@@ -217,6 +217,10 @@ def pipeline_model_uri():
 
 @pytest.fixture
 def linear_regressor_model_uri():
+    return get_linear_regressor_model_uri()
+
+
+def get_linear_regressor_model_uri():
     X, y = get_diabetes_dataset()
     reg = sklearn.linear_model.LinearRegression()
     reg.fit(X, y)
@@ -307,7 +311,29 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
-def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
+@pytest.fixture
+def baseline_model_uri(request):
+    if request.param == "linear_regressor_model_uri":
+        return get_linear_regressor_model_uri()
+    if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
+        return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
+    if request.param == "pyfunc":
+        return lambda x: x
+    if request.param == "invalid":
+        return "invalid_uri"
+    return None
+
+
+# Test validation with valid baseline_model uri
+# should not affect evaluation behavior for classifier model
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
+    indirect=["baseline_model_uri"],
+)
+def test_classifier_evaluate(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri
+):
     y_true = iris_dataset.labels_data
     classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
     y_pred = classifier_model.predict(iris_dataset.features_data)
@@ -334,6 +360,7 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
             targets=iris_dataset._constructor_args["targets"],
             dataset_name=iris_dataset.name,
             evaluators="dummy_evaluator",
+            baseline_model=baseline_model_uri,
         )
 
     csv_artifact_name = "confusion_matrix_on_iris_dataset"
@@ -433,7 +460,17 @@ def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_datas
         )
 
 
-def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        # Test validation with valid baseline_model uri
+        # should not affect evaluation behavior
+        ("linear_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset, baseline_model_uri):
     y_true = diabetes_dataset.labels_data
     regressor_model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
     y_pred = regressor_model.predict(diabetes_dataset.features_data)
@@ -457,6 +494,7 @@ def test_regressor_evaluate(linear_regressor_model_uri, diabetes_dataset):
                 targets=diabetes_dataset._constructor_args["targets"],
                 dataset_name=diabetes_dataset.name,
                 evaluators="dummy_evaluator",
+                baseline_model=baseline_model_uri,
             )
         _, saved_metrics, _, _ = get_run_data(run.info.run_id)
         assert saved_metrics == expected_saved_metrics
@@ -725,17 +763,6 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                 )
 
 
-@pytest.fixture
-def baseline_model_uri(request):
-    if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
-        return multiclass_logistic_regressor_model_uri_by_max_iter(max_iter=4)
-    if request.param == "pyfunc":
-        return lambda x: x
-    if request.param == "invalid":
-        return "invalid_uri"
-    return None
-
-
 @pytest.mark.parametrize(
     "baseline_model_uri,expected_error,valid_baseline_model_uri",
     [
@@ -869,7 +896,14 @@ def test_evaluator_validation_interface(
                     )
 
 
-def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri, iris_dataset):
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [("None"), ("multiclass_logistic_regressor_baseline_model_uri_4")],
+    indirect=["baseline_model_uri"],
+)
+def test_evaluate_with_multi_evaluators(
+    multiclass_logistic_regressor_model_uri, iris_dataset, baseline_model_uri
+):
     with mock.patch.object(
         _model_evaluation_registry,
         "_registry",
@@ -898,6 +932,9 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                 FakeEvauator2, "evaluate", return_value=evaluator2_return_value
             ) as mock_evaluate2:
                 classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+                baseline_model = (
+                    mlflow.pyfunc.load_model(baseline_model_uri) if baseline_model_uri else None
+                )
                 with mlflow.start_run() as run:
                     eval_result = evaluate(
                         classifier_model,
@@ -910,6 +947,7 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                             "test_evaluator1": evaluator1_config,
                             "test_evaluator2": evaluator2_config,
                         },
+                        baseline_model=baseline_model_uri,
                     )
                     assert eval_result.metrics == {
                         **evaluator1_return_value.metrics,
@@ -919,31 +957,101 @@ def test_evaluate_with_multi_evaluators(multiclass_logistic_regressor_model_uri,
                         **evaluator1_return_value.artifacts,
                         **evaluator2_return_value.artifacts,
                     }
-                    mock_can_evaluate1.assert_called_once_with(
-                        model_type="classifier", evaluator_config=evaluator1_config
-                    )
-                    mock_evaluate1.assert_called_once_with(
-                        model=classifier_model,
-                        model_type="classifier",
-                        dataset=iris_dataset,
-                        run_id=run.info.run_id,
-                        evaluator_config=evaluator1_config,
-                        custom_metrics=None,
-                        is_baseline_model=False,
-                    )
-                    mock_can_evaluate2.assert_called_once_with(
-                        model_type="classifier",
-                        evaluator_config=evaluator2_config,
-                    )
-                    mock_evaluate2.assert_called_once_with(
-                        model=classifier_model,
-                        model_type="classifier",
-                        dataset=iris_dataset,
-                        run_id=run.info.run_id,
-                        evaluator_config=evaluator2_config,
-                        custom_metrics=None,
-                        is_baseline_model=False,
-                    )
+                    if not baseline_model_uri:
+                        mock_can_evaluate1.assert_called_once_with(
+                            model_type="classifier", evaluator_config=evaluator1_config
+                        )
+                    else:
+                        mock_can_evaluate1.assert_has_calls(
+                            [
+                                mock.call(
+                                    model_type="classifier", evaluator_config=evaluator1_config
+                                ),
+                                mock.call(
+                                    model_type="classifier", evaluator_config=evaluator1_config
+                                ),
+                            ]
+                        )
+                    if not baseline_model_uri:
+                        mock_evaluate1.assert_called_once_with(
+                            model=classifier_model,
+                            model_type="classifier",
+                            dataset=iris_dataset,
+                            run_id=run.info.run_id,
+                            evaluator_config=evaluator1_config,
+                            custom_metrics=None,
+                            is_baseline_model=False,
+                        )
+                        mock_can_evaluate2.assert_called_once_with(
+                            model_type="classifier",
+                            evaluator_config=evaluator2_config,
+                        )
+                        mock_evaluate2.assert_called_once_with(
+                            model=classifier_model,
+                            model_type="classifier",
+                            dataset=iris_dataset,
+                            run_id=run.info.run_id,
+                            evaluator_config=evaluator2_config,
+                            custom_metrics=None,
+                            is_baseline_model=False,
+                        )
+                    else:
+                        mock_evaluate1.assert_has_calls(
+                            [
+                                mock.call(
+                                    model=classifier_model,
+                                    model_type="classifier",
+                                    dataset=iris_dataset,
+                                    run_id=run.info.run_id,
+                                    evaluator_config=evaluator1_config,
+                                    custom_metrics=None,
+                                    is_baseline_model=False,
+                                ),
+                                mock.call(
+                                    model=baseline_model,
+                                    model_type="classifier",
+                                    dataset=iris_dataset,
+                                    run_id=run.info.run_id,
+                                    evaluator_config=evaluator1_config,
+                                    custom_metrics=None,
+                                    is_baseline_model=True,
+                                ),
+                            ]
+                        )
+                        mock_can_evaluate2.assert_has_calls(
+                            [
+                                mock.call(
+                                    model_type="classifier",
+                                    evaluator_config=evaluator2_config,
+                                ),
+                                mock.call(
+                                    model_type="classifier",
+                                    evaluator_config=evaluator2_config,
+                                ),
+                            ]
+                        )
+                        mock_evaluate2.assert_has_calls(
+                            [
+                                mock.call(
+                                    model=classifier_model,
+                                    model_type="classifier",
+                                    dataset=iris_dataset,
+                                    run_id=run.info.run_id,
+                                    evaluator_config=evaluator2_config,
+                                    custom_metrics=None,
+                                    is_baseline_model=False,
+                                ),
+                                mock.call(
+                                    model=baseline_model,
+                                    model_type="classifier",
+                                    dataset=iris_dataset,
+                                    run_id=run.info.run_id,
+                                    evaluator_config=evaluator2_config,
+                                    custom_metrics=None,
+                                    is_baseline_model=True,
+                                ),
+                            ]
+                        )
 
 
 def test_start_run_or_reuse_active_run():

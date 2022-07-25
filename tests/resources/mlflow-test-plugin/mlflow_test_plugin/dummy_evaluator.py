@@ -56,6 +56,7 @@ class DummyEvaluator(ModelEvaluator):
             accuracy_score = sk_metrics.accuracy_score(y, y_pred)
 
             metrics = {"accuracy_score": accuracy_score}
+            artifacts = {}
             if not self.is_baseline_model:
                 self._log_metrics(run_id, metrics, dataset.name)
             if not self.is_baseline_model:
