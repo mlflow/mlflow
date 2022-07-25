@@ -58,7 +58,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description=(
             "Update the `max_major_version` attribute of each package in a YAML dependencies"
-            " specification"
+            " specification."
         )
     )
     parser.add_argument(
