@@ -31,7 +31,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchUtils, SearchModelVersionsUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_registered_model_tag,
@@ -54,6 +54,57 @@ sqlalchemy.orm.configure_mappers()
 
 def now():
     return int(time.time() * 1000)
+
+
+def _get_search_model_versions_filter_clauses(parsed_filters, dialect):
+    err_msg = \
+        "Model Registry expects filter to be one of \"name = '<model_name>'\" or " \
+        "\"source_path = '<source_path>'\" " \
+        'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)" ' \
+        'or \"tags.<tag key>\" comparison filter ' \
+        'or "AND" expression composed of the above filters.' \
+        f"Invalid filter string: {filter_string}"
+    attribute_filters = []
+    non_attribute_filters = []
+    for f in parsed_filters:
+        type_ = f["type"]
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+        if type_ == "attribute":
+            if key not in ("name", "source_path", "run_id"):
+                raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+            if comparator not in ("=", "IN") or (comparator == "IN" and key != "run_id"):
+                raise MlflowException(
+                    "Model Registry search filter only supports the equality(=) "
+                    "comparator and the IN operator "
+                    "for the run_id parameter. Input filter string: %s" % filter_string,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            attr = getattr(SqlModelVersion, key)
+            if comparator == "IN":
+                # TODO: Make it case sensitive in MYSQL
+                f = attr.in_(value)
+            else:
+                f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
+            attribute_filters.append(f)
+        elif type_ == "tag":
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for tag: {comparator}, "
+                    "only '=', '!=', 'LIKE', 'ILIKE' comparators are supported."
+                )
+            val_filter = SearchUtils.get_sql_filter_ops(
+                SqlModelVersionTag.value, comparator, dialect
+            )(value)
+            key_filter = SqlModelVersionTag.key == key
+            non_attribute_filters.append(
+                select(SqlModelVersionTag).filter(key_filter, val_filter).subquery()
+            )
+        else:
+            raise MlflowException(err_msg, error_code=INVALID_PARAMETER_VALUE)
+
+    return attribute_filters, non_attribute_filters
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -738,46 +789,24 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
-        parsed_filter = SearchUtils.parse_filter_for_model_versions(filter_string)
-        if len(parsed_filter) == 0:
-            conditions = []
-        elif len(parsed_filter) == 1:
-            filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
-                raise MlflowException(
-                    "Model Registry search filter only supports the equality(=) "
-                    "comparator and the IN operator "
-                    "for the run_id parameter. Input filter string: %s" % filter_string,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if filter_dict["key"] == "name":
-                conditions = [SqlModelVersion.name == filter_dict["value"]]
-            elif filter_dict["key"] == "source_path":
-                conditions = [SqlModelVersion.source == filter_dict["value"]]
-            elif filter_dict["key"] == "run_id":
-                if filter_dict["comparator"] == "IN":
-                    conditions = [SqlModelVersion.run_id.in_(filter_dict["value"])]
-                else:
-                    conditions = [SqlModelVersion.run_id == filter_dict["value"]]
-            else:
-                raise MlflowException(
-                    "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
-                )
-        else:
-            raise MlflowException(
-                "Model Registry expects filter to be one of "
-                "\"name = '<model_name>'\" or "
-                "\"source_path = '<source_path>'\" "
-                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
-                "Input filter string: %s. " % filter_string,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        parsed_filters = SearchModelVersionsUtils.parse_search_filter(filter_string)
+
+        attribute_filters, non_attribute_filters = _get_search_model_versions_filter_clauses(
+            parsed_filters, self.engine.dialect.name
+        )
 
         with self.ManagedSessionMaker() as session:
-            conditions.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
-            sql_model_version = session.query(SqlModelVersion).filter(*conditions).all()
-            model_versions = [mv.to_mlflow_entity() for mv in sql_model_version]
+            attribute_filters.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
+
+            stmt = (
+                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlModelVersion))
+                .options(*self._get_eager_model_version_query_options())
+                .filter(*attribute_filters)
+            )
+            sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
+            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]
             return PagedList(model_versions, None)
+
 
     @classmethod
     def _get_model_version_tag(cls, session, name, version, key):

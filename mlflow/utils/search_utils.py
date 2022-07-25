@@ -987,3 +987,16 @@ class SearchExperimentsUtils(SearchUtils):
     @classmethod
     def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
         return sorted(experiments, key=cls._get_sort_key(order_by_list))
+
+
+class SearchModelVersionsUtils(SearchUtils):
+
+    @classmethod
+    def _process_statement(cls, statement):
+        invalids = list(filter(cls._invalid_statement_token_search_model_registry, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                "Invalid clause(s) in filter string: %s" % invalid_clauses
+            )
+        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
