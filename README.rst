@@ -59,8 +59,8 @@ Nightly Job Statuses
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
 .. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
-.. |requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Requirements?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ARequirements+event%3Aschedule
+.. |validate-requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Validate%20requirements?event=schedule&label=validate%20requirements&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow/actions/workflows/requirements.yml?query=workflow%3A%22Validate+requirements%22+event%3Aschedule
 
 Installing
 ----------
