@@ -82,7 +82,7 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
 
 
 # Prevent pandas_profiling from using multiprocessing on Windows while running tests.
-# multiprocessing and pytest doesn't play well together on Windows.
+# multiprocessing and pytest don't play well together on Windows.
 # Relevant code: https://github.com/ydataai/pandas-profiling/blob/f8bad5dde27e3f87f11ac74fb8966c034bc22db8/src/pandas_profiling/model/pandas/summary_pandas.py#L76-L97
 def _get_pool_size():
     return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
