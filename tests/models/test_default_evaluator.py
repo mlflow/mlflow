@@ -127,12 +127,21 @@ def evaluate_model_helper(
             targets=targets,
             dataset_name=dataset_name,
             evaluators="default",
+            evaluator_config=evaluator_config,
         )
 
 
 def metrics_check_helper(
     metrics, result, expected_metrics, dataset_log_key, test_is_baseline_model_flag
 ):
+    """
+    Helper function for unit tests for evaluation and validation for check metrics:
+        - if test_is_baseline_model_flag:
+            Check if no metric is logged.
+        - Othwerise
+            Check if logged metrics are expected.
+        Check if returned metrics are expected.
+    """
     if test_is_baseline_model_flag:
         assert metrics == {}
     for metric_key in expected_metrics:
@@ -152,8 +161,16 @@ def artifacts_check_helper(
     expected_artifacts_keys,
     test_is_baseline_model_flag,
 ):
+    """
+    Helper function for unit tests for evaluation and validation for check artifacts:
+        - if test_is_baseline_model_flag:
+            Check if no artifacts is logged and no artifacts returned.
+        - Otherwise
+            Check if logged artfacts and returned artfacts are expected.
+    """
     if test_is_baseline_model_flag:
         assert logged_artifacts == []
+        assert result_artifacts == {}
 
     else:
         assert set(logged_artifacts) == expected_artifacts
