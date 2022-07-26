@@ -124,7 +124,7 @@ def get_pandas_data_profile(data_frame, title: str):
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
     max_rows = min(max(max_cells // max_cols, 1), _MAX_PROFILE_ROW_SIZE)
     truncated_df = data_frame.drop(columns=data_frame.columns[max_cols:]).sample(
-        n=max_rows, ignore_index=True, random_state=42
+        n=max_rows, ignore_index=True, random_state=42, replace=True
     )
     if (
         data_frame.size != max_cells
