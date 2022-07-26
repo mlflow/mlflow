@@ -17,7 +17,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -49,10 +49,10 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
       run: |
-        pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/lint-requirements.txt
+        pip install -r ${{ github.event.inputs.repository }}/requirements/lint-requirements.txt
     - name: Run lint checks
       run: |
-        cd ${{ github.event.inputs.repository }} && .github/workflows/scripts/lint.sh
+        cd ${{ github.event.inputs.repository }} && ../../dev/lint.sh
   pipeline:
     runs-on: ubuntu-latest
     steps:
@@ -67,10 +67,12 @@ jobs:
         run: |
           pip install -e .[pipelines]
           pip install -r ${{ github.event.inputs.repository }}/requirements.txt
-          pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/test-requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
+          # This dependency is needed pytest.ini uses pytest-cov
+          pip install pytest-cov
       - name: Run tests
         run: |
-          cd ${{ github.event.inputs.repository }} && pytest tests
+          cd ${{ github.event.inputs.repository }} && pytest tests --rootdir .
   pipeline-windows:
     runs-on: windows-latest
     steps:
@@ -80,12 +82,14 @@ jobs:
           path: ${{ github.event.inputs.repository }}
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-      - uses: actions/setup-python
+      - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
           pip install -e .[pipelines]
           pip install -r ${{ github.event.inputs.repository }}/requirements.txt
-          pip install -r ${{ github.event.inputs.repository }}/.github/workflows/scripts/test-requirements.txt
+          pip install -r ${{ github.event.inputs.repository }}/requirements/test-requirements.txt
+          # This dependency is needed pytest.ini uses pytest-cov
+          pip install pytest-cov
       - name: Run tests
         run: |
-          cd ${{ github.event.inputs.repository }} &&  pytest tests
+          cd ${{ github.event.inputs.repository }} &&  pytest tests --rootdir .
