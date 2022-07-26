@@ -279,6 +279,18 @@ In another shell:
 
 The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
+Testing React Component
++++++++++++++++++++++++++++++++++
+In ``mlflow/server/js``, run the following command to start the test.
+.. code-block:: bash
+   yarn test
+
+Linting Javascript Code
++++++++++++++++++++++++++++++++++
+In ``mlflow/server/js``, run the following command to lint your code.
+.. code-block:: bash
+   yarn lint:fix
+
 R
 ~
 If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_ and make sure that you have satisfied
