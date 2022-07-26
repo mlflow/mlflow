@@ -911,7 +911,11 @@ def evaluate(
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
-    :param validation_thresholds: (Optional) An array of MetricThreshold used for model validation.
+    :param validation_thresholds: (Optional) A dictionary of name to MetricThreshold used for
+                                             model validation.
+                                             Metric name must be one of the builtin metric's name or
+                                             name of a custom metric in custom_metrics argument.
+
     :param baseline_model: (Optional) A string URI referring to a MLflow model as baseline model
                                       to be compared with the candidate model for model validation.
                                       (pyfunc model instance is not allowed)
