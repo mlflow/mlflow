@@ -26,7 +26,7 @@ steps:
   predict:
     model_uri: "models:/taxi_fare_regressor/Production"
     output_format: {{OUTPUT_DATA_FORMAT|default('parquet')}}
-    output_path: "{{OUTPUT_DATA_LOCATION}}"
+    output_location: "{{OUTPUT_DATA_LOCATION}}"
 """
 )
 
