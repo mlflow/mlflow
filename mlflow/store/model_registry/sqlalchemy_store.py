@@ -389,7 +389,9 @@ class SqlAlchemyStore(AbstractStore):
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlRegisteredModelTag.value, comparator, dialect
                 )(value)
-                key_filter = SqlRegisteredModelTag.key == key
+                key_filter = SearchUtils.get_sql_filter_ops(
+                    SqlRegisteredModelTag.key, '=', dialect
+                )(key)
                 non_attribute_filters.append(
                     select(SqlRegisteredModelTag).filter(key_filter, val_filter).subquery()
                 )
@@ -438,7 +440,9 @@ class SqlAlchemyStore(AbstractStore):
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlModelVersionTag.value, comparator, dialect
                 )(value)
-                key_filter = SqlModelVersionTag.key == key
+                key_filter = SearchUtils.get_sql_filter_ops(
+                    SqlModelVersionTag.key, '=', dialect
+                )(key)
                 non_attribute_filters.append(
                     select(SqlModelVersionTag).filter(key_filter, val_filter).subquery()
                 )
