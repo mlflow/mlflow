@@ -246,28 +246,6 @@ export class CompareModelVersionsViewImpl extends Component {
           <TabPane
             tab={
               <FormattedMessage
-                defaultMessage='Scatter Plot'
-                description='Tab text for scatter plot on the model comparison page'
-              />
-            }
-            key='scatter-plot'
-          >
-            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Contour Plot'
-                description='Tab text for contour plot on the model comparison page'
-              />
-            }
-            key='contour-plot'
-          >
-            <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
                 defaultMessage='Parallel Coordinates Plot'
                 description='Tab text for parallel coordinates plot on the model comparison page'
               />
@@ -275,6 +253,17 @@ export class CompareModelVersionsViewImpl extends Component {
             key='parallel-coordinates-plot'
           >
             <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Scatter Plot'
+                description='Tab text for scatter plot on the model comparison page'
+              />
+            }
+            key='scatter-plot'
+          >
+            <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
           <TabPane
             tab={
@@ -291,6 +280,17 @@ export class CompareModelVersionsViewImpl extends Component {
                 paramLists={paramLists}
                 metricLists={metricLists}
             />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Contour Plot'
+                description='Tab text for contour plot on the model comparison page'
+              />
+            }
+            key='contour-plot'
+          >
+            <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
         </Tabs>
       </div>
