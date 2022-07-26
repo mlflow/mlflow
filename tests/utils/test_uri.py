@@ -6,7 +6,6 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
-    construct_run_url,
     extract_and_normalize_path,
     extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri,
