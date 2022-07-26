@@ -174,7 +174,8 @@ disable=print-statement,
 enable=c-extension-no-member,
        line-too-long,
        use-a-generator,
-       super-with-arguments
+       super-with-arguments,
+       useless-object-inheritance
 
 
 [REPORTS]
