@@ -844,7 +844,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ),
             set([1, 2, 3]),
         )
-
+        # search the IN operator is case sensitive.
+        self.assertEqual(
+            set(
+                search_versions(
+                    f"run_id IN ('{run_id_1.upper()}','{run_id_2}')"
+                )
+            ),
+            set([2, 3]),
+        )
         # search using the IN operator with bad lists should return exceptions
         with self.assertRaisesRegex(
             MlflowException,
@@ -879,7 +887,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # TODO: fix
         # with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
         #     search_versions("run_id IN")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
             MlflowException,

@@ -1051,7 +1051,13 @@ class SearchModelUtils(SearchUtils):
                         "Only run_id attribute support compare with a list of quoted string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return cls._parse_list_from_sql_token(token)
+                run_id_list = cls._parse_list_from_sql_token(token)
+                # Because MYSQL IN clause is case in-sensitive, but all run_ids only contains lower case
+                # letters, so that we filter out run_ids containing upper case letters here.
+                run_id_list = [
+                    run_id for run_id in run_id_list if run_id.lower() == run_id
+                ]
+                return run_id_list
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "
