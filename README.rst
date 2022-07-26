@@ -50,7 +50,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Nightly Job Statuses
 
-|examples| |cross-version-tests| |r-devel| |requirements|
+|examples| |cross-version-tests| |r-devel| |validate-requirements|
 
 .. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
