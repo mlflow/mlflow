@@ -364,7 +364,7 @@ class SqlAlchemyStore(AbstractStore):
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
-            comparator = f["comparator"]
+            comparator = f["comparator"].upper()
             value = f["value"]
             if type_ == "attribute":
                 if key not in ("name",):
@@ -383,8 +383,7 @@ class SqlAlchemyStore(AbstractStore):
             elif type_ == "tag":
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException.invalid_parameter_value(
-                        f"Invalid comparator for tag: {comparator}",
-                        error_code=INVALID_PARAMETER_VALUE,
+                        f"Invalid comparator for tag: {comparator}"
                     )
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlRegisteredModelTag.value, comparator, dialect
@@ -410,7 +409,7 @@ class SqlAlchemyStore(AbstractStore):
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
-            comparator = f["comparator"]
+            comparator = f["comparator"].upper()
             value = f["value"]
             if type_ == "attribute":
                 if key not in ("name", "source_path", "run_id"):
@@ -435,7 +434,6 @@ class SqlAlchemyStore(AbstractStore):
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for tag: {comparator}",
-                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlModelVersionTag.value, comparator, dialect

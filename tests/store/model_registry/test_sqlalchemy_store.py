@@ -967,6 +967,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'xY%'")), set())
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 ILIKE 'xY%'")), {1})
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'x%'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name='{name}' and tag.T2='xyz'")), set())
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2='xyz'")), {1})
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2 LIKE 'x%'")), {1, 2})
         self.assertEqual(set(search_versions(f"name='{name}' and tag.t1='abc' and tag.t2 LIKE 'y%'")), set())
@@ -1054,21 +1055,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # cannot search by invalid comparator types
         with self.assertRaisesRegex(
-            MlflowException, r"Expected a quoted string value for attributes"
+            MlflowException,
+            r"Parameter value is either not quoted or unidentified quote types used for string value something"
         ) as exception_context:
             self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by run_id
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, r"Invalid attribute name: run_id"
         ) as exception_context:
             self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, r"Invalid attribute name: source_path"
         ) as exception_context:
             self._search_registered_models("source_path = 'A/D'")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1097,6 +1099,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models("name ILIKE '{}%'".format(prefix + "RM4A")),
             ([names[4]], None),
         )
+
+    def test_search_registered_models_by_tag(self):
+        name1 = "test_for_search_RM_by_tag1"
+        name2 = "test_for_search_RM_by_tag2"
+        tags1 = [
+            RegisteredModelTag("t1", "abc"),
+            RegisteredModelTag("t2", "xyz"),
+        ]
+        tags2 = [
+            RegisteredModelTag("t1", "abcd"),
+            RegisteredModelTag("t2", "xyz123"),
+            RegisteredModelTag("t3", "XYZ"),
+        ]
+        self._rm_maker(name1, tags1)
+        self._rm_maker(name2, tags2)
+
+        rms, _ = self._search_registered_models(f"tag.t3='XYZ'")
+        self.assertEqual(set(rms), {name2})
+
+        rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1='abc'")
+        self.assertEqual(set(rms), {name1})
+
+        rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%'")
+        self.assertEqual(set(rms), {name1, name2})
+
+        rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
+        self.assertEqual(set(rms), {name1, name2})
+
+        rms, _ = self._search_registered_models(f"tag.t3='XYz'")
+        self.assertEqual(set(rms), set())
+
+        rms, _ = self._search_registered_models(f"tag.T3='XYZ'")
+        self.assertEqual(set(rms), set())
+
+        rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")
+        self.assertEqual(set(rms), {name2})
 
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default
