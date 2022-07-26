@@ -93,6 +93,7 @@ def test_predict_step_runs(
                     "model_uri": model_uri,
                     "output_format": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "_disable_env_restoration": True,
                 }
             }
         },
@@ -113,7 +114,13 @@ def test_predict_step_output_formats(
     model_uri = train_log_and_register_model(rm_name, is_dummy=True)
 
     pipeline_config = {
-        "steps": {"predict": {"model_uri": model_uri, "output_format": output_format}}
+        "steps": {
+            "predict": {
+                "model_uri": model_uri,
+                "output_format": output_format,
+                "_disable_env_restoration": True,
+            }
+        }
     }
     if output_format == "table":
         pipeline_config["steps"]["predict"]["output_location"] = output_name

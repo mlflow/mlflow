@@ -59,7 +59,8 @@ class PredictStep(BaseStep):
 
         # score dataset
         model_uri = self.step_config["model_uri"]
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri)
+        env_manager = "local" if "_disable_env_restoration" in self.step_config else "conda"
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=env_manager)
         scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
         # save predictions
