@@ -989,9 +989,7 @@ class SearchExperimentsUtils(SearchUtils):
         return sorted(experiments, key=cls._get_sort_key(order_by_list))
 
 
-class SearchModelVersionsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = ("name", "source_path", "run_id")
-
+class SearchModelUtils(SearchUtils):
     @classmethod
     def _process_statement(cls, statement):
         invalids = list(filter(cls._invalid_statement_token_search_model_registry, statement.tokens))
@@ -1003,7 +1001,7 @@ class SearchModelVersionsUtils(SearchUtils):
         return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
 
     @classmethod
-    def _get_identifier(cls, identifier, valid_attributes):
+    def _get_identifier(cls, identifier):
         tokens = identifier.split(".", maxsplit=1)
         if len(tokens) == 1:
             key = tokens[0]
@@ -1020,11 +1018,6 @@ class SearchModelVersionsUtils(SearchUtils):
                 else cls._ATTRIBUTE_IDENTIFIER
 
         key = cls._trim_backticks(cls._strip_quotes(key))
-        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
-            raise MlflowException.invalid_parameter_value(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_attributes)
-            )
         return {"type": identifier, "key": key}
 
     @classmethod
@@ -1032,7 +1025,7 @@ class SearchModelVersionsUtils(SearchUtils):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         left, comparator, right = stripped_comparison
-        comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
+        comp = cls._get_identifier(left.value)
         comp["comparator"] = comparator.value
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
@@ -1056,7 +1049,7 @@ class SearchModelVersionsUtils(SearchUtils):
                 if key != "run_id":
                     raise MlflowException(
                         "Only run_id attribute support compare with a list of quoted string values.",
-                        error_code = INVALID_PARAMETER_VALUE,
+                        error_code=INVALID_PARAMETER_VALUE,
                     )
                 return cls._parse_list_from_sql_token(token)
             else:
