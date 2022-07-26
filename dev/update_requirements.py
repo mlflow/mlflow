@@ -52,6 +52,8 @@ def parse_args():
 def main():
     args = parse_args()
     yaml = YAML()
+    yaml.preserve_quotes = True
+
     with open(args.requirements_yaml_location, "r") as f:
         requirements_src = f.read()
         requirements = yaml.load(requirements_src)
