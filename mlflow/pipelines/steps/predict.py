@@ -65,25 +65,11 @@ class PredictStep(BaseStep):
         # save predictions
         output_format = self.step_config["output_format"]
         if output_format == "parquet" or output_format == "delta":
-            try:
-                scored_sdf.coalesce(1).write.format(output_format).save(
-                    self.step_config["output_location"]
-                )
-            except KeyError:
-                raise MlflowException(
-                    f'Output format "{output_format}" requires configuration" \
-                    " key `output_location`.',
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+            scored_sdf.coalesce(1).write.format(output_format).save(
+                self.step_config["output_location"]
+            )
         else:
-            try:
-                scored_sdf.write.format("delta").saveAsTable(self.step_config["output_table"])
-            except KeyError:
-                raise MlflowException(
-                    'Output format "table" requires configuration key `output_table`.',
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
+            scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
         # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
         scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
@@ -100,7 +86,7 @@ class PredictStep(BaseStep):
             raise MlflowException(
                 "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
-        required_configuration_keys = ["model_uri", "output_format"]
+        required_configuration_keys = ["model_uri", "output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in step_config:
                 raise MlflowException(

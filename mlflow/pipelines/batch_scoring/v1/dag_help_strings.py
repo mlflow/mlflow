@@ -24,10 +24,9 @@ steps:
   preprocessing:
     preprocess_method: steps.preprocessing.process_data
   predict:
-    model_name: "taxi_fare_regressor"
-    model_stage: "Production"
-    output_location: {{OUTPUT_PATH}}
-    output_format: "parquet"
+    model_uri: "models:/taxi_fare_regressor/Production"
+    output_format: {{OUTPUT_DATA_FORMAT|default('parquet')}}
+    output_path: "{{OUTPUT_DATA_LOCATION}}"
 """
 )
 
@@ -92,9 +91,8 @@ PREDICT_STEP = format_help_string(
     """The 'predict' step applies the specified model against the cleaned dataset produced by the 'preprocessing' step. An example pipeline.yaml 'predict' step definition is shown below.
 steps:
   predict:
-    model_name: "taxi_fare_regressor"
-    version: 11
-    output_path: "{{OUTPUT_DATA_PATH}}"
+    model_uri: "models:/taxi_fare_regressor/Production"
     output_format: {{OUTPUT_DATA_FORMAT|default('parquet')}}
+    output_location: "{{OUTPUT_DATA_LOCATION}}"
 """
 )

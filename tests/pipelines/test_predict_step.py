@@ -116,7 +116,7 @@ def test_predict_step_output_formats(
         "steps": {"predict": {"model_uri": model_uri, "output_format": output_format}}
     }
     if output_format == "table":
-        pipeline_config["steps"]["predict"]["output_table"] = output_name
+        pipeline_config["steps"]["predict"]["output_location"] = output_name
     else:
         file_name = "{}.{}".format(output_name, output_format)
         pipeline_config["steps"]["predict"]["output_location"] = str(
@@ -135,35 +135,24 @@ def test_predict_throws_when_improperly_configured():
             pipeline_root=os.getcwd(),
         )
 
-    with pytest.raises(
-        MlflowException, match="The `output_format` configuration key must be specified"
-    ):
-        PredictStep.from_pipeline_config(
-            pipeline_config={
-                "steps": {
-                    "predict": {
-                        "model_uri": "my model",
-                        # Missing output_format
-                    }
+    for required_key in ["model_uri", "output_format", "output_location"]:
+        pipeline_config = {
+            "steps": {
+                "predict": {
+                    "model_uri": "models:/taxi_fare_regressor/Production",
+                    "output_format": "parquet",
+                    "output_location": "random/path",
                 }
-            },
-            pipeline_root=os.getcwd(),
-        )
-
-    with pytest.raises(
-        MlflowException, match="The `model_uri` configuration key must be specified"
-    ):
-        PredictStep.from_pipeline_config(
-            pipeline_config={
-                "steps": {
-                    "predict": {
-                        # Missing model_uri
-                        "output_format": "parquet",
-                    }
-                }
-            },
-            pipeline_root=os.getcwd(),
-        )
+            }
+        }
+        pipeline_config["steps"]["predict"].pop(required_key)
+        with pytest.raises(
+            MlflowException, match=f"The `{required_key}` configuration key must be specified"
+        ):
+            PredictStep.from_pipeline_config(
+                pipeline_config=pipeline_config,
+                pipeline_root=os.getcwd(),
+            )
 
     with pytest.raises(
         MlflowException, match="Invalid `output_format` in predict step configuration"
@@ -174,6 +163,7 @@ def test_predict_throws_when_improperly_configured():
                     "predict": {
                         "model_uri": "my model",
                         "output_format": "fancy_format",
+                        "output_location": "random/path",
                     }
                 }
             },
