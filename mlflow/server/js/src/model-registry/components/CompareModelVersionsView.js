@@ -250,7 +250,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab text for scatter plot on the model comparison page'
               />
             }
-            key='1'
+            key='scatter-plot'
           >
             <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
@@ -261,7 +261,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab text for contour plot on the model comparison page'
               />
             }
-            key='2'
+            key='contour-plot'
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
           </TabPane>
@@ -272,7 +272,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab text for parallel coordinates plot on the model comparison page'
               />
             }
-            key='3'
+            key='parallel-coordinates-plot'
           >
             <ParallelCoordinatesPlotPanel runUuids={runUuids} />
           </TabPane>
@@ -283,7 +283,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab pane title for box plot on the compare runs page'
               />
             }
-            key='4'
+            key='box-plot'
           >
             <CompareRunBox
                 runUuids={runUuids}

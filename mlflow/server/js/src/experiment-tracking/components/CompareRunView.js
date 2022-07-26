@@ -393,7 +393,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for parallel coordinate plots on the compare runs page'
                 />
               }
-              key='1'
+              key='parallel-coordinates-plot'
             >
               <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
             </TabPane>
@@ -404,7 +404,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for scatterplots on the compare runs page'
                 />
               }
-              key='2'
+              key='scatter-plot'
             >
               <CompareRunScatter
                 runUuids={this.props.runUuids}
@@ -418,7 +418,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for box plot on the compare runs page'
                 />
               }
-              key='3'
+              key='box-plot'
             >
               <CompareRunBox
                   runUuids={runUuids}
@@ -434,7 +434,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for contour plots on the compare runs page'
                 />
               }
-              key='4'
+              key='contour-plot'
             >
               <CompareRunContour
                 runUuids={this.props.runUuids}
