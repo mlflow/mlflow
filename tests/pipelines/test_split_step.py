@@ -15,7 +15,9 @@ from mlflow.pipelines.steps.split import (
 from unittest import mock
 
 
-def test_split_step_run(tmp_path):
+@pytest.mark.parametrize("x", range(30))
+def test_split_step_run(x, tmp_path):
+    print(x)
     ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
     ingest_output_dir.mkdir(parents=True)
     split_output_dir = tmp_path / "steps" / "split" / "outputs"

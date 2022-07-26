@@ -273,10 +273,7 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run pipelines tests
           export MLFLOW_HOME=$(pwd)
-          for i in {1..30}
-          do
-            pytest 'tests/pipelines/test_split_step.py::test_split_step_run' -s
-          done
+          pytest 'tests/pipelines/test_split_step.py::test_split_step_run' -s
 
   # pyfunc:
   #   runs-on: ubuntu-latest
