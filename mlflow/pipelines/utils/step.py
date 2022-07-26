@@ -81,9 +81,10 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
             subprocess.run(["open", html_file_path], check=True)
 
 
-# This function is patched during test execution in tests/pipelines/conftest.py
+# Prevent pandas_profiling from using multiprocessing on Windows while running tests.
+# multiprocessing and pytest doesn't play well together.
 def _get_pool_size():
-    return None
+    return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
 
 
 def get_pandas_data_profile(data_frame, title: str):
