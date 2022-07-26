@@ -10,8 +10,6 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.utils._spark_utils import _get_active_spark_session
 
-from pyspark.sql.functions import struct
-
 _logger = logging.getLogger(__name__)
 
 
@@ -35,6 +33,8 @@ class PredictStep(BaseStep):
         return card
 
     def _run(self, output_directory):
+        from pyspark.sql.functions import struct
+
         run_start_time = time.time()
 
         # Get or create spark session
@@ -63,7 +63,28 @@ class PredictStep(BaseStep):
         scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
         # save predictions
-        # TODO: add Delta and Table output formats
+        output_format = self.step_config["output_format"]
+        if output_format == "parquet" or output_format == "delta":
+            try:
+                scored_sdf.coalesce(1).write.format(output_format).save(
+                    self.step_config["output_location"]
+                )
+            except KeyError:
+                raise MlflowException(
+                    f'Output format "{output_format}" requires configuration" \
+                    " key `output_location`.',
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            try:
+                scored_sdf.write.format("delta").saveAsTable(self.step_config["output_table"])
+            except KeyError:
+                raise MlflowException(
+                    'Output format "table" requires configuration key `output_table`.',
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+        # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
         scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
 
