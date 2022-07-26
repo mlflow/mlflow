@@ -81,6 +81,7 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
             subprocess.run(["open", html_file_path], check=True)
 
 
+# This function is patched during test execution in tests/pipelines/conftest.py
 def _get_pool_size():
     return None
 
