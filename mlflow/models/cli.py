@@ -186,7 +186,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 
         # Build a generic Docker image named 'my-image-name'
         mlflow models build-docker -n "my-image-name"
-        # Mount the model stored in /local/path/to/artifacts/model and serve it
+        # Mount the model stored in '/local/path/to/artifacts/model' and serve it
         docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
 
     .. warning::
