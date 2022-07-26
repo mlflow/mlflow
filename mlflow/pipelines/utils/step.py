@@ -84,7 +84,13 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
 
         if os.path.exists(html_file_path) and open_tool is not None:
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
-            subprocess.run([open_tool, html_file_path], check=True)
+            try:
+                subprocess.run([open_tool, html_file_path], check=True)
+            except Exception as e:
+                _logger.warning(
+                    f"Encountered unexpected error opening the html page."
+                    f" The file may be manually accessed at {html_file_path}. Exception: {e}"
+                )
 
 
 def get_pandas_data_profile(data_frame, title: str):
