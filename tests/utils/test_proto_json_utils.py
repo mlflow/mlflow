@@ -505,13 +505,13 @@ def test_dataframe_from_json():
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
-    pd.testing.assert_frame_equal(parsed, jsonable_df)
+    pd.testing.assert_frame_equal(parsed, jsonable_df.astype({"binary": bytes}))
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
-    pd.testing.assert_frame_equal(parsed, jsonable_df)
+    pd.testing.assert_frame_equal(parsed, jsonable_df.astype({"binary": bytes}))
 
     # Test parse with TensorSchema with a single tensor
     tensor_schema = Schema([TensorSpec(np.dtype("float32"), [-1, 3])])
