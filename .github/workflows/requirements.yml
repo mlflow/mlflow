@@ -1,4 +1,4 @@
-name: Requirements
+name: Validate Requirements
 
 on:
   pull_request:
