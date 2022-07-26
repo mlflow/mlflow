@@ -13,6 +13,7 @@ from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.models.evaluation.validation import MetricValidationResult
 import logging
 import struct
 import sys
@@ -610,6 +611,64 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
+def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
+    """
+    Validate the model based on validation_thresholds by metrics value thresholding and
+    metrics comparison between candidate model's metrics (candidate_metrics) and
+    baseline_model's metrics (baseline_metrics).
+    """
+    validation_results = {
+        metric_name: MetricValidationResult(metric_name, threshold)
+        for (metric_name, threshold) in validation_thresholds
+    }
+
+    for metric_name in validation_thresholds.keys():
+        metric_threshold, validation_result = (
+            validation_thresholds[metric_name],
+            validation_results[metric_name],
+        )
+        candidate_metric_value, baseline_metric_value = (
+            candidate_metrics[metric_name],
+            baseline_metrics[metric_name] if baseline_metrics else None,
+        )
+        if metric_name not in candidate_metrics:
+            validation_result.missing = True
+            continue
+        if metric_threshold.higher_is_better:
+            if metric_threshold.threshold is not None:
+                validation_result.threshold_failed = (
+                    candidate_metric_value < metric_threshold.threshold
+                )
+            if not baseline_metrics or metric_name not in baseline_metrics:
+                continue
+            if metric_threshold.min_absolute_change is not None:
+                validation_result.min_absolute_change_failed = (
+                    candidate_metric_value
+                    < baseline_metric_value + metric_threshold.min_absolute_change
+                )
+            if metric_threshold.min_relative_change is not None:
+                validation_result.min_relative_change_failed = (
+                    candidate_metric_value - baseline_metric_value
+                ) / baseline_metric_value < metric_threshold.min_relative_change_failed
+        else:
+            if metric_threshold.threshold is not None:
+                validation_result.threshold_failed = (
+                    candidate_metric_value > metric_threshold.threshold
+                )
+            if not baseline_metrics or metric_name not in baseline_metrics:
+                continue
+            if metric_threshold.min_absolute_change is not None:
+                validation_result.min_absolute_change_failed = (
+                    candidate_metric_value
+                    > baseline_metric_value + metric_threshold.min_absolute_change
+                )
+            if metric_threshold.min_relative_change is not None:
+                validation_result.min_relative_change_failed = (
+                    baseline_metric_value - candidate_metric_value
+                ) / baseline_metric_value < metric_threshold.min_relative_change
+    return validation_results
+
+
 def _evaluate(
     *,
     model,
@@ -979,5 +1038,7 @@ def evaluate(
         )
         # TODO: Add Model Validation here
         if validation_thresholds and baseline_model_eval_result:
-            pass
+            return _validate(
+                validation_thresholds, candidate_model_eval_result, baseline_model_eval_result
+            )
         return candidate_model_eval_result
