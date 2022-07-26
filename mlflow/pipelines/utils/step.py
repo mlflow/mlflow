@@ -117,4 +117,5 @@ def get_pandas_data_profile(data_frame, title: str):
         title=title,
         minimal=True,
         progress_bar=False,
+        pool_size=_get_pool_size(),
     )
