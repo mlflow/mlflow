@@ -38,7 +38,7 @@ def spark_session():
     session.stop()
 
 
-def dataframe_assertions(output_dir: Path, output_format: str, output_name: str, spark):
+def prediction_assertions(output_dir: Path, output_format: str, output_name: str, spark):
     if output_format == "table":
         sdf = spark.table(output_name)
         df = sdf.toPandas()
@@ -100,8 +100,8 @@ def test_predict_step_runs(
     )
     predict_step._run(str(predict_step_output_dir))
 
-    dataframe_assertions(predict_step_output_dir, "parquet", "scored", spark_session)
-    dataframe_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+    prediction_assertions(predict_step_output_dir, "parquet", "scored", spark_session)
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
 @pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
@@ -124,7 +124,7 @@ def test_predict_step_output_formats(
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     predict_step._run(str(predict_step_output_dir))
-    dataframe_assertions(predict_step_output_dir, output_format, output_name, spark_session)
+    prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
