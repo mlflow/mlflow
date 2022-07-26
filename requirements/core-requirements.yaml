@@ -9,7 +9,7 @@ alembic:
 
 docker:
   pip_release: docker
-  minimum: "4.0.0"
+  minimum: 4.0.0
   max_major_version: 5
 
 flask:
@@ -38,15 +38,15 @@ querystring_parser:
 
 sqlalchemy:
   pip_release: sqlalchemy
-  minimum: "1.4.0"
+  minimum: 1.4.0
   max_major_version: 1
 
 gunicorn:
   pip_release: gunicorn
   max_major_version: 20
-  markers: "platform_system != 'Windows'"
+  markers: platform_system != 'Windows'
 
 waitress:
   pip_release: waitress
   max_major_version: 2
-  markers: "platform_system == 'Windows'"
+  markers: platform_system == 'Windows'
