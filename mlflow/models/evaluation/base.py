@@ -13,7 +13,7 @@ from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.models.evaluation.validation import MetricValidationResult
+from mlflow.models.evaluation.validation import _MetricValidationResult
 import logging
 import struct
 import sys
@@ -622,7 +622,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     If the validation does not pass, raise an MlflowException with detail failure message.
     """
     validation_results = {
-        metric_name: MetricValidationResult(
+        metric_name: _MetricValidationResult(
             metric_name,
             candidate_metrics.get(metric_name, None),
             baseline_metrics.get(metric_name, None),

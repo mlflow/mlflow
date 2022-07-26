@@ -109,7 +109,7 @@ class MetricThreshold:
         return " ".join(threshold_strs)
 
 
-class MetricValidationResult:
+class _MetricValidationResult:
     """
     ValidationResult per metric. Not user facing, used internally for generating validation
     failure message more conveniently.
