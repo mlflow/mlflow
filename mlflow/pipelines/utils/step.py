@@ -81,6 +81,10 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
             subprocess.run(["open", html_file_path], check=True)
 
 
+def _get_pool_size():
+    return None
+
+
 def get_pandas_data_profile(data_frame, title: str):
     """Returns a data profiling object over input data frame.
 
@@ -96,6 +100,7 @@ def get_pandas_data_profile(data_frame, title: str):
             title=title,
             minimal=True,
             progress_bar=False,
+            pool_size=_get_pool_size(),
         )
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
