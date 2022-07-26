@@ -364,7 +364,7 @@ class SqlAlchemyStore(AbstractStore):
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
-            comparator = f["comparator"].upper()
+            comparator = f["comparator"]
             value = f["value"]
             if type_ == "attribute":
                 if key not in ("name",):
@@ -409,7 +409,7 @@ class SqlAlchemyStore(AbstractStore):
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
-            comparator = f["comparator"].upper()
+            comparator = f["comparator"]
             value = f["value"]
             if type_ == "attribute":
                 if key not in ("name", "source_path", "run_id"):

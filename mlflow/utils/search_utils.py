@@ -1026,7 +1026,7 @@ class SearchModelUtils(SearchUtils):
         cls._validate_comparison(stripped_comparison)
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value)
-        comp["comparator"] = comparator.value
+        comp["comparator"] = comparator.value.upper()
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
