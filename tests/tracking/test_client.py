@@ -23,8 +23,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
     MLFLOW_PROJECT_ENTRY_POINT,
 )
-from mlflow.utils.uri import construct_run_url
-from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_runtime, _construct_databricks_run_url
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -370,6 +369,7 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
 
 
 def test_create_model_version_explicitly_set_run_link(mock_registry_store):
+    experiment_id = "test-exp-id"
     run_id = "runid"
     run_link = "my-run-link"
     hostname = "https://workspace.databricks.com/"
@@ -377,11 +377,19 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
     mock_registry_store.create_model_version.return_value = ModelVersion(
         "name", 1, 0, 1, source="source", run_id=run_id, run_link=run_link
     )
+
+    class MockDatabricksTrackingStore:
+        def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
+            return Run(RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None)
+
+    mock_tracking_store = MockDatabricksTrackingStore()
+    _tracking_store_registry.register("databricks", lambda *args, **kwargs: mock_tracking_store)
+
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
@@ -398,19 +406,22 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
     run_id = "runid"
-    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
-    get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(
-        RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
-    )
+    workspace_url = _construct_databricks_run_url(hostname, experiment_id, run_id, workspace_id)
+
+    class MockDatabricksTrackingStore:
+        def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
+            return Run(RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None)
+
+    mock_tracking_store = MockDatabricksTrackingStore()
+    _tracking_store_registry.register("databricks", lambda *args, **kwargs: mock_tracking_store)
+
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
-        client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = ModelVersion(
             "name", 1, 0, 1, source="source", run_id=run_id, run_link=workspace_url
         )
@@ -443,19 +454,22 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
     run_id = "runid"
-    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
-    get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(
-        RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
-    )
+    workspace_url = _construct_databricks_run_url(hostname, experiment_id, run_id, workspace_id)
+
+    class MockDatabricksTrackingStore:
+        def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
+            return Run(RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None)
+
+    mock_tracking_store = MockDatabricksTrackingStore()
+    _tracking_store_registry.register("databricks", lambda *args, **kwargs: mock_tracking_store)
+
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=False
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_databricks_secrets",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
-        client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = ModelVersion(
             "name", 1, 0, 1, source="source", run_id=run_id, run_link=workspace_url
         )
