@@ -161,7 +161,6 @@ def test_regressor_evaluation(
     if test_evaluation_for_baseline_model:
         model = mlflow.pyfunc.load_model(baseline_model_uri)
     else:
-
         model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
     y = diabetes_dataset.labels_data

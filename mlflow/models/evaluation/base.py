@@ -613,12 +613,21 @@ def _get_last_failed_evaluator():
 
 def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     """
-    Validate the model based on validation_thresholds by metrics value thresholding and
+    Validate the model based on validation_thresholds by metrics value and
     metrics comparison between candidate model's metrics (candidate_metrics) and
     baseline_model's metrics (baseline_metrics).
+    :param validation_thresholds: A dictionary from metric_name to MetricThreshold.
+    :param candidate_metrics: The metric evaluation result of the candidate model.
+    :param baseline_metrics: The metric evaluation result of the baseline model.
+    If the validation does not pass, raise an MlflowException with detail failure message.
     """
     validation_results = {
-        metric_name: MetricValidationResult(metric_name, threshold)
+        metric_name: MetricValidationResult(
+            metric_name,
+            candidate_metrics.get(metric_name, None),
+            baseline_metrics.get(metric_name, None),
+            threshold,
+        )
         for (metric_name, threshold) in validation_thresholds
     }
 
@@ -1036,9 +1045,8 @@ def evaluate(
             custom_metrics=custom_metrics,
             is_baseline_model=True,
         )
-        # TODO: Add Model Validation here
         if validation_thresholds and baseline_model_eval_result:
-            return _validate(
+            _validate(
                 validation_thresholds, candidate_model_eval_result, baseline_model_eval_result
             )
         return candidate_model_eval_result

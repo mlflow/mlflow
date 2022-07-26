@@ -92,7 +92,7 @@ class MetricThreshold:
 
     def __str__(self):
         """
-        Return a string consisting of all sepcified thresholds.
+        Return a human-readable string consisting of all specified thresholds.
         """
         threshold_strs = []
         if self._threshold is not None:
@@ -111,8 +111,11 @@ class MetricThreshold:
 
 class MetricValidationResult:
     """
-    ValidationResult per metric, not user facing, used internally for generating validation
-    failure message.
+    ValidationResult per metric. Not user facing, used internally for generating validation
+    failure message more conveniently.
+    :param metric_name: String representing the metric name
+    :param metric_threshold: :py:class: `MetricThreshold <mlflow.models.validation.MetricThreshold>`
+                      The MetricThreshold for the metric.
     """
 
     missing = False
@@ -120,15 +123,34 @@ class MetricValidationResult:
     min_absolute_change_failed = False
     min_relative_change_failed = False
 
-    def __init__(self, metric_name, threshold):
+    def __init__(
+        self, metric_name, candidate_metric_value, baseline_metric_value, metric_threshold
+    ):
         self.metric_name = metric_name
-        self.threshold = threshold
+        self.candidate_metric_value = candidate_metric_value
+        self.baseline_metric_value = baseline_metric_value
+        self.metric_threshold = metric_threshold
 
     def __str__(self):
+        """
+        Return a human-readable string representing the validation result for the metric.
+        """
+        if self.is_success():
+            return f"Metric {self.metric_name} passed the validation."
         if self.missing:
-            return f"Metric {self.metric_name} is missing from the evaluation result"
-        if self.min_absolute_change_failed and self.min_relative_change_failed:
-            return "Threshold is not met"
+            return f"Metric {self.metric_name} was missing from the evaluation result"
+        result_strs = []
+        if self.threshold_failed:
+            result_strs.append(
+                f"Metric value threshold check failure: \
+                candidate metric value: {self.candidate_metric_value}, \
+                threshold: {self.metric_threshold.threshold}"
+            )
+        if self.min_absolute_change_failed:
+            result_strs.append("Threshold is not met")
+        if self.min_relative_change_failed:
+            result_strs.append("")
+        return
 
     def is_success(self):
         return (
