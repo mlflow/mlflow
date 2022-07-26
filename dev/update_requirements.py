@@ -61,7 +61,9 @@ def main():
         max_major_version = req_info["max_major_version"]
         latest_major_version = get_latest_major_version(pip_release)
         assert latest_major_version >= max_major_version
-        requirements[key]["max_major_version"] = latest_major_version
+        if latest_major_version > max_major_version:
+            requirements[key]["max_major_version"] = latest_major_version
+            print(f"Updated {key}.max_major_version to {latest_major_version}")
 
     with open(args.requirements_yaml_location, "w") as f:
         yaml.dump(requirements, f)
