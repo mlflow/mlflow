@@ -38,6 +38,7 @@ jobs:
         run: |
           pip install -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
@@ -60,6 +61,7 @@ jobs:
         run: |
           pip install -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
