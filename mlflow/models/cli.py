@@ -164,23 +164,35 @@ def prepare_env(
 @cli_args.ENABLE_MLSERVER
 def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
-    If ``--model-uri`` is specified:
+    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
+    python_function flavor. The container serves the model referenced by ``--model-uri``, if
+    specified when ``build-docker`` is called. If ``--model-uri`` is not specified when build_docker
+    is called, an MLflow Model directory must be mounted as a volume into the /opt/ml/model
+    directory in the container, as shown in the example below.
 
-    Builds a Docker image whose default entrypoint serves the specified MLflow
-    model at port 8080 within the container, using the 'python_function' flavor.
-
-    For example, the following command builds a docker image named 'my-image-name' that serves
-    the model from run 'some-run-uuid' at run-relative artifact path 'my-model':
+    Building a Docker image with ``--model-uri``:
 
     .. code:: bash
 
+        # Build a Docker image named 'my-image-name' that serves the model from run 'some-run-uuid'
+        # at run-relative artifact path 'my-model'
         mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
+        # Serve the model
+        docker run -p 5001:8080 "my-image-name"
 
-    We can then serve the model, exposing it at port 5001 on the host via:
+    Building a Docker image without ``--model-uri``:
 
     .. code:: bash
 
-        docker run -p 5001:8080 "my-image-name"
+        # Build a generic Docker image named 'my-image-name'
+        mlflow models build-docker -n "my-image-name"
+        # Mount the model stored in /local/path/to/artifacts/model and serve it
+        docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
+
+    .. warning::
+
+        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
+        MLeap model server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -189,18 +201,6 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     .. code:: bash
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
-
-    If ``--model-uri`` is NOT specified:
-
-    Builds a generic Docker image that can serve an arbitrary MLflow model with the
-    'python_function' flavor. When launching a container with the built image, the model artifacts
-    directory must be mounted as a volume into the ``/opt/ml/model`` directory in the container
-    as shown in the example below.
-
-    .. code:: bash
-
-        mlflow models build-docker -n my-image-name
-        docker run --rm -p 5001:8080 -v /path/to/artifacts/model:/opt/ml/model my-image-name
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
