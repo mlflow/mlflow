@@ -5,7 +5,6 @@ specification (e.g. requirements/core-requirements.yaml) to the maximum availabl
 
 import argparse
 import difflib
-import re
 
 import yaml
 import requests
@@ -33,24 +32,7 @@ def get_latest_major_version(package_name: str) -> int:
 
         versions.append(version)
 
-    return max(versions).major + 1  # +1 for testing, will be removed
-
-
-def replace_max_major_version(yaml_string: str, pip_release: str, max_major_version: int) -> str:
-    pattern = r"""
-  pip_release: {pip_release}
-  (.*?)max_major_version: \d+
-""".format(
-        pip_release=pip_release
-    )
-    repl = r"""
-  pip_release: {pip_release}
-  \1max_major_version: {max_major_version}
-""".format(
-        pip_release=pip_release, max_major_version=max_major_version
-    )
-    assert re.search(pattern, yaml_string, flags=re.DOTALL)
-    return re.sub(pattern, repl, yaml_string, flags=re.DOTALL)
+    return max(versions).major
 
 
 def parse_args():
@@ -65,51 +47,55 @@ def parse_args():
         required=True,
         help="Local file path of the requirements.yaml specification.",
     )
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="If specified, only check if the requirements.yaml specification is up to date.",
-    )
     return parser.parse_args()
+
+
+def is_empty_or_comment(line: str) -> bool:
+    stripped = line.strip()
+    return stripped == "" or stripped.startswith("#")
+
+
+def extract_top_comments(yaml_string: str) -> str:
+    comments = []
+    for line in yaml_string.splitlines():
+        if not is_empty_or_comment(line):
+            break
+        comments.append(line)
+    return "\n".join(comments)
 
 
 def main():
     args = parse_args()
     with open(args.requirements_yaml_location, "r") as f:
         requirements_src = f.read()
+        comments = extract_top_comments(requirements_src)
         requirements = yaml.safe_load(requirements_src)
 
-    new_requirements_src = requirements_src
-    for req_info in requirements.values():
+    new_requirements = {}
+    for key, req_info in requirements.items():
         pip_release = req_info["pip_release"]
         max_major_version = req_info["max_major_version"]
         latest_major_version = get_latest_major_version(pip_release)
         assert latest_major_version >= max_major_version
-        if latest_major_version != max_major_version:
-            new_requirements_src = replace_max_major_version(
-                new_requirements_src, pip_release, latest_major_version
-            )
-            print(
-                f"Updated {pip_release} max_major_version"
-                f" {max_major_version} -> {latest_major_version}"
-            )
+        new_requirements[key] = {**req_info, "max_major_version": latest_major_version}
 
-    if new_requirements_src != requirements_src:
+    new_requirements_src = yaml.dump(new_requirements, default_flow_style=False)
+    new_requirements_src = comments + "\n" + new_requirements_src
+
+    if new_requirements_src == requirements_src:
+        print(f"{args.requirements_yaml_location} is up to date.")
+    else:
         diff = difflib.ndiff(
             requirements_src.splitlines(keepends=True),
             new_requirements_src.splitlines(keepends=True),
         )
+        print(f"{args.requirements_yaml_location} is not up to date.")
         print("========== Diff ==========")
         print("".join(diff), end="")
         print("==========================")
-        if args.check:
-            print(f"{args.requirements_yaml_location} is not up to date")
-            exit(1)
 
-        with open(args.requirements_yaml_location, "w") as f:
-            f.write(new_requirements_src)
-    else:
-        print(f"{args.requirements_yaml_location} is up to date!")
+    with open(args.requirements_yaml_location, "w") as f:
+        f.write(new_requirements_src)
 
 
 if __name__ == "__main__":
