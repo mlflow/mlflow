@@ -168,7 +168,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     python_function flavor. The container serves the model referenced by ``--model-uri``, if
     specified when ``build-docker`` is called. If ``--model-uri`` is not specified when build_docker
     is called, an MLflow Model directory must be mounted as a volume into the /opt/ml/model
-    directory in the container, as shown in the example below.
+    directory in the container.
 
     Building a Docker image with ``--model-uri``:
 
@@ -176,7 +176,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 
         # Build a Docker image named 'my-image-name' that serves the model from run 'some-run-uuid'
         # at run-relative artifact path 'my-model'
-        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
+        mlflow models build-docker --model-uri "runs:/some-run-uuid/my-model" --name "my-image-name"
         # Serve the model
         docker run -p 5001:8080 "my-image-name"
 
@@ -185,7 +185,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     .. code:: bash
 
         # Build a generic Docker image named 'my-image-name'
-        mlflow models build-docker -n "my-image-name"
+        mlflow models build-docker --name "my-image-name"
         # Mount the model stored in '/local/path/to/artifacts/model' and serve it
         docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
 
