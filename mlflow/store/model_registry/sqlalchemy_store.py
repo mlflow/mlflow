@@ -352,7 +352,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             if page_token:
                 query = query.offset(offset)
-            sql_registered_models = session.execute(query).scalars(SqlModelVersion).all()
+            sql_registered_models = session.execute(query).scalars(SqlRegisteredModel).all()
             next_page_token = compute_next_token(len(sql_registered_models))
             rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
             return PagedList(rm_entities, next_page_token)
