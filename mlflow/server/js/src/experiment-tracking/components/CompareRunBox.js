@@ -5,12 +5,10 @@ import { Row, Col, Select } from 'antd';
 import { Typography } from '@databricks/design-system';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { LazyPlot } from './LazyPlot';
-import CompareRunUtil from './CompareRunUtil';
 
 const { Option, OptGroup } = Select;
 
 export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) => {
-
   const [xAxis, setXAxis] = useState({ key: undefined, isParam: undefined });
   const [yAxis, setYAxis] = useState({ key: undefined, isParam: undefined });
 

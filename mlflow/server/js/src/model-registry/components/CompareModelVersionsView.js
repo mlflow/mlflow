@@ -133,7 +133,7 @@ export class CompareModelVersionsViewImpl extends Component {
       runUuids,
       runDisplayNames,
       paramLists,
-      metricLists
+      metricLists,
     } = this.props;
     const title = (
       <FormattedMessage
@@ -275,10 +275,10 @@ export class CompareModelVersionsViewImpl extends Component {
             key='box-plot'
           >
             <CompareRunBox
-                runUuids={runUuids}
-                runInfos={runInfos}
-                paramLists={paramLists}
-                metricLists={metricLists}
+              runUuids={runUuids}
+              runInfos={runInfos}
+              paramLists={paramLists}
+              metricLists={metricLists}
             />
           </TabPane>
           <TabPane

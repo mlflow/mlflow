@@ -421,10 +421,10 @@ export class CompareRunView extends Component {
               key='box-plot'
             >
               <CompareRunBox
-                  runUuids={runUuids}
-                  runInfos={runInfos}
-                  paramLists={paramLists}
-                  metricLists={metricLists}
+                runUuids={runUuids}
+                runInfos={runInfos}
+                paramLists={paramLists}
+                metricLists={metricLists}
               />
             </TabPane>
             <TabPane
