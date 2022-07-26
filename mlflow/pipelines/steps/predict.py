@@ -63,6 +63,7 @@ class PredictStep(BaseStep):
         scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
         # save predictions
+        # note: the current output writing logic allows no overwrites
         output_format = self.step_config["output_format"]
         if output_format == "parquet" or output_format == "delta":
             scored_sdf.coalesce(1).write.format(output_format).save(
@@ -70,6 +71,7 @@ class PredictStep(BaseStep):
             )
         else:
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
+
         # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
         scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
