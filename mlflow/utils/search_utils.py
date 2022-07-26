@@ -289,25 +289,6 @@ class SearchUtils:
             return True
 
     @classmethod
-    def _invalid_statement_token_search_model_registry(cls, token):
-        if isinstance(token, Comparison):
-            return False
-        elif isinstance(token, Identifier):
-            return False
-        elif isinstance(token, Parenthesis):
-            return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
-            return False
-        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
-            # `IN` is a comparison token in sqlparse >= 0.4.0:
-            # https://github.com/andialbrecht/sqlparse/pull/567
-            return False
-        else:
-            return True
-
-    @classmethod
     def _process_statement(cls, statement):
         # check validity
         invalids = list(filter(cls._invalid_statement_token_search_runs, statement.tokens))
@@ -782,58 +763,6 @@ class SearchUtils:
                 )
         return token_list
 
-    @classmethod
-    def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
-        if not filter_string or filter_string == "":
-            return []
-        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
-        try:
-            parsed = sqlparse.parse(filter_string)
-        except Exception:
-            raise MlflowException(
-                "Error while parsing filter '%s'. %s" % (filter_string, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
-            raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif len(parsed) > 1:
-            raise MlflowException(
-                "Search filter '%s' contains multiple expressions. "
-                "%s " % (filter_string, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        statement = parsed[0]
-        invalids = list(
-            filter(cls._invalid_statement_token_search_model_registry, statement.tokens)
-        )
-        if len(invalids) > 0:
-            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
-            raise MlflowException(
-                "Invalid clause(s) in filter string: %s. %s" % (invalid_clauses, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        token_list = cls._process_statement_tokens(statement.tokens, filter_string)
-        return [
-            cls._get_comparison_for_model_registry(si, valid_search_keys)
-            for si in token_list
-            if isinstance(si, Comparison)
-        ]
-
-    @classmethod
-    def parse_filter_for_model_versions(cls, filter_string):
-        return cls._parse_filter_for_model_registry(
-            filter_string, cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS
-        )
-
-    @classmethod
-    def parse_filter_for_registered_models(cls, filter_string):
-        return cls._parse_filter_for_model_registry(
-            filter_string, cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS
-        )
-
 
 class SearchExperimentsUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
@@ -1070,3 +999,22 @@ class SearchModelUtils(SearchUtils):
                 "Invalid identifier type. Expected one of "
                 "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER])
             )
+
+    @classmethod
+    def _invalid_statement_token_search_model_registry(cls, token):
+        if isinstance(token, Comparison):
+            return False
+        elif isinstance(token, Identifier):
+            return False
+        elif isinstance(token, Parenthesis):
+            return False
+        elif token.is_whitespace:
+            return False
+        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
+            return False
+        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
+            # `IN` is a comparison token in sqlparse >= 0.4.0:
+            # https://github.com/andialbrecht/sqlparse/pull/567
+            return False
+        else:
+            return True
