@@ -81,6 +81,8 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
             open_tool = shutil.which("xdg-open")
         elif shutil.which("open") is not None:
             open_tool = shutil.which("open")
+        else:
+            open_tool = None
 
         if os.path.exists(html_file_path) and open_tool is not None:
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
