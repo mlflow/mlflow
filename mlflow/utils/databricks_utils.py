@@ -540,7 +540,7 @@ def get_databricks_model_version_url(registry_uri: str, name: str, version: str)
                 version=version,
                 workspace_id=workspace_info.workspace_id,
             )
-    except Exception as e:
+    except Exception:
         return None
 
 
