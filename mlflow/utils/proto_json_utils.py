@@ -227,6 +227,9 @@ def _dataframe_from_json(
             precise_float=precise_float,
             convert_dates=False,
         )
+        # In pandas < 1.4, `pandas.read_json` ignores non-numpy dtypes:
+        # https://github.com/pandas-dev/pandas/issues/33205
+        df = df.astype(dtypes)
         if not schema.is_tensor_spec():
             actual_cols = set(df.columns)
             for type_, name in zip(schema.input_types(), schema.input_names()):
