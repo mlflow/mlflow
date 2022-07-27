@@ -224,11 +224,13 @@ def test_model_log_with_input_example_succeeds():
 
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
-        pd.testing.assert_frame_equal(x, input_example)
+        pd.testing.assert_frame_equal(x, input_example.astype({"b": "string", "d": "string"}))
 
         loaded_example = loaded_model.load_input_example(local_path)
         assert isinstance(loaded_example, pd.DataFrame)
-        pd.testing.assert_frame_equal(loaded_example, input_example)
+        pd.testing.assert_frame_equal(
+            loaded_example, input_example.astype({"b": "string", "d": "string"})
+        )
 
 
 def test_model_load_input_example_numpy():

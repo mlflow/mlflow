@@ -50,7 +50,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Nightly Job Statuses
 
-|examples| |cross-version-tests| |r-devel|
+|examples| |cross-version-tests| |r-devel| |test-requirements|
 
 .. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
@@ -59,6 +59,8 @@ Nightly Job Statuses
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
 .. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
+.. |test-requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Test%20requirements?event=schedule&label=test%20requirements&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow/actions/workflows/requirements.yml?query=workflow%3A%Test+requirements%22+event%3Aschedule
 
 Installing
 ----------

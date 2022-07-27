@@ -417,11 +417,9 @@ def test_prepare_env_fails(sk_model):
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
@@ -457,11 +455,9 @@ def test_build_docker_virtualenv(iris_data, sk_model):
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
