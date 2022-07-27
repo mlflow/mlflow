@@ -41,14 +41,14 @@ describe('CompareRunBox', () => {
 
     const selectors = wrapper.find(Select);
     expect(selectors.length).toBe(2);
-    // Select x-axis
+    // Set x-axis to 'param'
     const xAxisSelector = selectors.at(0);
     xAxisSelector.find('input[type="search"]').simulate('mouseDown');
-    // `wrapper.find` can't find the selector options because they render in the top level of the
+    // `wrapper.find` can't find the selector options because they appear in the top level of the
     // document.
     document.querySelectorAll('[data-test-id="axis-option"]')[0].click();
     expect(xAxisSelector.text()).toContain('param');
-    // Select y-axis
+    // Set y-axis to 'metric'
     const yAxisSelector = selectors.at(1);
     yAxisSelector.find('input[type="search"]').simulate('mouseDown');
     document.querySelectorAll('[data-test-id="axis-option"]')[3].click();
