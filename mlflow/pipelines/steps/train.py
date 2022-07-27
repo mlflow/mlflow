@@ -342,7 +342,68 @@ class TrainStep(BaseStep):
                 row_style, axis=1
             )
         )
-        # Tab 1: Run summary.
+
+        # Tab 1: Model performance summary metrics.
+        card.add_tab(
+            "Model Performance Summary Metrics",
+            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
+        ).add_html("METRICS", metric_table_html)
+
+        # Tab 2: Prediction and error data profile.
+        pred_and_error_df_profile = get_pandas_data_profile(
+            pred_and_error_df.reset_index(drop=True),
+            "Predictions and Errors (Validation Dataset)",
+        )
+        card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
+            "PROFILE", pred_and_error_df_profile
+        )
+        # Tab 3: Model architecture.
+        set_config(display="diagram")
+        model_repr = estimator_html_repr(model)
+        card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
+
+        # Tab 4: Inferred model (transformer + estimator) schema.
+        def render_schema(inputs, title):
+            from mlflow.types import ColSpec
+
+            table = BaseCard.render_table(
+                (
+                    {
+                        "Name": "  " + (spec.name or "-"),
+                        "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
+                    }
+                    for spec in inputs
+                )
+            )
+            return '<div style="margin: 5px"><h2>{title}</h2>{table}</div>'.format(
+                title=title, table=table
+            )
+
+        schema_tables = [render_schema(model_schema.inputs.inputs, "Inputs")]
+        if model_schema.outputs:
+            schema_tables += [render_schema(model_schema.outputs.inputs, "Outputs")]
+
+        card.add_tab("Model Schema", "{{MODEL_SCHEMA}}").add_html(
+            "MODEL_SCHEMA",
+            '<div style="display: flex">{tables}</div>'.format(tables="\n".join(schema_tables)),
+        )
+
+        # Tab 5: Examples with Largest Prediction Error
+        (
+            card.add_tab(
+                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
+            ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
+        )
+
+        # Tab 6: Leaderboard
+        if leaderboard_df is not None:
+            (
+                card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
+                    "LEADERBOARD_TABLE", BaseCard.render_table(leaderboard_df, hide_index=False)
+                )
+            )
+
+        # Tab 7: Run summary.
         run_card_tab = card.add_tab(
             "Run Summary",
             "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
@@ -370,66 +431,6 @@ class TrainStep(BaseStep):
             )
         else:
             run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
-
-        # Tab 2: Model performance summary metrics.
-        card.add_tab(
-            "Model Performance Summary Metrics",
-            "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
-        ).add_html("METRICS", metric_table_html)
-
-        # Tab 3: Prediction and error data profile.
-        pred_and_error_df_profile = get_pandas_data_profile(
-            pred_and_error_df.reset_index(drop=True),
-            "Predictions and Errors (Validation Dataset)",
-        )
-        card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", pred_and_error_df_profile
-        )
-        # Tab 4: Model architecture.
-        set_config(display="diagram")
-        model_repr = estimator_html_repr(model)
-        card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
-
-        # Tab 5: Inferred model (transformer + estimator) schema.
-        def render_schema(inputs, title):
-            from mlflow.types import ColSpec
-
-            table = BaseCard.render_table(
-                (
-                    {
-                        "Name": "  " + (spec.name or "-"),
-                        "Type": repr(spec.type) if isinstance(spec, ColSpec) else repr(spec),
-                    }
-                    for spec in inputs
-                )
-            )
-            return '<div style="margin: 5px"><h2>{title}</h2>{table}</div>'.format(
-                title=title, table=table
-            )
-
-        schema_tables = [render_schema(model_schema.inputs.inputs, "Inputs")]
-        if model_schema.outputs:
-            schema_tables += [render_schema(model_schema.outputs.inputs, "Outputs")]
-
-        card.add_tab("Model Schema", "{{MODEL_SCHEMA}}").add_html(
-            "MODEL_SCHEMA",
-            '<div style="display: flex">{tables}</div>'.format(tables="\n".join(schema_tables)),
-        )
-
-        # Tab 6: Examples with Largest Prediction Error
-        (
-            card.add_tab(
-                "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
-            ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
-        )
-
-        # Tab 7: Leaderboard
-        if leaderboard_df is not None:
-            (
-                card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
-                    "LEADERBOARD_TABLE", BaseCard.render_table(leaderboard_df, hide_index=False)
-                )
-            )
 
         return card
 
