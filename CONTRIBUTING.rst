@@ -280,8 +280,8 @@ In another shell:
 The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
 
 Testing a React Component
-+++++++++++++
-Add a test component in the same directory as the newly created React component.
++++++++++++++++++++++++++
+Add a test file in the same directory as the newly created React component.
 For example, ``CompareRunBox.test.js`` should be added in the same directory as ``CompareRunBox.js``.
 Next, in ``mlflow/server/js``, run the following command to start the test.
 
@@ -294,10 +294,8 @@ Next, in ``mlflow/server/js``, run the following command to start the test.
   # Run all tests
   yarn test
 
-``yarn test`` executes ``yarn test:base --watchAll=false``, which should run tests in non-interactive mode.
-
 Linting Javascript Code
-+++++++++++++
++++++++++++++++++++++++
 In ``mlflow/server/js``, run the following command to lint your code.
 
 .. code-block:: bash
