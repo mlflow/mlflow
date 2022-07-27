@@ -9,6 +9,25 @@ import { MemoryRouter as Router } from 'react-router-dom';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
+/**
+ * Let's create our own mocked version of agGrid wrapper
+ * that is not dynamically imported, otherwise deeply coupled
+ * tests below will fail.
+ */
+/* eslint-disable global-require */
+jest.mock('../../common/components/ag-grid/AgGridLoader', () => ({
+  MLFlowAgGridLoader: (props) => {
+    const AgGridReactImpl = require('@ag-grid-community/react').AgGridReact;
+    return (
+      <AgGridReactImpl
+        modules={[require('@ag-grid-community/client-side-row-model').ClientSideRowModelModule]}
+        {...props}
+      />
+    );
+  },
+}));
+/* eslint-enable global-require */
+
 function getChildColumnNames(columnDefs, parentName) {
   return columnDefs
     .find((header) => header.headerName === parentName)

@@ -172,9 +172,10 @@ class TrackingServiceClient:
                             its own limit.
         :param filter_string:
             Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following fields, comparators, and logical operators are supported.
+            experiments. The following identifiers, comparators, and logical operators are
+            supported.
 
-            Fields
+            Identifiers
               - ``name``: Experiment name.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
@@ -292,7 +293,8 @@ class TrackingServiceClient:
 
     def log_param(self, run_id, key, value):
         """
-        Log a parameter against the run ID. Value is converted to a string.
+        Log a parameter (e.g. model hyperparameter) against the run ID. Value is converted to
+        a string.
         """
         param = Param(key, str(value))
         try:

@@ -169,7 +169,7 @@ def _get_repl_id():
     return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
-class PythonSubscriber(object, metaclass=ExceptionSafeClass):
+class PythonSubscriber(metaclass=ExceptionSafeClass):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
     information propagated from Java to the current MLflow run, starting a run if necessary.

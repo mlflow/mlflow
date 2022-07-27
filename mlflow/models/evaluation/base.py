@@ -767,7 +767,8 @@ def evaluate(
                  - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
                    labels. If ``feature_names`` argument not specified, all columns are regarded
                    as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns.
+                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
+                   rows in the Spark DataFrame will be used as evaluation data.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``

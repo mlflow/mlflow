@@ -40,8 +40,8 @@ def test_verify_card_information():
     """
     assert expected_html in card.to_html()
     assert card.to_text() == "1,2,3."
-    assert all([card.get_tab(name) is not None for name in ["Profile 1", "Profile 2", "First tab"]])
-    assert all([card.get_tab(name) is None for name in ["", "!x", "fake tab 3"]])
+    assert all(card.get_tab(name) is not None for name in ["Profile 1", "Profile 2", "First tab"])
+    assert all(card.get_tab(name) is None for name in ["", "!x", "fake tab 3"])
 
 
 def test_card_tab_works():

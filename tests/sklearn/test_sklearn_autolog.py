@@ -1715,7 +1715,7 @@ def test_basic_post_training_metric_autologging():
     assert np.isclose(lor_score_data1_original, lor_score_data1)
 
     pred1_y_original = model.predict(eval1_X)
-    assert np.allclose(pred1_y_original, pred1_y)
+    np.testing.assert_allclose(pred1_y_original, pred1_y)
 
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
@@ -1945,7 +1945,7 @@ def test_patch_for_delegated_method():
     mlflow.sklearn.autolog(disable=True)
     pred1_y_original = model.predict(eval1_X)
 
-    assert np.allclose(pred1_y, pred1_y_original)
+    np.testing.assert_allclose(pred1_y, pred1_y_original)
 
 
 @pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
@@ -1973,7 +1973,7 @@ def test_patch_for_available_if_decorated_method():
 
     transform1_y_original = model.transform(eval1_X)
 
-    assert np.allclose(transform1_y, transform1_y_original)
+    np.testing.assert_allclose(transform1_y, transform1_y_original)
 
 
 def test_is_metrics_value_loggable():

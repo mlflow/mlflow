@@ -27,7 +27,7 @@ with pytest.raises(Exception):
     raise Exception("failed")
 """
     )
-    yield root_node, root_node.items[0][0]
+    yield root_node, root_node.items[0][0], (2, 5)
 
     # Multiple context managers
     root_node = extract_node(
@@ -36,7 +36,7 @@ with context_manager, pytest.raises(Exception):
     raise Exception("failed")
 """
     )
-    yield root_node, root_node.items[1][0]
+    yield root_node, root_node.items[1][0], (2, 22)
 
     # Without `with`
     root_node = extract_node(
@@ -44,12 +44,14 @@ with context_manager, pytest.raises(Exception):
 pytest.raises(Exception)
 """
     )
-    yield root_node, root_node
+    yield root_node, root_node, (2, 0)
 
 
 def test_bad_cases(test_case):
-    for root_node, error_node in iter_bad_cases():
-        with test_case.assertAddsMessages(create_message(test_case.CHECKER_CLASS.name, error_node)):
+    for root_node, error_node, (line, col_offset) in iter_bad_cases():
+        with test_case.assertAddsMessages(
+            create_message(test_case.CHECKER_CLASS.name, error_node, line, col_offset)
+        ):
             test_case.walk(root_node)
 
 

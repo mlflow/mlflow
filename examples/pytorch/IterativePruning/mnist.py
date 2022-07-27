@@ -27,7 +27,7 @@ class MNISTDataModule(pl.LightningDataModule):
         """
         Initialization of inherited lightning data module
         """
-        super(MNISTDataModule, self).__init__()
+        super().__init__()
         self.df_train = None
         self.df_val = None
         self.df_test = None
@@ -92,7 +92,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Initializes the network
         """
-        super(LightningMNISTClassifier, self).__init__()
+        super().__init__()
 
         # mnist images are (1, 28, 28) (channels, width, height)
         self.optimizer = None

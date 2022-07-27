@@ -21,6 +21,15 @@ def package_files(directory):
     return paths
 
 
+def is_comment_or_empty(line):
+    stripped = line.strip()
+    return stripped == "" or stripped.startswith("#")
+
+
+def remove_comments_and_empty_lines(lines):
+    return [line for line in lines if not is_comment_or_empty(line)]
+
+
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files("mlflow/server/js/build")
@@ -45,7 +54,7 @@ Model Registry, as well as support for Project execution against local backends
 and Databricks.
 """
 with open(os.path.join("requirements", "skinny-requirements.txt"), "r") as f:
-    SKINNY_REQUIREMENTS = f.readlines()
+    SKINNY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
 
 
 """
@@ -55,7 +64,7 @@ Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
 with open(os.path.join("requirements", "core-requirements.txt"), "r") as f:
-    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + f.readlines()
+    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
@@ -138,13 +147,13 @@ setup(
             "virtualenv",
         ],
         "pipelines": [
-            "scikit-learn>=1.0.*",
-            "pyarrow>=7.0.*",
-            "shap>=0.40.*",
-            "pandas-profiling>=3.1.*",
-            "ipython>=7.0.*",
-            "markdown>=3.3.*",
-            "Jinja2>=3.0.*",
+            "scikit-learn>=1.0",
+            "pyarrow>=7.0",
+            "shap>=0.40",
+            "pandas-profiling>=3.1",
+            "ipython>=7.0",
+            "markdown>=3.3",
+            "Jinja2>=3.0",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],

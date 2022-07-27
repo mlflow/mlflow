@@ -632,11 +632,9 @@ def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
             shutil.copyfile(file_path, abs_file_path)
 
 
-def _load_model_databricks(model_uri, dfs_tmpdir):
+def _load_model_databricks(dfs_tmpdir, local_model_path):
     from pyspark.ml.pipeline import PipelineModel
 
-    # Download model saved to remote URI to local filesystem
-    local_model_path = _download_artifact_from_uri(model_uri)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
@@ -648,14 +646,14 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     return PipelineModel.load(dfs_tmpdir)
 
 
-def _load_model(model_uri, dfs_tmpdir_base=None):
+def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
-    if dfs_tmpdir_base is None:
-        dfs_tmpdir_base = DFS_TMP
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or DFS_TMP)
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
-        return _load_model_databricks(model_uri, dfs_tmpdir)
+        return _load_model_databricks(
+            dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
+        )
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
     return PipelineModel.load(model_uri)
 
@@ -708,7 +706,9 @@ def load_model(model_uri, dfs_tmpdir=None):
     local_model_path = _download_artifact_from_uri(model_uri)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
-    return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
+    return _load_model(
+        model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir, local_model_path=local_model_path
+    )
 
 
 def _load_pyfunc(path):

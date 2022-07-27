@@ -420,11 +420,11 @@ def test_extract_raw_model_and_predict_fn(
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    assert np.allclose(
+    np.testing.assert_allclose(
         predict_fn(breast_cancer_dataset.features_data),
         raw_model.predict(breast_cancer_dataset.features_data),
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         predict_proba_fn(breast_cancer_dataset.features_data),
         raw_model.predict_proba(breast_cancer_dataset.features_data),
     )
@@ -528,12 +528,12 @@ def test_gen_binary_precision_recall_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
         rtol=1e-3,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
         np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
         rtol=1e-3,
@@ -551,12 +551,12 @@ def test_gen_binary_roc_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([0.0, 0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0]),
         rtol=1e-3,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
         np.array([0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0, 1.0]),
         rtol=1e-3,
@@ -589,15 +589,15 @@ def test_gen_multiclass_precision_recall_curve():
     line_labels = ["label=0,AP=0.500", "label=1,AP=0.722", "label=2,AP=0.414"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
-        assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
-        assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "recall"
     assert results.plot_fn_args["ylabel"] == "precision"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.25, 0.6666666666666666, 0.2875]
-    assert np.allclose(results.auc, expected_auc, rtol=1e-3)
+    np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
 def test_gen_multiclass_roc_curve():
@@ -623,15 +623,15 @@ def test_gen_multiclass_roc_curve():
     line_labels = ["label=0,AUC=0.750", "label=1,AUC=0.750", "label=2,AUC=0.333"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
-        assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
-        assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "False Positive Rate"
     assert results.plot_fn_args["ylabel"] == "True Positive Rate"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.75, 0.75, 0.3333]
-    assert np.allclose(results.auc, expected_auc, rtol=1e-3)
+    np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
 def test_evaluate_custom_metric_incorrect_return_formats():
@@ -770,8 +770,8 @@ def test_evaluate_custom_metric_success():
     # pylint: disable=unsupported-membership-test
     assert isinstance(res_artifacts_2, dict)
     assert "pred_target_abs_diff" in res_artifacts_2
-    assert res_artifacts_2["pred_target_abs_diff"].equals(
-        np.abs(eval_df["prediction"] - eval_df["target"])
+    pd.testing.assert_series_equal(
+        res_artifacts_2["pred_target_abs_diff"], np.abs(eval_df["prediction"] - eval_df["target"])
     )
 
     assert "example_dictionary_artifact" in res_artifacts_2
@@ -871,7 +871,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
 
 def test_custom_metric_logs_artifacts_from_paths(
@@ -952,18 +954,22 @@ def test_custom_metric_logs_artifacts_from_paths(
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_parquet_artifact" in result.artifacts
     assert "test_parquet_artifact_on_data_breast_cancer_dataset.parquet" in artifacts
     assert isinstance(result.artifacts["test_parquet_artifact"], ParquetEvaluationArtifact)
-    assert result.artifacts["test_parquet_artifact"].content.equals(
-        pd.DataFrame({"test": [1, 2, 3]})
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_parquet_artifact"].content, pd.DataFrame({"test": [1, 2, 3]})
     )
 
     assert "test_text_artifact" in result.artifacts
@@ -1027,12 +1033,16 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_json_text_artifact" in result.artifacts
     assert "test_json_text_artifact_on_data_breast_cancer_dataset.json" in artifacts

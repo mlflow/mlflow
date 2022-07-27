@@ -1,6 +1,7 @@
 name: Cross version tests
 
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       repository:
@@ -27,12 +28,9 @@ on:
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
-  pull_request:
-    branches:
-      - master
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 defaults:
@@ -115,7 +113,7 @@ jobs:
             java_version=11
           fi
           echo "::set-output name=version::$java_version"
-      - uses: actions/setup-java@v3
+      - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ steps.get-java-version.outputs.version }}
           distribution: "adopt"
@@ -123,7 +121,8 @@ jobs:
         id: get-python-version
         run: |
           if [[ "${{ matrix.package }}" = "statsmodels" && "${{ matrix.version }}" = "dev" ]] || \
-             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]
+             [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]] || \
+             [[ "${{ matrix.package }}" = "xgboost" && "${{ matrix.version }}" = "dev" ]]
           then
             python_version=3.8
           else
@@ -166,7 +165,7 @@ jobs:
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
-          SPARK_LOCAL_IP: 127.0.0.1
+          SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
         run: |
           ${{ matrix.run }}

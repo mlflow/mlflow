@@ -321,3 +321,52 @@ def root_mean_squared_error(eval_df, builtin_metrics):
     model_validation_status_path = evaluate_step_output_dir.joinpath("model_validation_status")
     assert model_validation_status_path.exists()
     assert model_validation_status_path.read_text() == "VALIDATED"
+
+
+def test_evaluate_step_writes_card_with_model_and_run_links_on_databricks(
+    monkeypatch, tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path
+):
+    workspace_host = "https://dev.databricks.com"
+    workspace_id = 123456
+    workspace_url = f"{workspace_host}?o={workspace_id}"
+
+    monkeypatch.setenv("_DATABRICKS_WORKSPACE_HOST", workspace_host)
+    monkeypatch.setenv("_DATABRICKS_WORKSPACE_ID", workspace_id)
+
+    pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
+    pipeline_yaml.write_text(
+        """
+template: "regression/v1"
+target_col: "y"
+experiment:
+  tracking_uri: {tracking_uri}
+steps:
+  evaluate:
+    validation_criteria:
+      - metric: root_mean_squared_error
+        threshold: 1_000_000
+""".format(
+            tracking_uri=mlflow.get_tracking_uri()
+        )
+    )
+
+    evaluate_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "evaluate", "outputs")
+    evaluate_step_output_dir.mkdir(parents=True)
+
+    pipeline_config = read_yaml(tmp_pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
+    evaluate_step = EvaluateStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    evaluate_step._run(str(evaluate_step_output_dir))
+
+    train_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "train", "outputs")
+    with open(train_step_output_dir / "run_id") as f:
+        run_id = f.read()
+
+    assert (evaluate_step_output_dir / "card.html").exists()
+    with open(evaluate_step_output_dir / "card.html", "r") as f:
+        step_card_content = f.read()
+
+    assert f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}>" in step_card_content
+    assert (
+        f"<a href={workspace_url}#mlflow/experiments/1/runs/{run_id}/artifactPath/train/model>"
+        in step_card_content
+    )

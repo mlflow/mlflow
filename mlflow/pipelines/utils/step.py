@@ -76,9 +76,30 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         import shutil
         import subprocess
 
-        if os.path.exists(html_file_path) and shutil.which("open") is not None:
+        # Use xdg-open in Linux environment
+        if shutil.which("xdg-open") is not None:
+            open_tool = shutil.which("xdg-open")
+        elif shutil.which("open") is not None:
+            open_tool = shutil.which("open")
+        else:
+            open_tool = None
+
+        if os.path.exists(html_file_path) and open_tool is not None:
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
-            subprocess.run(["open", html_file_path], check=True)
+            try:
+                subprocess.run([open_tool, html_file_path], check=True)
+            except Exception as e:
+                _logger.warning(
+                    f"Encountered unexpected error opening the html page."
+                    f" The file may be manually accessed at {html_file_path}. Exception: {e}"
+                )
+
+
+# Prevent pandas_profiling from using multiprocessing on Windows while running tests.
+# multiprocessing and pytest don't play well together on Windows.
+# Relevant code: https://github.com/ydataai/pandas-profiling/blob/f8bad5dde27e3f87f11ac74fb8966c034bc22db8/src/pandas_profiling/model/pandas/summary_pandas.py#L76-L97
+def _get_pool_size():
+    return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
 
 
 def get_pandas_data_profile(data_frame, title: str):
@@ -96,6 +117,7 @@ def get_pandas_data_profile(data_frame, title: str):
             title=title,
             minimal=True,
             progress_bar=False,
+            pool_size=_get_pool_size(),
         )
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
@@ -109,4 +131,5 @@ def get_pandas_data_profile(data_frame, title: str):
         title=title,
         minimal=True,
         progress_bar=False,
+        pool_size=_get_pool_size(),
     )

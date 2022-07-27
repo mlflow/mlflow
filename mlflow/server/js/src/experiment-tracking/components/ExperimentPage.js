@@ -134,7 +134,6 @@ export class ExperimentPage extends Component {
 
   componentDidMount() {
     this.updateCompareExperimentsState();
-    this.sortByPrimaryMetric();
     this.loadData();
     this.pollTimer = setInterval(() => this.pollInfo(), POLL_INTERVAL);
   }
@@ -142,7 +141,6 @@ export class ExperimentPage extends Component {
   componentDidUpdate(prevProps, prevState) {
     if (!_.isEqual(this.props.experimentIds, prevProps.experimentIds)) {
       this.updateCompareExperimentsState();
-      this.sortByPrimaryMetric();
     }
     this.maybeReloadData(prevProps, prevState);
   }
@@ -206,38 +204,46 @@ export class ExperimentPage extends Component {
     return this.props.experimentIds.map((_experimentId) => getUUID());
   }
 
-  sortByPrimaryMetric() {
-    const { tags } = this.props.experiments[0];
-    const primaryMericTag = tags.find(({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME);
+  sortRunsByPrimaryMetric(experiment) {
+    const { tags } = experiment;
+    if (!tags) {
+      return;
+    }
+    const primaryMetricTag = tags.find(({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME);
     const greaterIsBetterTag = tags.find(
       ({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     );
-
-    if (primaryMericTag && greaterIsBetterTag) {
-      const sortKey = `metrics.\`${primaryMericTag.value}\``;
+    if (primaryMetricTag && greaterIsBetterTag) {
+      const orderByKey = `metrics.\`${primaryMetricTag.value}\``;
       const orderByAsc = !(greaterIsBetterTag.value === 'True');
       this.setState((prevState) => ({
         ...prevState,
         persistedState: {
           ...prevState.persistedState,
-          orderByKey: sortKey,
-          orderByAsc: orderByAsc,
+          orderByKey,
+          orderByAsc,
         },
       }));
     }
   }
 
-  loadData() {
+  async loadData() {
     const { experimentIds } = this.props;
-    experimentIds.map((experimentId, index) =>
-      this.props
-        .getExperimentApi(experimentId, this.state.getExperimentRequestIds[index])
-        .catch((e) => {
-          console.error(e);
-        }),
-    );
-
-    this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId);
+    await Promise.all([
+      ...experimentIds.map((experimentId, index) =>
+        this.props
+          .getExperimentApi(experimentId, this.state.getExperimentRequestIds[index])
+          .then((response) => {
+            if (response.action.payload.experiment) {
+              this.sortRunsByPrimaryMetric(response.action.payload.experiment);
+            }
+          })
+          .catch((e) => {
+            Utils.logErrorAndNotifyUser(e);
+          }),
+      ),
+      this.handleGettingRuns(this.props.searchRunsApi, this.state.searchRunsRequestId),
+    ]);
   }
 
   maybeReloadData(prevProps, prevState) {
@@ -682,7 +688,7 @@ export class ExperimentPage extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const experiments = ownProps.experimentIds.map((id) => getExperiment(id, state));
+  const experiments = ownProps.experimentIds.flatMap((id) => getExperiment(id, state) || []);
   return { experiments };
 };
 
