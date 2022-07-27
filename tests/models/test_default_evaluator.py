@@ -9,10 +9,6 @@ from contextlib import nullcontext as does_not_raise
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     evaluate,
-    _evaluate,
-    _normalize_evaluators_and_evaluator_config_args,
-    EvaluationDataset,
-    _start_run_or_reuse_active_run,
 )
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
@@ -51,9 +47,9 @@ import io
 from tests.models.test_evaluation import (
     get_run_data,
     baseline_model_uri,
-    linear_regressor_model_uri,
     diabetes_dataset,
     multiclass_logistic_regressor_model_uri,
+    linear_regressor_model_uri,
     iris_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
@@ -76,63 +72,41 @@ def evaluate_model_helper(
     model,
     baseline_model,
     data,
-    *,
     targets,
     model_type: str,
     dataset_name=None,
-    dataset_path=None,
-    feature_names: list = None,
     evaluators=None,
     evaluator_config=None,
-    custom_metrics=None,
     is_baseline_model=None,
 ):
 
     """
     Helper function for testing MLflow.evaluate
-    To test if is_baseline_model flag disable logging metrics and artifacts, we need to call
-    _evaluate with is_baseline_model=True rather than evaluate which does not take
-    boolean flag is_baseline_model.
+    To test if evaluation for baseline model does not log metrics and artifacts;
+    we set "is_baseline_model" to true for all evaluator_config
     """
     if is_baseline_model:
-        baseline_model = mlflow.pyfunc.load_model(baseline_model)
-        (
-            evaluator_name_list,
-            evaluator_name_to_conf_map,
-        ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
-        dataset = EvaluationDataset(
-            data,
-            targets=targets,
-            name=dataset_name,
-            path=dataset_path,
-            feature_names=feature_names,
-        )
-        with _start_run_or_reuse_active_run() as run_id:
-            eval_result = _evaluate(
-                model=baseline_model,
-                model_type=model_type,
-                dataset=dataset,
-                run_id=run_id,
-                evaluator_name_list=evaluator_name_list,
-                evaluator_name_to_conf_map=evaluator_name_to_conf_map,
-                custom_metrics=custom_metrics,
-                is_baseline_model=is_baseline_model,
-            )
-            return eval_result
-    else:
-        return evaluate(
-            model=model,
-            data=data,
-            model_type=model_type,
-            targets=targets,
-            dataset_name=dataset_name,
-            evaluators="default",
-            evaluator_config=evaluator_config,
-        )
+        if not evaluator_config:
+            evaluator_config = {"is_baseline_model": True}
+        elif not evaluators or evaluators == "default":
+            evaluator_config.update({"is_baseline_model": True})
+        else:
+            for config in evaluator_config.values():
+                config.update({"is_baseline_model": True})
+
+    return evaluate(
+        model=baseline_model if is_baseline_model else model,
+        data=data,
+        model_type=model_type,
+        targets=targets,
+        dataset_name=dataset_name,
+        evaluators=evaluators,
+        evaluator_config=evaluator_config,
+    )
 
 
 def metrics_check_helper(
-    metrics, result, expected_metrics, dataset_log_key, test_is_baseline_model_flag
+    logged_metrics, result_metrics, expected_metrics, dataset_log_key, test_is_baseline_model_flag
 ):
     """
     Helper function for unit tests for evaluation and validation for check metrics:
@@ -143,15 +117,15 @@ def metrics_check_helper(
         Check if returned metrics are expected.
     """
     if test_is_baseline_model_flag:
-        assert metrics == {}
+        assert logged_metrics == {}
     for metric_key in expected_metrics:
         if not test_is_baseline_model_flag:
             assert np.isclose(
                 expected_metrics[metric_key],
-                metrics[metric_key + dataset_log_key],
+                logged_metrics[metric_key + dataset_log_key],
                 rtol=1e-3,
             )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metrics[metric_key], result_metrics[metric_key], rtol=1e-3)
 
 
 def artifacts_check_helper(
@@ -219,8 +193,8 @@ def test_regressor_evaluation(
 
     metrics_check_helper(
         expected_metrics=expected_metrics,
-        result=result,
-        metrics=metrics,
+        result_metrics=result.metrics,
+        logged_metrics=metrics,
         dataset_log_key="_on_data_diabetes_dataset",
         test_is_baseline_model_flag=test_is_baseline_model_flag,
     )
@@ -311,8 +285,8 @@ def test_multi_classifier_evaluation(
 
     metrics_check_helper(
         expected_metrics=expected_metrics,
-        result=result,
-        metrics=metrics,
+        result_metrics=result.metrics,
+        logged_metrics=metrics,
         dataset_log_key="_on_data_iris_dataset",
         test_is_baseline_model_flag=test_is_baseline_model_flag,
     )
@@ -395,8 +369,8 @@ def test_bin_classifier_evaluation(
 
     metrics_check_helper(
         expected_metrics=expected_metrics,
-        result=result,
-        metrics=metrics,
+        result_metrics=result.metrics,
+        logged_metrics=metrics,
         dataset_log_key="_on_data_breast_cancer_dataset",
         test_is_baseline_model_flag=test_is_baseline_model_flag,
     )
@@ -473,8 +447,8 @@ def test_spark_regressor_model_evaluation(
 
     metrics_check_helper(
         expected_metrics=expected_metrics,
-        result=result,
-        metrics=metrics,
+        result_metrics=result.metrics,
+        logged_metrics=metrics,
         dataset_log_key="_on_data_diabetes_spark_dataset",
         test_is_baseline_model_flag=test_is_baseline_model_flag,
     )
@@ -534,8 +508,8 @@ def test_svm_classifier_evaluation(
 
     metrics_check_helper(
         expected_metrics=expected_metrics,
-        result=result,
-        metrics=metrics,
+        result_metrics=result.metrics,
+        logged_metrics=metrics,
         dataset_log_key="_on_data_breast_cancer_dataset",
         test_is_baseline_model_flag=test_is_baseline_model_flag,
     )

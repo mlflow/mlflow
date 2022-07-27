@@ -21,6 +21,7 @@ import urllib
 import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
+import copy
 
 
 _logger = logging.getLogger(__name__)
@@ -610,6 +611,13 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
+def _is_baseline_model(evaluator_name_to_conf_map):
+    for config in evaluator_name_to_conf_map.values():
+        if config and config.get("is_baseline_model", False):
+            return True
+    return False
+
+
 def _evaluate(
     *,
     model,
@@ -619,7 +627,6 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
-    is_baseline_model,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -633,7 +640,8 @@ def _evaluate(
 
     client = MlflowClient()
     model_uuid = model.metadata.model_uuid
-    if not is_baseline_model:
+
+    if not _is_baseline_model(evaluator_name_to_conf_map):
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
@@ -655,7 +663,6 @@ def _evaluate(
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
-                is_baseline_model=is_baseline_model,
             )
             eval_results.append(result)
 
@@ -962,19 +969,28 @@ def evaluate(
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
             custom_metrics=custom_metrics,
-            is_baseline_model=False,
         )
+
         if not baseline_model:
             return candidate_model_eval_result
+
+        evaluator_name_to_conf_map_for_baseline_model = dict()
+        for name in evaluator_name_to_conf_map.keys():
+            evaluator_name_to_conf_map_for_baseline_model[name] = copy.deepcopy(
+                evaluator_name_to_conf_map[name]
+            )
+            if evaluator_name_to_conf_map_for_baseline_model[name] is None:
+                evaluator_name_to_conf_map_for_baseline_model[name] = {}
+            evaluator_name_to_conf_map_for_baseline_model[name].update({"is_baseline_model": True})
+
         baseline_model_eval_result = _evaluate(
             model=baseline_model,
             model_type=model_type,
             dataset=dataset,
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map_for_baseline_model,
             custom_metrics=custom_metrics,
-            is_baseline_model=True,
         )
         # TODO: Add Model Validation here
         if validation_thresholds and baseline_model_eval_result:

@@ -998,7 +998,6 @@ class DefaultEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         custom_metrics=None,
-        is_baseline_model=False,
         **kwargs,
     ):
         import matplotlib
@@ -1015,7 +1014,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.dataset_name = dataset.name
             self.feature_names = dataset.feature_names
             self.custom_metrics = custom_metrics
-            self.is_baseline_model = is_baseline_model
+            self.is_baseline_model = self.evaluator_config.get("is_baseline_model", False)
 
             model_loader_module, raw_model = _extract_raw_model(model)
             predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)

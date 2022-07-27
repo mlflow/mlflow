@@ -45,9 +45,9 @@ class DummyEvaluator(ModelEvaluator):
 
     # pylint: disable=unused-argument
     def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, is_baseline_model, **kwargs
+        self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
     ) -> EvaluationResult:
-        self.is_baseline_model = is_baseline_model
+        self.is_baseline_model = evaluator_config.get("is_baseline_model", False)
         client = MlflowClient()
         X = dataset.features_data
         y = dataset.labels_data
