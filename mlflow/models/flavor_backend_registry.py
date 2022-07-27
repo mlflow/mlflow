@@ -13,6 +13,9 @@ def get_flavor_backend(model, build_docker=True, **kwargs):
     from mlflow.pyfunc.backend import PyFuncBackend
     from mlflow.rfunc.backend import RFuncBackend
 
+    if not model:
+        return pyfunc.FLAVOR_NAME, PyFuncBackend({}, **kwargs)
+
     _flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
     for flavor_name, flavor_config in model.flavors.items():
         if flavor_name in _flavor_backends:

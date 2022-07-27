@@ -476,6 +476,22 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
 
 
+def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
+    model_path = tmp_path.joinpath("model")
+    mlflow.sklearn.save_model(sk_model, model_path)
+    image_name = pyfunc_build_image(model_uri=None)
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
+        image_name,
+        host_port,
+        gunicorn_options,
+        extra_docker_run_options=["-v", f"{model_path}:/opt/ml/model"],
+    )
+    x = iris_data[0]
+    df = pd.DataFrame(x)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
+
+
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
