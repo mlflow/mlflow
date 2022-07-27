@@ -427,7 +427,7 @@ class SqlAlchemyStore(AbstractStore):
                 if comparator == "IN":
                     # Note: Here the run_id values in databases contains only lower case letters,
                     # so we already filter out comparison values containing upper case letters
-                    # in `SearchModelUtils._get_values`. This address MYSQL IN clause case
+                    # in `SearchModelUtils._get_values`. This addresses MySQL IN clause case
                     # in-sensitive issue.
                     f = attr.in_(value)
                 else:
