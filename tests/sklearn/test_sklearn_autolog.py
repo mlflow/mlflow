@@ -487,10 +487,11 @@ def test_call_fit_with_arguments_score_does_not_accept():
         model.fit(X, y, intercept_init=0)
 
     assert len(mock_obj.call_args_list) == 1
-    assert len(mock_obj.call_args.args) == 3
-    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
-    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
-    assert mock_obj.call_args.args[2] is None
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    assert mock_call_args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -531,10 +532,11 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
             model.fit(X, y, sample_weight=sample_weight)
 
     assert len(mock_obj.call_args_list) == 1
-    assert len(mock_obj.call_args.args) == 3
-    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
-    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
-    np.testing.assert_array_equal(mock_obj.call_args.args[2], sample_weight)
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    np.testing.assert_array_equal(mock_call_args[2], sample_weight)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -569,9 +571,10 @@ def test_only_fit_contains_sample_weight():
         model.fit(X, y)
 
     assert len(mock_obj.call_args_list) == 1
-    assert len(mock_obj.call_args.args) == 2
-    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
-    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 2
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -606,10 +609,11 @@ def test_only_score_contains_sample_weight():
         model.fit(X, y)
 
     assert len(mock_obj.call_args_list) == 1
-    assert len(mock_obj.call_args.args) == 3
-    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
-    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
-    assert mock_obj.call_args.args[2] is None
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    assert mock_call_args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
