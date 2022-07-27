@@ -65,7 +65,7 @@ export class MetricsPlotView extends React.Component {
     return legend;
   };
 
-  static getXsForLineChart(history, xAxis) {
+  static getXValuesForLineChart(history, xAxis) {
     switch (xAxis) {
       case X_AXIS_STEP:
         return history.map(({ step }) => step);
