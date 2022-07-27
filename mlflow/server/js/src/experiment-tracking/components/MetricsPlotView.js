@@ -66,6 +66,9 @@ export class MetricsPlotView extends React.Component {
   };
 
   static getXValuesForLineChart(history, xAxis) {
+    if (history.length === 0) {
+      return [];
+    }
     switch (xAxis) {
       case X_AXIS_STEP:
         return history.map(({ step }) => step);
@@ -73,7 +76,7 @@ export class MetricsPlotView extends React.Component {
         const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
         return history.map(({ timestamp }) => (timestamp - minTimestamp) / 1000);
       }
-      default:
+      default: // X_AXIS_WALL
         return history.map(({ timestamp }) => Utils.formatTimestamp(timestamp));
     }
   }
