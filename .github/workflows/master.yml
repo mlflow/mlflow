@@ -132,7 +132,7 @@ jobs:
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Run tests
       run: |
-        set +x
+        set +e
         err=0
         trap 'err=1' ERR
 
