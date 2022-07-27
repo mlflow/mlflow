@@ -107,6 +107,10 @@
     "defaultMessage": "Type",
     "description": "Text for type column in schema table in model version page"
   },
+  "2gEGko": {
+    "defaultMessage": "Y-axis:",
+    "description": "Label text for x-axis in box plot comparison in MLflow"
+  },
   "2kU7bW": {
     "defaultMessage": "No models are registered yet. <link>Learn more</link> about how to register a model.",
     "description": "Message text when no model versions are registerd"
@@ -583,6 +587,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
   },
+  "PkdwKS": {
+    "defaultMessage": "X-axis:",
+    "description": "Label text for x-axis in box plot comparison in MLflow"
+  },
   "Potju2": {
     "defaultMessage": "Restore",
     "description": "String for the restore button to undo the experiments that were deleted"
@@ -714,6 +722,10 @@
   "XIOnOe": {
     "defaultMessage": "Version {versionNum}",
     "description": "Text for current version under the header on the model version view page"
+  },
+  "XaD7FM": {
+    "defaultMessage": "Select parameters/metrics to plot.",
+    "description": "Text to show when x or y axis is not selected on box plot"
   },
   "Xqs6q2": {
     "defaultMessage": "Without Model Versions",
@@ -946,6 +958,10 @@
   "iQzwqe": {
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
+  },
+  "iXb99e": {
+    "defaultMessage": "Box Plot",
+    "description": "Tab pane title for box plot on the compare runs page"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
