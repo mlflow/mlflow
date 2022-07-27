@@ -477,7 +477,6 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         custom_metrics=None,
-        is_baseline_model=False,
         **kwargs,
     ):
         """
@@ -491,10 +490,11 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param run_id: The ID of the MLflow Run to which to log results.
         :param evaluator_config: A dictionary of additional configurations for
                                  the evaluator.
+                                 evaluator_config may contain
+                                 - is_baseline_model: A boolean indicating whether the evaulation
+                                   is for baseline model. For baseline model, no artifact will
+                                   be generated and no metric will be logged.
         :param custom_metrics: A list of callable custom metric functions.
-        :param is_baseline_model: A boolean indicating whether the evaulation is for baseline model.
-                                  For baseline model, no artifact will be generated
-                                  and no metric will be logged.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
@@ -611,11 +611,27 @@ def _get_last_failed_evaluator():
     return _last_failed_evaluator
 
 
-def _is_baseline_model(evaluator_name_to_conf_map):
+def _is_eval_for_baseline_model(evaluator_name_to_conf_map):
+    """
+    Helper function to determining whether the evaluation is for baseline model
+    based on evaluator_name_to_conf_map; evaluation for baseline model should set
+    is_baseline_model set to True for evaluation_config for all evaluators.
+    """
+    if not evaluator_name_to_conf_map or not evaluator_name_to_conf_map.values:
+        return False
     for config in evaluator_name_to_conf_map.values():
-        if config and config.get("is_baseline_model", False):
-            return True
-    return False
+        if not config or not config.get("is_baseline_model", False):
+            return False
+    return True
+
+
+def _add_is_baseline_model_flag_to_eval_config(evaluator_name_to_conf_map):
+    evaluator_name_to_conf_map_with_baseline_flag = copy.deepcopy(evaluator_name_to_conf_map)
+    for name in evaluator_name_to_conf_map_with_baseline_flag.keys():
+        if evaluator_name_to_conf_map_with_baseline_flag[name] is None:
+            evaluator_name_to_conf_map_with_baseline_flag[name] = {}
+        evaluator_name_to_conf_map_with_baseline_flag[name].update({"is_baseline_model": True})
+    return evaluator_name_to_conf_map_with_baseline_flag
 
 
 def _evaluate(
@@ -641,7 +657,7 @@ def _evaluate(
     client = MlflowClient()
     model_uuid = model.metadata.model_uuid
 
-    if not _is_baseline_model(evaluator_name_to_conf_map):
+    if not _is_eval_for_baseline_model(evaluator_name_to_conf_map):
         dataset._log_dataset_tag(client, run_id, model_uuid)
 
     eval_results = []
@@ -974,14 +990,9 @@ def evaluate(
         if not baseline_model:
             return candidate_model_eval_result
 
-        evaluator_name_to_conf_map_for_baseline_model = dict()
-        for name in evaluator_name_to_conf_map.keys():
-            evaluator_name_to_conf_map_for_baseline_model[name] = copy.deepcopy(
-                evaluator_name_to_conf_map[name]
-            )
-            if evaluator_name_to_conf_map_for_baseline_model[name] is None:
-                evaluator_name_to_conf_map_for_baseline_model[name] = {}
-            evaluator_name_to_conf_map_for_baseline_model[name].update({"is_baseline_model": True})
+        evaluator_name_to_conf_map_with_baseline_flag = _add_is_baseline_model_flag_to_eval_config(
+            evaluator_name_to_conf_map
+        )
 
         baseline_model_eval_result = _evaluate(
             model=baseline_model,
@@ -989,7 +1000,7 @@ def evaluate(
             dataset=dataset,
             run_id=run_id,
             evaluator_name_list=evaluator_name_list,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map_for_baseline_model,
+            evaluator_name_to_conf_map=evaluator_name_to_conf_map_with_baseline_flag,
             custom_metrics=custom_metrics,
         )
         # TODO: Add Model Validation here
