@@ -1266,16 +1266,27 @@ def _autolog(
         # Obtain a copy of a model input example from the training dataset prior to model training
         # for subsequent use during model logging, ensuring that the input example and inferred
         # model signature to not include any mutations from model training
-        input_example = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][
-            :INPUT_EXAMPLE_SAMPLE_ROWS
-        ]
+        input_example_exc = None
+        try:
+            input_example = deepcopy(
+                _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+            )
+        except Exception as e:
+            input_example_exc = e
+
+        def get_input_example():
+            if input_example_exc is not None:
+                raise input_example_exc
+            else:
+                return input_example
+
         # parameter, metric, and non-model artifact logging are done in
         # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
-                lambda: deepcopy(input_example),
+                get_input_example,
                 lambda input_example: infer_signature(
                     input_example,
                     # Copy the input example so that it is not mutated by the call to
@@ -1372,7 +1383,17 @@ def _autolog(
         # Fetch an input example using the first several rows of the array-like
         # training data supplied to the training routine (e.g., `fit()`). Copy the
         # example to avoid mutation during subsequent metric computations
-        input_example = deepcopy(X[:INPUT_EXAMPLE_SAMPLE_ROWS])
+        input_example_exc = None
+        try:
+            input_example = deepcopy(X[:INPUT_EXAMPLE_SAMPLE_ROWS])
+        except Exception as e:
+            input_example_exc = e
+
+        def get_input_example():
+            if input_example_exc is not None:
+                raise input_example_exc
+            else:
+                return input_example
 
         def infer_model_signature(input_example):
             if not hasattr(estimator, "predict"):
@@ -1415,7 +1436,7 @@ def _autolog(
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
             input_example, signature = resolve_input_example_and_signature(
-                lambda: input_example,
+                get_input_example,
                 infer_model_signature,
                 log_input_examples,
                 log_model_signatures,

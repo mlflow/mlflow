@@ -485,7 +485,12 @@ def test_call_fit_with_arguments_score_does_not_accept():
 
     with mlflow.start_run() as run:
         model.fit(X, y, intercept_init=0)
-        mock_obj.assert_called_once_with(X, y, None)
+
+    assert len(mock_obj.call_args_list) == 1
+    assert len(mock_obj.call_args.args) == 3
+    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
+    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
+    assert mock_obj.call_args.args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -524,7 +529,12 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
             model.fit(X, y, None, None, sample_weight)
         elif sample_weight_passed_as == "keyword":
             model.fit(X, y, sample_weight=sample_weight)
-        mock_obj.assert_called_once_with(X, y, sample_weight)
+
+    assert len(mock_obj.call_args_list) == 1
+    assert len(mock_obj.call_args.args) == 3
+    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
+    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
+    np.testing.assert_array_equal(mock_obj.call_args.args[2], sample_weight)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -557,7 +567,11 @@ def test_only_fit_contains_sample_weight():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        mock_obj.assert_called_once_with(X, y)
+
+    assert len(mock_obj.call_args_list) == 1
+    assert len(mock_obj.call_args.args) == 2
+    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
+    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -590,7 +604,12 @@ def test_only_score_contains_sample_weight():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        mock_obj.assert_called_once_with(X, y, None)
+
+    assert len(mock_obj.call_args_list) == 1
+    assert len(mock_obj.call_args.args) == 3
+    np.testing.assert_array_equal(mock_obj.call_args.args[0], X)
+    np.testing.assert_array_equal(mock_obj.call_args.args[1], y)
+    assert mock_obj.call_args.args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
