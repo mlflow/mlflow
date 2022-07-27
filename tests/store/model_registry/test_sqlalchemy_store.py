@@ -844,15 +844,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ),
             set([1, 2, 3]),
         )
-        # search the IN operator is case sensitive.
-        self.assertEqual(
-            set(
-                search_versions(
-                    f"run_id IN ('{run_id_1.upper()}','{run_id_2}')"
-                )
-            ),
-            set([2, 3]),
-        )
         # search using the IN operator with bad lists should return exceptions
         with self.assertRaisesRegex(
             MlflowException,
@@ -944,6 +935,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].run_id == run_id_1
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
+
+    def test_search_model_versions_in_clause_mysql_case_sensitive(self):
+        from mlflow.utils.search_utils import SearchModelUtils
+        from mlflow.store.db.db_types import MYSQL
+        run_id1 = uuid.uuid4().hex
+        run_id2 = uuid.uuid4().hex
+        filter_str = f"run_id IN ('{run_id1.upper()}','{run_id2}')"
+        parsed_filter = SearchModelUtils.parse_search_filter(filter_str)
+        attr_filters, _ = SqlAlchemyStore._get_search_model_versions_filter_clauses(parsed_filter, MYSQL)
+        self.assertEqual(
+            attr_filters[0].right.effective_value,
+            [run_id2]
+        )
 
     def test_search_model_versions_by_tag(self):
         # create some model versions
