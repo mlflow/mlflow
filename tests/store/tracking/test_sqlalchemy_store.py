@@ -435,6 +435,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
         )
         assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.KEY = 'value'")
+        assert len(experiments) == 0
 
     def test_search_experiments_filter_by_attribute_and_tag(self):
         self.store.create_experiment(
@@ -501,20 +503,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
         assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
         assert experiments.token is None
-
-    def test_search_experiments_by_tag_key_mysql_case_sensitive(self):
-        from mlflow.store.tracking.sqlalchemy_store import _get_search_experiments_filter_clauses
-        from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
-        from mlflow.store.db.db_types import MYSQL
-        filter_str = f"tag.abc = 'xyz'"
-        parsed_filter = SearchExperimentsUtils.parse_search_filter(filter_str)
-
-        with mock.patch(
-                "mlflow.utils.search_utils.SearchUtils.get_sql_filter_ops",
-                return_value=SqlExperimentTag.key.__eq__
-        ) as mock_get_sql_filter_ops:
-            _get_search_experiments_filter_clauses(parsed_filter, MYSQL)
-            mock_get_sql_filter_ops.assert_called_with(SqlExperimentTag.key, "=", MYSQL)
 
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:
