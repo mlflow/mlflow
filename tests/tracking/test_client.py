@@ -57,17 +57,13 @@ def mock_databricks_tracking_store():
                 RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
             )
 
-    prev_databricks_tracking_store = _tracking_store_registry.get_store_builder("databricks")
-    try:
-        mock_databricks_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
-        _tracking_store_registry.register(
-            "databricks", lambda *args, **kwargs: mock_databricks_tracking_store
-        )
-        yield mock_databricks_tracking_store
-    finally:
-        _tracking_store_registry.register(
-            "databricks", lambda *args, **kwargs: prev_databricks_tracking_store
-        )
+    mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._tracking_store_registry.get_store",
+        return_value=mock_tracking_store,
+    ):
+        yield mock_tracking_store
 
 
 @pytest.fixture
