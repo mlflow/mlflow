@@ -107,10 +107,6 @@
     "defaultMessage": "Type",
     "description": "Text for type column in schema table in model version page"
   },
-  "2gEGko": {
-    "defaultMessage": "Y-axis:",
-    "description": "Label text for x-axis in box plot comparison in MLflow"
-  },
   "2kU7bW": {
     "defaultMessage": "No models are registered yet. <link>Learn more</link> about how to register a model.",
     "description": "Message text when no model versions are registerd"
@@ -262,6 +258,10 @@
   "8flziy": {
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
+  },
+  "8xji5J": {
+    "defaultMessage": "X-axis:",
+    "description": "Label text for X-axis in box plot comparison in MLflow"
   },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
@@ -463,6 +463,10 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
+  "Hk0RSH": {
+    "defaultMessage": "Y-axis:",
+    "description": "Label text for Y-axis in box plot comparison in MLflow"
+  },
   "Hq00g9": {
     "defaultMessage": "On",
     "description": "Checked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
@@ -586,10 +590,6 @@
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
-  },
-  "PkdwKS": {
-    "defaultMessage": "X-axis:",
-    "description": "Label text for x-axis in box plot comparison in MLflow"
   },
   "Potju2": {
     "defaultMessage": "Restore",
