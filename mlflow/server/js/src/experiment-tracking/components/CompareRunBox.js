@@ -57,8 +57,8 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
     runInfos.forEach((_, index) => {
       const params = paramLists[index];
       const metrics = metricLists[index];
-      const x = (xAxis.isParam ? params : metrics).find((x) => x.key === xAxis.key);
-      const y = (yAxis.isParam ? params : metrics).find((x) => x.key === yAxis.key);
+      const x = (xAxis.isParam ? params : metrics).find(({ key }) => key === xAxis.key);
+      const y = (yAxis.isParam ? params : metrics).find(({ key }) => key === yAxis.key);
       if (x === undefined || y === undefined) {
         return;
       }
