@@ -970,19 +970,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         def search_versions(filter_string):
             return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
 
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 = 'xyz'")), {1})
-        self.assertEqual(set(search_versions(f"name='wrong_name' and tag.t2 = 'xyz'")), set())
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.`t2` = 'xyz'")), {1})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t3 = 'xyz'")), set())
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 != 'xy'")), {1, 2})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'xy%'")), {1})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'xY%'")), set())
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 ILIKE 'xY%'")), {1})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t2 LIKE 'x%'")), {1, 2})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.T2 = 'xyz'")), set())
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'")), {1})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'")), {1, 2})
-        self.assertEqual(set(search_versions(f"name='{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'")), set())
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 = 'xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name = 'wrong_name' and tag.t2 = 'xyz'")), set())
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.`t2` = 'xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t3 = 'xyz'")), set())
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 != 'xy'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 LIKE 'xy%'")), {1})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 LIKE 'xY%'")), set())
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 ILIKE 'xY%'")), {1})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 LIKE 'x%'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.T2 = 'xyz'")), set())
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'")), {1})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'")), {1, 2})
+        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'")), set())
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
@@ -1127,10 +1127,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(name1, tags1)
         self._rm_maker(name2, tags2)
 
-        rms, _ = self._search_registered_models(f"tag.t3='XYZ'")
+        rms, _ = self._search_registered_models(f"tag.t3 = 'XYZ'")
         self.assertEqual(set(rms), {name2})
 
-        rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1='abc'")
+        rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1 = 'abc'")
         self.assertEqual(set(rms), {name1})
 
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%'")
@@ -1139,10 +1139,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
         self.assertEqual(set(rms), {name1, name2})
 
-        rms, _ = self._search_registered_models(f"tag.t3='XYz'")
+        rms, _ = self._search_registered_models(f"tag.t3 = 'XYz'")
         self.assertEqual(set(rms), set())
 
-        rms, _ = self._search_registered_models(f"tag.T3='XYZ'")
+        rms, _ = self._search_registered_models(f"tag.T3 = 'XYZ'")
         self.assertEqual(set(rms), set())
 
         rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")

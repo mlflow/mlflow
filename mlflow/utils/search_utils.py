@@ -102,7 +102,7 @@ class SearchUtils:
         import sqlalchemy as sa
 
         # Use case-sensitive collation for MSSQL
-        if dialect == MYSQL:
+        if dialect == MSSQL:
             column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
 
         # Use non-binary ahead of binary comparison for runtime performance
