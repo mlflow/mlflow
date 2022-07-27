@@ -78,6 +78,7 @@ def test_get_merged_eval_metrics_works(
         (DataFrame(np.arange(160).reshape(8, 20)), 10, 5, 9, 5, 2),
         (DataFrame(np.arange(160).reshape(8, 20)), 10, 5, 1, 5, 1),
         (DataFrame(np.arange(160).reshape(8, 20)), 10, 30, 1, 20, 1),
+        (DataFrame(np.arange(160).reshape(2, 80)), 80, 8, 10, 8, 2),
     ],
 )
 def test_get_data_profile_truncates_large_data_frame(

@@ -122,14 +122,14 @@ def get_pandas_data_profile(data_frame, title: str):
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
-    max_rows = min(max(max_cells // max_cols, 1), _MAX_PROFILE_ROW_SIZE)
+    max_rows = min(max(max_cells // max_cols, 1), len(data_frame), _MAX_PROFILE_ROW_SIZE)
     truncated_df = data_frame.drop(columns=data_frame.columns[max_cols:]).sample(
-        n=max_rows, ignore_index=True, random_state=42, replace=True
+        n=max_rows, ignore_index=True, random_state=42
     )
     if (
-        data_frame.size != max_cells
-        or data_frame.columns.size != max_cols
-        or max(max_cells // max_cols, 1) != max_rows
+        max_cells == _MAX_PROFILE_CELL_SIZE
+        or max_cols == _MAX_PROFILE_COL_SIZE
+        or max_rows == _MAX_PROFILE_ROW_SIZE
     ):
         _logger.info(
             "Truncating the data frame for %s to %d cells, %d columns and %d rows",
