@@ -34,15 +34,17 @@ describe('CompareRunBox', () => {
         [{ key: 'metric', value: 6 }],
       ],
     };
+
     wrapper = mountWithIntl(<CompareRunBox {...props} />);
     expect(wrapper.find(LazyPlot).isEmpty()).toBe(true);
     expect(wrapper.text()).toContain('Select parameters/metrics to plot.');
+
     const selectors = wrapper.find(Select);
     expect(selectors.length).toBe(2);
     // Select x-axis
     const xAxisSelector = selectors.at(0);
     xAxisSelector.find('input[type="search"]').simulate('mouseDown');
-    // `wrapper.find` doesn't find the dropdown items because they render in the top level of the
+    // `wrapper.find` can't find the selector options because they render in the top level of the
     // document.
     document.querySelectorAll('[data-test-id="axis-option"]')[0].click();
     expect(xAxisSelector.text()).toContain('param');

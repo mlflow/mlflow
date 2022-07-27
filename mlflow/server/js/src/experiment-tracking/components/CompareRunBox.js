@@ -18,12 +18,12 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
   const paramOptionPrefix = 'param-';
   const metricOptionPrefix = 'metric-';
 
-  const handleXAxisChange = (_value, { value, key }) => {
+  const handleXAxisChange = (_, { value, key }) => {
     const isParam = value.startsWith(paramOptionPrefix);
     setXAxis({ key, isParam });
   };
 
-  const handleYAxisChange = (_value, { value, key }) => {
+  const handleYAxisChange = (_, { value, key }) => {
     const isParam = value.startsWith(paramOptionPrefix);
     setYAxis({ key, isParam });
   };
@@ -36,16 +36,16 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
       value={selectedValue}
     >
       <OptGroup label='Parameters' key='parameters'>
-        {paramKeys.map((k) => (
-          <Option key={k} value={paramOptionPrefix + k}>
-            <div data-test-id='axis-option'>{k}</div>
+        {paramKeys.map((key) => (
+          <Option key={key} value={paramOptionPrefix + key}>
+            <div data-test-id='axis-option'>{key}</div>
           </Option>
         ))}
       </OptGroup>
       <OptGroup label='Metrics'>
-        {metricKeys.map((k) => (
-          <Option key={k} value={metricOptionPrefix + k}>
-            <div data-test-id='axis-option'>{k}</div>
+        {metricKeys.map((key) => (
+          <Option key={key} value={metricOptionPrefix + key}>
+            <div data-test-id='axis-option'>{key}</div>
           </Option>
         ))}
       </OptGroup>
@@ -55,10 +55,10 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
   const getBoxPlotData = () => {
     const data = {};
     runInfos.forEach((_, index) => {
-      const findByAxis = ({ key, isParam }) =>
-        (isParam ? paramLists[index] : metricLists[index]).find((x) => x.key === key);
-      const x = findByAxis(xAxis);
-      const y = findByAxis(yAxis);
+      const params = paramLists[index];
+      const metrics = metricLists[index];
+      const x = (xAxis.isParam ? params : metrics).find((x) => x.key === xAxis.key);
+      const y = (yAxis.isParam ? params : metrics).find((x) => x.key === yAxis.key);
       if (x === undefined || y === undefined) {
         return;
       }
@@ -81,7 +81,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
   };
 
   const renderPlot = () => {
-    if (!xAxis.key || !yAxis.key) {
+    if (!(xAxis.key && yAxis.key)) {
       return (
         <div
           css={{
@@ -147,7 +147,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
           <label htmlFor='x-axis-selector'>
             <FormattedMessage
               defaultMessage='X-axis:'
-              description='Label text for x-axis in box plot comparison in MLflow'
+              description='Label text for X-axis in box plot comparison in MLflow'
             />
           </label>
         </div>
@@ -157,7 +157,7 @@ export const CompareRunBox = ({ runUuids, runInfos, metricLists, paramLists }) =
           <label htmlFor='y-axis-selector'>
             <FormattedMessage
               defaultMessage='Y-axis:'
-              description='Label text for x-axis in box plot comparison in MLflow'
+              description='Label text for Y-axis in box plot comparison in MLflow'
             />
           </label>
         </div>
