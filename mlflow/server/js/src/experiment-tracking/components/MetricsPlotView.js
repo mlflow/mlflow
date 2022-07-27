@@ -69,9 +69,10 @@ export class MetricsPlotView extends React.Component {
     switch (xAxis) {
       case X_AXIS_STEP:
         return history.map(({ step }) => step);
-      case X_AXIS_RELATIVE:
+      case X_AXIS_RELATIVE: {
         const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
         return history.map(({ timestamp }) => (timestamp - minTimestamp) / 1000);
+      }
       default:
         return history.map(({ timestamp }) => Utils.formatTimestamp(timestamp));
     }
