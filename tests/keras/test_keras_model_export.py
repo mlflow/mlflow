@@ -655,8 +655,8 @@ def test_load_without_save_format(tf_keras_model, model_path):
 
 
 @pytest.mark.skipif(
-    not _is_importable("transformers"),
-    reason="This test requires transformers, which is incompatible with Keras < 2.3.0",
+    not (_is_importable("transformers") and keras_version >= Version("2.6.0")),
+    reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0",
 )
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
