@@ -53,8 +53,8 @@ library_to_mlflow_module = {
 def reset_global_states():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
-    for key in AUTOLOGGING_INTEGRATIONS.keys():
-        AUTOLOGGING_INTEGRATIONS[key].clear()
+    for value in AUTOLOGGING_INTEGRATIONS.values():
+        value.clear()
 
     for integration_name in library_to_mlflow_module.keys():
         try:
@@ -67,8 +67,8 @@ def reset_global_states():
 
     yield
 
-    for key in AUTOLOGGING_INTEGRATIONS.keys():
-        AUTOLOGGING_INTEGRATIONS[key].clear()
+    for value in AUTOLOGGING_INTEGRATIONS.values():
+        value.clear()
 
     for integration_name in library_to_mlflow_module.keys():
         try:
