@@ -284,6 +284,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
             self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            self.assertTrue(restored_run.delete_time is None)
             self.assertTrue(restored_run.experiment_id in experiment_id)
             self.assertTrue(restored_run.run_id in run_ids)
 
@@ -743,6 +744,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             "entry_point_name": "main.py",
             "start_time": int(time.time()),
             "end_time": int(time.time()),
+            "delete_time": int(time.time()),
             "source_version": mlflow.__version__,
             "lifecycle_stage": entities.LifecycleStage.ACTIVE,
             "artifact_uri": "//",
@@ -829,6 +831,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
+            self.assertTrue(
+                actual.delete_time is not None
+            )  # delete time should be updated and thus not None anymore
 
             deleted_run = self.store.get_run(run.info.run_id)
             self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
@@ -1244,6 +1249,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        self.assertTrue(restored.info.delete_time is None)
 
     def test_error_logging_to_deleted_run(self):
         exp = self._experiment_factory("error_logging")
@@ -2335,6 +2341,7 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("status") == "status"
     assert models.SqlRun.get_attribute_name("start_time") == "start_time"
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
+    assert models.SqlRun.get_attribute_name("delete_time") == "delete_time"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test

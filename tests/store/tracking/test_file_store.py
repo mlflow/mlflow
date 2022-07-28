@@ -92,6 +92,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "status": random.choice(RunStatus.all_status()),
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
+                    "delete_time": random_int(20, 30),
                     "tags": [],
                     "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
@@ -519,8 +520,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         fs.delete_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "deleted"
+        assert fs.get_run(run_id).info.delete_time is not None
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
+        assert fs.get_run(run_id).info.delete_time is None
 
     def test_hard_delete_run(self):
         fs = FileStore(self.test_root)

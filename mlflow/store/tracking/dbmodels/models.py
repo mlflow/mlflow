@@ -202,6 +202,7 @@ class SqlRun(Base):
             status=self.status,
             start_time=self.start_time,
             end_time=self.end_time,
+            delete_time=self.delete_time,
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri,
         )

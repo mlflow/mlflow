@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import os
 import sys
 import shutil
@@ -473,7 +474,9 @@ class FileStore(AbstractStore):
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+        new_info = run_info._copy_with_overrides(
+            lifecycle_stage=LifecycleStage.DELETED, delete_time=int(time.time() * 1000)
+        )
         self._overwrite_run_info(new_info)
 
     def _hard_delete_run(self, run_id):
@@ -498,7 +501,9 @@ class FileStore(AbstractStore):
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         check_run_is_deleted(run_info)
-        new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
+        new_info = run_info._copy_with_overrides(
+            lifecycle_stage=LifecycleStage.ACTIVE, delete_time=0
+        )
         self._overwrite_run_info(new_info)
 
     def _find_experiment_folder(self, run_path):
@@ -557,6 +562,7 @@ class FileStore(AbstractStore):
             status=RunStatus.to_string(RunStatus.RUNNING),
             start_time=start_time,
             end_time=None,
+            delete_time=None,
             lifecycle_stage=LifecycleStage.ACTIVE,
         )
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
