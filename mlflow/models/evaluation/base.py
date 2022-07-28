@@ -21,7 +21,6 @@ import urllib
 import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
-import copy
 
 
 _logger = logging.getLogger(__name__)
@@ -614,29 +613,6 @@ def _get_last_failed_evaluator():
     This can be used to check which evaluator fail when `evaluate` API fail.
     """
     return _last_failed_evaluator
-
-
-def _is_eval_for_baseline_model(evaluator_name_to_conf_map):
-    """
-    Helper function to determining whether the evaluation is for baseline model
-    based on evaluator_name_to_conf_map; evaluation for baseline model should set
-    is_baseline_model set to True for evaluation_config for all evaluators.
-    """
-    if not evaluator_name_to_conf_map or not evaluator_name_to_conf_map.values:
-        return False
-    for config in evaluator_name_to_conf_map.values():
-        if not config or not config.get("is_baseline_model", False):
-            return False
-    return True
-
-
-def _add_is_baseline_model_flag_to_eval_config(evaluator_name_to_conf_map):
-    evaluator_name_to_conf_map_with_baseline_flag = copy.deepcopy(evaluator_name_to_conf_map)
-    for name in evaluator_name_to_conf_map_with_baseline_flag.keys():
-        if evaluator_name_to_conf_map_with_baseline_flag[name] is None:
-            evaluator_name_to_conf_map_with_baseline_flag[name] = {}
-        evaluator_name_to_conf_map_with_baseline_flag[name].update({"is_baseline_model": True})
-    return evaluator_name_to_conf_map_with_baseline_flag
 
 
 def _evaluate(
