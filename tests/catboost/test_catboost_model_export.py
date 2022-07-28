@@ -8,7 +8,7 @@ import yaml
 import catboost as cb
 import numpy as np
 import pandas as pd
-from sklearn.datasets import datasets
+from sklearn import datasets
 from sklearn.pipeline import Pipeline
 
 import mlflow.catboost
