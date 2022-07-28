@@ -1507,12 +1507,12 @@ def search_runs(
 
         data = {}
         data.update(info)
-        for key in metrics:
-            data["metrics." + key] = metrics[key]
-        for key in params:
-            data["params." + key] = params[key]
-        for key in tags:
-            data["tags." + key] = tags[key]
+        for key, value in metrics.items():
+            data["metrics." + key] = value
+        for key, value in params.items():
+            data["params." + key] = value
+        for key, value in tags.items():
+            data["tags." + key] = value
         return pd.DataFrame(data)
     else:
         raise ValueError(
