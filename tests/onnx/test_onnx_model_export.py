@@ -5,10 +5,10 @@ from unittest import mock
 
 import onnx
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.onnx
 from torch.utils.data import DataLoader
-import sklearn.datasets as datasets
+from sklearn import datasets
 import pandas as pd
 import numpy as np
 import yaml
