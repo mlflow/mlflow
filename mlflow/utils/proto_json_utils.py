@@ -177,7 +177,7 @@ class NumpyEncoder(JSONEncoder):
 
         if isinstance(o, np.generic):
             return o.item(), True
-        if isinstance(o, bytes) or isinstance(o, bytearray):
+        if isinstance(o, (bytes, bytearray)):
             return encode_binary(o), True
         if isinstance(o, np.datetime64):
             return np.datetime_as_string(o), True
