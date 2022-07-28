@@ -246,14 +246,13 @@ def log_code_snapshot(
     artifact_path: str = "pipeline_snapshot",
     pipeline_config: Dict[str, Any] = None,
 ) -> None:
-    import yaml
-
     """
     Logs a pipeline code snapshot as mlflow artifacts.
 
     :param pipeline_root_path: String file path to the directory where the pipeline is defined.
     :param run_id: Run ID to which the code snapshot is logged.
     :param artifact_path: Directory within the run's artifact director (default: "snapshots").
+    :param pipeline_config: Dict containing the full pipeline configuration at runtime.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = pathlib.Path(tmpdir)
@@ -271,8 +270,10 @@ def log_code_snapshot(
                 tmp_path.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copyfile(file_path, tmp_path)
         if pipeline_config is not None:
+            import yaml
+
             tmp_path = tmpdir.joinpath("runtime/pipeline.yaml")
             tmp_path.parent.mkdir(exist_ok=True, parents=True)
-            with open(tmp_path, mode="w+", encoding="utf-8") as config_file:
+            with open(tmp_path, mode="w", encoding="utf-8") as config_file:
                 yaml.dump(pipeline_config, config_file)
         MlflowClient().log_artifacts(run_id, str(tmpdir), artifact_path=artifact_path)

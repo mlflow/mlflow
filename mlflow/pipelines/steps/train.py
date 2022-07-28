@@ -37,6 +37,7 @@ _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
+
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
 
     def __init__(self, step_config, pipeline_root, pipeline_config=None):
