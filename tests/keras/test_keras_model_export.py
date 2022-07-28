@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
-import sklearn.datasets as datasets
+from sklearn import datasets
 import pandas as pd
 import numpy as np
 import yaml

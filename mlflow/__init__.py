@@ -50,28 +50,28 @@ import mlflow.pipelines
 _model_flavors_supported = []
 try:
     # pylint: disable=unused-import
-    from mlflow.catboost import catboost
-    from mlflow.fastai import fastai
-    from mlflow.gluon import gluon
-    from mlflow.h2o import h2o
-    from mlflow.keras import keras
-    from mlflow.lightgbm import lightgbm
-    from mlflow.mleap import mleap
-    from mlflow.onnx import onnx
-    from mlflow.pyfunc import pyfunc
-    from mlflow.pytorch import pytorch
-    from mlflow.sklearn import sklearn
-    from mlflow.spacy import spacy
-    from mlflow.spark import spark
-    from mlflow.statsmodels import statsmodels
-    from mlflow.tensorflow import tensorflow
-    from mlflow.xgboost import xgboost
-    from mlflow.shap import shap
-    from mlflow.pyspark import pyspark
-    from mlflow.paddle import paddle
-    from mlflow.prophet import prophet
-    from mlflow.pmdarima import pmdarima
-    from mlflow.diviner import diviner
+    from mlflow import catboost
+    from mlflow import fastai
+    from mlflow import gluon
+    from mlflow import h2o
+    from mlflow import keras
+    from mlflow import lightgbm
+    from mlflow import mleap
+    from mlflow import onnx
+    from mlflow import pyfunc
+    from mlflow import pytorch
+    from mlflow import sklearn
+    from mlflow import spacy
+    from mlflow import spark
+    from mlflow import statsmodels
+    from mlflow import tensorflow
+    from mlflow import xgboost
+    from mlflow import shap
+    from mlflow import pyspark
+    from mlflow import paddle
+    from mlflow import prophet
+    from mlflow import pmdarima
+    from mlflow import diviner
 
     _model_flavors_supported = [
         "catboost",
