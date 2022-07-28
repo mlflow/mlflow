@@ -49,17 +49,16 @@ ArtifactsServer = namedtuple(
 def artifacts_server():
     with tempfile.TemporaryDirectory() as tmpdir:
         port = get_safe_port()
-        backend_store_uri = os.path.join(tmpdir, "mlruns")
+        backend_store_uri = f'sqlite:///{os.path.join(tmpdir, "mlruns.db")}'
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
-        uri_prefix = "file:///" if is_windows() else ""
         process = _launch_server(
             LOCALHOST,
             port,
-            uri_prefix + backend_store_uri,
+            backend_store_uri,
             default_artifact_root,
-            uri_prefix + artifacts_destination,
+            artifacts_destination,
         )
         yield ArtifactsServer(
             backend_store_uri, default_artifact_root, artifacts_destination, url, process
@@ -301,3 +300,23 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
     )
     get_artifact_response.raise_for_status()
     assert get_artifact_response.text == "abcdefg"
+
+
+def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_server):
+    url = artifacts_server.url
+    artifact_file = pathlib.Path(artifacts_server.artifacts_destination, "a.txt")
+    artifact_file.parent.mkdir(exist_ok=True, parents=True)
+    artifact_file.write_text("abcdefg")
+
+    name = "GetModelVersionTest"
+    mlflow_client = MlflowClient(artifacts_server.backend_store_uri)
+    mlflow_client.create_registered_model(name)
+    # An artifact root with scheme http, https, or mlflow-artifacts is a proxied artifact root
+    mlflow_client.create_model_version(name, "mlflow-artifacts:", 1)
+
+    get_model_version_artifact_response = requests.get(
+        url=f"{url}/model-versions/get-artifact",
+        params={"name": name, "version": "1", "path": "a.txt"},
+    )
+    get_model_version_artifact_response.raise_for_status()
+    assert get_model_version_artifact_response.text == "abcdefg"
