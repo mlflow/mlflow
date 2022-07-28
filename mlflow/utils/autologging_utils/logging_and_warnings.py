@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import RLock, get_ident as get_current_thread_id
 
 import mlflow
-import mlflow.utils.logging_utils as logging_utils
+from mlflow.utils import logging_utils
 
 
 class _WarningsController:

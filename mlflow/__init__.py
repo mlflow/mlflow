@@ -40,8 +40,8 @@ import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
-import mlflow.projects as projects
-import mlflow.tracking as tracking
+from mlflow import projects
+from mlflow import tracking
 import mlflow.models
 import mlflow.artifacts
 import mlflow.pipelines
@@ -50,28 +50,28 @@ import mlflow.pipelines
 _model_flavors_supported = []
 try:
     # pylint: disable=unused-import
-    import mlflow.catboost as catboost
-    import mlflow.fastai as fastai
-    import mlflow.gluon as gluon
-    import mlflow.h2o as h2o
-    import mlflow.keras as keras
-    import mlflow.lightgbm as lightgbm
-    import mlflow.mleap as mleap
-    import mlflow.onnx as onnx
-    import mlflow.pyfunc as pyfunc
-    import mlflow.pytorch as pytorch
-    import mlflow.sklearn as sklearn
-    import mlflow.spacy as spacy
-    import mlflow.spark as spark
-    import mlflow.statsmodels as statsmodels
-    import mlflow.tensorflow as tensorflow
-    import mlflow.xgboost as xgboost
-    import mlflow.shap as shap
-    import mlflow.pyspark as pyspark
-    import mlflow.paddle as paddle
-    import mlflow.prophet as prophet
-    import mlflow.pmdarima as pmdarima
-    import mlflow.diviner as diviner
+    from mlflow.catboost import catboost
+    from mlflow.fastai import fastai
+    from mlflow.gluon import gluon
+    from mlflow.h2o import h2o
+    from mlflow.keras import keras
+    from mlflow.lightgbm import lightgbm
+    from mlflow.mleap import mleap
+    from mlflow.onnx import onnx
+    from mlflow.pyfunc import pyfunc
+    from mlflow.pytorch import pytorch
+    from mlflow.sklearn import sklearn
+    from mlflow.spacy import spacy
+    from mlflow.spark import spark
+    from mlflow.statsmodels import statsmodels
+    from mlflow.tensorflow import tensorflow
+    from mlflow.xgboost import xgboost
+    from mlflow.shap import shap
+    from mlflow.pyspark import pyspark
+    from mlflow.paddle import paddle
+    from mlflow.prophet import prophet
+    from mlflow.pmdarima import pmdarima
+    from mlflow.diviner import diviner
 
     _model_flavors_supported = [
         "catboost",
