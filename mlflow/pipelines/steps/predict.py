@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 
 # This should maybe imported from the preprocessing step for consistency
-_INPUT_FILE_NAME = "dataset_preprocessed.parquet"
+_INPUT_FILE_NAME = "preprocessed.parquet"
 _SCORED_OUTPUT_FILE_NAME = "scored.parquet"
 
 
@@ -72,6 +72,14 @@ class PredictStep(BaseStep):
                 ),
                 error_code=BAD_REQUEST,
             ) from e
+        if not spark:
+            raise MlflowException(
+                message=(
+                    "No active SparkSession detected to score dataset with spark UDF. "
+                    "Please create a Spark session and try again."
+                ),
+                error_code=BAD_REQUEST,
+            )
 
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
