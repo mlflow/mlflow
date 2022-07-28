@@ -477,6 +477,7 @@ class ModelEvaluator(metaclass=ABCMeta):
         run_id,
         evaluator_config,
         custom_metrics=None,
+        baseline_model=None,
         **kwargs,
     ):
         """
@@ -497,8 +498,12 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param custom_metrics: A list of callable custom metric functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
-        :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
-                 evaluation results.
+        :param baseline_model: (Optional) A string URI referring to a MLflow model as baseline model
+                                          to be compared with the candidate model
+                                          for model validation.
+                                          (pyfunc model instance is not allowed)
+        :return: A tuple of :py:class:`mlflow.models.EvaluationResult` instance containing
+                 evaluation results for candidate model and baseline model (if provided else None).
         """
         raise NotImplementedError()
 
@@ -643,6 +648,7 @@ def _evaluate(
     evaluator_name_list,
     evaluator_name_to_conf_map,
     custom_metrics,
+    baseline_model,
 ):
     """
     The public API "evaluate" will verify argument first, and then pass normalized arguments
@@ -657,10 +663,9 @@ def _evaluate(
     client = MlflowClient()
     model_uuid = model.metadata.model_uuid
 
-    if not _is_eval_for_baseline_model(evaluator_name_to_conf_map):
-        dataset._log_dataset_tag(client, run_id, model_uuid)
+    dataset._log_dataset_tag(client, run_id, model_uuid)
 
-    eval_results = []
+    candidate_model_eval_results, baseline_model_eval_results = [], []
     for evaluator_name in evaluator_name_list:
         config = evaluator_name_to_conf_map.get(evaluator_name) or {}
         try:
@@ -672,30 +677,49 @@ def _evaluate(
         _last_failed_evaluator = evaluator_name
         if evaluator.can_evaluate(model_type=model_type, evaluator_config=config):
             _logger.info(f"Evaluating the model with the {evaluator_name} evaluator.")
-            result = evaluator.evaluate(
+            candidate_model_eval_result, baseline_model_eval_result = evaluator.evaluate(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
                 run_id=run_id,
                 evaluator_config=config,
                 custom_metrics=custom_metrics,
+                baseline_model=baseline_model,
             )
-            eval_results.append(result)
+            candidate_model_eval_results.append(candidate_model_eval_result)
+            baseline_model_eval_results.append(baseline_model_eval_result)
 
     _last_failed_evaluator = None
 
-    if len(eval_results) == 0:
+    if len(candidate_model_eval_results) == 0:
         raise ValueError(
             "The model could not be evaluated by any of the registered evaluators, please "
             "verify that the model type and other configs are set correctly."
         )
 
-    merged_eval_result = EvaluationResult(dict(), dict())
-    for eval_result in eval_results:
-        merged_eval_result.metrics.update(eval_result.metrics)
-        merged_eval_result.artifacts.update(eval_result.artifacts)
+    if baseline_model and len(baseline_model_eval_results) == 0:
+        raise ValueError(
+            "The baseline model could not be evaluated by any of the registered evaluators, please "
+            "verify that the model type and other configs are set correctly."
+        )
 
-    return merged_eval_result
+    candidate_model_merged_eval_result = EvaluationResult(dict(), dict())
+    for eval_result in candidate_model_eval_results:
+        if not eval_result:
+            continue
+        candidate_model_merged_eval_result.metrics.update(eval_result.metrics)
+        candidate_model_merged_eval_result.artifacts.update(eval_result.artifacts)
+
+    if not baseline_model:
+        return candidate_model_merged_eval_result, None
+
+    baseline_model_merged_eval_result = EvaluationResult(dict(), dict())
+    for eval_result in baseline_model_eval_results:
+        if not eval_result:
+            continue
+        baseline_model_merged_eval_result.metrics.update(eval_result.metrics)
+        baseline_model_merged_eval_result.artifacts.update(eval_result.artifacts)
+    return candidate_model_merged_eval_result, baseline_model_merged_eval_result
 
 
 @experimental
@@ -977,7 +1001,7 @@ def evaluate(
     )
 
     with _start_run_or_reuse_active_run() as run_id:
-        candidate_model_eval_result = _evaluate(
+        candidate_model_eval_results, baseline_model_eval_results = _evaluate(
             model=model,
             model_type=model_type,
             dataset=dataset,
@@ -985,25 +1009,13 @@ def evaluate(
             evaluator_name_list=evaluator_name_list,
             evaluator_name_to_conf_map=evaluator_name_to_conf_map,
             custom_metrics=custom_metrics,
+            baseline_model=baseline_model,
         )
-
         if not baseline_model:
-            return candidate_model_eval_result
+            return candidate_model_eval_results
 
-        evaluator_name_to_conf_map_with_baseline_flag = _add_is_baseline_model_flag_to_eval_config(
-            evaluator_name_to_conf_map
-        )
-
-        baseline_model_eval_result = _evaluate(
-            model=baseline_model,
-            model_type=model_type,
-            dataset=dataset,
-            run_id=run_id,
-            evaluator_name_list=evaluator_name_list,
-            evaluator_name_to_conf_map=evaluator_name_to_conf_map_with_baseline_flag,
-            custom_metrics=custom_metrics,
-        )
         # TODO: Add Model Validation here
-        if validation_thresholds and baseline_model_eval_result:
+        if validation_thresholds and baseline_model_eval_results:
             pass
-        return candidate_model_eval_result
+
+        return candidate_model_eval_results
