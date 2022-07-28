@@ -23,6 +23,7 @@ import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import copy
+import operator
 
 
 _logger = logging.getLogger(__name__)
@@ -634,7 +635,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             baseline_metrics.get(metric_name, None),
             threshold,
         )
-        for (metric_name, threshold) in validation_thresholds
+        for (metric_name, threshold) in validation_thresholds.items()
     }
 
     for metric_name in validation_thresholds.keys():
@@ -642,46 +643,63 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             validation_thresholds[metric_name],
             validation_results[metric_name],
         )
+
         candidate_metric_value, baseline_metric_value = (
             candidate_metrics[metric_name],
             baseline_metrics[metric_name] if baseline_metrics else None,
         )
+
         if metric_name not in candidate_metrics:
             validation_result.missing = True
             continue
-        if metric_threshold.higher_is_better:
-            if metric_threshold.threshold is not None:
-                validation_result.threshold_failed = (
-                    candidate_metric_value < metric_threshold.threshold
-                )
-            if not baseline_metrics or metric_name not in baseline_metrics:
-                continue
-            if metric_threshold.min_absolute_change is not None:
-                validation_result.min_absolute_change_failed = (
-                    candidate_metric_value
-                    < baseline_metric_value + metric_threshold.min_absolute_change
-                )
-            if metric_threshold.min_relative_change is not None:
-                validation_result.min_relative_change_failed = (
+
+        # If metric is higher is better, >= is used, otherwise <= is used
+        # for thresholding metric value and model comparsion
+        comparator_fn = operator.__ge__ if metric_threshold.higher_is_better else operator.__le__
+
+        if metric_threshold.threshold is not None:
+            # metric threshold failed
+            # - if not (metric_value >= threshold) for higher is better
+            # - if not (metric_value <= threshold) for lower is better
+            validation_result.threshold_failed = not comparator_fn(
+                candidate_metric_value, metric_threshold.threshold
+            )
+
+        if not baseline_metrics or metric_name not in baseline_metrics:
+            continue
+
+        if metric_threshold.min_absolute_change is not None:
+            # metric comparsion aboslute change failed
+            # - if not (metric_value >= baseline + min_absolute_change) for higher is better
+            # - if not (metric_value <= baseline + min_absolute_change) for lower is better
+            validation_result.min_absolute_change_failed = not comparator_fn(
+                candidate_metric_value, baseline_metric_value + metric_threshold.min_absolute_change
+            )
+
+        if metric_threshold.min_relative_change is not None:
+            # metric comparsion relative change failed
+            # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
+            # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
+            if metric_threshold.higher_is_better:
+                relative_change = (
                     candidate_metric_value - baseline_metric_value
-                ) / baseline_metric_value < metric_threshold.min_relative_change_failed
-        else:
-            if metric_threshold.threshold is not None:
-                validation_result.threshold_failed = (
-                    candidate_metric_value > metric_threshold.threshold
-                )
-            if not baseline_metrics or metric_name not in baseline_metrics:
-                continue
-            if metric_threshold.min_absolute_change is not None:
-                validation_result.min_absolute_change_failed = (
-                    candidate_metric_value
-                    > baseline_metric_value + metric_threshold.min_absolute_change
-                )
-            if metric_threshold.min_relative_change is not None:
-                validation_result.min_relative_change_failed = (
+                ) / baseline_metric_value
+            else:
+                relative_change = (
                     baseline_metric_value - candidate_metric_value
-                ) / baseline_metric_value < metric_threshold.min_relative_change
-    return validation_results
+                ) / baseline_metric_value
+            validation_result.min_relative_change_failed = (
+                relative_change < metric_threshold.min_relative_change
+            )
+
+    failure_messages = []
+    for metric_validation_result in validation_results.values():
+        if metric_validation_result.is_success():
+            continue
+        failure_messages.append(str(metric_validation_result))
+    if not failure_messages:
+        return
+    raise MlflowException(message=os.linesep.join(failure_messages))
 
 
 def _is_eval_for_baseline_model(evaluator_name_to_conf_map):
@@ -1084,6 +1102,8 @@ def evaluate(
 
         if validation_thresholds and baseline_model_eval_results:
             _validate(
-                validation_thresholds, candidate_model_eval_results, baseline_model_eval_results
+                validation_thresholds,
+                candidate_model_eval_results.metrics,
+                baseline_model_eval_results.metrics,
             )
         return candidate_model_eval_results

@@ -39,7 +39,9 @@ class MetricThreshold:
         self._min_absolute_change = min_absolute_change
         self._min_relative_change = min_relative_change
         self._higher_is_better = higher_is_better
-        if self._min_relative_change < 0 or self._min_relative_change > 1:
+        if self._min_relative_change is not None and (
+            self._min_relative_change < 0 or self._min_relative_change > 1
+        ):
             raise ValueError("The min_relative_change argument must be in (0, 1)")
         if not self.is_empty():
             if self._higher_is_better is None or not isinstance(self._higher_is_better, bool):
@@ -111,11 +113,12 @@ class MetricThreshold:
 
 class _MetricValidationResult:
     """
-    ValidationResult per metric. Not user facing, used internally for generating validation
-    failure message more conveniently.
+    Internal class for representing validation result per metric.
+    Not user facing, used for organizing metric failures and generating failure message
+    more conveniently.
     :param metric_name: String representing the metric name
-    :param metric_threshold: :py:class: `MetricThreshold <mlflow.models.validation.MetricThreshold>`
-                      The MetricThreshold for the metric.
+    :param metric_threshold: :py:class: `MetricThreshold<mlflow.models.validation.MetricThreshold>`
+                             The MetricThreshold for the metric.
     """
 
     missing = False
@@ -137,20 +140,34 @@ class _MetricValidationResult:
         """
         if self.is_success():
             return f"Metric {self.metric_name} passed the validation."
+
         if self.missing:
-            return f"Metric {self.metric_name} was missing from the evaluation result"
+            return f"Metric {self.metric_name} was missing from the evaluation result."
+
         result_strs = []
         if self.threshold_failed:
             result_strs.append(
-                f"Metric value threshold check failure: \
-                candidate metric value: {self.candidate_metric_value}, \
-                threshold: {self.metric_threshold.threshold}"
+                f"{self.metric_name} value threshold check failed: "
+                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                + f"{self.metric_name} threshold: {self.metric_threshold.threshold}."
             )
         if self.min_absolute_change_failed:
-            result_strs.append("Threshold is not met")
+            result_strs.append(
+                f"{self.metric_name} minimum absolute change check failed: "
+                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                + f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                + f"{self.metric_name} minimum absolute change threshold: "
+                + f"{self.metric_threshold.min_absolute_change}."
+            )
         if self.min_relative_change_failed:
-            result_strs.append("")
-        return
+            result_strs.append(
+                f"{self.metric_name} minimum relative change check failed: "
+                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                + f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                + f"{self.metric_name} minimum relative change threshold: "
+                + f"{self.metric_threshold.min_relative_change}."
+            )
+        return " ".join(result_strs)
 
     def is_success(self):
         return (
