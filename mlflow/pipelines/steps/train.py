@@ -37,11 +37,11 @@ _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
-
     MODEL_ARTIFACT_RELATIVE_PATH = "model"
 
-    def __init__(self, step_config, pipeline_root):
+    def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
         self.train_module_name, self.estimator_method_name = self.step_config[
@@ -151,7 +151,9 @@ class TrainStep(BaseStep):
 
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
-            log_code_snapshot(self.pipeline_root, run.info.run_id)
+            log_code_snapshot(
+                self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
+            )
 
             eval_metrics = {}
             for dataset_name, dataset in {
@@ -451,7 +453,7 @@ class TrainStep(BaseStep):
                 "Config for train step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
         step_config["target_col"] = pipeline_config.get("target_col")
-        return cls(step_config, pipeline_root)
+        return cls(step_config, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):

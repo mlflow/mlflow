@@ -27,7 +27,6 @@ from mlflow.utils.mlflow_tags import (
 
 _logger = logging.getLogger(__name__)
 
-
 TrackingConfigType = TypeVar("TrackingConfig")
 
 
@@ -242,8 +241,13 @@ def get_run_tags_env_vars(pipeline_root_path: str) -> Dict[str, str]:
 
 
 def log_code_snapshot(
-    pipeline_root: str, run_id: str, artifact_path: str = "pipeline_snapshot"
+    pipeline_root: str,
+    run_id: str,
+    artifact_path: str = "pipeline_snapshot",
+    pipeline_config: Dict[str, Any] = None,
 ) -> None:
+    import yaml
+
     """
     Logs a pipeline code snapshot as mlflow artifacts.
 
@@ -266,4 +270,9 @@ def log_code_snapshot(
                 tmp_path = tmpdir.joinpath(file_path.relative_to(pipeline_root))
                 tmp_path.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copyfile(file_path, tmp_path)
+        if pipeline_config is not None:
+            tmp_path = tmpdir.joinpath("runtime/pipeline.yaml")
+            tmp_path.parent.mkdir(exist_ok=True, parents=True)
+            with open(tmp_path, mode="w+", encoding="utf-8") as config_file:
+                yaml.dump(pipeline_config, config_file)
         MlflowClient().log_artifacts(run_id, str(tmpdir), artifact_path=artifact_path)
