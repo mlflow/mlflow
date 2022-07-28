@@ -106,22 +106,6 @@ def evaluate_model_helper(
     )
 
 
-def check_metrics_are_expected_for_candidate_model_evaluation(
-    logged_metrics, result_metrics, expected_metrics, dataset_log_key
-):
-    """
-    Helper function for checking metrics of evaluation of model
-     - Meetrics should be logged and returned as expected
-    """
-    for metric_key in expected_metrics:
-        assert np.isclose(
-            expected_metrics[metric_key],
-            logged_metrics[metric_key + dataset_log_key],
-            rtol=1e-3,
-        )
-        assert np.isclose(expected_metrics[metric_key], result_metrics[metric_key], rtol=1e-3)
-
-
 def check_metrics_not_logged_for_baseline_model_evaluation(
     logged_metrics, result_metrics, expected_metrics
 ):
@@ -133,20 +117,6 @@ def check_metrics_not_logged_for_baseline_model_evaluation(
     assert logged_metrics == {}
     for metric_key in expected_metrics:
         assert np.isclose(expected_metrics[metric_key], result_metrics[metric_key], rtol=1e-3)
-
-
-def check_artifacts_are_expected_for_candidate_model_evaluation(
-    logged_artifacts,
-    result_artifacts,
-    expected_artifacts,
-    expected_artifacts_keys,
-):
-    """
-    Helper function for unit tests for checking artifacts of evaluation of candidate model
-        - Artifacts should be logged and returned as expected
-    """
-    assert set(logged_artifacts) == expected_artifacts
-    assert result_artifacts.keys() == expected_artifacts_keys
 
 
 def check_artifacts_are_not_generated_for_baseline_model_evaluation(
@@ -201,27 +171,23 @@ def test_regressor_evaluation(
         {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    check_metrics_are_expected_for_candidate_model_evaluation(
-        expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
-        dataset_log_key="_on_data_diabetes_dataset",
-    )
+    for metric_key in expected_metrics:
+        assert np.isclose(
+            expected_metrics[metric_key],
+            metrics[metric_key + "_on_data_diabetes_dataset"],
+            rtol=1e-3,
+        )
+        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
-    check_artifacts_are_expected_for_candidate_model_evaluation(
-        logged_artifacts=artifacts,
-        result_artifacts=result.artifacts,
-        expected_artifacts={
-            "shap_beeswarm_plot_on_data_diabetes_dataset.png",
-            "shap_feature_importance_plot_on_data_diabetes_dataset.png",
-            "shap_summary_plot_on_data_diabetes_dataset.png",
-        },
-        expected_artifacts_keys={
-            "shap_beeswarm_plot",
-            "shap_feature_importance_plot",
-            "shap_summary_plot",
-        },
-    )
+    assert json.loads(tags["mlflow.datasets"]) == [
+        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
+    ]
+
+    assert set(artifacts) == {
+        "shap_beeswarm_plot_on_data_diabetes_dataset.png",
+        "shap_feature_importance_plot_on_data_diabetes_dataset.png",
+        "shap_summary_plot_on_data_diabetes_dataset.png",
+    }
 
 
 def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
@@ -321,40 +287,35 @@ def test_multi_classifier_evaluation(
         iris_dataset.features_data, iris_dataset.labels_data
     )
 
-    check_metrics_are_expected_for_candidate_model_evaluation(
-        expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
-        dataset_log_key="_on_data_iris_dataset",
-    )
+    for metric_key in expected_metrics:
+        assert np.isclose(
+            expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
+        )
+        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**iris_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    check_artifacts_are_expected_for_candidate_model_evaluation(
-        logged_artifacts=artifacts,
-        result_artifacts=result.artifacts,
-        expected_artifacts={
-            "shap_beeswarm_plot_on_data_iris_dataset.png",
-            "per_class_metrics_on_data_iris_dataset.csv",
-            "roc_curve_plot_on_data_iris_dataset.png",
-            "precision_recall_curve_plot_on_data_iris_dataset.png",
-            "shap_feature_importance_plot_on_data_iris_dataset.png",
-            "explainer_on_data_iris_dataset",
-            "confusion_matrix_on_data_iris_dataset.png",
-            "shap_summary_plot_on_data_iris_dataset.png",
-        },
-        expected_artifacts_keys={
-            "per_class_metrics",
-            "roc_curve_plot",
-            "precision_recall_curve_plot",
-            "confusion_matrix",
-            "shap_beeswarm_plot",
-            "shap_summary_plot",
-            "shap_feature_importance_plot",
-        },
-    )
+    assert set(artifacts) == {
+        "shap_beeswarm_plot_on_data_iris_dataset.png",
+        "per_class_metrics_on_data_iris_dataset.csv",
+        "roc_curve_plot_on_data_iris_dataset.png",
+        "precision_recall_curve_plot_on_data_iris_dataset.png",
+        "shap_feature_importance_plot_on_data_iris_dataset.png",
+        "explainer_on_data_iris_dataset",
+        "confusion_matrix_on_data_iris_dataset.png",
+        "shap_summary_plot_on_data_iris_dataset.png",
+    }
+    assert result.artifacts.keys() == {
+        "per_class_metrics",
+        "roc_curve_plot",
+        "precision_recall_curve_plot",
+        "confusion_matrix",
+        "shap_beeswarm_plot",
+        "shap_summary_plot",
+        "shap_feature_importance_plot",
+    }
 
 
 def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
@@ -442,39 +403,36 @@ def test_bin_classifier_evaluation(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
 
-    check_metrics_are_expected_for_candidate_model_evaluation(
-        expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
-        dataset_log_key="_on_data_breast_cancer_dataset",
-    )
+    for metric_key in expected_metrics:
+        assert np.isclose(
+            expected_metrics[metric_key],
+            metrics[metric_key + "_on_data_breast_cancer_dataset"],
+            rtol=1e-3,
+        )
+        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    check_artifacts_are_expected_for_candidate_model_evaluation(
-        logged_artifacts=artifacts,
-        result_artifacts=result.artifacts,
-        expected_artifacts={
-            "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
-            "lift_curve_plot_on_data_breast_cancer_dataset.png",
-            "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
-            "precision_recall_curve_plot_on_data_breast_cancer_dataset.png",
-            "confusion_matrix_on_data_breast_cancer_dataset.png",
-            "shap_summary_plot_on_data_breast_cancer_dataset.png",
-            "roc_curve_plot_on_data_breast_cancer_dataset.png",
-        },
-        expected_artifacts_keys={
-            "roc_curve_plot",
-            "precision_recall_curve_plot",
-            "lift_curve_plot",
-            "confusion_matrix",
-            "shap_beeswarm_plot",
-            "shap_summary_plot",
-            "shap_feature_importance_plot",
-        },
-    )
+    assert set(artifacts) == {
+        "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
+        "lift_curve_plot_on_data_breast_cancer_dataset.png",
+        "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
+        "precision_recall_curve_plot_on_data_breast_cancer_dataset.png",
+        "confusion_matrix_on_data_breast_cancer_dataset.png",
+        "shap_summary_plot_on_data_breast_cancer_dataset.png",
+        "roc_curve_plot_on_data_breast_cancer_dataset.png",
+    }
+    assert result.artifacts.keys() == {
+        "roc_curve_plot",
+        "precision_recall_curve_plot",
+        "lift_curve_plot",
+        "confusion_matrix",
+        "shap_beeswarm_plot",
+        "shap_summary_plot",
+        "shap_feature_importance_plot",
+    }
 
 
 def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
@@ -557,23 +515,22 @@ def test_spark_regressor_model_evaluation(
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
 
-    check_metrics_are_expected_for_candidate_model_evaluation(
-        expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
-        dataset_log_key="_on_data_diabetes_spark_dataset",
-    )
+    for metric_key in expected_metrics:
+        assert np.isclose(
+            expected_metrics[metric_key],
+            metrics[metric_key + "_on_data_diabetes_spark_dataset"],
+            rtol=1e-3,
+        )
+        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+
+    model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**diabetes_spark_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    check_artifacts_are_expected_for_candidate_model_evaluation(
-        logged_artifacts=artifacts,
-        result_artifacts=result.artifacts,
-        expected_artifacts=set(),
-        expected_artifacts_keys=set(),
-    )
+    assert set(artifacts) == set()
+    assert result.artifacts == {}
 
 
 def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
@@ -651,33 +608,30 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
 
-    check_metrics_are_expected_for_candidate_model_evaluation(
-        expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
-        dataset_log_key="_on_data_breast_cancer_dataset",
-    )
+    for metric_key in expected_metrics:
+        assert np.isclose(
+            expected_metrics[metric_key],
+            metrics[metric_key + "_on_data_breast_cancer_dataset"],
+            rtol=1e-3,
+        )
+        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    check_artifacts_are_expected_for_candidate_model_evaluation(
-        logged_artifacts=artifacts,
-        result_artifacts=result.artifacts,
-        expected_artifacts={
-            "confusion_matrix_on_data_breast_cancer_dataset.png",
-            "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
-            "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
-            "shap_summary_plot_on_data_breast_cancer_dataset.png",
-        },
-        expected_artifacts_keys={
-            "confusion_matrix",
-            "shap_beeswarm_plot",
-            "shap_summary_plot",
-            "shap_feature_importance_plot",
-        },
-    )
+    assert set(artifacts) == {
+        "confusion_matrix_on_data_breast_cancer_dataset.png",
+        "shap_feature_importance_plot_on_data_breast_cancer_dataset.png",
+        "shap_beeswarm_plot_on_data_breast_cancer_dataset.png",
+        "shap_summary_plot_on_data_breast_cancer_dataset.png",
+    }
+    assert result.artifacts.keys() == {
+        "confusion_matrix",
+        "shap_beeswarm_plot",
+        "shap_summary_plot",
+        "shap_feature_importance_plot",
+    }
 
 
 def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
