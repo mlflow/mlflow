@@ -176,6 +176,7 @@ enable=c-extension-no-member,
        use-a-generator,
        super-with-arguments,
        useless-object-inheritance,
+       consider-using-from-import,
        consider-merging-isinstance,
        consider-using-dict-items
 

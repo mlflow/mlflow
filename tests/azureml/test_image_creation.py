@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pandas as pd
 import pandas.testing
-import sklearn.datasets as datasets
+from sklearn import datasets
 from sklearn.linear_model import LogisticRegression
 from click.testing import CliRunner
 

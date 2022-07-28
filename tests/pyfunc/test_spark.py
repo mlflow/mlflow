@@ -26,7 +26,7 @@ from mlflow.pyfunc.spark_model_cache import SparkModelCache
 import tests
 from mlflow.types import Schema, ColSpec
 
-import sklearn.datasets as datasets
+from sklearn import datasets
 from collections import namedtuple
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
