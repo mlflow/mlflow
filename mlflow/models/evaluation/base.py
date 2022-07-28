@@ -315,7 +315,8 @@ class EvaluationDataset:
 
             if len(self._features_data) != len(self._labels_data):
                 raise MlflowException(
-                    message="The input features example rows must be the same length with labels array.",
+                    message="The input features example rows must be the same length "
+                    "with labels array.",
                     erorr_code=INVALID_PARAMETER_VALUE,
                 )
 
@@ -517,9 +518,9 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param custom_metrics: A list of callable custom metric functions.
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
-        :param baseline_model: (Optional) A string URI referring to a MLflow model as baseline model
-                                          to be compared with the candidate model
-                                          for model validation.
+        :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
+                                          flavor as baseline model to be compared with the
+                                          candidate model for model validation.
                                           (pyfunc model instance is not allowed)
         :return: A tuple of :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation results for candidate model and baseline model (if provided else None).
@@ -600,8 +601,8 @@ def _normalize_evaluators_and_evaluator_config_args(
     elif isinstance(evaluators, str):
         if not (evaluator_config is None or isinstance(evaluator_config, dict)):
             raise MlflowException(
-                message="If `evaluators` argument is the name of an evaluator, evaluator_config must be "
-                "None or a dict containing config items for the evaluator.",
+                message="If `evaluators` argument is the name of an evaluator, evaluator_config"
+                " must be None or a dict containing config items for the evaluator.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         evaluator_name_list = [evaluators]
@@ -1008,7 +1009,7 @@ def evaluate(
             return evaluate_result
 
         # TODO: Add Model Validation here
-        if baseline_model:
+        if baseline_model and validation_thresholds:
             pass
 
         return evaluate_result
