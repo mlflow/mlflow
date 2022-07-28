@@ -49,7 +49,7 @@ import mlflow.pipelines.batch_scoring.v1.dag_help_strings as dag_help_strings
 from mlflow.pipelines.pipeline import _BasePipeline
 from mlflow.pipelines.steps.ingest import IngestStep
 from mlflow.pipelines.steps.preprocessing import _PREPROCESSED_OUTPUT_FILE_NAME, PreprocessingStep
-from mlflow.pipelines.steps.predict import _SCORED_OUTPUT_FILE_NAME
+from mlflow.pipelines.steps.predict import _SCORED_OUTPUT_FILE_NAME, PredictStep
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
 from mlflow.pipelines.utils.execution import get_or_create_base_execution_directory
@@ -89,7 +89,7 @@ class BatchScoringPipeline(_BasePipeline):
         batch_scoring_pipeline.inspect(step="predict")
     """
 
-    _PIPELINE_STEPS = (IngestStep, PreprocessingStep)  # for now, exclude predict
+    _PIPELINE_STEPS = (IngestStep, PreprocessingStep, PredictStep)
 
     def _get_step_classes(self) -> List[BaseStep]:
         return self._PIPELINE_STEPS

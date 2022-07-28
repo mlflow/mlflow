@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException, BAD_REQUEST, INVALID_PARAMETER_VA
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
+from mlflow.pipelines.utils.step import get_pandas_data_profile
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 _logger = logging.getLogger(__name__)
@@ -26,10 +27,33 @@ class PredictStep(BaseStep):
         self.execution_duration = None
 
     def _build_profiles_and_card(self, scored_df) -> BaseCard:
-        # do something with this to make the linter happy
-        len(scored_df)
+        # Build profiles for input dataset, and train / validation / test splits
+        scored_data_profile = get_pandas_data_profile(
+            scored_df.reset_index(drop=True),
+            "Profile of Preprocessed Dataset",
+        )
+
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
+        # Tab #1: data profile for scored data:
+        card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
+            "PROFILE", scored_data_profile
+        )
+        # Tab #2: run summary.
+        (
+            card.add_tab(
+                "Run Summary",
+                """
+                {{ SCORED_DATA_NUM_ROWS }}
+                {{ EXE_DURATION}}
+                {{ LAST_UPDATE_TIME }}
+                """,
+            ).add_markdown(
+                "SCORED_DATA_NUM_ROWS",
+                f"**Number of scored dataset rows:** `{len(scored_df)}`",
+            )
+        )
+
         return card
 
     def _run(self, output_directory):
