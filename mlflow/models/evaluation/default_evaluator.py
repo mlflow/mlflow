@@ -637,10 +637,9 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            if not self.is_baseline_model:
-                mlflow.shap.log_explainer(
-                    explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
-                )
+            mlflow.shap.log_explainer(
+                explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
+            )
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
@@ -888,6 +887,9 @@ class DefaultEvaluator(ModelEvaluator):
                         )
 
     def _log_confusion_matrix(self):
+        """
+        Helper method for logging confusion matrix
+        """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
         confusion_matrix = sk_metrics.confusion_matrix(
             self.y, self.y_pred, labels=self.label_list, normalize="true"
@@ -917,6 +919,9 @@ class DefaultEvaluator(ModelEvaluator):
         return
 
     def _generate_model_predictions(self):
+        """
+        Helper methof for generating model predictions
+        """
         if self.model_type == "classifier":
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
@@ -953,7 +958,10 @@ class DefaultEvaluator(ModelEvaluator):
         elif self.model_type == "regressor":
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
-    def _compute_metrics(self):
+    def _compute_builtin_metrics(self):
+        """
+        Helper method for computing builtin metrics for self.model, update results to self.metrics
+        """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
             self.metrics.update(
@@ -972,6 +980,9 @@ class DefaultEvaluator(ModelEvaluator):
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred))
 
     def _log_metrics_and_artifacts(self):
+        """
+        Helper method for generating artifacts, logging metrics and artifacts.
+        """
         if self.model_type == "classifier":
             if self.is_binomial:
                 self._log_binary_classifier()
@@ -1015,7 +1026,7 @@ class DefaultEvaluator(ModelEvaluator):
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
-                self._compute_metrics()
+                self._compute_builtin_metrics()
                 self._evaluate_custom_metrics_and_log_produced_artifacts(
                     disable_logging=is_baseline_model
                 )
