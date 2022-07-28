@@ -796,8 +796,8 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
             "pyfunc",
             pytest.raises(
                 ValueError,
-                match="The baseline model argument must "
-                + "be a string URI referring to an MLflow model",
+                match="The baseline model argument must \
+                be a string URI referring to an MLflow model",
             ),
             False,
         ),
