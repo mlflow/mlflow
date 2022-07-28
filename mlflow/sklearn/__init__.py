@@ -19,6 +19,7 @@ import pickle
 import yaml
 import weakref
 from collections import defaultdict, OrderedDict
+from copy import deepcopy
 from packaging.version import Version
 
 import mlflow
@@ -1262,15 +1263,36 @@ def _autolog(
         """
         Autologging function for XGBoost and LightGBM scikit-learn models
         """
+        # Obtain a copy of a model input example from the training dataset prior to model training
+        # for subsequent use during model logging, ensuring that the input example and inferred
+        # model signature to not include any mutations from model training
+        input_example_exc = None
+        try:
+            input_example = deepcopy(
+                _get_X_y_and_sample_weight(self.fit, args, kwargs)[0][:INPUT_EXAMPLE_SAMPLE_ROWS]
+            )
+        except Exception as e:
+            input_example_exc = e
+
+        def get_input_example():
+            if input_example_exc is not None:
+                raise input_example_exc
+            else:
+                return input_example
+
         # parameter, metric, and non-model artifact logging are done in
         # `train()` in `mlflow.xgboost.autolog()` and `mlflow.lightgbm.autolog()`
         fit_output = original(self, *args, **kwargs)
         # log models after training
-        X = _get_X_y_and_sample_weight(self.fit, args, kwargs)[0]
         if log_models:
             input_example, signature = resolve_input_example_and_signature(
-                lambda: X[:INPUT_EXAMPLE_SAMPLE_ROWS],
-                lambda input_example: infer_signature(input_example, self.predict(input_example)),
+                get_input_example,
+                lambda input_example: infer_signature(
+                    input_example,
+                    # Copy the input example so that it is not mutated by the call to
+                    # predict() prior to signature inference
+                    self.predict(deepcopy(input_example)),
+                ),
                 log_input_examples,
                 log_model_signatures,
                 _logger,
@@ -1298,11 +1320,15 @@ def _autolog(
         referred to be `func_name` on the instance of `clazz` referred to by `self` & records
         MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
         """
+        # Obtain a copy of the training dataset prior to model training for subsequent
+        # use during model logging & input example extraction, ensuring that we don't
+        # attempt to infer input examples on data that was mutated during training
+        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(self.fit, args, kwargs)
         autologging_client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
-        _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
+        _log_posttraining_metadata(autologging_client, self, X, y_true, sample_weight)
         autologging_client.flush(synchronous=True)
         params_logging_future.await_completion()
         return fit_output
@@ -1340,7 +1366,7 @@ def _autolog(
             tags=_get_estimator_info_tags(estimator),
         )
 
-    def _log_posttraining_metadata(autologging_client, estimator, *args, **kwargs):
+    def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
         """
         Records metadata for a scikit-learn estimator after training has completed.
         This is intended to be invoked within a patched scikit-learn training routine
@@ -1350,10 +1376,24 @@ def _autolog(
         :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                    efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
-        :param args: The arguments passed to the scikit-learn training routine (e.g.,
-                     `fit()`, `fit_transform()`, ...).
-        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
+        :param X: The training dataset samples passed to the ``estimator.fit()`` function.
+        :param y: The training dataset labels passed to the ``estimator.fit()`` function.
+        :param sample_weight: Sample weights passed to the ``estimator.fit()`` function.
         """
+        # Fetch an input example using the first several rows of the array-like
+        # training data supplied to the training routine (e.g., `fit()`). Copy the
+        # example to avoid mutation during subsequent metric computations
+        input_example_exc = None
+        try:
+            input_example = deepcopy(X[:INPUT_EXAMPLE_SAMPLE_ROWS])
+        except Exception as e:
+            input_example_exc = e
+
+        def get_input_example():
+            if input_example_exc is not None:
+                raise input_example_exc
+            else:
+                return input_example
 
         def infer_model_signature(input_example):
             if not hasattr(estimator, "predict"):
@@ -1362,9 +1402,12 @@ def _autolog(
                     + "which is required in order to infer the signature"
                 )
 
-            return infer_signature(input_example, estimator.predict(input_example))
-
-        (X, y_true, sample_weight) = _get_X_y_and_sample_weight(estimator.fit, args, kwargs)
+            return infer_signature(
+                input_example,
+                # Copy the input example so that it is not mutated by the call to
+                # predict() prior to signature inference
+                estimator.predict(deepcopy(input_example)),
+            )
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
@@ -1373,22 +1416,16 @@ def _autolog(
             prefix=_TRAINING_PREFIX,
             run_id=mlflow.active_run().info.run_id,
             X=X,
-            y_true=y_true,
+            y_true=y,
             sample_weight=sample_weight,
             pos_label=pos_label,
         )
-        if y_true is None and not logged_metrics:
+        if y is None and not logged_metrics:
             _logger.warning(
                 "Training metrics will not be recorded because training labels were not specified."
                 " To automatically record training metrics, provide training labels as inputs to"
                 " the model training function."
             )
-
-        def get_input_example():
-            # Fetch an input example using the first several rows of the array-like
-            # training data supplied to the training routine (e.g., `fit()`)
-            input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
-            return input_example
 
         def _log_model_with_except_handling(*args, **kwargs):
             try:
