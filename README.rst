@@ -60,7 +60,7 @@ Nightly Job Statuses
 .. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
 .. |test-requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Test%20requirements?event=schedule&label=test%20requirements&logo=github&style=for-the-badge
-    :target: https://github.com/mlflow/mlflow/actions/workflows/requirements.yml?query=workflow%3A%Test+requirements%22+event%3Aschedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
 
 Installing
 ----------
