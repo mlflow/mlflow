@@ -989,15 +989,9 @@ class DefaultEvaluator(ModelEvaluator):
 
         return self._log_and_return_evaluation_result()
 
-    def evaluate(
+    def _evaluate(
         self,
-        *,
         model: "mlflow.pyfunc.PyFuncModel",
-        model_type,
-        dataset,
-        run_id,
-        evaluator_config,
-        custom_metrics=None,
         is_baseline_model=False,
         **kwargs,
     ):
@@ -1008,13 +1002,6 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.temp_dir = temp_dir
             self.model = model
-            self.model_type = model_type
-            self.dataset = dataset
-            self.run_id = run_id
-            self.evaluator_config = evaluator_config
-            self.dataset_name = dataset.name
-            self.feature_names = dataset.feature_names
-            self.custom_metrics = custom_metrics
             self.is_baseline_model = is_baseline_model
 
             model_loader_module, raw_model = _extract_raw_model(model)
@@ -1025,26 +1012,57 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_fn = predict_fn
             self.predict_proba_fn = predict_proba_fn
 
-            self.y = dataset.labels_data
             self.metrics = dict()
+            self.baseline_metrics = dict()
             self.artifacts = {}
 
-            inferred_model_type = _infer_model_type_by_labels(self.y)
-
-            if inferred_model_type is not None and model_type != inferred_model_type:
-                _logger.warning(
-                    f"According to the evaluation dataset label values, the model type looks like "
-                    f"{inferred_model_type}, but you specified model type {model_type}. Please "
-                    f"verify that you set the `model_type` and `dataset` arguments correctly."
-                )
-
             with mlflow.utils.autologging_utils.disable_autologging():
-                if model_type == "classifier":
+                if self.model_type == "classifier":
                     return self._evaluate_classifier()
-                elif model_type == "regressor":
+                elif self.model_type == "regressor":
                     return self._evaluate_regressor()
                 else:
-                    raise ValueError(f"Unsupported model type {model_type}")
+                    raise ValueError(f"Unsupported model type {self.model_type}")
+
+    def evaluate(
+        self,
+        *,
+        model: "mlflow.pyfunc.PyFuncModel",
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        custom_metrics=None,
+        baseline_model=None,
+        **kwargs,
+    ):
+        self.dataset = dataset
+        self.run_id = run_id
+        self.model_type = model_type
+        self.evaluator_config = evaluator_config
+        self.dataset_name = dataset.name
+        self.feature_names = dataset.feature_names
+        self.custom_metrics = custom_metrics
+        self.y = dataset.labels_data
+
+        inferred_model_type = _infer_model_type_by_labels(self.y)
+
+        if inferred_model_type is not None and model_type != inferred_model_type:
+            _logger.warning(
+                f"According to the evaluation dataset label values, the model type looks like "
+                f"{inferred_model_type}, but you specified model type {model_type}. Please "
+                f"verify that you set the `model_type` and `dataset` arguments correctly."
+            )
+
+        evaluation_result = self._evaluate(
+            model, is_baseline_model=evaluator_config.get("is_baseline_model", False)
+        )
+
+        if not baseline_model:
+            return evaluation_result, None
+
+        baseline_model_evaluation_result = self._evaluate(baseline_model, is_baseline_model=True)
+        return evaluation_result, baseline_model_evaluation_result
 
     @property
     def X(self) -> pd.DataFrame:
