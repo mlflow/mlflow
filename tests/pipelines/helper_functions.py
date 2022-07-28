@@ -14,6 +14,7 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.utils.file_utils import TempDir
 from pathlib import Path
 from sklearn.datasets import load_diabetes
+from sklearn.dummy import DummyRegressor
 from sklearn.linear_model import LinearRegression
 
 import pytest
@@ -53,17 +54,21 @@ def setup_model_and_evaluate(tmp_pipeline_exec_path: Path):
     return evaluate_step_output_dir, register_step_output_dir
 
 
-def train_and_log_model():
+def train_and_log_model(is_dummy=False):
     mlflow.set_experiment("demo")
     with mlflow.start_run() as run:
         X, y = load_diabetes(as_frame=True, return_X_y=True)
-        model = LinearRegression().fit(X, y)
-        mlflow.sklearn.log_model(model, artifact_path="train/model")
-        return run.info.run_id, model
+        if is_dummy:
+            model = DummyRegressor(strategy="constant", constant=42)
+        else:
+            model = LinearRegression()
+        fitted_model = model.fit(X, y)
+        mlflow.sklearn.log_model(fitted_model, artifact_path="train/model")
+        return run.info.run_id, fitted_model
 
 
-def train_log_and_register_model(rm_name):
-    run_id, _ = train_and_log_model()
+def train_log_and_register_model(rm_name, is_dummy=False):
+    run_id, _ = train_and_log_model(is_dummy)
     runs_uri = "runs:/{}/train/model".format(run_id)
     mv = mlflow.register_model(runs_uri, rm_name)
     client = mlflow.tracking.MlflowClient()

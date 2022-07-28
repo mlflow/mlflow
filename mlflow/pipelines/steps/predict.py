@@ -10,8 +10,6 @@ from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.utils._spark_utils import _get_active_spark_session
 
-from pyspark.sql.functions import struct
-
 _logger = logging.getLogger(__name__)
 
 
@@ -35,6 +33,8 @@ class PredictStep(BaseStep):
         return card
 
     def _run(self, output_directory):
+        from pyspark.sql.functions import struct
+
         run_start_time = time.time()
 
         # Get or create spark session
@@ -59,11 +59,21 @@ class PredictStep(BaseStep):
 
         # score dataset
         model_uri = self.step_config["model_uri"]
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri)
+        env_manager = "local" if "_disable_env_restoration" in self.step_config else "conda"
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=env_manager)
         scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
 
         # save predictions
-        # TODO: add Delta and Table output formats
+        # note: the current output writing logic allows no overwrites
+        output_format = self.step_config["output_format"]
+        if output_format == "parquet" or output_format == "delta":
+            scored_sdf.coalesce(1).write.format(output_format).save(
+                self.step_config["output_location"]
+            )
+        else:
+            scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
+
+        # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
         scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
 
@@ -79,7 +89,7 @@ class PredictStep(BaseStep):
             raise MlflowException(
                 "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
-        required_configuration_keys = ["model_uri", "output_format"]
+        required_configuration_keys = ["model_uri", "output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in step_config:
                 raise MlflowException(
