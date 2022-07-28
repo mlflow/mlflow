@@ -229,9 +229,9 @@ def test_schema_inference_on_pandas_series():
     # test names
     s = pd.Series([1, 2, 3])
     if hasattr(s, "name"):
-        s.rename('test', inplace=True)
-        assert 'test' in _infer_schema(s).input_names()
-        assert not 'foo' in _infer_schema(s).input_names()
+        s.rename("test", inplace=True)
+        assert "test" in _infer_schema(s).input_names()
+        assert not "foo" in _infer_schema(s).input_names()
 
 
 def test_get_tensor_shape(dict_of_ndarrays):
