@@ -69,9 +69,7 @@ def load_project(directory):
         if docker_env.get("environment"):
             if not (
                 isinstance(docker_env["environment"], list)
-                and all(
-                    isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]
-                )
+                and all(isinstance(i, (list, str)) for i in docker_env["environment"])
             ):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
