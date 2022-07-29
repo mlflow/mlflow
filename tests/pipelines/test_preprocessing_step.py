@@ -35,7 +35,7 @@ def test_preprocessing_step_run(tmp_path):
     (preprocessing_output_dir / "summary.html").exists()
     (preprocessing_output_dir / "card.html").exists()
 
-    output_df = pd.read_parquet(str(preprocessing_output_dir / "dataset_preprocessed.parquet"))
+    output_df = pd.read_parquet(str(preprocessing_output_dir / "preprocessed.parquet"))
     assert len(output_df) == 1000
 
     assert output_df.columns.tolist() == ["a", "b", "y"]

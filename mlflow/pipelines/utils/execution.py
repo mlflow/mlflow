@@ -473,18 +473,19 @@ ingest:
 steps/ingest/outputs/dataset.parquet: steps/ingest/conf.yaml {path:prp/steps/ingest.py}
 	$(MAKE) ingest
 
-preprocessing_objects = steps/preprocessing/outputs/dataset_preprocessed.parquet
+preprocessing_objects = steps/preprocessing/outputs/preprocessed.parquet
 
 preprocessing: $(preprocessing_objects)
-steps/%/outputs/dataset_preprocessed.parquet: {path:prp/steps/preprocessing.py} steps/ingest/outputs/dataset.parquet steps/preprocessing/conf.yaml
+
+steps/%/outputs/preprocessed.parquet: {path:prp/steps/preprocessing.py} steps/ingest/outputs/dataset.parquet steps/preprocessing/conf.yaml
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.preprocessing import PreprocessingStep; PreprocessingStep.from_step_config_path(step_config_path='{path:exe/steps/preprocessing/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/preprocessing/outputs}')"
 
-predict_objects = steps/predict/outputs/dataset_scored.parquet
+predict_objects = steps/predict/outputs/scored.parquet
 
 predict: $(predict_objects)
 
-steps/%/outputs/dataset_scored.parquet: {path:prp/steps/predict.py} steps/preprocessing/outputs/dataset_preprocessed.parquet steps/predict/conf.yaml
+steps/%/outputs/scored.parquet: steps/preprocessing/outputs/preprocessed.parquet steps/predict/conf.yaml
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
 

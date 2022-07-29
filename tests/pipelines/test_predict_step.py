@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 import pytest
 from pyspark.sql import SparkSession
+from pyspark.sql.utils import AnalysisException
 from sklearn.datasets import load_diabetes
 
 from mlflow.exceptions import MlflowException
@@ -132,6 +133,45 @@ def test_predict_step_output_formats(
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     predict_step._run(str(predict_step_output_dir))
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
+
+
+@pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
+def test_predict_throws_when_overwriting_data(
+    tmp_pipeline_root_path: Path, predict_step_output_dir: Path, spark_session, output_format: str
+):
+    rm_name = "model_" + get_random_id()
+    model_uri = train_log_and_register_model(rm_name, is_dummy=True)
+    sdf = spark_session.createDataFrame(
+        [
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0),
+        ],
+        ["id", "text", "label"],
+    )
+    if output_format == "table":
+        output_path = get_random_id()
+        sdf.write.format("delta").saveAsTable(output_path)
+    else:
+        output_file = "output_{}.{}".format(get_random_id(), output_format)
+        output_path = str(predict_step_output_dir / output_file)
+        sdf.coalesce(1).write.format(output_format).save(output_path)
+
+    pipeline_config = {
+        "steps": {
+            "predict": {
+                "model_uri": model_uri,
+                "output_format": output_format,
+                "output_location": output_path,
+                "_disable_env_restoration": True,
+            }
+        }
+    }
+
+    predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
+    with pytest.raises(AnalysisException, match="already exists"):
+        predict_step._run(str(predict_step_output_dir))
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")

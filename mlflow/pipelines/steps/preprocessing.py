@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 
 _INPUT_FILE_NAME = "dataset.parquet"
-_PREPROCESSED_OUTPUT_FILE_NAME = "dataset_preprocessed.parquet"
+_PREPROCESSED_OUTPUT_FILE_NAME = "preprocessed.parquet"
 
 
 class PreprocessingStep(BaseStep):
