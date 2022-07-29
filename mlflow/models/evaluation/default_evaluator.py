@@ -857,7 +857,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _evaluate_custom_metrics_and_log_produced_artifacts(self, disable_logging=False):
+    def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
         if self.custom_metrics is None:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
@@ -878,7 +878,7 @@ class DefaultEvaluator(ModelEvaluator):
                     copy.deepcopy(builtin_metrics),
                 )
                 self.metrics.update(metric_results)
-                if artifact_results is not None and not disable_logging:
+                if artifact_results is not None and log_to_mlflow_tracking:
                     for artifact_name, raw_artifact in artifact_results.items():
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
@@ -1028,7 +1028,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self._generate_model_predictions()
                 self._compute_builtin_metrics()
                 self._evaluate_custom_metrics_and_log_produced_artifacts(
-                    disable_logging=is_baseline_model
+                    log_to_mlflow_tracking=not is_baseline_model
                 )
                 if not is_baseline_model:
                     self._log_metrics_and_artifacts()

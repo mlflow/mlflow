@@ -189,6 +189,12 @@ def test_regressor_evaluation(
         "shap_summary_plot_on_data_diabetes_dataset.png",
     }
 
+    assert result.artifacts.keys() == {
+        "shap_beeswarm_plot",
+        "shap_feature_importance_plot",
+        "shap_summary_plot",
+    }
+
 
 def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
     linear_regressor_model_uri,

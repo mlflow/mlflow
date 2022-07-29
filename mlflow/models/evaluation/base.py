@@ -94,7 +94,7 @@ class EvaluationResult:
     def __init__(self, metrics, artifacts, baseline_model_metrics=None):
         self._metrics = metrics
         self._artifacts = artifacts
-        self._baseline_model_metrics = baseline_model_metrics
+        self._baseline_model_metrics = baseline_model_metrics if baseline_model_metrics else dict()
 
     @classmethod
     def load(cls, path):
@@ -160,7 +160,7 @@ class EvaluationResult:
     @property
     def baseline_model_metrics(self) -> Dict[str, Any]:
         """
-        A dictionary mapping scalar metric names to scalar metric values for baseline model
+        A dictionary mapping scalar metric names to scalar metric values for the baseline model
         """
         return self._baseline_model_metrics
 
@@ -522,8 +522,9 @@ class ModelEvaluator(metaclass=ABCMeta):
                                           flavor as baseline model to be compared with the
                                           candidate model for model validation.
                                           (pyfunc model instance is not allowed)
-        :return: A tuple of :py:class:`mlflow.models.EvaluationResult` instance containing
-                 evaluation results for candidate model and baseline model (if provided else None).
+        :return: :py:class:`mlflow.models.EvaluationResult` instance containing
+                 evaluation metrics for candidate model and baseline model and artifacts for
+                 candidate model.
         """
         raise NotImplementedError()
 
@@ -698,10 +699,7 @@ def _evaluate(
             erorr_code=INVALID_PARAMETER_VALUE,
         )
 
-    if baseline_model:
-        merged_eval_result = EvaluationResult(dict(), dict(), dict())
-    else:
-        merged_eval_result = EvaluationResult(dict(), dict())
+    merged_eval_result = EvaluationResult(dict(), dict(), dict())
 
     for eval_result in eval_results:
         if not eval_result:
