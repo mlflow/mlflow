@@ -127,7 +127,11 @@ class _MetricValidationResult:
     min_relative_change_failed = False
 
     def __init__(
-        self, metric_name, candidate_metric_value, baseline_metric_value, metric_threshold
+        self,
+        metric_name,
+        candidate_metric_value,
+        metric_threshold,
+        baseline_metric_value=None,
     ):
         self.metric_name = metric_name
         self.candidate_metric_value = candidate_metric_value

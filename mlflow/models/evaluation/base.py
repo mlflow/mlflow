@@ -651,30 +651,34 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     :param baseline_metrics: The metric evaluation result of the baseline model.
     If the validation does not pass, raise an MlflowException with detail failure message.
     """
+    if not baseline_metrics:
+        baseline_metrics = dict()
+
     validation_results = {
         metric_name: _MetricValidationResult(
             metric_name,
             candidate_metrics.get(metric_name, None),
-            baseline_metrics.get(metric_name, None),
             threshold,
+            baseline_metrics.get(metric_name, None),
         )
         for (metric_name, threshold) in validation_thresholds.items()
     }
 
     for metric_name in validation_thresholds.keys():
+
         metric_threshold, validation_result = (
             validation_thresholds[metric_name],
             validation_results[metric_name],
         )
 
+        if metric_name not in candidate_metrics:
+            validation_result.missing = True
+            continue
+
         candidate_metric_value, baseline_metric_value = (
             candidate_metrics[metric_name],
             baseline_metrics[metric_name] if baseline_metrics else None,
         )
-
-        if metric_name not in candidate_metrics:
-            validation_result.missing = True
-            continue
 
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
@@ -716,12 +720,15 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             )
 
     failure_messages = []
+
     for metric_validation_result in validation_results.values():
         if metric_validation_result.is_success():
             continue
         failure_messages.append(str(metric_validation_result))
+
     if not failure_messages:
         return
+
     raise MlflowException(message=os.linesep.join(failure_messages))
 
 
@@ -747,6 +754,7 @@ def _evaluate(
     _last_failed_evaluator = None
 
     client = MlflowClient()
+
     model_uuid = model.metadata.model_uuid
 
     dataset._log_dataset_tag(client, run_id, model_uuid)
@@ -1090,13 +1098,13 @@ def evaluate(
             custom_metrics=custom_metrics,
             baseline_model=baseline_model,
         )
-        if not baseline_model:
+
+        if not validation_thresholds:
             return evaluate_result
 
-        if validation_thresholds and evaluate_result.baseline_metrics:
-            _validate(
-                validation_thresholds,
-                evaluate_result.metrics,
-                evaluate_result.baseline_metrics,
-            )
+        _validate(
+            validation_thresholds,
+            evaluate_result.metrics,
+            evaluate_result.baseline_model_metrics,
+        )
         return evaluate_result
