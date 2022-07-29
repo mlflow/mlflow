@@ -24,6 +24,7 @@ import pathlib
 from collections import OrderedDict
 from abc import ABCMeta, abstractmethod
 import operator
+from decimal import Decimal
 
 _logger = logging.getLogger(__name__)
 
@@ -700,7 +701,8 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # - if not (metric_value >= baseline + min_absolute_change) for higher is better
             # - if not (metric_value <= baseline + min_absolute_change) for lower is better
             validation_result.min_absolute_change_failed = not comparator_fn(
-                candidate_metric_value, baseline_metric_value + metric_threshold.min_absolute_change
+                Decimal(candidate_metric_value),
+                Decimal(baseline_metric_value + metric_threshold.min_absolute_change),
             )
 
         if metric_threshold.min_relative_change is not None:
