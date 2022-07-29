@@ -636,9 +636,6 @@ message RunInfo {
   // Unix timestamp of when the run ended in milliseconds.
   optional int64 end_time = 9;
 
-  // Unix timestamp of when the run is deleted in milliseconds.
-  optional int64 delete_time = 10;
-
   // URI of the directory where artifacts should be uploaded.
   // This can be a local path (starting with "/"), or a distributed file system (DFS)
   // path, like ``s3://bucket/directory`` or ``dbfs:/my/directory``.
