@@ -519,9 +519,9 @@ class ModelEvaluator(metaclass=ABCMeta):
         :param kwargs: For forwards compatibility, a placeholder for additional arguments that
                        may be added to the evaluation interface in the future.
         :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
-                                          flavor as baseline model to be compared with the
-                                          candidate model for model validation.
-                                          (pyfunc model instance is not allowed)
+                                          flavor as a baseline model to be compared with the
+                                          candidate model (specified by the `model` param) for model
+                                          validation. (pyfunc model instance is not allowed)
         :return: A tuple of :py:class:`mlflow.models.EvaluationResult` instance containing
                  evaluation results for candidate model and baseline model (if provided else None).
         """
