@@ -116,9 +116,7 @@ def _infer_schema(data: Any) -> Schema:
             )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        name = None
-        if hasattr(data, "name"):
-            name = data.name
+        name = hasattr(data, "name", None)
         schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
