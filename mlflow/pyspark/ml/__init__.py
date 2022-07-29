@@ -738,6 +738,17 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
+def _get_columns_with_unsupported_data_type(df):
+    from mlflow.types.schema import DataType
+
+    supported_spark_types = DataType.get_spark_types()
+    unsupported_columns = []
+    for field in df.schema.fields:
+        if field.dataType not in supported_spark_types:
+            unsupported_columns.append(field)
+    return unsupported_columns
+
+
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
@@ -976,7 +987,6 @@ def autolog(
         if log_models:
             if _should_log_model(spark_model):
                 from mlflow.models import infer_signature
-                from mlflow.types.schema import DataType
                 from mlflow.pyspark.ml._autolog import (
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
@@ -1000,16 +1010,21 @@ def autolog(
                     model_output = spark_model.transform(input_slice_df).drop(
                         *input_slice_df.columns
                     )
-                    return infer_signature(input_example_slice, model_output.toPandas())
+                    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Model output contains unsupported spark data types: "
+                            f"{unsupported_columns}. Output signature will not be logged."
+                        )
+                        model_output = None
+                    else:
+                        model_output = model_output.toPandas()
+
+                    return infer_signature(input_example_slice, model_output)
 
                 nonlocal log_model_signatures
-
                 if log_model_signatures:
-                    supported_spark_types = DataType.get_spark_types()
-                    unsupported_columns = []
-                    for field in input_df.schema.fields:
-                        if field.dataType not in supported_spark_types:
-                            unsupported_columns.append(field)
+                    unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
                     if unsupported_columns:
                         _logger.warning(
                             "Input dataframe contains unsupported spark data types: "
