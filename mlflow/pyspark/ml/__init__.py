@@ -886,6 +886,12 @@ def autolog(
                                  with spark ml pipeline/estimator artifacts during training.
                                  If ``False`` signatures are not logged.
 
+                                 .. warning::
+
+                                    Currently, only scalar Spark data types are supported. If
+                                    model inputs/outputs contain non-scalar Spark data types such
+                                    as vector, signatures are not logged.
+
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
@@ -1014,8 +1020,8 @@ def autolog(
                     unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
                     if unsupported_columns:
                         _logger.warning(
-                            "Model output contains unsupported spark data types: "
-                            f"{unsupported_columns}. Output signature will not be logged."
+                            "Model outputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Output schema is not be logged."
                         )
                         model_output = None
                     else:
@@ -1029,8 +1035,8 @@ def autolog(
                     unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
                     if unsupported_columns:
                         _logger.warning(
-                            "Model input contains unsupported spark data types: "
-                            f"{unsupported_columns}. Model signature will not be logged."
+                            "Model inputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Model signature is not logged."
                         )
                         log_model_signatures = False
 

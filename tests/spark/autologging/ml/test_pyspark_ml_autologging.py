@@ -94,6 +94,19 @@ def dataset_text(spark_session):
 
 
 @pytest.fixture(scope="module")
+def dataset_numeric(spark_session):
+    return spark_session.createDataFrame(
+        [
+            (1.0, 0),
+            (0.0, 1),
+            (1.0, 2),
+            (0.0, 3),
+        ],
+        ["number", "label"],
+    ).cache()
+
+
+@pytest.fixture(scope="module")
 def dataset_regression(spark_session):
     np.random.seed(1)
     num_features = 10
@@ -1002,16 +1015,31 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
         )
 
 
-def test_autolog_signature_not_logged_when_dataframe_contains_unsupported_data_types(
-    dataset_multinomial, lr
-):
+def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
     with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
         lr.fit(dataset_multinomial)
-        mock_warning.assert_called_once_with(AnyStringWith("Model signature will not be logged"))
+        mock_warning.assert_called_once_with(AnyStringWith("Model signature is not logged"))
         model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
         model_conf = Model.load(model_path.joinpath("MLmodel"))
         assert model_conf.signature is None
+
+
+def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
+    mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
+    input_cols = [c for c in dataset_numeric.columns if c != "label"]
+    pipe = Pipeline(
+        stages=[VectorAssembler(inputCols=input_cols, outputCol="features"), LinearRegression()]
+    )
+    with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+        pipe.fit(dataset_numeric)
+        mock_warning.assert_called_once_with(AnyStringWith("Output schema is not be logged"))
+        ml_model_path = pathlib.Path(run.info.artifact_uri).joinpath("model", "MLmodel")
+        with open(ml_model_path) as f:
+            data = yaml.safe_load(f)
+            signature = data["signature"]
+            assert json.loads(signature["inputs"]) == [{"name": "number", "type": "double"}]
+            assert signature["outputs"] is None
 
 
 @pytest.fixture
