@@ -115,6 +115,39 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         run_server_mock.assert_called()
 
 
+@pytest.mark.parametrize("command", [server, ui])
+def test_registry_store_uri_different_from_tracking_store(command):
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+
+    from mlflow.server.handlers import (
+        TrackingStoreRegistryWrapper,
+        ModelRegistryStoreRegistryWrapper,
+    )
+
+    handlers._tracking_store_registry = TrackingStoreRegistryWrapper()
+    handlers._model_registry_store_registry = ModelRegistryStoreRegistryWrapper()
+
+    with mock.patch("mlflow.server._run_server") as run_server_mock, mock.patch(
+        "mlflow.store.tracking.file_store.FileStore"
+    ) as tracking_store, mock.patch(
+        "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"
+    ) as registry_store:
+        result = CliRunner().invoke(
+            command,
+            [
+                "--backend-store-uri",
+                "./mlruns",
+                "--registry-store-uri",
+                "mysql://user:pwd@host:5432/mydb",
+            ],
+        )
+        assert result.exit_code == 0
+        run_server_mock.assert_called()
+        tracking_store.assert_called()
+        registry_store.assert_called()
+
+
 @pytest.fixture(scope="function")
 def sqlite_store():
     fd, temp_dbfile = tempfile.mkstemp()
@@ -227,15 +260,13 @@ def test_mlflow_models_serve(enable_mlserver):
 
     with mlflow.start_run():
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version.
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                # We also need that MLServer is present on the Conda
-                # environment, so we'll add that as an extra requirement.
-                mlflow.pyfunc.log_model(
-                    artifact_path="model",
-                    python_model=model,
-                    extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
-                )
+            # We need that MLServer is present on the Conda environment, so we'll add that
+            # as an extra requirement.
+            mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model,
+                extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
+            )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
         model_uri = mlflow.get_artifact_uri("model")

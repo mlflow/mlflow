@@ -6,10 +6,11 @@ import pytest
 import yaml
 import numpy as np
 import pandas as pd
-from sklearn import datasets
 import lightgbm as lgb
 import matplotlib as mpl
 from packaging.version import Version
+from sklearn import datasets
+from unittest import mock
 
 import mlflow
 import mlflow.lightgbm
@@ -180,6 +181,52 @@ def test_lgb_autolog_sklearn():
     )
     loaded_model = mlflow.lightgbm.load_model(model_uri)
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
+
+
+def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutations():
+    original_lgb_classifier_fit = lgb.LGBMClassifier.fit
+    original_lgb_classifier_predict = lgb.LGBMClassifier.predict
+
+    def patched_lgb_classifier_fit(self, *args, **kwargs):
+        X = args[0]
+        X["TESTCOL"] = 5
+        return original_lgb_classifier_fit(self, *args, **kwargs)
+
+    def patched_lgb_classifier_predict(self, *args, **kwargs):
+        X = args[0]
+        X["TESTCOL"] = 5
+        return original_lgb_classifier_predict(self, *args, **kwargs)
+
+    with mock.patch("lightgbm.LGBMClassifier.fit", patched_lgb_classifier_fit), mock.patch(
+        "lightgbm.LGBMClassifier.predict", patched_lgb_classifier_predict
+    ):
+        mlflow.lightgbm.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
+
+        X = pd.DataFrame(
+            {
+                "Total Volume": [64236.62, 54876.98, 118220.22],
+                "Total Bags": [8696.87, 9505.56, 8145.35],
+                "Small Bags": [8603.62, 9408.07, 8042.21],
+                "Large Bags": [93.25, 97.49, 103.14],
+                "XLarge Bags": [0.0, 0.0, 0.0],
+            }
+        )
+        y = pd.Series([1, 0, 1])
+
+        params = {"n_estimators": 10, "reg_lambda": 1}
+        model = lgb.LGBMClassifier(**params)
+        model.fit(X, y)
+
+        run_artifact_uri = mlflow.last_active_run().info.artifact_uri
+        model_conf = get_model_conf(run_artifact_uri)
+        input_example = pd.read_json(
+            os.path.join(run_artifact_uri, "model", "input_example.json"), orient="split"
+        )
+        model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
+        assert "XLarge Bags" in model_signature_input_names
+        assert "XLarge Bags" in input_example.columns
+        assert "TESTCOL" not in model_signature_input_names
+        assert "TESTCOL" not in input_example.columns
 
 
 def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
@@ -531,7 +578,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
 
     input_example = _read_example(model_conf, model_path)
 
-    assert input_example.equals(X[:5])
+    pd.testing.assert_frame_equal(input_example, (X[:5]))
 
     pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
 

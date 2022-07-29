@@ -161,7 +161,7 @@ def create_deployment(flavor, model_uri, target, name, config, endpoint):
     " about supported remote URIs for model artifacts, see"
     " https://mlflow.org/docs/latest/tracking.html"
     "#artifact-stores",
-)  # optional model_uri
+)
 @click.option(
     "--flavor",
     "-f",
@@ -288,8 +288,15 @@ def predictions_to_json(raw_predictions, output):
 
 
 @commands.command("predict")
-@optional_endpoint_param
-@optional_deployment_name
+@click.option(
+    "--name",
+    "name",
+    help="Name of the deployment. Exactly one of --name or --endpoint must be specified.",
+)
+@click.option(
+    "--endpoint",
+    help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.",
+)
 @target_details
 @parse_input
 @parse_output
@@ -298,6 +305,9 @@ def predict(target, name, input_path, output_path, endpoint):
     Predict the results for the deployed model for the given input(s)
     """
     import pandas as pd
+
+    if (name, endpoint).count(None) != 1:
+        raise click.UsageError("Must specify exactly one of --name or --endpoint.")
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
@@ -315,8 +325,15 @@ def predict(target, name, input_path, output_path, endpoint):
 
 
 @commands.command("explain")
-@optional_endpoint_param
-@optional_deployment_name
+@click.option(
+    "--name",
+    "name",
+    help="Name of the deployment. Exactly one of --name or --endpoint must be specified.",
+)
+@click.option(
+    "--endpoint",
+    help="Name of the endpoint. Exactly one of --name or --endpoint must be specified.",
+)
 @target_details
 @parse_input
 @parse_output
@@ -332,6 +349,9 @@ def explain(target, name, input_path, output_path, endpoint):
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools
     """
     import pandas as pd
+
+    if (name, endpoint).count(None) != 1:
+        raise click.UsageError("Must specify exactly one of --name or --endpoint.")
 
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)

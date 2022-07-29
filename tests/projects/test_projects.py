@@ -33,6 +33,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.utils import PYTHON_VERSION
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
@@ -375,13 +376,14 @@ name: {name}
 channels:
   - conda-forge
 dependencies:
-  - python=3.7.12
+  - python={python_version}
   - pip
   - pip:
       - mlflow==999.999.999
 """.format(
         # Enforce creating a new environment
-        name=uuid.uuid4().hex
+        name=uuid.uuid4().hex,
+        python_version=PYTHON_VERSION,
     )
     conda_yaml.write_text(content)
     envs_before = mlflow.utils.conda._list_conda_environments()

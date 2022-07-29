@@ -5,10 +5,10 @@ from unittest import mock
 
 import onnx
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.onnx
 from torch.utils.data import DataLoader
-import sklearn.datasets as datasets
+from sklearn import datasets
 import pandas as pd
 import numpy as np
 import yaml
@@ -269,7 +269,9 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert np.allclose(pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05)
+    np.testing.assert_allclose(
+        pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
+    )
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
@@ -278,7 +280,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
         .values.flatten()
         .astype(np.float32),
@@ -304,7 +306,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert np.allclose(
+    np.testing.assert_allclose(
         pyfunc_loaded.predict(data_multiple_inputs).values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
@@ -318,7 +320,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         pd.read_json(scoring_response.content.decode("utf-8"), orient="records").values,
         predicted_multiple_inputs.values,
         rtol=1e-05,
@@ -346,7 +348,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert np.allclose(
+    np.testing.assert_allclose(
         pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
         predicted_multiple_inputs.astype("float32").values,
         rtol=1e-05,
@@ -418,7 +420,7 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
 
         # Loading pyfunc model
         pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
-        assert np.allclose(
+        np.testing.assert_allclose(
             pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
         )
         # test with a single numpy array
@@ -429,9 +431,11 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
         def get_ary_output(args):
             return next(iter(pyfunc_loaded.predict(args).values())).flatten()
 
-        assert np.allclose(get_ary_output(np_ary), predicted, rtol=1e-05, atol=1e-05)
+        np.testing.assert_allclose(get_ary_output(np_ary), predicted, rtol=1e-05, atol=1e-05)
         # test with a dict with a single tensor
-        assert np.allclose(get_ary_output({"input": np_ary}), predicted, rtol=1e-05, atol=1e-05)
+        np.testing.assert_allclose(
+            get_ary_output({"input": np_ary}), predicted, rtol=1e-05, atol=1e-05
+        )
 
 
 def test_model_save_evaluate_pyfunc_format_multi_tensor(
@@ -449,7 +453,7 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(
             "petal_features": data[data.columns[2:4]].values.astype(np.float32),
         }
         preds = pyfunc_loaded.predict(feeds)["target"].flatten()
-        assert np.allclose(preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05)
+        np.testing.assert_allclose(preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05)
         # single numpy array input should fail with the right error message:
         with pytest.raises(
             MlflowException, match="Unable to map numpy array input to the expected model input."

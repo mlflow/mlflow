@@ -1,13 +1,14 @@
 import importlib
 import logging
 import os
+import re
 import sys
 import datetime
 
 import cloudpickle
 
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import SourceType, ViewType
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
@@ -29,14 +30,19 @@ from mlflow.pipelines.utils.tracking import (
 from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
-
+from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLATE_NAME
 
 _logger = logging.getLogger(__name__)
 
 
 class TrainStep(BaseStep):
-    def __init__(self, step_config, pipeline_root):
+
+    MODEL_ARTIFACT_RELATIVE_PATH = "model"
+
+    def __init__(self, step_config, pipeline_root, pipeline_config=None):
         super().__init__(step_config, pipeline_root)
+        self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
         self.train_module_name, self.estimator_method_name = self.step_config[
@@ -105,7 +111,11 @@ class TrainStep(BaseStep):
         estimator = estimator_fn()
         mlflow.autolog(log_models=False)
 
-        with mlflow.start_run() as run:
+        tags = {
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
+            MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+        }
+        with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
 
             if hasattr(estimator, "best_score_"):
@@ -134,7 +144,7 @@ class TrainStep(BaseStep):
             output_model_path = get_step_output_path(
                 pipeline_root_path=self.pipeline_root,
                 step_name=self.name,
-                relative_path="model",
+                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
             )
             if os.path.exists(output_model_path) and os.path.isdir(output_model_path):
                 shutil.rmtree(output_model_path)
@@ -142,7 +152,9 @@ class TrainStep(BaseStep):
 
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
-            log_code_snapshot(self.pipeline_root, run.info.run_id)
+            log_code_snapshot(
+                self.pipeline_root, run.info.run_id, pipeline_config=self.pipeline_config
+            )
 
             eval_metrics = {}
             for dataset_name, dataset in {
@@ -333,12 +345,14 @@ class TrainStep(BaseStep):
                 row_style, axis=1
             )
         )
+
+        # Tab 1: Model performance summary metrics.
         card.add_tab(
             "Model Performance Summary Metrics",
             "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
-        # Tab 1: Prediction and error data profile.
+        # Tab 2: Prediction and error data profile.
         pred_and_error_df_profile = get_pandas_data_profile(
             pred_and_error_df.reset_index(drop=True),
             "Predictions and Errors (Validation Dataset)",
@@ -346,12 +360,12 @@ class TrainStep(BaseStep):
         card.add_tab("Profile of Predictions and Errors", "{{PROFILE}}").add_pandas_profile(
             "PROFILE", pred_and_error_df_profile
         )
-        # Tab 2: Model architecture.
+        # Tab 3: Model architecture.
         set_config(display="diagram")
         model_repr = estimator_html_repr(model)
         card.add_tab("Model Architecture", "{{MODEL_ARCH}}").add_html("MODEL_ARCH", model_repr)
 
-        # Tab 3: Inferred model (transformer + estimator) schema.
+        # Tab 4: Inferred model (transformer + estimator) schema.
         def render_schema(inputs, title):
             from mlflow.types import ColSpec
 
@@ -377,14 +391,14 @@ class TrainStep(BaseStep):
             '<div style="display: flex">{tables}</div>'.format(tables="\n".join(schema_tables)),
         )
 
-        # Tab 4: Examples with Largest Prediction Error
+        # Tab 5: Examples with Largest Prediction Error
         (
             card.add_tab(
                 "Training Examples with Largest Prediction Error", "{{ WORST_EXAMPLES_TABLE }}"
             ).add_html("WORST_EXAMPLES_TABLE", BaseCard.render_table(worst_examples_df))
         )
 
-        # Tab 5: Leaderboard
+        # Tab 6: Leaderboard
         if leaderboard_df is not None:
             (
                 card.add_tab("Leaderboard", "{{ LEADERBOARD_TABLE }}").add_html(
@@ -392,18 +406,34 @@ class TrainStep(BaseStep):
                 )
             )
 
-        # Tab 6: Run summary.
-        (
-            card.add_tab(
-                "Run Summary",
-                "{{ RUN_ID }} "
-                + "{{ MODEL_URI }}"
-                + "{{ EXE_DURATION }}"
-                + "{{ LAST_UPDATE_TIME }}",
-            )
-            .add_markdown("RUN_ID", f"**MLflow Run ID:** `{run_id}`")
-            .add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
+        # Tab 7: Run summary.
+        run_card_tab = card.add_tab(
+            "Run Summary",
+            "{{ RUN_ID }} " + "{{ MODEL_URI }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
         )
+        run_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+        )
+        model_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+            artifact_path=re.sub(r"^.*?%s" % run_id, "", model_uri),
+        )
+
+        if run_url is not None:
+            run_card_tab.add_html(
+                "RUN_ID", f"<b>MLflow Run ID:</b> <a href={run_url}>{run_id}</a><br><br>"
+            )
+        else:
+            run_card_tab.add_markdown("RUN_ID", f"**MLflow Run ID:** `{run_id}`")
+
+        if model_url is not None:
+            run_card_tab.add_html(
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+            )
+        else:
+            run_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
         return card
 
@@ -412,6 +442,7 @@ class TrainStep(BaseStep):
         try:
             step_config = pipeline_config["steps"]["train"]
             step_config["metrics"] = pipeline_config.get("metrics")
+            step_config["template_name"] = pipeline_config.get("template")
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
@@ -423,7 +454,7 @@ class TrainStep(BaseStep):
                 "Config for train step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
         step_config["target_col"] = pipeline_config.get("target_col")
-        return cls(step_config, pipeline_root)
+        return cls(step_config, pipeline_root, pipeline_config=pipeline_config)
 
     @property
     def name(self):

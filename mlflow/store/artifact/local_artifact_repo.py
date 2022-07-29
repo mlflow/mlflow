@@ -1,4 +1,4 @@
-import distutils.dir_util as dir_util
+from distutils import dir_util
 import os
 import shutil
 

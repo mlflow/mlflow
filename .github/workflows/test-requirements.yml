@@ -1,0 +1,71 @@
+name: Validate requirements
+
+on:
+  pull_request:
+    paths:
+      - requirements/core-requirements.yaml
+      - requirements/skinny-requirements.yaml
+  schedule:
+    - cron: '0 13 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  # Best effort to test MLflow with newer versions of dependencies and increase
+  # the maximum supported major versions. For example, pandas > 1.3 is not installable
+  # in Python 3.7, but it is in Python 3.8.
+  PYTHON_VERSION: '3.8'
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  skinny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --skinny
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
+
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/setup-python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dev script dependencies
+        run: |
+          pip install -r dev/requirements.txt
+      - uses: ./.github/actions/update-requirements
+        if: github.event_name == 'schedule'
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --ml
+      - name: Run tests
+        run: |
+          source dev/setup-ssh.sh
+          ./dev/run-python-tests.sh

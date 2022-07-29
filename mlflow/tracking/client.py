@@ -29,15 +29,10 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_default_tracking_uri,
-    is_in_databricks_job,
-    is_in_databricks_notebook,
-    get_workspace_info_from_dbutils,
-    get_workspace_info_from_databricks_secrets,
-)
+from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -419,9 +414,10 @@ class MlflowClient:
                             its own limit.
         :param filter_string:
             Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
-            experiments. The following fields, comparators, and logical operators are supported.
+            experiments. The following identifiers, comparators, and logical operators are
+            supported.
 
-            Fields
+            Identifiers
               - ``name``: Experiment name.
               - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
                 spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
@@ -438,7 +434,7 @@ class MlflowClient:
         :param order_by:
             List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
             ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
-            equivalent to ``"name ASC"``. The following fields are supported.
+            equivalent to ``"name ASC"``. The following identifiers are supported.
 
             - ``name``: Experiment name.
             - ``experiment_id``: Experiment ID.
@@ -588,11 +584,16 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
+            from pathlib import Path
             from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
-            experiment_id = client.create_experiment("Social NLP Experiments")
+            experiment_id = client.create_experiment(
+                "Social NLP Experiments",
+                artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+                tags={"version": "v1", "priority": "P1"},
+            )
             client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
 
             # Fetch experiment metadata information
@@ -608,8 +609,8 @@ class MlflowClient:
 
             Name: Social NLP Experiments
             Experiment_id: 1
-            Artifact Location: file:///.../mlruns/1
-            Tags: {'nlp.framework': 'Spark NLP'}
+            Artifact Location: file:///.../mlruns
+            Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
         return self._tracking_client.create_experiment(name, artifact_location, tags)
@@ -2337,7 +2338,7 @@ class MlflowClient:
                     "because no run_id was given"
                 )
             else:
-                run_link = self._get_run_link(tracking_uri, run_id)
+                run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
@@ -2365,33 +2366,6 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
         )
-
-    def _get_run_link(self, tracking_uri, run_id):
-        # if using the default Databricks tracking URI and in a notebook, we can automatically
-        # figure out the run-link.
-        if is_databricks_default_tracking_uri(tracking_uri) and (
-            is_in_databricks_notebook() or is_in_databricks_job()
-        ):
-            # use DBUtils to determine workspace information.
-            workspace_host, workspace_id = get_workspace_info_from_dbutils()
-        else:
-            # in this scenario, we're not able to automatically extract the workspace ID
-            # to proceed, and users will need to pass in a databricks profile with the scheme:
-            # databricks://scope:prefix and store the host and workspace-ID as a secret in the
-            # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
-            workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
-            if not workspace_id:
-                _logger.info(
-                    "No workspace ID specified; if your Databricks workspaces share the same"
-                    " host URL, you may want to specify the workspace ID (along with the host"
-                    " information in the secret manager) for run lineage tracking. For more"
-                    " details on how to specify this information in the secret manager,"
-                    " please refer to the model registry documentation."
-                )
-        # retrieve experiment ID of the run for the URL
-        experiment_id = self.get_run(run_id).info.experiment_id
-        if workspace_host and run_id and experiment_id:
-            return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
@@ -2789,14 +2763,19 @@ class MlflowClient:
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
+    def set_model_version_tag(
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+    ) -> None:
         """
         Set a tag for the model version.
+        When stage is set, tag will be set for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key to log.
-        :param value: Tag value to log.
+        :param key: Tag key to log. key is required.
+        :param value: Tag value to log. value is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2831,7 +2810,13 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
+
+            # Tag using model version
             client.set_model_version_tag(name, mv.version, "t", "1")
+
+            # Tag using model stage
+            client.set_model_version_tag(name, key="t1", value="1", stage=mv.current_stage)
+
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2844,17 +2829,33 @@ class MlflowClient:
             --
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': '1'}
+            Tags: {'t': '1', 't1': '1'}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
+
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
+    def delete_model_version_tag(
+        self, name: str, version: str = None, key: str = None, stage: str = None
+    ) -> None:
         """
         Delete a tag associated with the model version.
+        When stage is set, tag will be deleted for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key.
+        :param key: Tag key. key is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2886,11 +2887,15 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "t1"}
+            tags = {'t': "1", "t1" : "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
+            #using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
+
+            #using stage to delete tag
+            client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2899,10 +2904,20 @@ class MlflowClient:
 
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': 't1'}
+            Tags: {'t': '1', 't1': '2'}
             --
             Name: RandomForestRegression
             Version: 1
             Tags: {}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)

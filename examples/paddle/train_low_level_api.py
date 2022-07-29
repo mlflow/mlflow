@@ -27,7 +27,7 @@ def load_data():
 
 class Regressor(paddle.nn.Layer):
     def __init__(self):
-        super(Regressor, self).__init__()
+        super().__init__()
 
         self.fc = Linear(in_features=13, out_features=1)
 

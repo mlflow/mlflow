@@ -156,7 +156,7 @@ def prepare_env(
 
 
 @commands.command("build-docker")
-@cli_args.MODEL_URI
+@cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
@@ -164,21 +164,35 @@ def prepare_env(
 @cli_args.ENABLE_MLSERVER
 def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
-    Builds a Docker image whose default entrypoint serves the specified MLflow
-    model at port 8080 within the container, using the 'python_function' flavor.
+    Builds a Docker image whose default entrypoint serves an MLflow model at port 8080, using the
+    python_function flavor. The container serves the model referenced by ``--model-uri``, if
+    specified when ``build-docker`` is called. If ``--model-uri`` is not specified when build_docker
+    is called, an MLflow Model directory must be mounted as a volume into the /opt/ml/model
+    directory in the container.
 
-    For example, the following command builds a docker image named 'my-image-name' that serves the
-    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
-
-    .. code:: bash
-
-        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
-
-    We can then serve the model, exposing it at port 5001 on the host via:
+    Building a Docker image with ``--model-uri``:
 
     .. code:: bash
 
+        # Build a Docker image named 'my-image-name' that serves the model from run 'some-run-uuid'
+        # at run-relative artifact path 'my-model'
+        mlflow models build-docker --model-uri "runs:/some-run-uuid/my-model" --name "my-image-name"
+        # Serve the model
         docker run -p 5001:8080 "my-image-name"
+
+    Building a Docker image without ``--model-uri``:
+
+    .. code:: bash
+
+        # Build a generic Docker image named 'my-image-name'
+        mlflow models build-docker --name "my-image-name"
+        # Mount the model stored in '/local/path/to/artifacts/model' and serve it
+        docker run --rm -p 5001:8080 -v /local/path/to/artifacts/model:/opt/ml/model "my-image-name"
+
+    .. warning::
+
+        The image built without ``--model-uri`` doesn't support serving models with RFunc / Java
+        MLeap model server.
 
     NB: by default, the container will start nginx and gunicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
@@ -187,7 +201,6 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     .. code:: bash
 
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
-
 
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
@@ -205,15 +218,18 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
 def _get_flavor_backend(model_uri, **kwargs):
     from mlflow.models.flavor_backend_registry import get_flavor_backend
 
-    with TempDir() as tmp:
-        if ModelsArtifactRepository.is_models_uri(model_uri):
-            underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        else:
-            underlying_model_uri = model_uri
-        local_path = _download_artifact_from_uri(
-            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
-        )
-        model = Model.load(local_path)
+    if model_uri:
+        with TempDir() as tmp:
+            if ModelsArtifactRepository.is_models_uri(model_uri):
+                underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+            else:
+                underlying_model_uri = model_uri
+            local_path = _download_artifact_from_uri(
+                append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
+            )
+            model = Model.load(local_path)
+    else:
+        model = None
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")

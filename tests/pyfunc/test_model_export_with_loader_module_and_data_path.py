@@ -134,7 +134,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert np.array_equal(_read_example(mlflow_model, path), example)
+                    np.testing.assert_array_equal(_read_example(mlflow_model, path), example)
 
 
 def test_column_schema_enforcement():
@@ -525,17 +525,21 @@ def test_column_schema_enforcement_no_col_names():
     test_data = [[1.0, 2.0, 3.0]]
 
     # Can call with just a list
-    assert pyfunc_model.predict(test_data).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(pyfunc_model.predict(test_data), pd.DataFrame(test_data))
 
     # Or can call with a DataFrame without column names
-    assert pyfunc_model.predict(pd.DataFrame(test_data)).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(
+        pyfunc_model.predict(pd.DataFrame(test_data)), pd.DataFrame(test_data)
+    )
 
     # # Or can call with a np.ndarray
-    assert pyfunc_model.predict(pd.DataFrame(test_data).values).equals(pd.DataFrame(test_data))
+    pd.testing.assert_frame_equal(
+        pyfunc_model.predict(pd.DataFrame(test_data).values), pd.DataFrame(test_data)
+    )
 
     # Or with column names!
     pdf = pd.DataFrame(data=test_data, columns=["a", "b", "c"])
-    assert pyfunc_model.predict(pdf).equals(pdf)
+    pd.testing.assert_frame_equal(pyfunc_model.predict(pdf), pdf)
 
     # Must provide the right number of arguments
     with pytest.raises(MlflowException, match="the provided value only has 2 inputs."):
@@ -551,7 +555,7 @@ def test_column_schema_enforcement_no_col_names():
 
     # 9. dictionaries of str -> list/nparray work
     d = {"a": [1.0], "b": [2.0], "c": [3.0]}
-    assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
+    pd.testing.assert_frame_equal(pyfunc_model.predict(d), pd.DataFrame(d))
 
 
 def test_tensor_schema_enforcement_no_col_names():
@@ -562,10 +566,10 @@ def test_tensor_schema_enforcement_no_col_names():
     test_data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
 
     # Can call with numpy array of correct shape
-    assert np.array_equal(pyfunc_model.predict(test_data), test_data)
+    np.testing.assert_array_equal(pyfunc_model.predict(test_data), test_data)
 
     # Or can call with a dataframe
-    assert np.array_equal(pyfunc_model.predict(pd.DataFrame(test_data)), test_data)
+    np.testing.assert_array_equal(pyfunc_model.predict(pd.DataFrame(test_data)), test_data)
 
     # Can not call with a list
     with pytest.raises(
@@ -596,7 +600,7 @@ def test_tensor_schema_enforcement_no_col_names():
 
     # Can call with a np.ndarray with more elements along variable axis
     test_data2 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float32)
-    assert np.array_equal(pyfunc_model.predict(test_data2), test_data2)
+    np.testing.assert_array_equal(pyfunc_model.predict(test_data2), test_data2)
 
     # Can not call with an empty ndarray
     with pytest.raises(

@@ -99,7 +99,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                     error_message=(ex.message),
                     error_code=BAD_REQUEST,
                 )
-        elif "data" in dict.keys():
+        elif "data" in decoded_input:
             return dataframe_from_parsed_json(decoded_input, pandas_orient="split", schema=schema)
         else:
             return dataframe_from_parsed_json(decoded_input, pandas_orient="records", schema=schema)
