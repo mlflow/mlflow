@@ -1065,7 +1065,7 @@ class DefaultEvaluator(ModelEvaluator):
             )
 
         evaluation_result = self._evaluate(
-            model, is_baseline_model=evaluator_config.get("is_baseline_model", False)
+            model, is_baseline_model=evaluator_config.get("disable_candidate_model", False)
         )
 
         if not baseline_model:
