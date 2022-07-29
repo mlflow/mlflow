@@ -297,6 +297,24 @@ def min_absolute_change_threshold_test_spec(request):
             {},
         )
 
+    if request.param == "single_metric_satisfied_higher_better":
+        return ({"accuracy": 0.9 + 1e2}, {"accuracy": 0.8}, {"accuracy": acc_threshold}, {})
+
+    if request.param == "single_metric_satisfied_lower_better":
+        return ({"log_loss": 0.3}, {"log_loss": 0.4 + 1e3}, {"log_loss": log_loss_threshold}, {})
+
+    if request.param == "multiple_metrics_all_satisfied":
+        return (
+            {"accuracy": 0.9, "f1_score": 0.8, "log_loss": 0.3},
+            {"accuracy": 0.7, "f1_score": 0.6, "log_loss": 0.5},
+            {
+                "accuracy": acc_threshold,
+                "f1_score": f1score_threshold,
+                "log_loss": log_loss_threshold,
+            },
+            {},
+        )
+
 
 @pytest.mark.parametrize(
     "min_absolute_change_threshold_test_spec",
@@ -353,7 +371,10 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
 @pytest.mark.parametrize(
     "min_absolute_change_threshold_test_spec",
     [
+        ("single_metric_satisfied_higher_better"),
+        ("single_metric_satisfied_lower_better"),
         ("equality_boundary"),
+        ("multiple_metrics_all_satisfied"),
     ],
     indirect=["min_absolute_change_threshold_test_spec"],
 )
@@ -368,6 +389,209 @@ def test_validation_model_comparison_absolute_threshold_should_pass(
         validation_thresholds,
         _,
     ) = min_absolute_change_threshold_test_spec
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        evaluator1_config = {}
+        evaluator1_return_value = EvaluationResult(
+            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        )
+        with mock.patch.object(
+            MockEvaluator, "can_evaluate", return_value=True
+        ) as _, mock.patch.object(
+            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        ) as _:
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                data=iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                evaluators="test_evaluator1",
+                evaluator_config=evaluator1_config,
+                validation_thresholds=validation_thresholds,
+                baseline_model=multiclass_logistic_regressor_model_uri,
+            )
+
+
+@pytest.fixture
+def min_relative_change_threshold_test_spec(request):
+    """
+    Test specification for min_relative_change threshold tests:
+    :return: (
+                metrics: A dictionary mapping scalar metric names to scalar metric values,
+                baseline_model_metrics: A dictionary mapping scalar metric names
+                    to scalar metric values of baseline_model,
+                validation_threhsolds: A dictonary mapping scalar metric names
+                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                expected_validation_results: A dictonary mapping scalar metric names
+                    to _MetricValidationResult
+             )
+    """
+    acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
+    f1score_threshold = MetricThreshold(min_absolute_change=0.15, higher_is_better=True)
+    log_loss_threshold = MetricThreshold(min_absolute_change=-0.1, higher_is_better=False)
+    l1_loss_threshold = MetricThreshold(min_absolute_change=-0.15, higher_is_better=False)
+
+    _ = _MetricValidationResult("log_loss", 0.5, log_loss_threshold, 0.6)
+
+    if request.param == "single_metric_not_satisfied_higher_better":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
+        acc_validation_result.min_absolute_change_failed = True
+        return (
+            {"accuracy": 0.79},
+            {"accuracy": 0.7},
+            {"accuracy": acc_threshold},
+            {"accuracy": acc_validation_result},
+        )
+
+    if request.param == "multiple_metrics_not_satisified_higher_better":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
+        acc_validation_result.min_absolute_change_failed = True
+        f1score_validation_result = _MetricValidationResult("f1_score", 0.8, f1score_threshold, 0.7)
+        f1score_validation_result.min_absolute_change_failed = True
+        return (
+            {"accuracy": 0.79, "f1_score": 0.8},
+            {"accuracy": 0.7, "f1_score": 0.7},
+            {"accuracy": acc_threshold, "f1_score": f1score_threshold},
+            {"accuracy": acc_validation_result, "f1_score": f1score_validation_result},
+        )
+
+    if request.param == "single_metric_not_satisfied_lower_better":
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.5, l1_loss_threshold, 0.6
+        )
+        l1_loss_validation_result.min_absolute_change_failed = True
+        return (
+            {"custom_l1_loss": 0.5},
+            {"custom_l1_loss": 0.6},
+            {"custom_l1_loss": l1_loss_threshold},
+            {"custom_l1_loss": l1_loss_validation_result},
+        )
+
+    if request.param == "multiple_metrics_not_satisified_lower_better":
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.5, l1_loss_threshold, 0.6
+        )
+        l1_loss_validation_result.min_absolute_change_failed = True
+        log_loss_validation_result = _MetricValidationResult(
+            "custom_log_loss", 0.45, log_loss_threshold, 0.3
+        )
+        log_loss_validation_result.min_absolute_change_failed = True
+        return (
+            {"custom_l1_loss": 0.5, "log_loss": 0.45},
+            {"custom_l1_loss": 0.6, "log_loss": 0.3},
+            {"custom_l1_loss": l1_loss_threshold, "log_loss": log_loss_threshold},
+            {
+                "custom_l1_loss": l1_loss_validation_result,
+                "log_loss": log_loss_validation_result,
+            },
+        )
+
+    if request.param == "equality_boundary":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.8, acc_threshold, 0.7)
+        log_loss_validation_result = _MetricValidationResult(
+            "custom_log_loss", 0.2, log_loss_threshold, 0.3
+        )
+        return (
+            {"accuracy": 0.8 + 1e10, "log_loss": 0.2 - 1e10},
+            {"accuracy": 0.7, "log_loss": 0.3},
+            {"accuracy": acc_threshold, "log_loss": log_loss_threshold},
+            {},
+        )
+
+    if request.param == "single_metric_satisfied_higher_better":
+        return ({"accuracy": 0.9 + 1e2}, {"accuracy": 0.8}, {"accuracy": acc_threshold}, {})
+
+    if request.param == "single_metric_satisfied_lower_better":
+        return ({"log_loss": 0.3}, {"log_loss": 0.4 + 1e3}, {"log_loss": log_loss_threshold}, {})
+
+    if request.param == "multiple_metrics_all_satisfied":
+        return (
+            {"accuracy": 0.9, "f1_score": 0.8, "log_loss": 0.3},
+            {"accuracy": 0.7, "f1_score": 0.6, "log_loss": 0.5},
+            {
+                "accuracy": acc_threshold,
+                "f1_score": f1score_threshold,
+                "log_loss": log_loss_threshold,
+            },
+            {},
+        )
+
+
+@pytest.mark.parametrize(
+    "min_relative_change_threshold_test_spec",
+    [
+        ("single_metric_not_satisfied_higher_better"),
+        ("multiple_metrics_not_satisified_higher_better"),
+        ("single_metric_not_satisfied_lower_better"),
+        ("multiple_metrics_not_satisified_lower_better"),
+    ],
+    indirect=["min_relative_change_threshold_test_spec"],
+)
+def test_validation_model_comparison_relative_threshold_should_fail(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    min_relative_change_threshold_test_spec,
+):
+    (
+        metrics,
+        baseline_model_metrics,
+        validation_thresholds,
+        validation_results,
+    ) = min_relative_change_threshold_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        evaluator1_config = {}
+        evaluator1_return_value = EvaluationResult(
+            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        )
+        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        with mock.patch.object(
+            MockEvaluator, "can_evaluate", return_value=True
+        ) as _, mock.patch.object(
+            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        ) as _:
+            with pytest.raises(
+                MlflowException,
+                match=failure_message,
+            ):
+                evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    data=iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    dataset_name=iris_dataset.name,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    validation_thresholds=validation_thresholds,
+                    baseline_model=multiclass_logistic_regressor_model_uri,
+                )
+
+
+@pytest.mark.parametrize(
+    "min_relative_change_threshold_test_spec",
+    [
+        ("single_metric_satisfied_higher_better"),
+        ("single_metric_satisfied_lower_better"),
+        ("equality_boundary"),
+        ("multiple_metrics_all_satisfied"),
+    ],
+    indirect=["min_relative_change_threshold_test_spec"],
+)
+def test_validation_model_comparison_relative_threshold_should_pass(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    min_relative_change_threshold_test_spec,
+):
+    (
+        metrics,
+        baseline_model_metrics,
+        validation_thresholds,
+        _,
+    ) = min_relative_change_threshold_test_spec
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
