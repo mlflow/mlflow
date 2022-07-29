@@ -160,7 +160,7 @@ class EvaluationResult:
     @property
     def baseline_model_metrics(self) -> Dict[str, Any]:
         """
-        A dictionary mapping scalar metric names to scalar metric values for baseline model
+        A dictionary mapping scalar metric names to scalar metric values for the baseline model
         """
         return self._baseline_model_metrics
 
