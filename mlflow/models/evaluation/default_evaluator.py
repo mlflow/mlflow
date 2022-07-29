@@ -960,7 +960,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _compute_builtin_metrics(self):
         """
-        Helper method for computing builtin metrics for self.model, update results to self.metrics
+        Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
