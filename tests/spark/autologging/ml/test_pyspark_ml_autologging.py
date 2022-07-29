@@ -50,6 +50,7 @@ from pyspark.sql import SparkSession
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from tests.helper_functions import AnyStringWith
 
 
 MODEL_DIR = "model"
@@ -999,6 +1000,18 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
                 {"name": "prediction", "type": "double"},
             ],
         )
+
+
+def test_autolog_signature_not_logged_when_dataframe_contains_unsupported_data_types(
+    dataset_multinomial, lr
+):
+    mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
+    with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+        lr.fit(dataset_multinomial)
+        mock_warning.assert_called_once_with(AnyStringWith("Model signature will not be logged"))
+        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+        model_conf = Model.load(model_path.joinpath("MLmodel"))
+        assert model_conf.signature is None
 
 
 @pytest.fixture

@@ -1013,7 +1013,7 @@ def autolog(
                     if unsupported_columns:
                         _logger.warning(
                             "Input dataframe contains unsupported spark data types: "
-                            f"{unsupported_columns}. Model signatures will not be logged."
+                            f"{unsupported_columns}. Model signature will not be logged."
                         )
                     log_model_signatures = False
 
