@@ -89,7 +89,8 @@ class BatchScoringPipeline(_BasePipeline):
         batch_scoring_pipeline.inspect(step="predict")
     """
 
-    _PIPELINE_STEPS = (IngestStep, PreprocessingStep)  # for now, exclude predict
+    # Excluding the predict step for now due to https://github.com/mlflow/mlflow/issues/6369
+    _PIPELINE_STEPS = (IngestStep, PreprocessingStep)
 
     def _get_step_classes(self) -> List[BaseStep]:
         return self._PIPELINE_STEPS
