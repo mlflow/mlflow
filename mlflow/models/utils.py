@@ -213,7 +213,7 @@ def _read_example(mlflow_model: Model, path: str):
     elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
         return _read_sparse_matrix_from_json(path, example_type)
     else:
-        return _dataframe_from_json(path, schema=input_schema, precise_float=True)
+        return _dataframe_from_json(path, schema=input_schema)
 
 
 def _read_tensor_input_from_json(path, schema=None):
