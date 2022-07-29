@@ -1,19 +1,16 @@
-import mlflow
-from mlflow import MlflowClient
-
 from mlflow.models.evaluation import (
     evaluate,
     EvaluationResult,
     ModelEvaluator,
-    EvaluationArtifact,
     MetricThreshold,
 )
 from mlflow.models.evaluation.validation import _MetricValidationResult
-from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from unittest import mock
 import pytest
 from mlflow.exceptions import MlflowException
+
+# pylint: disable=unused-import
 from tests.models.test_evaluation import (
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
@@ -143,9 +140,9 @@ def test_validation_value_threshold_should_fail(
         failure_message = message_separator.join(map(str, list(validation_results.values())))
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
-        ) as mock_can_evaluate, mock.patch.object(
+        ) as _, mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as mock_evaluate:
+        ) as _:
             with pytest.raises(
                 MlflowException,
                 match=failure_message,
@@ -188,9 +185,9 @@ def test_validation_value_threshold_should_pass(
         )
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
-        ) as mock_can_evaluate, mock.patch.object(
+        ) as _, mock.patch.object(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as mock_evaluate:
+        ) as _:
             evaluate(
                 multiclass_logistic_regressor_model_uri,
                 data=iris_dataset._constructor_args["data"],
@@ -202,3 +199,118 @@ def test_validation_value_threshold_should_pass(
                 validation_thresholds=validation_thresholds,
                 baseline_model=None,
             )
+
+
+@pytest.fixture
+def min_absolute_change_threshold_test_spec(request):
+    acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
+    f1score_threshold = MetricThreshold(min_absolute_change=0.15, higher_is_better=True)
+    log_loss_threshold = MetricThreshold(min_absolute_change=-0.1, higher_is_better=False)
+    l1_loss_threshold = MetricThreshold(min_absolute_change=-0.15, higher_is_better=False)
+
+    _ = _MetricValidationResult("log_loss", 0.5, log_loss_threshold, 0.6)
+
+    if request.param == "single_metric_not_satisfied_higher_better":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
+        acc_validation_result.min_absolute_change_failed = True
+        return (
+            {"accuracy": 0.79},
+            {"accuracy": 0.7},
+            {"accuracy": acc_threshold},
+            {"accuracy": acc_validation_result},
+        )
+
+    if request.param == "multiple_metrics_not_satisified_higher_better":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
+        acc_validation_result.min_absolute_change_failed = True
+        f1score_validation_result = _MetricValidationResult("f1_score", 0.8, f1score_threshold, 0.7)
+        f1score_validation_result.min_absolute_change_failed = True
+        return (
+            {"accuracy": 0.79, "f1_score": 0.8},
+            {"accuracy": 0.7, "f1_score": 0.7},
+            {"accuracy": acc_threshold, "f1_score": f1score_threshold},
+            {"accuracy": acc_validation_result, "f1_score": f1score_validation_result},
+        )
+
+    if request.param == "single_metric_not_satisfied_lower_better":
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.5, l1_loss_threshold, 0.6
+        )
+        l1_loss_validation_result.min_absolute_change_failed = True
+        return (
+            {"custom_l1_loss": 0.5},
+            {"custom_l1_loss": 0.6},
+            {"custom_l1_loss": l1_loss_threshold},
+            {"custom_l1_loss": l1_loss_validation_result},
+        )
+
+    if request.param == "multiple_metrics_not_satisified_lower_better":
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.5, l1_loss_threshold, 0.6
+        )
+        l1_loss_validation_result.min_absolute_change_failed = True
+        log_loss_validation_result = _MetricValidationResult(
+            "custom_log_loss", 0.45, log_loss_threshold, 0.3
+        )
+        log_loss_validation_result.min_absolute_change_failed = True
+        return (
+            {"custom_l1_loss": 0.5, "custom_log_loss": 0.45},
+            {"custom_l1_loss": 0.6, "custom_log_loss": 0.3},
+            {"custom_l1_loss": l1_loss_threshold, "custom_log_loss": log_loss_threshold},
+            {
+                "custom_l1_loss": l1_loss_validation_result,
+                "custom_log_loss": log_loss_validation_result,
+            },
+        )
+
+
+@pytest.mark.parametrize(
+    "min_absolute_change_threshold_test_spec",
+    [
+        ("single_metric_not_satisfied_higher_better"),
+        ("multiple_metrics_not_satisified_higher_better"),
+        ("single_metric_not_satisfied_lower_better"),
+        ("multiple_metrics_not_satisified_lower_better"),
+    ],
+    indirect=["min_absolute_change_threshold_test_spec"],
+)
+def test_validation_model_comparison_absolute_threshold_should_fail(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    min_absolute_change_threshold_test_spec,
+):
+    (
+        metrics,
+        baseline_model_metrics,
+        validation_thresholds,
+        validation_results,
+    ) = min_absolute_change_threshold_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        evaluator1_config = {}
+        evaluator1_return_value = EvaluationResult(
+            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        )
+        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        with mock.patch.object(
+            MockEvaluator, "can_evaluate", return_value=True
+        ) as _, mock.patch.object(
+            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        ) as _:
+            with pytest.raises(
+                MlflowException,
+                match=failure_message,
+            ):
+                evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    data=iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    dataset_name=iris_dataset.name,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    validation_thresholds=validation_thresholds,
+                    baseline_model=multiclass_logistic_regressor_model_uri,
+                )
