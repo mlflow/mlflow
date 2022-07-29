@@ -148,24 +148,24 @@ class _MetricValidationResult:
         if self.threshold_failed:
             result_strs.append(
                 f"{self.metric_name} value threshold check failed: "
-                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                + f"{self.metric_name} threshold: {self.metric_threshold.threshold}."
+                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                f"{self.metric_name} threshold: {self.metric_threshold.threshold}."
             )
         if self.min_absolute_change_failed:
             result_strs.append(
                 f"{self.metric_name} minimum absolute change check failed: "
-                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                + f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
-                + f"{self.metric_name} minimum absolute change threshold: "
-                + f"{self.metric_threshold.min_absolute_change}."
+                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                f"{self.metric_name} minimum absolute change threshold: "
+                f"{self.metric_threshold.min_absolute_change}."
             )
         if self.min_relative_change_failed:
             result_strs.append(
                 f"{self.metric_name} minimum relative change check failed: "
-                + f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                + f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
-                + f"{self.metric_name} minimum relative change threshold: "
-                + f"{self.metric_threshold.min_relative_change}."
+                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                f"{self.metric_name} minimum relative change threshold: "
+                f"{self.metric_threshold.min_relative_change}."
             )
         return " ".join(result_strs)
 

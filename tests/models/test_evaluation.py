@@ -1,6 +1,7 @@
 import mlflow
 from mlflow import MlflowClient
 from collections import namedtuple
+from mlflow.exceptions import MlflowException
 
 from mlflow.models.evaluation import (
     evaluate,
@@ -176,10 +177,10 @@ def get_pipeline_model_dataset():
 
 @pytest.fixture
 def pipeline_model_uri():
-    return get_pipeline_modlel_uri()
+    return get_pipeline_model_uri()
 
 
-def get_pipeline_modlel_uri():
+def get_pipeline_model_uri():
     """
     Create a pipeline model that transforms and trains on the dataset returned by
     `get_pipeline_model_dataset`. The pipeline model imputes the missing values in
@@ -336,7 +337,7 @@ def baseline_model_uri(request):
     if request.param == "spark_linear_regressor_model_uri":
         return get_spark_linear_regressor_model_uri()
     if request.param == "pipeline_model_uri":
-        return get_pipeline_modlel_uri()
+        return get_pipeline_model_uri()
     if request.param == "svm_model_uri":
         return get_svm_model_url()
     if request.param == "multiclass_logistic_regressor_baseline_model_uri_4":
@@ -628,7 +629,7 @@ def test_dataset_with_array_data():
         data=input_data, targets=labels, feature_names=["a", "b"]
     ).feature_names == ["a", "b"]
 
-    with pytest.raises(ValueError, match="all element must has the same length"):
+    with pytest.raises(MlflowException, match="all element must has the same length"):
         EvaluationDataset(data=[[1, 2], [3, 4, 5]], targets=labels)
 
 
@@ -647,7 +648,7 @@ def test_dataset_autogen_feature_names():
     assert eval_dataset2.feature_names == [f"feature_{i + 1:03d}" for i in range(100)]
 
     with pytest.raises(
-        ValueError, match="features example rows must be the same length with labels array"
+        MlflowException, match="features example rows must be the same length with labels array"
     ):
         EvaluationDataset(data=[[1, 2], [3, 4]], targets=[1, 2, 3])
 
@@ -731,12 +732,9 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
         _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvauator1}
     ):
         evaluator1_config = {"eval1_confg_a": 3, "eval1_confg_b": 4}
-        evaluator1_return_value = (
-            EvaluationResult(
-                metrics={"m1": 5, "m2": 6},
-                artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
-            ),
-            None,
+        evaluator1_return_value = EvaluationResult(
+            metrics={"m1": 5, "m2": 6},
+            artifacts={"a1": FakeArtifact1(uri="uri1"), "a2": FakeArtifact2(uri="uri2")},
         )
         with mock.patch.object(
             FakeEvauator1, "can_evaluate", return_value=False
@@ -745,7 +743,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
         ) as mock_evaluate:
             with mlflow.start_run():
                 with pytest.raises(
-                    ValueError,
+                    MlflowException,
                     match="The model could not be evaluated by any of the registered evaluators",
                 ):
                     evaluate(
@@ -779,8 +777,8 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
                     custom_metrics=None,
                     baseline_model=None,
                 )
-                assert eval1_result.metrics == evaluator1_return_value[0].metrics
-                assert eval1_result.artifacts == evaluator1_return_value[0].artifacts
+                assert eval1_result.metrics == evaluator1_return_value.metrics
+                assert eval1_result.artifacts == evaluator1_return_value.artifacts
 
                 mock_can_evaluate.assert_called_once_with(
                     model_type="classifier", evaluator_config=evaluator1_config
@@ -802,7 +800,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
         (
             "pyfunc",
             pytest.raises(
-                ValueError,
+                MlflowException,
                 match=(
                     "The baseline model argument must be a string URI "
                     + "referring to an MLflow model"
@@ -853,13 +851,12 @@ def test_evaluate_with_multi_evaluators(
     ):
         evaluator1_config = {"eval1_confg": 3}
         evaluator2_config = {"eval2_confg": 4}
-        evaluator1_return_value = (
-            EvaluationResult(metrics={"m1": 5}, artifacts={"a1": FakeArtifact1(uri="uri1")}),
-            None,
+        evaluator1_return_value = EvaluationResult(
+            metrics={"m1": 5}, artifacts={"a1": FakeArtifact1(uri="uri1")}
         )
-        evaluator2_return_value = (
-            EvaluationResult(metrics={"m2": 6}, artifacts={"a2": FakeArtifact2(uri="uri2")}),
-            None,
+
+        evaluator2_return_value = EvaluationResult(
+            metrics={"m2": 6}, artifacts={"a2": FakeArtifact2(uri="uri2")}
         )
 
         baseline_model = (
@@ -904,12 +901,12 @@ def test_evaluate_with_multi_evaluators(
                         baseline_model=baseline_model_uri,
                     )
                     assert eval_result.metrics == {
-                        **evaluator1_return_value[0].metrics,
-                        **evaluator2_return_value[0].metrics,
+                        **evaluator1_return_value.metrics,
+                        **evaluator2_return_value.metrics,
                     }
                     assert eval_result.artifacts == {
-                        **evaluator1_return_value[0].artifacts,
-                        **evaluator2_return_value[0].artifacts,
+                        **evaluator1_return_value.artifacts,
+                        **evaluator2_return_value.artifacts,
                     }
                     mock_can_evaluate1.assert_called_once_with(
                         model_type="classifier", evaluator_config=evaluator1_config
@@ -957,7 +954,8 @@ def test_normalize_evaluators_and_evaluator_config_args():
 
     assert _normalize_config(None, None) == (["default", "dummy_evaluator"], {})
     with pytest.raises(
-        ValueError, match="`evaluator_config` argument must be a dictionary mapping each evaluator"
+        MlflowException,
+        match="`evaluator_config` argument must be a dictionary mapping each evaluator",
     ):
         assert _normalize_config(None, {"a": 3}) == (["default", "dummy_evaluator"], {})
 
@@ -982,6 +980,7 @@ def test_normalize_evaluators_and_evaluator_config_args():
     )
 
     with pytest.raises(
-        ValueError, match="evaluator_config must be a dict contains mapping from evaluator name to"
+        MlflowException,
+        match="evaluator_config must be a dict contains mapping from evaluator name to",
     ):
         _normalize_config(["default", "dummy_evaluator"], {"abc": {"a": 3}})

@@ -126,8 +126,12 @@ class DummyEvaluator(ModelEvaluator):
         )
 
         if not baseline_model:
-            return (eval_result, None)
+            return eval_result
 
         y_pred_baseline = baseline_model.predict(self.X)
         baseline_model_eval_result = self._evaluate(y_pred_baseline, is_baseline_model=True)
-        return (eval_result, baseline_model_eval_result)
+        return EvaluationResult(
+            metrics=eval_result.metrics,
+            artifacts=eval_result.artifacts,
+            baseline_model_metrics=baseline_model_eval_result.metrics,
+        )
