@@ -976,6 +976,7 @@ def autolog(
         if log_models:
             if _should_log_model(spark_model):
                 from mlflow.models import infer_signature
+                from mlflow.types.schema import DataType
                 from mlflow.pyspark.ml._autolog import (
                     cast_spark_df_with_vector_to_array,
                     get_feature_cols,
@@ -1000,6 +1001,21 @@ def autolog(
                         *input_slice_df.columns
                     )
                     return infer_signature(input_example_slice, model_output.toPandas())
+
+                nonlocal log_model_signatures
+
+                if log_model_signatures:
+                    supported_spark_types = DataType.get_spark_types()
+                    unsupported_columns = []
+                    for field in input_df.schema.fields:
+                        if field.dataType not in supported_spark_types:
+                            unsupported_columns.append(field)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Input dataframe contains unsupported spark data types: "
+                            f"{unsupported_columns}. Model signatures will not be logged."
+                        )
+                    log_model_signatures = False
 
                 input_example, signature = resolve_input_example_and_signature(
                     _get_input_example_as_pd_df,
