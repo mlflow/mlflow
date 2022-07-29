@@ -1010,6 +1010,7 @@ def autolog(
                     model_output = spark_model.transform(input_slice_df).drop(
                         *input_slice_df.columns
                     )
+                    # TODO: Remove this once we support non-scalar spark data types
                     unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
                     if unsupported_columns:
                         _logger.warning(
@@ -1022,6 +1023,7 @@ def autolog(
 
                     return infer_signature(input_example_slice, model_output)
 
+                # TODO: Remove this once we support non-scalar spark data types
                 nonlocal log_model_signatures
                 if log_model_signatures:
                     unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
