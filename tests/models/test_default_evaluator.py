@@ -114,7 +114,7 @@ def check_metrics_not_logged_for_baseline_model_evaluation(
     """
     Helper function for checking metrics of evaluation of baseline_model
      - Metrics should not be logged
-     - Meetrics should be returned as expected
+     - Metrics should be returned in EvaluationResult as expected
     """
     assert logged_metrics == {}
     for metric_key in expected_metrics:
