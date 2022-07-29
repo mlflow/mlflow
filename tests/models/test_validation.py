@@ -230,8 +230,6 @@ def min_absolute_change_threshold_test_spec(request):
     log_loss_threshold = MetricThreshold(min_absolute_change=-0.1, higher_is_better=False)
     l1_loss_threshold = MetricThreshold(min_absolute_change=-0.15, higher_is_better=False)
 
-    _ = _MetricValidationResult("log_loss", 0.5, log_loss_threshold, 0.6)
-
     if request.param == "single_metric_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
         acc_validation_result.min_absolute_change_failed = True
@@ -428,16 +426,14 @@ def min_relative_change_threshold_test_spec(request):
                     to _MetricValidationResult
              )
     """
-    acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
-    f1score_threshold = MetricThreshold(min_absolute_change=0.15, higher_is_better=True)
-    log_loss_threshold = MetricThreshold(min_absolute_change=-0.1, higher_is_better=False)
-    l1_loss_threshold = MetricThreshold(min_absolute_change=-0.15, higher_is_better=False)
-
-    _ = _MetricValidationResult("log_loss", 0.5, log_loss_threshold, 0.6)
+    acc_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+    f1score_threshold = MetricThreshold(min_relative_change=0.05, higher_is_better=True)
+    log_loss_threshold = MetricThreshold(min_relative_change=0.15, higher_is_better=False)
+    l1_loss_threshold = MetricThreshold(min_relative_change=0.05, higher_is_better=False)
 
     if request.param == "single_metric_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
-        acc_validation_result.min_absolute_change_failed = True
+        acc_validation_result.min_relative_change_failed = True
         return (
             {"accuracy": 0.79},
             {"accuracy": 0.7},
