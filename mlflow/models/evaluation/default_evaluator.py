@@ -710,7 +710,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
 
-    def _log_multiclass_classifier(self):
+    def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
             self.y, self.y_pred, self.label_list
         )
@@ -760,7 +760,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _log_binary_classifier(self):
+    def _log_binary_classifier_artifacts(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
         if self.y_probs is not None:
@@ -985,9 +985,9 @@ class DefaultEvaluator(ModelEvaluator):
         """
         if self.model_type == "classifier":
             if self.is_binomial:
-                self._log_binary_classifier()
+                self._log_binary_classifier_artifacts()
             else:
-                self._log_multiclass_classifier()
+                self._log_multiclass_classifier_artifacts()
             self._log_confusion_matrix()
         self._log_metrics()
         self._log_model_explainability()

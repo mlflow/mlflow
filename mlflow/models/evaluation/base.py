@@ -507,7 +507,9 @@ class ModelEvaluator(metaclass=ABCMeta):
         """
         The abstract API to log metrics and artifacts, and return evaluation results.
 
-        :param model: A pyfunc model instance.
+        :param model: A pyfunc model instance, used as the candidate_model
+                      to be compared with baseline_model (specified by the `baseline_model` param)
+                      for model validation.
         :param model_type: A string describing the model type
                            (e.g., ``"regressor"``, ``"classifier"``, …).
         :param dataset: An instance of `mlflow.models.evaluation.base._EvaluationDataset`
@@ -812,7 +814,9 @@ def evaluate(
         - The evaluation dataset label values must be numeric or boolean, all feature values
           must be numeric, and each feature column must only contain scalar values.
 
-    :param model: A pyfunc model instance, or a URI referring to such a model.
+    :param model: A pyfunc model instance, or a URI referring to such a model, as
+                  the candidate_model to be compared with baseline_model
+                  (specified by the `baseline_model` param) for model validation.
 
     :param data: One of the following:
 
@@ -952,9 +956,10 @@ def evaluate(
                                              model validation.
                                              Metric name must be one of the builtin metric's name or
                                              name of a custom metric in custom_metrics argument.
-    :param baseline_model: (Optional) A string URI referring to a MLflow model as baseline model
-                                      to be compared with the candidate model for model validation.
-                                      (pyfunc model instance is not allowed)
+    :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
+                                      flavor as a baseline model to be compared with the
+                                      candidate model (specified by the `model` param) for model
+                                      validation. (pyfunc model instance is not allowed)
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              evaluation results.
