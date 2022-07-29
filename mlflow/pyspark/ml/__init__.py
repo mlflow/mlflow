@@ -1015,7 +1015,7 @@ def autolog(
                             "Input dataframe contains unsupported spark data types: "
                             f"{unsupported_columns}. Model signature will not be logged."
                         )
-                    log_model_signatures = False
+                        log_model_signatures = False
 
                 input_example, signature = resolve_input_example_and_signature(
                     _get_input_example_as_pd_df,
