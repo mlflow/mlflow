@@ -920,7 +920,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _generate_model_predictions(self):
         """
-        Helper methof for generating model predictions
+        Helper method for generating model predictions
         """
         if self.model_type == "classifier":
             self.label_list = np.unique(self.y)
