@@ -962,7 +962,7 @@ def evaluate(
                                       validation. (pyfunc model instance is not allowed)
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
-             evaluation results.
+             metrics of candidate model and baseline model, and artifacts of candidate model.
     """
     from mlflow.pyfunc import PyFuncModel
 
