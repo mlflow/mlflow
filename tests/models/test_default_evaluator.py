@@ -83,7 +83,9 @@ def evaluate_model_helper(
     """
     Helper function for testing MLflow.evaluate
     To test if evaluation for baseline model does not log metrics and artifacts;
-    we set "is_baseline_model" to true for all evaluator_config
+    we set "is_baseline_model" to true for the evaluator_config so that the
+    DefaultEvaluator will evaluate only the baseline_model with logging
+    disabled. This code path is only for testing purposes.
     """
     if eval_baseline_model_only:
         if not evaluator_config:
