@@ -122,10 +122,7 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
-from mlflow.pipelines.steps.predict import (
-    PredictStep,
-    _SCORED_OUTPUT_FILE_NAME
-)
+from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
@@ -185,7 +182,7 @@ class RegressionPipeline(_BasePipeline):
         TransformStep,
         TrainStep,
         EvaluateStep,
-        RegisterStep
+        RegisterStep,
     )
 
     def _get_step_classes(self) -> List[BaseStep]:
@@ -444,7 +441,16 @@ class RegressionPipeline(_BasePipeline):
         """
         import mlflow.pyfunc
 
-        ingest_step, split_step, transform_step, train_step, _, register_step, ingest_scoring_step, predict_step = self._steps
+        (
+            ingest_step,
+            split_step,
+            transform_step,
+            train_step,
+            _,
+            register_step,
+            ingest_scoring_step,
+            predict_step,
+        ) = self._steps
 
         ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
         split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
@@ -453,7 +459,9 @@ class RegressionPipeline(_BasePipeline):
         )
         train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
 
-        ingest_scoring_output_dir = get_step_output_path(self._pipeline_root_path, ingest_scoring_step.name, "")
+        ingest_scoring_output_dir = get_step_output_path(
+            self._pipeline_root_path, ingest_scoring_step.name, ""
+        )
         predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
 
         def log_artifact_not_found_warning(artifact_name, step_name):
