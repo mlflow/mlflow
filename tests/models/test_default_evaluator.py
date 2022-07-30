@@ -89,26 +89,22 @@ def evaluate_model_helper(
     """
     if eval_baseline_model_only:
         if not evaluator_config:
-            evaluator_config = {"disable_candidate_model": True}
+            evaluator_config = {"_disable_candidate_model": True}
         elif not evaluators or evaluators == "default":
-            evaluator_config.update({"disable_candidate_model": True})
+            evaluator_config.update({"_disable_candidate_model": True})
         else:
             for config in evaluator_config.values():
-                config.update({"disable_candidate_model": True})
+                config.update({"_disable_candidate_model": True})
 
     return evaluate(
-        # Disable candidate model and evaluate baseline model only
-        # If eval_baseline_model_only is set to True
-        model=baseline_model if eval_baseline_model_only else model,
+        model=model,
         data=data,
         model_type=model_type,
         targets=targets,
         dataset_name=dataset_name,
         evaluators=evaluators,
         evaluator_config=evaluator_config,
-        # Disable candidate model and evaluate baseline model only
-        # If eval_baseline_model_only is set to True
-        baseline_model=None if eval_baseline_model_only else baseline_model,
+        baseline_model=baseline_model,
     )
 
 
@@ -218,7 +214,7 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
@@ -232,8 +228,8 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -346,7 +342,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
@@ -363,8 +359,8 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -463,7 +459,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
@@ -480,8 +476,8 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -561,7 +557,7 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
@@ -573,8 +569,8 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -661,7 +657,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
@@ -677,8 +673,8 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags

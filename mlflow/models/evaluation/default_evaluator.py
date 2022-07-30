@@ -1064,9 +1064,12 @@ class DefaultEvaluator(ModelEvaluator):
                 f"verify that you set the `model_type` and `dataset` arguments correctly."
             )
 
-        evaluation_result = self._evaluate(
-            model, is_baseline_model=evaluator_config.get("disable_candidate_model", False)
-        )
+        if evaluator_config.get("_disable_candidate_model", False):
+            evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
+        else:
+            evaluation_result = self._evaluate(
+                model, is_baseline_model=evaluator_config.get("_disable_candidate_model", False)
+            )
 
         if not baseline_model:
             return evaluation_result
