@@ -18,12 +18,3 @@ Regression Pipeline
 .. autoclass:: mlflow.pipelines.regression.v1.pipeline.RegressionPipeline()
     :members:
     :undoc-members:
-
-Batch Scoring Pipeline
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: mlflow.pipelines.batch_scoring.v1.pipeline
-
-.. autoclass:: mlflow.pipelines.batch_scoring.v1.pipeline.BatchScoringPipeline()
-    :members:
-    :undoc-members:

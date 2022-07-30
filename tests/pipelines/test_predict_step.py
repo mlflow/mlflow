@@ -10,7 +10,6 @@ from sklearn.datasets import load_diabetes
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
 from mlflow.pipelines.steps.predict import PredictStep
-from mlflow.pipelines.steps.preprocessing import _PREPROCESSED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -54,18 +53,18 @@ def prediction_assertions(output_dir: Path, output_format: str, output_name: str
 # Sets up predict step run and returns output directory
 @pytest.fixture(autouse=True)
 def predict_step_output_dir(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path: Path):
-    proprocessing_step_output_dir = tmp_pipeline_exec_path.joinpath(
-        "steps", "preprocessing", "outputs"
+    ingest_scoring_step_output_dir = tmp_pipeline_exec_path.joinpath(
+        "steps", "ingest_scoring", "outputs"
     )
-    proprocessing_step_output_dir.mkdir(parents=True)
+    ingest_scoring_step_output_dir.mkdir(parents=True)
     X, _ = load_diabetes(as_frame=True, return_X_y=True)
-    X.to_parquet(proprocessing_step_output_dir.joinpath(_PREPROCESSED_OUTPUT_FILE_NAME))
+    X.to_parquet(ingest_scoring_step_output_dir.joinpath("dataset.parquet"))
     predict_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "predict", "outputs")
     predict_step_output_dir.mkdir(parents=True)
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(
         """
-template: "batch_scoring/v1"
+template: "regression/v1"
 """
     )
     return predict_step_output_dir

@@ -8,9 +8,13 @@ template repository is available at https://github.com/mlflow/mlp-regression-tem
 :py:class:`RegressionPipeline API Documentation <RegressionPipeline>` provides instructions for
 executing the pipeline and inspecting its results.
 
-The pipeline contains the following sequential steps:
+The training pipeline contains the following sequential steps:
 
 **ingest** -> **split** -> **transform** -> **train** -> **evaluate** -> **register**
+
+The batch scoring pipeline contains the following sequential steps:
+
+**ingest** -> **predict**
 
 The pipeline steps are defined as follows:
 
@@ -87,6 +91,9 @@ The pipeline steps are defined as follows:
                 always registered with the MLflow Model Registry when the **register** step is
                 executed.
 
+    - **predict**
+      - The **predict** step
+
 .. |'split' step definition in pipeline.yaml| replace:: `'split' step definition in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L36-L40>`__
 .. |'register' step definition of pipeline.yaml| replace:: `'register' step definition of pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L57-L63>`__
 .. |'data' section in pipeline.yaml| replace:: `'data' section in pipeline.yaml <https://github.com/mlflow/mlp-regression-template/blob/35f6f32c7a89dc655fbcfcf731cc1da4685a8ebb/pipeline.yaml#L15-L32>`__
@@ -105,7 +112,7 @@ import logging
 import mlflow.pipelines.regression.v1.dag_help_strings as dag_help_strings
 from mlflow.tracking.client import MlflowClient
 from mlflow.pipelines.pipeline import _BasePipeline
-from mlflow.pipelines.steps.ingest import IngestStep
+from mlflow.pipelines.steps.ingest import IngestStep, IngestScoringStep
 from mlflow.pipelines.steps.split import (
     SplitStep,
     _OUTPUT_TRAIN_FILE_NAME,
@@ -115,6 +122,10 @@ from mlflow.pipelines.steps.split import (
 from mlflow.pipelines.steps.transform import TransformStep
 from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.steps.evaluate import EvaluateStep
+from mlflow.pipelines.steps.predict import (
+    PredictStep,
+    _SCORED_OUTPUT_FILE_NAME
+)
 from mlflow.pipelines.steps.register import RegisterStep, RegisteredModelVersionInfo
 from mlflow.pipelines.step import BaseStep
 from typing import List, Any, Optional
@@ -135,9 +146,13 @@ class RegressionPipeline(_BasePipeline):
     developing models using scikit-learn and frameworks that integrate with scikit-learn,
     such as the ``XGBRegressor`` API from XGBoost. The corresponding pipeline
     template repository is available at https://github.com/mlflow/mlp-regression-template.
-    The pipeline contains the following sequential steps:
+    The training pipeline contains the following sequential steps:
 
     **ingest** -> **split** -> **transform** -> **train** -> **evaluate** -> **register**
+
+    while the batch scoring pipeline contains this set of sequential steps:
+
+    **ingest_scoring** -> **predict**
 
     .. code-block:: python
         :caption: Example
@@ -159,7 +174,19 @@ class RegressionPipeline(_BasePipeline):
         regression_pipeline.inspect(step="evaluate")
     """
 
-    _PIPELINE_STEPS = (IngestStep, SplitStep, TransformStep, TrainStep, EvaluateStep, RegisterStep)
+    _PIPELINE_STEPS = (
+        # Batch scoring DAG
+        IngestScoringStep,
+        PredictStep,
+        # Training data ingestion DAG
+        IngestStep,
+        # Model training DAG
+        SplitStep,
+        TransformStep,
+        TrainStep,
+        EvaluateStep,
+        RegisterStep
+    )
 
     def _get_step_classes(self) -> List[BaseStep]:
         return self._PIPELINE_STEPS
@@ -258,6 +285,10 @@ class RegressionPipeline(_BasePipeline):
                     "help_string": dag_help_strings.REGISTERED_MODEL_VERSION,
                     "help_string_type": "text",
                 },
+                "predict_step_help": {
+                    "help_string": dag_help_strings.PREDICT_STEP,
+                    "help_string_type": "text",
+                },
             }
         )
 
@@ -281,7 +312,11 @@ class RegressionPipeline(_BasePipeline):
                      its dependencies are executed sequentially. If a step is not specified, the
                      entire pipeline is executed. Supported steps, in their order of execution, are:
 
-                     - ``"ingest"``: resolves the dataset specified by the ``data`` section in the
+                     - ``"ingest"``: resolves the dataset specified by the ``data/training`` section in the
+                       pipeline's configuration file (``pipeline.yaml``) and converts it to parquet
+                       format.
+
+                     - ``"ingest_scoring"``: resolves the dataset specified by the ``data/scoring`` section in the
                        pipeline's configuration file (``pipeline.yaml``) and converts it to parquet
                        format.
 
@@ -316,6 +351,9 @@ class RegressionPipeline(_BasePipeline):
                        preceding **evaluate** step and, if model validation was successful (as
                        indicated by the ``'VALIDATED'`` status), registers the model pipeline
                        created by the **train** step to the MLflow Model Registry.
+
+                     - ``"predict"``: uses the ingested dataset for scoring created by the
+                     **ingest_scoring** step and applies the specified model to the dataset.
 
         .. code-block:: python
             :caption: Example
@@ -357,6 +395,9 @@ class RegressionPipeline(_BasePipeline):
                          - ``"test_data"``: returns the test dataset created in the **split** step
                            as a pandas DataFrame.
 
+                         - ``"batch_scoring_data"``: returns the scoring dataset created in the
+                           **ingest_scoring** step as a pandas DataFrame.
+
                          - ``"transformed_training_data"``: returns the transformed training dataset
                            created in the **transform** step as a pandas DataFrame.
 
@@ -379,6 +420,9 @@ class RegressionPipeline(_BasePipeline):
                            :py:class:`ModelVersion <mlflow.entities.model_registry.ModelVersion>`
                            created by the **register** step.
 
+                         - ``"scored_data"``: returns the scored dataset created in the
+                           **predict** step as a pandas DataFrame.
+
         :return: An object representation of the artifact corresponding to the specified name,
                  as described in the ``artifact_name`` parameter docstring. If the artifact is
                  not present because its corresponding step has not been executed or its output
@@ -400,7 +444,7 @@ class RegressionPipeline(_BasePipeline):
         """
         import mlflow.pyfunc
 
-        ingest_step, split_step, transform_step, train_step, _, register_step = self._steps
+        ingest_step, split_step, transform_step, train_step, _, register_step, ingest_scoring_step, predict_step = self._steps
 
         ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
         split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
@@ -408,6 +452,9 @@ class RegressionPipeline(_BasePipeline):
             self._pipeline_root_path, transform_step.name, ""
         )
         train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+
+        ingest_scoring_output_dir = get_step_output_path(self._pipeline_root_path, ingest_scoring_step.name, "")
+        predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
 
         def log_artifact_not_found_warning(artifact_name, step_name):
             _logger.warning(
@@ -522,6 +569,19 @@ class RegressionPipeline(_BasePipeline):
             else:
                 log_artifact_not_found_warning("registered_model_version", register_step.name)
                 return None
+
+        elif artifact_name == "batch_scoring_data":
+            return read_dataframe(
+                "batch_scoring_data",
+                ingest_scoring_output_dir,
+                IngestScoringStep._DATASET_OUTPUT_NAME,
+                ingest_scoring_step.name,
+            )
+
+        elif artifact_name == "scored_data":
+            return read_dataframe(
+                "scored_data", predict_output_dir, _SCORED_OUTPUT_FILE_NAME, predict_step.name
+            )
 
         else:
             raise MlflowException(

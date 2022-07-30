@@ -17,7 +17,7 @@ from mlflow.pipelines.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List, Union
+from typing import List
 
 _logger = logging.getLogger(__name__)
 
@@ -79,6 +79,7 @@ class _BasePipeline:
             self._pipeline_root_path,
             self._steps,
             # Runs the last step of the pipeline if no step is specified.
+            # TODO: Determine how this works in a world with disjoint DAGs
             self._get_step(step) if step else self._steps[-1],
             self._template,
         )
@@ -189,7 +190,6 @@ class _BasePipeline:
 
 
 from mlflow.pipelines.regression.v1.pipeline import RegressionPipeline
-from mlflow.pipelines.batch_scoring.v1.pipeline import BatchScoringPipeline
 
 
 @experimental
@@ -211,7 +211,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> Union[BatchScoringPipeline, RegressionPipeline]:
+    def __new__(cls, profile: str) -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
