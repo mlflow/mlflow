@@ -710,7 +710,7 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.metrics["precision_recall_auc"] = self.pr_curve.auc
 
-    def _log_multiclass_classifier(self):
+    def _log_multiclass_classifier_artifacts(self):
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
             self.y, self.y_pred, self.label_list
         )
@@ -760,7 +760,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
-    def _log_binary_classifier(self):
+    def _log_binary_classifier_artifacts(self):
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
         if self.y_probs is not None:
@@ -857,7 +857,7 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _evaluate_custom_metrics_and_log_produced_artifacts(self, disable_logging=False):
+    def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
         if self.custom_metrics is None:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
@@ -878,7 +878,7 @@ class DefaultEvaluator(ModelEvaluator):
                     copy.deepcopy(builtin_metrics),
                 )
                 self.metrics.update(metric_results)
-                if artifact_results is not None and not disable_logging:
+                if artifact_results is not None and log_to_mlflow_tracking:
                     for artifact_name, raw_artifact in artifact_results.items():
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
@@ -920,7 +920,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _generate_model_predictions(self):
         """
-        Helper methof for generating model predictions
+        Helper method for generating model predictions
         """
         if self.model_type == "classifier":
             self.label_list = np.unique(self.y)
@@ -960,7 +960,7 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _compute_builtin_metrics(self):
         """
-        Helper method for computing builtin metrics for self.model, update results to self.metrics
+        Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
         if self.model_type == "classifier":
@@ -985,9 +985,9 @@ class DefaultEvaluator(ModelEvaluator):
         """
         if self.model_type == "classifier":
             if self.is_binomial:
-                self._log_binary_classifier()
+                self._log_binary_classifier_artifacts()
             else:
-                self._log_multiclass_classifier()
+                self._log_multiclass_classifier_artifacts()
             self._log_confusion_matrix()
         self._log_metrics()
         self._log_model_explainability()
@@ -1028,7 +1028,7 @@ class DefaultEvaluator(ModelEvaluator):
                 self._generate_model_predictions()
                 self._compute_builtin_metrics()
                 self._evaluate_custom_metrics_and_log_produced_artifacts(
-                    disable_logging=is_baseline_model
+                    log_to_mlflow_tracking=not is_baseline_model
                 )
                 if not is_baseline_model:
                     self._log_metrics_and_artifacts()
@@ -1064,9 +1064,10 @@ class DefaultEvaluator(ModelEvaluator):
                 f"verify that you set the `model_type` and `dataset` arguments correctly."
             )
 
-        evaluation_result = self._evaluate(
-            model, is_baseline_model=evaluator_config.get("is_baseline_model", False)
-        )
+        if evaluator_config.get("_disable_candidate_model", False):
+            evaluation_result = EvaluationResult(metrics=dict(), artifacts=dict())
+        else:
+            evaluation_result = self._evaluate(model, is_baseline_model=False)
 
         if not baseline_model:
             return evaluation_result

@@ -83,26 +83,28 @@ def evaluate_model_helper(
     """
     Helper function for testing MLflow.evaluate
     To test if evaluation for baseline model does not log metrics and artifacts;
-    we set "is_baseline_model" to true for all evaluator_config
+    we set "disable_candidate_model" to true for the evaluator_config so that the
+    DefaultEvaluator will evaluate only the baseline_model with logging
+    disabled. This code path is only for testing purposes.
     """
     if eval_baseline_model_only:
         if not evaluator_config:
-            evaluator_config = {"is_baseline_model": True}
+            evaluator_config = {"_disable_candidate_model": True}
         elif not evaluators or evaluators == "default":
-            evaluator_config.update({"is_baseline_model": True})
+            evaluator_config.update({"_disable_candidate_model": True})
         else:
             for config in evaluator_config.values():
-                config.update({"is_baseline_model": True})
+                config.update({"_disable_candidate_model": True})
 
     return evaluate(
-        model=baseline_model if eval_baseline_model_only else model,
+        model=model,
         data=data,
         model_type=model_type,
         targets=targets,
         dataset_name=dataset_name,
         evaluators=evaluators,
         evaluator_config=evaluator_config,
-        baseline_model=None if eval_baseline_model_only else baseline_model,
+        baseline_model=baseline_model,
     )
 
 
@@ -112,7 +114,7 @@ def check_metrics_not_logged_for_baseline_model_evaluation(
     """
     Helper function for checking metrics of evaluation of baseline_model
      - Metrics should not be logged
-     - Meetrics should be returned as expected
+     - Metrics should be returned in EvaluationResult as expected
     """
     assert logged_metrics == {}
     for metric_key in expected_metrics:
@@ -189,6 +191,12 @@ def test_regressor_evaluation(
         "shap_summary_plot_on_data_diabetes_dataset.png",
     }
 
+    assert result.artifacts.keys() == {
+        "shap_beeswarm_plot",
+        "shap_feature_importance_plot",
+        "shap_summary_plot",
+    }
+
 
 def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
     linear_regressor_model_uri,
@@ -206,7 +214,7 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
 
@@ -220,8 +228,8 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -334,7 +342,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
@@ -351,8 +359,8 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -451,7 +459,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
@@ -468,8 +476,8 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -549,7 +557,7 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
@@ -561,8 +569,8 @@ def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags
@@ -649,7 +657,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
             eval_baseline_model_only=True,
         )
 
-    _, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
@@ -665,8 +673,8 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     check_metrics_not_logged_for_baseline_model_evaluation(
         expected_metrics=expected_metrics,
-        result_metrics=result.metrics,
-        logged_metrics=metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
     )
 
     assert "mlflow.datassets" not in tags

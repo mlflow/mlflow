@@ -25,7 +25,6 @@ class Array2DEvaluationArtifact(EvaluationArtifact):
 
 # pylint: disable=attribute-defined-outside-init
 class DummyEvaluator(ModelEvaluator):
-    is_baseline_model = False
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
@@ -60,7 +59,7 @@ class DummyEvaluator(ModelEvaluator):
                 )
                 confusion_matrix_csv_buff = io.StringIO()
                 confusion_matrix_artifact._save(confusion_matrix_csv_buff)
-                if not self.is_baseline_model:
+                if not is_baseline_model:
                     self.client.log_text(
                         self.run_id,
                         confusion_matrix_csv_buff.getvalue(),
@@ -102,7 +101,7 @@ class DummyEvaluator(ModelEvaluator):
                 "mean_absolute_error": mean_absolute_error,
                 "mean_squared_error": mean_squared_error,
             }
-            if not self.is_baseline_model:
+            if not is_baseline_model:
                 self._log_metrics(self.run_id, metrics, self.dataset.name)
             artifacts = {}
         else:
@@ -121,9 +120,7 @@ class DummyEvaluator(ModelEvaluator):
         self.X = dataset.features_data
         self.y = dataset.labels_data
         y_pred = model.predict(self.X)
-        eval_result = self._evaluate(
-            y_pred, is_baseline_model=evaluator_config.get("is_baseline_model", False)
-        )
+        eval_result = self._evaluate(y_pred, is_baseline_model=False)
 
         if not baseline_model:
             return eval_result
