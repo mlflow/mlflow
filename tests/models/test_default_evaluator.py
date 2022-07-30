@@ -7,7 +7,9 @@ import pytest
 from contextlib import nullcontext as does_not_raise
 
 from mlflow.exceptions import MlflowException
-from mlflow.models.evaluation import evaluate
+from mlflow.models.evaluation.base import (
+    evaluate,
+)
 from mlflow.models.evaluation.artifacts import (
     CsvEvaluationArtifact,
     ImageEvaluationArtifact,
@@ -44,9 +46,10 @@ import io
 # pylint: disable=unused-import
 from tests.models.test_evaluation import (
     get_run_data,
-    linear_regressor_model_uri,
+    baseline_model_uri,
     diabetes_dataset,
     multiclass_logistic_regressor_model_uri,
+    linear_regressor_model_uri,
     iris_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
@@ -65,15 +68,93 @@ def assert_dict_equal(d1, d2, rtol):
         assert np.isclose(d1[k], d2[k], rtol=rtol)
 
 
-def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
+def evaluate_model_helper(
+    model,
+    baseline_model,
+    data,
+    targets,
+    model_type: str,
+    dataset_name=None,
+    evaluators=None,
+    evaluator_config=None,
+    eval_baseline_model_only=False,
+):
+
+    """
+    Helper function for testing MLflow.evaluate
+    To test if evaluation for baseline model does not log metrics and artifacts;
+    we set "disable_candidate_model" to true for the evaluator_config so that the
+    DefaultEvaluator will evaluate only the baseline_model with logging
+    disabled. This code path is only for testing purposes.
+    """
+    if eval_baseline_model_only:
+        if not evaluator_config:
+            evaluator_config = {"_disable_candidate_model": True}
+        elif not evaluators or evaluators == "default":
+            evaluator_config.update({"_disable_candidate_model": True})
+        else:
+            for config in evaluator_config.values():
+                config.update({"_disable_candidate_model": True})
+
+    return evaluate(
+        model=model,
+        data=data,
+        model_type=model_type,
+        targets=targets,
+        dataset_name=dataset_name,
+        evaluators=evaluators,
+        evaluator_config=evaluator_config,
+        baseline_model=baseline_model,
+    )
+
+
+def check_metrics_not_logged_for_baseline_model_evaluation(
+    logged_metrics, result_metrics, expected_metrics
+):
+    """
+    Helper function for checking metrics of evaluation of baseline_model
+     - Metrics should not be logged
+     - Metrics should be returned in EvaluationResult as expected
+    """
+    assert logged_metrics == {}
+    for metric_key in expected_metrics:
+        assert np.isclose(expected_metrics[metric_key], result_metrics[metric_key], rtol=1e-3)
+
+
+def check_artifacts_are_not_generated_for_baseline_model_evaluation(
+    logged_artifacts, result_artifacts
+):
+    """
+    Helper function for unit tests for checking artifacts of evaluation of baseline model
+        - No Artifact is returned nor logged
+    """
+    assert logged_artifacts == []
+    assert result_artifacts == {}
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("linear_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_regressor_evaluation(
+    linear_regressor_model_uri,
+    diabetes_dataset,
+    baseline_model_uri,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        result = evaluate_model_helper(
             linear_regressor_model_uri,
+            baseline_model_uri,
             diabetes_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_dataset._constructor_args["targets"],
             dataset_name=diabetes_dataset.name,
             evaluators="default",
+            eval_baseline_model_only=False,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -87,6 +168,11 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     expected_metrics["score"] = model._model_impl.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
+
+    assert json.loads(tags["mlflow.datasets"]) == [
+        {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
+    ]
+
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -104,11 +190,54 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
         "shap_feature_importance_plot_on_data_diabetes_dataset.png",
         "shap_summary_plot_on_data_diabetes_dataset.png",
     }
+
     assert result.artifacts.keys() == {
         "shap_beeswarm_plot",
         "shap_feature_importance_plot",
         "shap_summary_plot",
     }
+
+
+def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
+    linear_regressor_model_uri,
+    diabetes_dataset,
+):
+    with mlflow.start_run() as run:
+        result = evaluate_model_helper(
+            linear_regressor_model_uri,
+            linear_regressor_model_uri,
+            diabetes_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_dataset._constructor_args["targets"],
+            dataset_name=diabetes_dataset.name,
+            evaluators="default",
+            eval_baseline_model_only=True,
+        )
+
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(linear_regressor_model_uri)
+
+    y = diabetes_dataset.labels_data
+    y_pred = model.predict(diabetes_dataset.features_data)
+
+    expected_metrics = _get_regressor_metrics(y, y_pred)
+    expected_metrics["score"] = model._model_impl.score(
+        diabetes_dataset.features_data, diabetes_dataset.labels_data
+    )
+
+    check_metrics_not_logged_for_baseline_model_evaluation(
+        expected_metrics=expected_metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
+    )
+
+    assert "mlflow.datassets" not in tags
+
+    check_artifacts_are_not_generated_for_baseline_model_evaluation(
+        logged_artifacts=artifacts,
+        result_artifacts=result.artifacts,
+    )
 
 
 def test_regressor_evaluation_with_int_targets(
@@ -126,15 +255,29 @@ def test_regressor_evaluation_with_int_targets(
         result.save(tmp_path)
 
 
-def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, iris_dataset):
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("multiclass_logistic_regressor_baseline_model_uri_4"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_multi_classifier_evaluation(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    baseline_model_uri,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        result = evaluate_model_helper(
             multiclass_logistic_regressor_model_uri,
+            baseline_model_uri,
             iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
             dataset_name=iris_dataset.name,
             evaluators="default",
+            eval_baseline_model_only=False,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -151,6 +294,7 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
+
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
@@ -182,15 +326,74 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     }
 
 
-def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        result = evaluate_model_helper(
+            multiclass_logistic_regressor_model_uri,
+            multiclass_logistic_regressor_model_uri,
+            iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            dataset_name=iris_dataset.name,
+            evaluators="default",
+            eval_baseline_model_only=True,
+        )
+
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
+
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    y = iris_dataset.labels_data
+    y_pred = predict_fn(iris_dataset.features_data)
+    y_probs = predict_proba_fn(iris_dataset.features_data)
+
+    expected_metrics = _get_classifier_global_metrics(False, y, y_pred, y_probs, labels=None)
+    expected_metrics["score"] = model._model_impl.score(
+        iris_dataset.features_data, iris_dataset.labels_data
+    )
+
+    check_metrics_not_logged_for_baseline_model_evaluation(
+        expected_metrics=expected_metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
+    )
+
+    assert "mlflow.datassets" not in tags
+
+    check_artifacts_are_not_generated_for_baseline_model_evaluation(
+        logged_artifacts=artifacts,
+        result_artifacts=result.artifacts,
+    )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("binary_logistic_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_bin_classifier_evaluation(
+    binary_logistic_regressor_model_uri,
+    breast_cancer_dataset,
+    baseline_model_uri,
+):
+    with mlflow.start_run() as run:
+        result = evaluate_model_helper(
             binary_logistic_regressor_model_uri,
+            baseline_model_uri,
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
             dataset_name=breast_cancer_dataset.name,
             evaluators="default",
+            eval_baseline_model_only=False,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -207,6 +410,7 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
+
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -239,16 +443,74 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     }
 
 
-def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diabetes_spark_dataset):
+def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
+    binary_logistic_regressor_model_uri,
+    breast_cancer_dataset,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        result = evaluate_model_helper(
+            binary_logistic_regressor_model_uri,
+            binary_logistic_regressor_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
+            evaluators="default",
+            eval_baseline_model_only=True,
+        )
+
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
+
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
+
+    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, y_probs, labels=None)
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
+
+    check_metrics_not_logged_for_baseline_model_evaluation(
+        expected_metrics=expected_metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
+    )
+
+    assert "mlflow.datassets" not in tags
+
+    check_artifacts_are_not_generated_for_baseline_model_evaluation(
+        logged_artifacts=artifacts,
+        result_artifacts=result.artifacts,
+    )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("spark_linear_regressor_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_spark_regressor_model_evaluation(
+    spark_linear_regressor_model_uri,
+    diabetes_spark_dataset,
+    baseline_model_uri,
+):
+    with mlflow.start_run() as run:
+        result = evaluate_model_helper(
             spark_linear_regressor_model_uri,
+            baseline_model_uri,
             diabetes_spark_dataset._constructor_args["data"],
             model_type="regressor",
             targets=diabetes_spark_dataset._constructor_args["targets"],
             dataset_name=diabetes_spark_dataset.name,
             evaluators="default",
-            evaluator_config={"log_model_explainability": True},
+            eval_baseline_model_only=False,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -279,15 +541,65 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
     assert result.artifacts == {}
 
 
-def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
+def test_spark_regressor_model_evaluation_disable_logging_metrics_and_artifacts(
+    spark_linear_regressor_model_uri,
+    diabetes_spark_dataset,
+):
     with mlflow.start_run() as run:
-        result = evaluate(
+        result = evaluate_model_helper(
+            spark_linear_regressor_model_uri,
+            spark_linear_regressor_model_uri,
+            diabetes_spark_dataset._constructor_args["data"],
+            model_type="regressor",
+            targets=diabetes_spark_dataset._constructor_args["targets"],
+            dataset_name=diabetes_spark_dataset.name,
+            evaluators="default",
+            eval_baseline_model_only=True,
+        )
+
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
+
+    X = diabetes_spark_dataset.features_data
+    y = diabetes_spark_dataset.labels_data
+    y_pred = model.predict(X)
+
+    expected_metrics = _get_regressor_metrics(y, y_pred)
+
+    check_metrics_not_logged_for_baseline_model_evaluation(
+        expected_metrics=expected_metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
+    )
+
+    assert "mlflow.datassets" not in tags
+
+    check_artifacts_are_not_generated_for_baseline_model_evaluation(
+        logged_artifacts=artifacts,
+        result_artifacts=result.artifacts,
+    )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("svm_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baseline_model_uri):
+    with mlflow.start_run() as run:
+        result = evaluate_model_helper(
             svm_model_uri,
+            baseline_model_uri,
             breast_cancer_dataset._constructor_args["data"],
             model_type="classifier",
             targets=breast_cancer_dataset._constructor_args["targets"],
             dataset_name=breast_cancer_dataset.name,
             evaluators="default",
+            eval_baseline_model_only=False,
         )
 
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
@@ -303,6 +615,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
+
     for metric_key in expected_metrics:
         assert np.isclose(
             expected_metrics[metric_key],
@@ -329,19 +642,74 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     }
 
 
-def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
+    svm_model_uri, breast_cancer_dataset
+):
+    with mlflow.start_run() as run:
+        result = evaluate_model_helper(
+            svm_model_uri,
+            svm_model_uri,
+            breast_cancer_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=breast_cancer_dataset._constructor_args["targets"],
+            dataset_name=breast_cancer_dataset.name,
+            evaluators="default",
+            eval_baseline_model_only=True,
+        )
+
+    _, logged_metrics, tags, artifacts = get_run_data(run.info.run_id)
+
+    model = mlflow.pyfunc.load_model(svm_model_uri)
+
+    _, raw_model = _extract_raw_model(model)
+    predict_fn, _ = _extract_predict_fn(model, raw_model)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+
+    expected_metrics = _get_classifier_global_metrics(True, y, y_pred, None, labels=None)
+    expected_metrics["score"] = model._model_impl.score(
+        breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
+    )
+
+    check_metrics_not_logged_for_baseline_model_evaluation(
+        expected_metrics=expected_metrics,
+        result_metrics=result.baseline_model_metrics,
+        logged_metrics=logged_metrics,
+    )
+
+    assert "mlflow.datassets" not in tags
+
+    check_artifacts_are_not_generated_for_baseline_model_evaluation(
+        logged_artifacts=artifacts,
+        result_artifacts=result.artifacts,
+    )
+
+
+@pytest.mark.parametrize(
+    "baseline_model_uri",
+    [
+        ("None"),
+        ("pipeline_model_uri"),
+    ],
+    indirect=["baseline_model_uri"],
+)
+def test_pipeline_model_kernel_explainer_on_categorical_features(
+    pipeline_model_uri, baseline_model_uri
+):
     from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
 
     data, target_col = get_pipeline_model_dataset()
     with mlflow.start_run() as run:
-        evaluate(
+        evaluate_model_helper(
             pipeline_model_uri,
+            baseline_model_uri,
             data[0::3],
             model_type="classifier",
             targets=target_col,
             dataset_name="pipeline_model_dataset",
             evaluators="default",
             evaluator_config={"explainability_algorithm": "kernel"},
+            eval_baseline_model_only=False,
         )
     run_data = get_run_data(run.info.run_id)
     assert {
