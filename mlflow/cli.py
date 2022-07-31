@@ -1,13 +1,12 @@
 import json
 import os
-import time
 import re
 import sys
 import logging
 
 import click
 from click import UsageError
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import mlflow.db
 import mlflow.experiments
@@ -521,33 +520,25 @@ def gc(older_than, backend_store_uri, run_ids):
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
 
-    current_time = int(time.time() * 1000)
+    time_delta = 0
 
     if older_than:
         regex = re.compile(
-            r"^((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
+            r"^((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)"
+            r"?((?P<seconds>[\.\d]+?)s)?$"
         )
         parts = regex.match(older_than)
         if parts is None:
             raise MlflowException(
-                "Could not parse any time information from '{}'.  Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(
-                    older_than
-                )
+                "Could not parse any time information from '{}'. "
+                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than)
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)
 
+    deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
-        if older_than:
-            # filter run_ids based on older_than parameter
-            _run_ids = backend_store._get_deleted_runs()
-            run_ids = []
-            for run_id in _run_ids:
-                run = backend_store.get_run(run_id)
-                if current_time - run.info.delete_time > time_delta:
-                    run_ids.append(run_id)
-        else:
-            run_ids = backend_store._get_deleted_runs()
+        run_ids = deleted_run_ids_older_than.copy()
 
     else:
         run_ids = run_ids.split(",")
@@ -560,9 +551,10 @@ def gc(older_than, backend_store_uri, run_ids):
                 "`deleted` lifecycle stage can be deleted." % run_id
             )
         # raise MlflowException if run_id is newer than older_than parameter
-        if older_than and current_time - run.info.delete_time <= time_delta:
+        if older_than and run_id not in deleted_run_ids_older_than:
             raise MlflowException(
-                f"Run {run_id} is not older than the required age. Only runs older than {older_than} can be deleted."
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted."
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()

@@ -662,14 +662,19 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         with self.ManagedSessionMaker() as session:
-            run_ids = (
-                session.query(SqlRun.run_uuid)
-                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED)
-                .all()
+            runs = (
+                session.query(SqlRun).filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED).all()
             )
-            return [run_id[0] for run_id in run_ids]
+            return [run.run_uuid for run in runs if current_time - run.delete_time > older_than]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)

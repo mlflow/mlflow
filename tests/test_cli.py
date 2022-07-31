@@ -198,6 +198,43 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     assert not os.path.exists(artifact_path)
 
 
+def test_mlflow_gc_sqlite_older_than(sqlite_store):
+    store = sqlite_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    with pytest.raises(subprocess.CalledProcessError, match=r".+"):
+        subprocess.check_output(
+            [
+                "mlflow",
+                "gc",
+                "--backend-store-uri",
+                sqlite_store[1],
+                "--older-than",
+                "10d10h10m10s",
+                "--run-ids",
+                run.info.run_uuid,
+            ]
+        )
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 1
+
+    time.sleep(1)
+    subprocess.check_output(
+        [
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            sqlite_store[1],
+            "--older-than",
+            "1s",
+            "--run-ids",
+            run.info.run_uuid,
+        ]
+    )
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+
+
 @pytest.mark.parametrize("create_artifacts_in_run", [True, False])
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
@@ -237,7 +274,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
-def test_mlflow_gc_older_than(file_store):
+def test_mlflow_gc_file_store_older_than(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)

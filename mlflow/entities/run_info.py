@@ -48,7 +48,6 @@ class RunInfo(_MLflowObject):
         status,
         start_time,
         end_time,
-        delete_time,
         lifecycle_stage,
         artifact_uri=None,
         run_id=None,
@@ -73,7 +72,6 @@ class RunInfo(_MLflowObject):
         self._status = status
         self._start_time = start_time
         self._end_time = end_time
-        self._delete_time = delete_time
         self._lifecycle_stage = lifecycle_stage
         self._artifact_uri = artifact_uri
 
@@ -83,17 +81,13 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(
-        self, status=None, end_time=None, delete_time=None, lifecycle_stage=None
-    ):
+    def _copy_with_overrides(self, status=None, end_time=None, lifecycle_stage=None):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
         if status:
             proto.status = status
         if end_time:
             proto.end_time = end_time
-        if delete_time or delete_time == 0:
-            proto.delete_time = delete_time
         if lifecycle_stage:
             proto.lifecycle_stage = lifecycle_stage
         return RunInfo.from_proto(proto)
@@ -136,11 +130,6 @@ class RunInfo(_MLflowObject):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
 
-    @orderable_attribute
-    def delete_time(self):
-        """Time of deletion of the run, in number of milliseconds since the UNIX epoch."""
-        return self._delete_time
-
     @searchable_attribute
     def artifact_uri(self):
         """String root artifact URI of the run."""
@@ -160,8 +149,6 @@ class RunInfo(_MLflowObject):
         proto.start_time = self.start_time
         if self.end_time:
             proto.end_time = self.end_time
-        if self.delete_time:
-            proto.delete_time = self.delete_time
         if self.artifact_uri:
             proto.artifact_uri = self.artifact_uri
         proto.lifecycle_stage = self.lifecycle_stage
@@ -170,13 +157,10 @@ class RunInfo(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         end_time = proto.end_time
-        delete_time = proto.delete_time
         # The proto2 default scalar value of zero indicates that the run's end time is absent.
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
             end_time = None
-        if delete_time == 0:
-            delete_time = None
         return cls(
             run_uuid=proto.run_uuid,
             run_id=proto.run_id,
@@ -185,7 +169,6 @@ class RunInfo(_MLflowObject):
             status=RunStatus.to_string(proto.status),
             start_time=proto.start_time,
             end_time=end_time,
-            delete_time=delete_time,
             lifecycle_stage=proto.lifecycle_stage,
             artifact_uri=proto.artifact_uri,
         )
