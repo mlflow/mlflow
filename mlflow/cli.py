@@ -488,11 +488,10 @@ def server(
 @cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
 @click.option(
     "--older-than",
-    default="0",
+    default=None,
     help="Optional Remove run(s) older than the specified time limit. "
     "Specify a string in #d#h#m#s format. "
-    "For example: --older-than 1d2h3m4s"
-    "Defaults to 0 (all runs).",
+    "For example: --older-than 1d2h3m4s",
 )
 @click.option(
     "--backend-store-uri",
@@ -524,7 +523,7 @@ def gc(older_than, backend_store_uri, run_ids):
 
     current_time = int(time.time() * 1000)
 
-    if older_than != "0":
+    if older_than:
         regex = re.compile(
             r"^((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)?((?P<seconds>[\.\d]+?)s)?$"
         )
@@ -539,7 +538,7 @@ def gc(older_than, backend_store_uri, run_ids):
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)
 
     if not run_ids:
-        if older_than != "0":
+        if older_than:
             # filter run_ids based on older_than parameter
             _run_ids = backend_store._get_deleted_runs()
             run_ids = []
@@ -561,7 +560,7 @@ def gc(older_than, backend_store_uri, run_ids):
                 "`deleted` lifecycle stage can be deleted." % run_id
             )
         # raise MlflowException if run_id is newer than older_than parameter
-        if older_than != "0" and current_time - run.info.delete_time <= time_delta:
+        if older_than and current_time - run.info.delete_time <= time_delta:
             raise MlflowException(
                 f"Run {run_id} is not older than the required age. Only runs older than {older_than} can be deleted."
             )
