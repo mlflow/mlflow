@@ -224,11 +224,13 @@ def test_model_log_with_input_example_succeeds():
 
         # date column will get deserialized into string
         input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
-        assert x.equals(input_example)
+        pd.testing.assert_frame_equal(x, input_example.astype({"b": "string", "d": "string"}))
 
         loaded_example = loaded_model.load_input_example(local_path)
         assert isinstance(loaded_example, pd.DataFrame)
-        assert loaded_example.equals(input_example)
+        pd.testing.assert_frame_equal(
+            loaded_example, input_example.astype({"b": "string", "d": "string"})
+        )
 
 
 def test_model_load_input_example_numpy():
@@ -244,7 +246,7 @@ def test_model_load_input_example_numpy():
         loaded_example = loaded_model.load_input_example(local_path)
 
         assert isinstance(loaded_example, np.ndarray)
-        assert np.array_equal(input_example, loaded_example)
+        np.testing.assert_array_equal(input_example, loaded_example)
 
 
 def test_model_load_input_example_scipy():
@@ -260,7 +262,7 @@ def test_model_load_input_example_scipy():
         loaded_example = loaded_model.load_input_example(local_path)
 
         assert isinstance(loaded_example, csc_matrix)
-        assert np.array_equal(input_example.data, loaded_example.data)
+        np.testing.assert_array_equal(input_example.data, loaded_example.data)
 
 
 def test_model_load_input_example_failures():

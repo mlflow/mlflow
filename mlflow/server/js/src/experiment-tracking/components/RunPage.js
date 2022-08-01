@@ -73,7 +73,12 @@ export class RunPageImpl extends Component {
     const requestIds = [this.getRunRequestId, this.getExperimentRequestId];
     return (
       <PageContainer>
-        <RequestStateWrapper requestIds={requestIds}>{this.renderRunView}</RequestStateWrapper>
+        <RequestStateWrapper
+          requestIds={requestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
+          {this.renderRunView}
+        </RequestStateWrapper>
       </PageContainer>
     );
   }

@@ -1,7 +1,7 @@
 import os
 
 import pytest
-import sklearn.datasets as datasets
+from sklearn import datasets
 import sklearn.neighbors as knn
 
 import mlflow.sklearn

@@ -2,7 +2,7 @@ import os
 import pytest
 from packaging.version import Version
 
-import sklearn.datasets as datasets
+from sklearn import datasets
 import pandas as pd
 import numpy as np
 

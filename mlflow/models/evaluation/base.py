@@ -3,6 +3,7 @@ import mlflow
 import hashlib
 import json
 import os
+from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
@@ -133,7 +134,7 @@ class EvaluationResult:
             json.dump(artifacts_metadata, fp)
 
         artifacts_dir = os.path.join(path, "artifacts")
-        os.mkdir(artifacts_dir)
+        os.makedirs(artifacts_dir, exist_ok=True)
 
         for artifact in self.artifacts.values():
             filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
@@ -617,7 +618,7 @@ def _evaluate(
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     model_uuid = model.metadata.model_uuid
     dataset._log_dataset_tag(client, run_id, model_uuid)
 
@@ -766,7 +767,8 @@ def evaluate(
                  - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
                    labels. If ``feature_names`` argument not specified, all columns are regarded
                    as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns.
+                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
+                   rows in the Spark DataFrame will be used as evaluation data.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``

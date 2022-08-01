@@ -9,7 +9,8 @@ from click import UsageError
 import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
-import mlflow.projects as projects
+import mlflow.pipelines.cli
+from mlflow import projects
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import version
@@ -18,7 +19,6 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.server_cli_utils import (
@@ -250,6 +250,14 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     f"to {DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH}",
 )
 @click.option(
+    "--registry-store-uri",
+    metavar="URI",
+    default=None,
+    help="URI to which to persist registered models. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings (e.g. 'sqlite:///path/to/file.db'). "
+    "If not specified, `backend-store-uri` is used.",
+)
+@click.option(
     "--default-artifact-root",
     metavar="URI",
     default=None,
@@ -266,7 +274,13 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @cli_args.PORT
 @cli_args.HOST
 def ui(
-    backend_store_uri, default_artifact_root, serve_artifacts, artifacts_destination, port, host
+    backend_store_uri,
+    registry_store_uri,
+    default_artifact_root,
+    serve_artifacts,
+    artifacts_destination,
+    port,
+    host,
 ):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
@@ -284,12 +298,16 @@ def ui(
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
+
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri, resolve_to_local=True
     )
 
     try:
-        initialize_backend_stores(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
     except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -299,6 +317,7 @@ def ui(
     try:
         _run_server(
             backend_store_uri,
+            registry_store_uri,
             default_artifact_root,
             serve_artifacts,
             False,
@@ -337,6 +356,14 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
     "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
     "to the ./mlruns directory.",
+)
+@click.option(
+    "--registry-store-uri",
+    metavar="URI",
+    default=None,
+    help="URI to which to persist registered models. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings (e.g. 'sqlite:///path/to/file.db'). "
+    "If not specified, `backend-store-uri` is used.",
 )
 @click.option(
     "--default-artifact-root",
@@ -388,6 +415,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 )
 def server(
     backend_store_uri,
+    registry_store_uri,
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
@@ -417,13 +445,17 @@ def server(
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    # the default setting of registry_store_uri is same as backend_store_uri
+    if not registry_store_uri:
+        registry_store_uri = backend_store_uri
+
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
     artifacts_only_config_validation(artifacts_only, backend_store_uri)
 
     try:
-        initialize_backend_stores(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, registry_store_uri, default_artifact_root)
     except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -432,6 +464,7 @@ def server(
     try:
         _run_server(
             backend_store_uri,
+            registry_store_uri,
             default_artifact_root,
             serve_artifacts,
             artifacts_only,
@@ -467,7 +500,6 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-@experimental
 def gc(backend_store_uri, run_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
@@ -501,20 +533,32 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+cli.add_command(mlflow.pipelines.cli.commands)
 
+# We are conditional loading these commands since the skinny client does
+# not support them due to the pandas and numpy dependencies of MLflow Models
 try:
-    # pylint: disable=unused-import
-    import mlflow.models.cli
-    import mlflow.azureml.cli
-    import mlflow.sagemaker.cli
+    import mlflow.models.cli  # pylint: disable=unused-import
 
-    cli.add_command(mlflow.azureml.cli.commands)
-    cli.add_command(mlflow.sagemaker.cli.commands)
     cli.add_command(mlflow.models.cli.commands)
 except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
     pass
+
+
+try:
+    import mlflow.azureml.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.azureml.cli.commands)
+except ImportError as e:
+    pass
+
+try:
+    import mlflow.sagemaker.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.sagemaker.cli.commands)
+except ImportError as e:
+    pass
+
 
 if __name__ == "__main__":
     cli()

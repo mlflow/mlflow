@@ -27,7 +27,7 @@ class HomeView extends Component {
     const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
-    const hasExperiments = experiments.length > 0;
+    const hasExperiments = experimentIds?.length > 0;
 
     if (experimentIds === undefined) {
       const firstExp = getFirstActiveExperiment(experiments);

@@ -6,13 +6,20 @@ err=0
 trap 'err=1' ERR
 
 echo -e "\n========== black ==========\n"
-black --check . 2>&1 | sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `autoformat` on the PR to format./'
+if [ -z "${GITHUB_ACTIONS}" ]; then
+  black --check .
+else
+  black --check . > .black-output 2>&1
+  sed 's/^would reformat \(.*\)/\1: This file is unformatted. Run `black .` or comment `autoformat` on the PR to format./' .black-output
+fi
 
 echo -e "\n========== pylint ==========\n"
 pylint $(git ls-files | grep '\.py$')
 
-echo -e "\n========== rstcheck ==========\n"
-rstcheck README.rst
+if [[ -f "README.rst" ]]; then
+  echo -e "\n========== rstcheck ==========\n"
+  rstcheck README.rst
+fi
 
 if [[ "$err" != "0" ]]; then
   echo -e "\nOne of the previous steps failed, check above"

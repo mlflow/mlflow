@@ -142,12 +142,9 @@ describe('ExperimentViewUtil', () => {
     const modelName = 'model1';
     const model_versions = [{ name: modelName, version: 2 }];
     const linkedModelDiv = shallow(ExperimentViewUtil.getLinkedModelCell(model_versions));
-    expect(
-      linkedModelDiv
-        .find('.model-version-link')
-        .at(0)
-        .props().href,
-    ).toContain(getModelVersionPageRoute(model_versions[0].name, model_versions[0].version));
+    expect(linkedModelDiv.find('.model-version-link').at(0).props().href).toContain(
+      getModelVersionPageRoute(model_versions[0].name, model_versions[0].version),
+    );
   });
 
   test('should not nest children if nestChildren is false', () => {
@@ -177,8 +174,9 @@ describe('ExperimentViewUtil', () => {
         idx: 1,
         isParent: true,
         runId: 2,
+        level: 0,
       },
-      { hasExpander: false, idx: 0, isParent: false },
+      { hasExpander: false, idx: 0, isParent: false, level: 1 },
     ]);
 
     expect(
@@ -470,7 +468,7 @@ describe('ExperimentViewUtil', () => {
         artifact_uri: 'dummypath',
         lifecycle_stage: 'active',
       });
-    const runInfos = [createRun('run-id1'), createRun('run-id2')];
+    const runInfos = [createRun('run-id1'), createRun('run-id2'), createRun('run-id3')];
     const createTag = (parentId) => ({
       tag1: '1',
       tag2: '1',
@@ -484,8 +482,11 @@ describe('ExperimentViewUtil', () => {
       createTag({
         value: 'run-id1',
       }),
+      createTag({
+        value: 'run-id2',
+      }),
     ];
-    const runsExpanded = { 'run-id1': true, 'run-id2': true };
+    const runsExpanded = { 'run-id1': true, 'run-id2': true, 'run-id3': true };
     const expectedCategorizedUncheckedKeys = [
       {
         childrenIds: ['run-id2'],
@@ -494,8 +495,18 @@ describe('ExperimentViewUtil', () => {
         idx: 0,
         isParent: true,
         runId: 'run-id1',
+        level: 0,
       },
-      { hasExpander: false, idx: 1, isParent: false },
+      {
+        childrenIds: ['run-id3'],
+        expanderOpen: true,
+        hasExpander: true,
+        idx: 1,
+        isParent: true,
+        runId: 'run-id2',
+        level: 1,
+      },
+      { hasExpander: false, idx: 2, isParent: false, level: 2 },
     ];
 
     expect(

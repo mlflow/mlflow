@@ -28,15 +28,11 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.databricks_utils import (
-    is_databricks_default_tracking_uri,
-    is_in_databricks_job,
-    is_in_databricks_notebook,
-    get_workspace_info_from_dbutils,
-    get_workspace_info_from_databricks_secrets,
-)
+from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -73,6 +69,10 @@ class MlflowClient:
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
+
+    @property
+    def tracking_uri(self):
+        return self._tracking_client.tracking_uri
 
     def _get_registry_client(self):
         """
@@ -127,7 +127,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             with mlflow.start_run() as run:
                 mlflow.log_param("p", 0)
@@ -161,7 +161,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_metric_info(history):
                 for m in history:
@@ -238,7 +238,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run with a tag under the default experiment (whose id is '0').
             tags = {"engineering": "ML Platform"}
@@ -291,7 +291,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_run_infos(run_infos):
@@ -356,7 +356,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_experiment_info(experiments):
@@ -396,6 +396,110 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
+    @experimental
+    def search_experiments(
+        self,
+        view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: Optional[int] = SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string: Optional[str] = None,
+        order_by: Optional[List[str]] = None,
+        page_token=None,
+    ) -> PagedList[Experiment]:
+        """
+        Search for experiments that match the specified search query.
+
+        :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                          defined in :py:class:`mlflow.entities.ViewType`.
+        :param max_results: Maximum number of experiments desired. Certain server backend may apply
+                            its own limit.
+        :param filter_string:
+            Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
+            experiments. The following identifiers, comparators, and logical operators are
+            supported.
+
+            Identifiers
+              - ``name``: Experiment name.
+              - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+                spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive sensitive pattern match.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+        :param order_by:
+            List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+            ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is
+            equivalent to ``"name ASC"``. The following identifiers are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                           a ``search_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+
+
+            def assert_experiment_names_equal(experiments, expected_names):
+                actual_names = [e.name for e in experiments if e.name != "Default"]
+                assert actual_names == expected_names, (actual_names, expected_names)
+
+
+            mlflow.set_tracking_uri("sqlite:///:memory:")
+            client = mlflow.MlflowClient()
+
+            # Create experiments
+            for name, tags in [
+                ("a", None),
+                ("b", None),
+                ("ab", {"k": "v"}),
+                ("bb", {"k": "V"}),
+            ]:
+                client.create_experiment(name, tags=tags)
+
+            # Search for experiments with name "a"
+            experiments = client.search_experiments(filter_string="name = 'a'")
+            assert_experiment_names_equal(experiments, ["a"])
+
+            # Search for experiments with name starting with "a"
+            experiments = client.search_experiments(filter_string="name LIKE 'a%'")
+            assert_experiment_names_equal(experiments, ["ab", "a"])
+
+            # Search for experiments with tag key "k" and value ending with "v" or "V"
+            experiments = client.search_experiments(filter_string="tags.k ILIKE '%v'")
+            assert_experiment_names_equal(experiments, ["bb", "ab"])
+
+            # Search for experiments with name ending with "b" and tag {"k": "v"}
+            experiments = client.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
+            assert_experiment_names_equal(experiments, ["ab"])
+
+            # Sort experiments by name in ascending order
+            experiments = client.search_experiments(order_by=["name"])
+            assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
+
+            # Sort experiments by ID in descending order
+            experiments = client.search_experiments(order_by=["experiment_id DESC"])
+            assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
+        """
+        return self._tracking_client.search_experiments(
+            view_type=view_type,
+            max_results=max_results,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
     def get_experiment(self, experiment_id: str) -> Experiment:
         """
         Retrieve an experiment by experiment_id from the backend store
@@ -406,7 +510,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             exp_id = client.create_experiment("Experiment")
@@ -439,7 +543,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Case-sensitive name
             client = MlflowClient()
@@ -480,11 +584,16 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from pathlib import Path
+            from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive.
             client = MlflowClient()
-            experiment_id = client.create_experiment("Social NLP Experiments")
+            experiment_id = client.create_experiment(
+                "Social NLP Experiments",
+                artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+                tags={"version": "v1", "priority": "P1"},
+            )
             client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
 
             # Fetch experiment metadata information
@@ -500,8 +609,8 @@ class MlflowClient:
 
             Name: Social NLP Experiments
             Experiment_id: 1
-            Artifact Location: file:///.../mlruns/1
-            Tags: {'nlp.framework': 'Spark NLP'}
+            Artifact Location: file:///.../mlruns
+            Tags: {'version': 'v1', 'priority': 'P1', 'nlp.framework': 'Spark NLP'}
             Lifecycle_stage: active
         """
         return self._tracking_client.create_experiment(name, artifact_location, tags)
@@ -515,7 +624,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create an experiment with a name that is unique and case sensitive
             client = MlflowClient()
@@ -546,7 +655,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
@@ -590,7 +699,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_experiment_info(experiment):
                 print("Name: {}".format(experiment.name))
@@ -652,7 +761,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -691,21 +800,21 @@ class MlflowClient:
 
     def log_param(self, run_id: str, key: str, value: Any) -> None:
         """
-        Log a parameter against the run ID.
+        Log a parameter (e.g. model hyperparameter) against the run ID.
 
         :param run_id: The run id to which the param should be logged.
         :param key: Parameter name (string). This string may only contain alphanumerics, underscores
                     (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                    All backend stores will support keys up to length 250, but some may
+                    All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores will support values up to length 5000, but some
+                      All backend stores support values up to length 250, but some
                       may support larger values.
 
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -753,7 +862,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create an experiment and set its tag
             client = MlflowClient()
@@ -789,7 +898,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
@@ -828,7 +937,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(run):
                 print("run_id: {}".format(run.info.run_id))
@@ -881,7 +990,7 @@ class MlflowClient:
 
             import time
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import Metric, Param, RunTag
 
             def print_run_info(r):
@@ -927,7 +1036,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
             with open("features.txt", 'w') as f:
@@ -1031,7 +1140,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
@@ -1064,7 +1173,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
@@ -1335,7 +1444,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
              def print_artifact_info(artifact):
                 print("artifact: {}".format(artifact.path))
@@ -1393,7 +1502,7 @@ class MlflowClient:
 
             import os
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             features = "rooms, zipcode, median_price, school_rating, transport"
             with open("features.txt", 'w') as f:
@@ -1432,7 +1541,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_run_info(r):
                 print("run_id: {}".format(r.info.run_id))
@@ -1473,7 +1582,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -1503,7 +1612,7 @@ class MlflowClient:
         .. code-block:: python
             :caption: Example
 
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
@@ -1559,7 +1668,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from mlflow.entities import ViewType
 
             def print_run_info(runs):
@@ -1640,7 +1749,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
@@ -1678,7 +1787,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
@@ -1777,7 +1886,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_models_info(r_models):
                 print("--")
@@ -1837,7 +1946,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(models):
                 for m in models:
@@ -1900,7 +2009,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
 
@@ -1959,7 +2068,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(rm):
                 print("--")
@@ -2002,7 +2111,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_models_info(mv):
@@ -2068,7 +2177,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_model_info(rm):
                 print("--")
@@ -2114,7 +2223,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             def print_registered_models_info(r_models):
                 print("--")
@@ -2185,7 +2294,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2229,7 +2338,7 @@ class MlflowClient:
                     "because no run_id was given"
                 )
             else:
-                run_link = self._get_run_link(tracking_uri, run_id)
+                run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
@@ -2258,33 +2367,6 @@ class MlflowClient:
             await_creation_for=await_creation_for,
         )
 
-    def _get_run_link(self, tracking_uri, run_id):
-        # if using the default Databricks tracking URI and in a notebook, we can automatically
-        # figure out the run-link.
-        if is_databricks_default_tracking_uri(tracking_uri) and (
-            is_in_databricks_notebook() or is_in_databricks_job()
-        ):
-            # use DBUtils to determine workspace information.
-            workspace_host, workspace_id = get_workspace_info_from_dbutils()
-        else:
-            # in this scenario, we're not able to automatically extract the workspace ID
-            # to proceed, and users will need to pass in a databricks profile with the scheme:
-            # databricks://scope:prefix and store the host and workspace-ID as a secret in the
-            # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
-            workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
-            if not workspace_id:
-                _logger.info(
-                    "No workspace ID specified; if your Databricks workspaces share the same"
-                    " host URL, you may want to specify the workspace ID (along with the host"
-                    " information in the secret manager) for run lineage tracking. For more"
-                    " details on how to specify this information in the secret manager,"
-                    " please refer to the model registry documentation."
-                )
-        # retrieve experiment ID of the run for the URL
-        experiment_id = self.get_run(run_id).info.experiment_id
-        if workspace_host and run_id and experiment_id:
-            return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
-
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
     ) -> ModelVersion:
@@ -2301,7 +2383,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2371,7 +2453,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2433,7 +2515,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_models_info(mv):
@@ -2511,7 +2593,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             # Create two runs Log MLflow entities
@@ -2566,7 +2648,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2609,7 +2691,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
 
             client = MlflowClient()
 
@@ -2650,7 +2732,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -2681,21 +2763,26 @@ class MlflowClient:
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
+    def set_model_version_tag(
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+    ) -> None:
         """
         Set a tag for the model version.
+        When stage is set, tag will be set for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key to log.
-        :param value: Tag value to log.
+        :param key: Tag key to log. key is required.
+        :param value: Tag value to log. value is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2723,7 +2810,13 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
+
+            # Tag using model version
             client.set_model_version_tag(name, mv.version, "t", "1")
+
+            # Tag using model stage
+            client.set_model_version_tag(name, key="t1", value="1", stage=mv.current_stage)
+
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2736,24 +2829,40 @@ class MlflowClient:
             --
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': '1'}
+            Tags: {'t': '1', 't1': '1'}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
+
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
+    def delete_model_version_tag(
+        self, name: str, version: str = None, key: str = None, stage: str = None
+    ) -> None:
         """
         Delete a tag associated with the model version.
+        When stage is set, tag will be deleted for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key.
+        :param key: Tag key. key is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
             :caption: Example
 
             import mlflow.sklearn
-            from mlflow.tracking import MlflowClient
+            from mlflow import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_version_info(mv):
@@ -2778,11 +2887,15 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "t1"}
+            tags = {'t': "1", "t1" : "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
+            #using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
+
+            #using stage to delete tag
+            client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2791,10 +2904,20 @@ class MlflowClient:
 
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': 't1'}
+            Tags: {'t': '1', 't1': '2'}
             --
             Name: RandomForestRegression
             Version: 1
             Tags: {}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)

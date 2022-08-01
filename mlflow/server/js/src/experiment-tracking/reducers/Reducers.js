@@ -32,6 +32,7 @@ import {
 } from '../../common/utils/ActionUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
+import Utils from '../../common/utils/Utils';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -66,7 +67,8 @@ export const experimentsById = (state = {}, action) => {
       // into the existing record. We're replacing it only if no experiment
       // with this ID exists in the state.
       const mergedExperiment =
-        state[experiment.experiment_id]?.mergeDeep(experiment) || Experiment.fromJs(experiment);
+        state[experiment.experiment_id]?.mergeDeep(Experiment.fromJs(experiment)) ||
+        Experiment.fromJs(experiment);
 
       return {
         ...state,
@@ -134,6 +136,9 @@ export const modelVersionsByRunUuid = (state = {}, action) => {
         }
       }
       newState = { ...newState, ...updatedState };
+      if (_.isEqual(state, newState)) {
+        return state;
+      }
       return newState;
     }
     default:
@@ -339,7 +344,7 @@ export const artifactsByRunUuid = (state = {}, action) => {
             curArtifactNode.setChildren(files);
           }
         } catch (err) {
-          console.error(err);
+          Utils.logErrorAndNotifyUser(`Unable to construct the artifact tree.`);
         }
       }
       return {
@@ -411,16 +416,25 @@ export const getApis = (requestIds, state) => {
 
 export const apis = (state = {}, action) => {
   if (isPendingApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: true },
     };
   } else if (isFulfilledApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, data: action.payload },
     };
   } else if (isRejectedApi(action)) {
+    if (!action?.meta?.id) {
+      return state;
+    }
     return {
       ...state,
       [action.meta.id]: { id: action.meta.id, active: false, error: action.payload },

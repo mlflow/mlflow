@@ -4,21 +4,6 @@
   align-items: flex-start;
 }
 
-.metrics-plot-container .plot-controls .x-axis-radio {
-  display: block;
-  height: 30px;
-  line-height: 30px;
-}
-
-.metrics-plot-container .plot-controls .metrics-select {
-  width: 300px;
-  display: block;
-}
-
-.metrics-plot-container .plot-controls .metrics-select input[type='text'] {
-  padding: 0;
-}
-
 .metrics-plot-container .plot-controls {
   display: flex;
   flex-direction: column;

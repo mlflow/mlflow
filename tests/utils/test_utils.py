@@ -5,6 +5,7 @@ from mlflow.utils import (
     get_unique_resource_id,
     _chunk_dict,
     _truncate_dict,
+    merge_dicts,
     _get_fully_qualified_class_name,
 )
 
@@ -61,6 +62,20 @@ def test_truncate_dict():
         ValueError, match="Must specify at least either `max_key_length` or `max_value_length`"
     ):
         _truncate_dict(d)
+
+
+def test_merge_dicts():
+    dict_a = {"a": 3, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello"}
+    dict_b = {"test_var": [1, 2]}
+    expected_ab = {"a": 3, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello", "test_var": [1, 2]}
+    assert merge_dicts(dict_a, dict_b) == expected_ab
+
+    dict_c = {"a": 10}
+    with pytest.raises(ValueError, match="contains duplicate keys"):
+        merge_dicts(dict_a, dict_c)
+
+    expected_ac = {"a": 10, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello"}
+    assert merge_dicts(dict_a, dict_c, raise_on_duplicates=False) == expected_ac
 
 
 def test_chunk_dict():

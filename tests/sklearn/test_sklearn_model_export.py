@@ -6,7 +6,7 @@ from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
 from sklearn.pipeline import Pipeline as SKPipeline
@@ -133,7 +133,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert np.array_equal(_read_example(mlflow_model, path), example)
+                    np.testing.assert_array_equal(_read_example(mlflow_model, path), example)
 
 
 def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):

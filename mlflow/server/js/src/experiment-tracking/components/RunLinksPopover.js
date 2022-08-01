@@ -1,10 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Popover } from 'antd';
 import Routes from '../routes';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
+import { Popover } from '@databricks/design-system';
 
 export class RunLinksPopover extends React.Component {
   static propTypes = {
@@ -36,7 +36,7 @@ export class RunLinksPopover extends React.Component {
           return (
             <Link key={key} to={to}>
               <p style={{ color }}>
-                <i className='fas fa-external-link-alt' style={{ marginRight: 5 }} />
+                <i className='fas fa-external-link-o' style={{ marginRight: 5 }} />
                 {`${name}, ${Utils.formatMetric(y)}`}
               </p>
             </Link>

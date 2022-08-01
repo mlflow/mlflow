@@ -29,9 +29,11 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     projects
     models
     model-registry
+    pipelines
     plugins
     cli
-    search-syntax
+    search-runs
+    search-experiments
     python_api/index
     R-api
     java_api/index

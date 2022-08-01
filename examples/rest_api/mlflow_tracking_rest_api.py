@@ -52,14 +52,20 @@ class MLflowTrackingRestApi:
     def log_param(self, param):
         """Log a parameter dict for the given run."""
         url = self.base_url + "/runs/log-parameter"
-        payload = {"run_uuid": self.run_id, "key": param["key"], "value": param["value"]}
+        payload = {"run_id": self.run_id, "key": param["key"], "value": param["value"]}
         r = requests.post(url, json=payload)
         return r.status_code
 
     def log_metric(self, metric):
         """Log a metric dict for the given run."""
         url = self.base_url + "/runs/log-metric"
-        payload = {"run_uuid": self.run_id, "key": metric["key"], "value": metric["value"]}
+        payload = {
+            "run_id": self.run_id,
+            "key": metric["key"],
+            "value": metric["value"],
+            "timestamp": metric["timestamp"],
+            "step": metric["step"],
+        }
         r = requests.post(url, json=payload)
         return r.status_code
 
@@ -117,7 +123,7 @@ if __name__ == "__main__":
     else:
         print("Logging parameter failed!")
     # Metric is a key/val pair (key/val have str/float types)
-    metric = {"key": "precision", "value": 0.769}
+    metric = {"key": "precision", "value": 0.769, "timestamp": int(time.time() * 1000), "step": 1}
     status_code = mlflow_rest.log_metric(metric)
     if status_code == 200:
         print(

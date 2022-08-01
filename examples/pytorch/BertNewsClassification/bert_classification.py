@@ -23,7 +23,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.dataset import IterDataPipe, random_split
+from torch.utils.data.dataset import random_split
+from torchdata.datapipes.iter import IterDataPipe
 from torchtext.data.functional import to_map_style_dataset
 from torchtext.datasets import AG_NEWS
 from transformers import BertModel, BertTokenizer, AdamW
@@ -58,7 +59,7 @@ class NewsDataset(IterDataPipe):
         :param num_samples: number of samples to load
         :param dataset: Dataset type - 20newsgroups or ag_news
         """
-        super(NewsDataset, self).__init__()
+        super().__init__()
         self.source = source
         self.start = 0
         self.tokenizer = tokenizer
@@ -108,7 +109,7 @@ class BertDataModule(pl.LightningDataModule):
         """
         Initialization of inherited lightning data module
         """
-        super(BertDataModule, self).__init__()
+        super().__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.train_dataset = None
         self.val_dataset = None
@@ -257,7 +258,7 @@ class BertNewsClassifier(pl.LightningModule):
         """
         Initializes the network, optimizer and scheduler
         """
-        super(BertNewsClassifier, self).__init__()
+        super().__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         for param in self.bert_model.parameters():

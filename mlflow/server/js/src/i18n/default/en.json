@@ -91,10 +91,6 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
-  "2AmV5N": {
-    "defaultMessage": "Search by model name",
-    "description": "Placeholder text inside model search bar"
-  },
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -263,6 +259,10 @@
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
   },
+  "8xji5J": {
+    "defaultMessage": "X-axis:",
+    "description": "Label text for X-axis in box plot comparison in MLflow"
+  },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
@@ -278,6 +278,10 @@
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
+  },
+  "9KXBFn": {
+    "defaultMessage": "Tags",
+    "description": "Row group title for tags of runs on the experiment compare runs page"
   },
   "9W3kev": {
     "defaultMessage": "Register",
@@ -383,10 +387,6 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
   },
-  "FBsWC+": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle show points for metric experiment run"
-  },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
@@ -459,6 +459,10 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
+  "Hk0RSH": {
+    "defaultMessage": "Y-axis:",
+    "description": "Label text for Y-axis in box plot comparison in MLflow"
+  },
   "Hq00g9": {
     "defaultMessage": "On",
     "description": "Checked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
@@ -487,10 +491,6 @@
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
   },
-  "Ibw+mW": {
-    "defaultMessage": "Filter",
-    "description": "String for the filter button to filter model registry table\n                   for models"
-  },
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
@@ -510,6 +510,10 @@
   "KEL9Js": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
+  },
+  "KwMekr": {
+    "defaultMessage": "Download CSV",
+    "description": "String for the download csv button to download metrics from this run offline in a CSV format"
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -635,10 +639,6 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
-  "Te670G": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle log scale graph for metric experiment run"
-  },
   "ThrXMh": {
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
@@ -695,10 +695,6 @@
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
   },
-  "WomXZ4": {
-    "defaultMessage": "Failed to load chart.",
-    "description": "Error message when the plotly javascript library fails to load."
-  },
   "WqtISN": {
     "defaultMessage": "Job Output",
     "description": "Label for displaying the output logs for the experiment run job"
@@ -718,6 +714,10 @@
   "XIOnOe": {
     "defaultMessage": "Version {versionNum}",
     "description": "Text for current version under the header on the model version view page"
+  },
+  "XaD7FM": {
+    "defaultMessage": "Select parameters/metrics to plot.",
+    "description": "Text to show when x or y axis is not selected on box plot"
   },
   "Xqs6q2": {
     "defaultMessage": "Without Model Versions",
@@ -782,6 +782,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aGxvDa": {
+    "defaultMessage": "To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}",
+    "description": "Tooltip string to explain how to search models from the model registry table"
   },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
@@ -947,6 +951,10 @@
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
   },
+  "iXb99e": {
+    "defaultMessage": "Box Plot",
+    "description": "Tab pane title for box plot on the compare runs page"
+  },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
@@ -971,10 +979,6 @@
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
   },
-  "kU2h2z": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle show points for metric experiment run"
-  },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
@@ -982,6 +986,10 @@
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
+  },
+  "kjxsOJ": {
+    "defaultMessage": "Search by model names or tags",
+    "description": "Placeholder text inside model search bar"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -998,6 +1006,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "m9e01X": {
+    "defaultMessage": "No tags to display.",
+    "description": "Text shown when there are no tags to display"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -1038,6 +1050,10 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "nam2iP": {
+    "defaultMessage": "This view is deprecated and will be removed in a future release.",
+    "description": "Deprecation of compact view"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",
@@ -1142,10 +1158,6 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
-  },
-  "tUSlmi": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle log scale graph for metric experiment run"
   },
   "tc9+eK": {
     "defaultMessage": "Register Model",

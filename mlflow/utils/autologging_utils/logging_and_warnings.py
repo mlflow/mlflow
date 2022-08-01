@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import RLock, get_ident as get_current_thread_id
 
 import mlflow
-import mlflow.utils.logging_utils as logging_utils
+from mlflow.utils import logging_utils
 
 
 class _WarningsController:
@@ -62,7 +62,7 @@ class _WarningsController:
             is_mlflow_warning and self._mlflow_warnings_rerouted_to_event_logs
         ):
             _logger.warning(
-                "MLflow autologging encountered a warning:" ' "%s:%d: %s: %s"',
+                'MLflow autologging encountered a warning: "%s:%d: %s: %s"',
                 filename,
                 lineno,
                 category.__name__,

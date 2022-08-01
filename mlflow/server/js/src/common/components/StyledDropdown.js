@@ -1,13 +1,13 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button, Dropdown } from 'antd';
+import { Button } from 'antd';
+import { Dropdown } from '@databricks/design-system';
 import expandIcon from '../static/expand-more.svg';
 import { getUUID } from '../utils/ActionUtils';
-import { css } from 'emotion';
 
 export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions, buttonSize }) => {
   return (
-    <div className={classNames.wrapper}>
+    <div css={classNames.wrapper}>
       <Dropdown
         id={id}
         className={className}
@@ -15,7 +15,7 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
         trigger={triggers}
         overlay={dropdownOptions}
       >
-        <Button className='StyledDropdown-button' size={buttonSize}>
+        <Button className='StyledDropdown-button' size={buttonSize} css={classNames.button}>
           <div className='StyledDropdown-button-content'>
             <span>{title}</span>{' '}
             <img className='StyledDropdown-chevron' src={expandIcon} alt='Expand' />
@@ -27,7 +27,10 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
 };
 
 const classNames = {
-  wrapper: css({
+  button: (theme) => ({
+    fontSize: theme.typography.fontSizeBase,
+  }),
+  wrapper: {
     display: 'inline-block',
     '.StyledDropdown-button': {
       padding: 0,
@@ -39,7 +42,7 @@ const classNames = {
       display: 'flex',
       alignItems: 'center',
     },
-  }),
+  },
 };
 
 StyledDropdown.propTypes = {

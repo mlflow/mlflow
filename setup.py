@@ -12,13 +12,22 @@ version = (
 )
 
 
-# Get a list of all files in the JS directory to include in our module
+# Get a list of all files in the directory to include in our module
 def package_files(directory):
     paths = []
     for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
             paths.append(os.path.join("..", path, filename))
     return paths
+
+
+def is_comment_or_empty(line):
+    stripped = line.strip()
+    return stripped == "" or stripped.startswith("#")
+
+
+def remove_comments_and_empty_lines(lines):
+    return [line for line in lines if not is_comment_or_empty(line)]
 
 
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
@@ -34,6 +43,9 @@ extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
 ]
+pipelines_regression_v1_files = package_files("mlflow/pipelines/regression/v1/resources")
+pipelines_files = package_files("mlflow/pipelines/cards/templates")
+
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -41,23 +53,9 @@ subset of functionality such as: RESTful client functionality for Tracking and
 Model Registry, as well as support for Project execution against local backends
 and Databricks.
 """
-SKINNY_REQUIREMENTS = [
-    "click>=7.0",
-    "cloudpickle",
-    "databricks-cli>=0.8.7",
-    "entrypoints",
-    "gitpython>=2.1.0",
-    "pyyaml>=5.1",
-    "protobuf>=3.12.0",
-    "pytz",
-    "requests>=2.17.3",
-    "packaging",
-    # Automated dependency detection in MLflow Models relies on
-    # `importlib_metadata.packages_distributions` to resolve a module name to its package name
-    # (e.g. 'sklearn' -> 'scikit-learn'). importlib_metadata 3.7.0 or newer supports this function:
-    # https://github.com/python/importlib_metadata/blob/main/CHANGES.rst#v370
-    "importlib_metadata>=3.7.0,!=4.7.0",
-]
+with open(os.path.join("requirements", "skinny-requirements.txt"), "r") as f:
+    SKINNY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
+
 
 """
 These are the core requirements for the complete MLflow platform, which augments
@@ -65,23 +63,8 @@ the skinny client functionality with support for running the MLflow Tracking
 Server & UI. It also adds project backends such as Docker and Kubernetes among
 other capabilities.
 """
-CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
-    "alembic",
-    # Required
-    "docker>=4.0.0",
-    "Flask",
-    "gunicorn; platform_system != 'Windows'",
-    "numpy",
-    "scipy",
-    "pandas",
-    "prometheus-flask-exporter",
-    "querystring_parser",
-    # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-    "sqlparse>=0.3.1",
-    # Required to run the MLflow server against SQL-backed storage
-    "sqlalchemy>=1.4.0",
-    "waitress; platform_system == 'Windows'",
-]
+with open(os.path.join("requirements", "core-requirements.txt"), "r") as f:
+    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
 
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
@@ -128,10 +111,19 @@ setup(
     name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
+    package_data={
+        "mlflow": (
+            js_files
+            + models_container_server_files
+            + alembic_files
+            + extra_files
+            + pipelines_regression_v1_files
+            + pipelines_files
+        ),
+    }
     if not _is_mlflow_skinny
     # include alembic files to enable usage of the skinny client with SQL databases
-    # if users install sqlalchemy, alembic, and sqlparse independently
+    # if users install sqlalchemy and alembic independently
     else {"mlflow": alembic_files + extra_files},
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
@@ -154,12 +146,22 @@ setup(
             "mlserver-mlflow>=0.5.3",
             "virtualenv",
         ],
+        "pipelines": [
+            "scikit-learn>=1.0",
+            "pyarrow>=7.0",
+            "shap>=0.40",
+            "pandas-profiling>=3.1",
+            "ipython>=7.0",
+            "markdown>=3.3",
+            "Jinja2>=3.0",
+        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+        mlp=mlflow.pipelines.cli:commands
     """,
     cmdclass={
         "dependencies": ListDependencies,

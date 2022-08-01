@@ -3,6 +3,7 @@ import tempfile
 from pprint import pprint
 
 import mlflow
+from mlflow.tracking import MlflowClient
 
 
 def save_text(path, text):
@@ -34,10 +35,11 @@ def main():
     # Log artifacts
     run_id1 = log_artifacts()
     # Download artifacts
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     print("Downloading artifacts")
     pprint(os.listdir(client.download_artifacts(run_id1, "")))
     pprint(os.listdir(client.download_artifacts(run_id1, "dir")))
+
     # List artifacts
     print("Listing artifacts")
     pprint(client.list_artifacts(run_id1))

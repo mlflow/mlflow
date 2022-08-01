@@ -25,12 +25,12 @@ import numpy as np
 import mlflow
 import mlflow.keras
 from mlflow import pyfunc
+from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils import is_iterator
 from mlflow.utils.annotations import keyword_only
@@ -573,7 +573,7 @@ def _flush_queue():
         # flush operation should proceed; all others are redundant and should be dropped
         acquired_lock = _metric_queue_lock.acquire(blocking=False)
         if acquired_lock:
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
             # For thread safety and to avoid modifying a list while iterating over it, we record a
             # separate list of the items being flushed and remove each one from the metric queue,
             # rather than clearing the metric queue or reassigning it (clearing / reassigning is
@@ -1111,17 +1111,17 @@ def autolog(
                 if log_models:
                     _log_keras_model(history, args)
 
-                    _log_early_stop_callback_metrics(
-                        callback=early_stop_callback,
-                        history=history,
-                        metrics_logger=metrics_logger,
-                    )
+                _log_early_stop_callback_metrics(
+                    callback=early_stop_callback,
+                    history=history,
+                    metrics_logger=metrics_logger,
+                )
 
-                    _flush_queue()
-                    mlflow.log_artifacts(
-                        local_dir=self.log_dir.location,
-                        artifact_path="tensorboard_logs",
-                    )
+                _flush_queue()
+                mlflow.log_artifacts(
+                    local_dir=self.log_dir.location,
+                    artifact_path="tensorboard_logs",
+                )
             if self.log_dir.is_temp:
                 shutil.rmtree(self.log_dir.location)
             return history
@@ -1180,10 +1180,10 @@ def autolog(
                 if log_models:
                     _log_keras_model(result, args)
 
-                    _flush_queue()
-                    mlflow.log_artifacts(
-                        local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
-                    )
+                _flush_queue()
+                mlflow.log_artifacts(
+                    local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
+                )
                 if self.log_dir.is_temp:
                     shutil.rmtree(self.log_dir.location)
 

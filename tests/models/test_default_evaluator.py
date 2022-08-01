@@ -32,6 +32,8 @@ from mlflow.models.evaluation.default_evaluator import (
 )
 import mlflow
 from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 from sklearn.datasets import load_iris
 
 from tempfile import TemporaryDirectory
@@ -85,13 +87,13 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     expected_metrics["score"] = model._model_impl.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_diabetes_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
@@ -149,11 +151,11 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
+            expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**iris_dataset._metadata, "model": model.metadata.model_uuid}
@@ -205,13 +207,13 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_breast_cancer_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
@@ -259,13 +261,13 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
 
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_diabetes_spark_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
@@ -301,13 +303,13 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_breast_cancer_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
@@ -328,6 +330,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
 
 def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
+    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
+
     data, target_col = get_pipeline_model_dataset()
     with mlflow.start_run() as run:
         evaluate(
@@ -344,7 +348,13 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
         "shap_beeswarm_plot_on_data_pipeline_model_dataset.png",
         "shap_feature_importance_plot_on_data_pipeline_model_dataset.png",
         "shap_summary_plot_on_data_pipeline_model_dataset.png",
+        "explainer_on_data_pipeline_model_dataset",
     }.issubset(run_data.artifacts)
+
+    explainer = mlflow.shap.load_explainer(
+        f"runs:/{run.info.run_id}/explainer_on_data_pipeline_model_dataset"
+    )
+    assert isinstance(explainer, _PatchedKernelExplainer)
 
 
 def test_compute_df_mode_or_mean():
@@ -410,11 +420,11 @@ def test_extract_raw_model_and_predict_fn(
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    assert np.allclose(
+    np.testing.assert_allclose(
         predict_fn(breast_cancer_dataset.features_data),
         raw_model.predict(breast_cancer_dataset.features_data),
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         predict_proba_fn(breast_cancer_dataset.features_data),
         raw_model.predict_proba(breast_cancer_dataset.features_data),
     )
@@ -518,12 +528,12 @@ def test_gen_binary_precision_recall_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="pr"
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([1.0, 0.8, 0.8, 0.8, 0.6, 0.4, 0.4, 0.2, 0.0]),
         rtol=1e-3,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
         np.array([0.55555556, 0.5, 0.57142857, 0.66666667, 0.6, 0.5, 0.66666667, 1.0, 1.0]),
         rtol=1e-3,
@@ -541,12 +551,12 @@ def test_gen_binary_roc_curve():
     results = _gen_classifier_curve(
         is_binomial=True, y=y, y_probs=y_prob, labels=[0, 1], curve_type="roc"
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
         np.array([0.0, 0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0]),
         rtol=1e-3,
     )
-    assert np.allclose(
+    np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
         np.array([0.0, 0.2, 0.4, 0.4, 0.8, 0.8, 1.0, 1.0]),
         rtol=1e-3,
@@ -579,15 +589,15 @@ def test_gen_multiclass_precision_recall_curve():
     line_labels = ["label=0,AP=0.500", "label=1,AP=0.722", "label=2,AP=0.414"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
-        assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
-        assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "recall"
     assert results.plot_fn_args["ylabel"] == "precision"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.25, 0.6666666666666666, 0.2875]
-    assert np.allclose(results.auc, expected_auc, rtol=1e-3)
+    np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
 def test_gen_multiclass_roc_curve():
@@ -613,15 +623,15 @@ def test_gen_multiclass_roc_curve():
     line_labels = ["label=0,AUC=0.750", "label=1,AUC=0.750", "label=2,AUC=0.333"]
     for index, (name, x_data, y_data) in enumerate(results.plot_fn_args["data_series"]):
         assert name == line_labels[index]
-        assert np.allclose(x_data, expected_x_data_list[index], rtol=1e-3)
-        assert np.allclose(y_data, expected_y_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(x_data, expected_x_data_list[index], rtol=1e-3)
+        np.testing.assert_allclose(y_data, expected_y_data_list[index], rtol=1e-3)
 
     assert results.plot_fn_args["xlabel"] == "False Positive Rate"
     assert results.plot_fn_args["ylabel"] == "True Positive Rate"
     assert results.plot_fn_args["line_kwargs"] == {"drawstyle": "steps-post", "linewidth": 1}
 
     expected_auc = [0.75, 0.75, 0.3333]
-    assert np.allclose(results.auc, expected_auc, rtol=1e-3)
+    np.testing.assert_allclose(results.auc, expected_auc, rtol=1e-3)
 
 
 def test_evaluate_custom_metric_incorrect_return_formats():
@@ -760,8 +770,8 @@ def test_evaluate_custom_metric_success():
     # pylint: disable=unsupported-membership-test
     assert isinstance(res_artifacts_2, dict)
     assert "pred_target_abs_diff" in res_artifacts_2
-    assert res_artifacts_2["pred_target_abs_diff"].equals(
-        np.abs(eval_df["prediction"] - eval_df["target"])
+    pd.testing.assert_series_equal(
+        res_artifacts_2["pred_target_abs_diff"], np.abs(eval_df["prediction"] - eval_df["target"])
     )
 
     assert "example_dictionary_artifact" in res_artifacts_2
@@ -861,7 +871,9 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
 
 def test_custom_metric_logs_artifacts_from_paths(
@@ -942,18 +954,22 @@ def test_custom_metric_logs_artifacts_from_paths(
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_parquet_artifact" in result.artifacts
     assert "test_parquet_artifact_on_data_breast_cancer_dataset.parquet" in artifacts
     assert isinstance(result.artifacts["test_parquet_artifact"], ParquetEvaluationArtifact)
-    assert result.artifacts["test_parquet_artifact"].content.equals(
-        pd.DataFrame({"test": [1, 2, 3]})
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_parquet_artifact"].content, pd.DataFrame({"test": [1, 2, 3]})
     )
 
     assert "test_text_artifact" in result.artifacts
@@ -1017,12 +1033,16 @@ def test_custom_metric_logs_artifacts_from_objects(
     assert "test_npy_artifact" in result.artifacts
     assert "test_npy_artifact_on_data_breast_cancer_dataset.npy" in artifacts
     assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    assert np.array_equal(result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5]))
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
     assert "test_csv_artifact" in result.artifacts
     assert "test_csv_artifact_on_data_breast_cancer_dataset.csv" in artifacts
     assert isinstance(result.artifacts["test_csv_artifact"], CsvEvaluationArtifact)
-    assert result.artifacts["test_csv_artifact"].content.equals(pd.DataFrame({"a": [1, 2, 3]}))
+    pd.testing.assert_frame_equal(
+        result.artifacts["test_csv_artifact"].content, pd.DataFrame({"a": [1, 2, 3]})
+    )
 
     assert "test_json_text_artifact" in result.artifacts
     assert "test_json_text_artifact_on_data_breast_cancer_dataset.json" in artifacts
@@ -1107,3 +1127,49 @@ def test_truncation_works_for_long_feature_names(linear_regressor_model_uri, dia
         ],
         evaluators="default",
     )
+
+
+def test_evaluation_works_with_model_pipelines_that_modify_input_data():
+    iris = load_iris()
+    X = pd.DataFrame(iris.data, columns=["0", "1", "2", "3"])
+    y = pd.Series(iris.target)
+
+    def add_feature(df):
+        df["newfeature"] = 1
+        return df
+
+    # Define a transformer that modifies input data by adding an extra feature column
+    add_feature_transformer = FunctionTransformer(add_feature, validate=False)
+    model_pipeline = Pipeline(
+        steps=[("add_feature", add_feature_transformer), ("predict", LogisticRegression())]
+    )
+    model_pipeline.fit(X, y)
+
+    with mlflow.start_run() as run:
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, "model").model_uri
+
+        evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
+        evaluation_data["labels"] = load_iris().target
+
+        evaluate(
+            pipeline_model_uri,
+            evaluation_data,
+            dataset_name="iris",
+            model_type="regressor",
+            targets="labels",
+            evaluators="default",
+            evaluator_config={
+                "log_model_explainability": True,
+                # Use the kernel explainability algorithm, which fails if there is a mismatch
+                # between the number of features in the input dataset and the number of features
+                # expected by the model
+                "explainability_algorithm": "kernel",
+            },
+        )
+
+        _, _, _, artifacts = get_run_data(run.info.run_id)
+        assert set(artifacts) >= {
+            "shap_beeswarm_plot_on_data_iris.png",
+            "shap_feature_importance_plot_on_data_iris.png",
+            "shap_summary_plot_on_data_iris.png",
+        }

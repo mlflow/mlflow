@@ -27,6 +27,7 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
 )
 
+AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
 PROTOBUF_REQUIREMENT = "protobuf<4.0.0"
 
@@ -86,14 +87,21 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def pyfunc_build_image(model_uri, extra_args=None):
+def pyfunc_build_image(model_uri=None, extra_args=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
     :param extra_args: List of extra args to pass to `mlflow models build-docker` command
     """
     name = uuid.uuid4().hex
-    cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    cmd = [
+        "mlflow",
+        "models",
+        "build-docker",
+        *(["-m", model_uri] if model_uri else []),
+        "-n",
+        name,
+    ]
     mlflow_home = os.environ.get("MLFLOW_HOME")
     if mlflow_home:
         cmd += ["--mlflow-home", mlflow_home]
@@ -118,7 +126,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_from_docker_image_with_env_override(
-    image_name, host_port, gunicorn_opts, extra_args=None
+    image_name, host_port, gunicorn_opts, extra_args=None, extra_docker_run_options=None
 ):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
@@ -133,6 +141,7 @@ def pyfunc_serve_from_docker_image_with_env_override(
         "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
         "-p",
         "%s:8080" % host_port,
+        *(extra_docker_run_options or []),
         image_name,
     ]
     if extra_args is not None:

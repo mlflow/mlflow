@@ -10,9 +10,9 @@ from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
 import mlflow
-import mlflow.utils.autologging_utils as autologging_utils
+from mlflow.utils import autologging_utils
 from mlflow.entities import RunStatus
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
@@ -146,8 +146,8 @@ class MockEventLogger(AutologgingEventLogger):
 
 @pytest.fixture
 def mock_event_logger():
+    prev_logger = AutologgingEventLogger.get_logger()
     try:
-        prev_logger = AutologgingEventLogger.get_logger()
         logger = MockEventLogger()
         AutologgingEventLogger.set_logger(logger)
         yield logger
@@ -156,8 +156,8 @@ def mock_event_logger():
 
 
 def test_is_testing_respects_environment_variable():
+    prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
     try:
-        prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
         assert not is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "false"

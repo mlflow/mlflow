@@ -34,6 +34,7 @@ from mlflow.protos.service_pb2 import (
     LogParam,
     SetTag,
     ListExperiments,
+    SearchExperiments,
     DeleteExperiment,
     RestoreExperiment,
     RestoreRun,
@@ -246,20 +247,26 @@ def _get_tracking_store(backend_store_uri=None, default_artifact_root=None):
     return _tracking_store
 
 
-def _get_model_registry_store(backend_store_uri=None):
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+def _get_model_registry_store(registry_store_uri=None):
+    from mlflow.server import REGISTRY_STORE_URI_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
     global _model_registry_store
     if _model_registry_store is None:
-        store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        store_uri = (
+            registry_store_uri
+            or os.environ.get(REGISTRY_STORE_URI_ENV_VAR, None)
+            or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        )
         _model_registry_store = _model_registry_store_registry.get_store(store_uri)
     return _model_registry_store
 
 
-def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None):
+def initialize_backend_stores(
+    backend_store_uri=None, registry_store_uri=None, default_artifact_root=None
+):
     _get_tracking_store(backend_store_uri, default_artifact_root)
     try:
-        _get_model_registry_store(backend_store_uri)
+        _get_model_registry_store(registry_store_uri)
     except UnsupportedModelRegistryStoreURIException:
         pass
 
@@ -763,7 +770,7 @@ def _set_experiment_tag():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = ExperimentTag(request_message.key, request_message.value)
@@ -782,7 +789,7 @@ def _set_tag():
         schema={
             "run_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
-            "value": [_assert_required, _assert_string],
+            "value": [_assert_string],
         },
     )
     tag = RunTag(request_message.key, request_message.value)
@@ -967,6 +974,35 @@ def _list_experiments():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_experiments():
+    request_message = _get_request_message(
+        SearchExperiments(),
+        schema={
+            "view_type": [_assert_intlike],
+            "max_results": [_assert_intlike],
+            "order_by": [_assert_array],
+            "filter": [_assert_string],
+            "page_token": [_assert_string],
+        },
+    )
+    experiment_entities = _get_tracking_store().search_experiments(
+        view_type=request_message.view_type,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        filter_string=request_message.filter,
+        page_token=request_message.page_token,
+    )
+    response_message = SearchExperiments.Response()
+    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
+    if experiment_entities.token:
+        response_message.next_page_token = experiment_entities.token
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri)
 
@@ -981,10 +1017,9 @@ def _log_batch():
             _assert_required(m["timestamp"])
             _assert_required(m["step"])
 
-    def _assert_params_tags_fields_present(params):
-        for p in params:
-            _assert_required(p["key"])
-            _assert_required(p["value"])
+    def _assert_params_tags_fields_present(params_or_tags):
+        for param_or_tag in params_or_tags:
+            _assert_required(param_or_tag["key"])
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1204,7 +1239,7 @@ def _set_registered_model_tag():
         schema={
             "name": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = RegisteredModelTag(key=request_message.key, value=request_message.value)
@@ -1374,7 +1409,7 @@ def _set_model_version_tag():
             "name": [_assert_string, _assert_required],
             "version": [_assert_string, _assert_required],
             "key": [_assert_string, _assert_required],
-            "value": [_assert_string, _assert_required],
+            "value": [_assert_string],
         },
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
@@ -1563,6 +1598,7 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    SearchExperiments: _search_experiments,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

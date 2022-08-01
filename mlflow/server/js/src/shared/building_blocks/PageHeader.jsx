@@ -1,8 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
-import { Typography, Spacer as DbSpacer } from '@databricks/design-system';
-import { Dropdown, Menu } from 'antd';
+import { Typography, Spacer as DbSpacer, Dropdown, Menu } from '@databricks/design-system';
 import { Breadcrumb } from './antd/Breadcrumb';
 import { Button } from './antd/Button';
 import { RightChevron } from '../icons/RightChevron';
@@ -67,9 +65,9 @@ export class PageHeader extends React.Component {
       <>
         {breadcrumbs.length > 0 && (
           <Breadcrumb
-            className={css(styles.breadcrumbOverride)}
+            css={styles.breadcrumbOverride}
             separator={
-              <span className={css(styles.iconWrapper)}>
+              <span css={styles.iconWrapper}>
                 <RightChevron />
               </span>
             }
@@ -79,15 +77,15 @@ export class PageHeader extends React.Component {
             ))}
           </Breadcrumb>
         )}
-        <div className={css(styles.titleContainer)}>
-          <div className={css(styles.title)}>
+        <div css={styles.titleContainer}>
+          <div css={styles.title}>
             <Spacer size={1} direction='horizontal'>
               <Title level={2}>{title}</Title>
               {preview && <PreviewIcon />}
               {feedbackLink}
             </Spacer>
           </div>
-          <div className={css(styles.buttonGroup)}>
+          <div css={styles.buttonGroup}>
             <Spacer direction='horizontal'>{children}</Spacer>
           </div>
         </div>

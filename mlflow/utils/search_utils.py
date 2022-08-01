@@ -25,6 +25,14 @@ from mlflow.store.db.db_types import MYSQL, MSSQL
 import math
 
 
+def _case_sensitive_match(string, pattern):
+    return re.match(pattern, string) is not None
+
+
+def _case_insensitive_match(string, pattern):
+    return re.match(pattern, string, flags=re.IGNORECASE) is not None
+
+
 class SearchUtils:
     LIKE_OPERATOR = "LIKE"
     ILIKE_OPERATOR = "ILIKE"
@@ -85,27 +93,34 @@ class SearchUtils:
         "!=": operator.ne,
         "<=": operator.le,
         "<": operator.lt,
-        "LIKE": re.match,
-        "ILIKE": re.match,
+        "LIKE": _case_sensitive_match,
+        "ILIKE": _case_insensitive_match,
     }
 
     @classmethod
     def get_sql_filter_ops(cls, column, operator, dialect):
         import sqlalchemy as sa
 
-        if dialect == MYSQL:
+        # Use case-sensitive collation for MSSQL
+        if dialect == MSSQL:
+            column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
 
-            def like_op(value):
-                # Filter by `LIKE` ahead of `LIKE BINARY` for runtime performance
-                return sa.and_(
-                    column.like(value), column.op("LIKE BINARY", is_comparison=True)(value)
-                )
+        # Use non-binary ahead of binary comparison for runtime performance
+        def case_sensitive_mysql_eq(value):
+            return sa.and_(column.__eq__(value), column.op("= BINARY", is_comparison=True)(value))
 
-        elif dialect == MSSQL:
-            like_op = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS").like
-        else:
-            like_op = column.like
-        sql_filter_ops = {"LIKE": like_op, "ILIKE": column.ilike}
+        def case_sensitive_mysql_ne(value):
+            return sa.or_(column.__ne__(value), column.op("!= BINARY", is_comparison=True)(value))
+
+        def case_sensitive_mysql_like(value):
+            return sa.and_(column.like(value), column.op("LIKE BINARY", is_comparison=True)(value))
+
+        sql_filter_ops = {
+            "=": case_sensitive_mysql_eq if dialect == MYSQL else column.__eq__,
+            "!=": case_sensitive_mysql_ne if dialect == MYSQL else column.__ne__,
+            "LIKE": case_sensitive_mysql_like if dialect == MYSQL else column.like,
+            "ILIKE": column.ilike,
+        }
         return sql_filter_ops[operator]
 
     @classmethod
@@ -178,7 +193,7 @@ class SearchUtils:
         identifier = cls._valid_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Invalid attribute key '{}' specified. Valid keys "
                 "are '{}'".format(key, valid_attributes)
             )
@@ -325,7 +340,7 @@ class SearchUtils:
                 "Provide AND-ed expression list." % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return SearchUtils._process_statement(parsed[0])
+        return cls._process_statement(parsed[0])
 
     @classmethod
     def is_metric(cls, key_type, comparator):
@@ -385,6 +400,14 @@ class SearchUtils:
         return False
 
     @classmethod
+    def _convert_like_pattern_to_regex(cls, pattern):
+        if not pattern.startswith("%"):
+            pattern = "^" + pattern
+        if not pattern.endswith("%"):
+            pattern = pattern + "$"
+        return pattern.replace("_", ".").replace("%", ".*")
+
+    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -411,18 +434,9 @@ class SearchUtils:
             return False
 
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-            # Change value from sql syntax to regex syntax
-            if comparator == "ILIKE":
-                value = value.lower()
-                lhs = lhs.lower()
-            if not value.startswith("%"):
-                value = "^" + value
-            if not value.endswith("%"):
-                value = value + "$"
-            value = value.replace("_", ".").replace("%", ".*")
-            return cls.filter_ops.get(comparator)(value, lhs)
+            value = cls._convert_like_pattern_to_regex(value)
 
-        elif comparator in cls.filter_ops.keys():
+        if comparator in cls.filter_ops.keys():
             return cls.filter_ops.get(comparator)(lhs, value)
         else:
             return False
@@ -711,10 +725,8 @@ class SearchUtils:
 
     @classmethod
     def _is_list_component_token(cls, token):
-        return (
-            isinstance(token, Identifier)
-            or token.match(ttype=TokenType.Keyword, values=["IN"])
-            or isinstance(token, Parenthesis)
+        return isinstance(token, (Identifier, Parenthesis)) or token.match(
+            ttype=TokenType.Keyword, values=["IN"]
         )
 
     @classmethod
@@ -819,3 +831,157 @@ class SearchUtils:
         return cls._parse_filter_for_model_registry(
             filter_string, cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS
         )
+
+
+class SearchExperimentsUtils(SearchUtils):
+    VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = ("name", "experiment_id")
+
+    @classmethod
+    def _invalid_statement_token_search_experiments(cls, token):
+        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+            return False
+        elif token.is_whitespace:
+            return False
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
+            return False
+        else:
+            return True
+
+    @classmethod
+    def _process_statement(cls, statement):
+        invalids = list(filter(cls._invalid_statement_token_search_experiments, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                "Invalid clause(s) in filter string: %s" % invalid_clauses
+            )
+        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _get_identifier(cls, identifier, valid_attributes):
+        tokens = identifier.split(".", maxsplit=1)
+        if len(tokens) == 1:
+            key = tokens[0]
+            identifier = cls._ATTRIBUTE_IDENTIFIER
+        else:
+            entity_type, key = tokens
+            valid_entity_types = ("attribute", "tag", "tags")
+            if entity_type not in valid_entity_types:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid entity type '{entity_type}'. "
+                    f"Valid entity types are {valid_entity_types}"
+                )
+            identifier = cls._valid_entity_type(entity_type)
+
+        key = cls._trim_backticks(cls._strip_quotes(key))
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid attribute key '{}' specified. Valid keys "
+                "are '{}'".format(key, valid_attributes)
+            )
+        return {"type": identifier, "key": key}
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        left, comparator, right = stripped_comparison
+        comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
+        comp["comparator"] = comparator.value
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
+        return comp
+
+    @classmethod
+    def parse_order_by_for_search_experiments(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def is_attribute(cls, key_type, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER:
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '{}' not one of "
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
+    def _does_experiment_match_clause(cls, experiment, sed):  # pylint: disable=arguments-renamed
+        key_type = sed.get("type")
+        key = sed.get("key")
+        value = sed.get("value")
+        comparator = sed.get("comparator").upper()
+
+        if cls.is_attribute(key_type, comparator):
+            lhs = getattr(experiment, key)
+        elif cls.is_tag(key_type, comparator):
+            if key not in experiment.tags:
+                return False
+            lhs = experiment.tags.get(key, None)
+            if lhs is None:
+                return experiment
+        else:
+            raise MlflowException(
+                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+            )
+
+        if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+            value = cls._convert_like_pattern_to_regex(value)
+
+        if comparator in cls.filter_ops.keys():
+            return cls.filter_ops.get(comparator)(lhs, value)
+        else:
+            return False
+
+    @classmethod
+    def filter(cls, experiments, filter_string):  # pylint: disable=arguments-renamed
+        if not filter_string:
+            return experiments
+        parsed = cls.parse_search_filter(filter_string)
+
+        def experiment_matches(experiment):
+            return all(cls._does_experiment_match_clause(experiment, s) for s in parsed)
+
+        return list(filter(experiment_matches, experiments))
+
+    @classmethod
+    def _get_sort_key(cls, order_by_list):
+        order_by = []
+        parsed_order_by = map(cls.parse_order_by_for_search_experiments, order_by_list or [])
+        for type_, key, ascending in parsed_order_by:
+            if type_ == "attribute":
+                order_by.append((key, ascending))
+            else:
+                raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+        # Add a tie-breaker
+        if not any(key == "experiment_id" for key, _ in order_by):
+            order_by.append(("experiment_id", False))
+
+        # https://stackoverflow.com/a/56842689
+        class _Reversor:
+            def __init__(self, obj):
+                self.obj = obj
+
+            # Only need < and == are needed for use as a key parameter in the sorted function
+            def __eq__(self, other):
+                return other.obj == self.obj
+
+            def __lt__(self, other):
+                return other.obj < self.obj
+
+        def _apply_reversor(experiment, key, ascending):
+            attr = getattr(experiment, key)
+            return attr if ascending else _Reversor(attr)
+
+        return lambda experiment: tuple(
+            _apply_reversor(experiment, k, asc) for (k, asc) in order_by
+        )
+
+    @classmethod
+    def sort(cls, experiments, order_by_list):  # pylint: disable=arguments-renamed
+        return sorted(experiments, key=cls._get_sort_key(order_by_list))

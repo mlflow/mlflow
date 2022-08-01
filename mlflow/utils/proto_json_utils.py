@@ -177,7 +177,7 @@ class NumpyEncoder(JSONEncoder):
 
         if isinstance(o, np.generic):
             return o.item(), True
-        if isinstance(o, bytes) or isinstance(o, bytearray):
+        if isinstance(o, (bytes, bytearray)):
             return encode_binary(o), True
         if isinstance(o, np.datetime64):
             return np.datetime_as_string(o), True
@@ -220,7 +220,6 @@ def _dataframe_from_json(
                 dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-
         df = pd.read_json(
             path_or_str,
             orient=pandas_orient,
@@ -228,6 +227,9 @@ def _dataframe_from_json(
             precise_float=precise_float,
             convert_dates=False,
         )
+        # In pandas < 1.4, `pandas.read_json` ignores non-numpy dtypes:
+        # https://github.com/pandas-dev/pandas/issues/33205
+        df = df.astype(dtypes)
         if not schema.is_tensor_spec():
             actual_cols = set(df.columns)
             for type_, name in zip(schema.input_types(), schema.input_names()):
@@ -356,3 +358,14 @@ def parse_tf_serving_input(inp_dict, schema=None):
             )
 
     return data
+
+
+# Reference: https://stackoverflow.com/a/12126976
+class _DateTimeEncoder(json.JSONEncoder):
+    def default(self, o):
+        import pandas as pd
+
+        if isinstance(o, (datetime.datetime, datetime.date, datetime.time, pd.Timestamp)):
+            return o.isoformat()
+
+        return super().default(o)

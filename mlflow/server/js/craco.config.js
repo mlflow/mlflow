@@ -7,6 +7,10 @@ const { execSync } = require('child_process');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 
+const isDevserverWebsocketRequest = (request) =>
+  request.url === '/ws' &&
+  (request.headers.upgrade === 'websocket' || request.headers['sec-websocket-version']);
+
 function mayProxy(pathname) {
   const publicPrefixPrefix = '/static-files/';
   if (pathname.startsWith(publicPrefixPrefix)) {
@@ -44,8 +48,77 @@ function rewriteCookies(proxyRes) {
 }
 
 
+/**
+ * Since the base publicPath is configured to a relative path ("static-files/"),
+ * the files referenced inside CSS files (e.g. fonts) can be incorrectly resolved
+ * (e.g. /path/to/css/file/static-files/static/path/to/font.woff). We need to override
+ * the CSS loader to make sure it will resolve to a proper absolute path. This is
+ * required for the production (bundled) builds only.
+ */
+function configureIframeCSSPublicPaths(config, env) {
+  // eslint-disable-next-line prefer-const
+  let shouldFixCSSPaths = env === 'production';
+
+  if (!shouldFixCSSPaths) {
+    return config;
+  }
+
+  let cssRuleFixed = false;
+  config.module.rules
+    .filter((rule) => rule.oneOf instanceof Array)
+    .forEach((rule) => {
+      rule.oneOf
+        .filter((oneOf) => oneOf.test?.toString() === /\.css$/.toString())
+        .forEach((cssRule) => {
+          cssRule.use
+            ?.filter((loaderConfig) => loaderConfig?.loader.match(/\/mini-css-extract-plugin\//))
+            .forEach((loaderConfig) => {
+              let publicPath = '/static-files/';
+              // eslint-disable-next-line no-param-reassign
+              loaderConfig.options = { publicPath };
+
+              cssRuleFixed = true;
+            });
+        });
+    });
+
+  if (!cssRuleFixed) {
+    throw new Error('Failed to fix CSS paths!');
+  }
+
+  return config;
+}
+
 function configureWebShared(config) {
   config.resolve.alias['@databricks/web-shared-bundle'] = false;
+  return config;
+}
+
+function enableOptionalTypescript(config) {
+  /**
+   * Essential TS config is already inside CRA's config - the only
+   * missing thing is resolved extensions.
+   */
+  config.resolve.extensions.push('.ts', '.tsx');
+
+  /**
+   * We're going to exclude typechecking test files from webpack's pipeline
+   */
+
+  const ForkTsCheckerPlugin = config.plugins.find(
+    (plugin) => plugin.constructor.name === 'ForkTsCheckerWebpackPlugin',
+  );
+
+  if (ForkTsCheckerPlugin) {
+    ForkTsCheckerPlugin.options.typescript.configOverwrite.exclude = [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.stories.tsx',
+    ].map((pattern) => path.join(__dirname, 'src', pattern));
+  } else {
+    throw new Error('Failed to setup Typescript');
+  }
+
   return config;
 }
 
@@ -81,7 +154,7 @@ function i18nOverrides(config) {
   return config;
 }
 
-module.exports = function({ env }) {
+module.exports = function ({ env }) {
   const config = {
     babel: {
       env: {
@@ -97,6 +170,15 @@ module.exports = function({ env }) {
           ],
         },
       },
+      presets: [
+        [
+          '@babel/preset-react',
+          {
+            runtime: 'automatic',
+            importSource: '@emotion/react',
+          },
+        ],
+      ],
       plugins: [
         [
           require.resolve('babel-plugin-formatjs'),
@@ -104,6 +186,7 @@ module.exports = function({ env }) {
             idInterpolationPattern: '[sha512:contenthash:base64:6]',
           },
         ],
+        [require.resolve('@emotion/babel-plugin')],
       ],
     },
     ...(proxyTarget && {
@@ -114,7 +197,11 @@ module.exports = function({ env }) {
           // Heads up src/setupProxy.js is indirectly referenced by CRA
           // and also defines proxies.
           {
-            context: function(pathname) {
+            context: function (pathname, request) {
+              // Dev server's WS calls should not be proxied
+              if (isDevserverWebsocketRequest(request)) {
+                return false;
+              }
               return mayProxy(pathname);
             },
             target: proxyTarget,
@@ -168,6 +255,8 @@ module.exports = function({ env }) {
       configure: (webpackConfig, { env, paths }) => {
         webpackConfig.output.publicPath = 'static-files/';
         webpackConfig = i18nOverrides(webpackConfig);
+        webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
+        webpackConfig = enableOptionalTypescript(webpackConfig);
         webpackConfig = configureWebShared(webpackConfig);
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;

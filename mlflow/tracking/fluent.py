@@ -37,8 +37,12 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
+    MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
+from mlflow.utils.annotations import experimental
+
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -141,6 +145,16 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
     return experiment
 
 
+def _set_experiment_primary_metric(
+    experiment_id: str, primary_metric: str, greater_is_better: bool
+):
+    client = MlflowClient()
+    client.set_experiment_tag(experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME, primary_metric)
+    client.set_experiment_tag(
+        experiment_id, MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER, str(greater_is_better)
+    )
+
+
 class ActiveRun(Run):  # pylint: disable=W0223
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
@@ -206,28 +220,48 @@ def start_run(
         import mlflow
 
         # Create nested runs
-        with mlflow.start_run(run_name='PARENT_RUN') as parent_run:
+        experiment_id = mlflow.create_experiment("experiment1")
+        with mlflow.start_run(
+            run_name="PARENT_RUN",
+            experiment_id=experiment_id,
+            tags={"version": "v1", "priority": "P1"},
+            description="parent",
+        ) as parent_run:
             mlflow.log_param("parent", "yes")
-            with mlflow.start_run(run_name='CHILD_RUN', nested=True) as child_run:
+            with mlflow.start_run(
+                run_name="CHILD_RUN",
+                experiment_id=experiment_id,
+                description="child",
+                nested=True,
+            ) as child_run:
                 mlflow.log_param("child", "yes")
 
-        print("parent run_id: {}".format(parent_run.info.run_id))
-        print("child run_id : {}".format(child_run.info.run_id))
+        print("parent run:")
+
+        print("run_id: {}".format(parent_run.info.run_id))
+        print("description: {}".format(parent_run.data.tags.get("mlflow.note.content")))
+        print("version tag value: {}".format(parent_run.data.tags.get("version")))
+        print("priority tag value: {}".format(parent_run.data.tags.get("priority")))
         print("--")
 
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
-        results = mlflow.search_runs(filter_string=query)
+        results = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=query)
+        print("child runs:")
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
 
     .. code-block:: text
         :caption: Output
 
-        parent run_id: 5ec0e7ae18f54c2694ffb48c2fccf25c
-        child run_id : 78b3b0d264b44cd29e8dc389749bb4be
+        parent run:
+        run_id: 8979459433a24a52ab3be87a229a9cdf
+        description: starting a parent for experiment 7
+        version tag value: v1
+        priority tag value: P1
         --
+        child runs:
                                      run_id params.child tags.mlflow.runName
-        0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
+        0  7d175204675e40328e46d9a6a5a7ee6a          yes           CHILD_RUN
     """
     global _active_run_stack
     _validate_experiment_id_type(experiment_id)
@@ -368,7 +402,7 @@ def active_run() -> Optional[ActiveRun]:
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
-    to access such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+    to access such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
 
     .. code-block:: python
         :caption: Example
@@ -482,15 +516,15 @@ def get_run(run_id: str) -> Run:
 
 def log_param(key: str, value: Any) -> None:
     """
-    Log a parameter under the current run. If no run is active, this method will create
-    a new active run.
+    Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
+    this method will create a new active run.
 
     :param key: Parameter name (string). This string may only contain alphanumerics,
                 underscores (_), dashes (-), periods (.), spaces ( ), and slashes (/).
-                All backend stores will support keys up to length 250, but some may
+                All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores will support values up to length 5000, but some
+                  All backend stores support values up to length 250, but some
                   may support larger values.
 
     .. code-block:: python
@@ -1029,6 +1063,111 @@ def list_experiments(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
+@experimental
+def search_experiments(
+    view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: Optional[int] = None,
+    filter_string: Optional[str] = None,
+    order_by: Optional[List[str]] = None,
+) -> List[Experiment]:
+    """
+    Search for experiments that match the specified search query.
+
+    :param view_type: One of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``
+                      defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                        passed, all experiments will be returned.
+    :param filter_string:
+        Filter query string (e.g., ``"name = 'my_experiment'"``), defaults to searching for all
+        experiments. The following identifiers, comparators, and logical operators are supported.
+
+        Identifiers
+          - ``name``: Experiment name.
+          - ``tags.<tag_key>``: Experiment tag. If ``tag_key`` contains
+            spaces, it must be wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+        Comparators
+          - ``=``: Equal to.
+          - ``!=``: Not equal to.
+          - ``LIKE``: Case-sensitive pattern match.
+          - ``ILIKE``: Case-insensitive sensitive pattern match.
+
+        Logical operators
+          - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+    :param order_by:
+        List of columns to order by. The ``order_by`` column can contain an optional ``DESC`` or
+        ``ASC`` value (e.g., ``"name DESC"``). The default is ``ASC`` so ``"name"`` is equivalent to
+        ``"name ASC"``. The following fields are supported.
+
+            - ``name``: Experiment name.
+            - ``experiment_id``: Experiment ID.
+
+    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+
+        def assert_experiment_names_equal(experiments, expected_names):
+            actual_names = [e.name for e in experiments if e.name != "Default"]
+            assert actual_names == expected_names, (actual_names, expected_names)
+
+
+        mlflow.set_tracking_uri("sqlite:///:memory:")
+
+        # Create experiments
+        for name, tags in [
+            ("a", None),
+            ("b", None),
+            ("ab", {"k": "v"}),
+            ("bb", {"k": "V"}),
+        ]:
+            mlflow.create_experiment(name, tags=tags)
+
+        # Search for experiments with name "a"
+        experiments = mlflow.search_experiments(filter_string="name = 'a'")
+        assert_experiment_names_equal(experiments, ["a"])
+
+        # Search for experiments with name starting with "a"
+        experiments = mlflow.search_experiments(filter_string="name LIKE 'a%'")
+        assert_experiment_names_equal(experiments, ["ab", "a"])
+
+        # Search for experiments with tag key "k" and value ending with "v" or "V"
+        experiments = mlflow.search_experiments(filter_string="tags.k ILIKE '%v'")
+        assert_experiment_names_equal(experiments, ["bb", "ab"])
+
+        # Search for experiments with name ending with "b" and tag {"k": "v"}
+        experiments = mlflow.search_experiments(filter_string="name LIKE '%b' AND tags.k = 'v'")
+        assert_experiment_names_equal(experiments, ["ab"])
+
+        # Sort experiments by name in ascending order
+        experiments = mlflow.search_experiments(order_by=["name"])
+        assert_experiment_names_equal(experiments, ["a", "ab", "b", "bb"])
+
+        # Sort experiments by ID in descending order
+        experiments = mlflow.search_experiments(order_by=["experiment_id DESC"])
+        assert_experiment_names_equal(experiments, ["bb", "ab", "b", "a"])
+    """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_experiments(
+            view_type=view_type,
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return _paginate(
+        pagination_wrapper_func,
+        SEARCH_MAX_RESULTS_DEFAULT,
+        max_results,
+    )
+
+
 def create_experiment(
     name: str,
     artifact_location: Optional[str] = None,
@@ -1048,9 +1187,14 @@ def create_experiment(
         :caption: Example
 
         import mlflow
+        from pathlib import Path
 
         # Create an experiment name, which must be unique and case sensitive
-        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment_id = mlflow.create_experiment(
+            "Social NLP Experiments",
+            artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+            tags={"version": "v1", "priority": "P1"},
+        )
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
         print("Experiment_id: {}".format(experiment.experiment_id))
@@ -1063,8 +1207,8 @@ def create_experiment(
 
         Name: Social NLP Experiments
         Experiment_id: 1
-        Artifact Location: file:///.../mlruns/1
-        Tags= {}
+        Artifact Location: file:///.../mlruns
+        Tags: {'version': 'v1', 'priority': 'P1'}
         Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location, tags)
@@ -1363,12 +1507,12 @@ def search_runs(
 
         data = {}
         data.update(info)
-        for key in metrics:
-            data["metrics." + key] = metrics[key]
-        for key in params:
-            data["params." + key] = params[key]
-        for key in tags:
-            data["tags." + key] = tags[key]
+        for key, value in metrics.items():
+            data["metrics." + key] = value
+        for key, value in params.items():
+            data["params." + key] = value
+        for key, value in tags.items():
+            data["tags." + key] = value
         return pd.DataFrame(data)
     else:
         raise ValueError(
@@ -1576,7 +1720,7 @@ def autolog(
 
         import numpy as np
         import mlflow.sklearn
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
         from sklearn.linear_model import LinearRegression
 
         def print_auto_logged_info(r):

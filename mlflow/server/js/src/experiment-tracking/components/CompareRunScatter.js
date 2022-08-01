@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import { css } from 'emotion';
 import { AllHtmlEntities } from 'html-entities';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
@@ -112,7 +111,7 @@ export class CompareRunScatterImpl extends Component {
           <div className='row'>
             <Row>
               <Col span={6}>
-                <div className={css(styles.group)}>
+                <div css={styles.group}>
                   <label htmlFor='x-axis-selector'>
                     <FormattedMessage
                       defaultMessage='X-axis:'
@@ -121,7 +120,7 @@ export class CompareRunScatterImpl extends Component {
                   </label>
                   {this.renderSelect('x')}
                 </div>
-                <div className={css(styles.group)}>
+                <div css={styles.group}>
                   <label htmlFor='y-axis-selector'>
                     <FormattedMessage
                       defaultMessage='Y-axis:'
@@ -186,7 +185,7 @@ export class CompareRunScatterImpl extends Component {
   renderSelect(axis) {
     return (
       <Select
-        className={css(styles.select)}
+        css={styles.select}
         id={axis + '-axis-selector'}
         aria-label={`${axis} axis`}
         onChange={(value) => {

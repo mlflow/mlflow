@@ -13,12 +13,11 @@ import pytest
 from unittest import mock
 
 import mlflow
-from mlflow import tracking
+from mlflow import tracking, MlflowClient
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
@@ -26,6 +25,10 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
+)
+from mlflow.utils.validation import (
+    MAX_METRICS_PER_BATCH,
+    MAX_PARAMS_TAGS_PER_BATCH,
 )
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
@@ -277,7 +280,7 @@ def test_metric_timestamp():
         mlflow.log_metric("name_1", 30)
         run_id = active_run.info.run_uuid
     # Check that metric timestamps are between run start and finish
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     history = client.get_metric_history(run_id, "name_1")
     finished_run = client.get_run(run_id)
     assert len(history) == 2
@@ -305,9 +308,7 @@ def test_log_batch():
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.tracking.MlflowClient().log_batch(
-            run_id=run_id, metrics=metrics, params=params, tags=tags
-        )
+        MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
     client = tracking.MlflowClient()
     finished_run = client.get_run(run_id)
     # Validate metrics
@@ -338,6 +339,45 @@ def test_log_batch():
     for tag_key, tag_value in finished_run_2.data.tags.items():
         if tag_key in new_tags:
             assert new_tags[tag_key] == tag_value
+
+
+@pytest.mark.usefixtures("tmpdir")
+def test_log_batch_with_many_elements():
+    num_metrics = MAX_METRICS_PER_BATCH * 2
+    num_params = num_tags = MAX_PARAMS_TAGS_PER_BATCH * 2
+    expected_metrics = {f"metric-key{i}": float(i) for i in range(num_metrics)}
+    expected_params = {f"param-key{i}": f"param-val{i}" for i in range(num_params)}
+    exact_expected_tags = {f"tag-key{i}": f"tag-val{i}" for i in range(num_tags)}
+
+    t = int(time.time())
+    sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[1])
+    metrics = [
+        Metric(key=key, value=value, timestamp=t, step=i)
+        for i, (key, value) in enumerate(sorted_expected_metrics)
+    ]
+    params = [Param(key=key, value=value) for key, value in expected_params.items()]
+    tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
+
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+        mlflow.tracking.MlflowClient().log_batch(
+            run_id=run_id, metrics=metrics, params=params, tags=tags
+        )
+    client = tracking.MlflowClient()
+    finished_run = client.get_run(run_id)
+    # Validate metrics
+    assert expected_metrics == finished_run.data.metrics
+    for i in range(num_metrics):
+        metric_history = client.get_metric_history(run_id, f"metric-key{i}")
+        assert {(m.value, m.timestamp, m.step) for m in metric_history} == {(float(i), t, i)}
+
+    # Validate tags
+    logged_tags = finished_run.data.tags
+    for tag_key, tag_value in exact_expected_tags.items():
+        assert logged_tags[tag_key] == tag_value
+
+    # Validate params
+    assert finished_run.data.params == expected_params
 
 
 def test_log_metric():

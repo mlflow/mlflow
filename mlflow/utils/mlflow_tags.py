@@ -12,6 +12,7 @@ MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 MLFLOW_USER = "mlflow.user"
 MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+MLFLOW_PIPELINE_TEMPLATE_NAME = "mlflow.pipeline.template.name"
 MLFLOW_SOURCE_NAME = "mlflow.source.name"
 MLFLOW_GIT_COMMIT = "mlflow.source.git.commit"
 MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
@@ -59,3 +60,8 @@ MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.
 LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch
 LEGACY_MLFLOW_GIT_REPO_URL = "mlflow.gitRepoURL"  # Replaced with mlflow.source.git.repoURL
+
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
+MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
+    "mlflow.experiment.primaryMetric.greaterIsBetter"
+)

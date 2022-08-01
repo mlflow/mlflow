@@ -118,7 +118,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         # The check above suffices that the binary input is stored.
         del d["binary"]
         for key in d:
-            assert np.array_equal(d[key], parsed_dict[key])
+            np.testing.assert_array_equal(d[key], parsed_dict[key])
 
     # input passed as numpy array
     new_df = pandas_df_with_all_types.drop(columns=["binary"])
@@ -129,7 +129,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             example.save(tmp.path())
             filename = example.info["artifact_path"]
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
-            assert np.array_equal(parsed_ary, input_example)
+            np.testing.assert_array_equal(parsed_ary, input_example)
 
     # pass multidimensional array
     for col in dict_of_ndarrays:
@@ -139,7 +139,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             example.save(tmp.path())
             filename = example.info["artifact_path"]
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
-            assert np.array_equal(parsed_ary, input_example)
+            np.testing.assert_array_equal(parsed_ary, input_example)
 
     # pass multidimensional array as a list
     example = np.array([[1, 2, 3]])
@@ -163,7 +163,7 @@ def test_sparse_matrix_input_examples(dict_of_sparse_matrix):
             example.save(tmp.path())
             filename = example.info["artifact_path"]
             parsed_matrix = _read_sparse_matrix_from_json(tmp.path(filename), example_type)
-            assert np.array_equal(parsed_matrix.toarray(), input_example.toarray())
+            np.testing.assert_array_equal(parsed_matrix.toarray(), input_example.toarray())
 
 
 def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
@@ -202,6 +202,6 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
 
             # without a schema/dtype specified, the resulting tensor will keep the None type
             no_schema_df = _read_tensor_input_from_json(tmp.path(filename))
-            assert np.array_equal(
+            np.testing.assert_array_equal(
                 no_schema_df, np.where(np.isnan(input_example), None, input_example)
             )

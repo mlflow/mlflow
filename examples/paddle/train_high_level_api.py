@@ -8,7 +8,7 @@ eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
 
 class UCIHousing(paddle.nn.Layer):
     def __init__(self):
-        super(UCIHousing, self).__init__()
+        super().__init__()
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
     def forward(self, inputs):
