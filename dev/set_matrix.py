@@ -441,7 +441,7 @@ def main(args):
 
     if "GITHUB_ACTIONS" in os.environ:
         set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "false" if len(matrix) == 0 else "true")
+        set_action_output("is_matrix_empty", "true" if len(matrix) == 0 else "false")
 
 
 if __name__ == "__main__":
