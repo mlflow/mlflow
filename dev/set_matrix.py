@@ -107,7 +107,7 @@ class MatrixItem(BaseModel):
 
 def read_yaml(location, if_error=None):
     try:
-        if re.search("^https?://", location):
+        if re.match(r"^https?://", location):
             resp = requests.get(location)
             resp.raise_for_status()
             return yaml.safe_load(resp.text)
