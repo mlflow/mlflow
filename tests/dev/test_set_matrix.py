@@ -127,3 +127,13 @@ def test_flavors_and_versions():
         versions = set(str(x.version) for x in matrix)
         assert set(flavors) == {"foo", "bar"}
         assert set(versions) == {"dev"}
+
+
+@mock_pypi_api(MOCK_PYPI_API_RESPONSES)
+def test_no_dev():
+    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
+        matrix = generate_matrix([*path_args, "--no-dev"])
+        flavors = set(x.flavor for x in matrix)
+        versions = set(str(x.version) for x in matrix)
+        assert set(flavors) == {"foo", "bar"}
+        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
