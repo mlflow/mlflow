@@ -125,6 +125,17 @@ export class RunViewImpl extends Component {
     const sourceVersion = Utils.getSourceVersion(tags);
     const entryPointName = Utils.getEntryPointName(tags);
     const backend = Utils.getBackend(tags);
+
+    if (Utils.getSourceType(tags) === 'PIPELINE') {
+      const profileName = Utils.getPipelineProfileName(tags);
+      const stepName = Utils.getPipelineStepName(tags);
+      runCommand = 'mlflow pipelines run -p ' + shellEscape(profileName);
+
+      if (stepName) {
+        runCommand += ' -s ' + shellEscape(stepName);
+      }
+    }
+
     if (Utils.getSourceType(tags) === 'PROJECT') {
       runCommand = 'mlflow run ' + shellEscape(sourceName);
       if (sourceVersion && sourceVersion !== 'latest') {

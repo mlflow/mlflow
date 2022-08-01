@@ -29,7 +29,12 @@ from mlflow.pipelines.utils.tracking import (
 from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_PIPELINE_TEMPLATE_NAME
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_PIPELINE_TEMPLATE_NAME,
+    MLFLOW_PIPELINE_PROFILE_NAME,
+    MLFLOW_PIPELINE_STEP_NAME
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -108,6 +113,8 @@ class TrainStep(BaseStep):
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
+            MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["initial_config_profile"],
+            MLFLOW_PIPELINE_STEP_NAME: self.step_config["initial_config_step"]
         }
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
@@ -417,6 +424,8 @@ class TrainStep(BaseStep):
             step_config = pipeline_config["steps"]["train"]
             step_config["metrics"] = pipeline_config.get("metrics")
             step_config["template_name"] = pipeline_config.get("template")
+            step_config["initial_config_profile"] = pipeline_config.get("initial_config_profile")
+            step_config["initial_config_step"] = pipeline_config.get("initial_config_step")
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
