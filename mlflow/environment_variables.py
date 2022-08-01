@@ -47,3 +47,12 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 #: Specify timeout in seconds for MLflow http request
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
+
+# Specify the chunk size to use when downloading a file from GCS.
+MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE", int, None)
+
+# Specify the chunk size to use when uploading a file to GCS.
+MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZE", int, None)
+
+# Specify the default timeout to use when downloading/uploading a file from/to GCS.
+MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
