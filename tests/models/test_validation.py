@@ -240,7 +240,7 @@ def min_absolute_change_threshold_test_spec(request):
             {"accuracy": acc_validation_result},
         )
 
-    if request.param == "multiple_metrics_not_satisified_higher_better":
+    if request.param == "multiple_metrics_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
         acc_validation_result.min_absolute_change_failed = True
         f1score_validation_result = _MetricValidationResult("f1_score", 0.8, f1score_threshold, 0.7)
@@ -264,7 +264,7 @@ def min_absolute_change_threshold_test_spec(request):
             {"custom_l1_loss": l1_loss_validation_result},
         )
 
-    if request.param == "multiple_metrics_not_satisified_lower_better":
+    if request.param == "multiple_metrics_not_satisfied_lower_better":
         l1_loss_validation_result = _MetricValidationResult(
             "custom_l1_loss", 0.5, l1_loss_threshold, 0.6
         )
@@ -318,9 +318,9 @@ def min_absolute_change_threshold_test_spec(request):
     "min_absolute_change_threshold_test_spec",
     [
         ("single_metric_not_satisfied_higher_better"),
-        ("multiple_metrics_not_satisified_higher_better"),
+        ("multiple_metrics_not_satisfied_higher_better"),
         ("single_metric_not_satisfied_lower_better"),
-        ("multiple_metrics_not_satisified_lower_better"),
+        ("multiple_metrics_not_satisfied_lower_better"),
     ],
     indirect=["min_absolute_change_threshold_test_spec"],
 )
@@ -441,7 +441,7 @@ def min_relative_change_threshold_test_spec(request):
             {"accuracy": acc_validation_result},
         )
 
-    if request.param == "multiple_metrics_not_satisified_higher_better":
+    if request.param == "multiple_metrics_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.53, acc_threshold, 0.5)
         acc_validation_result.min_relative_change_failed = True
         f1score_validation_result = _MetricValidationResult("f1_score", 0.8, f1score_threshold, 0.7)
@@ -465,7 +465,7 @@ def min_relative_change_threshold_test_spec(request):
             {"custom_l1_loss": l1_loss_validation_result},
         )
 
-    if request.param == "multiple_metrics_not_satisified_lower_better":
+    if request.param == "multiple_metrics_not_satisfied_lower_better":
         l1_loss_validation_result = _MetricValidationResult(
             "custom_l1_loss", 0.72 + 1e-3, l1_loss_threshold, 0.8
         )
@@ -519,9 +519,9 @@ def min_relative_change_threshold_test_spec(request):
     "min_relative_change_threshold_test_spec",
     [
         ("single_metric_not_satisfied_higher_better"),
-        ("multiple_metrics_not_satisified_higher_better"),
+        ("multiple_metrics_not_satisfied_higher_better"),
         ("single_metric_not_satisfied_lower_better"),
-        ("multiple_metrics_not_satisified_lower_better"),
+        ("multiple_metrics_not_satisfied_lower_better"),
     ],
     indirect=["min_relative_change_threshold_test_spec"],
 )
@@ -691,3 +691,20 @@ def test_validation_multi_thresholds_should_fail(
                     validation_thresholds=validation_thresholds,
                     baseline_model=multiclass_logistic_regressor_model_uri,
                 )
+
+
+def test_validation_multi_thresholds_should_fail_default_evaluator(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+):
+    validation_thresholds = {"accuracy": MetricThreshold(threshold=0.2, higher_is_better=True)}
+    evaluate(
+        multiclass_logistic_regressor_model_uri,
+        data=iris_dataset._constructor_args["data"],
+        model_type="classifier",
+        targets=iris_dataset._constructor_args["targets"],
+        dataset_name=iris_dataset.name,
+        evaluators="default",
+        validation_thresholds=validation_thresholds,
+        baseline_model=multiclass_logistic_regressor_model_uri,
+    )
