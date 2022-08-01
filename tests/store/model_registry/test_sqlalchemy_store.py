@@ -605,7 +605,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # only valid stages can be set
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid Model Version stage unknown"
+            MlflowException,
+            "Invalid Model Version stage: unknown. "
+            "Value must be one of None, Staging, Production, Archived.",
         ) as exception_context:
             self.store.transition_model_version_stage(
                 mv1.name, mv1.version, stage="unknown", archive_existing_versions=False

@@ -566,10 +566,10 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            raise MlflowException(
-                "Model is missing inputs {0}."
-                " Note that there were extra inputs: {1}".format(missing_cols, extra_cols)
-            )
+            message = "Model is missing inputs {0}.".format(missing_cols)
+            if extra_cols:
+                message += " Note that there were extra inputs: {0}".format(extra_cols)
+            raise MlflowException(message)
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pfInput.columns)

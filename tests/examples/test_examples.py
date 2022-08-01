@@ -193,6 +193,8 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("evaluation", ["python", "evaluate_with_custom_metrics.py"]),
         ("evaluation", ["python", "evaluate_with_custom_metrics_comprehensive.py"]),
         ("diviner", ["python", "train.py"]),
+        ("spark_udf", ["python", "spark_udf_datetime.py"]),
+        ("pyfunc", ["python", "train.py"]),
     ],
 )
 def test_command_example(directory, command):

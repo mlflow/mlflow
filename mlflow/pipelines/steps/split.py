@@ -46,11 +46,6 @@ def _get_split_df(input_df, hash_buckets, split_ratios):
         hash_buckets.map(lambda x: train_bucket_end <= x < validation_bucket_end)
     ]
     test_df = input_df[hash_buckets.map(lambda x: x >= validation_bucket_end)]
-    _logger.info(
-        f"Split dataset result: train split ({len(train_df)} rows), "
-        f"validation split ({len(validation_df)} rows), "
-        f"test split ({len(test_df)} rows)."
-    )
 
     empty_splits = [
         split_name

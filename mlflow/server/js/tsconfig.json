@@ -28,6 +28,5 @@
     "resolveJsonModule": true,
     "jsxImportSource": "@emotion/react"
   },
-  "include": ["./src/**/*"],
-  "exclude": ["./src/**/*.stories.tsx"]
+  "include": ["./src/**/*"]
 }

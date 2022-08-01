@@ -24,8 +24,9 @@ export class RestoreRunModalImpl extends Component {
     this.props.selectedRunIds.forEach((runId) => {
       restorePromises.push(this.props.restoreRunApi(runId));
     });
-    return Promise.all(restorePromises).catch(() => {
-      this.props.openErrorModal('While restoring an experiment run, an error occurred.');
+    return Promise.all(restorePromises).catch((e) => {
+      const errorMessage = 'While restoring an experiment run, an error occurred.';
+      this.props.openErrorModal(errorMessage);
     });
   }
 

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 
-class DefaultExperimentProvider(object):
+class DefaultExperimentProvider:
     """
     Abstract base class for objects that provide the ID of an MLflow Experiment based on the
     current client context. For example, when the MLflow client is running in a Databricks Job,

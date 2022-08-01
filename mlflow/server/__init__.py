@@ -17,6 +17,7 @@ from mlflow.utils.process import _exec_cmd
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
+REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_REGISTRY_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
@@ -107,6 +108,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 
 def _run_server(
     file_store_path,
+    registry_store_uri,
     default_artifact_root,
     serve_artifacts,
     artifacts_only,
@@ -128,6 +130,8 @@ def _run_server(
     env_map = {}
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if registry_store_uri:
+        env_map[REGISTRY_STORE_URI_ENV_VAR] = registry_store_uri
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if serve_artifacts:

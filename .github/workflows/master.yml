@@ -1,11 +1,8 @@
 name: MLflow tests
 
 on:
-  push:
-    branches:
-      - master
-      - branch-[0-9]+.[0-9]+
   pull_request:
+  push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
@@ -26,7 +23,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -39,6 +36,7 @@ env:
   # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
   # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
 
 jobs:
   lint:
@@ -55,10 +53,8 @@ jobs:
         echo "::add-matcher::.github/workflows/matchers/pylint.json"
         echo "::add-matcher::.github/workflows/matchers/black.json"
     - name: Install dependencies
-      env:
-        INSTALL_ML_DEPENDENCIES: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --ml
         pip install -r requirements/lint-requirements.txt
     - name: Test custom pylint-plugins
       run : |
@@ -81,11 +77,8 @@ jobs:
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
     - name: Install dependencies
-      env:
-        INSTALL_SKINNY_PYTHON_DEPS: true
-        MLFLOW_SKINNY: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --skinny
     - name: Run tests
       run: |
         ./dev/run-python-skinny-tests.sh
@@ -105,20 +98,15 @@ jobs:
         rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: ./.github/actions/setup-python
     - uses: ./.github/actions/setup-pyenv
-    - uses: actions/setup-java@v3
+    - uses: ./.github/actions/setup-java
       with:
         java-version: 11
         distribution: 'adopt'
     - uses: ./.github/actions/cache-pip
     - name: Install dependencies
-      env:
-        INSTALL_ML_DEPENDENCIES: true
       run: |
-        source ./dev/install-common-deps.sh
+        source ./dev/install-common-deps.sh --ml
     - name: Run tests
-      env:
-        # Fix for https://github.com/mlflow/mlflow/issues/4229
-        SPARK_LOCAL_IP: 127.0.0.1
       run: |
         # Establish SSH to localhost for test_sftp_artifact_repo.py
         ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
@@ -163,17 +151,11 @@ jobs:
         repository: ${{ github.event.inputs.repository }}
         ref: ${{ github.event.inputs.ref }}
     - uses: ./.github/actions/setup-python
-    - name: Set up Java
-      uses: actions/setup-java@v3
-      with:
-        java-version: 11
-        distribution: 'adopt'
+    - uses: ./.github/actions/setup-java
     - name: Install dependencies
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
-      env:
-        SPARK_LOCAL_IP: 127.0.0.1
       run: |
         cd mlflow/java
         mvn clean package -q
@@ -218,19 +200,12 @@ jobs:
           rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --ml
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ./dev/run-python-flavor-tests.sh;
 
@@ -245,17 +220,12 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
           pip install pyspark
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
@@ -268,9 +238,6 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .[pipelines]
@@ -318,17 +285,12 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
           pip install keras tensorflow pyspark
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
@@ -342,18 +304,11 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
-        env:
-          INSTALL_ML_DEPENDENCIES: true
         run: |
-          source ./dev/install-common-deps.sh
+          source ./dev/install-common-deps.sh --ml
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ./dev/run-python-sagemaker-tests.sh;
 
@@ -367,10 +322,7 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
-      - uses: actions/setup-java@v3
-        with:
-          java-version: 11
-          distribution: 'adopt'
+      - uses: ./.github/actions/setup-java
       - name: Install python dependencies
         run: |
           pip install -r requirements/test-requirements.txt

@@ -22,7 +22,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 defaults:
@@ -62,6 +62,11 @@ jobs:
           </body>
           </html>
           ' > mlflow/server/js/build/index.html
+
+      - name: Check dependencies consistency
+        run: |
+          pip install pyyaml
+          ./dev/validate-requirements-consistency.sh
 
       - name: Install dependencies
         run: |

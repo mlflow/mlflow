@@ -19,7 +19,6 @@ from mlflow.projects.utils import (
     get_or_create_run,
     fetch_and_validate_project,
     load_project,
-    _GIT_URI_REGEX,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
@@ -63,12 +62,6 @@ def test_is_zip_uri():
     assert not _is_zip_uri("file://C:/moo")
     assert not _is_zip_uri("/moo")
     assert not _is_zip_uri("C:/moo")
-
-
-def test_is_git_uri():
-    assert _GIT_URI_REGEX.match("https://github.com/mlflow/mlflow-example.git)")
-    assert _GIT_URI_REGEX.match("git@github.com:mlflow/mlflow.git")
-    assert not _GIT_URI_REGEX.match("D:\\mlflow\\mlflow-example")
 
 
 def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):

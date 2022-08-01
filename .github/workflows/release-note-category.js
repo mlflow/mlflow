@@ -23,16 +23,29 @@ module.exports = async ({ core, context, github }) => {
   console.log("Available release note category labels:");
   console.log(releaseNoteLabels);
 
-  // Fetch release note category labels applied to this PR
-  const listLabelsOnIssueResp = await github.issues.listLabelsOnIssue({
-    owner,
-    repo,
-    issue_number,
-  });
-  const appliedLabels = listLabelsOnIssueResp.data
-    .map(({ name }) => name)
-    .filter(name => releaseNoteLabels.includes(name));
+  // Fetch the release-note category labels applied on this PR
+  const getAppliedLabels = async () => {
+    const backoffs = [0, 1, 2, 4, 8, 16];
+    for (const [index, backoff] of backoffs.entries()) {
+      console.log(`Attempt ${index + 1}/${backoffs.length}`);
+      await new Promise(r => setTimeout(r, backoff * 1000));
+      const listLabelsOnIssueResp = await github.issues.listLabelsOnIssue({
+        owner,
+        repo,
+        issue_number,
+      });
+      const appliedLabels = listLabelsOnIssueResp.data
+        .map(({ name }) => name)
+        .filter((name) => releaseNoteLabels.includes(name));
 
+      if (appliedLabels.length > 0) {
+        return appliedLabels;
+      }
+    }
+    return [];
+  };
+
+  const appliedLabels = await getAppliedLabels();
   console.log("Release note category labels applied to this PR:");
   console.log(appliedLabels);
 

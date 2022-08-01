@@ -9,12 +9,9 @@ import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
 
-import { AgGridReact } from '@ag-grid-community/react/main';
-import { Grid } from '@ag-grid-community/core';
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import { RunsTableCustomHeader } from '../../common/components/ag-grid/RunsTableCustomHeader';
-import '@ag-grid-community/core/dist/styles/ag-grid.css';
-import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
+import { MLFlowAgGridLoader } from '../../common/components/ag-grid/AgGridLoader';
+
 import registeredModelSvg from '../../common/static/registered-model.svg';
 import loggedModelSvg from '../../common/static/logged-model.svg';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -361,68 +358,71 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
     const referenceTime = new Date();
     // Round reference time down to the nearest second, to avoid unnecessary re-renders
     referenceTime.setMilliseconds(0);
-    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
-      const tags = tagsList[idx];
-      const params = paramsList[idx];
-      const metrics = metricsList[idx].map(({ key, value }) => ({
-        key,
-        value: Utils.formatMetric(value),
-      }));
-      const runInfo = runInfos[idx];
+    const runs = mergedRows.map(
+      ({ idx, isParent, hasExpander, expanderOpen, childrenIds, level }) => {
+        const tags = tagsList[idx];
+        const params = paramsList[idx];
+        const metrics = metricsList[idx].map(({ key, value }) => ({
+          key,
+          value: Utils.formatMetric(value),
+        }));
+        const runInfo = runInfos[idx];
 
-      const runUuid = runInfo.getRunUuid();
-      const { experiment_id: experimentId } = runInfo;
-      const experimentName = experimentNameMap[experimentId];
-      const user = Utils.getUser(runInfo, tags);
-      const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
-      const runName = Utils.getRunName(tags) || '-';
-      const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
-        key,
-        value,
-      }));
+        const runUuid = runInfo.getRunUuid();
+        const { experiment_id: experimentId } = runInfo;
+        const experimentName = experimentNameMap[experimentId];
+        const user = Utils.getUser(runInfo, tags);
+        const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
+        const runName = Utils.getRunName(tags) || '-';
+        const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
+          key,
+          value,
+        }));
 
-      const runDateInfo = {
-        startTime: runInfo.start_time,
-        referenceTime,
-        experimentId,
-        runUuid,
-        runStatus: runInfo.status,
-        isParent,
-        hasExpander,
-        expanderOpen,
-        childrenIds,
-      };
+        const runDateInfo = {
+          startTime: runInfo.start_time,
+          referenceTime,
+          experimentId,
+          runUuid,
+          runStatus: runInfo.status,
+          isParent,
+          hasExpander,
+          expanderOpen,
+          childrenIds,
+          level,
+        };
 
-      const models = {
-        registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
-        loggedModels: Utils.getLoggedModelsFromTags(tags),
-        experimentId: runInfo.experiment_id,
-        runUuid: runInfo.run_uuid,
-      };
+        const models = {
+          registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
+          loggedModels: Utils.getLoggedModelsFromTags(tags),
+          experimentId: runInfo.experiment_id,
+          runUuid: runInfo.run_uuid,
+        };
 
-      const version = {
-        version: Utils.getSourceVersion(tags),
-        name: Utils.getSourceName(tags),
-        type: Utils.getSourceType(tags),
-      };
+        const version = {
+          version: Utils.getSourceVersion(tags),
+          name: Utils.getSourceName(tags),
+          type: Utils.getSourceType(tags),
+        };
 
-      return {
-        runUuid,
-        runDateInfo,
-        runInfo,
-        experimentName,
-        experimentId,
-        duration,
-        user,
-        runName,
-        tags,
-        models,
-        version,
-        ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
-        ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
-        ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
-      };
-    });
+        return {
+          runUuid,
+          runDateInfo,
+          runInfo,
+          experimentName,
+          experimentId,
+          duration,
+          user,
+          runName,
+          tags,
+          models,
+          version,
+          ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
+          ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
+          ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
+        };
+      },
+    );
 
     return runs;
   }
@@ -578,12 +578,11 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
         css={agGridOverrides}
         data-test-id='detailed-runs-table-view'
       >
-        <AgGridReact
+        <MLFlowAgGridLoader
           defaultColDef={defaultColDef}
           columnDefs={this.state.columnDefs}
           rowData={this.getRowData()}
           domLayout='autoHeight'
-          modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
@@ -639,6 +638,7 @@ function DateCellRenderer(props) {
     hasExpander,
     expanderOpen,
     childrenIds,
+    level,
   } = props.value;
   const { onExpand } = props;
   return (
@@ -651,16 +651,17 @@ function DateCellRenderer(props) {
           key={'Expander-' + runUuid}
           style={{ paddingRight: 8, display: 'inline' }}
         >
+          <span style={{ paddingLeft: 18 * level }} />
           <i
             className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
           />
         </div>
       ) : (
-        <span style={{ paddingLeft: 18 }} />
+        <span style={{ paddingLeft: level === 0 ? 12 : 18 * level + 12 }} />
       )}
       <Link
         to={Routes.getRunPageRoute(experimentId, runUuid)}
-        style={{ paddingLeft: isParent ? 0 : 16 }}
+        style={{ paddingLeft: isParent ? 0 : 8 }}
         title={Utils.formatTimestamp(startTime)}
       >
         {ExperimentViewUtil.getRunStatusIcon(runStatus)}{' '}

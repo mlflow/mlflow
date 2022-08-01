@@ -8,11 +8,10 @@ import sys
 import posixpath
 import pytest
 import logging
-import shutil
 import time
 import tempfile
-from unittest import mock
 import urllib.parse
+from unittest import mock
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
@@ -40,87 +39,41 @@ from tests.tracking.integration_test_utils import (
     _send_rest_tracking_post_request,
 )
 
-# pylint: disable=unused-argument
-
-# Root directory for all stores (backend or artifact stores) created during this suite
-SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
-# Root directory for all artifact stores created during this suite
-SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
 
 _logger = logging.getLogger(__name__)
 
 
-def _get_sqlite_uri():
-    path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
-    path = path[len("file://") :]
-
-    # NB: It looks like windows and posix have different requirements on number of slashes for
-    # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
-    # sqlite://///path/to/my/file
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
-    return prefix + path
-
-
-# Backend store URIs to test against
-BACKEND_URIS = [
-    _get_sqlite_uri(),  # SqlAlchemy
-    path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
-]
-
-# Map of backend URI to tuple (server URL, Process). We populate this map by constructing
-# a server per backend URI
-BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
-    for uri in BACKEND_URIS
-}
-
-
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
-    list of backend store URIs.
-    """
-    if "backend_store_uri" in metafunc.fixturenames:
-        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def server_urls():
-    """
-    Clean up all servers created for testing in `pytest_generate_tests`
-    """
-    yield
-    for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
-        _logger.info(f"Terminating server at {server_url}...")
-        _logger.info(f"type = {type(process)}")
-        process.terminate()
-        _await_server_down_or_die(process)
-    shutil.rmtree(SUITE_ROOT_DIR)
-
-
-@pytest.fixture()
-def tracking_server_uri(backend_store_uri):
-    url, _ = BACKEND_URI_TO_SERVER_URL_AND_PROC[backend_store_uri]
-    return url
-
-
-@pytest.fixture()
-def mlflow_client(tracking_server_uri):
+@pytest.fixture(params=["file", "sqlalchemy"])
+def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
-    mlflow.set_tracking_uri(tracking_server_uri)
-    yield mock.Mock(wraps=MlflowClient(tracking_server_uri))
-    mlflow.set_tracking_uri(None)
+    if request.param == "file":
+        uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
+    elif request.param == "sqlalchemy":
+        path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
+        uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+
+    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(tmp_path))
+
+    yield MlflowClient(url)
+
+    _logger.info(f"Terminating server at {url}...")
+    process.terminate()
+    _await_server_down_or_die(process)
 
 
 @pytest.fixture()
-def cli_env(tracking_server_uri):
+def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
     cli_env = {
         "LC_ALL": "en_US.UTF-8",
         "LANG": "en_US.UTF-8",
-        "MLFLOW_TRACKING_URI": tracking_server_uri,
+        "MLFLOW_TRACKING_URI": mlflow_client.tracking_uri,
     }
     return cli_env
+
+
+def create_experiments(client, names):
+    return [client.create_experiment(n) for n in names]
 
 
 def test_create_get_list_experiment(mlflow_client):
@@ -163,10 +116,10 @@ def test_create_get_list_experiment(mlflow_client):
     assert first_page_names.union(second_page_names) == {"Default", "My Experiment"}
 
 
-def test_create_experiment_validation(tracking_server_uri):
+def test_create_experiment_validation(mlflow_client):
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
-            tracking_server_uri,
+            mlflow_client.tracking_uri,
             "/api/2.0/mlflow/experiments/create",
             payload,
         )
@@ -299,7 +252,7 @@ def test_create_run_defaults(mlflow_client):
     assert run.info.user_id == "unknown"
 
 
-def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
+def test_log_metrics_params_tags(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Oh My")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
@@ -336,14 +289,14 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     assert metric1.step == 0
 
 
-def test_log_metric_validation(mlflow_client, tracking_server_uri):
+def test_log_metric_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("metrics validation")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
-            tracking_server_uri,
+            mlflow_client.tracking_uri,
             "/api/2.0/mlflow/runs/log-metric",
             payload,
         )
@@ -422,14 +375,14 @@ def test_log_metric_validation(mlflow_client, tracking_server_uri):
     )
 
 
-def test_log_param_validation(mlflow_client, tracking_server_uri):
+def test_log_param_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("params validation")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
-            tracking_server_uri,
+            mlflow_client.tracking_uri,
             "/api/2.0/mlflow/runs/log-parameter",
             payload,
         )
@@ -454,33 +407,52 @@ def test_log_param_validation(mlflow_client, tracking_server_uri):
     )
 
 
-def test_log_param_with_empty_string_as_value(mlflow_client, tracking_server_uri):
+def test_log_param_with_empty_string_as_value(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
         test_log_param_with_empty_string_as_value.__name__
     )
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
-    response = _send_rest_tracking_post_request(
-        tracking_server_uri,
-        "/api/2.0/mlflow/runs/log-parameter",
-        {
-            "run_id": run_id,
-            "key": "param",
-            "value": "",
-        },
+    mlflow_client.log_param(run_id, "param_key", "")
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
+
+
+def test_set_tag_with_empty_string_as_value(mlflow_client):
+    experiment_id = mlflow_client.create_experiment(
+        test_set_tag_with_empty_string_as_value.__name__
     )
-    assert response.status_code == 200
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    mlflow_client.set_tag(run_id, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_run(run_id).data.tags.items()
 
 
-def test_set_tag_validation(mlflow_client, tracking_server_uri):
+def test_log_batch_containing_params_and_tags_with_empty_string_values(mlflow_client):
+    experiment_id = mlflow_client.create_experiment(
+        test_log_batch_containing_params_and_tags_with_empty_string_values.__name__
+    )
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    mlflow_client.log_batch(
+        run_id=run_id,
+        params=[Param("param_key", "")],
+        tags=[RunTag("tag_key", "")],
+    )
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
+    assert {"tag_key": ""}.items() <= mlflow_client.get_run(run_id).data.tags.items()
+
+
+def test_set_tag_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("tags validation")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
-            tracking_server_uri,
+            mlflow_client.tracking_uri,
             "/api/2.0/mlflow/runs/set-tag",
             payload,
         )
@@ -513,7 +485,7 @@ def test_set_tag_validation(mlflow_client, tracking_server_uri):
     )
 
     response = _send_rest_tracking_post_request(
-        tracking_server_uri,
+        mlflow_client.tracking_uri,
         "/api/2.0/mlflow/runs/set-tag",
         {
             "run_uuid": run_id,
@@ -524,7 +496,7 @@ def test_set_tag_validation(mlflow_client, tracking_server_uri):
     assert response.status_code == 200
 
 
-def test_set_experiment_tag(mlflow_client, backend_store_uri):
+def test_set_experiment_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
     experiment = mlflow_client.get_experiment(experiment_id)
@@ -552,7 +524,15 @@ def test_set_experiment_tag(mlflow_client, backend_store_uri):
     )
 
 
-def test_delete_tag(mlflow_client, backend_store_uri):
+def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
+    experiment_id = mlflow_client.create_experiment(
+        test_set_experiment_tag_with_empty_string_as_value.__name__
+    )
+    mlflow_client.set_experiment_tag(experiment_id, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
+
+
+def test_delete_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("DeleteTagExperiment")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
@@ -574,7 +554,7 @@ def test_delete_tag(mlflow_client, backend_store_uri):
         mlflow_client.delete_tag(run_id, "taggity")
 
 
-def test_log_batch(mlflow_client, backend_store_uri):
+def test_log_batch(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Batch em up")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
@@ -597,14 +577,14 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert metric.step == 3
 
 
-def test_log_batch_validation(mlflow_client, tracking_server_uri):
+def test_log_batch_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("log_batch validation")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
 
     def assert_bad_request(payload, expected_error_message):
         response = _send_rest_tracking_post_request(
-            tracking_server_uri,
+            mlflow_client.tracking_uri,
             "/api/2.0/mlflow/runs/log-batch",
             payload,
         )
@@ -622,7 +602,7 @@ def test_log_batch_validation(mlflow_client, tracking_server_uri):
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
-def test_log_model(mlflow_client, backend_store_uri):
+def test_log_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
         mlflow.set_experiment("Log models")
@@ -674,12 +654,10 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
-def test_artifacts(mlflow_client):
+def test_artifacts(mlflow_client, tmp_path):
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
-    assert experiment_info.artifact_location.startswith(
-        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR)
-    )
+    assert experiment_info.artifact_location.startswith(path_to_local_file_uri(str(tmp_path)))
     artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
     assert posixpath.split(artifact_path)[-1] == experiment_id
 
@@ -730,19 +708,68 @@ def test_search_validation(mlflow_client):
         mlflow_client.search_runs([experiment_id], max_results=123456789)
 
 
-def test_get_experiment_by_name(mlflow_client, backend_store_uri):
+def test_get_experiment_by_name(mlflow_client):
     name = "test_get_experiment_by_name"
-    experiment_id = mlflow_client.create_experiment(name)
-    res = mlflow_client.get_experiment_by_name(name)
-    assert res.experiment_id == experiment_id
-    assert res.name == name
-    assert mlflow_client.get_experiment_by_name("idontexist") is None
-    mlflow_client.list_experiments.assert_not_called()
+    with mock.patch.object(
+        MlflowClient,
+        "list_experiments",
+        side_effect=Exception("should not be called"),
+    ):
+        experiment_id = mlflow_client.create_experiment(name)
+        res = mlflow_client.get_experiment_by_name(name)
+        assert res.experiment_id == experiment_id
+        assert res.name == name
+        assert mlflow_client.get_experiment_by_name("idontexist") is None
 
 
-def test_get_experiment(mlflow_client, backend_store_uri):
+def test_get_experiment(mlflow_client):
     name = "test_get_experiment"
     experiment_id = mlflow_client.create_experiment(name)
     res = mlflow_client.get_experiment(experiment_id)
     assert res.experiment_id == experiment_id
     assert res.name == name
+
+
+def test_search_experiments(mlflow_client):
+    experiments = [
+        ("a", {"key": "value"}),
+        ("ab", {"key": "vaLue"}),
+        ("Abc", None),
+    ]
+    experiment_ids = [
+        mlflow_client.create_experiment(name, tags=tags) for name, tags in experiments
+    ]
+
+    # filter_string
+    experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
+    assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
+    assert [e.name for e in experiments] == ["ab", "a"]
+    experiments = mlflow_client.search_experiments(filter_string="tag.key = 'value'")
+    assert [e.name for e in experiments] == ["a"]
+    experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
+    assert [e.name for e in experiments] == ["ab"]
+    experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+    assert [e.name for e in experiments] == ["ab", "a"]
+
+    # order_by
+    experiments = mlflow_client.search_experiments(order_by=["name DESC"])
+    assert [e.name for e in experiments] == ["ab", "a", "Default", "Abc"]
+
+    # max_results
+    experiments = mlflow_client.search_experiments(max_results=2)
+    assert [e.name for e in experiments] == ["Abc", "ab"]
+    # page_token
+    experiments = mlflow_client.search_experiments(page_token=experiments.token)
+    assert [e.name for e in experiments] == ["a", "Default"]
+
+    # view_type
+    mlflow_client.delete_experiment(experiment_ids[1])
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == ["Abc", "a", "Default"]
+    experiments = mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == ["ab"]
+    experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == ["Abc", "ab", "a", "Default"]

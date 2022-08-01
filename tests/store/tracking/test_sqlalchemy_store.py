@@ -375,6 +375,133 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.store.list_experiments(page_token=None, max_results=int(1e15))
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+    def test_search_experiments_view_type(self):
+        experiment_names = ["a", "b"]
+        experiment_ids = self._experiment_factory(experiment_names)
+        self.store.delete_experiment(experiment_ids[1])
+
+        experiments = self.store.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+        assert [e.name for e in experiments] == ["a", "Default"]
+        experiments = self.store.search_experiments(view_type=ViewType.DELETED_ONLY)
+        assert [e.name for e in experiments] == ["b"]
+        experiments = self.store.search_experiments(view_type=ViewType.ALL)
+        assert [e.name for e in experiments] == ["b", "a", "Default"]
+
+    def test_search_experiments_filter_by_attribute(self):
+        experiment_names = ["a", "ab", "Abc"]
+        self._experiment_factory(experiment_names)
+
+        experiments = self.store.search_experiments(filter_string="name = 'a'")
+        assert [e.name for e in experiments] == ["a"]
+        experiments = self.store.search_experiments(filter_string="attribute.name = 'a'")
+        assert [e.name for e in experiments] == ["a"]
+        experiments = self.store.search_experiments(filter_string="attribute.`name` = 'a'")
+        assert [e.name for e in experiments] == ["a"]
+        experiments = self.store.search_experiments(filter_string="attribute.`name` != 'a'")
+        assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+        experiments = self.store.search_experiments(filter_string="name LIKE 'a%'")
+        assert [e.name for e in experiments] == ["ab", "a"]
+        experiments = self.store.search_experiments(filter_string="name ILIKE 'a%'")
+        assert [e.name for e in experiments] == ["Abc", "ab", "a"]
+        experiments = self.store.search_experiments(
+            filter_string="name ILIKE 'a%' AND name ILIKE '%b'"
+        )
+        assert [e.name for e in experiments] == ["ab"]
+
+    def test_search_experiments_filter_by_tag(self):
+        experiments = [
+            ("exp1", [ExperimentTag("key", "value")]),
+            ("exp2", [ExperimentTag("key", "vaLue")]),
+            ("exp3", [ExperimentTag("k e y", "value")]),
+        ]
+        for name, tags in experiments:
+            self.store.create_experiment(name, tags=tags)
+
+        experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
+        assert [e.name for e in experiments] == ["exp1"]
+        experiments = self.store.search_experiments(filter_string="tag.`k e y` = 'value'")
+        assert [e.name for e in experiments] == ["exp3"]
+        experiments = self.store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
+        assert [e.name for e in experiments] == ["exp3"]
+        experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
+        assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
+        assert [e.name for e in experiments] == ["exp1"]
+        experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
+        assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+        assert [e.name for e in experiments] == ["exp2", "exp1"]
+        experiments = self.store.search_experiments(
+            filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
+        )
+        assert [e.name for e in experiments] == ["exp2"]
+
+    def test_search_experiments_filter_by_attribute_and_tag(self):
+        self.store.create_experiment(
+            "exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")]
+        )
+        self.store.create_experiment(
+            "exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")]
+        )
+        experiments = self.store.search_experiments(
+            filter_string="name ILIKE 'exp%' AND tags.a = '1'"
+        )
+        assert [e.name for e in experiments] == ["exp1"]
+
+    def test_search_experiments_order_by(self):
+        experiment_names = ["x", "y", "z"]
+        self._experiment_factory(experiment_names)
+
+        experiments = self.store.search_experiments(order_by=["name"])
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+        experiments = self.store.search_experiments(order_by=["name ASC"])
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+        experiments = self.store.search_experiments(order_by=["name DESC"])
+        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+
+        experiments = self.store.search_experiments(order_by=["experiment_id DESC"])
+        assert [e.name for e in experiments] == ["z", "y", "x", "Default"]
+
+        experiments = self.store.search_experiments(order_by=["name", "experiment_id"])
+        assert [e.name for e in experiments] == ["Default", "x", "y", "z"]
+
+    def test_search_experiments_max_results(self):
+        experiment_names = list(map(str, range(9)))
+        self._experiment_factory(experiment_names)
+        reversed_experiment_names = experiment_names[::-1]
+
+        experiments = self.store.search_experiments()
+        assert [e.name for e in experiments] == reversed_experiment_names + ["Default"]
+        experiments = self.store.search_experiments(max_results=3)
+        assert [e.name for e in experiments] == reversed_experiment_names[:3]
+
+    def test_search_experiments_max_results_validation(self):
+        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got None"):
+            self.store.search_experiments(max_results=None)
+        with pytest.raises(MlflowException, match=r"It must be a positive integer, but got 0"):
+            self.store.search_experiments(max_results=0)
+        with pytest.raises(MlflowException, match=r"It must be at most \d+, but got 1000000"):
+            self.store.search_experiments(max_results=1_000_000)
+
+    def test_search_experiments_pagination(self):
+        experiment_names = list(map(str, range(9)))
+        self._experiment_factory(experiment_names)
+        reversed_experiment_names = experiment_names[::-1]
+
+        experiments = self.store.search_experiments(max_results=4)
+        assert [e.name for e in experiments] == reversed_experiment_names[:4]
+        assert experiments.token is not None
+
+        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
+        assert [e.name for e in experiments] == reversed_experiment_names[4:8]
+        assert experiments.token is not None
+
+        experiments = self.store.search_experiments(max_results=4, page_token=experiments.token)
+        assert [e.name for e in experiments] == reversed_experiment_names[8:] + ["Default"]
+        assert experiments.token is None
+
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
@@ -2100,7 +2227,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run_results = self.store.search_runs(
             [experiment_id],
-            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 " "and tags.tkey_0 = 'tval_0' ",
+            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 and tags.tkey_0 = 'tval_0' ",
             ViewType.ALL,
             max_results=10,
         )

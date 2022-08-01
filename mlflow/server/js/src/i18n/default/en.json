@@ -275,6 +275,10 @@
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
   },
+  "9KXBFn": {
+    "defaultMessage": "Tags",
+    "description": "Row group title for tags of runs on the experiment compare runs page"
+  },
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
@@ -378,10 +382,6 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
-  },
-  "FBsWC+": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle show points for metric experiment run"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -630,10 +630,6 @@
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
-  },
-  "Te670G": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle log scale graph for metric experiment run"
   },
   "ThrXMh": {
     "defaultMessage": "Inputs",
@@ -967,10 +963,6 @@
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
   },
-  "kU2h2z": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle show points for metric experiment run"
-  },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
@@ -998,6 +990,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "m9e01X": {
+    "defaultMessage": "No tags to display.",
+    "description": "Text shown when there are no tags to display"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -1146,10 +1142,6 @@
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
-  },
-  "tUSlmi": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle log scale graph for metric experiment run"
   },
   "tc9+eK": {
     "defaultMessage": "Register Model",

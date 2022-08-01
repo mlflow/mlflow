@@ -20,7 +20,9 @@ def test_case():
 
 def test_print_function(test_case):
     node = extract_node("print('hello')")
-    with test_case.assertAddsMessages(create_message(test_case.CHECKER_CLASS.name, node)):
+    with test_case.assertAddsMessages(
+        create_message(test_case.CHECKER_CLASS.name, node, line=1, col_offset=0)
+    ):
         test_case.walk(node)
 
     node = extract_node("module.print('hello')")

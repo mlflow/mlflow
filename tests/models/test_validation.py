@@ -611,3 +611,83 @@ def test_validation_model_comparison_relative_threshold_should_pass(
                 validation_thresholds=validation_thresholds,
                 baseline_model=multiclass_logistic_regressor_model_uri,
             )
+
+
+@pytest.fixture
+def multi_thresholds_test_spec(request):
+    """
+    Test specification for multi-thresholds tests:
+    :return: (
+                metrics: A dictionary mapping scalar metric names to scalar metric values,
+                baseline_model_metrics: A dictionary mapping scalar metric names
+                    to scalar metric values of baseline_model,
+                validation_threhsolds: A dictonary mapping scalar metric names
+                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                expected_validation_results: A dictonary mapping scalar metric names
+                    to _MetricValidationResult
+             )
+    """
+    acc_threshold = MetricThreshold(
+        threshold=0.8, min_absolute_change=0.1, min_relative_change=0.1, higher_is_better=True
+    )
+
+    if request.param == "single_metric_all_thresholds_failed":
+        acc_validation_result = _MetricValidationResult("accuracy", 0.75, acc_threshold, 0.7)
+        acc_validation_result.threshold_failed = True
+        acc_validation_result.min_relative_change_failed = True
+        acc_validation_result.min_absolute_change_failed = True
+        return (
+            {"accuracy": 0.75},
+            {"accuracy": 0.7},
+            {"accuracy": acc_threshold},
+            {"accuracy": acc_validation_result},
+        )
+
+
+@pytest.mark.parametrize(
+    "multi_thresholds_test_spec",
+    [
+        ("single_metric_not_satisfied_higher_better"),
+    ],
+    indirect=["multi_thresholds_test_spec"],
+)
+def test_validation_multi_thresholds_should_fail(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    multi_thresholds_test_spec,
+):
+    (
+        metrics,
+        baseline_model_metrics,
+        validation_thresholds,
+        validation_results,
+    ) = multi_thresholds_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        evaluator1_config = {}
+        evaluator1_return_value = EvaluationResult(
+            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        )
+        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        with mock.patch.object(
+            MockEvaluator, "can_evaluate", return_value=True
+        ) as _, mock.patch.object(
+            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        ) as _:
+            with pytest.raises(
+                MlflowException,
+                match=failure_message,
+            ):
+                evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    data=iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    dataset_name=iris_dataset.name,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    validation_thresholds=validation_thresholds,
+                    baseline_model=multiclass_logistic_regressor_model_uri,
+                )
