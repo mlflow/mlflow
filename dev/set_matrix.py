@@ -5,7 +5,10 @@ A script to set a matrix for the cross version tests for MLflow Models / autolog
 
 ```
 # Test all items
-python dev/set_matrix.py --dev
+python dev/set_matrix.py
+
+# Exclude items for dev versions
+python dev/set_matrix.py --no-dev
 
 # Test items affected by config file updates
 python dev/set_matrix.py --ref-versions-yaml \
@@ -290,10 +293,10 @@ def parse_args(args):
         ),
     )
     parser.add_argument(
-        "--dev",
+        "--no-dev",
         action="store_true",
         default=False,
-        help="If True, include dev versions in the test matrix.",
+        help="If True, exclude dev versions in the test matrix.",
     )
 
     return parser.parse_args(args)
@@ -399,7 +402,7 @@ def generate_matrix(args):
             matrix.update(apply_changed_files(args.changed_files, mat))
 
     # Apply the filtering arguments
-    if not args.dev:
+    if args.no_dev:
         matrix = filter(lambda x: x.version != Version.create_dev(), matrix)
 
     if args.flavors:
