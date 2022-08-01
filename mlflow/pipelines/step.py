@@ -147,7 +147,7 @@ class BaseStep(metaclass=abc.ABCMeta):
 
         card = BaseCard.load(card_path)
         card_html_path = os.path.join(output_directory, CARD_HTML_NAME)
-        display_html(html_data=card.to_html(), html_file_path=card_html_path)
+        display_html(html_data=card.to_html())
 
     @experimental
     @abc.abstractmethod
