@@ -423,7 +423,6 @@ class CustomEncoder(json.JSONEncoder):
 def set_action_output(name, value):
     # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
     # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
-    # Note that this actually doesn't print anything to the console.
     print(f"::set-output name={name}::{value}")
 
 
