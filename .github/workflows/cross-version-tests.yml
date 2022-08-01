@@ -55,6 +55,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r dev/requirements.txt
+          pip install pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@v4
         id: enable-dev-tests
