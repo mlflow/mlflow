@@ -42,7 +42,7 @@ class MetricThreshold:
         if self._min_relative_change is not None and (
             self._min_relative_change < 0 or self._min_relative_change > 1
         ):
-            raise ValueError("The min_relative_change argument must be in (0, 1)")
+            raise ValueError("The min_relative_change argument must be in [0, 1]")
         if not self.is_empty():
             if self._higher_is_better is None or not isinstance(self._higher_is_better, bool):
                 raise ValueError(
