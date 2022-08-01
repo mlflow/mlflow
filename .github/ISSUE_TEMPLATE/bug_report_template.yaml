@@ -72,15 +72,35 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Other info / logs
+      label: Stack trace
       description: |
-        Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
+        Provide a **full** stack trace.
       placeholder: |
-        ```python-traceback
+        ```python
+        # Good: full stack trace
         Traceback (most recent call last):
           File "example.py", line 1, in <module>
             raise Exception("something went wrong")
         Exception: something went wrong
+
+        # Bad: truncated stack trace
+        ...
+        Exception: something went wrong
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Other info / logs
+      description: |
+        Include any logs or source code that would be helpful to diagnose the problem. Large logs and files should be attached.
+      placeholder: |
+        ```
+        # Tracking server logs
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Starting gunicorn 20.1.0
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Listening at: http://127.0.0.1:5000 (222636)
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Using worker: sync
+        [2022-08-01 16:03:02 +0900] [222639] [INFO] Booting worker with pid: 222639
         ```
     validations:
       required: false
