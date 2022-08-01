@@ -1,11 +1,12 @@
 import collections
-from packaging.version import Version
 import inspect
 import logging
-from numbers import Number
 import numpy as np
 import time
 import warnings
+from copy import deepcopy
+from numbers import Number
+from packaging.version import Version
 
 from mlflow import MlflowClient
 from mlflow.utils.file_utils import TempDir
@@ -88,7 +89,8 @@ def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
 
     :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
               `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
-              a sample weighting.
+              a sample weighting. Copies of `X` and `y` are made in order to avoid mutation
+              of the dataset during training.
     """
 
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -121,14 +123,18 @@ def _get_X_y_and_sample_weight(fit_func, fit_args, fit_kwargs):
     # However, certain sklearn models use different variable names for X and y.
     # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit
     X_var_name, y_var_name = fit_arg_names[:2]
-    Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    X, y = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    if X is not None:
+        X = deepcopy(X)
+    if y is not None:
+        y = deepcopy(y)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if (_SAMPLE_WEIGHT in fit_arg_names)
         else None
     )
 
-    return (*Xy, sample_weight)
+    return (X, y, sample_weight)
 
 
 def _get_metrics_value_dict(metrics_list):

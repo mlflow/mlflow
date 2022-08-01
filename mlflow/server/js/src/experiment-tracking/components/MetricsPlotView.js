@@ -65,13 +65,21 @@ export class MetricsPlotView extends React.Component {
     return legend;
   };
 
-  static parseTimestamp = (timestamp, history, xAxis) => {
-    if (xAxis === X_AXIS_RELATIVE) {
-      const minTimestamp = _.minBy(history, 'timestamp').timestamp;
-      return (timestamp - minTimestamp) / 1000;
+  static getXValuesForLineChart(history, xAxisType) {
+    if (history.length === 0) {
+      return [];
     }
-    return Utils.formatTimestamp(timestamp);
-  };
+    switch (xAxisType) {
+      case X_AXIS_STEP:
+        return history.map(({ step }) => step);
+      case X_AXIS_RELATIVE: {
+        const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
+        return history.map(({ timestamp }) => (timestamp - minTimestamp) / 1000);
+      }
+      default: // X_AXIS_WALL
+        return history.map(({ timestamp }) => Utils.formatTimestamp(timestamp));
+    }
+  }
 
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
@@ -92,12 +100,7 @@ export class MetricsPlotView extends React.Component {
         : 'legendonly';
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
-        x: history.map((entry) => {
-          if (xAxis === X_AXIS_STEP) {
-            return entry.step;
-          }
-          return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
-        }),
+        x: MetricsPlotView.getXValuesForLineChart(history, xAxis),
         y: isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness),
         text: historyValues.map((value) => (isNaN(value) ? value : value.toFixed(5))),
         type: 'scattergl',

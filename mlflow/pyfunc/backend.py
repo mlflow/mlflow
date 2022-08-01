@@ -288,32 +288,63 @@ class PyFuncBackend(FlavorBackend):
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
-            model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
-            return """
-                COPY {model_dir} /opt/ml/model
-                RUN python -c \
-                'from mlflow.models.container import _install_pyfunc_deps;\
-                _install_pyfunc_deps(\
-                    "/opt/ml/model", \
-                    install_mlflow={install_mlflow}, \
-                    enable_mlserver={enable_mlserver}, \
-                    env_manager="{env_manager}")'
-                ENV {disable_env}="true"
-                ENV {ENABLE_MLSERVER}={enable_mlserver}
-                """.format(
-                disable_env=DISABLE_ENV_CREATION,
-                model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
-                install_mlflow=repr(install_mlflow),
-                ENABLE_MLSERVER=ENABLE_MLSERVER,
-                enable_mlserver=repr(enable_mlserver),
-                env_manager=self._env_manager,
+            if model_uri:
+                model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+                return """
+                    COPY {model_dir} /opt/ml/model
+                    RUN python -c \
+                    'from mlflow.models.container import _install_pyfunc_deps;\
+                    _install_pyfunc_deps(\
+                        "/opt/ml/model", \
+                        install_mlflow={install_mlflow}, \
+                        enable_mlserver={enable_mlserver}, \
+                        env_manager="{env_manager}")'
+                    ENV {disable_env}="true"
+                    ENV {ENABLE_MLSERVER}={enable_mlserver}
+                    """.format(
+                    disable_env=DISABLE_ENV_CREATION,
+                    model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
+                    install_mlflow=repr(install_mlflow),
+                    ENABLE_MLSERVER=ENABLE_MLSERVER,
+                    enable_mlserver=repr(enable_mlserver),
+                    env_manager=self._env_manager,
+                )
+            else:
+                return """
+                    ENV {disable_env}="true"
+                    ENV {ENABLE_MLSERVER}={enable_mlserver}
+                    """.format(
+                    disable_env=DISABLE_ENV_CREATION,
+                    ENABLE_MLSERVER=ENABLE_MLSERVER,
+                    enable_mlserver=repr(enable_mlserver),
+                )
+
+        if model_uri:
+            # The pyfunc image runs the same server as the Sagemaker image
+            pyfunc_entrypoint = (
+                'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
+                f'C._serve({repr(self._env_manager)})"]'
+            )
+        else:
+            entrypoint_code = "; ".join(
+                [
+                    "from mlflow.models import container as C",
+                    "from mlflow.models.container import _install_pyfunc_deps",
+                    (
+                        "_install_pyfunc_deps("
+                        + '"/opt/ml/model", '
+                        + f"install_mlflow={install_mlflow}, "
+                        + f"enable_mlserver={enable_mlserver}, "
+                        + f'env_manager="{self._env_manager}"'
+                        + ")"
+                    ),
+                    'C._serve("{env_manager}")'.format(env_manager=self._env_manager),
+                ]
+            )
+            pyfunc_entrypoint = 'ENTRYPOINT ["python", "-c", "{entrypoint_code}"]'.format(
+                entrypoint_code=entrypoint_code.replace('"', '\\"')
             )
 
-        # The pyfunc image runs the same server as the Sagemaker image
-        pyfunc_entrypoint = (
-            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C;'
-            f'C._serve({repr(self._env_manager)})"]'
-        )
         _build_image(
             image_name=image_name,
             mlflow_home=mlflow_home,

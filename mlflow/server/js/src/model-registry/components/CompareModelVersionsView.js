@@ -11,6 +11,7 @@ import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/red
 import '../../experiment-tracking/components/CompareRunView.css';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
+import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
 import Routes from '../../experiment-tracking/routes';
 import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReducer';
@@ -132,6 +133,8 @@ export class CompareModelVersionsViewImpl extends Component {
       runInfos,
       runUuids,
       runDisplayNames,
+      paramLists,
+      metricLists,
     } = this.props;
     const title = (
       <FormattedMessage
@@ -244,13 +247,40 @@ export class CompareModelVersionsViewImpl extends Component {
           <TabPane
             tab={
               <FormattedMessage
+                defaultMessage='Parallel Coordinates Plot'
+                description='Tab text for parallel coordinates plot on the model comparison page'
+              />
+            }
+            key='parallel-coordinates-plot'
+          >
+            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
                 defaultMessage='Scatter Plot'
                 description='Tab text for scatter plot on the model comparison page'
               />
             }
-            key='1'
+            key='scatter-plot'
           >
             <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Box Plot'
+                description='Tab pane title for box plot on the compare runs page'
+              />
+            }
+            key='box-plot'
+          >
+            <CompareRunBox
+              runUuids={runUuids}
+              runInfos={runInfos}
+              paramLists={paramLists}
+              metricLists={metricLists}
+            />
           </TabPane>
           <TabPane
             tab={
@@ -259,20 +289,9 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab text for contour plot on the model comparison page'
               />
             }
-            key='2'
+            key='contour-plot'
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Parallel Coordinates Plot'
-                description='Tab text for parallel coordinates plot on the model comparison page'
-              />
-            }
-            key='3'
-          >
-            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
           </TabPane>
         </Tabs>
       </div>

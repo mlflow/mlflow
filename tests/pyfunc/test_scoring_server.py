@@ -9,7 +9,7 @@ from packaging.version import Version
 
 import pytest
 import random
-import sklearn.datasets as datasets
+from sklearn import datasets
 import sklearn.neighbors as knn
 
 from io import StringIO
@@ -447,7 +447,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
-    # types are forced ignoting overflow and loss of precision:
+    # types are forced ignoring overflow and loss of precision:
 
     bad_df = """{
       "columns":["bad_integer", "bad_float", "bad_string", "bad_boolean"],
@@ -461,7 +461,6 @@ def test_parse_with_schema(pandas_df_with_all_types):
         [
             ColSpec("integer", "bad_integer"),
             ColSpec("float", "bad_float"),
-            ColSpec("float", "good_float"),
             ColSpec("string", "bad_string"),
             ColSpec("boolean", "bad_boolean"),
         ]
@@ -475,8 +474,8 @@ def test_parse_with_schema(pandas_df_with_all_types):
     # The same goes for floats:
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))
-    # However bad string is recognized as int64:
-    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=object))
+    # String is forced:
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=str))
 
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == bool
@@ -547,8 +546,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         response_json = json.loads(response.content)
 
         # objects are not converted to pandas Strings at the moment
-        expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
         response = pyfunc_serve_and_score_model(
             model_uri="runs:/{}/model".format(run.info.run_id),
             data=json.dumps(pandas_df_with_all_types.to_dict(orient="records"), cls=NumpyEncoder),
@@ -556,7 +554,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
             extra_args=["--env-manager", "local"],
         )
         response_json = json.loads(response.content)
-        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+        assert response_json == [[k, str(v)] for k, v in pandas_df_with_all_types.dtypes.items()]
 
 
 def test_split_oriented_json_to_numpy_array():

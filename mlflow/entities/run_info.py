@@ -186,7 +186,6 @@ class RunInfo(_MLflowObject):
             [
                 p
                 for p in cls.__dict__
-                if isinstance(getattr(cls, p), searchable_attribute)
-                or isinstance(getattr(cls, p), orderable_attribute)
+                if isinstance(getattr(cls, p), (searchable_attribute, orderable_attribute))
             ]
         )

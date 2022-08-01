@@ -22,7 +22,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
-import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     RESOURCE_DOES_NOT_EXIST,
