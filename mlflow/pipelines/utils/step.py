@@ -62,6 +62,8 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
     if is_running_in_ipython_environment():
         from IPython.display import display as ip_display, HTML
 
+        html_file_path = html_file_path if html_data is None else None
+
         if is_in_databricks_runtime():
             # Patch IPython display with Databricks display before showing the HTML.
             import IPython.core.display as icd
