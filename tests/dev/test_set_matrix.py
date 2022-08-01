@@ -137,3 +137,13 @@ def test_no_dev():
         versions = set(str(x.version) for x in matrix)
         assert set(flavors) == {"foo", "bar"}
         assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
+
+
+@mock_pypi_api(MOCK_PYPI_API_RESPONSES)
+def test_changed_files():
+    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, MOCK_YAML_SOURCE) as path_args:
+        matrix = generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
+        flavors = set(x.flavor for x in matrix)
+        versions = set(str(x.version) for x in matrix)
+        assert set(flavors) == {"foo"}
+        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "dev"}
