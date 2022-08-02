@@ -110,8 +110,8 @@ def _is_numeric(value):
 
 def _validate_metric(key, value, timestamp, step):
     """
-    Check that a metric with the specified key, value, timestamp is valid and raise an exception if
-    it isn't.
+    Check that a metric with the specified key, value, timestamp, and step is valid and raise an
+    exception if it isn't.
     """
     _validate_metric_name(key)
     # value must be a Number
