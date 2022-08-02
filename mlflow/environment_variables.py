@@ -61,3 +61,7 @@ MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZ
 #: Specifies the default timeout to use when downloading/uploading a file from/to GCS
 #: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
 MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
+
+#: Specify whether to disable model logging and loading via mlflowdbfs.
+#: (default: ``False``)
+_DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, "")
