@@ -949,7 +949,13 @@ def _read_model_conf_as_dict(run):
         return yaml.load(f, Loader=yaml.FullLoader)
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec=None):
+def _read_schema(schema_str):
+    if schema_str is None:
+        return None
+    return json.loads(schema_str)
+
+
+def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
     data = _read_model_conf_as_dict(run)
     assert data is not None
     assert "signature" in data
@@ -957,9 +963,8 @@ def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output
     assert signature is not None
     assert "inputs" in signature
     assert "outputs" in signature
-    assert json.loads(signature["inputs"]) == input_sig_spec
-    if output_sig_spec:
-        assert json.loads(signature["outputs"]) == output_sig_spec
+    assert _read_schema(signature["inputs"]) == input_sig_spec
+    assert _read_schema(signature["outputs"]) == output_sig_spec
 
 
 def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
