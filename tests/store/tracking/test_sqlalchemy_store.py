@@ -2379,3 +2379,67 @@ def test_get_orderby_clauses():
         assert "value IS NULL" in select_clause[0]
         # test that clause name is in parsed
         assert "clause_1" in parsed[0]
+
+
+@pytest.mark.parametrize("_", range(100))
+def test_parametrized_log_metric_concurrent_logging_succeeds(tmp_path, _):
+    """
+    Verifies that concurrent logging succeeds without deadlock, which has been an issue
+    in previous MLflow releases
+    """
+    store = SqlAlchemyStore(
+        f"sqlite:///{tmp_path}/mlflowdb.sqlite", tmp_path.joinpath("artifacts").as_uri()
+    )
+    experiment_id = store.create_experiment("concurrency_exp")
+    run1 = store.create_run(
+        experiment_id, user_id="user", start_time=int(time.time() * 1000), tags=[]
+    )
+    run2 = store.create_run(
+        experiment_id, user_id="user", start_time=int(time.time() * 1000), tags=[]
+    )
+
+    def log_metrics(run):
+        for metric_val in range(100):
+            store.log_metric(
+                run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+            )
+        for batch_idx in range(5):
+            store.log_batch(
+                run.info.run_id,
+                metrics=[
+                    Metric(
+                        f"metric_batch_{batch_idx}",
+                        (batch_idx * 100) + val_offset,
+                        int(1000 * time.time()),
+                        0,
+                    )
+                    for val_offset in range(100)
+                ],
+                params=[],
+                tags=[],
+            )
+        for metric_val in range(100):
+            store.log_metric(
+                run.info.run_id, Metric("metric_key", metric_val, int(1000 * time.time()), 0)
+            )
+        return "success"
+
+    log_metrics_futures = []
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        # Log metrics to two runs across four threads
+        log_metrics_futures = [
+            executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
+        ]
+
+    for future in log_metrics_futures:
+        assert future.result() == "success"
+
+    for run in [run1, run2, run1, run2]:
+        # We visit each run twice, logging 100 metric entries for 6 metric names; the same entry
+        # may be written multiple times concurrently; we assert that at least 100 metric entries
+        # are present because at least 100 unique entries must have been written
+        assert len(store.get_metric_history(run.info.run_id, "metric_key")) >= 100
+        for batch_idx in range(5):
+            assert (
+                len(store.get_metric_history(run.info.run_id, f"metric_batch_{batch_idx}")) >= 100
+            )
