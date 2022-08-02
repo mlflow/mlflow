@@ -37,4 +37,7 @@ pytest \
   tests/utils/test_search_utils.py \
   tests/store/tracking/test_file_store.py
 
+python -m pip install pandas
+pytest tests/test_skinny_client_autolog_without_scipy.py
+
 test $err = 0
