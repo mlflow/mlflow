@@ -698,6 +698,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert metric_obj.timestamp == 50
         assert metric_obj.value == 20
 
+    def test_log_metric_with_non_numeric_value_raises_exception(self):
+        fs = FileStore(self.test_root)
+        run_id = self._create_run(fs).info.run_id
+        with pytest.raises(MlflowException, match=r"Got invalid value string for metric"):
+            fs.log_metric(run_id, Metric("test", "string", 0, 0))
+
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
