@@ -4,6 +4,8 @@ pip>=20.1
 # NB: We're specifying a test-only minimum version bound for sqlalchemy in order to reliably
 # execute schema consistency checks, the semantics of which were changed in sqlalchemy 1.3.21
 sqlalchemy>=1.3.21
+# TODO: Remove this once https://github.com/rycus86/prometheus_flask_exporter/issues/138 is fixed
+flask!=2.2.0
 ## Test-only dependencies
 pytest
 pytest-cov
