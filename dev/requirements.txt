@@ -2,3 +2,5 @@
 ruamel.yaml
 requests
 packaging
+pydantic
+pyyaml
