@@ -890,7 +890,7 @@ def autolog(
 
                                     Currently, only scalar Spark data types are supported. If
                                     model inputs/outputs contain non-scalar Spark data types such
-                                    as vector, signatures are not logged.
+                                    as ``pyspark.ml.linalg.Vector``, signatures are not logged.
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
