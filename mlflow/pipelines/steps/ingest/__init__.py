@@ -180,14 +180,8 @@ class IngestStep(BaseIngestStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if "training" not in pipeline_config["data"]:
-            raise MlflowException(
-                message="The `training` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         return cls(
-            step_config=pipeline_config["data"]["training"],
+            step_config=pipeline_config["data"],
             pipeline_root=pipeline_root,
         )
 
@@ -199,20 +193,14 @@ class IngestStep(BaseIngestStep):
 class IngestScoringStep(BaseIngestStep):
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
-        if "data" not in pipeline_config:
+        if "data_scoring" not in pipeline_config:
             raise MlflowException(
-                message="The `data` section of pipeline.yaml must be specified",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        if "scoring" not in pipeline_config["data"]:
-            raise MlflowException(
-                message="The `scoring` section of pipeline.yaml must be specified",
+                message="The `data_scoring` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
         return cls(
-            step_config=pipeline_config["data"]["scoring"],
+            step_config=pipeline_config["data_scoring"],
             pipeline_root=pipeline_root,
         )
 
