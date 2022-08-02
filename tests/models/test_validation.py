@@ -4,11 +4,13 @@ from mlflow.models.evaluation import (
     ModelEvaluator,
     MetricThreshold,
 )
-from mlflow.models.evaluation.validation import _MetricValidationResult
+from mlflow.models.evaluation.validation import (
+    _MetricValidationResult,
+    ModelValidationFailedException,
+)
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from unittest import mock
 import pytest
-from mlflow.exceptions import MlflowException
 
 # pylint: disable=unused-import
 from tests.models.test_evaluation import (
@@ -82,8 +84,8 @@ def value_threshold_test_spec(request):
             {"custom_l1_loss": l1_loss_validation_result, "log_loss": log_loss_validation_result},
         )
 
-    if request.param == "missing_metric":
-        acc_validation_result.missing = True
+    if request.param == "missing_candidate_metric":
+        acc_validation_result.missing_candidate = True
         return ({}, {"accuracy": acc_threshold}, {"accuracy": acc_validation_result})
 
     if request.param == "multiple_metrics_not_all_satisfied":
@@ -128,7 +130,7 @@ def value_threshold_test_spec(request):
         ("single_metric_not_satisfied_higher_better"),
         ("multiple_metrics_not_satisfied_higher_better"),
         ("single_metric_not_satisfied_lower_better"),
-        ("missing_metric"),
+        ("missing_candidate_metric"),
         ("multiple_metrics_not_satisfied_lower_better"),
         ("multiple_metrics_not_all_satisfied"),
     ],
@@ -156,7 +158,7 @@ def test_validation_value_threshold_should_fail(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
         ) as _:
             with pytest.raises(
-                MlflowException,
+                ModelValidationFailedException,
                 match=expected_failure_message,
             ):
                 evaluate(
@@ -315,6 +317,19 @@ def min_absolute_change_threshold_test_spec(request):
             {},
         )
 
+    if request.param == "missing_baseline_metric":
+
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.72, l1_loss_threshold, None
+        )
+        l1_loss_validation_result.missing_baseline = True
+        return (
+            {"custom_l1_loss": 0.72},
+            None,
+            {"custom_l1_loss": l1_loss_threshold},
+            {"custom_l1_loss": l1_loss_validation_result},
+        )
+
 
 @pytest.mark.parametrize(
     "min_absolute_change_threshold_test_spec",
@@ -323,6 +338,7 @@ def min_absolute_change_threshold_test_spec(request):
         ("multiple_metrics_not_satisfied_higher_better"),
         ("single_metric_not_satisfied_lower_better"),
         ("multiple_metrics_not_satisfied_lower_better"),
+        ("missing_baseline_metric"),
     ],
     indirect=["min_absolute_change_threshold_test_spec"],
 )
@@ -354,7 +370,7 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
         ) as _:
             with pytest.raises(
-                MlflowException,
+                ModelValidationFailedException,
                 match=expected_failure_message,
             ):
                 evaluate(
@@ -469,6 +485,19 @@ def min_relative_change_threshold_test_spec(request):
             {"custom_l1_loss": l1_loss_validation_result},
         )
 
+    if request.param == "missing_baseline_metric":
+
+        l1_loss_validation_result = _MetricValidationResult(
+            "custom_l1_loss", 0.72, l1_loss_threshold, None
+        )
+        l1_loss_validation_result.missing_baseline = True
+        return (
+            {"custom_l1_loss": 0.72},
+            None,
+            {"custom_l1_loss": l1_loss_threshold},
+            {"custom_l1_loss": l1_loss_validation_result},
+        )
+
     if request.param == "multiple_metrics_not_satisfied_lower_better":
         l1_loss_validation_result = _MetricValidationResult(
             "custom_l1_loss", 0.72 + 1e-3, l1_loss_threshold, 0.8
@@ -526,6 +555,7 @@ def min_relative_change_threshold_test_spec(request):
         ("multiple_metrics_not_satisfied_higher_better"),
         ("single_metric_not_satisfied_lower_better"),
         ("multiple_metrics_not_satisfied_lower_better"),
+        ("missing_baseline_metric"),
     ],
     indirect=["min_relative_change_threshold_test_spec"],
 )
@@ -557,7 +587,7 @@ def test_validation_model_comparison_relative_threshold_should_fail(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
         ) as _:
             with pytest.raises(
-                MlflowException,
+                ModelValidationFailedException,
                 match=expected_failure_message,
             ):
                 evaluate(
@@ -685,7 +715,7 @@ def test_validation_multi_thresholds_should_fail(
             MockEvaluator, "evaluate", return_value=evaluator1_return_value
         ) as _:
             with pytest.raises(
-                MlflowException,
+                ModelValidationFailedException,
                 match=expected_failure_message,
             ):
                 evaluate(

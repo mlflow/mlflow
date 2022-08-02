@@ -1,3 +1,7 @@
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
+
+
 class MetricThreshold:
     """
     This class allows users to define metric thresholds for Model Validation. Allowed thresholds are
@@ -43,12 +47,11 @@ class MetricThreshold:
             self._min_relative_change < 0 or self._min_relative_change > 1
         ):
             raise ValueError("The min_relative_change argument must be in [0, 1]")
-        if not self.is_empty():
-            if self._higher_is_better is None or not isinstance(self._higher_is_better, bool):
-                raise ValueError(
-                    "The higher_is_better argument must be present and \
-                    a bool indicating whether higher value is preferred"
-                )
+        if self._higher_is_better is None or not isinstance(self._higher_is_better, bool):
+            raise ValueError(
+                "The higher_is_better argument must be present and \
+                a bool indicating whether higher value is preferred"
+            )
 
     @property
     def threshold(self):
@@ -121,7 +124,8 @@ class _MetricValidationResult:
                              The MetricThreshold for the metric.
     """
 
-    missing = False
+    missing_candidate = False
+    missing_baseline = False
     threshold_failed = False
     min_absolute_change_failed = False
     min_relative_change_failed = False
@@ -145,38 +149,53 @@ class _MetricValidationResult:
         if self.is_success():
             return f"Metric {self.metric_name} passed the validation."
 
-        if self.missing:
-            return f"Metric {self.metric_name} was missing from the evaluation result."
+        if self.missing_candidate:
+            return (
+                f"Metric {self.metric_name} was missing from the "
+                f"evaluation result of the candidate model."
+            )
 
         result_strs = []
         if self.threshold_failed:
             result_strs.append(
-                f"{self.metric_name} value threshold check failed: "
+                f"Metric {self.metric_name} value threshold check failed: "
                 f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
                 f"{self.metric_name} threshold: {self.metric_threshold.threshold}."
             )
-        if self.min_absolute_change_failed:
+        if self.missing_baseline:
             result_strs.append(
-                f"{self.metric_name} minimum absolute change check failed: "
-                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
-                f"{self.metric_name} minimum absolute change threshold: "
-                f"{self.metric_threshold.min_absolute_change}."
+                f"Since metric {self.metric_name} was missing from the evaluation "
+                f"result of the baseline model; model Comparison was not performed."
             )
-        if self.min_relative_change_failed:
-            result_strs.append(
-                f"{self.metric_name} minimum relative change check failed: "
-                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
-                f"{self.metric_name} minimum relative change threshold: "
-                f"{self.metric_threshold.min_relative_change}."
-            )
+        else:
+            if self.min_absolute_change_failed:
+                result_strs.append(
+                    f"Metric {self.metric_name} minimum absolute change check failed: "
+                    f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                    f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                    f"{self.metric_name} minimum absolute change threshold: "
+                    f"{self.metric_threshold.min_absolute_change}."
+                )
+            if self.min_relative_change_failed:
+                result_strs.append(
+                    f"Metric {self.metric_name} minimum relative change check failed: "
+                    f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
+                    f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                    f"{self.metric_name} minimum relative change threshold: "
+                    f"{self.metric_threshold.min_relative_change}."
+                )
         return " ".join(result_strs)
 
     def is_success(self):
         return (
-            not self.missing
+            not self.missing_candidate
+            and not self.missing_baseline
             and not self.threshold_failed
             and not self.min_absolute_change_failed
             and not self.min_relative_change_failed
         )
+
+
+class ModelValidationFailedException(MlflowException):
+    def __init__(self, message, **kwargs):
+        super().__init__(message, error_code=BAD_REQUEST, **kwargs)

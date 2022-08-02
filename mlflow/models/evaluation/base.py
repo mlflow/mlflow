@@ -14,7 +14,10 @@ from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import NumpyEncoder
-from mlflow.models.evaluation.validation import _MetricValidationResult
+from mlflow.models.evaluation.validation import (
+    _MetricValidationResult,
+    ModelValidationFailedException,
+)
 import logging
 import struct
 import sys
@@ -676,8 +679,13 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         )
 
         if metric_name not in candidate_metrics:
-            validation_result.missing = True
+            validation_result.missing_candidate = True
             continue
+
+        if (
+            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
+        ) and metric_name not in baseline_metrics:
+            validation_result.missing_baseline = True
 
         candidate_metric_value, baseline_metric_value = (
             candidate_metrics[metric_name],
@@ -696,7 +704,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
                 candidate_metric_value, metric_threshold.threshold
             )
 
-        if not baseline_metrics or metric_name not in baseline_metrics:
+        if metric_name not in baseline_metrics:
             continue
 
         if metric_threshold.min_absolute_change is not None:
@@ -734,7 +742,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
     if not failure_messages:
         return
 
-    raise MlflowException(message=os.linesep.join(failure_messages))
+    raise ModelValidationFailedException(message=os.linesep.join(failure_messages))
 
 
 def _evaluate(
