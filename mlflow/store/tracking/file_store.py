@@ -36,6 +36,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.validation import (
+    _validate_metric,
     _validate_metric_name,
     _validate_param_name,
     _validate_run_id,
@@ -815,7 +816,7 @@ class FileStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)
-        _validate_metric_name(metric.key)
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
