@@ -175,7 +175,7 @@ public class MlflowClientTest {
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
     client.logMetric(runId, "multi_log_default_step_ts", 2.0);
     client.logMetric(runId, "multi_log_default_step_ts", -1.0);
-    client.logMetric(runId, "multi_log_specified_step_ts", 1.0, -1000, 1);
+    client.logMetric(runId, "multi_log_specified_step_ts", 1.0, 1000, 1);
     client.logMetric(runId, "multi_log_specified_step_ts", 2.0, 2000, -5);
     client.logMetric(runId, "multi_log_specified_step_ts", -3.0, 3000, 4);
     client.logMetric(runId, "multi_log_specified_step_ts", 4.0, 2999, 4);
