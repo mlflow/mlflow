@@ -1,4 +1,3 @@
-import json
 import re
 from unittest import mock
 import tempfile
@@ -12,16 +11,13 @@ from dev.set_matrix import generate_matrix
 
 
 class MockResponse:
-    def __init__(self, body):
-        self.body = body
+    def __init__(self, data):
+        self.data = data
 
-    def read(self):
-        return json.dumps(self.body).encode("utf-8")
+    def json(self):
+        return self.data
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
+    def raise_for_status(self):
         pass
 
     @classmethod
@@ -32,19 +28,19 @@ class MockResponse:
 
 
 def mock_pypi_api(mock_responses):
-    def urlopen_patch(url, *args, **kwargs):  # pylint: disable=unused-argument
-        package_name = re.search(r"https://pypi.python.org/pypi/(.+)/json", url).group(1)
+    def requests_get_patch(url, *args, **kwargs):  # pylint: disable=unused-argument
+        package_name = re.search(r"https://pypi\.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
 
-    def decorotor(test_func):
+    def decorator(test_func):
         @functools.wraps(test_func)
         def wrapper(*args, **kwargs):
-            with mock.patch("urllib.request.urlopen", new=urlopen_patch):
+            with mock.patch("requests.get", new=requests_get_patch):
                 return test_func(*args, **kwargs)
 
         return wrapper
 
-    return decorotor
+    return decorator
 
 
 @contextmanager
@@ -100,7 +96,7 @@ def test_flavors(flavors, expected):
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         flavors_args = [] if flavors is None else ["--flavors", flavors]
         matrix = generate_matrix([*path_args, *flavors_args])
-        flavors = set(x["flavor"] for x in matrix)
+        flavors = set(x.flavor for x in matrix)
         assert flavors == expected
 
 
@@ -119,7 +115,7 @@ def test_versions(versions, expected):
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         versions_args = [] if versions is None else ["--versions", versions]
         matrix = generate_matrix([*path_args, *versions_args])
-        versions = set(x["version"] for x in matrix)
+        versions = set(str(x.version) for x in matrix)
         assert versions == expected
 
 
@@ -127,7 +123,27 @@ def test_versions(versions, expected):
 def test_flavors_and_versions():
     with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
         matrix = generate_matrix([*path_args, "--flavors", "foo,bar", "--versions", "dev"])
-        flavors = set(x["flavor"] for x in matrix)
-        versions = set(x["version"] for x in matrix)
+        flavors = set(x.flavor for x in matrix)
+        versions = set(str(x.version) for x in matrix)
         assert set(flavors) == {"foo", "bar"}
         assert set(versions) == {"dev"}
+
+
+@mock_pypi_api(MOCK_PYPI_API_RESPONSES)
+def test_no_dev():
+    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, "{}") as path_args:
+        matrix = generate_matrix([*path_args, "--no-dev"])
+        flavors = set(x.flavor for x in matrix)
+        versions = set(str(x.version) for x in matrix)
+        assert set(flavors) == {"foo", "bar"}
+        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "1.3", "1.4"}
+
+
+@mock_pypi_api(MOCK_PYPI_API_RESPONSES)
+def test_changed_files():
+    with mock_ml_package_versions_yml(MOCK_YAML_SOURCE, MOCK_YAML_SOURCE) as path_args:
+        matrix = generate_matrix([*path_args, "--changed-files", "mlflow/foo/__init__.py"])
+        flavors = set(x.flavor for x in matrix)
+        versions = set(str(x.version) for x in matrix)
+        assert set(flavors) == {"foo"}
+        assert set(versions) == {"1.0.0", "1.1.1", "1.2.0", "dev"}
