@@ -993,7 +993,8 @@ class FileStore(AbstractStore):
         """
         tmp_file_path = None
         try:
-            _, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
+            tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
+            os.close(tmp_file_fd)
             write_yaml(
                 root=get_parent_dir(tmp_file_path),
                 file_name=os.path.basename(tmp_file_path),
