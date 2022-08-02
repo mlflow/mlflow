@@ -192,4 +192,4 @@ def create_sqlalchemy_engine(db_uri):
         pool_kwargs["pool_recycle"] = int(pool_recycle)
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, echo=True, **pool_kwargs)
