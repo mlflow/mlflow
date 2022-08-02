@@ -822,12 +822,10 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         with self.ManagedSessionMaker() as session:
-            attribute_filters.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
-
             stmt = (
                 reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlModelVersion))
                 .options(*self._get_eager_model_version_query_options())
-                .filter(*attribute_filters)
+                .filter(*attribute_filters, SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
             )
             sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
             model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]

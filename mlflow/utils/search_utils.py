@@ -1002,11 +1002,7 @@ class SearchModelUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_model_registry(cls, token):
-        if isinstance(token, Comparison):
-            return False
-        elif isinstance(token, Identifier):
-            return False
-        elif isinstance(token, Parenthesis):
+        if isinstance(token, (Comparison, Identifier, Parenthesis)):
             return False
         elif token.is_whitespace:
             return False
