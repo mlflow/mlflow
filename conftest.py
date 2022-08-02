@@ -84,3 +84,11 @@ def pytest_ignore_collect(path, config):
 
         if relpath in model_flavors:
             outcome.force_result(True)
+
+
+def pytest_collection_modifyitems(session, config, items):  # pylint: disable=unused-argument
+    # Executing `tests.server.test_prometheus_exporter` after `tests.server.test_handlers`
+    # results in an error because Flask >= 2.2.0 doesn't allow calling setup method such as
+    # `before_request` on the application after its first request. To avoid this issue,
+    # execute `tests.server.test_prometheus_exporter` first by reordering the test items.
+    items.sort(key=lambda item: item.module.__name__ != "tests.server.test_prometheus_exporter")
