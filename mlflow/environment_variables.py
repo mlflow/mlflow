@@ -48,6 +48,20 @@ MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
+#: Specifies the chunk size to use when downloading a file from GCS
+#: (default: ``None``). If None, the chunk size is automatically determined by the
+#: ``google-cloud-storage`` package.
+MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE", int, None)
+
+#: Specifies the chunk size to use when uploading a file to GCS.
+#: (default: ``None``). If None, the chunk size is automatically determined by the
+#: ``google-cloud-storage`` package.
+MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZE", int, None)
+
+#: Specifies the default timeout to use when downloading/uploading a file from/to GCS
+#: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
+MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
+
 #: Specify whether to disable model logging and loading via mlflowdbfs.
 #: (default: ``False``)
 _DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, "")
