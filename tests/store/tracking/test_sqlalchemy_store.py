@@ -2381,7 +2381,7 @@ def test_get_orderby_clauses():
         assert "clause_1" in parsed[0]
 
 
-@pytest.mark.parametrize("_", range(100))
+@pytest.mark.parametrize("_", range(200))
 def test_parametrized_log_metric_concurrent_logging_succeeds(tmp_path, _):
     """
     Verifies that concurrent logging succeeds without deadlock, which has been an issue

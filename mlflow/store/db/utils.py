@@ -77,6 +77,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
             if db_type == SQLITE:
                 session.execute("PRAGMA foreign_keys = ON;")
                 session.execute("PRAGMA case_sensitive_like = true;")
+                session.execute("PRAGMA busy_timeout = 1000;")
             yield session
             session.commit()
         except MlflowException:
