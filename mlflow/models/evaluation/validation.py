@@ -4,11 +4,13 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 class MetricThreshold:
     """
-    This class allows users to define metric thresholds for Model Validation.
+    This class allows you to define metric thresholds for Model Validation.
+
     Allowed thresholds are:
-    - threshold
-    - min_absolute_change
-    - min_relative_change
+     - threshold
+     - min_absolute_change
+     - min_relative_change
+
     :param threshold: A floating number representing the value threshold for the metric.
                       - If higher is better for the metric, the metric value has to be
                         >= threshold to pass validation.
