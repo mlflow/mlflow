@@ -82,7 +82,7 @@ def test_render_and_merge_yaml(tmpdir):
             test_2: {{ TEST_VAR_1 }}
             test_3: {{ TEST_VAR_2 }}
             """
-            + f"test_4: {{{{ ('{json_file}' | from_json)['key'] }}}}"
+            + r"test_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
         )
 
     data = {"MY_MLFLOW_SERVER": "./mlruns", "TEST_VAR_1": ["a", 1.2], "TEST_VAR_2": {"a": 2}}
