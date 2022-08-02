@@ -66,6 +66,10 @@ class DataType(Enum):
 
         return getattr(pyspark.sql.types, self._spark_type)()
 
+    @classmethod
+    def get_spark_types(cls):
+        return [dt.to_spark() for dt in cls._member_map_.values()]
+
 
 class ColSpec:
     """
