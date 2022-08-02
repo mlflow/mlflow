@@ -136,6 +136,8 @@ test_that("logging functionality", {
 
   mlflow_set_tag("tag_key", "tag_value")
   mlflow_log_param("param_key", "param_value")
+  mlflow_log_param("na", NA)
+  mlflow_log_param("nan", NaN)
 
   run <- mlflow_get_run()
   metrics <- run$metrics[[1]]
@@ -148,8 +150,8 @@ test_that("logging functionality", {
   run_id <- run$run_uuid
   tags <- run$tags[[1]]
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])
-  expect_identical(run$params[[1]]$key, "param_key")
-  expect_identical(run$params[[1]]$value, "param_value")
+  expect_setequal(run$params[[1]]$key, c("na", "nan", "param_key"))
+  expect_setequal(run$params[[1]]$value, c("NA", "NaN", "param_value"))
 
   mlflow_delete_tag("tag_key", run_id)
   run <- mlflow_get_run()

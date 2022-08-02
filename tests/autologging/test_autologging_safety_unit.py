@@ -10,7 +10,7 @@ from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
 import mlflow
-import mlflow.utils.autologging_utils as autologging_utils
+from mlflow.utils import autologging_utils
 from mlflow.entities import RunStatus
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (

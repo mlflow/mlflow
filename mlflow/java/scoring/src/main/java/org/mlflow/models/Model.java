@@ -48,6 +48,9 @@ public class Model {
   @JsonProperty("mlflow_version")
   private String mlflowVersion;
 
+  @JsonProperty("databricks_runtime")
+  private String databricksRuntime;
+
   private String rootPath;
 
   /**
@@ -98,6 +101,14 @@ public class Model {
   /** @return The version of MLflow with which the model was saved */
   public Optional<String> getMlflowVersion() {
     return Optional.ofNullable(this.mlflowVersion);
+  }
+
+  /**
+   * @return If the model was trained on Databricks, the version the Databricks Runtime
+   * that was used to train the model
+   */
+  public Optional<String> getDatabricksRuntime() {
+    return Optional.ofNullable(this.databricksRuntime);
   }
 
   /** @return The path to the root directory of the MLflow model */

@@ -102,7 +102,7 @@ The pipeline steps are defined as follows:
 import os
 import logging
 
-import mlflow.pipelines.regression.v1.dag_help_strings as dag_help_strings
+from mlflow.pipelines.regression.v1 import dag_help_strings
 from mlflow.tracking.client import MlflowClient
 from mlflow.pipelines.pipeline import _BasePipeline
 from mlflow.pipelines.steps.ingest import IngestStep

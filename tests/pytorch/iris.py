@@ -4,7 +4,7 @@
 
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
 
 # NB: Older versions of PyTorch Lightning define native APIs for metric computation,

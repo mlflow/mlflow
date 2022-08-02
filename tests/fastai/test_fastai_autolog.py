@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import sklearn.datasets as datasets
+from sklearn import datasets
 from torch import nn, optim
 from fastai.learner import Learner
 from fastai.optimizer import OptimWrapper

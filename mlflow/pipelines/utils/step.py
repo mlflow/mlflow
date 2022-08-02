@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_PROFILE_CELL_SIZE = 10000000  # 10M Cells
 _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
-_MAX_PROFILE_COL_SIZE = 1000000  # 1M Cols
+_MAX_PROFILE_COL_SIZE = 100  # 100 Cols
 
 
 def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
@@ -62,6 +62,8 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
     if is_running_in_ipython_environment():
         from IPython.display import display as ip_display, HTML
 
+        html_file_path = html_file_path if html_data is None else None
+
         if is_in_databricks_runtime():
             # Patch IPython display with Databricks display before showing the HTML.
             import IPython.core.display as icd
@@ -76,9 +78,30 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         import shutil
         import subprocess
 
-        if os.path.exists(html_file_path) and shutil.which("open") is not None:
+        # Use xdg-open in Linux environment
+        if shutil.which("xdg-open") is not None:
+            open_tool = shutil.which("xdg-open")
+        elif shutil.which("open") is not None:
+            open_tool = shutil.which("open")
+        else:
+            open_tool = None
+
+        if os.path.exists(html_file_path) and open_tool is not None:
             _logger.info(f"Opening HTML file at: '{html_file_path}'")
-            subprocess.run(["open", html_file_path], check=True)
+            try:
+                subprocess.run([open_tool, html_file_path], check=True)
+            except Exception as e:
+                _logger.warning(
+                    f"Encountered unexpected error opening the html page."
+                    f" The file may be manually accessed at {html_file_path}. Exception: {e}"
+                )
+
+
+# Prevent pandas_profiling from using multiprocessing on Windows while running tests.
+# multiprocessing and pytest don't play well together on Windows.
+# Relevant code: https://github.com/ydataai/pandas-profiling/blob/f8bad5dde27e3f87f11ac74fb8966c034bc22db8/src/pandas_profiling/model/pandas/summary_pandas.py#L76-L97
+def _get_pool_size():
+    return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
 
 
 def get_pandas_data_profile(data_frame, title: str):
@@ -96,17 +119,31 @@ def get_pandas_data_profile(data_frame, title: str):
             title=title,
             minimal=True,
             progress_bar=False,
+            pool_size=_get_pool_size(),
         )
 
     max_cells = min(data_frame.size, _MAX_PROFILE_CELL_SIZE)
     max_cols = min(data_frame.columns.size, _MAX_PROFILE_COL_SIZE)
-    max_rows = min(max(max_cells // max_cols, 1), _MAX_PROFILE_ROW_SIZE)
+    max_rows = min(max(max_cells // max_cols, 1), len(data_frame), _MAX_PROFILE_ROW_SIZE)
     truncated_df = data_frame.drop(columns=data_frame.columns[max_cols:]).sample(
         n=max_rows, ignore_index=True, random_state=42
     )
+    if (
+        max_cells == _MAX_PROFILE_CELL_SIZE
+        or max_cols == _MAX_PROFILE_COL_SIZE
+        or max_rows == _MAX_PROFILE_ROW_SIZE
+    ):
+        _logger.info(
+            "Truncating the data frame for %s to %d cells, %d columns and %d rows",
+            title,
+            max_cells,
+            max_cols,
+            max_rows,
+        )
     return ProfileReport(
         truncated_df,
         title=title,
         minimal=True,
         progress_bar=False,
+        pool_size=_get_pool_size(),
     )

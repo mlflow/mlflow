@@ -23,7 +23,7 @@ _EXPERIMENT_PROVIDERS = (
 )
 
 
-class DefaultExperimentProviderRegistry(object):
+class DefaultExperimentProviderRegistry:
     """Registry for default experiment provider implementations
 
     This class allows the registration of default experiment providers, which are used to provide

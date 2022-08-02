@@ -706,10 +706,8 @@ class SearchUtils:
 
     @classmethod
     def _is_list_component_token(cls, token):
-        return (
-            isinstance(token, Identifier)
-            or token.match(ttype=TokenType.Keyword, values=["IN"])
-            or isinstance(token, Parenthesis)
+        return isinstance(token, (Identifier, Parenthesis)) or token.match(
+            ttype=TokenType.Keyword, values=["IN"]
         )
 
     @classmethod

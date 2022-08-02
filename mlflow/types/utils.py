@@ -116,7 +116,8 @@ def _infer_schema(data: Any) -> Schema:
             )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        schema = Schema([ColSpec(type=_infer_pandas_column(data))])
+        name = getattr(data, "name", None)
+        schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
             [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]

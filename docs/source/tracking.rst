@@ -1090,6 +1090,8 @@ You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalch
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
 +-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE`` | ``pool_recycle``            |
++-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
 +-----------------------------------------+-----------------------------+
 

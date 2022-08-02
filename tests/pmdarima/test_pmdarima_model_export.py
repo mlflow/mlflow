@@ -145,7 +145,7 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-    signature = infer_signature(test_data["orders"], forecast) if use_signature else None
+    signature = infer_signature(test_data[["orders"]], forecast) if use_signature else None
     example = test_data[0:10].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
