@@ -320,12 +320,13 @@ class EvaluationDataset:
                     "dataframe."
                 )
             if self._spark_df_type and isinstance(data, self._spark_df_type):
-                _logger.warning(
-                    "Specified Spark DataFrame is too large for model evaluation. Only "
-                    f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
-                    "If you want evaluate on the whole spark dataframe, please manually call "
-                    "`spark_dataframe.toPandas()`."
-                )
+                if data.count() > EvaluationDataset.SPARK_DATAFRAME_LIMIT:
+                    _logger.warning(
+                        "Specified Spark DataFrame is too large for model evaluation. Only "
+                        f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
+                        "If you want evaluate on the whole spark dataframe, please manually call "
+                        "`spark_dataframe.toPandas()`."
+                    )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
             self._labels_data = data[targets].to_numpy()
