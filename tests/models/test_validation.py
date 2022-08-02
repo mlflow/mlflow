@@ -139,7 +139,7 @@ def test_validation_value_threshold_should_fail(
     iris_dataset,
     value_threshold_test_spec,
 ):
-    metrics, validation_thresholds, validation_results = value_threshold_test_spec
+    metrics, validation_thresholds, expected_validation_results = value_threshold_test_spec
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
@@ -147,7 +147,9 @@ def test_validation_value_threshold_should_fail(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=None
         )
-        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        expected_failure_message = message_separator.join(
+            map(str, list(expected_validation_results.values()))
+        )
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
         ) as _, mock.patch.object(
@@ -155,7 +157,7 @@ def test_validation_value_threshold_should_fail(
         ) as _:
             with pytest.raises(
                 MlflowException,
-                match=failure_message,
+                match=expected_failure_message,
             ):
                 evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -270,7 +272,7 @@ def min_absolute_change_threshold_test_spec(request):
         )
         l1_loss_validation_result.min_absolute_change_failed = True
         log_loss_validation_result = _MetricValidationResult(
-            "custom_log_loss", 0.45, log_loss_threshold, 0.3
+            "log_loss", 0.45, log_loss_threshold, 0.3
         )
         log_loss_validation_result.min_absolute_change_failed = True
         return (
@@ -289,17 +291,17 @@ def min_absolute_change_threshold_test_spec(request):
             "custom_log_loss", 0.2, log_loss_threshold, 0.3
         )
         return (
-            {"accuracy": 0.8 + 1e10, "log_loss": 0.2 - 1e10},
+            {"accuracy": 0.8 + 1e-10, "log_loss": 0.2 - 1e-10},
             {"accuracy": 0.7, "log_loss": 0.3},
             {"accuracy": acc_threshold, "log_loss": log_loss_threshold},
             {},
         )
 
     if request.param == "single_metric_satisfied_higher_better":
-        return ({"accuracy": 0.9 + 1e2}, {"accuracy": 0.8}, {"accuracy": acc_threshold}, {})
+        return ({"accuracy": 0.9 + 1e-2}, {"accuracy": 0.8}, {"accuracy": acc_threshold}, {})
 
     if request.param == "single_metric_satisfied_lower_better":
-        return ({"log_loss": 0.3}, {"log_loss": 0.4 + 1e3}, {"log_loss": log_loss_threshold}, {})
+        return ({"log_loss": 0.3}, {"log_loss": 0.4 + 1e-3}, {"log_loss": log_loss_threshold}, {})
 
     if request.param == "multiple_metrics_all_satisfied":
         return (
@@ -333,7 +335,7 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         metrics,
         baseline_model_metrics,
         validation_thresholds,
-        validation_results,
+        expected_validation_results,
     ) = min_absolute_change_threshold_test_spec
 
     with mock.patch.object(
@@ -343,7 +345,9 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        expected_failure_message = message_separator.join(
+            map(str, list(expected_validation_results.values()))
+        )
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
         ) as _, mock.patch.object(
@@ -351,7 +355,7 @@ def test_validation_model_comparison_absolute_threshold_should_fail(
         ) as _:
             with pytest.raises(
                 MlflowException,
-                match=failure_message,
+                match=expected_failure_message,
             ):
                 evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -487,17 +491,17 @@ def min_relative_change_threshold_test_spec(request):
     if request.param == "equality_boundary":
         acc_validation_result = _MetricValidationResult("accuracy", 0.77, acc_threshold, 0.7)
         log_loss_validation_result = _MetricValidationResult(
-            "custom_log_loss", 0.3 * 0.85 - 1e10, log_loss_threshold, 0.3
+            "custom_log_loss", 0.3 * 0.85 - 1e-10, log_loss_threshold, 0.3
         )
         return (
-            {"accuracy": 0.77, "log_loss": 0.3 * 0.85 - 1e10},
+            {"accuracy": 0.77, "log_loss": 0.3 * 0.85 - 1e-10},
             {"accuracy": 0.7, "log_loss": 0.3},
             {"accuracy": acc_threshold, "log_loss": log_loss_threshold},
             {},
         )
 
     if request.param == "single_metric_satisfied_higher_better":
-        return ({"accuracy": 0.99 + 1e10}, {"accuracy": 0.9}, {"accuracy": acc_threshold}, {})
+        return ({"accuracy": 0.99 + 1e-10}, {"accuracy": 0.9}, {"accuracy": acc_threshold}, {})
 
     if request.param == "single_metric_satisfied_lower_better":
         return ({"log_loss": 0.3}, {"log_loss": 0.4}, {"log_loss": log_loss_threshold}, {})
@@ -534,7 +538,7 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         metrics,
         baseline_model_metrics,
         validation_thresholds,
-        validation_results,
+        expected_validation_results,
     ) = min_relative_change_threshold_test_spec
 
     with mock.patch.object(
@@ -544,7 +548,9 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        expected_failure_message = message_separator.join(
+            map(str, list(expected_validation_results.values()))
+        )
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
         ) as _, mock.patch.object(
@@ -552,7 +558,7 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         ) as _:
             with pytest.raises(
                 MlflowException,
-                match=failure_message,
+                match=expected_failure_message,
             ):
                 evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -647,7 +653,7 @@ def multi_thresholds_test_spec(request):
 @pytest.mark.parametrize(
     "multi_thresholds_test_spec",
     [
-        ("single_metric_not_satisfied_higher_better"),
+        ("single_metric_all_thresholds_failed"),
     ],
     indirect=["multi_thresholds_test_spec"],
 )
@@ -660,7 +666,7 @@ def test_validation_multi_thresholds_should_fail(
         metrics,
         baseline_model_metrics,
         validation_thresholds,
-        validation_results,
+        expected_validation_results,
     ) = multi_thresholds_test_spec
 
     with mock.patch.object(
@@ -670,7 +676,9 @@ def test_validation_multi_thresholds_should_fail(
         evaluator1_return_value = EvaluationResult(
             metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
         )
-        failure_message = message_separator.join(map(str, list(validation_results.values())))
+        expected_failure_message = message_separator.join(
+            map(str, list(expected_validation_results.values()))
+        )
         with mock.patch.object(
             MockEvaluator, "can_evaluate", return_value=True
         ) as _, mock.patch.object(
@@ -678,7 +686,7 @@ def test_validation_multi_thresholds_should_fail(
         ) as _:
             with pytest.raises(
                 MlflowException,
-                match=failure_message,
+                match=expected_failure_message,
             ):
                 evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -691,20 +699,3 @@ def test_validation_multi_thresholds_should_fail(
                     validation_thresholds=validation_thresholds,
                     baseline_model=multiclass_logistic_regressor_model_uri,
                 )
-
-
-def test_validation_multi_thresholds_should_fail_default_evaluator(
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
-):
-    validation_thresholds = {"accuracy": MetricThreshold(threshold=0.2, higher_is_better=True)}
-    evaluate(
-        multiclass_logistic_regressor_model_uri,
-        data=iris_dataset._constructor_args["data"],
-        model_type="classifier",
-        targets=iris_dataset._constructor_args["targets"],
-        dataset_name=iris_dataset.name,
-        evaluators="default",
-        validation_thresholds=validation_thresholds,
-        baseline_model=multiclass_logistic_regressor_model_uri,
-    )
