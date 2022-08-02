@@ -98,7 +98,7 @@ def test_render_and_merge_yaml(tmpdir):
         "test_1": [1, 2, 3],
         "test_2": ["a", 1.2],
         "test_3": {"a": 2},
-        "test_4": extra_config,
+        "test_4": 123,
     }
 
     assert result == expected
