@@ -456,7 +456,7 @@ public class MlflowClientTest {
     List<Metric> multiSpecifiedMetricHistory = client.getMetricHistory(
       runId, "multi_log_specified_step_ts");
     assertMetricHistory(multiSpecifiedMetricHistory, "multi_log_specified_step_ts",
-      Arrays.asList(1.0, 2.0, -3.0, 4.0), Arrays.asList(-1000L, 2000L, 3000L, 2999L),
+      Arrays.asList(1.0, 2.0, -3.0, 4.0), Arrays.asList(1000L, 2000L, 3000L, 2999L),
       Arrays.asList(1L, -5L, 4L, 4L));
 
     List<RunTag> tags = run.getData().getTagsList();
