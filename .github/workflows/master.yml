@@ -288,6 +288,6 @@ jobs:
           pip install pyspark
       - name: Run python tests
         run: |
-          for i in {0..10}; do
+          for i in {0..30}; do
             pytest 'tests/store/tracking/test_sqlalchemy_store.py::TestSqlAlchemyStore::test_log_metric_concurrent_logging_succeeds'
           done
