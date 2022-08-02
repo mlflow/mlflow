@@ -433,6 +433,7 @@ def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
+    is_matrix_empty = len(matrix) == 0
     matrix = sorted(matrix, key=lambda x: x.job_name)
     matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
@@ -441,7 +442,7 @@ def main(args):
 
     if "GITHUB_ACTIONS" in os.environ:
         set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
-        set_action_output("is_matrix_empty", "true" if len(matrix) == 0 else "false")
+        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
 
 
 if __name__ == "__main__":
