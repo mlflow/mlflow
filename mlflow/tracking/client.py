@@ -808,7 +808,7 @@ class MlflowClient:
                     All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores support values up to length 250, but some
+                      All backend stores support values up to length 500, but some
                       may support larger values.
 
         .. code-block:: python

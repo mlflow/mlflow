@@ -51,6 +51,7 @@ from mlflow.utils.validation import (
     _validate_tag,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
+    _validate_param,
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -872,6 +873,7 @@ class SqlAlchemyStore(AbstractStore):
             return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_id, param):
+        _validate_param(param.key, param.value)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
