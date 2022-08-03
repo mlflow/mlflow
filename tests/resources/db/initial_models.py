@@ -118,9 +118,9 @@ class SqlRun(Base):
     """
     Run end time: `BigInteger`.
     """
-    delete_time = Column(BigInteger, nullable=True, default=None)
+    deleted_time = Column(BigInteger, nullable=True, default=None)
     """
-    Run delete time: `BigInteger`. Timestamp of when run is deleted, defaults to none.
+    Run deleted time: `BigInteger`. Timestamp of when run is deleted, defaults to none.
     """
     source_version = Column(String(50))
     """

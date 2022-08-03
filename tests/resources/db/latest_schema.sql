@@ -76,7 +76,7 @@ CREATE TABLE runs (
 	lifecycle_stage VARCHAR(20),
 	artifact_uri VARCHAR(200),
 	experiment_id INTEGER,
-	delete_time BIGINT,
+	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
 	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),

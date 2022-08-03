@@ -92,7 +92,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "status": random.choice(RunStatus.all_status()),
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
-                    "delete_time": random_int(20, 30),
+                    "deleted_time": random_int(20, 30),
                     "tags": [],
                     "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
@@ -506,7 +506,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert "non-active lifecycle" in str(e.value)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
 
-        # Restore the experiment, and confirm that we acn now rename it.
+        # Restore the experiment, and confirm that we can now rename it.
         fs.restore_experiment(exp_id)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
         fs.rename_experiment(exp_id, exp_name)
@@ -516,14 +516,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]["runs"][0]
+        _, run_dir = fs._find_run_root(run_id)
         # Should not throw.
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         fs.delete_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "deleted"
-        assert fs.get_run(run_id).info.delete_time is not None
+        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        assert "deleted_time" in meta and meta["deleted_time"] is not None
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
-        assert fs.get_run(run_id).info.delete_time is None
+        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        assert "deleted_time" not in meta or meta["deleted_time"] is None
 
     def test_hard_delete_run(self):
         fs = FileStore(self.test_root)
@@ -635,9 +638,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run_info.pop("metrics", None)
         run_info.pop("params", None)
         run_info.pop("tags", None)
+        run_info.pop("deleted_time", None)
         run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
         run_info["status"] = RunStatus.to_string(run_info["status"])
-        self.assertEqual(run_info, dict(run.info))
+        # get a copy of run_info as we need to remove the `deleted_time`
+        # key without actually deleting it from self.run_data
+        _run_info = run_info.copy()
+        _run_info.pop("deleted_time", None)
+        self.assertEqual(_run_info, dict(run.info))
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -666,7 +674,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 dict_run_info.pop("tags")
                 dict_run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
                 dict_run_info["status"] = RunStatus.to_string(dict_run_info["status"])
-                self.assertEqual(dict_run_info, dict(run_info))
+                # get a copy of run_info as we need to remove the `deleted_time`
+                # key without actually deleting it from self.run_data
+                _dict_run_info = dict_run_info.copy()
+                _dict_run_info.pop("deleted_time")
+                self.assertEqual(_dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)

@@ -218,7 +218,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
             capture_output=True,
             text=True,
         )
-        assert "is not older than the required age" in exp.value.stderr
+    assert "is not older than the required age" in exp.value.stderr
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
 
@@ -298,7 +298,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
             capture_output=True,
             text=True,
         )
-        assert "is not older than the required age" in exp.value.stderr
+    assert "is not older than the required age" in exp.value.stderr
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
 
