@@ -475,7 +475,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info, delete_time=int(time.time() * 1000))
+        self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
 
     def _hard_delete_run(self, run_id):
         """
@@ -501,7 +501,7 @@ class FileStore(AbstractStore):
         for deleted_run in deleted_runs:
             _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-            if "delete_time" not in meta or current_time - meta["delete_time"] > older_than:
+            if "deleted_time" not in meta or current_time - meta["deleted_time"] > older_than:
                 deleted_run_ids.append(deleted_run.info.run_uuid)
 
         return deleted_run_ids
@@ -514,7 +514,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
-        self._overwrite_run_info(new_info, delete_time=None)
+        self._overwrite_run_info(new_info, deleted_time=None)
 
     def _find_experiment_folder(self, run_path):
         """
@@ -578,7 +578,7 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
         run_info_dict = _make_persisted_run_info_dict(run_info)
-        run_info_dict["delete_time"] = None
+        run_info_dict["deleted_time"] = None
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
@@ -936,11 +936,11 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def _overwrite_run_info(self, run_info, delete_time=None):
+    def _overwrite_run_info(self, run_info, deleted_time=None):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         run_info_dict = _make_persisted_run_info_dict(run_info)
-        if delete_time is not None:
-            run_info_dict["delete_time"] = delete_time
+        if deleted_time is not None:
+            run_info_dict["deleted_time"] = deleted_time
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
 
     def log_batch(self, run_id, metrics, params, tags):

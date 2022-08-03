@@ -1,4 +1,4 @@
-"""add delete_time field to runs table
+"""add deleted_time field to runs table
 
 Revision ID: 0c779009ac13
 Revises: bd07f7e963c5
@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("runs", sa.Column("delete_time", sa.BigInteger, nullable=True, default=None))
+    op.add_column("runs", sa.Column("deleted_time", sa.BigInteger, nullable=True, default=None))
 
 
 def downgrade():

@@ -479,12 +479,12 @@ class SqlAlchemyStore(AbstractStore):
     def _mark_run_deleted(self, session, run):
         self._check_run_is_active(run)
         run.lifecycle_stage = LifecycleStage.DELETED
-        run.delete_time = int(time.time() * 1000)
+        run.deleted_time = int(time.time() * 1000)
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
-        run.delete_time = None
+        run.deleted_time = None
         self._save_to_db(objs=run, session=session)
 
     def _list_run_infos(self, session, experiment_id):
@@ -530,7 +530,7 @@ class SqlAlchemyStore(AbstractStore):
                 status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=start_time,
                 end_time=None,
-                delete_time=None,
+                deleted_time=None,
                 source_version="",
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
@@ -642,7 +642,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_deleted(run)
             run.lifecycle_stage = LifecycleStage.ACTIVE
-            run.delete_time = None
+            run.deleted_time = None
             self._save_to_db(objs=run, session=session)
 
     def delete_run(self, run_id):
@@ -650,7 +650,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
-            run.delete_time = int(time.time() * 1000)
+            run.deleted_time = int(time.time() * 1000)
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -674,7 +674,7 @@ class SqlAlchemyStore(AbstractStore):
             runs = (
                 session.query(SqlRun).filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED).all()
             )
-            return [run.run_uuid for run in runs if current_time - run.delete_time > older_than]
+            return [run.run_uuid for run in runs if current_time - run.deleted_time > older_than]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
