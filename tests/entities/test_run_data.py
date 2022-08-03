@@ -23,7 +23,7 @@ class TestRunData(unittest.TestCase):
         assert tags_dict == {t.key: t.value for t in expected_tags}
 
     def _check(self, rd, metrics, params, tags):
-        self.assertIsInstance(rd, RunData)
+        assert isinstance(rd, RunData)
         self._check_metrics(rd._metric_objs, rd.metrics, metrics)
         self._check_params(rd.params, params)
         self._check_tags(rd.tags, tags)
