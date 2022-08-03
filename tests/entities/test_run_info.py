@@ -20,15 +20,15 @@ class TestRunInfo(unittest.TestCase):
         artifact_uri,
     ):
         assert isinstance(ri, RunInfo)
-        self.assertEqual(ri.run_uuid, run_id)
-        self.assertEqual(ri.run_id, run_id)
-        self.assertEqual(ri.experiment_id, experiment_id)
-        self.assertEqual(ri.user_id, user_id)
-        self.assertEqual(ri.status, status)
-        self.assertEqual(ri.start_time, start_time)
-        self.assertEqual(ri.end_time, end_time)
-        self.assertEqual(ri.lifecycle_stage, lifecycle_stage)
-        self.assertEqual(ri.artifact_uri, artifact_uri)
+        assert ri.run_uuid == run_id
+        assert ri.run_id == run_id
+        assert ri.experiment_id == experiment_id
+        assert ri.user_id == user_id
+        assert ri.status == status
+        assert ri.start_time == start_time
+        assert ri.end_time == end_time
+        assert ri.lifecycle_stage == lifecycle_stage
+        assert ri.artifact_uri == artifact_uri
 
     @staticmethod
     def _create():
@@ -97,7 +97,7 @@ class TestRunInfo(unittest.TestCase):
             "lifecycle_stage": lifecycle_stage,
             "artifact_uri": artifact_uri,
         }
-        self.assertEqual(dict(ri1), as_dict)
+        assert dict(ri1) == as_dict
 
         proto = ri1.to_proto()
         ri2 = RunInfo.from_proto(proto)
@@ -141,6 +141,6 @@ class TestRunInfo(unittest.TestCase):
         )
 
     def test_searchable_attributes(self):
-        self.assertSequenceEqual(
-            set(["status", "artifact_uri", "start_time"]), set(RunInfo.get_searchable_attributes())
+        assert set(["status", "artifact_uri", "start_time"]) == set(
+            RunInfo.get_searchable_attributes()
         )
