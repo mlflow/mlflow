@@ -101,12 +101,13 @@ class SearchUtils:
     def get_sql_filter_ops(cls, column, operator, dialect):
         import sqlalchemy as sa
 
+        col = f"{column.class_.__tablename__}.{column.key}"
+
         # Use case-sensitive collation for MSSQL
         if dialect == MSSQL:
             column = column.collate("Japanese_Bushu_Kakusu_100_CS_AS_KS_WS")
 
         # Use non-binary ahead of binary comparison for runtime performance
-        col = f"{column.class_.__tablename__}.{column.key}"
         # Use non-binary ahead of binary comparison for runtime performance
         def case_sensitive_mysql_eq(value):
             return sa.text(f"{col} = :value AND BINARY {col} = :value").bindparams(
