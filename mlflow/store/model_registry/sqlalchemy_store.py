@@ -328,7 +328,7 @@ class SqlAlchemyStore(AbstractStore):
 
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 
-        attribute_filters, tag_filter_query = self._get_search_registered_model_filter_clauses(
+        filter_query = self._get_search_registered_model_filter_query(
             parsed_filters, self.engine.dialect.name
         )
 
@@ -347,10 +347,7 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             query = (
-                select(SqlRegisteredModel).join(
-                    tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
-                ).options(*self._get_eager_registered_model_query_options())
-                .filter(*attribute_filters)
+                filter_query.options(*self._get_eager_registered_model_query_options())
                 .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
             )
@@ -362,7 +359,7 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(rm_entities, next_page_token)
 
     @classmethod
-    def _get_search_registered_model_filter_clauses(cls, parsed_filters, dialect):
+    def _get_search_registered_model_filter_query(cls, parsed_filters, dialect):
         attribute_filters = []
         tag_filters = []
         for f in parsed_filters:
@@ -402,12 +399,18 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_PARAMETER_VALUE
                 )
 
-        tag_filter_query = select(SqlRegisteredModelTag.name) \
-            .filter(sqlalchemy.or_(*tag_filters)) \
-            .group_by(SqlRegisteredModelTag.name) \
-            .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
+        rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
+        if tag_filters:
+            tag_filter_query = select(SqlRegisteredModelTag.name) \
+                .filter(sqlalchemy.or_(*tag_filters)) \
+                .group_by(SqlRegisteredModelTag.name) \
+                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
 
-        return attribute_filters, tag_filter_query
+            return rm_query.join(
+                tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
+            )
+        else:
+            return rm_query
 
     @classmethod
     def _get_search_model_versions_filter_clauses(cls, parsed_filters, dialect):
@@ -458,12 +461,21 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_PARAMETER_VALUE
                 )
 
-        tag_filter_query = select(SqlModelVersionTag.name, SqlModelVersionTag.version) \
-            .filter(sqlalchemy.or_(*tag_filters)) \
-            .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version) \
-            .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
+        mv_query = select(SqlModelVersion).filter(*attribute_filters)
+        if attribute_filters:
+            tag_filter_query = select(SqlModelVersionTag.name, SqlModelVersionTag.version) \
+                .filter(sqlalchemy.or_(*tag_filters)) \
+                .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version) \
+                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
 
-        return attribute_filters, tag_filter_query
+            return mv_query.join(
+                tag_filter_query, sqlalchemy.and_(
+                    SqlModelVersion.name == tag_filter_query.c.name,
+                    SqlModelVersion.version == tag_filter_query.c.version,
+                )
+            )
+        else:
+            return mv_query
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -827,19 +839,14 @@ class SqlAlchemyStore(AbstractStore):
         """
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 
-        attribute_filters, tag_filter_query = self._get_search_model_versions_filter_clauses(
+        filter_query = self._get_search_model_versions_filter_clauses(
             parsed_filters, self.engine.dialect.name
         )
 
         with self.ManagedSessionMaker() as session:
             stmt = (
-                select(SqlModelVersion).join(
-                    tag_filter_query, sqlalchemy.and_(
-                        SqlModelVersion.name == tag_filter_query.c.name,
-                        SqlModelVersion.version == tag_filter_query.c.version,
-                    )
-                ).options(*self._get_eager_model_version_query_options())
-                .filter(*attribute_filters, SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
+                filter_query.options(*self._get_eager_model_version_query_options())
+                .filter(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
             )
             sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
             model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]

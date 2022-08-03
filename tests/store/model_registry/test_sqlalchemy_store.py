@@ -961,19 +961,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
 
-    def test_search_model_versions_in_clause_mysql_case_sensitive(self):
-        from mlflow.utils.search_utils import SearchModelUtils
-        from mlflow.store.db.db_types import MYSQL
-        run_id1 = uuid.uuid4().hex
-        run_id2 = uuid.uuid4().hex
-        filter_str = f"run_id IN ('{run_id1.upper()}','{run_id2}')"
-        parsed_filter = SearchModelUtils.parse_search_filter(filter_str)
-        attr_filters, _ = SqlAlchemyStore._get_search_model_versions_filter_clauses(parsed_filter, MYSQL)
-        self.assertEqual(
-            attr_filters[0].right.effective_value,
-            [run_id2]
-        )
-
     def test_search_model_versions_by_tag(self):
         # create some model versions
         name = "test_for_search_MV_by_tag"
