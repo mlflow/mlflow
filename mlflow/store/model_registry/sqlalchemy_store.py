@@ -105,6 +105,9 @@ class SqlAlchemyStore(AbstractStore):
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
 
+    def _get_dialect(self):
+        return self.engine.dialect.name
+
     @staticmethod
     def _verify_registry_tables_exist(engine):
         # Verify that all tables have been created.

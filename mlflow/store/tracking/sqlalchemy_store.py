@@ -1367,7 +1367,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
             val_filter = SearchUtils.get_sql_filter_ops(
                 SqlExperimentTag.value, comparator, dialect
             )(value)
-            key_filter = SqlExperimentTag.key == key
+            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
             )
