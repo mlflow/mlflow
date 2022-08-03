@@ -462,7 +462,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
-        if attribute_filters:
+        if tag_filters:
             tag_filter_query = (
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .filter(sqlalchemy.or_(*tag_filters))
