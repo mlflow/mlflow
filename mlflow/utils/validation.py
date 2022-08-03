@@ -265,7 +265,7 @@ def _validate_tag_name(name):
 
 
 def _validate_length_limit(entity_name, limit, value):
-    if len(value) > limit:
+    if value is not None and len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s"
             % (entity_name, value[:250], len(value), limit),

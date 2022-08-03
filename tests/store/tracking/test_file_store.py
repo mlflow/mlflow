@@ -893,6 +893,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_param(run_id, Param(param_name, param_value))
         run = fs.get_run(run_id)
         assert run.data.params[param_name] == str(param_value)
+        with pytest.raises(MlflowException, match="exceeded length"):
+            fs.log_param(run_id, Param(param_name, list(range(1000))))
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
@@ -1139,6 +1141,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         )
         self._verify_logged(fs, run_id, metric_entities, param_entities, tag_entities)
 
+    def _create_run(self, fs):
+        return fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+        )
+
     def test_log_batch_max_length_value(self):
         param_entities = [Param("long param", list(range(500))), Param("short param", "xyz")]
         expected_param_entities = [
@@ -1150,10 +1157,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_batch(run.info.run_id, (), param_entities, ())
         self._verify_logged(fs, run.info.run_id, (), expected_param_entities, ())
 
-    def _create_run(self, fs):
-        return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
-        )
+        with pytest.raises(MlflowException, match="exceeded length"):
+            param_entities = [Param("long param", list(range(1000))), Param("short param", "xyz")]
+            fs.log_batch(run.info.run_id, (), param_entities, ())
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during log_batch result in MlflowExceptions

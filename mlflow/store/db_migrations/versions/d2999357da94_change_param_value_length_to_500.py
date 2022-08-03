@@ -17,8 +17,7 @@ depends_on = None
 
 def upgrade():
     """
-    Enlarge maximum length of `value` columns to 500.
-    :return:
+    Enlarge the maximum param value length to 500.
     """
     with op.batch_alter_table("params") as batch_op:
         batch_op.alter_column(
