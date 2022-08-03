@@ -380,7 +380,7 @@ class SqlAlchemyStore(AbstractStore):
                 select(SqlExperimentTag)
                 .filter(sqlalchemy.or_(*tag_filters))
                 .group_by(SqlExperimentTag.experiment_id)
-                # This line assumes `tag_filters` doesn't contain duplicates
+                # TODO: Validate `tag_filters` doesn't contain duplicates
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
