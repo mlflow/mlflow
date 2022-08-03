@@ -6,11 +6,11 @@ from tests.helper_functions import random_int, random_file
 
 class TestExperiment(unittest.TestCase):
     def _check(self, exp, exp_id, name, location, lifecyle_stage):
-        self.assertIsInstance(exp, Experiment)
-        self.assertEqual(exp.experiment_id, exp_id)
-        self.assertEqual(exp.name, name)
-        self.assertEqual(exp.artifact_location, location)
-        self.assertEqual(exp.lifecycle_stage, lifecyle_stage)
+        assert isinstance(exp, Experiment)
+        assert exp.experiment_id == exp_id
+        assert exp.name == name
+        assert exp.artifact_location == location
+        assert exp.lifecycle_stage == lifecyle_stage
 
     def test_creation_and_hydration(self):
         exp_id = str(random_int())
@@ -28,7 +28,7 @@ class TestExperiment(unittest.TestCase):
             "lifecycle_stage": lifecycle_stage,
             "tags": {},
         }
-        self.assertEqual(dict(exp), as_dict)
+        assert dict(exp) == as_dict
 
         proto = exp.to_proto()
         exp2 = Experiment.from_proto(proto)
