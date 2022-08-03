@@ -1026,7 +1026,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, names[4:])
 
         # case-insensitive postfix search with ILIKE
-        rms, _ = self._search_registered_models("name ILIKE '%RM4a'")
+        rms, _ = self._search_registered_models("name ILIKE '%RM4a%'")
         self.assertEqual(rms, names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
@@ -1041,7 +1041,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models("name iLike '%%'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("name ilike '%RM4a'")
+        rms, _ = self._search_registered_models("name ilike '%RM4a%'")
         self.assertEqual(rms, names[4:])
 
         # cannot search by invalid comparator types
