@@ -13,6 +13,7 @@ import mlflow.experiments
 import mlflow.deployments.cli
 import mlflow.pipelines.cli
 import mlflow.projects as projects
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import version
@@ -554,7 +555,8 @@ def gc(older_than, backend_store_uri, run_ids):
         if older_than and run_id not in deleted_run_ids_older_than:
             raise MlflowException(
                 f"Run {run_id} is not older than the required age. "
-                f"Only runs older than {older_than} can be deleted."
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
