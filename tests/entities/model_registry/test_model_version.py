@@ -26,7 +26,7 @@ class TestModelVersion(unittest.TestCase):
         status_message,
         tags,
     ):
-        self.assertIsInstance(model_version, ModelVersion)
+        assert isinstance(model_version, ModelVersion)
         self.assertEqual(model_version.name, name)
         self.assertEqual(model_version.version, version)
         self.assertEqual(model_version.creation_timestamp, creation_timestamp)

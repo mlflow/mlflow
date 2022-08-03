@@ -17,7 +17,7 @@ class TestRegisteredModel(unittest.TestCase):
         latest_versions,
         tags,
     ):
-        self.assertIsInstance(registered_model, RegisteredModel)
+        assert isinstance(registered_model, RegisteredModel)
         self.assertEqual(registered_model.name, name)
         self.assertEqual(registered_model.creation_timestamp, creation_timestamp)
         self.assertEqual(registered_model.last_updated_timestamp, last_updated_timestamp)

@@ -812,8 +812,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run.to_proto()
 
         # Verify attributes of the Python run entity
-        self.assertIsInstance(run.info, entities.RunInfo)
-        self.assertIsInstance(run.data, entities.RunData)
+        assert isinstance(run.info, entities.RunInfo)
+        assert isinstance(run.data, entities.RunData)
 
         self.assertEqual(run.data.metrics, {"my-metric": 3.4})
         self.assertEqual(run.data.params, {"my-param": "param-val"})

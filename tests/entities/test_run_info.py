@@ -19,7 +19,7 @@ class TestRunInfo(unittest.TestCase):
         lifecycle_stage,
         artifact_uri,
     ):
-        self.assertIsInstance(ri, RunInfo)
+        assert isinstance(ri, RunInfo)
         self.assertEqual(ri.run_uuid, run_id)
         self.assertEqual(ri.run_id, run_id)
         self.assertEqual(ri.experiment_id, experiment_id)
