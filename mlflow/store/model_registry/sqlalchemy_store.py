@@ -102,6 +102,9 @@ class SqlAlchemyStore(AbstractStore):
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
 
+    def _get_dialect(self):
+        return self.engine.dialect.name
+
     @staticmethod
     def _verify_registry_tables_exist(engine):
         # Verify that all tables have been created.
@@ -348,11 +351,23 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if comparator == SearchUtils.LIKE_OPERATOR:
-                conditions = [SqlRegisteredModel.name.like(filter_dict["value"])]
+                conditions = [
+                    SearchUtils.get_sql_filter_ops(
+                        SqlRegisteredModel.name, "LIKE", self._get_dialect()
+                    )(filter_dict["value"])
+                ]
             elif comparator == SearchUtils.ILIKE_OPERATOR:
-                conditions = [SqlRegisteredModel.name.ilike(filter_dict["value"])]
+                conditions = [
+                    SearchUtils.get_sql_filter_ops(
+                        SqlRegisteredModel.name, "ILIKE", self._get_dialect()
+                    )(filter_dict["value"])
+                ]
             else:
-                conditions = [SqlRegisteredModel.name == filter_dict["value"]]
+                conditions = [
+                    SearchUtils.get_sql_filter_ops(
+                        SqlRegisteredModel.name, "=", self._get_dialect()
+                    )(filter_dict["value"])
+                ]
         else:
             supported_ops = "".join(
                 ["(" + op + ")" for op in SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS]
