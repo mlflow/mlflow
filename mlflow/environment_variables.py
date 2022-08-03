@@ -65,3 +65,28 @@ MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", 
 #: Specify whether to disable model logging and loading via mlflowdbfs.
 #: (default: ``False``)
 _DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, "")
+
+
+#: Specifies the ``pool_size`` parameter to use for ``sqlalchemy.create_engine`` in the SQLAlchemy
+#: tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size
+#: for more information.
+#: (default: ``None``)
+MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", int, None
+)
+
+#: Specifies the ``pool_recycle`` parameter to use for ``sqlalchemy.create_engine`` in the
+#: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_recycle
+#: for more information.
+#: (default: ``None``)
+MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE", int, None
+)
+
+#: Specifies the ``max_overflow`` parameter to use for ``sqlalchemy.create_engine`` in the
+#: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.max_overflow
+#: for more information.
+#: (default: ``None``)
+MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", int, None
+)
