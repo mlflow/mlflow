@@ -6,9 +6,6 @@ from unittest import mock
 import uuid
 import pytest
 
-import mlflow
-import mlflow.db
-import mlflow.store.db.base_sql_model
 from mlflow.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
@@ -16,6 +13,12 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
+    SqlModelVersion,
+    SqlModelVersionTag,
+)
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
@@ -56,7 +59,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         if self.temp_dbfile:
             os.remove(self.temp_dbfile)
         else:
-            mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
+            with self.store.ManagedSessionMaker() as session:
+                for model in (
+                    SqlModelVersionTag,
+                    SqlRegisteredModelTag,
+                    SqlModelVersion,
+                    SqlRegisteredModel,
+                ):
+                    session.query(model).delete()
 
     def _rm_maker(self, name, tags=None, description=None):
         return self.store.create_registered_model(name, tags, description)
