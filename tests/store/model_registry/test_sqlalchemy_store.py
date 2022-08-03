@@ -969,13 +969,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run_id_2 = uuid.uuid4().hex
 
         mv1 = self._mv_maker(
-            name=name, source="A/B", run_id=run_id_1,
-            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")]
+            name=name,
+            source="A/B",
+            run_id=run_id_1,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
         )
         self.assertEqual(mv1.version, 1)
         mv2 = self._mv_maker(
-            name=name, source="A/C", run_id=run_id_2,
-            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")]
+            name=name,
+            source="A/C",
+            run_id=run_id_2,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")],
         )
         self.assertEqual(mv2.version, 2)
 
@@ -992,9 +996,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 ILIKE 'xY%'")), {1})
         self.assertEqual(set(search_versions(f"name = '{name}' and tag.t2 LIKE 'x%'")), {1, 2})
         self.assertEqual(set(search_versions(f"name = '{name}' and tag.T2 = 'xyz'")), set())
-        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'")), {1})
-        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'")), {1, 2})
-        self.assertEqual(set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'")), set())
+        self.assertEqual(
+            set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'")), {1}
+        )
+        self.assertEqual(
+            set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'")), {1, 2}
+        )
+        self.assertEqual(
+            set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'")), set()
+        )
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
@@ -1080,7 +1090,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot search by invalid comparator types
         with self.assertRaisesRegex(
             MlflowException,
-            r"Parameter value is either not quoted or unidentified quote types used for string value something"
+            r"Parameter value is either not quoted or unidentified quote types used for string value something",
         ) as exception_context:
             self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

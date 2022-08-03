@@ -928,7 +928,9 @@ class SearchExperimentsUtils(SearchUtils):
 class SearchModelUtils(SearchUtils):
     @classmethod
     def _process_statement(cls, statement):
-        invalids = list(filter(cls._invalid_statement_token_search_model_registry, statement.tokens))
+        invalids = list(
+            filter(cls._invalid_statement_token_search_model_registry, statement.tokens)
+        )
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
@@ -950,8 +952,9 @@ class SearchModelUtils(SearchUtils):
                     f"Invalid entity type '{entity_type}'. "
                     f"Valid entity types are {valid_entity_types}"
                 )
-            identifier = cls._TAG_IDENTIFIER if entity_type in ("tag", "tags") \
-                else cls._ATTRIBUTE_IDENTIFIER
+            identifier = (
+                cls._TAG_IDENTIFIER if entity_type in ("tag", "tags") else cls._ATTRIBUTE_IDENTIFIER
+            )
 
         key = cls._trim_backticks(cls._strip_quotes(key))
         return {"type": identifier, "key": key}
@@ -990,9 +993,7 @@ class SearchModelUtils(SearchUtils):
                 run_id_list = cls._parse_list_from_sql_token(token)
                 # Because MYSQL IN clause is case in-sensitive, but all run_ids only contains lower case
                 # letters, so that we filter out run_ids containing upper case letters here.
-                run_id_list = [
-                    run_id for run_id in run_id_list if run_id.lower() == run_id
-                ]
+                run_id_list = [run_id for run_id in run_id_list if run_id.lower() == run_id]
                 return run_id_list
             else:
                 raise MlflowException(
