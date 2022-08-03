@@ -4,7 +4,6 @@ import random
 import time
 import uuid
 import threading
-from functools import reduce
 
 import math
 import sqlalchemy
@@ -369,7 +368,7 @@ class SqlAlchemyStore(AbstractStore):
             )
         with self.ManagedSessionMaker() as session:
             parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
-            attribute_filters, non_attribute_filters = _get_search_experiments_filter_clauses(
+            attribute_filters, tag_filters = _get_search_experiments_filter_clauses(
                 parsed_filters, self._get_dialect()
             )
 
@@ -377,10 +376,20 @@ class SqlAlchemyStore(AbstractStore):
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             lifecycle_stags = set(LifecycleStage.view_type_to_stages(view_type))
 
+            filtered_tags = (
+                select(SqlExperimentTag)
+                .filter(sqlalchemy.or_(*tag_filters))
+                .group_by(SqlExperimentTag.experiment_id)
+                # This line assumes `tag_filters` doesn't contain duplicates
+                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
+                .subquery()
+            )
+
             stmt = (
-                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
+                select(SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
                 .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
+                .join(filtered_tags)
                 .order_by(*order_by_clauses)
                 .offset(offset)
                 .limit(max_results)
@@ -1341,7 +1350,7 @@ def _get_orderby_clauses(order_by_list, session):
 
 def _get_search_experiments_filter_clauses(parsed_filters, dialect):
     attribute_filters = []
-    non_attribute_filters = []
+    tag_filters = []
     for f in parsed_filters:
         type_ = f["type"]
         key = f["key"]
@@ -1364,13 +1373,11 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
                 SqlExperimentTag.value, comparator, dialect
             )(value)
             key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
-            non_attribute_filters.append(
-                select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
-            )
+            tag_filters.append(sqlalchemy.and_(key_filter, val_filter))
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, tag_filters
 
 
 def _get_search_experiments_order_by_clauses(order_by):
