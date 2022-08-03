@@ -1019,6 +1019,10 @@ class SearchModelUtils(SearchUtils):
         elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
             # `IN` is a comparison token in sqlparse >= 0.4.0:
             # https://github.com/andialbrecht/sqlparse/pull/567
+            if token.value == "IN":
+                # This case it represent the IN filter parsed failed.
+                # e.g. "run_id IN"
+                return True
             return False
         else:
             return True
