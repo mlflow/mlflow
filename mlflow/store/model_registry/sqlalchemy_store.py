@@ -328,7 +328,7 @@ class SqlAlchemyStore(AbstractStore):
 
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 
-        attribute_filters, non_attribute_filters = self._get_search_registered_model_filter_clauses(
+        attribute_filters, tag_filter_query = self._get_search_registered_model_filter_clauses(
             parsed_filters, self.engine.dialect.name
         )
 
@@ -347,8 +347,9 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             query = (
-                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlRegisteredModel))
-                .options(*self._get_eager_registered_model_query_options())
+                select(SqlRegisteredModel).join(
+                    tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
+                ).options(*self._get_eager_registered_model_query_options())
                 .filter(*attribute_filters)
                 .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
@@ -363,7 +364,7 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _get_search_registered_model_filter_clauses(cls, parsed_filters, dialect):
         attribute_filters = []
-        non_attribute_filters = []
+        tag_filters = []
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
@@ -394,21 +395,24 @@ class SqlAlchemyStore(AbstractStore):
                 key_filter = SearchUtils.get_sql_filter_ops(
                     SqlRegisteredModelTag.key, '=', dialect
                 )(key)
-                non_attribute_filters.append(
-                    select(SqlRegisteredModelTag).filter(key_filter, val_filter).subquery()
-                )
+                tag_filters.append(sqlalchemy.and_(key_filter, val_filter))
             else:
                 raise MlflowException(
                     f"Invalid token type: {type_}",
                     error_code=INVALID_PARAMETER_VALUE
                 )
 
-        return attribute_filters, non_attribute_filters
+        tag_filter_query = select(SqlRegisteredModelTag.name) \
+            .filter(sqlalchemy.or_(*tag_filters)) \
+            .group_by(SqlRegisteredModelTag.name) \
+            .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
+
+        return attribute_filters, tag_filter_query
 
     @classmethod
     def _get_search_model_versions_filter_clauses(cls, parsed_filters, dialect):
         attribute_filters = []
-        non_attribute_filters = []
+        tag_filters = []
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
@@ -447,16 +451,19 @@ class SqlAlchemyStore(AbstractStore):
                 key_filter = SearchUtils.get_sql_filter_ops(
                     SqlModelVersionTag.key, '=', dialect
                 )(key)
-                non_attribute_filters.append(
-                    select(SqlModelVersionTag).filter(key_filter, val_filter).subquery()
-                )
+                tag_filters.append(sqlalchemy.and_(key_filter, val_filter))
             else:
                 raise MlflowException(
                     f"Invalid token type: {type_}",
                     error_code=INVALID_PARAMETER_VALUE
                 )
 
-        return attribute_filters, non_attribute_filters
+        tag_filter_query = select(SqlModelVersionTag.name, SqlModelVersionTag.version) \
+            .filter(sqlalchemy.or_(*tag_filters)) \
+            .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version) \
+            .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters)).subquery()
+
+        return attribute_filters, tag_filter_query
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -820,14 +827,18 @@ class SqlAlchemyStore(AbstractStore):
         """
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 
-        attribute_filters, non_attribute_filters = self._get_search_model_versions_filter_clauses(
+        attribute_filters, tag_filter_query = self._get_search_model_versions_filter_clauses(
             parsed_filters, self.engine.dialect.name
         )
 
         with self.ManagedSessionMaker() as session:
             stmt = (
-                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlModelVersion))
-                .options(*self._get_eager_model_version_query_options())
+                select(SqlModelVersion).join(
+                    tag_filter_query, sqlalchemy.and_(
+                        SqlModelVersion.name == tag_filter_query.c.name,
+                        SqlModelVersion.version == tag_filter_query.c.version,
+                    )
+                ).options(*self._get_eager_model_version_query_options())
                 .filter(*attribute_filters, SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
             )
             sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
