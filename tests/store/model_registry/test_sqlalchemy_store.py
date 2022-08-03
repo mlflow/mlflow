@@ -23,7 +23,6 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
 )
-
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from tests.helper_functions import random_str
 
