@@ -976,7 +976,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_registered_models(self):
         # create some registered models
-        prefix = f"test_for_search_{uuid.uuid4().hex[:8]}_"
+        prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
         for name in names:
             self._rm_maker(name)
