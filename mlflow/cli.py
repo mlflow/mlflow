@@ -489,9 +489,9 @@ def server(
 @click.option(
     "--older-than",
     default=None,
-    help="Optional Remove run(s) older than the specified time limit. "
-    "Specify a string in #d#h#m#s format. "
-    "For example: --older-than 1d2h3m4s",
+    help="Optional. Remove run(s) older than the specified time limit. "
+    "Specify a string in #d#h#m#s format. Float values are also supported."
+    "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
 )
 @click.option(
     "--backend-store-uri",
@@ -523,7 +523,7 @@ def gc(older_than, backend_store_uri, run_ids):
 
     time_delta = 0
 
-    if older_than:
+    if older_than is not None:
         regex = re.compile(
             r"^((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)"
             r"?((?P<seconds>[\.\d]+?)s)?$"
@@ -532,7 +532,8 @@ def gc(older_than, backend_store_uri, run_ids):
         if parts is None:
             raise MlflowException(
                 "Could not parse any time information from '{}'. "
-                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than)
+                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than),
+                error_code=INVALID_PARAMETER_VALUE,
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)

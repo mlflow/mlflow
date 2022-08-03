@@ -672,9 +672,14 @@ class SqlAlchemyStore(AbstractStore):
         current_time = int(time.time() * 1000)
         with self.ManagedSessionMaker() as session:
             runs = (
-                session.query(SqlRun).filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED).all()
+                session.query(SqlRun)
+                .filter(
+                    SqlRun.lifecycle_stage == LifecycleStage.DELETED,
+                    SqlRun.deleted_time < (current_time - older_than),
+                )
+                .all()
             )
-            return [run.run_uuid for run in runs if current_time - run.deleted_time > older_than]
+            return [run.run_uuid for run in runs]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
