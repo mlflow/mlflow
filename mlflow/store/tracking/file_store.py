@@ -501,7 +501,7 @@ class FileStore(AbstractStore):
         for deleted_run in deleted_runs:
             _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-            if current_time - meta["delete_time"] > older_than:
+            if "delete_time" not in meta or current_time - meta["delete_time"] > older_than:
                 deleted_run_ids.append(deleted_run.info.run_uuid)
 
         return deleted_run_ids
@@ -939,7 +939,7 @@ class FileStore(AbstractStore):
     def _overwrite_run_info(self, run_info, delete_time=None):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         run_info_dict = _make_persisted_run_info_dict(run_info)
-        if delete_time:
+        if delete_time is not None:
             run_info_dict["delete_time"] = delete_time
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
 

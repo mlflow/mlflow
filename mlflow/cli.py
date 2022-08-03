@@ -539,7 +539,7 @@ def gc(older_than, backend_store_uri, run_ids):
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
-        run_ids = deleted_run_ids_older_than.copy()
+        run_ids = deleted_run_ids_older_than
 
     else:
         run_ids = run_ids.split(",")
