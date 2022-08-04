@@ -869,6 +869,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ),
             set([1, 2, 3]),
         )
+
+        # search IN operator is case sensitive
+        self.assertEqual(
+            set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")),
+            set([2, 3]),
+        )
+
         # search using the IN operator with bad lists should return exceptions
         with self.assertRaisesRegex(
             MlflowException,
@@ -1005,6 +1012,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual(
             set(search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'")), set()
+        )
+        # test filter with duplicated keys
+        self.assertEqual(
+            set(search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'")), {2}
         )
 
     def _search_registered_models(
@@ -1170,6 +1181,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")
         self.assertEqual(set(rms), {name2})
+
+        # test filter with duplicated keys
+        rms, _ = self._search_registered_models(f"tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
+        self.assertEqual(set(rms), {name1})
 
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default

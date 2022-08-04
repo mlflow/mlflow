@@ -2,7 +2,8 @@ import time
 
 import logging
 import sqlalchemy
-from functools import reduce
+from collections import defaultdict
+
 
 from sqlalchemy.future import select
 
@@ -361,7 +362,7 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _get_search_registered_model_filter_query(cls, parsed_filters, dialect):
         attribute_filters = []
-        tag_filters = []
+        tag_filters = {}
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
@@ -385,13 +386,16 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for tag: {comparator}"
                     )
+                if key not in tag_filters:
+                    key_filter = SearchUtils.get_sql_filter_ops(
+                        SqlRegisteredModelTag.key, "=", dialect
+                    )(key)
+                    tag_filters[key] = [key_filter]
+
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlRegisteredModelTag.value, comparator, dialect
                 )(value)
-                key_filter = SearchUtils.get_sql_filter_ops(
-                    SqlRegisteredModelTag.key, "=", dialect
-                )(key)
-                tag_filters.append(sqlalchemy.and_(key_filter, val_filter))
+                tag_filters[key].append(val_filter)
             else:
                 raise MlflowException(
                     f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
@@ -399,9 +403,10 @@ class SqlAlchemyStore(AbstractStore):
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
         if tag_filters:
+            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
             tag_filter_query = (
                 select(SqlRegisteredModelTag.name)
-                .filter(sqlalchemy.or_(*tag_filters))
+                .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlRegisteredModelTag.name)
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
@@ -416,7 +421,7 @@ class SqlAlchemyStore(AbstractStore):
     @classmethod
     def _get_search_model_versions_filter_clauses(cls, parsed_filters, dialect):
         attribute_filters = []
-        tag_filters = []
+        tag_filters = {}
         for f in parsed_filters:
             type_ = f["type"]
             key = f["key"]
@@ -449,13 +454,16 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid comparator for tag: {comparator}",
                     )
+                if key not in tag_filters:
+                    key_filter = SearchUtils.get_sql_filter_ops(
+                        SqlModelVersionTag.key, "=", dialect
+                    )(key)
+                    tag_filters[key] = [key_filter]
+
                 val_filter = SearchUtils.get_sql_filter_ops(
                     SqlModelVersionTag.value, comparator, dialect
                 )(value)
-                key_filter = SearchUtils.get_sql_filter_ops(SqlModelVersionTag.key, "=", dialect)(
-                    key
-                )
-                tag_filters.append(sqlalchemy.and_(key_filter, val_filter))
+                tag_filters[key].append(val_filter)
             else:
                 raise MlflowException(
                     f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
@@ -463,14 +471,14 @@ class SqlAlchemyStore(AbstractStore):
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
         if tag_filters:
+            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
             tag_filter_query = (
                 select(SqlModelVersionTag.name, SqlModelVersionTag.version)
-                .filter(sqlalchemy.or_(*tag_filters))
+                .filter(sqlalchemy.or_(*sql_tag_filters))
                 .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
-
             return mv_query.join(
                 tag_filter_query,
                 sqlalchemy.and_(
