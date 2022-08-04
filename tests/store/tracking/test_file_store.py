@@ -766,7 +766,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.set_tag(r2, RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        assert sorted([r1, r2]) == sorted(
+        assert sorted([r1, r2]) == (
             self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
@@ -774,10 +774,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
         assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
         assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
-        assert sorted([r1, r2]) == sorted(
+        assert sorted([r1, r2]) == (
             self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'")
         )
-        assert sorted([r1, r2]) == sorted(
+        assert sorted([r1, r2]) == (
             self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'")
         )
         assert [r1] == self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
