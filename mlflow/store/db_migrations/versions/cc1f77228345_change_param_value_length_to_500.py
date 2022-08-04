@@ -1,16 +1,17 @@
 """change param value length to 500
 
-Revision ID: d2999357da94
-Revises: bd07f7e963c5
-Create Date: 2022-07-27 22:00:13.187596
+Revision ID: cc1f77228345
+Revises: 0c779009ac13
+Create Date: 2022-08-04 22:40:56.960003
 
 """
 from alembic import op
 import sqlalchemy as sa
 
+
 # revision identifiers, used by Alembic.
-revision = "d2999357da94"
-down_revision = "bd07f7e963c5"
+revision = 'cc1f77228345'
+down_revision = '0c779009ac13'
 branch_labels = None
 depends_on = None
 
