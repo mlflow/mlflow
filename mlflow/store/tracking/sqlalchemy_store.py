@@ -675,7 +675,7 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlRun)
                 .filter(
                     SqlRun.lifecycle_stage == LifecycleStage.DELETED,
-                    SqlRun.deleted_time < (current_time - older_than),
+                    SqlRun.deleted_time <= (current_time - older_than),
                 )
                 .all()
             )
