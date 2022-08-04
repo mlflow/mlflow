@@ -1008,7 +1008,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'") == [2, 1]
         assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'") == []
         # test filter with duplicated keys
-        search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
+        assert search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None

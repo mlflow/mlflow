@@ -426,7 +426,7 @@ class MlflowClient:
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -2003,7 +2003,7 @@ class MlflowClient:
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -2709,7 +2709,7 @@ class MlflowClient:
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
               - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
 
             Logical operators
