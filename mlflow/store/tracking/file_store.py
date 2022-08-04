@@ -1,8 +1,10 @@
 import json
 import logging
+import time
 import os
 import sys
 import shutil
+import tempfile
 
 import uuid
 
@@ -36,6 +38,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.validation import (
+    _validate_metric,
     _validate_metric_name,
     _validate_param_name,
     _validate_param,
@@ -388,7 +391,7 @@ class FileStore(AbstractStore):
                 "Could not find experiment with ID %s" % experiment_id,
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
-        meta = read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
+        meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
         if experiment_dir.startswith(self.trash_folder):
             meta["lifecycle_stage"] = LifecycleStage.DELETED
         else:
@@ -465,7 +468,11 @@ class FileStore(AbstractStore):
                 "Cannot rename experiment in non-active lifecycle stage."
                 " Current stage: %s" % experiment.lifecycle_stage
             )
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
+        FileStore._overwrite_yaml(
+            root=meta_dir,
+            file_name=FileStore.META_DATA_FILE_NAME,
+            data=dict(experiment),
+        )
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
@@ -475,7 +482,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info)
+        self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
 
     def _hard_delete_run(self, run_id):
         """
@@ -485,12 +492,26 @@ class FileStore(AbstractStore):
         _, run_dir = self._find_run_root(run_id)
         shutil.rmtree(run_dir)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
             experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
         )
-        return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
+        deleted_run_ids = []
+        for deleted_run in deleted_runs:
+            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+            if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) >= older_than:
+                deleted_run_ids.append(deleted_run.info.run_uuid)
+
+        return deleted_run_ids
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
@@ -500,7 +521,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
-        self._overwrite_run_info(new_info)
+        self._overwrite_run_info(new_info, deleted_time=None)
 
     def _find_experiment_folder(self, run_path):
         """
@@ -564,6 +585,7 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
         run_info_dict = _make_persisted_run_info_dict(run_info)
+        run_info_dict["deleted_time"] = None
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
@@ -607,7 +629,7 @@ class FileStore(AbstractStore):
         return run_info
 
     def _get_run_info_from_dir(self, run_dir):
-        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        meta = FileStore._read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         run_info = _read_persisted_run_info_dict(meta)
         return run_info
 
@@ -816,7 +838,7 @@ class FileStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)
-        _validate_metric_name(metric.key)
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
@@ -921,9 +943,11 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def _overwrite_run_info(self, run_info):
+    def _overwrite_run_info(self, run_info, deleted_time=None):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         run_info_dict = _make_persisted_run_info_dict(run_info)
+        if deleted_time is not None:
+            run_info_dict["deleted_time"] = deleted_time
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
 
     def log_batch(self, run_id, metrics, params, tags):
@@ -969,3 +993,57 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    @staticmethod
+    def _overwrite_yaml(root, file_name, data):
+        """
+        Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
+        corrupted if the write fails. This is achieved by writing contents to a temporary file
+        and moving the temporary file to replace the preexisting file, rather than opening the
+        preexisting file for a direct write.
+
+        :param root: Directory name.
+        :param file_name: File name. Expects to have '.yaml' extension.
+        :param data: The data to write, represented as a dictionary.
+        """
+        tmp_file_path = None
+        try:
+            tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
+            os.close(tmp_file_fd)
+            write_yaml(
+                root=get_parent_dir(tmp_file_path),
+                file_name=os.path.basename(tmp_file_path),
+                data=data,
+                overwrite=True,
+                sort_keys=True,
+            )
+            shutil.move(
+                tmp_file_path,
+                os.path.join(root, file_name),
+            )
+        finally:
+            if tmp_file_path is not None and os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
+
+    @staticmethod
+    def _read_yaml(root, file_name, retries=2):
+        """
+        Read data from yaml file and return as dictionary, retrying up to
+        a specified number of times if the file contents are unexpectedly
+        empty due to a concurrent write.
+
+        :param root: Directory name.
+        :param file_name: File name. Expects to have '.yaml' extension.
+        :param retries: The number of times to retry for unexpected empty content.
+        :return: Data in yaml file as dictionary
+        """
+
+        def _read_helper(root, file_name, attempts_remaining=2):
+            result = read_yaml(root, file_name)
+            if result is not None or attempts_remaining == 0:
+                return result
+            else:
+                time.sleep(0.1 * (3 - attempts_remaining))
+                return _read_helper(root, file_name, attempts_remaining - 1)
+
+        return _read_helper(root, file_name, attempts_remaining=retries)

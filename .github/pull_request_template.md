@@ -27,12 +27,8 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
 
-1. Check the status of the `ci/circleci: build_doc` check. If it's successful, proceed to the
-   next step, otherwise fix it.
-2. Click `Details` on the right to open the job page of CircleCI.
-3. Click the `Artifacts` tab.
-4. Click `docs/build/html/index.html`.
-5. Find the changed pages / sections and make sure they render correctly.
+1. Click the `Details` link on the `Preview docs` check.
+2. Find the changed pages / sections and make sure they render correctly.
 
 ## Release Notes
 

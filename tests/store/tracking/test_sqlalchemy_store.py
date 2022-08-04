@@ -274,6 +274,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
             self.assertTrue(deleted_run.experiment_id in experiment_id)
             self.assertTrue(deleted_run.run_id in run_ids)
+            with self.store.ManagedSessionMaker() as session:
+                assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
 
         self.store.restore_experiment(experiment_id)
 
@@ -284,6 +286,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
             self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            with self.store.ManagedSessionMaker() as session:
+                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
             self.assertTrue(restored_run.experiment_id in experiment_id)
             self.assertTrue(restored_run.run_id in run_ids)
 
@@ -410,31 +414,35 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_search_experiments_filter_by_tag(self):
         experiments = [
-            ("exp1", [ExperimentTag("key", "value")]),
-            ("exp2", [ExperimentTag("key", "vaLue")]),
-            ("exp3", [ExperimentTag("k e y", "value")]),
+            ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+            ("exp2", [ExperimentTag("key1", "vaLue"), ExperimentTag("key2", "vaLue")]),
+            ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
             self.store.create_experiment(name, tags=tags)
 
-        experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.`k e y` = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.`k e y 1` = 'value'")
         assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.\"k e y 1\" = 'value'")
         assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 != 'value'")
         assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 != 'VALUE'")
+        assert [e.name for e in experiments] == ["exp2", "exp1"]
+        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE 'val%'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE '%Lue'")
         assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 ILIKE '%alu%'")
         assert [e.name for e in experiments] == ["exp2", "exp1"]
         experiments = self.store.search_experiments(
-            filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
+            filter_string="tag.key1 LIKE 'va%' AND tag.key2 LIKE '%Lue'"
         )
         assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.KEY = 'value'")
+        assert len(experiments) == 0
 
     def test_search_experiments_filter_by_attribute_and_tag(self):
         self.store.create_experiment(
@@ -829,6 +837,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
+            self.assertTrue(
+                actual.deleted_time is not None
+            )  # deleted time should be updated and thus not None anymore
 
             deleted_run = self.store.get_run(run.info.run_id)
             self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
@@ -1248,13 +1259,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
-
+        with self.store.ManagedSessionMaker() as session:
+            assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
         self.store.restore_run(run.info.run_id)
         with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
             self.store.restore_run(run.info.run_id)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        with self.store.ManagedSessionMaker() as session:
+            assert self.store._get_run(session, restored.info.run_id).deleted_time is None
 
     def test_error_logging_to_deleted_run(self):
         exp = self._experiment_factory("error_logging")
@@ -2356,6 +2370,7 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("status") == "status"
     assert models.SqlRun.get_attribute_name("start_time") == "start_time"
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
+    assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test

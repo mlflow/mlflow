@@ -92,6 +92,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "status": random.choice(RunStatus.all_status()),
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
+                    "deleted_time": random_int(20, 30),
                     "tags": [],
                     "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                 }
@@ -331,6 +332,29 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
             self._verify_experiment(fs, exp_id)
 
+    def test_get_experiment_retries_for_transient_empty_yaml_read(self):
+        fs = FileStore(self.test_root)
+        exp_name = random_str()
+        exp_id = fs.create_experiment(exp_name)
+
+        mock_empty_call_count = 0
+
+        def mock_read_yaml_impl(*args, **kwargs):
+            nonlocal mock_empty_call_count
+            if mock_empty_call_count < 2:
+                mock_empty_call_count += 1
+                return None
+            else:
+                return read_yaml(*args, **kwargs)
+
+        with mock.patch(
+            "mlflow.store.tracking.file_store.read_yaml", side_effect=mock_read_yaml_impl
+        ) as mock_read_yaml:
+            fetched_experiment = fs.get_experiment(exp_id)
+            assert fetched_experiment.experiment_id == exp_id
+            assert fetched_experiment.name == exp_name
+            assert mock_read_yaml.call_count == 3
+
     def test_get_experiment_by_name(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -505,7 +529,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert "non-active lifecycle" in str(e.value)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
 
-        # Restore the experiment, and confirm that we acn now rename it.
+        # Restore the experiment, and confirm that we can now rename it.
         fs.restore_experiment(exp_id)
         self.assertEqual(fs.get_experiment(exp_id).name, new_name)
         fs.rename_experiment(exp_id, exp_name)
@@ -515,12 +539,17 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]["runs"][0]
+        _, run_dir = fs._find_run_root(run_id)
         # Should not throw.
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         fs.delete_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "deleted"
+        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        assert "deleted_time" in meta and meta["deleted_time"] is not None
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
+        meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+        assert "deleted_time" not in meta
 
     def test_hard_delete_run(self):
         fs = FileStore(self.test_root)
@@ -632,9 +661,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run_info.pop("metrics", None)
         run_info.pop("params", None)
         run_info.pop("tags", None)
+        run_info.pop("deleted_time", None)
         run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
         run_info["status"] = RunStatus.to_string(run_info["status"])
-        self.assertEqual(run_info, dict(run.info))
+        # get a copy of run_info as we need to remove the `deleted_time`
+        # key without actually deleting it from self.run_data
+        _run_info = run_info.copy()
+        _run_info.pop("deleted_time", None)
+        self.assertEqual(_run_info, dict(run.info))
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -642,6 +676,28 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             runs = self.exp_data[exp_id]["runs"]
             for run_id in runs:
                 self._verify_run(fs, run_id)
+
+    def test_get_run_retries_for_transient_empty_yaml_read(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+
+        mock_empty_call_count = 0
+
+        def mock_read_yaml_impl(*args, **kwargs):
+            nonlocal mock_empty_call_count
+            if mock_empty_call_count < 2:
+                mock_empty_call_count += 1
+                return None
+            else:
+                return read_yaml(*args, **kwargs)
+
+        with mock.patch(
+            "mlflow.store.tracking.file_store.read_yaml", side_effect=mock_read_yaml_impl
+        ) as mock_read_yaml:
+            fetched_run = fs.get_run(run.info.run_id)
+            assert fetched_run.info.run_id == run.info.run_id
+            assert fetched_run.info.artifact_uri == run.info.artifact_uri
+            assert mock_read_yaml.call_count == 3
 
     def test_get_run_int_experiment_id_backcompat(self):
         fs = FileStore(self.test_root)
@@ -663,7 +719,11 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 dict_run_info.pop("tags")
                 dict_run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
                 dict_run_info["status"] = RunStatus.to_string(dict_run_info["status"])
-                self.assertEqual(dict_run_info, dict(run_info))
+                # get a copy of run_info as we need to remove the `deleted_time`
+                # key without actually deleting it from self.run_data
+                _dict_run_info = dict_run_info.copy()
+                _dict_run_info.pop("deleted_time")
+                self.assertEqual(_dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
@@ -697,6 +757,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert metric_obj.step == 3
         assert metric_obj.timestamp == 50
         assert metric_obj.value == 20
+
+    def test_log_metric_with_non_numeric_value_raises_exception(self):
+        fs = FileStore(self.test_root)
+        run_id = self._create_run(fs).info.run_id
+        with pytest.raises(MlflowException, match=r"Got invalid value string for metric"):
+            fs.log_metric(run_id, Metric("test", "string", 0, 0))
 
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
