@@ -12,7 +12,7 @@ import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
 import mlflow.pipelines.cli
-import mlflow.projects as projects
+from mlflow import projects
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli

@@ -4,7 +4,6 @@ import time
 import os
 import sys
 import shutil
-import time
 import tempfile
 
 import uuid
