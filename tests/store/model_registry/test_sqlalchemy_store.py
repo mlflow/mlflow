@@ -908,7 +908,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
-                MlflowException, r"Invalid clause\(s\) in filter string"
+            MlflowException, r"Invalid clause\(s\) in filter string"
         ) as exception_context:
             search_versions("run_id IN")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -982,41 +982,33 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             run_id=run_id_1,
             tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
         )
-        self.assertEqual(mv1.version, 1)
+        assert mv1.version == 1
         mv2 = self._mv_maker(
             name=name,
             source="A/C",
             run_id=run_id_2,
             tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")],
         )
-        self.assertEqual(mv2.version, 2)
+        assert mv2.version == 2
 
         def search_versions(filter_string):
             return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
 
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 = 'xyz'"), [1])
-        self.assertEqual(search_versions(f"name = 'wrong_name' and tag.t2 = 'xyz'"), [])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.`t2` = 'xyz'"), [1])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t3 = 'xyz'"), [])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 != 'xy'"), [2, 1])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 LIKE 'xy%'"), [1])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 LIKE 'xY%'"), [])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 ILIKE 'xY%'"), [1])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.t2 LIKE 'x%'"), [2, 1])
-        self.assertEqual(search_versions(f"name = '{name}' and tag.T2 = 'xyz'"), [])
-        self.assertEqual(
-            search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'"), [1]
-        )
-        self.assertEqual(
-            search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'"), [2, 1]
-        )
-        self.assertEqual(
-            search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'"), []
-        )
+        assert search_versions(f"name = '{name}' and tag.t2 = 'xyz'") == [1]
+        assert search_versions(f"name = 'wrong_name' and tag.t2 = 'xyz'") == []
+        assert search_versions(f"name = '{name}' and tag.`t2` = 'xyz'") == [1]
+        assert search_versions(f"name = '{name}' and tag.t3 = 'xyz'") == []
+        assert search_versions(f"name = '{name}' and tag.t2 != 'xy'") == [2, 1]
+        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'xy%'") == [1]
+        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'xY%'") == []
+        assert search_versions(f"name = '{name}' and tag.t2 ILIKE 'xY%'") == [1]
+        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions(f"name = '{name}' and tag.T2 = 'xyz'") == []
+        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'") == [1]
+        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'") == []
         # test filter with duplicated keys
-        self.assertEqual(
-            search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'"), [2]
-        )
+        search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
@@ -1162,29 +1154,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(name2, tags2)
 
         rms, _ = self._search_registered_models(f"tag.t3 = 'XYZ'")
-        self.assertEqual(rms, [name2])
+        assert rms == [name2]
 
         rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1 = 'abc'")
-        self.assertEqual(rms, [name1])
+        assert rms == [name1]
 
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%'")
-        self.assertEqual(rms, [name1, name2])
+        assert rms == [name1, name2]
 
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
-        self.assertEqual(rms, [name1, name2])
+        assert rms == [name1, name2]
 
         rms, _ = self._search_registered_models(f"tag.t3 = 'XYz'")
-        self.assertEqual(rms, [])
+        assert rms == []
 
         rms, _ = self._search_registered_models(f"tag.T3 = 'XYZ'")
-        self.assertEqual(rms, [])
+        assert rms == []
 
         rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")
-        self.assertEqual(rms, [name2])
+        assert rms == [name2]
 
         # test filter with duplicated keys
         rms, _ = self._search_registered_models(f"tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
-        self.assertEqual(rms, [name1])
+        assert rms == [name1]
 
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default

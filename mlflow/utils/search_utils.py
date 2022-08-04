@@ -991,7 +991,7 @@ class SearchModelUtils(SearchUtils):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 run_id_list = cls._parse_list_from_sql_token(token)
-                # Because MYSQL IN clause is case in-sensitive, but all run_ids only contains lower case
+                # Because MySQL IN clause is case-insensitive, but all run_ids only contains lower case
                 # letters, so that we filter out run_ids containing upper case letters here.
                 run_id_list = [run_id for run_id in run_id_list if run_id.lower() == run_id]
                 return run_id_list
@@ -1005,7 +1005,8 @@ class SearchModelUtils(SearchUtils):
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 "Invalid identifier type. Expected one of "
-                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER])
+                "{}.".format([cls._ATTRIBUTE_IDENTIFIER, cls._TAG_IDENTIFIER]),
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     @classmethod

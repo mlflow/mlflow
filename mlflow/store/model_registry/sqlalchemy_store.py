@@ -2,8 +2,6 @@ import time
 
 import logging
 import sqlalchemy
-from collections import defaultdict
-
 
 from sqlalchemy.future import select
 
@@ -369,7 +367,7 @@ class SqlAlchemyStore(AbstractStore):
             comparator = f["comparator"]
             value = f["value"]
             if type_ == "attribute":
-                if key not in ("name",):
+                if key != "name":
                     raise MlflowException(
                         f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
@@ -856,9 +854,11 @@ class SqlAlchemyStore(AbstractStore):
         )
 
         with self.ManagedSessionMaker() as session:
-            stmt = filter_query.options(*self._get_eager_model_version_query_options()).filter(
-                SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
-            ).order_by(SqlModelVersion.last_updated_time.desc())
+            stmt = (
+                filter_query.options(*self._get_eager_model_version_query_options())
+                .filter(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
+                .order_by(SqlModelVersion.last_updated_time.desc())
+            )
             sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
             model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]
             return PagedList(model_versions, None)
