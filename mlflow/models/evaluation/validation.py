@@ -154,7 +154,7 @@ class _MetricValidationResult:
 
         if self.missing_candidate:
             return (
-                f"Metric {self.metric_name} was missing from the "
+                f"Metric validation failed: metric {self.metric_name} was missing from the "
                 f"evaluation result of the candidate model."
             )
 
@@ -162,28 +162,28 @@ class _MetricValidationResult:
         if self.threshold_failed:
             result_strs.append(
                 f"Metric {self.metric_name} value threshold check failed: "
-                f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                f"{self.metric_name} threshold: {self.metric_threshold.threshold}."
+                f"candidate model {self.metric_name} = {self.candidate_metric_value}, "
+                f"{self.metric_name} threshold = {self.metric_threshold.threshold}."
             )
         if self.missing_baseline:
             result_strs.append(
-                f"Since metric {self.metric_name} was missing from the evaluation "
-                f"result of the baseline model; model Comparison was not performed."
+                f"Model comparison failed: metric {self.metric_name} was missing from "
+                f"the evaluation result of the baseline model."
             )
         else:
             if self.min_absolute_change_failed:
                 result_strs.append(
                     f"Metric {self.metric_name} minimum absolute change check failed: "
-                    f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                    f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                    f"candidate model {self.metric_name} = {self.candidate_metric_value}, "
+                    f"baseline model {self.metric_name} = {self.baseline_metric_value}, "
                     f"{self.metric_name} minimum absolute change threshold: "
                     f"{self.metric_threshold.min_absolute_change}."
                 )
             if self.min_relative_change_failed:
                 result_strs.append(
                     f"Metric {self.metric_name} minimum relative change check failed: "
-                    f"candidate model {self.metric_name}: {self.candidate_metric_value}, "
-                    f"baseline model {self.metric_name}: {self.baseline_metric_value}, "
+                    f"candidate model {self.metric_name} = {self.candidate_metric_value}, "
+                    f"baseline model {self.metric_name} = {self.baseline_metric_value}, "
                     f"{self.metric_name} minimum relative change threshold: "
                     f"{self.metric_threshold.min_relative_change}."
                 )

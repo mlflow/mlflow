@@ -682,11 +682,6 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             validation_result.missing_candidate = True
             continue
 
-        if (
-            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
-        ) and metric_name not in baseline_metrics:
-            validation_result.missing_baseline = True
-
         candidate_metric_value, baseline_metric_value = (
             candidate_metrics[metric_name],
             baseline_metrics[metric_name] if baseline_metrics else None,
@@ -704,7 +699,10 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
                 candidate_metric_value, metric_threshold.threshold
             )
 
-        if metric_name not in baseline_metrics:
+        if (
+            metric_threshold.min_relative_change or metric_threshold.min_absolute_change
+        ) and metric_name not in baseline_metrics:
+            validation_result.missing_baseline = True
             continue
 
         if metric_threshold.min_absolute_change is not None:
