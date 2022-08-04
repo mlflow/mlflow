@@ -4,10 +4,8 @@ import unittest
 import tempfile
 from unittest import mock
 import uuid
+import pytest
 
-import mlflow
-import mlflow.db
-import mlflow.store.db.base_sql_model
 from mlflow.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
@@ -15,6 +13,13 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
+    SqlModelVersion,
+    SqlModelVersionTag,
+)
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -26,22 +31,42 @@ from tests.helper_functions import random_str
 
 DB_URI = "sqlite:///"
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri)
 
+    def _setup_db_uri(self):
+        if _TRACKING_URI_ENV_VAR in os.environ:
+            self.temp_dbfile = None
+            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+        else:
+            fd, self.temp_dbfile = tempfile.mkstemp()
+            # Close handle immediately so that we can remove the file later on in Windows
+            os.close(fd)
+            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+
     def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self._setup_db_uri()
         self.store = self._get_store(self.db_url)
 
+    def get_store(self):
+        return self.store
+
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
-        os.remove(self.temp_dbfile)
+        if self.temp_dbfile:
+            os.remove(self.temp_dbfile)
+        else:
+            with self.store.ManagedSessionMaker() as session:
+                for model in (
+                    SqlModelVersionTag,
+                    SqlRegisteredModelTag,
+                    SqlModelVersion,
+                    SqlRegisteredModel,
+                ):
+                    session.query(model).delete()
 
     def _rm_maker(self, name, tags=None, description=None):
         return self.store.create_registered_model(name, tags, description)
@@ -76,7 +101,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
         # slightly different name is ok
-        for name2 in [name + "extra", name.lower(), name.upper(), name + name]:
+        for name2 in [name + "extra", name + name]:
             rm2 = self._rm_maker(name2)
             assert rm2.name == name2
 
@@ -944,7 +969,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_search_registered_models(self):
         # create some registered models
         prefix = "test_for_search_"
-        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
+        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
         for name in names:
             self._rm_maker(name)
 
@@ -993,7 +1018,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert rms == names[4:]
 
         # case-insensitive postfix search with ILIKE
-        rms, _ = self._search_registered_models("name ILIKE '%RM4a'")
+        rms, _ = self._search_registered_models("name ILIKE '%RM4a%'")
         assert rms == names[4:]
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
@@ -1008,7 +1033,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models("name iLike '%%'")
         assert rms == names
 
-        rms, _ = self._search_registered_models("name ilike '%RM4a'")
+        rms, _ = self._search_registered_models("name ilike '%RM4a%'")
         assert rms == names[4:]
 
         # cannot search by invalid comparator types

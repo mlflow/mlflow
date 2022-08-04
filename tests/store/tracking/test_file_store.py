@@ -331,6 +331,29 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
             self._verify_experiment(fs, exp_id)
 
+    def test_get_experiment_retries_for_transient_empty_yaml_read(self):
+        fs = FileStore(self.test_root)
+        exp_name = random_str()
+        exp_id = fs.create_experiment(exp_name)
+
+        mock_empty_call_count = 0
+
+        def mock_read_yaml_impl(*args, **kwargs):
+            nonlocal mock_empty_call_count
+            if mock_empty_call_count < 2:
+                mock_empty_call_count += 1
+                return None
+            else:
+                return read_yaml(*args, **kwargs)
+
+        with mock.patch(
+            "mlflow.store.tracking.file_store.read_yaml", side_effect=mock_read_yaml_impl
+        ) as mock_read_yaml:
+            fetched_experiment = fs.get_experiment(exp_id)
+            assert fetched_experiment.experiment_id == exp_id
+            assert fetched_experiment.name == exp_name
+            assert mock_read_yaml.call_count == 3
+
     def test_get_experiment_by_name(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -638,6 +661,28 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             runs = self.exp_data[exp_id]["runs"]
             for run_id in runs:
                 self._verify_run(fs, run_id)
+
+    def test_get_run_retries_for_transient_empty_yaml_read(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+
+        mock_empty_call_count = 0
+
+        def mock_read_yaml_impl(*args, **kwargs):
+            nonlocal mock_empty_call_count
+            if mock_empty_call_count < 2:
+                mock_empty_call_count += 1
+                return None
+            else:
+                return read_yaml(*args, **kwargs)
+
+        with mock.patch(
+            "mlflow.store.tracking.file_store.read_yaml", side_effect=mock_read_yaml_impl
+        ) as mock_read_yaml:
+            fetched_run = fs.get_run(run.info.run_id)
+            assert fetched_run.info.run_id == run.info.run_id
+            assert fetched_run.info.artifact_uri == run.info.artifact_uri
+            assert mock_read_yaml.call_count == 3
 
     def test_get_run_int_experiment_id_backcompat(self):
         fs = FileStore(self.test_root)

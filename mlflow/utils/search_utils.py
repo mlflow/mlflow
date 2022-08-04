@@ -110,17 +110,17 @@ class SearchUtils:
         # Use non-binary ahead of binary comparison for runtime performance
         # Use non-binary ahead of binary comparison for runtime performance
         def case_sensitive_mysql_eq(value):
-            return sa.text(f"{col} = :value AND BINARY {col} = :value").bindparams(
+            return sa.text(f"({col} = :value AND BINARY {col} = :value)").bindparams(
                 sa.bindparam("value", value=value, unique=True)
             )
 
         def case_sensitive_mysql_ne(value):
-            return sa.text(f"{col} != :value OR BINARY {col} != :value").bindparams(
+            return sa.text(f"({col} != :value OR BINARY {col} != :value)").bindparams(
                 sa.bindparam("value", value=value, unique=True)
             )
 
         def case_sensitive_mysql_like(value):
-            return sa.text(f"{col} LIKE :value AND BINARY {col} LIKE :value").bindparams(
+            return sa.text(f"({col} LIKE :value AND BINARY {col} LIKE :value)").bindparams(
                 sa.bindparam("value", value=value, unique=True)
             )
 
