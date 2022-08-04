@@ -995,7 +995,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
 
         assert search_versions(f"name = '{name}' and tag.t2 = 'xyz'") == [1]
-        assert search_versions(f"name = 'wrong_name' and tag.t2 = 'xyz'") == []
+        assert search_versions("name = 'wrong_name' and tag.t2 = 'xyz'") == []
         assert search_versions(f"name = '{name}' and tag.`t2` = 'xyz'") == [1]
         assert search_versions(f"name = '{name}' and tag.t3 = 'xyz'") == []
         assert search_versions(f"name = '{name}' and tag.t2 != 'xy'") == [2, 1]
@@ -1094,7 +1094,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot search by invalid comparator types
         with self.assertRaisesRegex(
             MlflowException,
-            r"Parameter value is either not quoted or unidentified quote types used for string value something",
+            "Parameter value is either not quoted or unidentified quote types used for string "
+            "value something",
         ) as exception_context:
             self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1153,29 +1154,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(name1, tags1)
         self._rm_maker(name2, tags2)
 
-        rms, _ = self._search_registered_models(f"tag.t3 = 'XYZ'")
+        rms, _ = self._search_registered_models("tag.t3 = 'XYZ'")
         assert rms == [name2]
 
         rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1 = 'abc'")
         assert rms == [name1]
 
-        rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%'")
+        rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%'")
         assert rms == [name1, name2]
 
-        rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
+        rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
         assert rms == [name1, name2]
 
-        rms, _ = self._search_registered_models(f"tag.t3 = 'XYz'")
+        rms, _ = self._search_registered_models("tag.t3 = 'XYz'")
         assert rms == []
 
-        rms, _ = self._search_registered_models(f"tag.T3 = 'XYZ'")
+        rms, _ = self._search_registered_models("tag.T3 = 'XYZ'")
         assert rms == []
 
-        rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")
+        rms, _ = self._search_registered_models("tag.t1 != 'abc'")
         assert rms == [name2]
 
         # test filter with duplicated keys
-        rms, _ = self._search_registered_models(f"tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
+        rms, _ = self._search_registered_models("tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
         assert rms == [name1]
 
     def test_parse_search_registered_models_order_by(self):

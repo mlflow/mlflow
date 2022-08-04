@@ -939,7 +939,7 @@ class SearchModelUtils(SearchUtils):
         return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
 
     @classmethod
-    def _get_identifier(cls, identifier):
+    def _get_model_search_identifier(cls, identifier):
         tokens = identifier.split(".", maxsplit=1)
         if len(tokens) == 1:
             key = tokens[0]
@@ -964,7 +964,7 @@ class SearchModelUtils(SearchUtils):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         left, comparator, right = stripped_comparison
-        comp = cls._get_identifier(left.value)
+        comp = cls._get_model_search_identifier(left.value)
         comp["comparator"] = comparator.value.upper()
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
@@ -987,12 +987,13 @@ class SearchModelUtils(SearchUtils):
                 cls._check_valid_identifier_list(token)
                 if key != "run_id":
                     raise MlflowException(
-                        "Only run_id attribute support compare with a list of quoted string values.",
+                        "Only run_id attribute support compare with a list of quoted string "
+                        "values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 run_id_list = cls._parse_list_from_sql_token(token)
-                # Because MySQL IN clause is case-insensitive, but all run_ids only contains lower case
-                # letters, so that we filter out run_ids containing upper case letters here.
+                # Because MySQL IN clause is case-insensitive, but all run_ids only contains lower
+                # case letters, so that we filter out run_ids containing upper case letters here.
                 run_id_list = [run_id for run_id in run_id_list if run_id.islower()]
                 return run_id_list
             else:
