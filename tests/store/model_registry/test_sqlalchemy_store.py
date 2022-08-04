@@ -1162,29 +1162,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker(name2, tags2)
 
         rms, _ = self._search_registered_models(f"tag.t3 = 'XYZ'")
-        self.assertEqual(set(rms), {name2})
+        self.assertEqual(rms, [name2])
 
         rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1 = 'abc'")
-        self.assertEqual(set(rms), {name1})
+        self.assertEqual(rms, [name1])
 
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%'")
-        self.assertEqual(set(rms), {name1, name2})
+        self.assertEqual(rms, [name1, name2])
 
         rms, _ = self._search_registered_models(f"tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
-        self.assertEqual(set(rms), {name1, name2})
+        self.assertEqual(rms, [name1, name2])
 
         rms, _ = self._search_registered_models(f"tag.t3 = 'XYz'")
-        self.assertEqual(set(rms), set())
+        self.assertEqual(rms, [])
 
         rms, _ = self._search_registered_models(f"tag.T3 = 'XYZ'")
-        self.assertEqual(set(rms), set())
+        self.assertEqual(rms, [])
 
         rms, _ = self._search_registered_models(f"tag.t1 != 'abc'")
-        self.assertEqual(set(rms), {name2})
+        self.assertEqual(rms, [name2])
 
         # test filter with duplicated keys
         rms, _ = self._search_registered_models(f"tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
-        self.assertEqual(set(rms), {name1})
+        self.assertEqual(rms, [name1])
 
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default
