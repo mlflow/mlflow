@@ -272,8 +272,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(deleted_run_list), 2)
         for deleted_run in deleted_run_list:
             self.assertEqual(deleted_run.lifecycle_stage, entities.LifecycleStage.DELETED)
-            self.assertTrue(deleted_run.experiment_id in experiment_id)
-            self.assertTrue(deleted_run.run_id in run_ids)
+            assert deleted_run.experiment_id in experiment_id
+            assert deleted_run.run_id in run_ids
 
         self.store.restore_experiment(experiment_id)
 
@@ -284,8 +284,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(restored_run_list), 2)
         for restored_run in restored_run_list:
             self.assertEqual(restored_run.lifecycle_stage, entities.LifecycleStage.ACTIVE)
-            self.assertTrue(restored_run.experiment_id in experiment_id)
-            self.assertTrue(restored_run.run_id in run_ids)
+            assert restored_run.experiment_id in experiment_id
+            assert restored_run.run_id in run_ids
 
     def test_get_experiment(self):
         name = "goku"
@@ -886,7 +886,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -895,9 +895,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(5, len(sql_run_metrics))
             self.assertEqual(4, len(run.data.metrics))
-            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
-            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+            assert math.isnan(run.data.metrics["NaN"])
+            assert run.data.metrics["PosInf"] == 1.7976931348623157e308
+            assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
     def test_log_metric_concurrent_logging_succeeds(self):
         """
@@ -1015,7 +1015,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
-        self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
+        assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_param_uniqueness(self):
         run = self._run_factory()
@@ -1041,7 +1041,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
-        self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
+        assert tkey in run.data.params and run.data.params[tkey] == tval
 
     def test_log_null_param(self):
         run = self._run_factory()
@@ -1066,27 +1066,27 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         new_tag = entities.RunTag("tag0", "value00000")
         self.store.set_experiment_tag(exp_id, tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value0")
+        assert experiment.tags["tag0"] == "value0"
         # test that updating a tag works
         self.store.set_experiment_tag(exp_id, new_tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        assert experiment.tags["tag0"] == "value00000"
         # test that setting a tag on 1 experiment does not impact another experiment.
         exp_id_2 = self._experiment_factory("setExperimentTagExp2")
         experiment2 = self.store.get_experiment(exp_id_2)
-        self.assertTrue(len(experiment2.tags) == 0)
+        assert len(experiment2.tags) == 0
         # setting a tag on different experiments maintains different values across experiments
         different_tag = entities.RunTag("tag0", "differentValue")
         self.store.set_experiment_tag(exp_id_2, different_tag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        assert experiment.tags["tag0"] == "value00000"
         experiment2 = self.store.get_experiment(exp_id_2)
-        self.assertTrue(experiment2.tags["tag0"] == "differentValue")
+        assert experiment2.tags["tag0"] == "differentValue"
         # test can set multi-line tags
         multiLineTag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
         self.store.set_experiment_tag(exp_id, multiLineTag)
         experiment = self.store.get_experiment(exp_id)
-        self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+        assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
         # test cannot set tags that are too long
         longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
         with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
@@ -1116,7 +1116,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # test can set tags that are somewhat long
         self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
+        assert tkey in run.data.tags and run.data.tags[tkey] == new_val
 
     def test_delete_tag(self):
         run = self._run_factory()
@@ -1129,8 +1129,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # delete a tag and check whether it is correctly deleted.
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(k0 not in run.data.tags)
-        self.assertTrue(k1 in run.data.tags and run.data.tags[k1] == v1)
+        assert k0 not in run.data.tags
+        assert k1 in run.data.tags and run.data.tags[k1] == v1
 
         # test that deleting a tag works correctly with multiple runs having the same tag.
         run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
@@ -1139,8 +1139,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_tag(run.info.run_id, k0)
         run = self.store.get_run(run.info.run_id)
         run2 = self.store.get_run(run2.info.run_id)
-        self.assertTrue(k0 not in run.data.tags)
-        self.assertTrue(k0 in run2.data.tags)
+        assert k0 not in run.data.tags
+        assert k0 in run2.data.tags
         # test that you cannot delete tags that don't exist.
         with pytest.raises(MlflowException, match="No tag with name"):
             self.store.delete_tag(run.info.run_id, "fakeTag")
@@ -1283,7 +1283,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(metric_obj.value, 34.0)
         self.assertEqual(metric_obj.timestamp, 85)
         self.assertEqual(metric_obj.step, 1)
-        self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
+        assert set([("t1345", "tv44")]) <= set(run.data.tags.items())
 
     # Tests for Search API
     def _search(
@@ -2000,7 +2000,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store._log_metrics(run.info.run_id, metrics)
 
         run = self.store.get_run(run.info.run_id)
-        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
+        assert tkey in run.data.metrics and run.data.metrics[tkey] == tval
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -2009,9 +2009,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(5, len(sql_run_metrics))
             self.assertEqual(4, len(run.data.metrics))
-            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
-            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
+            assert math.isnan(run.data.metrics["NaN"])
+            assert run.data.metrics["PosInf"] == 1.7976931348623157e308
+            assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
