@@ -479,10 +479,12 @@ class SqlAlchemyStore(AbstractStore):
     def _mark_run_deleted(self, session, run):
         self._check_run_is_active(run)
         run.lifecycle_stage = LifecycleStage.DELETED
+        run.deleted_time = int(time.time() * 1000)
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
+        run.deleted_time = None
         self._save_to_db(objs=run, session=session)
 
     def _list_run_infos(self, session, experiment_id):
@@ -528,6 +530,7 @@ class SqlAlchemyStore(AbstractStore):
                 status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=start_time,
                 end_time=None,
+                deleted_time=None,
                 source_version="",
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
@@ -639,6 +642,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_deleted(run)
             run.lifecycle_stage = LifecycleStage.ACTIVE
+            run.deleted_time = None
             self._save_to_db(objs=run, session=session)
 
     def delete_run(self, run_id):
@@ -646,6 +650,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
+            run.deleted_time = int(time.time() * 1000)
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -657,14 +662,24 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         with self.ManagedSessionMaker() as session:
-            run_ids = (
-                session.query(SqlRun.run_uuid)
-                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED)
+            runs = (
+                session.query(SqlRun)
+                .filter(
+                    SqlRun.lifecycle_stage == LifecycleStage.DELETED,
+                    SqlRun.deleted_time < (current_time - older_than),
+                )
                 .all()
             )
-            return [run_id[0] for run_id in run_ids]
+            return [run.run_uuid for run in runs]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)

@@ -1,9 +1,9 @@
 import json
 import logging
+import time
 import os
 import sys
 import shutil
-import time
 import tempfile
 
 import uuid
@@ -481,7 +481,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-        self._overwrite_run_info(new_info)
+        self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
 
     def _hard_delete_run(self, run_id):
         """
@@ -491,12 +491,26 @@ class FileStore(AbstractStore):
         _, run_dir = self._find_run_root(run_id)
         shutil.rmtree(run_dir)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
             experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
         )
-        return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
+        deleted_run_ids = []
+        for deleted_run in deleted_runs:
+            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
+            if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) > older_than:
+                deleted_run_ids.append(deleted_run.info.run_uuid)
+
+        return deleted_run_ids
 
     def restore_run(self, run_id):
         run_info = self._get_run_info(run_id)
@@ -506,7 +520,7 @@ class FileStore(AbstractStore):
             )
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
-        self._overwrite_run_info(new_info)
+        self._overwrite_run_info(new_info, deleted_time=None)
 
     def _find_experiment_folder(self, run_path):
         """
@@ -570,6 +584,7 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
         run_info_dict = _make_persisted_run_info_dict(run_info)
+        run_info_dict["deleted_time"] = None
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
@@ -927,14 +942,12 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def _overwrite_run_info(self, run_info):
+    def _overwrite_run_info(self, run_info, deleted_time=None):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         run_info_dict = _make_persisted_run_info_dict(run_info)
-        FileStore._overwrite_yaml(
-            root=run_dir,
-            file_name=FileStore.META_DATA_FILE_NAME,
-            data=run_info_dict,
-        )
+        if deleted_time is not None:
+            run_info_dict["deleted_time"] = deleted_time
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
