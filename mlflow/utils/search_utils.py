@@ -115,7 +115,7 @@ class SearchUtils:
             )
 
         def case_sensitive_mysql_ne(value):
-            return sa.text(f"{col} != :value OR BINARY {col} != :value").bindparams(
+            return sa.text(f"({col} != :value OR BINARY {col} != :value)").bindparams(
                 sa.bindparam("value", value=value, unique=True)
             )
 
