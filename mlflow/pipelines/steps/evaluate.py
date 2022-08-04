@@ -6,9 +6,10 @@ from typing import Dict, Any
 from collections import namedtuple
 
 import mlflow
-from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException
+from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
+from mlflow.pipelines.steps.train import TrainStep
 from mlflow.pipelines.utils.execution import get_step_output_path
 from mlflow.pipelines.utils.metrics import (
     BUILTIN_PIPELINE_METRICS,
@@ -24,7 +25,9 @@ from mlflow.pipelines.utils.tracking import (
     get_run_tags_env_vars,
 )
 from mlflow.projects.utils import get_databricks_env_vars
-from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking.fluent import _get_experiment_id, _set_experiment_primary_metric
+from mlflow.utils.databricks_utils import get_databricks_run_url
 
 _logger = logging.getLogger(__name__)
 
@@ -124,7 +127,7 @@ class EvaluateStep(BaseStep):
         model_uri = get_step_output_path(
             pipeline_root_path=self.pipeline_root,
             step_name="train",
-            relative_path="model",
+            relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
         )
 
         apply_pipeline_tracking_config(self.tracking_config)
@@ -166,7 +169,9 @@ class EvaluateStep(BaseStep):
 
             validation_results = self._validate_model(eval_metrics, output_directory)
 
-        card = self._build_profiles_and_card(eval_metrics, validation_results, output_directory)
+        card = self._build_profiles_and_card(
+            run_id, model_uri, eval_metrics, validation_results, output_directory
+        )
         card.save_as_html(output_directory)
         self._log_step_card(run_id, self.name)
         return card
@@ -186,17 +191,20 @@ class EvaluateStep(BaseStep):
         Path(output_directory, "model_validation_status").write_text(self.model_validation_status)
         return validation_results
 
-    def _build_profiles_and_card(self, eval_metrics, validation_results, output_directory):
+    def _build_profiles_and_card(
+        self, run_id, model_uri, eval_metrics, validation_results, output_directory
+    ):
         """
         Constructs data profiles of predictions and errors and a step card instance corresponding
         to the current evaluate step state.
 
+        :param run_id: The ID of the MLflow Run to which to log model evaluation results.
+        :param model_uri: The URI of the model being evaluated.
         :param eval_metrics: the evaluation result keyed by dataset name from `mlflow.evaluate`.
         :param validation_results: a list of `MetricValidationResult` instances
         :param output_directory: output directory used by the evaluate step.
         """
         import pandas as pd
-        from mlflow.pipelines.cards import BaseCard
 
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
@@ -273,14 +281,40 @@ class EvaluateStep(BaseStep):
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         # Tab 3: Run summary.
-        (
-            card.add_tab(
-                "Run Summary",
-                "{{ VALIDATION_STATUS }}" + "{{ EXE_DURATION }}" + "{{ LAST_UPDATE_TIME }}",
-            ).add_markdown(
-                "VALIDATION_STATUS", f"**Validation status:** `{self.model_validation_status}`"
-            )
+        run_summary_card_tab = card.add_tab(
+            "Run Summary",
+            "{{ RUN_ID }} "
+            + "{{ MODEL_URI }}"
+            + "{{ VALIDATION_STATUS }}"
+            + "{{ EXE_DURATION }}"
+            + "{{ LAST_UPDATE_TIME }}",
+        ).add_markdown(
+            "VALIDATION_STATUS", f"**Validation status:** `{self.model_validation_status}`"
         )
+        run_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+        )
+        model_uri = f"runs:/{run_id}/train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}"
+        model_url = get_databricks_run_url(
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_id,
+            artifact_path=f"train/{TrainStep.MODEL_ARTIFACT_RELATIVE_PATH}",
+        )
+
+        if run_url is not None:
+            run_summary_card_tab.add_html(
+                "RUN_ID", f"<b>MLflow Run ID:</b> <a href={run_url}>{run_id}</a><br><br>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("RUN_ID", f"**MLflow Run ID:** `{run_id}`")
+
+        if model_url is not None:
+            run_summary_card_tab.add_html(
+                "MODEL_URI", f"<b>MLflow Model URI:</b> <a href={model_url}>{model_uri}</a>"
+            )
+        else:
+            run_summary_card_tab.add_markdown("MODEL_URI", f"**MLflow Model URI:** `{model_uri}`")
 
         return card
 

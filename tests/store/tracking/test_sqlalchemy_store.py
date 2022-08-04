@@ -439,6 +439,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
         )
         assert [e.name for e in experiments] == ["exp2"]
+        experiments = self.store.search_experiments(filter_string="tag.KEY = 'value'")
+        assert len(experiments) == 0
 
     def test_search_experiments_filter_by_attribute_and_tag(self):
         self.store.create_experiment(

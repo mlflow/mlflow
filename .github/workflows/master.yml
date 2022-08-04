@@ -108,14 +108,7 @@ jobs:
         source ./dev/install-common-deps.sh --ml
     - name: Run tests
       run: |
-        # Establish SSH to localhost for test_sftp_artifact_repo.py
-        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
-        ssh $(whoami)@localhost exit
-        export LOGNAME=$(whoami)
-
+        source dev/setup-ssh.sh
         ./dev/run-python-tests.sh
 
   database:
@@ -132,12 +125,21 @@ jobs:
         ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python setup.py -q dependencies)"
     - name: Run tests
       run: |
+        set +e
+        err=0
+        trap 'err=1' ERR
+
         for service in $(./tests/db/compose.sh config --services | grep '^mlflow-')
         do
           # Set `--no-TTY` to show container logs on GitHub Actions:
           # https://github.com/actions/virtual-environments/issues/5022
-          ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
+          ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+            tests/store/tracking/test_sqlalchemy_store.py \
+            tests/store/model_registry/test_sqlalchemy_store.py \
+            tests/db
         done
+
+        test $err = 0
     - name: Clean up
       run: |
         ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
@@ -229,51 +231,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
-
-  pipelines:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-python
-      - name: Install dependencies
-        run: |
-          source ./dev/install-common-deps.sh
-          pip install -e .[pipelines]
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
-      - name: Run tests
-        run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/pipelines
-
-  pipelines-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-python
-      - name: Install python dependencies
-        run: |
-          pip install -r requirements/test-requirements.txt
-          pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
-          pip install -e .[pipelines]
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
-      - name: Download Hadoop winutils for Spark
-        run: |
-          git clone https://github.com/cdarlint/winutils
-      - name: Run tests
-        run: |
-          # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
-          export PATH=$PATH:$HADOOP_HOME/bin
-          # Run pipelines tests
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/pipelines
 
   pyfunc:
     runs-on: ubuntu-latest

@@ -226,6 +226,13 @@ def test_schema_inference_on_pandas_series():
         with pytest.raises(MlflowException, match="Unsupported numpy data type"):
             _infer_schema(pd.Series(np.array([1, 2, 3], dtype=np.float128)))
 
+    # test names
+    s = pd.Series([1, 2, 3])
+    if hasattr(s, "name"):
+        s.rename("test", inplace=True)
+        assert "test" in _infer_schema(s).input_names()
+        assert len(_infer_schema(s).input_names()) == 1
+
 
 def test_get_tensor_shape(dict_of_ndarrays):
     assert all(-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values())

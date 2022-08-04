@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-import mlflow.utils.logging_utils as logging_utils
+from mlflow.utils import logging_utils
 from mlflow.utils.autologging_utils import is_testing
 from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_TEST_MODE_ENV_VAR
 

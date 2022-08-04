@@ -259,6 +259,10 @@
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
   },
+  "8xji5J": {
+    "defaultMessage": "X-axis:",
+    "description": "Label text for X-axis in box plot comparison in MLflow"
+  },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
@@ -454,6 +458,10 @@
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
+  },
+  "Hk0RSH": {
+    "defaultMessage": "Y-axis:",
+    "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
   "Hq00g9": {
     "defaultMessage": "On",
@@ -707,6 +715,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Text for current version under the header on the model version view page"
   },
+  "XaD7FM": {
+    "defaultMessage": "Select parameters/metrics to plot.",
+    "description": "Text to show when x or y axis is not selected on box plot"
+  },
   "Xqs6q2": {
     "defaultMessage": "Without Model Versions",
     "description": "Linked model dropdown option to show experiment runs without model versions only"
@@ -938,6 +950,10 @@
   "iQzwqe": {
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
+  },
+  "iXb99e": {
+    "defaultMessage": "Box Plot",
+    "description": "Tab pane title for box plot on the compare runs page"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",

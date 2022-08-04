@@ -16,8 +16,10 @@ fi
 echo -e "\n========== pylint ==========\n"
 pylint $(git ls-files | grep '\.py$')
 
-echo -e "\n========== rstcheck ==========\n"
-rstcheck README.rst
+if [[ -f "README.rst" ]]; then
+  echo -e "\n========== rstcheck ==========\n"
+  rstcheck README.rst
+fi
 
 if [[ "$err" != "0" ]]; then
   echo -e "\nOne of the previous steps failed, check above"

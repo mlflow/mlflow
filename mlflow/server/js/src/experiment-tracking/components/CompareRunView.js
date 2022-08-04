@@ -10,6 +10,7 @@ import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Re
 import './CompareRunView.css';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { CompareRunScatter } from './CompareRunScatter';
+import { CompareRunBox } from './CompareRunBox';
 import CompareRunContour from './CompareRunContour';
 import Routes from '../routes';
 import { Link } from 'react-router-dom';
@@ -368,7 +369,7 @@ export class CompareRunView extends Component {
 
   render() {
     const { experimentIds } = this.props;
-    const { runInfos, runNames } = this.props;
+    const { runInfos, runNames, paramLists, metricLists, runUuids } = this.props;
 
     const colWidth = this.getTableColumnWidth();
     const colWidthStyle = this.genWidthStyle(colWidth);
@@ -394,7 +395,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for parallel coordinate plots on the compare runs page'
                 />
               }
-              key='1'
+              key='parallel-coordinates-plot'
             >
               <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
             </TabPane>
@@ -405,7 +406,7 @@ export class CompareRunView extends Component {
                   description='Tab pane title for scatterplots on the compare runs page'
                 />
               }
-              key='2'
+              key='scatter-plot'
             >
               <CompareRunScatter
                 runUuids={this.props.runUuids}
@@ -415,11 +416,27 @@ export class CompareRunView extends Component {
             <TabPane
               tab={
                 <FormattedMessage
+                  defaultMessage='Box Plot'
+                  description='Tab pane title for box plot on the compare runs page'
+                />
+              }
+              key='box-plot'
+            >
+              <CompareRunBox
+                runUuids={runUuids}
+                runInfos={runInfos}
+                paramLists={paramLists}
+                metricLists={metricLists}
+              />
+            </TabPane>
+            <TabPane
+              tab={
+                <FormattedMessage
                   defaultMessage='Contour Plot'
                   description='Tab pane title for contour plots on the compare runs page'
                 />
               }
-              key='3'
+              key='contour-plot'
             >
               <CompareRunContour
                 runUuids={this.props.runUuids}

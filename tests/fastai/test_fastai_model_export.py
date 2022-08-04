@@ -6,7 +6,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 from fastai.tabular.all import tabular_learner, TabularDataLoaders
 from fastai.metrics import accuracy
 

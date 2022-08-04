@@ -6,7 +6,7 @@ from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 import sklearn.linear_model as glm
 import sklearn.neighbors as knn
 from sklearn.pipeline import Pipeline as SKPipeline

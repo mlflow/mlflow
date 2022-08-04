@@ -3,7 +3,7 @@ import sys
 import pytest
 
 import mlflow
-import mlflow.utils.logging_utils as logging_utils
+from mlflow.utils import logging_utils
 from mlflow.utils.logging_utils import eprint
 
 logger = logging.getLogger(mlflow.__name__)

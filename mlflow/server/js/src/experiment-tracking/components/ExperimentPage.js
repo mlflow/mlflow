@@ -206,6 +206,9 @@ export class ExperimentPage extends Component {
 
   sortRunsByPrimaryMetric(experiment) {
     const { tags } = experiment;
+    if (!tags) {
+      return;
+    }
     const primaryMetricTag = tags.find(({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME);
     const greaterIsBetterTag = tags.find(
       ({ key }) => key === MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,

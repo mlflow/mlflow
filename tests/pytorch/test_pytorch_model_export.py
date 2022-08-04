@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 import importlib
 import os
@@ -12,10 +12,10 @@ from unittest import mock
 import pytest
 import numpy as np
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 import yaml
 
-import mlflow.pyfunc as pyfunc
+from mlflow import pyfunc
 import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.pytorch import get_default_conda_env
