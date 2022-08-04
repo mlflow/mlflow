@@ -25,7 +25,7 @@ which automatically terminates the run at the end of the ``with`` block.
 The fluent tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
 implement mutual exclusion manually.
 
-For a lower level API, see the :py:mod:`mlflow.tracking` module.
+For a lower level API, see the :py:mod:`mlflow.client` module.
 """
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
@@ -45,6 +45,7 @@ from mlflow import tracking
 import mlflow.models
 import mlflow.artifacts
 import mlflow.pipelines
+import mlflow.client
 
 # model flavors
 _model_flavors_supported = []
@@ -150,6 +151,7 @@ list_experiments = mlflow.tracking.fluent.list_experiments
 search_experiments = mlflow.tracking.fluent.search_experiments
 get_tracking_uri = tracking.get_tracking_uri
 get_registry_uri = tracking.get_registry_uri
+is_tracking_uri_set = tracking.is_tracking_uri_set
 create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
 log_params = mlflow.tracking.fluent.log_params
@@ -163,7 +165,7 @@ register_model = mlflow.tracking._model_registry.fluent.register_model
 autolog = mlflow.tracking.fluent.autolog
 evaluate = mlflow.models.evaluate
 last_active_run = mlflow.tracking.fluent.last_active_run
-MlflowClient = tracking.MlflowClient
+MlflowClient = mlflow.client.MlflowClient
 
 run = projects.run
 
@@ -191,6 +193,7 @@ __all__ = [
     "get_artifact_uri",
     "get_tracking_uri",
     "set_tracking_uri",
+    "is_tracking_uri_set",
     "get_experiment",
     "get_experiment_by_name",
     "list_experiments",
