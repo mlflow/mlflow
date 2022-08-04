@@ -847,7 +847,7 @@ class SqlAlchemyStore(AbstractStore):
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+                 objects. The order of returned records is descending order of last updated time.
         """
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 
@@ -858,7 +858,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             stmt = filter_query.options(*self._get_eager_model_version_query_options()).filter(
                 SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
-            )
+            ).order_by(SqlModelVersion.last_updated_time.desc())
             sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
             model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]
             return PagedList(model_versions, None)
