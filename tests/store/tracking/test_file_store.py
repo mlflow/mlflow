@@ -526,7 +526,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
-        assert "deleted_time" not in meta or meta["deleted_time"] is None
+        assert "deleted_time" not in meta
 
     def test_hard_delete_run(self):
         fs = FileStore(self.test_root)
