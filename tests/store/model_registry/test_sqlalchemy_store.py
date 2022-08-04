@@ -1137,8 +1137,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         ) as exception_context:
             self._search_registered_models(query, page_token="evilhax", max_results=1e15)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self.assertIn(
-            "Invalid value for request parameter max_results", exception_context.exception.message
+        assert (
+            "Invalid value for request parameter max_results" in exception_context.exception.message
         )
 
     def test_search_registered_model_order_by(self):
