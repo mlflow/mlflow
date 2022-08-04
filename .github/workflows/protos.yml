@@ -2,7 +2,8 @@ name: Protos
 
 on:
   pull_request:
-    - mlflow/protos/**
+    paths:
+      - mlflow/protos/**
   push:
     branches:
       - master
