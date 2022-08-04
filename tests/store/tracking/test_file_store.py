@@ -153,24 +153,24 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         for exp in fs.list_experiments():
             exp_id = exp.experiment_id
             assert exp_id in self.experiments
-            self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
-            self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
+            assert exp.name == self.exp_data[exp_id]["name"]
+            assert exp.artifact_location == self.exp_data[exp_id]["artifact_location"]
 
     def test_list_experiments_paginated(self):
         fs = FileStore(self.test_root)
         for _ in range(10):
             fs.create_experiment(random_str(12))
         exps1 = fs.list_experiments(max_results=4, page_token=None)
-        self.assertEqual(len(exps1), 4)
-        self.assertIsNotNone(exps1.token)
+        assert len(exps1) == 4
+        assert exps1.token is not None
         exps2 = fs.list_experiments(max_results=4, page_token=None)
-        self.assertEqual(len(exps2), 4)
-        self.assertIsNotNone(exps2.token)
-        self.assertNotEqual(exps1, exps2)
+        assert len(exps2) == 4
+        assert exps2.token is not None
+        assert exps1 != exps2
         exps3 = fs.list_experiments(max_results=500, page_token=exps2.token)
-        self.assertLessEqual(len(exps3), 500)
+        assert len(exps3) <= 500
         if len(exps3) < 500:
-            self.assertIsNone(exps3.token)
+            assert exps3.token is None
 
     def test_search_experiments_view_type(self):
         self.initialize()
@@ -309,9 +309,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def _verify_experiment(self, fs, exp_id):
         exp = fs.get_experiment(exp_id)
-        self.assertEqual(exp.experiment_id, exp_id)
-        self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
-        self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
+        assert exp.experiment_id == exp_id
+        assert exp.name == self.exp_data[exp_id]["name"]
+        assert exp.artifact_location == self.exp_data[exp_id]["artifact_location"]
 
     def test_get_experiment(self):
         fs = FileStore(self.test_root)
@@ -336,15 +336,15 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         for exp_id in self.experiments:
             name = self.exp_data[exp_id]["name"]
             exp = fs.get_experiment_by_name(name)
-            self.assertEqual(exp.experiment_id, exp_id)
-            self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
-            self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
+            assert exp.experiment_id == exp_id
+            assert exp.name == self.exp_data[exp_id]["name"]
+            assert exp.artifact_location == self.exp_data[exp_id]["artifact_location"]
 
         # test that fake experiments dont exist.
         # look up experiments with names of length 15 since created ones are of length 10
         for exp_names in set(random_str(15) for x in range(20)):
             exp = fs.get_experiment_by_name(exp_names)
-            self.assertIsNone(exp)
+            assert exp is None
 
     def test_create_first_experiment(self):
         fs = FileStore(self.test_root)
@@ -353,7 +353,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
-        self.assertEqual(experiment_id, FileStore.DEFAULT_EXPERIMENT_ID)
+        assert experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
@@ -369,19 +369,18 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         name = random_str(25)  # since existing experiments are 10 chars long
         created_id = fs.create_experiment(name)
         # test that newly created experiment matches expected id
-        self.assertEqual(created_id, next_id)
+        assert created_id == next_id
 
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
-        self.assertEqual(exp1.name, name)
-        self.assertEqual(
-            exp1.artifact_location,
-            path_to_local_file_uri(posixpath.join(self.test_root, created_id)),
+        assert exp1.name == name
+        assert exp1.artifact_location == path_to_local_file_uri(
+            posixpath.join(self.test_root, created_id)
         )
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
-        self.assertEqual(exp2.experiment_id, created_id)
+        assert exp2.experiment_id == created_id
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -420,9 +419,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
                 exp = fs.get_experiment(exp_id)
-                self.assertEqual(
-                    exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
-                )
+                assert exp.artifact_location == expected_artifact_uri_format.format(e=exp_id)
 
     def test_create_experiment_with_tags_works_correctly(self):
         fs = FileStore(self.test_root)
@@ -457,20 +454,20 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
+        assert fs.get_experiment(exp_id).lifecycle_stage == LifecycleStage.DELETED
 
         # restore it
         fs.restore_experiment(exp_id)
         restored_1 = fs.get_experiment(exp_id)
-        self.assertEqual(restored_1.experiment_id, exp_id)
-        self.assertEqual(restored_1.name, exp_name)
+        assert restored_1.experiment_id == exp_id
+        assert restored_1.name == exp_name
         restored_2 = fs.get_experiment_by_name(exp_name)
-        self.assertEqual(restored_2.experiment_id, exp_id)
-        self.assertEqual(restored_2.name, exp_name)
+        assert restored_2.experiment_id == exp_id
+        assert restored_2.name == exp_name
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
         assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
         assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
-        self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
+        assert fs.get_experiment(exp_id).lifecycle_stage == LifecycleStage.ACTIVE
 
     def test_rename_experiment(self):
         fs = FileStore(self.test_root)
@@ -491,10 +488,10 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         exp_name = self.exp_data[exp_id]["name"]
         new_name = exp_name + "!!!"
-        self.assertNotEqual(exp_name, new_name)
-        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        assert exp_name != new_name
+        assert fs.get_experiment(exp_id).name == exp_name
         fs.rename_experiment(exp_id, new_name)
-        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        assert fs.get_experiment(exp_id).name == new_name
 
         # Ensure that we cannot rename deleted experiments.
         fs.delete_experiment(exp_id)
@@ -503,13 +500,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         ) as e:
             fs.rename_experiment(exp_id, exp_name)
         assert "non-active lifecycle" in str(e.value)
-        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        assert fs.get_experiment(exp_id).name == new_name
 
         # Restore the experiment, and confirm that we acn now rename it.
         fs.restore_experiment(exp_id)
-        self.assertEqual(fs.get_experiment(exp_id).name, new_name)
+        assert fs.get_experiment(exp_id).name == new_name
         fs.rename_experiment(exp_id, exp_name)
-        self.assertEqual(fs.get_experiment(exp_id).name, exp_name)
+        assert fs.get_experiment(exp_id).name == exp_name
 
     def test_delete_restore_run(self):
         fs = FileStore(self.test_root)
@@ -587,9 +584,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
                 run = fs.create_run(experiment_id=exp_id, user_id="user", start_time=0, tags=[])
-                self.assertEqual(
-                    run.info.artifact_uri,
-                    expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
+                assert run.info.artifact_uri == expected_artifact_uri_format.format(
+                    e=exp_id, r=run.info.run_id
                 )
 
     def test_create_run_in_deleted_experiment(self):
@@ -634,7 +630,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run_info.pop("tags", None)
         run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
         run_info["status"] = RunStatus.to_string(run_info["status"])
-        self.assertEqual(run_info, dict(run.info))
+        assert run_info == dict(run.info)
 
     def test_get_run(self):
         fs = FileStore(self.test_root)
@@ -663,7 +659,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 dict_run_info.pop("tags")
                 dict_run_info["lifecycle_stage"] = LifecycleStage.ACTIVE
                 dict_run_info["status"] = RunStatus.to_string(dict_run_info["status"])
-                self.assertEqual(dict_run_info, dict(run_info))
+                assert dict_run_info == dict(run_info)
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
@@ -714,8 +710,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
                     expected_timestamp, expected_value = max(metrics_dict[metric.key])
-                    self.assertEqual(metric.timestamp, expected_timestamp)
-                    self.assertEqual(metric.value, expected_value)
+                    assert metric.timestamp == expected_timestamp
+                    assert metric.value == expected_value
 
     def test_get_metric_history(self):
         fs = FileStore(self.test_root)
@@ -729,9 +725,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     sorted_values = sorted(values, reverse=True)
                     for metric in metric_history:
                         timestamp, metric_value = sorted_values.pop()
-                        self.assertEqual(metric.timestamp, timestamp)
-                        self.assertEqual(metric.key, metric_name)
-                        self.assertEqual(metric.value, metric_value)
+                        assert metric.timestamp == timestamp
+                        assert metric.key == metric_name
+                        assert metric.value == metric_value
 
     def _search(
         self,
@@ -770,45 +766,27 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.set_tag(r2, RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        self.assertCountEqual(
-            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
+        assert sorted([r1, r2]) == sorted(
+            self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
-        self.assertCountEqual(
-            [r1], self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
+        assert [r1] == self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
+        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
+        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
+        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
+        assert sorted([r1, r2]) == sorted(
+            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'")
         )
-        self.assertCountEqual(
-            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
+        assert sorted([r1, r2]) == sorted(
+            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'")
         )
-        self.assertCountEqual(
-            [], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
-        )
-        self.assertCountEqual(
-            [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
-        )
-        self.assertCountEqual(
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
-        )
-        self.assertCountEqual(
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
-        )
-        self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
-        self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
+        assert [r1] == self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
+        assert [r2] == self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'")
 
-        self.assertCountEqual(
-            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
-        )
-        self.assertCountEqual(
-            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
-        )
-        self.assertCountEqual(
-            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
-        )
-        self.assertCountEqual(
-            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
-        )
+        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
+        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
+        assert [] == self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
+        assert [r2] == self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
 
     def test_search_with_max_results(self):
         fs = FileStore(self.test_root)
