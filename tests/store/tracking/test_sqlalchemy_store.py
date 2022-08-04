@@ -274,6 +274,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             assert deleted_run.lifecycle_stage == entities.LifecycleStage.DELETED
             assert deleted_run.experiment_id in experiment_id
             assert deleted_run.run_id in run_ids
+            with self.store.ManagedSessionMaker() as session:
+                assert self.store._get_run(session, deleted_run.run_id).deleted_time is not None
 
         self.store.restore_experiment(experiment_id)
 
@@ -284,6 +286,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert len(restored_run_list) == 2
         for restored_run in restored_run_list:
             assert restored_run.lifecycle_stage == entities.LifecycleStage.ACTIVE
+            with self.store.ManagedSessionMaker() as session:
+                assert self.store._get_run(session, restored_run.run_id).deleted_time is None
             assert restored_run.experiment_id in experiment_id
             assert restored_run.run_id in run_ids
 
@@ -316,7 +320,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     .filter_by(experiment_id=experiment_id)
                     .first()
                 )
-                self.assertIn(res.name, testnames)
+                assert res.name in testnames
                 assert str(res.experiment_id) == experiment_id
 
     def test_list_experiments_paginated_last_page(self):
@@ -830,6 +834,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             assert actual.lifecycle_stage == entities.LifecycleStage.DELETED
+            assert (
+                actual.deleted_time is not None
+            )  # deleted time should be updated and thus not None anymore
 
             deleted_run = self.store.get_run(run.info.run_id)
             assert actual.run_uuid == deleted_run.info.run_id
@@ -1237,13 +1244,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         deleted = self.store.get_run(run.info.run_id)
         assert deleted.info.run_id == run.info.run_id
         assert deleted.info.lifecycle_stage == entities.LifecycleStage.DELETED
-
+        with self.store.ManagedSessionMaker() as session:
+            assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
         self.store.restore_run(run.info.run_id)
         with self.assertRaisesRegex(MlflowException, r"The run .+ must be in the 'deleted' state"):
             self.store.restore_run(run.info.run_id)
         restored = self.store.get_run(run.info.run_id)
         assert restored.info.run_id == run.info.run_id
         assert restored.info.lifecycle_stage == entities.LifecycleStage.ACTIVE
+        with self.store.ManagedSessionMaker() as session:
+            assert self.store._get_run(session, restored.info.run_id).deleted_time is None
 
     def test_error_logging_to_deleted_run(self):
         exp = self._experiment_factory("error_logging")
@@ -2330,6 +2340,7 @@ def test_get_attribute_name():
     assert models.SqlRun.get_attribute_name("status") == "status"
     assert models.SqlRun.get_attribute_name("start_time") == "start_time"
     assert models.SqlRun.get_attribute_name("end_time") == "end_time"
+    assert models.SqlRun.get_attribute_name("deleted_time") == "deleted_time"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
