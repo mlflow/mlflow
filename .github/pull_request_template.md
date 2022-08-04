@@ -27,7 +27,7 @@ Please describe how you confirmed the proposed feature/bug-fix/change works here
 - [ ] No. You can skip the rest of this section.
 - [ ] Yes. Make sure the changed pages / sections render correctly by following the steps below.
 
-1. Check the `Details` link on the `Preview docs` check.
+1. Click the `Details` link on the `Preview docs` check.
 2. Find the changed pages / sections and make sure they render correctly.
 
 ## Release Notes
