@@ -410,29 +410,31 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
     def test_search_experiments_filter_by_tag(self):
         experiments = [
-            ("exp1", [ExperimentTag("key", "value")]),
-            ("exp2", [ExperimentTag("key", "vaLue")]),
-            ("exp3", [ExperimentTag("k e y", "value")]),
+            ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+            ("exp2", [ExperimentTag("key1", "vaLue"), ExperimentTag("key2", "vaLue")]),
+            ("exp3", [ExperimentTag("k e y 1", "value")]),
         ]
         for name, tags in experiments:
             self.store.create_experiment(name, tags=tags)
 
-        experiments = self.store.search_experiments(filter_string="tag.key = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 = 'value'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.`k e y` = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.`k e y 1` = 'value'")
         assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.\"k e y\" = 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.\"k e y 1\" = 'value'")
         assert [e.name for e in experiments] == ["exp3"]
-        experiments = self.store.search_experiments(filter_string="tag.key != 'value'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 != 'value'")
         assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE 'val%'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 != 'VALUE'")
+        assert [e.name for e in experiments] == ["exp2", "exp1"]
+        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE 'val%'")
         assert [e.name for e in experiments] == ["exp1"]
-        experiments = self.store.search_experiments(filter_string="tag.key LIKE '%Lue'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 LIKE '%Lue'")
         assert [e.name for e in experiments] == ["exp2"]
-        experiments = self.store.search_experiments(filter_string="tag.key ILIKE '%alu%'")
+        experiments = self.store.search_experiments(filter_string="tag.key1 ILIKE '%alu%'")
         assert [e.name for e in experiments] == ["exp2", "exp1"]
         experiments = self.store.search_experiments(
-            filter_string="tag.key LIKE 'va%' AND tags.key LIKE '%Lue'"
+            filter_string="tag.key1 LIKE 'va%' AND tag.key2 LIKE '%Lue'"
         )
         assert [e.name for e in experiments] == ["exp2"]
         experiments = self.store.search_experiments(filter_string="tag.KEY = 'value'")
