@@ -1,3 +1,4 @@
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     evaluate,
     EvaluationResult,
@@ -716,6 +717,93 @@ def test_validation_multi_thresholds_should_fail(
         ) as _:
             with pytest.raises(
                 ModelValidationFailedException,
+                match=expected_failure_message,
+            ):
+                evaluate(
+                    multiclass_logistic_regressor_model_uri,
+                    data=iris_dataset._constructor_args["data"],
+                    model_type="classifier",
+                    targets=iris_dataset._constructor_args["targets"],
+                    dataset_name=iris_dataset.name,
+                    evaluators="test_evaluator1",
+                    evaluator_config=evaluator1_config,
+                    validation_thresholds=validation_thresholds,
+                    baseline_model=multiclass_logistic_regressor_model_uri,
+                )
+
+
+@pytest.fixture
+def missing_baseline_model_test_spec(request):
+    """
+    Test specification for missing baseline model tests:
+    :return: (
+                metrics: A dictionary mapping scalar metric names to scalar metric values,
+                baseline_model_metrics: A dictionary mapping scalar metric names
+                    to scalar metric values of baseline_model,
+                validation_threhsolds: A dictonary mapping scalar metric names
+                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+             )
+    """
+    if request.param == "min_relative_change_present":
+        acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
+        return (
+            {"accuracy": 0.75},
+            None,
+            {"accuracy": acc_threshold},
+        )
+    if request.param == "min_absolute_change_present":
+        acc_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+        return (
+            {"accuracy": 0.75},
+            None,
+            {"accuracy": acc_threshold},
+        )
+    if request.param == "both_relative_absolute_change_present":
+        acc_threshold = MetricThreshold(
+            min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
+        )
+        return (
+            {"accuracy": 0.75},
+            None,
+            {"accuracy": acc_threshold},
+        )
+
+
+@pytest.mark.parametrize(
+    "missing_baseline_model_test_spec",
+    [
+        ("min_relative_change_present"),
+        ("min_absolute_change_present"),
+        ("both_relative_absolute_change_present"),
+    ],
+    indirect=["missing_baseline_model_test_spec"],
+)
+def test_validation_missing_baseline_model(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    missing_baseline_model_test_spec,
+):
+    (
+        metrics,
+        baseline_model_metrics,
+        validation_thresholds,
+    ) = missing_baseline_model_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        evaluator1_config = {}
+        evaluator1_return_value = EvaluationResult(
+            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+        )
+        expected_failure_message = ""
+        with mock.patch.object(
+            MockEvaluator, "can_evaluate", return_value=True
+        ) as _, mock.patch.object(
+            MockEvaluator, "evaluate", return_value=evaluator1_return_value
+        ) as _:
+            with pytest.raises(
+                MlflowException,
                 match=expected_failure_message,
             ):
                 evaluate(

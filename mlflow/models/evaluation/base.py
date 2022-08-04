@@ -637,6 +637,17 @@ def _normalize_evaluators_and_evaluator_config_args(
     return evaluator_name_list, evaluator_name_to_conf_map
 
 
+def _model_validation_contains_model_comparison(validation_thresholds):
+    """
+    Helper function for determining if validation_thresholds containing
+    thresholds for model comparsion: either min_relative_change or min_absolute_change
+    """
+    thresholds = validation_thresholds.values()
+    return any(
+        threshold.min_relative_change or threshold.min_absolute_change for threshold in thresholds
+    )
+
+
 _last_failed_evaluator = None
 
 
@@ -1078,6 +1089,7 @@ def evaluate(
             "an instance of `mlflow.pyfunc.PyFuncModel`.",
             erorr_code=INVALID_PARAMETER_VALUE,
         )
+
     if isinstance(baseline_model, str):
         baseline_model = mlflow.pyfunc.load_model(baseline_model)
     elif baseline_model is not None:
@@ -1085,6 +1097,14 @@ def evaluate(
             message="The baseline model argument must be a string URI referring to an MLflow model",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    else:
+        if _model_validation_contains_model_comparison(validation_thresholds):
+            raise MlflowException(
+                message="The baseline model argument must be a string URI referring to "
+                "an MLflow model when model comparison thresholds  "
+                "(min_absolute_change, min_relative_change) are specified.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     (
         evaluator_name_list,
