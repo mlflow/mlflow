@@ -1069,6 +1069,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(BAD_REQUEST)
 
+    def test_log_param_max_length_value(self):
+        run = self._run_factory()
+        tkey = "blahmetric"
+        tval = "x" * 500
+        param = entities.Param(tkey, tval)
+        self.store.log_param(run.info.run_id, param)
+        run = self.store.get_run(run.info.run_id)
+        assert run.data.params[tkey] == str(tval)
+        with pytest.raises(MlflowException, match="exceeded length"):
+            self.store.log_param(run.info.run_id, entities.Param(tkey, "x" * 1000))
+
     def test_set_experiment_tag(self):
         exp_id = self._experiment_factory("setExperimentTagExp")
         tag = entities.ExperimentTag("tag0", "value0")
@@ -2076,6 +2087,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) as exception_context:
             self.store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_log_batch_params_max_length_value(self):
+        run = self._run_factory()
+        param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+        expected_param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
+        self.store.log_batch(run.info.run_id, [], param_entities, [])
+        self._verify_logged(self.store, run.info.run_id, [], expected_param_entities, [])
+        with pytest.raises(MlflowException, match="exceeded length"):
+            param_entities = [Param("long param", "x" * 1000)]
+            self.store.log_batch(run.info.run_id, [], param_entities, [])
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
