@@ -1122,7 +1122,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         os.remove(path)
         with pytest.raises(MissingConfigException, match="does not exist") as e:
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-        assert e.message.contains("does not exist")
+        assert e.value.message.contains("does not exist")
 
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
 

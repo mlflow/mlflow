@@ -109,18 +109,18 @@ def test_register_model_with_unexpected_mlflow_exception_in_create_registered_mo
         "create_registered_model",
         side_effect=MlflowException("Dunno", INTERNAL_ERROR),
     )
-    register_model("s3:/some/path/to/model", "Model 1")
     with create_model_patch, pytest.raises(MlflowException, match="Dunno"):
-        MlflowClient.create_registered_model.assert_called_once_with("Model 1")
+        register_model("s3:/some/path/to/model", "Model 1")
+    MlflowClient.create_registered_model.assert_called_once_with("Model 1")
 
 
 def test_register_model_with_unexpected_exception_in_create_registered_model():
     create_model_patch = mock.patch.object(
         MlflowClient, "create_registered_model", side_effect=Exception("Dunno")
     )
-    register_model("s3:/some/path/to/model", "Model 1")
     with create_model_patch, pytest.raises(Exception, match="Dunno"):
-        MlflowClient.create_registered_model.assert_called_once_with("Model 1")
+        register_model("s3:/some/path/to/model", "Model 1")
+    MlflowClient.create_registered_model.assert_called_once_with("Model 1")
 
 
 def test_register_model_with_tags():
