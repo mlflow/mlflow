@@ -1990,13 +1990,14 @@ class MlflowClient:
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string (e.g., ``"name = 'a_model_name'"``),
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all registered models. The following identifiers, comparators,
             and logical operators are supported.
 
             Identifiers
               - ``name``: registered model name.
-              - ``tags.<tag_key>``: registered model tag. If ``tag_key`` contains paces, it must be
+              - ``tags.<tag_key>``: registered model tag. If ``tag_key`` contains spaces, it must be
                 wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
             Comparators
@@ -2694,7 +2695,8 @@ class MlflowClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string (e.g., ``"name = 'a_model_name'"``),
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
             defaults to searching for all model versions. The following identifiers, comparators,
             and logical operators are supported.
 
@@ -2702,7 +2704,7 @@ class MlflowClient:
               - ``name``: model name.
               - ``source_path``: model version source path.
               - ``run_id``: The id of the mlflow run that generates the model version.
-              - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains paces, it must be
+              - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
                 wrapped with backticks (e.g., ``"tags.`extra key`"``).
 
             Comparators

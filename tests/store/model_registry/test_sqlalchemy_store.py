@@ -914,6 +914,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
+            MlflowException, r"Invalid clause\(s\) in filter string"
+        ) as exception_context:
+            search_versions("name LIKE")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        with self.assertRaisesRegex(
             MlflowException,
             (
                 r"While parsing a list in the query, "
@@ -1161,6 +1167,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert rms == [name1]
 
         rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%'")
+        assert rms == [name1, name2]
+
+        rms, _ = self._search_registered_models("tag.t1 ILIKE 'aB%'")
         assert rms == [name1, name2]
 
         rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
