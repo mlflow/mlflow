@@ -57,7 +57,7 @@ class PytestRaisesChecker(BaseChecker):
         ),
         "W0004": (
             "`pytest.raises` block should not contain multiple statements and control flow"
-            " structures",
+            " structures. It should only contain a single statement that throws an exception.",
             COMPLEX_BODY,
             "Any initialization/finalization code should be moved outside of `pytest.raises` block",
         ),
