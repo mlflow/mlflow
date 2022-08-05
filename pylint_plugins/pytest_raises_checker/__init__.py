@@ -17,11 +17,8 @@ def _called_with_match(node: astroid.Call):
     return any(k.arg == "match" for k in node.keywords)
 
 
-def _is_complex_pytest_raises(raises_with: astroid.With):
-    if len(raises_with.body) > 1:
-        return True
-
-    return False
+def _contains_multiple_statements(raises_with: astroid.With):
+    return len(raises_with.body) > 1
 
 
 class PytestRaisesChecker(BaseChecker):
@@ -54,6 +51,6 @@ class PytestRaisesChecker(BaseChecker):
 
     def visit_with(self, node: astroid.With):
         if any(_is_pytest_raises_call(item[0]) for item in node.items) and (
-            _is_complex_pytest_raises(node)
+            _contains_multiple_statements(node)
         ):
             self.add_message(PytestRaisesChecker.MULTIPLE_STATEMENTS, node=node)
