@@ -439,9 +439,9 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 attr = getattr(SqlModelVersion, "source" if key == "source_path" else key)
                 if comparator == "IN":
-                    # Note: Here the run_id values in databases contains only lower case letters,
+                    # Note: Here the run_id values in databases contain only lower case letters,
                     # so we already filter out comparison values containing upper case letters
-                    # in `SearchModelUtils._get_values`. This addresses MySQL IN clause case
+                    # in `SearchModelUtils._get_value`. This addresses MySQL IN clause case
                     # in-sensitive issue.
                     f = attr.in_(value)
                 else:
@@ -845,7 +845,7 @@ class SqlAlchemyStore(AbstractStore):
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects. The order of returned records is descending order of last updated time.
+                 objects sorted by last updated time in descending order.
         """
         parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
 

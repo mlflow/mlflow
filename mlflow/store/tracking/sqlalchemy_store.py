@@ -513,8 +513,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_experiment_is_active(experiment)
 
             # Note: we need to ensure the generated "run_id" only contains digits and lower
-            # case letters, because some query filters contains "IN" clause, and in MYSQL the
-            # "IN" clause is case in-sensitive, we use a trick that filter out comparison values
+            # case letters, because some query filters contain "IN" clause, and in MYSQL the
+            # "IN" clause is case-insensitive, we use a trick that filters out comparison values
             # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
