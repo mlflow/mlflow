@@ -119,8 +119,8 @@ class TrainStep(BaseStep):
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
-            MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["initial_config_profile"],
-            MLFLOW_PIPELINE_STEP_NAME: self.step_config["initial_config_step"]
+            MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
+            MLFLOW_PIPELINE_STEP_NAME: self.step_config["run_args"]["step"]
         }
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
@@ -450,8 +450,8 @@ class TrainStep(BaseStep):
             step_config = pipeline_config["steps"]["train"]
             step_config["metrics"] = pipeline_config.get("metrics")
             step_config["template_name"] = pipeline_config.get("template")
-            step_config["initial_config_profile"] = pipeline_config.get("initial_config_profile")
-            step_config["initial_config_step"] = pipeline_config.get("initial_config_step")
+            step_config["profile"] = pipeline_config.get("profile")
+            step_config["run_args"] = pipeline_config.get("run_args")
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,

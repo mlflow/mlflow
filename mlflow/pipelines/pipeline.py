@@ -41,7 +41,7 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
-        self._initial_config_step = ""
+        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
@@ -71,8 +71,10 @@ class _BasePipeline:
         :return: None
         """
 
-        # Save the step requested by the user so it can be saved as a tag
-        self._initial_config_step = step
+        # Save the run parameters for later
+        self._run_args = {
+            "step": step
+        }
 
         # TODO Record performance here.
         # Always resolve the steps to load latest step modules before execution.
@@ -171,8 +173,8 @@ class _BasePipeline:
         Constructs and returns all pipeline step objects from the pipeline configuration.
         """
         pipeline_config = get_pipeline_config(self._pipeline_root_path, self._profile)
-        pipeline_config["initial_config_profile"] = self.profile
-        pipeline_config["initial_config_step"] = self._initial_config_step
+        pipeline_config["profile"] = self.profile
+        pipeline_config["run_args"] = self._run_args
         return [
             s.from_pipeline_config(pipeline_config, self._pipeline_root_path)
             for s in self._get_step_classes()
