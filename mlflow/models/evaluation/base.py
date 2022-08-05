@@ -1073,7 +1073,7 @@ def evaluate(
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
-    # pylint: disable=line-too-long
+
     :param validation_thresholds: (Optional) A dictionary of metric name to
                                              :py:class:`mlflow.models.MetricThreshold` used for
                                              model validation. Metric name must be one of the
@@ -1083,15 +1083,27 @@ def evaluate(
                                              .. code-block:: python
                                                  :caption: Example of Model Validation
 
-                                                 validation_thresholds = {
+                                                 thresholds = {
                                                      # Metric Value Threshold
-                                                     "f1_score": MetricThreshold(threshold=0.8, higher_is_better=True),
-                                                     # Model Comparison: min_absolute_change, min_relative_change
-                                                     "log_loss": MetricThreshold(min_absolute_change=0.05,
-                                                         min_relative_change=0.1, higher_is_better=False),
-                                                     # Both Metric Value Threshold and Model Comparison
-                                                     "accuarcy": MetricThreshold(threshold=0.8, min_absolute_change=0.09,
-                                                         min_relative_change=0.05, higher_is_better=True),
+                                                     "f1_score": MetricThreshold(
+                                                         threshold=0.8,
+                                                         higher_is_better=True
+                                                     ),
+                                                     # Model Comparison: min_absolute_change
+                                                     # and min_relative_change
+                                                     "log_loss": MetricThreshold(
+                                                         min_absolute_change=0.05,
+                                                         min_relative_change=0.1,
+                                                         higher_is_better=False
+                                                     ),
+                                                     # Both Metric Value Threshold
+                                                     # and Model Comparison
+                                                     "accuarcy": MetricThreshold(
+                                                         threshold=0.8,
+                                                         min_absolute_change=0.09,
+                                                         min_relative_change=0.05,
+                                                         higher_is_better=True
+                                                     ),
                                                  }
 
                                                  with mlflow.start_run():
@@ -1103,7 +1115,7 @@ def evaluate(
                                                          dataset_name,
                                                          evaluators,
                                                          custom_metrics=[custom_l1_loss],
-                                                         validation_thresholds=validation_thresholds,
+                                                         validation_thresholds=thresholds,
                                                          baseline_model=your_baseline_model
 
                                                      )
