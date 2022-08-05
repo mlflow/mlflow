@@ -41,6 +41,7 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
     _validate_param_name,
+    _validate_param,
     _validate_run_id,
     _validate_tag_name,
     _validate_experiment_id,
@@ -857,7 +858,7 @@ class FileStore(AbstractStore):
 
     def log_param(self, run_id, param):
         _validate_run_id(run_id)
-        _validate_param_name(param.key)
+        _validate_param(param.key, param.value)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_param(run_info, param)
