@@ -404,9 +404,8 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     with AzureMLMocks(), pytest.raises(
         MlflowException, match="does not contain the `python_function` flavor"
     ) as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.build_image(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
@@ -420,9 +419,8 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.save(model_config_path)
 
     with AzureMLMocks(), pytest.raises(MlflowException, match="Python 3 and above") as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.build_image(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")

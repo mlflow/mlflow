@@ -278,9 +278,8 @@ def test_deploy_throws_exception_if_model_does_not_contain_pyfunc_flavor(sklearn
     with AzureMLMocks(), pytest.raises(
         MlflowException, match="does not contain the `python_function` flavor"
     ) as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.deploy(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.deploy(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
@@ -294,9 +293,8 @@ def test_deploy_throws_exception_if_model_python_version_is_less_than_three(
     model_config.save(model_config_path)
 
     with AzureMLMocks(), pytest.raises(MlflowException, match="Python 3 and above") as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.deploy(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.deploy(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.error_code == INVALID_PARAMETER_VALUE
 
 
 def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(

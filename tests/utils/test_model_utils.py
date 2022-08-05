@@ -37,7 +37,7 @@ def test_get_flavor_configuration_throws_exception_when_model_configuration_does
         mlflow_model_utils._get_flavor_configuration(
             model_path=model_path, flavor_name=mlflow.mleap.FLAVOR_NAME
         )
-        assert exc.error_code == RESOURCE_DOES_NOT_EXIST
+    assert exc.error_code == RESOURCE_DOES_NOT_EXIST
 
 
 def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_missing(
@@ -56,7 +56,7 @@ def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_miss
         mlflow_model_utils._get_flavor_configuration(
             model_path=model_path, flavor_name=MLEAP_FLAVOR_NAME
         )
-        assert exc.error_code == RESOURCE_DOES_NOT_EXIST
+    assert exc.error_code == RESOURCE_DOES_NOT_EXIST
 
 
 def test_get_flavor_configuration_with_present_flavor_returns_expected_configuration(
