@@ -3,6 +3,8 @@ import time
 import logging
 import sqlalchemy
 
+from sqlalchemy.future import select
+
 from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
     ALL_STAGES,
@@ -31,7 +33,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchUtils, SearchModelUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
     _validate_registered_model_tag,
@@ -323,7 +325,12 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
+        parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
+
+        filter_query = self._get_search_registered_model_filter_query(
+            parsed_filters, self.engine.dialect.name
+        )
+
         parsed_orderby = self._parse_search_registered_models_order_by(order_by)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         # we query for max_results + 1 items to check whether there is another page to return.
@@ -337,61 +344,148 @@ class SqlAlchemyStore(AbstractStore):
                 next_token = SearchUtils.create_page_token(final_offset)
             return next_token
 
-        if len(parsed_filter) == 0:
-            conditions = []
-        elif len(parsed_filter) == 1:
-            filter_dict = parsed_filter[0]
-            comparator = filter_dict["comparator"].upper()
-            if comparator not in SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS:
-                raise MlflowException(
-                    "Search registered models filter expression only "
-                    "supports the equality(=) comparator, case-sensitive"
-                    "partial match (LIKE), and case-insensitive partial "
-                    "match (ILIKE). Input filter string: %s" % filter_string,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if comparator == SearchUtils.LIKE_OPERATOR:
-                conditions = [
-                    SearchUtils.get_sql_filter_ops(
-                        SqlRegisteredModel.name, "LIKE", self._get_dialect()
-                    )(filter_dict["value"])
-                ]
-            elif comparator == SearchUtils.ILIKE_OPERATOR:
-                conditions = [
-                    SearchUtils.get_sql_filter_ops(
-                        SqlRegisteredModel.name, "ILIKE", self._get_dialect()
-                    )(filter_dict["value"])
-                ]
-            else:
-                conditions = [
-                    SearchUtils.get_sql_filter_ops(
-                        SqlRegisteredModel.name, "=", self._get_dialect()
-                    )(filter_dict["value"])
-                ]
-        else:
-            supported_ops = "".join(
-                ["(" + op + ")" for op in SearchUtils.VALID_REGISTERED_MODEL_SEARCH_COMPARATORS]
-            )
-            sample_query = 'name {} "<model_name>"'.format(supported_ops)
-            raise MlflowException(
-                "Invalid filter string: {}".format(filter_string)
-                + "Search registered models supports filter expressions like:"
-                + sample_query,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
         with self.ManagedSessionMaker() as session:
             query = (
-                session.query(SqlRegisteredModel)
-                .filter(*conditions)
+                filter_query.options(*self._get_eager_registered_model_query_options())
                 .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
             )
             if page_token:
                 query = query.offset(offset)
-            sql_registered_models = query.all()
+            sql_registered_models = session.execute(query).scalars(SqlRegisteredModel).all()
             next_page_token = compute_next_token(len(sql_registered_models))
             rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
             return PagedList(rm_entities, next_page_token)
+
+    @classmethod
+    def _get_search_registered_model_filter_query(cls, parsed_filters, dialect):
+        attribute_filters = []
+        tag_filters = {}
+        for f in parsed_filters:
+            type_ = f["type"]
+            key = f["key"]
+            comparator = f["comparator"]
+            value = f["value"]
+            if type_ == "attribute":
+                if key != "name":
+                    raise MlflowException(
+                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
+                    )
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException(
+                        f"Invalid comparator for attribute: {comparator}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                attr = getattr(SqlRegisteredModel, key)
+                f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
+                attribute_filters.append(f)
+            elif type_ == "tag":
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for tag: {comparator}"
+                    )
+                if key not in tag_filters:
+                    key_filter = SearchUtils.get_sql_filter_ops(
+                        SqlRegisteredModelTag.key, "=", dialect
+                    )(key)
+                    tag_filters[key] = [key_filter]
+
+                val_filter = SearchUtils.get_sql_filter_ops(
+                    SqlRegisteredModelTag.value, comparator, dialect
+                )(value)
+                tag_filters[key].append(val_filter)
+            else:
+                raise MlflowException(
+                    f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
+                )
+
+        rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
+        if tag_filters:
+            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
+            tag_filter_query = (
+                select(SqlRegisteredModelTag.name)
+                .filter(sqlalchemy.or_(*sql_tag_filters))
+                .group_by(SqlRegisteredModelTag.name)
+                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
+                .subquery()
+            )
+
+            return rm_query.join(
+                tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
+            )
+        else:
+            return rm_query
+
+    @classmethod
+    def _get_search_model_versions_filter_clauses(cls, parsed_filters, dialect):
+        attribute_filters = []
+        tag_filters = {}
+        for f in parsed_filters:
+            type_ = f["type"]
+            key = f["key"]
+            comparator = f["comparator"]
+            value = f["value"]
+            if type_ == "attribute":
+                if key not in ("name", "source_path", "run_id"):
+                    raise MlflowException(
+                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
+                    )
+                if comparator not in ("=", "!=", "LIKE", "ILIKE", "IN") or (
+                    comparator == "IN" and key != "run_id"
+                ):
+                    raise MlflowException(
+                        f"Invalid comparator for attribute: {comparator}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                attr = getattr(SqlModelVersion, "source" if key == "source_path" else key)
+                if comparator == "IN":
+                    # Note: Here the run_id values in databases contain only lower case letters,
+                    # so we already filter out comparison values containing upper case letters
+                    # in `SearchModelUtils._get_value`. This addresses MySQL IN clause case
+                    # in-sensitive issue.
+                    f = attr.in_(value)
+                else:
+                    f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
+                attribute_filters.append(f)
+            elif type_ == "tag":
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                    raise MlflowException.invalid_parameter_value(
+                        f"Invalid comparator for tag: {comparator}",
+                    )
+                if key not in tag_filters:
+                    key_filter = SearchUtils.get_sql_filter_ops(
+                        SqlModelVersionTag.key, "=", dialect
+                    )(key)
+                    tag_filters[key] = [key_filter]
+
+                val_filter = SearchUtils.get_sql_filter_ops(
+                    SqlModelVersionTag.value, comparator, dialect
+                )(value)
+                tag_filters[key].append(val_filter)
+            else:
+                raise MlflowException(
+                    f"Invalid token type: {type_}", error_code=INVALID_PARAMETER_VALUE
+                )
+
+        mv_query = select(SqlModelVersion).filter(*attribute_filters)
+        if tag_filters:
+            sql_tag_filters = map(lambda x: sqlalchemy.and_(*x), tag_filters.values())
+            tag_filter_query = (
+                select(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                .filter(sqlalchemy.or_(*sql_tag_filters))
+                .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
+                .subquery()
+            )
+            return mv_query.join(
+                tag_filter_query,
+                sqlalchemy.and_(
+                    SqlModelVersion.name == tag_filter_query.c.name,
+                    SqlModelVersion.version == tag_filter_query.c.version,
+                ),
+            )
+        else:
+            return mv_query
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -751,47 +845,22 @@ class SqlAlchemyStore(AbstractStore):
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects.
+                 objects sorted by last updated time in descending order.
         """
-        parsed_filter = SearchUtils.parse_filter_for_model_versions(filter_string)
-        if len(parsed_filter) == 0:
-            conditions = []
-        elif len(parsed_filter) == 1:
-            filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
-                raise MlflowException(
-                    "Model Registry search filter only supports the equality(=) "
-                    "comparator and the IN operator "
-                    "for the run_id parameter. Input filter string: %s" % filter_string,
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if filter_dict["key"] == "name":
-                conditions = [SqlModelVersion.name == filter_dict["value"]]
-            elif filter_dict["key"] == "source_path":
-                conditions = [SqlModelVersion.source == filter_dict["value"]]
-            elif filter_dict["key"] == "run_id":
-                if filter_dict["comparator"] == "IN":
-                    conditions = [SqlModelVersion.run_id.in_(filter_dict["value"])]
-                else:
-                    conditions = [SqlModelVersion.run_id == filter_dict["value"]]
-            else:
-                raise MlflowException(
-                    "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
-                )
-        else:
-            raise MlflowException(
-                "Model Registry expects filter to be one of "
-                "\"name = '<model_name>'\" or "
-                "\"source_path = '<source_path>'\" "
-                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
-                "Input filter string: %s. " % filter_string,
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        parsed_filters = SearchModelUtils.parse_search_filter(filter_string)
+
+        filter_query = self._get_search_model_versions_filter_clauses(
+            parsed_filters, self.engine.dialect.name
+        )
 
         with self.ManagedSessionMaker() as session:
-            conditions.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
-            sql_model_version = session.query(SqlModelVersion).filter(*conditions).all()
-            model_versions = [mv.to_mlflow_entity() for mv in sql_model_version]
+            stmt = (
+                filter_query.options(*self._get_eager_model_version_query_options())
+                .filter(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
+                .order_by(SqlModelVersion.last_updated_time.desc())
+            )
+            sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
+            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]
             return PagedList(model_versions, None)
 
     @classmethod

@@ -426,7 +426,7 @@ class MlflowClient:
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -1990,12 +1990,25 @@ class MlflowClient:
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered
-                models. Currently, it supports only a single filter condition as the name
-                of the model, for example, ``name = 'model_name'`` or a search expression
-                to match a pattern in the registered model name.
-                For example, ``name LIKE 'Boston%'`` (case sensitive) or
-                ``name ILIKE '%boston%'`` (case insensitive).
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+            defaults to searching for all registered models. The following identifiers, comparators,
+            and logical operators are supported.
+
+            Identifiers
+              - ``name``: registered model name.
+              - ``tags.<tag_key>``: registered model tag. If ``tag_key`` contains spaces, it must be
+                wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -2682,9 +2695,28 @@ class MlflowClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently, it supports a single filter
-                              condition either a name of model like ``name = 'model_name'`` or
-                              ``run_id = '...'``.
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+            defaults to searching for all model versions. The following identifiers, comparators,
+            and logical operators are supported.
+
+            Identifiers
+              - ``name``: model name.
+              - ``source_path``: model version source path.
+              - ``run_id``: The id of the mlflow run that generates the model version.
+              - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
+                wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
+              - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
 
         .. code-block:: python
