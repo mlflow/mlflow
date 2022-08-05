@@ -678,42 +678,6 @@ class SearchUtils:
             )
 
     @classmethod
-    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-        cls._validate_comparison(stripped_comparison)
-        key = stripped_comparison[0].value
-        if key not in valid_search_keys:
-            raise MlflowException(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_search_keys),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        value_token = stripped_comparison[2]
-        if (
-            not isinstance(value_token, Parenthesis)
-            and value_token.ttype not in cls.STRING_VALUE_TYPES
-        ):
-            raise MlflowException(
-                "Expected a quoted string value for attributes. "
-                "Got value {value} with type {type}".format(
-                    value=value_token.value, type=type(value_token)
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif isinstance(value_token, Parenthesis):
-            cls._check_valid_identifier_list(value_token)
-            value = cls._parse_list_from_sql_token(value_token)
-        else:
-            value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
-
-        comp = {
-            "key": key,
-            "comparator": stripped_comparison[1].value,
-            "value": value,
-        }
-        return comp
-
-    @classmethod
     def _is_list_component_token(cls, token):
         return isinstance(token, (Identifier, Parenthesis)) or token.match(
             ttype=TokenType.Keyword, values=["IN"]
