@@ -33,6 +33,7 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
     _dataframe_from_json,
+    dataframe_from_parsed_json,
     _get_jsonable_obj,
     parse_tf_serving_input,
 )
@@ -88,7 +89,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         )
 
     if isinstance(decoded_input, list):
-        return parse_json_input(json_input=json_input, orient="records", schema=schema)
+        return dataframe_from_parsed_json(decoded_input, pandas_orient="records", schema=schema)
     elif isinstance(decoded_input, dict):
         if "instances" in decoded_input or "inputs" in decoded_input:
             try:
@@ -98,8 +99,10 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                     error_message=(ex.message),
                     error_code=BAD_REQUEST,
                 )
+        elif "data" in decoded_input:
+            return dataframe_from_parsed_json(decoded_input, pandas_orient="split", schema=schema)
         else:
-            return parse_json_input(json_input=json_input, orient="split", schema=schema)
+            return dataframe_from_parsed_json(decoded_input, pandas_orient="records", schema=schema)
     else:
         _handle_serving_error(
             error_message=(

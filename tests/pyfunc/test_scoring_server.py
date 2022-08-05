@@ -53,7 +53,6 @@ def pandas_df_with_all_types():
             "long": np.array([1, 2, 3], np.int64),
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
-            "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
             "datetime": [
                 np.datetime64("2021-01-01 00:00:00"),
                 np.datetime64("2021-02-02 00:00:00"),
@@ -61,7 +60,10 @@ def pandas_df_with_all_types():
             ],
         }
     )
-    pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
+    pdf["binary"] = pd.Series(
+        [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])], dtype=object
+    )
+    pdf["string"] = pd.Series(["a", "b", "c"])
     return pdf
 
 
@@ -475,7 +477,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert df["bad_float"].dtype == np.float32
     assert all(df["bad_float"] == np.array([1.1, 9007199254740992, 3.3], dtype=np.float32))
     # String is forced:
-    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=str))
+    assert all(df["bad_string"] == np.array([1, 2, 3], dtype=object))
 
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == bool

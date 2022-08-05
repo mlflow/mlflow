@@ -193,9 +193,7 @@ class NumpyEncoder(JSONEncoder):
             return super().default(o)
 
 
-def _dataframe_from_json(
-    path_or_str, schema=None, pandas_orient: str = "split", precise_float=False
-):
+def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).
@@ -206,40 +204,76 @@ def _dataframe_from_json(
     :return: pandas.DataFrame.
     """
     import pandas as pd
-
     from mlflow.types import DataType
 
-    if schema is not None:
-        if schema.is_tensor_spec():
-            # The schema can be either:
-            #  - a single tensor: attempt to parse all columns with the same dtype
-            #  - a dictionary of tensors: each column gets the type from an equally named tensor
-            if len(schema.inputs) == 1:
-                dtypes = schema.numpy_types()[0]
-            else:
-                dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
+    if pandas_orient == "records":
+        pdf = pd.DataFrame.from_dict(decoded_input)
+    elif pandas_orient == "split":
+        if not isinstance(decoded_input, dict):
+            raise Exception(f"Unexpected input, expected a dictionary, got {type(decoded_input)}")
+        if "data" not in decoded_input:
+            raise Exception("Unexpected input, missing 'data' field.")
+        extra_keys = set(decoded_input.keys()).difference(set(["columns", "data", "index"]))
+        if extra_keys:
+            raise Exception(f"Unexpected input {extra_keys}")
+        pdf = pd.DataFrame(
+            index=decoded_input.get("index"),
+            columns=decoded_input.get("columns"),
+            data=decoded_input["data"],
+        )
+    if schema is None:
+        return pdf
+
+    def convert_np_to_df_type(numpy_type):
+        if numpy_type.kind in ("S", "U"):
+            return object
         else:
-            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-        df = pd.read_json(
-            path_or_str,
-            orient=pandas_orient,
-            dtype=dtypes,
-            precise_float=precise_float,
-            convert_dates=False,
-        )
-        # In pandas < 1.4, `pandas.read_json` ignores non-numpy dtypes:
-        # https://github.com/pandas-dev/pandas/issues/33205
-        df = df.astype(dtypes)
-        if not schema.is_tensor_spec():
-            actual_cols = set(df.columns)
-            for type_, name in zip(schema.input_types(), schema.input_names()):
-                if type_ == DataType.binary and name in actual_cols:
-                    df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
-        return df
+            return numpy_type
+
+    actual_cols = set(pdf.columns)
+    if schema.is_tensor_spec() and len(schema.inputs) == 1:
+        dtypes = convert_np_to_df_type(schema.numpy_types()[0])
+    elif schema.is_tensor_spec():
+        dtypes = {
+            x.name: convert_np_to_df_type(x.type) for x in schema.inputs if x.name in actual_cols
+        }
     else:
-        return pd.read_json(
-            path_or_str, orient=pandas_orient, dtype=False, precise_float=precise_float
-        )
+        dtypes = {
+            x.name: convert_np_to_df_type(x.type.to_numpy())
+            for x in schema.inputs
+            if x.name in actual_cols
+        }
+    pdf = pdf.astype(dtypes, copy=False)
+    # convert binary types if any
+    for type_, name in zip(schema.input_types(), schema.input_names()):
+        if type_ == DataType.binary and name in actual_cols:
+            pdf[name] = pdf[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
+        elif (
+            type_ == bytes
+        ):  # NB: this happens if schema is tensors. We don't base64decode tensors.
+            pdf[name] = pdf[name].map(lambda x: bytes(x, "utf8"))
+    return pdf
+
+
+def _dataframe_from_json(path_or_str, schema=None, pandas_orient: str = "split"):
+    """
+    Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
+    make any necessary conversions (e.g. string -> binary for binary columns).
+
+    :param path_or_str: Path to a json file or a json string.
+    :param schema: Mlflow schema used when parsing the data.
+    :param pandas_orient: pandas data frame convention used to store the data.
+    :return: pandas.DataFrame.
+    """
+    if isinstance(path_or_str, str):
+        try:
+            with open(path_or_str, "r") as f:
+                decoded_input = json.load(f)
+        except Exception:
+            decoded_input = json.loads(path_or_str)
+    else:
+        decoded_input = json.load(path_or_str)
+    return dataframe_from_parsed_json(decoded_input, pandas_orient, schema)
 
 
 def _get_jsonable_obj(data, pandas_orient="records"):
