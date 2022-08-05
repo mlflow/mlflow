@@ -104,23 +104,23 @@ def test_register_model_with_existing_registered_model():
 
 
 def test_register_model_with_unexpected_mlflow_exception_in_create_registered_model():
-    create_model_patch = mock.patch.object(
+    with mock.patch.object(
         MlflowClient,
         "create_registered_model",
         side_effect=MlflowException("Dunno", INTERNAL_ERROR),
-    )
-    with create_model_patch, pytest.raises(MlflowException, match="Dunno"):
-        register_model("s3:/some/path/to/model", "Model 1")
-    MlflowClient.create_registered_model.assert_called_once_with("Model 1")
+    ) as mock_create_registered_model:
+        with pytest.raises(MlflowException, match="Dunno"):
+            register_model("s3:/some/path/to/model", "Model 1")
+        mock_create_registered_model.assert_called_once_with("Model 1")
 
 
 def test_register_model_with_unexpected_exception_in_create_registered_model():
-    create_model_patch = mock.patch.object(
+    with mock.patch.object(
         MlflowClient, "create_registered_model", side_effect=Exception("Dunno")
-    )
-    with create_model_patch, pytest.raises(Exception, match="Dunno"):
-        register_model("s3:/some/path/to/model", "Model 1")
-    MlflowClient.create_registered_model.assert_called_once_with("Model 1")
+    ) as create_registered_model_mock:
+        with pytest.raises(Exception, match="Dunno"):
+            register_model("s3:/some/path/to/model", "Model 1")
+        create_registered_model_mock.assert_called_once_with("Model 1")
 
 
 def test_register_model_with_tags():
