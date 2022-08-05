@@ -1120,9 +1120,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException, match="does not exist") as e:
+        with pytest.raises(MissingConfigException, match="does not exist"):
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-            assert e.message.contains("does not exist")
 
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
 
@@ -1223,8 +1222,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.log_batch(run.info.run_id, (), param_entities, ())
         self._verify_logged(fs, run.info.run_id, (), expected_param_entities, ())
 
+        param_entities = [Param("long param", "x" * 1000), Param("short param", "xyz")]
         with pytest.raises(MlflowException, match="exceeded length"):
-            param_entities = [Param("long param", "x" * 1000), Param("short param", "xyz")]
             fs.log_batch(run.info.run_id, (), param_entities, ())
 
     def test_log_batch_internal_error(self):
