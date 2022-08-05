@@ -402,7 +402,7 @@ def active_run() -> Optional[ActiveRun]:
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
-    to access such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
+    to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
 
     .. code-block:: python
         :caption: Example
