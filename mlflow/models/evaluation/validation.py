@@ -7,21 +7,21 @@ class MetricThreshold:
     This class allows you to define metric thresholds for model validation.
     Allowed thresholds are: threshold, min_absolute_change, min_relative_change.
 
-    :param threshold: A floating number representing the value threshold for the metric.
+    :param threshold: A number representing the value threshold for the metric.
 
                       - If higher is better for the metric, the metric value has to be
                         >= threshold to pass validation.
                       - Otherwise, the metric value has to be <= threshold to pass the validation.
 
-    :param min_absolute_change: A floating point number representing the minimum absolute change
-                                required for candidate model to pass the comparison with
+    :param min_absolute_change: A positive floating point number representing the minimum absolute
+                                change required for candidate model to pass the comparison with
                                 the baseline model.
 
                                 - If higher is better for the metric, metric value has to be
                                   >= baseline model metric value + min_absolute_change
                                   to pass the validation.
                                 - Otherwise, metric value has to be
-                                  <= baseline model metric value + min_absolute_change
+                                  <= baseline model metric value - min_absolute_change
                                   to pass the validation.
 
     :param min_relative_change: A floating point number between 0 and 1 representing
