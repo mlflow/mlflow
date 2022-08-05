@@ -1090,7 +1090,7 @@ def search_experiments(
           - ``=``: Equal to.
           - ``!=``: Not equal to.
           - ``LIKE``: Case-sensitive pattern match.
-          - ``ILIKE``: Case-insensitive sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
 
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
