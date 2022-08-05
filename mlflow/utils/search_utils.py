@@ -70,6 +70,7 @@ class SearchUtils:
     )
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     DELIMITER_VALUE_TYPES = set([TokenType.Punctuation])
+    WHITESPACE_VALUE_TYPE = TokenType.Text.Whitespace
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
@@ -653,14 +654,17 @@ class SearchUtils:
             )
         elif not all(
             map(
-                lambda token: token.ttype
-                in cls.STRING_VALUE_TYPES.union(cls.DELIMITER_VALUE_TYPES),
+                lambda token: token.ttype in {
+                    *cls.STRING_VALUE_TYPES,
+                    *cls.DELIMITER_VALUE_TYPES,
+                    cls.WHITESPACE_VALUE_TYPE
+                },
                 value_token._groupable_tokens[0].tokens,
             )
         ):
             raise MlflowException(
-                "While parsing a list in the query, expected string value "
-                "or punctuation, but got different type in list: {value_token}".format(
+                "While parsing a list in the query, expected string value or punctuation "
+                "or whitespace, but got different type in list: {value_token}".format(
                     value_token=value_token
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
