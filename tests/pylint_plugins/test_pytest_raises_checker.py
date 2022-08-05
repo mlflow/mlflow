@@ -105,15 +105,6 @@ with pytest.raises(Exception, match="failed"), mock_patch("module.function"):
     )
     yield root_node, root_node, (2, 0)
 
-    root_node = extract_node(
-        """
-with pytest.raises(Exception, match="failed"):
-    with mock.patch("foo.bar") as foo_bar_mock:
-        func_that_calls_foo_bar()
-"""
-    )
-    yield root_node, root_node, (2, 0)
-
 
 def complex_body_good_cases():
     yield extract_node(
@@ -126,8 +117,10 @@ with pytest.raises(Exception, match="failed"):
     yield extract_node(
         """
 with pytest.raises(Exception, match="failed"):
-    with throwing_context_manager():
-        pass
+    if condition:
+        do_a()
+    else:
+        do_b()
 """
     )
 

@@ -22,24 +22,6 @@ def _is_complex_pytest_raises(raises_with: astroid.With):
     if len(raises_with.body) > 1:
         return True
 
-    if isinstance(
-        raises_with.body[0],
-        (
-            astroid.If,
-            astroid.For,
-            astroid.While,
-            astroid.TryExcept,
-            astroid.TryFinally,
-        ),
-    ):
-        return True
-
-    # Nested with
-    if isinstance(raises_with.body[0], astroid.With):
-        nested_with = raises_with.body[0]
-        if len(nested_with.body) > 1 or not isinstance(nested_with.body[0], astroid.Pass):
-            return True
-
     return False
 
 
@@ -56,8 +38,8 @@ class PytestRaisesChecker(BaseChecker):
             "Use `pytest.raises(<exception>, match=...)`",
         ),
         "W0004": (
-            "`pytest.raises` block should not contain multiple statements and control flow"
-            " structures. It should only contain a single statement that throws an exception.",
+            "`pytest.raises` block should not contain multiple statements."
+            " It should only contain a single statement that throws an exception.",
             COMPLEX_BODY,
             "Any initialization/finalization code should be moved outside of `pytest.raises` block",
         ),
