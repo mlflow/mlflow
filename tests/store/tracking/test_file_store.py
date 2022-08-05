@@ -958,7 +958,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_id, Param(param_name, param_value))
         run = fs.get_run(run_id)
-        assert run.data.params[param_name] == str(param_value)
+        assert run.data.params[param_name] == param_value
         with pytest.raises(MlflowException, match="exceeded length"):
             fs.log_param(run_id, Param(param_name, "x" * 1000))
 
