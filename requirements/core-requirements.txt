@@ -11,6 +11,6 @@ pandas<2
 prometheus-flask-exporter<1
 querystring_parser<2
 sqlalchemy<2,>=1.4.0
-sqlparse>=0.4.0
+sqlparse<2,>=0.4.0
 gunicorn<21; platform_system != 'Windows'
 waitress<3; platform_system == 'Windows'
