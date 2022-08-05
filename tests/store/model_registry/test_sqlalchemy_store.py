@@ -888,6 +888,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             search_versions("run_id IN (1,2,3)")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+        self.assertEqual(
+            set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")),
+            set([2, 3]),
+        )
+
+        self.assertEqual(
+            set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")),
+            set([2, 3]),
+        )
+
         # search using the IN operator with empty lists should return exceptions
         with self.assertRaisesRegex(
             MlflowException,
@@ -1002,19 +1012,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         assert search_versions(f"name = '{name}' and tag.t2 = 'xyz'") == [1]
         assert search_versions("name = 'wrong_name' and tag.t2 = 'xyz'") == []
-        assert search_versions(f"name = '{name}' and tag.`t2` = 'xyz'") == [1]
-        assert search_versions(f"name = '{name}' and tag.t3 = 'xyz'") == []
-        assert search_versions(f"name = '{name}' and tag.t2 != 'xy'") == [2, 1]
-        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'xy%'") == [1]
-        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'xY%'") == []
-        assert search_versions(f"name = '{name}' and tag.t2 ILIKE 'xY%'") == [1]
-        assert search_versions(f"name = '{name}' and tag.t2 LIKE 'x%'") == [2, 1]
-        assert search_versions(f"name = '{name}' and tag.T2 = 'xyz'") == []
-        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 = 'xyz'") == [1]
-        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'x%'") == [2, 1]
-        assert search_versions(f"name = '{name}' and tag.t1 = 'abc' and tag.t2 LIKE 'y%'") == []
+        assert search_versions("tag.`t2` = 'xyz'") == [1]
+        assert search_versions("tag.t3 = 'xyz'") == []
+        assert search_versions("tag.t2 != 'xy'") == [2, 1]
+        assert search_versions("tag.t2 LIKE 'xy%'") == [1]
+        assert search_versions("tag.t2 LIKE 'xY%'") == []
+        assert search_versions("tag.t2 ILIKE 'xY%'") == [1]
+        assert search_versions("tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions("tag.T2 = 'xyz'") == []
+        assert search_versions("tag.t1 = 'abc' and tag.t2 = 'xyz'") == [1]
+        assert search_versions("tag.t1 = 'abc' and tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions("tag.t1 = 'abc' and tag.t2 LIKE 'y%'") == []
         # test filter with duplicated keys
-        assert search_versions(f"name = '{name}' and tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
+        assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
