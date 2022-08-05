@@ -642,6 +642,8 @@ def _model_validation_contains_model_comparison(validation_thresholds):
     Helper function for determining if validation_thresholds containing
     thresholds for model comparsion: either min_relative_change or min_absolute_change
     """
+    if not validation_thresholds:
+        return False
     thresholds = validation_thresholds.values()
     return any(
         threshold.min_relative_change or threshold.min_absolute_change for threshold in thresholds
@@ -1065,9 +1067,10 @@ def evaluate(
                                        evaluators,
                                        custom_metrics=[squared_diff_plus_one, scatter_plot],
                                    )
-    :param validation_thresholds: (Optional) A dictionary of name to MetricThreshold used for
-                                             model validation.
-                                             Metric name must be one of the builtin metric's name or
+    :param validation_thresholds: (Optional) A dictionary of metric name to
+                                             :py:class:`mlflow.models.MetricThreshold` used for
+                                             model validation. Metric name must be one of the
+                                             builtin metric's name or
                                              name of a custom metric in custom_metrics argument.
     :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
                                       flavor as a baseline model to be compared with the
