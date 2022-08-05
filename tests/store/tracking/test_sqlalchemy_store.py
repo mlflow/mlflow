@@ -2094,8 +2094,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         expected_param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
         self.store.log_batch(run.info.run_id, [], param_entities, [])
         self._verify_logged(self.store, run.info.run_id, [], expected_param_entities, [])
+        param_entities = [Param("long param", "x" * 1000)]
         with pytest.raises(MlflowException, match="exceeded length"):
-            param_entities = [Param("long param", "x" * 1000)]
             self.store.log_batch(run.info.run_id, [], param_entities, [])
 
     def test_upgrade_cli_idempotence(self):
