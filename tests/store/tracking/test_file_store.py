@@ -1120,9 +1120,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         # delete metadata file.
         path = os.path.join(self.test_root, str(exp_0.experiment_id), "meta.yaml")
         os.remove(path)
-        with pytest.raises(MissingConfigException, match="does not exist") as e:
+        with pytest.raises(MissingConfigException, match="does not exist"):
             fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
-        assert e.value.message.contains("does not exist")
 
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
 

@@ -84,7 +84,7 @@ def test_without_raises(test_case):
             test_case.walk(root_node)
 
 
-def complex_body_bad_cases():
+def multiple_statements_bad_cases():
     root_node = extract_node(
         """
 with pytest.raises(Exception, match="failed"):
@@ -106,7 +106,7 @@ with pytest.raises(Exception, match="failed"), mock_patch("module.function"):
     yield root_node, root_node, (2, 0)
 
 
-def complex_body_good_cases():
+def multiple_statements_good_cases():
     yield extract_node(
         """
 with pytest.raises(Exception, match="failed"):
@@ -125,13 +125,15 @@ with pytest.raises(Exception, match="failed"):
     )
 
 
-def test_complex_body(test_case):
-    for root_node, error_node, (line, col_offset) in complex_body_bad_cases():
+def test_multiple_statements(test_case):
+    for root_node, error_node, (line, col_offset) in multiple_statements_bad_cases():
         with test_case.assertAddsMessages(
-            create_message(test_case.CHECKER_CLASS.COMPLEX_BODY, error_node, line, col_offset)
+            create_message(
+                test_case.CHECKER_CLASS.MULTIPLE_STATEMENTS, error_node, line, col_offset
+            )
         ):
             test_case.walk(root_node)
 
-    for root_node in complex_body_good_cases():
+    for root_node in multiple_statements_good_cases():
         with test_case.assertNoMessages():
             test_case.walk(root_node)

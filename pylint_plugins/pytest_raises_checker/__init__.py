@@ -1,7 +1,6 @@
 import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
-from pylint.lint import PyLinter
 
 
 def _is_pytest_raises_call(node: astroid.NodeNG):
@@ -30,7 +29,7 @@ class PytestRaisesChecker(BaseChecker):
 
     name = "pytest-raises-checker"
     WITHOUT_MATCH = "pytest-raises-without-match"
-    COMPLEX_BODY = "pytest-raises-complex-body"
+    MULTIPLE_STATEMENTS = "pytest-raises-multiple-statements"
     msgs = {
         "W0001": (
             "`pytest.raises` must be called with `match` argument`",
@@ -40,15 +39,11 @@ class PytestRaisesChecker(BaseChecker):
         "W0004": (
             "`pytest.raises` block should not contain multiple statements."
             " It should only contain a single statement that throws an exception.",
-            COMPLEX_BODY,
+            MULTIPLE_STATEMENTS,
             "Any initialization/finalization code should be moved outside of `pytest.raises` block",
         ),
     }
     priority = -1
-
-    def __init__(self, linter: PyLinter) -> None:
-        super().__init__(linter)
-        self._is_in_pytest_raises = False
 
     def visit_call(self, node: astroid.Call):
         if not _is_pytest_raises_call(node):
@@ -57,16 +52,8 @@ class PytestRaisesChecker(BaseChecker):
         if not _called_with_match(node):
             self.add_message(PytestRaisesChecker.WITHOUT_MATCH, node=node)
 
-    def visit_assert(self, node: astroid.Assert):
-        if self._is_in_pytest_raises:
-            self.add_message(PytestRaisesChecker.CONTAINS_ASSERTIONS, node=node)
-
     def visit_with(self, node: astroid.With):
         if any(_is_pytest_raises_call(item[0]) for item in node.items) and (
             _is_complex_pytest_raises(node)
         ):
-            self.add_message(PytestRaisesChecker.COMPLEX_BODY, node=node)
-
-    def leave_with(self, node: astroid.With):
-        if any(_is_pytest_raises_call(item[0]) for item in node.items):
-            self._is_in_pytest_raises = False
+            self.add_message(PytestRaisesChecker.MULTIPLE_STATEMENTS, node=node)
