@@ -251,22 +251,23 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
     with mock.patch(
         "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
-    ) as mock_custom_loader, pytest.raises(
-        MlflowException, match="Unable to load data file at path.*using custom loader method"
-    ):
+    ) as mock_custom_loader:
         setattr(mock_custom_loader, "__name__", "custom_load_file_as_dataframe")
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "fooformat",
-                    "location": str(dataset_path),
-                    "custom_loader_method": (
-                        "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
-                    ),
-                }
-            },
-            pipeline_root=os.getcwd(),
-        ).run(output_directory=tmp_path)
+        with pytest.raises(
+            MlflowException, match="Unable to load data file at path.*using custom loader method"
+        ):
+            IngestStep.from_pipeline_config(
+                pipeline_config={
+                    "data": {
+                        "format": "fooformat",
+                        "location": str(dataset_path),
+                        "custom_loader_method": (
+                            "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                        ),
+                    }
+                },
+                pipeline_root=os.getcwd(),
+            ).run(output_directory=tmp_path)
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")

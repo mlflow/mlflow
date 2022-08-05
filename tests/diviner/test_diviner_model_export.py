@@ -116,29 +116,26 @@ def test_diviner_pyfunc_invalid_config_raises(grouped_prophet, model_path):
         "DataFrame does not contain either the `n_periods` "
         "or `horizon` columns.",
     ):
-        bad_conf = pd.DataFrame({"bogus": "config"}, index=[0])
-        loaded_pyfunc_model.predict(bad_conf)
+        loaded_pyfunc_model.predict(pd.DataFrame({"bogus": "config"}, index=[0]))
 
     with pytest.raises(
         MlflowException,
         match="The `n_periods` column contains invalid data. Supplied type must be an integer.",
     ):
-        bad_conf = pd.DataFrame({"n_periods": "20D"}, index=[0])
-        loaded_pyfunc_model.predict(bad_conf)
+        loaded_pyfunc_model.predict(pd.DataFrame({"n_periods": "20D"}, index=[0]))
 
     with pytest.raises(
         MlflowException,
         match="Diviner's GroupedProphet model requires a `frequency` value to be submitted",
     ):
-        bad_conf = pd.DataFrame({"horizon": 30}, index=[0])
-        loaded_pyfunc_model.predict(bad_conf)
+        loaded_pyfunc_model.predict(pd.DataFrame({"horizon": 30}, index=[0]))
 
+    bad_conf = pd.DataFrame({"n_periods": 30, "horizon": 20, "frequency": "D"}, index=[0])
     with pytest.raises(
         MlflowException,
         match="The provided prediction configuration contains both "
         "`n_periods` and `horizon` with different values.",
     ):
-        bad_conf = pd.DataFrame({"n_periods": 30, "horizon": 20, "frequency": "D"}, index=[0])
         loaded_pyfunc_model.predict(bad_conf)
 
 

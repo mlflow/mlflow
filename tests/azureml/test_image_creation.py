@@ -20,7 +20,7 @@ import mlflow.sklearn
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
@@ -404,9 +404,8 @@ def test_build_image_throws_exception_if_model_does_not_contain_pyfunc_flavor(
     with AzureMLMocks(), pytest.raises(
         MlflowException, match="does not contain the `python_function` flavor"
     ) as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.build_image(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
@@ -420,9 +419,8 @@ def test_build_image_throws_exception_if_model_python_version_is_less_than_three
     model_config.save(model_config_path)
 
     with AzureMLMocks(), pytest.raises(MlflowException, match="Python 3 and above") as exc:
-        workspace = get_azure_workspace()
-        mlflow.azureml.build_image(model_uri=model_path, workspace=workspace)
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+        mlflow.azureml.build_image(model_uri=model_path, workspace=get_azure_workspace())
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
