@@ -7,15 +7,15 @@ class MetricThreshold:
     This class allows you to define metric thresholds for model validation.
     Allowed thresholds are: threshold, min_absolute_change, min_relative_change.
 
-    :param threshold: A number representing the value threshold for the metric.
+    :param threshold: (Optional) A number representing the value threshold for the metric.
 
                       - If higher is better for the metric, the metric value has to be
                         >= threshold to pass validation.
                       - Otherwise, the metric value has to be <= threshold to pass the validation.
 
-    :param min_absolute_change: A positive floating point number representing the minimum absolute
-                                change required for candidate model to pass the comparison with
-                                the baseline model.
+    :param min_absolute_change: (Optional) A positive floating point number representing the
+                                minimum absolute change required for candidate model to
+                                pass the comparison with the baseline model.
 
                                 - If higher is better for the metric, metric value has to be
                                   >= baseline model metric value + min_absolute_change
@@ -24,7 +24,7 @@ class MetricThreshold:
                                   <= baseline model metric value - min_absolute_change
                                   to pass the validation.
 
-    :param min_relative_change: A floating point number between 0 and 1 representing
+    :param min_relative_change: (Optional) A floating point number between 0 and 1 representing
                                 the minimum relative change (in percentage of
                                 baseline model metric value) for candidate model
                                 to pass the comparison with the baseline model.
@@ -34,7 +34,8 @@ class MetricThreshold:
                                 - Otherwise, metric value has to be
                                   <= baseline model metric value * (1 - min_relative_change)
 
-    :param higher_is_better: A boolean representing whether higher value is better for the metric.
+    :param higher_is_better: A required boolean representing whether higher value is
+                             better for the metric.
     """
 
     def __init__(
