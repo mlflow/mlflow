@@ -2,6 +2,7 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { CompareRunContour } from './CompareRunContour';
 import { RunInfo } from '../sdk/MlflowMessages';
+import { shallowWithIntl } from '../../common/utils/TestUtils';
 
 describe('unit tests', () => {
   let wrapper;
@@ -251,29 +252,38 @@ describe('unit tests', () => {
         [{ key: 'm1', value: 6 }],
       ],
     };
-    wrapper = shallow(<CompareRunContour {...props} />);
+    wrapper = shallowWithIntl(<CompareRunContour {...props} />).dive();
+
+    const renderControlsElement = () => wrapper.dive();
 
     // X axis: p1 | Y axis: p2
-    expect(wrapper.text().includes("The X axis doesn't have enough unique data points")).toBe(true);
+    expect(
+      renderControlsElement().text().includes("The X axis doesn't have enough unique data points"),
+    ).toBe(true);
 
     // X axis: p2 | Y axis: p1
     wrapper.setState({
       xaxis: { key: 'p2', isMetric: false },
       yaxis: { key: 'p1', isMetric: false },
     });
-    expect(wrapper.text().includes("The Y axis doesn't have enough unique data points")).toBe(true);
+
+    expect(
+      renderControlsElement().text().includes("The Y axis doesn't have enough unique data points"),
+    ).toBe(true);
 
     // X axis: p1 | Y axis: p1
     wrapper.setState({ xaxis: { key: 'p1', isMetric: false } });
-    expect(wrapper.text().includes("The X and Y axes don't have enough unique data points")).toBe(
-      true,
-    );
+    expect(
+      renderControlsElement()
+        .text()
+        .includes("The X and Y axes don't have enough unique data points"),
+    ).toBe(true);
 
     // X axis: p2 | Y axis: p2
     wrapper.setState({
       xaxis: { key: 'p2', isMetric: false },
       yaxis: { key: 'p2', isMetric: false },
     });
-    expect(wrapper.text().includes('have enough unique data points')).toBe(false);
+    expect(renderControlsElement().text().includes('have enough unique data points')).toBe(false);
   });
 });

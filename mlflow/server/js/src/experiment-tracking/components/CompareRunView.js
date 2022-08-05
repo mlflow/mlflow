@@ -3,8 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { withRouter } from 'react-router';
 import { injectIntl, FormattedMessage } from 'react-intl';
-import { Tooltip, Switch } from 'antd';
-import { Tabs } from '@databricks/design-system';
+import { Spacer, Switch, Tabs, Tooltip, Typography } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -49,6 +48,7 @@ export class CompareRunView extends Component {
     this.state = {
       tableWidth: null,
       onlyShowParamDiff: false,
+      onlyShowTagDiff: false,
       onlyShowMetricDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
@@ -271,7 +271,7 @@ export class CompareRunView extends Component {
     const dataRows = this.renderDataRows(
       this.props.tagLists,
       colWidth,
-      this.state.onlyShowParamDiff,
+      this.state.onlyShowTagDiff,
       true,
     );
     if (dataRows.length === 0) {
@@ -357,7 +357,8 @@ export class CompareRunView extends Component {
               color='gray'
               placement='topLeft'
               overlayStyle={{ maxWidth: '400px' }}
-              mouseEnterDelay={1.0}
+              // mouseEnterDelay prop is not available in DuBois design system (yet)
+              dangerouslySetAntdProps={{ mouseEnterDelay: 1 }}
             >
               {value}
             </Tooltip>
@@ -531,12 +532,17 @@ export class CompareRunView extends Component {
           })}
         >
           <Switch
-            checkedChildren='Show diff only'
-            unCheckedChildren='Show diff only'
+            checked={this.state.onlyShowParamDiff}
             onChange={(checked, e) => this.setState({ onlyShowParamDiff: checked })}
           />
-          <br />
-          <br />
+          <Typography.Text hint color='secondary'>
+            <FormattedMessage
+              defaultMessage='Show diff only'
+              // eslint-disable-next-line max-len
+              description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
+            />
+          </Typography.Text>
+          <Spacer size='large' />
           {this.renderParamTable(colWidth)}
         </CollapsibleSection>
         <CollapsibleSection
@@ -546,12 +552,17 @@ export class CompareRunView extends Component {
           })}
         >
           <Switch
-            checkedChildren='Show diff only'
-            unCheckedChildren='Show diff only'
+            checked={this.state.onlyShowMetricDiff}
             onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
           />
-          <br />
-          <br />
+          <Typography.Text hint color='secondary'>
+            <FormattedMessage
+              defaultMessage='Show diff only'
+              // eslint-disable-next-line max-len
+              description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
+            />
+          </Typography.Text>
+          <Spacer size='large' />
           {this.renderMetricTable(colWidth, experimentIds)}
         </CollapsibleSection>
         <CollapsibleSection
@@ -561,12 +572,17 @@ export class CompareRunView extends Component {
           })}
         >
           <Switch
-            checkedChildren='Show diff only'
-            unCheckedChildren='Show diff only'
-            onChange={(checked, e) => this.setState({ onlyShowParamDiff: checked })}
+            checked={this.state.onlyShowTagDiff}
+            onChange={(checked, e) => this.setState({ onlyShowTagDiff: checked })}
           />
-          <br />
-          <br />
+          <Typography.Text hint color='secondary'>
+            <FormattedMessage
+              defaultMessage='Show diff only'
+              // eslint-disable-next-line max-len
+              description='Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page'
+            />
+          </Typography.Text>
+          <Spacer size='large' />
           {this.renderTagTable(colWidth)}
         </CollapsibleSection>
       </div>

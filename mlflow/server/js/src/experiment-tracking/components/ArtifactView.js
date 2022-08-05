@@ -22,8 +22,7 @@ import {
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { Tooltip } from 'antd';
-import { Typography } from '@databricks/design-system';
+import { Tooltip, Typography } from '@databricks/design-system';
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';

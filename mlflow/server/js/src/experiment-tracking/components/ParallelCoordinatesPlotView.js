@@ -116,7 +116,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
       <LazyPlot
         layout={{ autosize: true, margin: { t: 50 } }}
         useResizeHandler
-        style={{ width: '100%', height: '100%' }}
+        css={styles.plot}
         data={this.getData()}
         onUpdate={this.handlePlotUpdate}
         className='pcp-plot'
@@ -211,6 +211,12 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
     label: key,
     ...attributes,
   };
+};
+
+const styles = {
+  plot: {
+    width: '100%',
+  },
 };
 
 const mapStateToProps = (state, ownProps) => {

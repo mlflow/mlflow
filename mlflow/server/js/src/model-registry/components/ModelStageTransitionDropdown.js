@@ -1,6 +1,5 @@
 import React from 'react';
-import { DownOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, Modal } from '@databricks/design-system';
+import { Dropdown, Menu, Modal, ChevronDownIcon } from '@databricks/design-system';
 
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
@@ -137,7 +136,7 @@ export class ModelStageTransitionDropdown extends React.Component {
         >
           <span>
             {StageTagComponents[currentStage]}
-            <DownOutlined style={{ cursor: 'pointer', marginLeft: -4 }} />
+            <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>
         {this.renderConfirmModal()}
