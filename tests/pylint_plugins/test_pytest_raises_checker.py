@@ -84,16 +84,7 @@ def test_without_raises(test_case):
             test_case.walk(root_node)
 
 
-def contain_assertions_bad_cases():
-    # Single context manager
-    root_node = extract_node(
-        """
-with pytest.raises(Exception, match="failed"):
-    assert False
-"""
-    )
-    yield root_node, root_node.body[0], (3, 4)
-
+def complex_body_bad_cases():
     root_node = extract_node(
         """
 with pytest.raises(Exception, match="failed"):
@@ -102,14 +93,52 @@ with pytest.raises(Exception, match="failed"):
     assert a == b
 """
     )
-    yield root_node, root_node.body[2], (5, 4)
+    yield root_node, root_node, (2, 0)
+
+    root_node = extract_node(
+        """
+with pytest.raises(Exception, match="failed"), mock_patch("module.function"):
+    a = 1
+    b = 2
+    assert a == b
+"""
+    )
+    yield root_node, root_node, (2, 0)
+
+    root_node = extract_node(
+        """
+with pytest.raises(Exception, match="failed"):
+    with mock.patch("foo.bar") as foo_bar_mock:
+        func_that_calls_foo_bar()
+"""
+    )
+    yield root_node, root_node, (2, 0)
 
 
-def test_contains_assertions(test_case):
-    for root_node, error_node, (line, col_offset) in contain_assertions_bad_cases():
+def complex_body_good_cases():
+    yield extract_node(
+        """
+with pytest.raises(Exception, match="failed"):
+    function_that_throws()
+"""
+    )
+
+    yield extract_node(
+        """
+with pytest.raises(Exception, match="failed"):
+    with throwing_context_manager():
+        pass
+"""
+    )
+
+
+def test_complex_body(test_case):
+    for root_node, error_node, (line, col_offset) in complex_body_bad_cases():
         with test_case.assertAddsMessages(
-            create_message(
-                test_case.CHECKER_CLASS.CONTAINS_ASSERTIONS, error_node, line, col_offset
-            )
+            create_message(test_case.CHECKER_CLASS.COMPLEX_BODY, error_node, line, col_offset)
         ):
+            test_case.walk(root_node)
+
+    for root_node in complex_body_good_cases():
+        with test_case.assertNoMessages():
             test_case.walk(root_node)

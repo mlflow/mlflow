@@ -18,12 +18,37 @@ def _called_with_match(node: astroid.Call):
     return any(k.arg == "match" for k in node.keywords)
 
 
+def _is_complex_pytest_raises(raises_with: astroid.With):
+    if len(raises_with.body) > 1:
+        return True
+
+    if isinstance(
+        raises_with.body[0],
+        (
+            astroid.If,
+            astroid.For,
+            astroid.While,
+            astroid.TryExcept,
+            astroid.TryFinally,
+        ),
+    ):
+        return True
+
+    # Nested with
+    if isinstance(raises_with.body[0], astroid.With):
+        nested_with = raises_with.body[0]
+        if len(nested_with.body) > 1 or not isinstance(nested_with.body[0], astroid.Pass):
+            return True
+
+    return False
+
+
 class PytestRaisesChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
     name = "pytest-raises-checker"
     WITHOUT_MATCH = "pytest-raises-without-match"
-    CONTAINS_ASSERTIONS = "pytest-raises-contains-assertions"
+    COMPLEX_BODY = "pytest-raises-complex-body"
     msgs = {
         "W0001": (
             "`pytest.raises` must be called with `match` argument`",
@@ -31,13 +56,10 @@ class PytestRaisesChecker(BaseChecker):
             "Use `pytest.raises(<exception>, match=...)`",
         ),
         "W0004": (
-            (
-                "`pytest.raises` should not contain assertion."
-                " See https://docs.pytest.org/en/7.1.x/reference/reference.html#pytest-raises"
-                " for more information."
-            ),
-            CONTAINS_ASSERTIONS,
-            "Remove assertions from `pytest.raises`",
+            "`pytest.raises` block should not contain multiple statements and control flow"
+            " structures",
+            COMPLEX_BODY,
+            "Any initialization/finalization code should be moved outside of `pytest.raises` block",
         ),
     }
     priority = -1
@@ -58,8 +80,10 @@ class PytestRaisesChecker(BaseChecker):
             self.add_message(PytestRaisesChecker.CONTAINS_ASSERTIONS, node=node)
 
     def visit_with(self, node: astroid.With):
-        if any(_is_pytest_raises_call(item[0]) for item in node.items):
-            self._is_in_pytest_raises = True
+        if any(_is_pytest_raises_call(item[0]) for item in node.items) and (
+            _is_complex_pytest_raises(node)
+        ):
+            self.add_message(PytestRaisesChecker.COMPLEX_BODY, node=node)
 
     def leave_with(self, node: astroid.With):
         if any(_is_pytest_raises_call(item[0]) for item in node.items):
