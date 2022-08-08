@@ -44,7 +44,7 @@ sqlalchemy:
 sqlparse:
   pip_release: sqlparse
   minimum: "0.4.0"
-  max_major_version: 1
+  max_major_version: 0
 
 gunicorn:
   pip_release: gunicorn
