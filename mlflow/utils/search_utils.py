@@ -677,63 +677,6 @@ class SearchUtils:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    @classmethod
-    def _is_list_component_token(cls, token):
-        return isinstance(token, (Identifier, Parenthesis)) or token.match(
-            ttype=TokenType.Keyword, values=["IN"]
-        )
-
-    @classmethod
-    def _process_statement_tokens(cls, statement_tokens, filter_string):
-        """
-        This function processes the tokens in a statement to ensure that the correct parsing
-        behavior occurs. In typical cases, the statement tokens will contain just the comparison -
-        in this case, no additional processing occurs. In the case when a filter string contains the
-        IN operator, this function parses those tokens into a Comparison object, which will be
-        parsed by _get_comparison_for_model_registry.
-        :param statement_tokens: List of tokens from a statement
-        :param filter_string: Filter string from which the parsed statement tokens originate. Used
-        for informative logging
-        :return: List of tokens
-        """
-        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
-        token_list = []
-        if len(statement_tokens) == 0:
-            raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif len(statement_tokens) == 1:
-            if isinstance(statement_tokens[0], Comparison):
-                token_list = statement_tokens
-            else:
-                raise MlflowException(
-                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        elif len(statement_tokens) > 1:
-            comparison_subtokens = []
-            for token in statement_tokens:
-                if isinstance(token, Comparison):
-                    raise MlflowException(
-                        "Search filter '%s' contains multiple expressions. "
-                        "%s " % (filter_string, expected),
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                elif cls._is_list_component_token(token):
-                    comparison_subtokens.append(token)
-                elif not token.is_whitespace:
-                    break
-            # if we have fewer than 3, that means we have an incomplete statement.
-            if len(comparison_subtokens) == 3:
-                token_list = [Comparison(TokenList(comparison_subtokens))]
-            else:
-                raise MlflowException(
-                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        return token_list
-
 
 class SearchExperimentsUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = ("name",)
