@@ -122,22 +122,6 @@ export class MetricsPlotViewImpl extends React.Component {
 
   #annotationData = {};
 
-  static getXValuesForLineChart(history, xAxisType) {
-    if (history.length === 0) {
-      return [];
-    }
-    switch (xAxisType) {
-      case X_AXIS_STEP:
-        return history.map(({ step }) => step);
-      case X_AXIS_RELATIVE: {
-        const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
-        return history.map(({ timestamp }) => (timestamp - minTimestamp) / 1000);
-      }
-      default: // X_AXIS_WALL
-        return history.map(({ timestamp }) => Utils.formatTimestamp(timestamp));
-    }
-  }
-
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
 
@@ -169,8 +153,8 @@ export class MetricsPlotViewImpl extends React.Component {
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: MetricsPlotView.getXValuesForLineChart(history, xAxis),
-        y: (isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness)).map(
-          (entry) => (!isFinite(entry) ? NaN : entry),
+        y: (isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness)).map((entry) =>
+          !isFinite(entry) ? NaN : entry,
         ),
         text: historyValues.map((value) => (isNaN(value) ? value : value.toFixed(5))),
         type: 'scattergl',
