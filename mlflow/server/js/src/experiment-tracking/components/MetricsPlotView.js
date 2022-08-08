@@ -107,20 +107,11 @@ export class MetricsPlotViewImpl extends React.Component {
     metrics.forEach((metric) => {
       const { metricKey, history } = metric;
 
-      const xValues = history.map((entry) => {
-        if (xAxis === X_AXIS_STEP) {
-          return entry.step;
-        }
-        return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
-      });
-
-      const yValues = history.map((entry) =>
-        typeof entry.value === 'number' ? entry.value : Number(entry.value),
-      );
-
       annotationData[metricKey] = generateInfinityAnnotations({
-        xValues,
-        yValues,
+        xValues: MetricsPlotView.getXValuesForLineChart(history, xAxis),
+        yValues: history.map((entry) =>
+          typeof entry.value === 'number' ? entry.value : Number(entry.value),
+        ),
         isLogScale: isYAxisLog,
         stringFormatter: (value) => this.props.intl.formatMessage(value, { metricKey }),
       });
@@ -130,6 +121,22 @@ export class MetricsPlotViewImpl extends React.Component {
   };
 
   #annotationData = {};
+
+  static getXValuesForLineChart(history, xAxisType) {
+    if (history.length === 0) {
+      return [];
+    }
+    switch (xAxisType) {
+      case X_AXIS_STEP:
+        return history.map(({ step }) => step);
+      case X_AXIS_RELATIVE: {
+        const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
+        return history.map(({ timestamp }) => (timestamp - minTimestamp) / 1000);
+      }
+      default: // X_AXIS_WALL
+        return history.map(({ timestamp }) => Utils.formatTimestamp(timestamp));
+    }
+  }
 
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showPoint, lineSmoothness, isComparing, deselectedCurves } = this.props;
@@ -159,21 +166,12 @@ export class MetricsPlotViewImpl extends React.Component {
         annotations.push(...this.#annotationData[metricKey].annotations);
       }
 
-      const xValues = history.map((entry) => {
-        if (xAxis === X_AXIS_STEP) {
-          return entry.step;
-        }
-        return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
-      });
-
-      const yValues = (isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness)).map(
-        (entry) => (!isFinite(entry) ? NaN : entry),
-      );
-
       return {
         name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
-        x: xValues,
-        y: yValues,
+        x: MetricsPlotView.getXValuesForLineChart(history, xAxis),
+        y: (isSingleHistory ? historyValues : EMA(historyValues, lineSmoothness)).map(
+          (entry) => (!isFinite(entry) ? NaN : entry),
+        ),
         text: historyValues.map((value) => (isNaN(value) ? value : value.toFixed(5))),
         type: 'scattergl',
         mode: isSingleHistory ? 'markers' : 'lines+markers',
