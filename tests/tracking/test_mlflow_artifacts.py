@@ -51,6 +51,8 @@ def artifacts_server():
         port = get_safe_port()
         backend_store_uri = f'sqlite:///{os.path.join(tmpdir, "mlruns.db")}'
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
+        if is_windows():
+            artifacts_destination = "file:///" + artifacts_destination
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
         process = _launch_server(
