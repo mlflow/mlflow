@@ -870,7 +870,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             set([2, 3]),
         )
 
-        # search IN operator with whitespaces between rhs values
+        # search IN operator with right-hand side value containing whitespaces
         self.assertEqual(
             set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")),
             set([1, 2, 3]),
@@ -881,7 +881,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             MlflowException,
             (
                 r"While parsing a list in the query, "
-                r"expected string value or punctuation or whitespace, "
+                r"expected string value, punctuation, or whitespace, "
                 r"but got different type in list"
             ),
         ) as exception_context:
