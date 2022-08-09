@@ -243,7 +243,7 @@ class Pipeline:
             raise MlflowException(
                 message=(
                     "Pipeline directory path cannot contain spaces. Please move or rename your"
-                    f" pipeline directory. Current path: {pipeline_root_path}",
+                    f" pipeline directory. Current path: {pipeline_root_path}"
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
