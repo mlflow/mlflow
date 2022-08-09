@@ -28,43 +28,40 @@ export class SearchBox extends React.Component {
     placeholder: PropTypes.string,
   };
 
-  getInputValue(value, state) {
-    return value === undefined ? state.searchInput : value;
+  componentDidUpdate(prevProps) {
+    const valueChangedExternally = prevProps.value !== this.props.value;
+
+    if (valueChangedExternally) {
+      this.setState({ searchInput: this.props.value });
+    }
   }
 
   constructor(props) {
     super(props);
-    this.state = { searchInput: '' };
+    this.state = { searchInput: props.value };
 
     this.triggerSearch = this.triggerSearch.bind(this);
     this.triggerChange = this.triggerChange.bind(this);
-    this.getInputValue = this.getInputValue.bind(this);
   }
 
-  triggerChange(e, value, onChangeFunc) {
-    if (onChangeFunc) {
-      onChangeFunc(e);
-    }
-    if (value === undefined) {
-      this.setState({ searchInput: e.target.value });
-    }
+  triggerChange(e) {
+    this.setState({ searchInput: e.target.value });
   }
 
   triggerSearch(e) {
-    const { onSearch, value } = this.props;
-    const input = this.getInputValue(value, this.state);
-    onSearch(e, input);
+    this.props.onSearch(e, this.state.searchInput);
   }
 
   render() {
-    const { placeholder, value, onChange } = this.props;
+    const { placeholder } = this.props;
     return (
       <Spacer direction='horizontal' size='small'>
         <Input
-          value={this.getInputValue(value, this.state)}
-          onChange={(e) => this.triggerChange(e, value, onChange)}
-          prefix={<i className='fas fa-search' style={{fontStyle: 'normal'}} />}
+          value={this.state.searchInput}
+          onChange={this.triggerChange}
+          prefix={<i className='fas fa-search' style={{ fontStyle: 'normal' }} />}
           onPressEnter={this.triggerSearch}
+          onBlur={this.props.onChange}
           placeholder={placeholder}
           data-test-id='search-box'
         />

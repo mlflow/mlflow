@@ -10,6 +10,7 @@ import {
 } from '../reducers/Reducers';
 import _ from 'lodash';
 import { Empty } from 'antd';
+import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
@@ -50,28 +51,29 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     const { runUuids, allParamKeys, allMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
-      <div css={styles.wrapper}>
-        <ParallelCoordinatesPlotControls
-          paramKeys={allParamKeys}
-          metricKeys={allMetricKeys}
-          selectedParamKeys={selectedParamKeys}
-          selectedMetricKeys={selectedMetricKeys}
-          handleMetricsSelectChange={this.handleMetricsSelectChange}
-          handleParamsSelectChange={this.handleParamsSelectChange}
-          onClearAllSelect={this.onClearAllSelect}
-        />
-        <div css={styles.plotArea}>
-          {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
-            <ParallelCoordinatesPlotView
-              runUuids={runUuids}
-              paramKeys={selectedParamKeys}
-              metricKeys={selectedMetricKeys}
-            />
-          ) : (
-            <Empty style={{ width: '100%', height: '100%' }} />
-          )}
-        </div>
-      </div>
+      <CompareRunPlotContainer
+        controls={
+          <ParallelCoordinatesPlotControls
+            paramKeys={allParamKeys}
+            metricKeys={allMetricKeys}
+            selectedParamKeys={selectedParamKeys}
+            selectedMetricKeys={selectedMetricKeys}
+            handleMetricsSelectChange={this.handleMetricsSelectChange}
+            handleParamsSelectChange={this.handleParamsSelectChange}
+            onClearAllSelect={this.onClearAllSelect}
+          />
+        }
+      >
+        {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
+          <ParallelCoordinatesPlotView
+            runUuids={runUuids}
+            paramKeys={selectedParamKeys}
+            metricKeys={selectedMetricKeys}
+          />
+        ) : (
+          <Empty style={{ width: '100%', height: '100%' }} />
+        )}
+      </CompareRunPlotContainer>
     );
   }
 }
@@ -102,11 +104,6 @@ const mapStateToProps = (state, ownProps) => {
     sharedMetricKeys,
     diffParamKeys,
   };
-};
-
-const styles = {
-  wrapper: { display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 3fr' },
-  plotArea: { minHeight: 450, overflow: 'hidden' },
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);

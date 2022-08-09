@@ -6,7 +6,6 @@ import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
 import { Link, withRouter } from 'react-router-dom';
-import { ArrowDownOutlined, ArrowUpOutlined, QuestionCircleFilled } from '@ant-design/icons';
 import { Alert, Badge, Descriptions, Menu, Tooltip, Switch } from 'antd';
 import {
   Popover,
@@ -16,11 +15,14 @@ import {
   Button,
   SegmentedControlButton,
   SegmentedControlGroup,
+  ArrowDownIcon,
+  ArrowUpIcon,
   SyncIcon,
   FilterIcon,
   TableIcon,
   ListBorderIcon,
   DownloadIcon,
+  QuestionMarkFillIcon,
 } from '@databricks/design-system';
 
 import './ExperimentView.css';
@@ -808,9 +810,9 @@ export class ExperimentView extends Component {
                             value={sortOption.value}
                           >
                             {sortOption.order === COLUMN_SORT_BY_ASC ? (
-                              <ArrowUpOutlined />
+                              <ArrowUpIcon />
                             ) : (
-                              <ArrowDownOutlined />
+                              <ArrowDownIcon />
                             )}{' '}
                             {middleTruncateStr(sortOption.label, 50)}
                           </Option>
@@ -909,7 +911,7 @@ export class ExperimentView extends Component {
                         content={searchInputHelpTooltipContent}
                         placement='bottom'
                       >
-                        <QuestionCircleFilled className='ExperimentView-search-help' />
+                        <QuestionMarkFillIcon className='ExperimentView-search-help' />
                       </Popover>
                       <div css={styles.searchBox}>
                         <SearchBox

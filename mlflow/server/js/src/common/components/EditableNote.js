@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import { LoadingOutlined } from '@ant-design/icons';
-import { Alert, Button, Tooltip } from 'antd';
+import { Alert, Tooltip } from 'antd';
+import { Button } from '@databricks/design-system';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
@@ -110,13 +110,13 @@ export class EditableNoteImpl extends Component {
       <div className='editable-note-actions'>
         <div>
           <Button
-            htmlType='button'
             type='primary'
             className='editable-note-save-button'
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
+            loading={confirmLoading}
           >
-            {confirmLoading && <LoadingOutlined />} {this.props.saveText}
+            {this.props.saveText}
           </Button>
           <Button
             htmlType='button'

@@ -1,6 +1,6 @@
 module.exports = {
   extends: ['airbnb-base', 'react-app', 'prettier'],
-  plugins: ['prettier', 'react'],
+  plugins: ['prettier', 'react', 'no-only-tests'],
   parser: '@babel/eslint-parser',
   parserOptions: {
     sourceType: 'module',
@@ -449,6 +449,9 @@ module.exports = {
       'toolbar',
       'top',
     ],
+
+    // Rules specific to "no-only-tests" plugin:
+    'no-only-tests/no-only-tests': 2,
   },
   overrides: [
     {

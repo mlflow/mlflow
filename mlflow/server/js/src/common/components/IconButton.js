@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button } from 'antd';
+import { Button } from '@databricks/design-system';
 
 export const IconButton = ({ icon, className, style, ...restProps }) => {
   return (

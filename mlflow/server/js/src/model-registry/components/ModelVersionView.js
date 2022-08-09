@@ -5,7 +5,8 @@ import { modelListPageRoute, getModelPageRoute } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import { Button as AntdButton, Modal, Alert, Descriptions, message } from 'antd';
+import { Modal, Alert, Descriptions, message } from 'antd';
+import { Button } from '@databricks/design-system';
 import {
   ModelVersionStatus,
   StageTagComponents,
@@ -289,7 +290,7 @@ export class ModelVersionViewImpl extends React.Component {
 
   renderDescriptionEditIcon() {
     return (
-      <AntdButton
+      <Button
         data-test-id='descriptionEditButton'
         type='link'
         onClick={this.startEditingDescription}
@@ -299,7 +300,7 @@ export class ModelVersionViewImpl extends React.Component {
           description='Text for the edit button next to the description section title on
              the model version view page'
         />{' '}
-      </AntdButton>
+      </Button>
     );
   }
 
