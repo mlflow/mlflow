@@ -239,7 +239,7 @@ class Pipeline:
             ) from None
 
         pipeline_root_path = get_pipeline_root_path()
-        if pipeline_root_path.contains(" "):
+        if " " in pipeline_root_path:
             raise MlflowException(
                 message=(
                     "Pipeline directory path cannot contain spaces. Please move or rename your"
