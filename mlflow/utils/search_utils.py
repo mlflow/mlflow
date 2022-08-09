@@ -12,7 +12,6 @@ from sqlparse.sql import (
     Comparison,
     Statement,
     Parenthesis,
-    TokenList,
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
@@ -677,97 +676,6 @@ class SearchUtils:
                 " expected a non-empty list of string values, but got ill-formed list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-
-    @classmethod
-    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-        cls._validate_comparison(stripped_comparison)
-        key = stripped_comparison[0].value
-        if key not in valid_search_keys:
-            raise MlflowException(
-                "Invalid attribute key '{}' specified. Valid keys "
-                "are '{}'".format(key, valid_search_keys),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        value_token = stripped_comparison[2]
-        if (
-            not isinstance(value_token, Parenthesis)
-            and value_token.ttype not in cls.STRING_VALUE_TYPES
-        ):
-            raise MlflowException(
-                "Expected a quoted string value for attributes. "
-                "Got value {value} with type {type}".format(
-                    value=value_token.value, type=type(value_token)
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif isinstance(value_token, Parenthesis):
-            cls._check_valid_identifier_list(value_token)
-            value = cls._parse_list_from_sql_token(value_token)
-        else:
-            value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
-
-        comp = {
-            "key": key,
-            "comparator": stripped_comparison[1].value,
-            "value": value,
-        }
-        return comp
-
-    @classmethod
-    def _is_list_component_token(cls, token):
-        return isinstance(token, (Identifier, Parenthesis))
-
-    @classmethod
-    def _process_statement_tokens(cls, statement_tokens, filter_string):
-        """
-        This function processes the tokens in a statement to ensure that the correct parsing
-        behavior occurs. In typical cases, the statement tokens will contain just the comparison -
-        in this case, no additional processing occurs. In the case when a filter string contains the
-        IN operator, this function parses those tokens into a Comparison object, which will be
-        parsed by _get_comparison_for_model_registry.
-        :param statement_tokens: List of tokens from a statement
-        :param filter_string: Filter string from which the parsed statement tokens originate. Used
-        for informative logging
-        :return: List of tokens
-        """
-        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
-        token_list = []
-        if len(statement_tokens) == 0:
-            raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif len(statement_tokens) == 1:
-            if isinstance(statement_tokens[0], Comparison):
-                token_list = statement_tokens
-            else:
-                raise MlflowException(
-                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        elif len(statement_tokens) > 1:
-            comparison_subtokens = []
-            for token in statement_tokens:
-                if isinstance(token, Comparison):
-                    raise MlflowException(
-                        "Search filter '%s' contains multiple expressions. "
-                        "%s " % (filter_string, expected),
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                elif cls._is_list_component_token(token):
-                    comparison_subtokens.append(token)
-                elif not token.is_whitespace:
-                    break
-            # if we have fewer than 3, that means we have an incomplete statement.
-            if len(comparison_subtokens) == 3:
-                token_list = [Comparison(TokenList(comparison_subtokens))]
-            else:
-                raise MlflowException(
-                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        return token_list
 
 
 class SearchExperimentsUtils(SearchUtils):
