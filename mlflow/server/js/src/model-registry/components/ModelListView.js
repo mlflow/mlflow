@@ -221,10 +221,10 @@ export class ModelListViewImpl extends React.Component {
     this.setState({ loading: false });
   };
 
-  handleSearch = (event) => {
+  handleSearch = (event, searchInput) => {
     event.preventDefault();
     this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse);
+    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse, searchInput);
   };
 
   static getSortFieldName = (column) => {
@@ -412,7 +412,6 @@ export class ModelListViewImpl extends React.Component {
                       onChange={this.handleSearchInput}
                       value={this.props.searchInput}
                       onSearch={this.handleSearch}
-                      onPressEnter={this.handleSearch}
                       placeholder={this.props.intl.formatMessage({
                         defaultMessage: 'Search by model names or tags',
                         description: 'Placeholder text inside model search bar',
