@@ -1,4 +1,3 @@
-@import 'components/ModelView.css';
 @import 'components/ModelVersionTable.css';
 @import 'components/ModelVersionView.css';
 @import 'components/ModelStageTransitionDropdown.css';
@@ -22,7 +21,8 @@
   cursor: pointer;
 }
 
-.icon-pending, .icon-ready {
+.icon-pending,
+.icon-ready {
   color: green;
 }
 

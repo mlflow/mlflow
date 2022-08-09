@@ -1,10 +1,15 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { MetricsPlotView } from './MetricsPlotView';
+import { MetricsPlotViewImpl as MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../../common/utils/Utils';
 import { LazyPlot } from './LazyPlot';
+import { generateInfinityAnnotations } from '../utils/MetricsUtils';
+
+jest.mock('../utils/MetricsUtils');
+
+const emptyAnnotationsMock = { annotations: [], shapes: [] };
 
 const metricsForLine = [
   {
@@ -230,6 +235,7 @@ describe('unit tests', () => {
       onLegendDoubleClick: jest.fn(),
       onLegendClick: jest.fn(),
       deselectedCurves: [],
+      intl: { formatMessage: (x) => x.toString() },
     };
     minimalPropsForSmoothedLineChart = {
       ...minimalPropsForLineChart,
@@ -255,6 +261,8 @@ describe('unit tests', () => {
       metrics: metricsForBarWithNaNs,
       metricKeys: metricsForBarWithNaNs.map((metric) => metric.metricKey),
     };
+
+    generateInfinityAnnotations.mockImplementation(() => emptyAnnotationsMock);
   });
 
   test('should render line chart with minimal props without exploding', () => {
@@ -345,7 +353,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -407,7 +415,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -469,7 +477,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -531,7 +539,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 

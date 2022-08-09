@@ -323,6 +323,10 @@
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the metrics for the experiment run "
   },
+  "C4y1fv": {
+    "defaultMessage": "-∞",
+    "description": "Label displaying negative infinity symbol displayed on a plot UI element"
+  },
   "CGVHLD": {
     "defaultMessage": "Parameters",
     "description": "Label for the collapsible area to display the parameters used during the experiment run"
@@ -374,6 +378,10 @@
   "EMNpby": {
     "defaultMessage": "Only show differences",
     "description": "Switch to select only columns with different values across runs"
+  },
+  "ES952j": {
+    "defaultMessage": "Not a number ({metricKey})",
+    "description": "Label indicating \"not-a-number\" used as a hover text in a plot UI element"
   },
   "EwcVCu": {
     "defaultMessage": "Clear",
@@ -463,10 +471,6 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
-  "Hq00g9": {
-    "defaultMessage": "On",
-    "description": "Checked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
-  },
   "HyBP+D": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section under details tab on the model view\n                   page"
@@ -526,10 +530,6 @@
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
-  },
-  "MZKOA3": {
-    "defaultMessage": "Off",
-    "description": "Unchecked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
   },
   "MatV9u": {
     "defaultMessage": "Create",
@@ -675,6 +675,10 @@
     "defaultMessage": "Linked Models:",
     "description": "Filtering label for filtering experiments based on if the models are linked or not to the experiment"
   },
+  "VP+qFF": {
+    "defaultMessage": "Show diff only",
+    "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
+  },
   "VbEMGm": {
     "defaultMessage": "Register Model",
     "description": "Button text to register the model for deployment"
@@ -738,6 +742,10 @@
   "YLvpXM": {
     "defaultMessage": "Track machine learning training runs in experiments. <link>Learn more</link>",
     "description": "Information banner text to provide more information about experiments runs page"
+  },
+  "YRFAGK": {
+    "defaultMessage": "Negative infinity ({metricKey})",
+    "description": "Label indicating negative infinity used as a hover text in a plot UI element"
   },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -946,6 +954,10 @@
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
+  },
+  "hcDB9U": {
+    "defaultMessage": "+∞",
+    "description": "Label displaying positive infinity symbol displayed on a plot UI element"
   },
   "iQzwqe": {
     "defaultMessage": "Min",
@@ -1219,6 +1231,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text for delete model modal on model view page"
   },
+  "yL9JKm": {
+    "defaultMessage": "NaN",
+    "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
+  },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
@@ -1254,5 +1270,9 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
+  },
+  "zWGmon": {
+    "defaultMessage": "Positive infinity ({metricKey})",
+    "description": "Label indicating positive infinity used as a hover text in a plot UI element"
   }
 }

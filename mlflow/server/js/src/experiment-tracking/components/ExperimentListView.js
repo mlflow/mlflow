@@ -1,12 +1,13 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import {
-  EditOutlined,
-  LeftSquareFilled,
-  RightSquareFilled,
-  PlusSquareFilled,
-} from '@ant-design/icons';
-import { Tree, Input, Typography } from '@databricks/design-system';
+  Tree,
+  Input,
+  Typography,
+  CaretDownSquareIcon,
+  PlusCircleBorderIcon,
+  PencilIcon,
+} from '@databricks/design-system';
 import { Link, withRouter } from 'react-router-dom';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
@@ -113,7 +114,7 @@ export class ExperimentListView extends Component {
           {title}
         </Link>
         <IconButton
-          icon={<EditOutlined />}
+          icon={<PencilIcon />}
           onClick={this.handleRenameExperiment(key, title)}
           style={{ marginRight: 5 }}
           data-test-id='rename-experiment-button'
@@ -133,9 +134,10 @@ export class ExperimentListView extends Component {
     const { hidden } = this.state;
     if (hidden) {
       return (
-        <RightSquareFilled
+        <CaretDownSquareIcon
+          rotate={-90}
           onClick={() => this.setState({ hidden: false })}
-          style={{ fontSize: '24px' }}
+          css={{ fontSize: '24px' }}
           title='Show experiment list'
         />
       );
@@ -183,18 +185,19 @@ export class ExperimentListView extends Component {
             <Typography.Title level={2} style={{ margin: 0 }}>
               Experiments
             </Typography.Title>
-            <PlusSquareFilled
+            <PlusCircleBorderIcon
               onClick={this.handleCreateExperiment}
-              style={{
+              css={{
                 fontSize: '24px',
                 marginLeft: 'auto',
               }}
               title='New Experiment'
               data-test-id='create-experiment-button'
             />
-            <LeftSquareFilled
+            <CaretDownSquareIcon
               onClick={() => this.setState({ hidden: true })}
-              style={{ fontSize: '24px' }}
+              rotate={90}
+              css={{ fontSize: '24px' }}
               title='Hide experiment list'
             />
           </div>

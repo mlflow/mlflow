@@ -73,7 +73,6 @@ describe('ModelListPage', () => {
     test('the states should be correctly set when page is loaded initially', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-      instance.handleSearch(noop, noop);
       expect(instance.state.searchInput).toBe('');
       expect(instance.state.orderByKey).toBe(REGISTERED_MODELS_SEARCH_NAME_FIELD);
       expect(instance.state.orderByAsc).toBe(true);
@@ -82,8 +81,7 @@ describe('ModelListPage', () => {
     test('the states should be correctly set when user enters name search', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-      instance.handleSearchInputChange('abc');
-      instance.handleSearch(noop, noop);
+      instance.handleSearch(noop, noop, 'abc');
       expect(instance.state.searchInput).toBe('abc');
       expect(instance.state.currentPage).toBe(1);
     });
@@ -91,8 +89,7 @@ describe('ModelListPage', () => {
     test('the states should be correctly set when user enters tag search', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-      instance.handleSearchInputChange('tags.k = v');
-      instance.handleSearch(noop, noop);
+      instance.handleSearch(noop, noop, 'tags.k = v');
       expect(instance.state.searchInput).toBe('tags.k = v');
       expect(instance.state.currentPage).toBe(1);
     });
@@ -100,7 +97,7 @@ describe('ModelListPage', () => {
     test('the states should be correctly set when user enters name and tag search', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-      instance.handleSearchInputChange('name ilike "%xyz%" AND tags.k="v"');
+      instance.handleSearch(noop, noop, 'name ilike "%xyz%" AND tags.k="v"');
       expect(instance.state.searchInput).toBe('name ilike "%xyz%" AND tags.k="v"');
       expect(instance.state.currentPage).toBe(1);
     });

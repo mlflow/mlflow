@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Button } from 'antd';
-import { Dropdown } from '@databricks/design-system';
+import { Button, Dropdown } from '@databricks/design-system';
 import expandIcon from '../static/expand-more.svg';
 import { getUUID } from '../utils/ActionUtils';
 
@@ -16,10 +15,8 @@ export const StyledDropdown = ({ id, className, title, triggers, dropdownOptions
         overlay={dropdownOptions}
       >
         <Button className='StyledDropdown-button' size={buttonSize} css={classNames.button}>
-          <div className='StyledDropdown-button-content'>
-            <span>{title}</span>{' '}
-            <img className='StyledDropdown-chevron' src={expandIcon} alt='Expand' />
-          </div>
+          <span>{title}</span>{' '}
+          <img className='StyledDropdown-chevron' src={expandIcon} alt='Expand' />
         </Button>
       </Dropdown>
     </div>
@@ -35,12 +32,6 @@ const classNames = {
     '.StyledDropdown-button': {
       padding: 0,
       color: '#1D2528',
-    },
-    '.StyledDropdown-button-content': {
-      paddingLeft: '16px',
-      paddingRight: '16px',
-      display: 'flex',
-      alignItems: 'center',
     },
   },
 };
