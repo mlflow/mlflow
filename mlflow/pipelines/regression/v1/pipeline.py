@@ -350,7 +350,7 @@ class RegressionPipeline(_BasePipeline):
                        created by the **train** step to the MLflow Model Registry.
 
                      - ``"predict"``: uses the ingested dataset for scoring created by the
-                     **ingest_scoring** step and applies the specified model to the dataset.
+                       **ingest_scoring** step and applies the specified model to the dataset.
 
         .. code-block:: python
             :caption: Example

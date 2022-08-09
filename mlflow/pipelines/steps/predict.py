@@ -121,7 +121,7 @@ class PredictStep(BaseStep):
             raise MlflowException(
                 "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
-        required_configuration_keys = ["model_uri", "output_format", "output_location"]
+        required_configuration_keys = ["output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in step_config:
                 raise MlflowException(
