@@ -65,7 +65,9 @@ def test_create_pipeline_fails_with_path_containing_space(tmp_path):
     os.makedirs(space_parent_dir)
     shutil.copytree(os.getcwd(), space_child_dir)
 
-    with chdir(space_child_dir), pytest.raises(MlflowException, match="Pipeline directory path cannot contain spaces"):
+    with chdir(space_child_dir), pytest.raises(
+        MlflowException, match="Pipeline directory path cannot contain spaces"
+    ):
         Pipeline(profile="local")
 
 
