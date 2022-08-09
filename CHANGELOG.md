@@ -1,5 +1,65 @@
 # CHANGELOG
 
+## 1.27.1.dev0 (2022-08-09)
+
+MLflow 1.27.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Update MLflow UI (#6422, @dbczumar)
+- Tag based registered model search and model version search (#6320, @WeichenXu123)
+- Timebased gc (#6354, @Jason-CKY)
+- integrate mlflowdbfs (#6282, @bbarnes52)
+- Series schema (#6361, @RynoXLI)
+- Make `model_uri` optional for `mlflow models build-docker` (#6302, @harupy)
+- Add box plot in compare-runs page (#6308, @ahlag)
+- Add `MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE` flag (#6344, @postrational)
+- Add run / model links to MLP train step card (#6294, @dbczumar)
+- stage parameter support in set_model_version_tag  (#6185, @subramaniam02)
+- add: mlflow server/ui add `registry_store_uri` config (#6142, @Secbone)
+- Implement `FileStore.search_experiments` (#6227, @harupy)
+- Implement `RestStore.search_experiments` (#6172, @harupy)
+- Add environment variable to customize max_retries / backoff_factor / timeout for rest API http request (#5745, @peterdhansen)
+- Display tags in runs comparison table within the UI (#6164, @CaioCavalcanti)
+- Change log scale on UI charts to show official scientific notation (#6176, @RajezMariner)
+- feat: support read log_model_allowlist file from url (#6036, @serena-ruan)
+- [FR] Allow user to download metrics data as csv (#6048, @rafaelvp-db)
+- adding MlflowClient to top level mlflow package (#6085, @subramaniam02)
+- Add Leader board for MLP train step card (#6147, @WeichenXu123)
+- Update MLflow UI (#6153, @harupy)
+
+Bug fixes and documentation updates:
+
+- Fix IN operator related issues in sql filter parser (#6411, @WeichenXu123)
+- Allow sql filter IN operator right-hand side values including whitespaces (#6413, @WeichenXu123)
+- Check if artifacts are proxied in model_version_artifact_handler (#6355, @abbas123456)
+- Increase maximum param value length to 500 (#6358, @johnyNJ)
+- Fix filestore data loss on failed write & mitigate read / write race condition (#6388, @dbczumar)
+- Make search experiment by tag key comparison case sensitive in MYSQL (#6333, @WeichenXu123)
+- Avoid logging model signatures in pyspark ML autologging if model input/output dataframe contains unsupported data types (#6365, @harupy)
+- Fix sklearn autologging input example & signature mutation for models containing transformers (#6230, @dbczumar)
+- Fix java model server compatibility with models containing databricks_runtime conf (#6337, @dbczumar)
+- Allow logging of NA parameter values (#6263, @nathaneastwood)
+- Require that deployments predict / explain CLI invocations specify either deployment name or endpoint (#6323, @dbczumar)
+- check if xdg-open is available (#6326, @strangiato)
+- Correct check for infinity (#6271, @nathaneastwood)
+- Fix #5856 IsADirectoryError while selecting Azure artifact in the UI (#6237, @nerdinand)
+- Encode timestamp in batch inference with `mlflow.pyfunc.spark_udf` (#6244, @harupy)
+- Nested runs visualization (#6065, @tospe)
+- fix: local directory submit (#6218, @ElefHead)
+- `mlflow server`: Fix log batch and set tag validation for empty string values (#6179, @dbczumar)
+- Fix mlflow.tensorflow.autolog(log_model=False) doesn't log earlystopping callback (#6170, @WeichenXu123)
+- Add sqlparse to skinny (#6174, @dbczumar)
+- Handle auth required http status code to prevent nested exception (#6106, @balvisio)
+- Fix bug where LocalArtifactRepository.delete_artifacts() throws if artifacts don't exist (#6165, @dbczumar)
+- Deduplicate MlflowClient in MLflow docs, move to mlflow.client module (#6405, @dbczumar)
+- Add how to run and lint check for MLfow UI in `CONTRIBUTIN.G.rst` (#6330, @ahlag)
+- stage parameter support in set_model_version_tag  (#6185, @subramaniam02)
+- Indicate that MLflow Pipelines requires Make in the docs (#6216, @dbczumar)
+- adding MlflowClient to top level mlflow package (#6085, @subramaniam02)
+
+Small bug fixes and doc updates (#6322, #6321, #6213, @KarthikKothareddy; #6409, #6408, #6396, #6402, #6399, #6398, #6397, #6390, #6381, #6386, #6385, #6373, #6375, #6380, #6374, #6372, #6363, #6353, #6352, #6350, #6351, #6349, #6347, #6287, #6341, #6342, #6340, #6338, #6319, #6314, #6316, #6317, #6318, #6315, #6313, #6311, #6300, #6292, #6291, #6289, #6290, #6278, #6279, #6276, #6272, #6252, #6243, #6250, #6242, #6241, #6240, #6224, #6154, #6220, #6208, #6219, #6207, #6171, #6206, #6199, #6196, #6191, #6190, #6175, #6167, #6161, #6160, @harupy; #6193, @jwgwalton; #6362, #6297, #6304, #6284, #6239, #6234, #6229, @sunishsheth2009; #6258, @xanderwebs; #6106, @balvisio; #6303, @bbarnes52; #6117, @wenfeiy-db; #6389, #6378, #6214, @apurva-koti; #6412, #6420, #6277, #6266, #6260, #6148, @WeichenXu123; #6120, @ameya-parab; #6281, @nathaneastwood; #6415, #6417, #6418, #6257, #6182, #6157, @dbczumar; #6189, @shrinath-suresh; #6309, @SamirPS; #5897, @temporaer; #6251, @herrmann; #6198, @sniafas; #6368, #6359, #6158, @jinzhang21; #6236, @subramaniam02)
+
 ## 1.27.0 (2022-06-27)
 
 MLflow 1.27.0 includes several major features and improvements:
