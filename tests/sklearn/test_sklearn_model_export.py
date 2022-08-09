@@ -18,7 +18,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -233,8 +233,8 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
+    pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
     with pytest.raises(AttributeError, match="Can't pickle local object"):
-        pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
         mlflow.sklearn.save_model(
             sk_model=custom_transformer_model,
             path=pickle_format_model_path,
@@ -424,7 +424,7 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
             path=model_path,
             serialization_format="not a valid format",
         )
-        assert exc.error_code == INVALID_PARAMETER_VALUE
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # The unsupported serialization format should have been detected prior to the execution of
     # any directory creation or state-mutating persistence logic that would prevent a second

@@ -225,18 +225,13 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
 
 
 def test_get_anonymous_bucket(gcs_mock):
-    with pytest.raises(DefaultCredentialsError, match="Test"):
-        gcs_mock.Client.return_value.bucket.side_effect = mock.Mock(
-            side_effect=DefaultCredentialsError("Test")
-        )
-        repo = GCSArtifactRepository("gs://test_bucket", gcs_mock)
-        repo._get_bucket("gs://test_bucket")
-        anon_call_count = gcs_mock.Client.create_anonymous_client.call_count
-        assert anon_call_count == 1
-        bucket_call_count = (
-            gcs_mock.Client.create_anonymous_client.return_value.get_bucket.call_count
-        )
-        assert bucket_call_count == 1
+    gcs_mock.Client.side_effect = DefaultCredentialsError("Test")
+    repo = GCSArtifactRepository("gs://test_bucket", gcs_mock)
+    repo._get_bucket("gs://test_bucket")
+    anon_call_count = gcs_mock.Client.create_anonymous_client.call_count
+    assert anon_call_count == 1
+    bucket_call_count = gcs_mock.Client.create_anonymous_client.return_value.bucket.call_count
+    assert bucket_call_count == 1
 
 
 def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):

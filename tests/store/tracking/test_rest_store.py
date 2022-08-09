@@ -490,7 +490,7 @@ class TestRestStore:
                 mock_http,
                 creds,
                 "experiments/search",
-                "GET",
+                "POST",
                 message_to_json(
                     SearchExperiments(
                         view_type=ViewType.DELETED_ONLY,
