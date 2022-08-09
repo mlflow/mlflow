@@ -57,12 +57,8 @@ def artifacts_server():
             LOCALHOST,
             port,
             backend_store_uri,
-            (
-                "file:///" + artifacts_destination
-                if is_windows()
-                else artifacts_destination
-            ),
-            artifacts_destination,
+            default_artifact_root,
+            ("file:///" + artifacts_destination if is_windows() else artifacts_destination),
         )
         yield ArtifactsServer(
             backend_store_uri, default_artifact_root, artifacts_destination, url, process
