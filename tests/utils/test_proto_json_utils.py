@@ -479,15 +479,11 @@ def test_dataframe_from_json():
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
-    pd.testing.assert_frame_equal(
-        parsed, source.astype({"string": "string", "date_string": "string"})
-    )
+    pd.testing.assert_frame_equal(parsed, source)
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=schema
     )
-    pd.testing.assert_frame_equal(
-        parsed, source.astype({"string": "string", "date_string": "string"})
-    )
+    pd.testing.assert_frame_equal(parsed, source)
     # try parsing with tensor schema
     tensor_schema = Schema(
         [
@@ -505,13 +501,13 @@ def test_dataframe_from_json():
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
-    pd.testing.assert_frame_equal(parsed, jsonable_df.astype({"binary": bytes}))
+    pd.testing.assert_frame_equal(parsed, jsonable_df)
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
-    pd.testing.assert_frame_equal(parsed, jsonable_df.astype({"binary": bytes}))
+    pd.testing.assert_frame_equal(parsed, jsonable_df)
 
     # Test parse with TensorSchema with a single tensor
     tensor_schema = Schema([TensorSpec(np.dtype("float32"), [-1, 3])])
