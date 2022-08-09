@@ -1,3 +1,4 @@
+import abc
 import logging
 import os
 
@@ -18,7 +19,7 @@ from typing import Dict, Any
 _logger = logging.getLogger(__name__)
 
 
-class IngestStep(BaseStep):
+class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     _DATASET_FORMAT_SPARK_TABLE = "spark_table"
     _DATASET_FORMAT_DELTA = "delta"
     _DATASET_FORMAT_PARQUET = "parquet"
@@ -48,7 +49,7 @@ class IngestStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        for dataset_class in IngestStep._SUPPORTED_DATASETS:
+        for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
                 self.dataset = dataset_class.from_config(
                     dataset_config=step_config,
@@ -65,7 +66,7 @@ class IngestStep(BaseStep):
         import pandas as pd
 
         dataset_dst_path = os.path.abspath(
-            os.path.join(output_directory, IngestStep._DATASET_OUTPUT_NAME)
+            os.path.join(output_directory, BaseIngestStep._DATASET_OUTPUT_NAME)
         )
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
@@ -79,7 +80,7 @@ class IngestStep(BaseStep):
         )
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
         dataset_profile_path = os.path.join(
-            output_directory, IngestStep._DATASET_PROFILE_OUTPUT_NAME
+            output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME
         )
         ingested_dataset_profile.to_file(output_file=dataset_profile_path)
         _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
@@ -170,6 +171,40 @@ class IngestStep(BaseStep):
             pipeline_root=pipeline_root,
         )
 
+
+class IngestStep(BaseIngestStep):
+    @classmethod
+    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+        if "data" not in pipeline_config:
+            raise MlflowException(
+                message="The `data` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return cls(
+            step_config=pipeline_config["data"],
+            pipeline_root=pipeline_root,
+        )
+
     @property
     def name(self) -> str:
         return "ingest"
+
+
+class IngestScoringStep(BaseIngestStep):
+    @classmethod
+    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+        if "data_scoring" not in pipeline_config:
+            raise MlflowException(
+                message="The `data_scoring` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return cls(
+            step_config=pipeline_config["data_scoring"],
+            pipeline_root=pipeline_root,
+        )
+
+    @property
+    def name(self) -> str:
+        return "ingest_scoring"

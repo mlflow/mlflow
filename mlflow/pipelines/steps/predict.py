@@ -15,7 +15,7 @@ _logger = logging.getLogger(__name__)
 
 
 # This should maybe imported from the preprocessing step for consistency
-_INPUT_FILE_NAME = "preprocessed.parquet"
+_INPUT_FILE_NAME = "dataset.parquet"
 _SCORED_OUTPUT_FILE_NAME = "scored.parquet"
 
 
@@ -30,7 +30,7 @@ class PredictStep(BaseStep):
         # Build profiles for input dataset, and train / validation / test splits
         scored_data_profile = get_pandas_data_profile(
             scored_df.reset_index(drop=True),
-            "Profile of Preprocessed Dataset",
+            "Profile of Scored Dataset",
         )
 
         # Build card
@@ -84,7 +84,7 @@ class PredictStep(BaseStep):
         # read cleaned dataset
         ingested_data_path = get_step_output_path(
             pipeline_root_path=self.pipeline_root,
-            step_name="preprocessing",
+            step_name="ingest_scoring",
             relative_path=_INPUT_FILE_NAME,
         )
         input_sdf = spark.read.parquet(ingested_data_path)
@@ -121,7 +121,7 @@ class PredictStep(BaseStep):
             raise MlflowException(
                 "Config for predict step is not found.", error_code=INVALID_PARAMETER_VALUE
             )
-        required_configuration_keys = ["model_uri", "output_format", "output_location"]
+        required_configuration_keys = ["output_format", "output_location"]
         for key in required_configuration_keys:
             if key not in step_config:
                 raise MlflowException(
