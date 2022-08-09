@@ -309,13 +309,13 @@ class RegressionPipeline(_BasePipeline):
                      its dependencies are executed sequentially. If a step is not specified, the
                      entire pipeline is executed. Supported steps, in their order of execution, are:
 
-                     - ``"ingest"``: resolves the dataset specified by the ``data/training`` section in the
-                       pipeline's configuration file (``pipeline.yaml``) and converts it to parquet
-                       format.
+                     - ``"ingest"``: resolves the dataset specified by the ``data/training`` section
+                       in the pipeline's configuration file (``pipeline.yaml``) and converts it to
+                       parquet format.
 
-                     - ``"ingest_scoring"``: resolves the dataset specified by the ``data/scoring`` section in the
-                       pipeline's configuration file (``pipeline.yaml``) and converts it to parquet
-                       format.
+                     - ``"ingest_scoring"``: resolves the dataset specified by the ``data/scoring``
+                       section in the pipeline's configuration file (``pipeline.yaml``) and converts
+                       it to parquet format.
 
                      - ``"split"``: splits the ingested dataset produced by the **ingest** step into
                        a training dataset for model training, a validation dataset for model

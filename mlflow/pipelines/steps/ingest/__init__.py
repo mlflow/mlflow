@@ -1,3 +1,4 @@
+import abc
 import logging
 import os
 
@@ -18,7 +19,7 @@ from typing import Dict, Any
 _logger = logging.getLogger(__name__)
 
 
-class BaseIngestStep(BaseStep):
+class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     _DATASET_FORMAT_SPARK_TABLE = "spark_table"
     _DATASET_FORMAT_DELTA = "delta"
     _DATASET_FORMAT_PARQUET = "parquet"
