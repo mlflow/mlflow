@@ -442,14 +442,14 @@ class RegressionPipeline(_BasePipeline):
         import mlflow.pyfunc
 
         (
+            ingest_scoring_step,
+            predict_step,
             ingest_step,
             split_step,
             transform_step,
             train_step,
             _,
             register_step,
-            ingest_scoring_step,
-            predict_step,
         ) = self._steps
 
         ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")

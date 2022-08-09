@@ -181,7 +181,7 @@ def test_predict_throws_when_improperly_configured():
             pipeline_root=os.getcwd(),
         )
 
-    for required_key in ["model_uri", "output_format", "output_location"]:
+    for required_key in ["output_format", "output_location"]:
         pipeline_config = {
             "steps": {
                 "predict": {
