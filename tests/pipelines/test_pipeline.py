@@ -60,8 +60,10 @@ def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_create_pipeline_fails_with_path_containing_space(tmp_path):
-    space_path = tmp_path / " space parent " / "child"
-    os.makedirs(space_path)
+    space_parent = tmp_path / "space parent"
+    space_path = space_parent / "child"
+    os.makedirs(space_parent, exist_ok=True)
+    os.makedirs(space_path, exist_ok=True)
     copy_tree(os.getcwd(), str(space_path))
 
     with chdir(space_path), pytest.raises(
