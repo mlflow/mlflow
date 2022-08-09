@@ -1,6 +1,6 @@
 import os
 import pathlib
-import shutil
+from distutils.dir_util import copy_tree
 
 import pandas as pd
 import pytest
@@ -60,12 +60,11 @@ def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")
 def test_create_pipeline_fails_with_path_containing_space(tmp_path):
-    space_parent_dir = tmp_path / " space parent "
-    space_child_dir = space_parent_dir / "child"
-    os.makedirs(space_parent_dir)
-    shutil.copytree(os.getcwd(), space_child_dir)
+    space_path = tmp_path / " space parent " / "child"
+    os.makedirs(space_path)
+    copy_tree(os.getcwd(), str(space_path))
 
-    with chdir(space_child_dir), pytest.raises(
+    with chdir(space_path), pytest.raises(
         MlflowException, match="Pipeline directory path cannot contain spaces"
     ):
         Pipeline(profile="local")
