@@ -392,7 +392,7 @@ class RegressionPipeline(_BasePipeline):
                          - ``"test_data"``: returns the test dataset created in the **split** step
                            as a pandas DataFrame.
 
-                         - ``"batch_scoring_data"``: returns the scoring dataset created in the
+                         - ``"ingested_scoring_data"``: returns the scoring dataset created in the
                            **ingest_scoring** step as a pandas DataFrame.
 
                          - ``"transformed_training_data"``: returns the transformed training dataset
@@ -578,9 +578,9 @@ class RegressionPipeline(_BasePipeline):
                 log_artifact_not_found_warning("registered_model_version", register_step.name)
                 return None
 
-        elif artifact_name == "batch_scoring_data":
+        elif artifact_name == "ingested_scoring_data":
             return read_dataframe(
-                "batch_scoring_data",
+                "ingested_scoring_data",
                 ingest_scoring_output_dir,
                 IngestScoringStep._DATASET_OUTPUT_NAME,
                 ingest_scoring_step.name,
