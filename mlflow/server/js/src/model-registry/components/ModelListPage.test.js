@@ -73,7 +73,6 @@ describe('ModelListPage', () => {
     test('the states should be correctly set when page is loaded initially', () => {
       instance = wrapper.find(ModelListPageImpl).instance();
       jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-      instance.handleSearch(noop, noop);
       expect(instance.state.searchInput).toBe('');
       expect(instance.state.orderByKey).toBe(REGISTERED_MODELS_SEARCH_NAME_FIELD);
       expect(instance.state.orderByAsc).toBe(true);
