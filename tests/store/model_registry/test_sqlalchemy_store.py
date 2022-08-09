@@ -860,13 +860,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # search using the IN operator should return all versions
         self.assertEqual(
-            set(
-                search_versions(
-                    "run_id IN ('{run_id_1}','{run_id_2}')".format(
-                        run_id_1=run_id_1, run_id_2=run_id_2
-                    )
-                )
-            ),
+            set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")),
             set([1, 2, 3]),
         )
 
@@ -876,12 +870,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             set([2, 3]),
         )
 
+        # search IN operator with right-hand side value containing whitespaces
+        self.assertEqual(
+            set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")),
+            set([1, 2, 3]),
+        )
+
         # search using the IN operator with bad lists should return exceptions
         with self.assertRaisesRegex(
             MlflowException,
             (
                 r"While parsing a list in the query, "
-                r"expected string value or punctuation, "
+                r"expected string value, punctuation, or whitespace, "
                 r"but got different type in list"
             ),
         ) as exception_context:

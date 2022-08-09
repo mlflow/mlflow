@@ -12,7 +12,6 @@ from sqlparse.sql import (
     Comparison,
     Statement,
     Parenthesis,
-    TokenList,
     IdentifierList,
 )
 from sqlparse.tokens import Token as TokenType
@@ -70,6 +69,7 @@ class SearchUtils:
     )
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     DELIMITER_VALUE_TYPES = set([TokenType.Punctuation])
+    WHITESPACE_VALUE_TYPE = TokenType.Text.Whitespace
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
@@ -654,13 +654,13 @@ class SearchUtils:
         elif not all(
             map(
                 lambda token: token.ttype
-                in cls.STRING_VALUE_TYPES.union(cls.DELIMITER_VALUE_TYPES),
+                in {*cls.STRING_VALUE_TYPES, *cls.DELIMITER_VALUE_TYPES, cls.WHITESPACE_VALUE_TYPE},
                 value_token._groupable_tokens[0].tokens,
             )
         ):
             raise MlflowException(
-                "While parsing a list in the query, expected string value "
-                "or punctuation, but got different type in list: {value_token}".format(
+                "While parsing a list in the query, expected string value, punctuation, "
+                "or whitespace, but got different type in list: {value_token}".format(
                     value_token=value_token
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -924,14 +924,6 @@ class SearchModelUtils(SearchUtils):
         elif token.is_whitespace:
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
-            return False
-        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
-            # `IN` is a comparison token in sqlparse >= 0.4.0:
-            # https://github.com/andialbrecht/sqlparse/pull/567
-            if token.value == "IN":
-                # This case it represent the IN filter parsed failed.
-                # e.g. "run_id IN"
-                return True
             return False
         else:
             return True
