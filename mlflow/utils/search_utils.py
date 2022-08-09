@@ -716,9 +716,7 @@ class SearchUtils:
 
     @classmethod
     def _is_list_component_token(cls, token):
-        return isinstance(token, (Identifier, Parenthesis)) or token.match(
-            ttype=TokenType.Keyword, values=["IN"]
-        )
+        return isinstance(token, (Identifier, Parenthesis))
 
     @classmethod
     def _process_statement_tokens(cls, statement_tokens, filter_string):
@@ -1018,14 +1016,6 @@ class SearchModelUtils(SearchUtils):
         elif token.is_whitespace:
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
-            return False
-        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
-            # `IN` is a comparison token in sqlparse >= 0.4.0:
-            # https://github.com/andialbrecht/sqlparse/pull/567
-            if token.value == "IN":
-                # This case it represent the IN filter parsed failed.
-                # e.g. "run_id IN"
-                return True
             return False
         else:
             return True
