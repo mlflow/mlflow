@@ -29,15 +29,10 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_default_tracking_uri,
-    is_in_databricks_job,
-    is_in_databricks_notebook,
-    get_workspace_info_from_dbutils,
-    get_workspace_info_from_databricks_secrets,
-)
+from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.validation import _validate_model_version_or_stage_exists
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -431,7 +426,7 @@ class MlflowClient:
               - ``=``: Equal to.
               - ``!=``: Not equal to.
               - ``LIKE``: Case-sensitive pattern match.
-              - ``ILIKE``: Case-insensitive sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
 
             Logical operators
               - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -813,7 +808,7 @@ class MlflowClient:
                     All backend stores support keys up to length 250, but some may
                     support larger keys.
         :param value: Parameter value (string, but will be string-ified if not).
-                      All backend stores support values up to length 250, but some
+                      All backend stores support values up to length 500, but some
                       may support larger values.
 
         .. code-block:: python
@@ -1995,12 +1990,25 @@ class MlflowClient:
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered
-                models. Currently, it supports only a single filter condition as the name
-                of the model, for example, ``name = 'model_name'`` or a search expression
-                to match a pattern in the registered model name.
-                For example, ``name LIKE 'Boston%'`` (case sensitive) or
-                ``name ILIKE '%boston%'`` (case insensitive).
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+            defaults to searching for all registered models. The following identifiers, comparators,
+            and logical operators are supported.
+
+            Identifiers
+              - ``name``: registered model name.
+              - ``tags.<tag_key>``: registered model tag. If ``tag_key`` contains spaces, it must be
+                wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -2343,7 +2351,7 @@ class MlflowClient:
                     "because no run_id was given"
                 )
             else:
-                run_link = self._get_run_link(tracking_uri, run_id)
+                run_link = get_databricks_run_url(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
@@ -2371,33 +2379,6 @@ class MlflowClient:
             description=description,
             await_creation_for=await_creation_for,
         )
-
-    def _get_run_link(self, tracking_uri, run_id):
-        # if using the default Databricks tracking URI and in a notebook, we can automatically
-        # figure out the run-link.
-        if is_databricks_default_tracking_uri(tracking_uri) and (
-            is_in_databricks_notebook() or is_in_databricks_job()
-        ):
-            # use DBUtils to determine workspace information.
-            workspace_host, workspace_id = get_workspace_info_from_dbutils()
-        else:
-            # in this scenario, we're not able to automatically extract the workspace ID
-            # to proceed, and users will need to pass in a databricks profile with the scheme:
-            # databricks://scope:prefix and store the host and workspace-ID as a secret in the
-            # Databricks Secret Manager with scope=<scope> and key=<prefix>-workspaceid.
-            workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
-            if not workspace_id:
-                _logger.info(
-                    "No workspace ID specified; if your Databricks workspaces share the same"
-                    " host URL, you may want to specify the workspace ID (along with the host"
-                    " information in the secret manager) for run lineage tracking. For more"
-                    " details on how to specify this information in the secret manager,"
-                    " please refer to the model registry documentation."
-                )
-        # retrieve experiment ID of the run for the URL
-        experiment_id = self.get_run(run_id).info.experiment_id
-        if workspace_host and run_id and experiment_id:
-            return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
@@ -2714,9 +2695,28 @@ class MlflowClient:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently, it supports a single filter
-                              condition either a name of model like ``name = 'model_name'`` or
-                              ``run_id = '...'``.
+        :param filter_string: Filter query string
+            (e.g., ``"name = 'a_model_name' and tag.key = 'value1'"``),
+            defaults to searching for all model versions. The following identifiers, comparators,
+            and logical operators are supported.
+
+            Identifiers
+              - ``name``: model name.
+              - ``source_path``: model version source path.
+              - ``run_id``: The id of the mlflow run that generates the model version.
+              - ``tags.<tag_key>``: model version tag. If ``tag_key`` contains spaces, it must be
+                wrapped with backticks (e.g., ``"tags.`extra key`"``).
+
+            Comparators
+              - ``=``: Equal to.
+              - ``!=``: Not equal to.
+              - ``LIKE``: Case-sensitive pattern match.
+              - ``ILIKE``: Case-insensitive pattern match.
+              - ``IN``: In a value list. Only ``run_id`` identifier supports ``IN`` comparator.
+
+            Logical operators
+              - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
 
         .. code-block:: python
@@ -2795,14 +2795,19 @@ class MlflowClient:
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
+    def set_model_version_tag(
+        self, name: str, version: str = None, key: str = None, value: Any = None, stage: str = None
+    ) -> None:
         """
         Set a tag for the model version.
+        When stage is set, tag will be set for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key to log.
-        :param value: Tag value to log.
+        :param key: Tag key to log. key is required.
+        :param value: Tag value to log. value is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2837,7 +2842,13 @@ class MlflowClient:
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
+
+            # Tag using model version
             client.set_model_version_tag(name, mv.version, "t", "1")
+
+            # Tag using model stage
+            client.set_model_version_tag(name, key="t1", value="1", stage=mv.current_stage)
+
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2850,17 +2861,33 @@ class MlflowClient:
             --
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': '1'}
+            Tags: {'t': '1', 't1': '1'}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
+
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
+    def delete_model_version_tag(
+        self, name: str, version: str = None, key: str = None, stage: str = None
+    ) -> None:
         """
         Delete a tag associated with the model version.
+        When stage is set, tag will be deleted for latest model version of the stage.
+        Setting both version and stage parameter will result in error.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param key: Tag key.
+        :param key: Tag key. key is required.
+        :param stage: Registered model stage.
         :return: None
 
         .. code-block:: python
@@ -2892,11 +2919,15 @@ class MlflowClient:
             # Create a new version of the rfr model under the registered model name
             # and delete a tag
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
-            tags = {'t': "t1"}
+            tags = {'t': "1", "t1" : "2"}
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
+            #using version to delete tag
             client.delete_model_version_tag(name, mv.version, "t")
+
+            #using stage to delete tag
+            client.delete_model_version_tag(name, key="t1", stage=mv.current_stage)
             mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
@@ -2905,10 +2936,20 @@ class MlflowClient:
 
             Name: RandomForestRegression
             Version: 1
-            Tags: {'t': 't1'}
+            Tags: {'t': '1', 't1': '2'}
             --
             Name: RandomForestRegression
             Version: 1
             Tags: {}
         """
+        _validate_model_version_or_stage_exists(version, stage)
+        if stage:
+            latest_versions = self.get_latest_versions(name, stages=[stage])
+            if not latest_versions:
+                raise MlflowException(
+                    "Could not find any model version for {} stage".format(
+                        stage,
+                    )
+                )
+            version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)

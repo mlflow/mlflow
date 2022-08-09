@@ -4,10 +4,8 @@ import unittest
 import tempfile
 from unittest import mock
 import uuid
+import pytest
 
-import mlflow
-import mlflow.db
-import mlflow.store.db.base_sql_model
 from mlflow.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
@@ -15,6 +13,13 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.store.model_registry.dbmodels.models import (
+    SqlRegisteredModel,
+    SqlRegisteredModelTag,
+    SqlModelVersion,
+    SqlModelVersionTag,
+)
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -26,22 +31,42 @@ from tests.helper_functions import random_str
 
 DB_URI = "sqlite:///"
 
+pytestmark = pytest.mark.notrackingurimock
+
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri)
 
+    def _setup_db_uri(self):
+        if _TRACKING_URI_ENV_VAR in os.environ:
+            self.temp_dbfile = None
+            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+        else:
+            fd, self.temp_dbfile = tempfile.mkstemp()
+            # Close handle immediately so that we can remove the file later on in Windows
+            os.close(fd)
+            self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+
     def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self._setup_db_uri()
         self.store = self._get_store(self.db_url)
 
+    def get_store(self):
+        return self.store
+
     def tearDown(self):
-        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
-        os.remove(self.temp_dbfile)
+        if self.temp_dbfile:
+            os.remove(self.temp_dbfile)
+        else:
+            with self.store.ManagedSessionMaker() as session:
+                for model in (
+                    SqlModelVersionTag,
+                    SqlRegisteredModelTag,
+                    SqlModelVersion,
+                    SqlRegisteredModel,
+                ):
+                    session.query(model).delete()
 
     def _rm_maker(self, name, tags=None, description=None):
         return self.store.create_registered_model(name, tags, description)
@@ -76,7 +101,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
         # slightly different name is ok
-        for name2 in [name + "extra", name.lower(), name.upper(), name + name]:
+        for name2 in [name + "extra", name + name]:
             rm2 = self._rm_maker(name2)
             self.assertEqual(rm2.name, name2)
 
@@ -605,7 +630,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # only valid stages can be set
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid Model Version stage unknown"
+            MlflowException,
+            "Invalid Model Version stage: unknown. "
+            "Value must be one of None, Staging, Production, Archived.",
         ) as exception_context:
             self.store.transition_model_version_stage(
                 mv1.name, mv1.version, stage="unknown", archive_existing_versions=False
@@ -833,13 +860,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # search using the IN operator should return all versions
         self.assertEqual(
-            set(
-                search_versions(
-                    "run_id IN ('{run_id_1}','{run_id_2}')".format(
-                        run_id_1=run_id_1, run_id_2=run_id_2
-                    )
-                )
-            ),
+            set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")),
+            set([1, 2, 3]),
+        )
+
+        # search IN operator is case sensitive
+        self.assertEqual(
+            set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")),
+            set([2, 3]),
+        )
+
+        # search IN operator with right-hand side value containing whitespaces
+        self.assertEqual(
+            set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")),
             set([1, 2, 3]),
         )
 
@@ -848,12 +881,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             MlflowException,
             (
                 r"While parsing a list in the query, "
-                r"expected string value or punctuation, "
+                r"expected string value, punctuation, or whitespace, "
                 r"but got different type in list"
             ),
         ) as exception_context:
             search_versions("run_id IN (1,2,3)")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        self.assertEqual(
+            set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")),
+            set([2, 3]),
+        )
+
+        self.assertEqual(
+            set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")),
+            set([2, 3]),
+        )
 
         # search using the IN operator with empty lists should return exceptions
         with self.assertRaisesRegex(
@@ -874,8 +917,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             search_versions("run_id IN (")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-        with self.assertRaisesRegex(MlflowException, r"Invalid filter '.+'") as exception_context:
+        with self.assertRaisesRegex(
+            MlflowException, r"Invalid clause\(s\) in filter string"
+        ) as exception_context:
             search_versions("run_id IN")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        with self.assertRaisesRegex(
+            MlflowException, r"Invalid clause\(s\) in filter string"
+        ) as exception_context:
+            search_versions("name LIKE")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         with self.assertRaisesRegex(
@@ -898,17 +949,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ),
         ) as exception_context:
             search_versions("run_id IN ('runid1',,'runid2')")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # search using the IN operator is not allowed with other additional filters
-        with self.assertRaisesRegex(
-            MlflowException, r"Search filter '.+' contains multiple expressions"
-        ) as exception_context:
-            search_versions(
-                "name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(
-                    name=name, run_id_1=run_id_1, run_id_2=run_id_2
-                )
-            )
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # search using source_path "A/D" should return version 3 and 4
@@ -945,6 +985,47 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
 
+    def test_search_model_versions_by_tag(self):
+        # create some model versions
+        name = "test_for_search_MV_by_tag"
+        self._rm_maker(name)
+        run_id_1 = uuid.uuid4().hex
+        run_id_2 = uuid.uuid4().hex
+
+        mv1 = self._mv_maker(
+            name=name,
+            source="A/B",
+            run_id=run_id_1,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
+        )
+        assert mv1.version == 1
+        mv2 = self._mv_maker(
+            name=name,
+            source="A/C",
+            run_id=run_id_2,
+            tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")],
+        )
+        assert mv2.version == 2
+
+        def search_versions(filter_string):
+            return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
+
+        assert search_versions(f"name = '{name}' and tag.t2 = 'xyz'") == [1]
+        assert search_versions("name = 'wrong_name' and tag.t2 = 'xyz'") == []
+        assert search_versions("tag.`t2` = 'xyz'") == [1]
+        assert search_versions("tag.t3 = 'xyz'") == []
+        assert search_versions("tag.t2 != 'xy'") == [2, 1]
+        assert search_versions("tag.t2 LIKE 'xy%'") == [1]
+        assert search_versions("tag.t2 LIKE 'xY%'") == []
+        assert search_versions("tag.t2 ILIKE 'xY%'") == [1]
+        assert search_versions("tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions("tag.T2 = 'xyz'") == []
+        assert search_versions("tag.t1 = 'abc' and tag.t2 = 'xyz'") == [1]
+        assert search_versions("tag.t1 = 'abc' and tag.t2 LIKE 'x%'") == [2, 1]
+        assert search_versions("tag.t1 = 'abc' and tag.t2 LIKE 'y%'") == []
+        # test filter with duplicated keys
+        assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
+
     def _search_registered_models(
         self, filter_string, max_results=10, order_by=None, page_token=None
     ):
@@ -959,7 +1040,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_search_registered_models(self):
         # create some registered models
         prefix = "test_for_search_"
-        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
+        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
         for name in names:
             self._rm_maker(name)
 
@@ -1008,7 +1089,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, names[4:])
 
         # case-insensitive postfix search with ILIKE
-        rms, _ = self._search_registered_models("name ILIKE '%RM4a'")
+        rms, _ = self._search_registered_models("name ILIKE '%RM4a%'")
         self.assertEqual(rms, names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
@@ -1023,26 +1104,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models("name iLike '%%'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("name ilike '%RM4a'")
+        rms, _ = self._search_registered_models("name ilike '%RM4a%'")
         self.assertEqual(rms, names[4:])
 
         # cannot search by invalid comparator types
         with self.assertRaisesRegex(
-            MlflowException, r"Expected a quoted string value for attributes"
+            MlflowException,
+            "Parameter value is either not quoted or unidentified quote types used for string "
+            "value something",
         ) as exception_context:
             self._search_registered_models("name!=something")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by run_id
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, r"Invalid attribute name: run_id"
         ) as exception_context:
             self._search_registered_models("run_id='%s'" % "somerunID")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # cannot search by source_path
         with self.assertRaisesRegex(
-            MlflowException, r"Invalid attribute key '.+' specified"
+            MlflowException, r"Invalid attribute name: source_path"
         ) as exception_context:
             self._search_registered_models("source_path = 'A/D'")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1071,6 +1154,49 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models("name ILIKE '{}%'".format(prefix + "RM4A")),
             ([names[4]], None),
         )
+
+    def test_search_registered_models_by_tag(self):
+        name1 = "test_for_search_RM_by_tag1"
+        name2 = "test_for_search_RM_by_tag2"
+        tags1 = [
+            RegisteredModelTag("t1", "abc"),
+            RegisteredModelTag("t2", "xyz"),
+        ]
+        tags2 = [
+            RegisteredModelTag("t1", "abcd"),
+            RegisteredModelTag("t2", "xyz123"),
+            RegisteredModelTag("t3", "XYZ"),
+        ]
+        self._rm_maker(name1, tags1)
+        self._rm_maker(name2, tags2)
+
+        rms, _ = self._search_registered_models("tag.t3 = 'XYZ'")
+        assert rms == [name2]
+
+        rms, _ = self._search_registered_models(f"name = '{name1}' and tag.t1 = 'abc'")
+        assert rms == [name1]
+
+        rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%'")
+        assert rms == [name1, name2]
+
+        rms, _ = self._search_registered_models("tag.t1 ILIKE 'aB%'")
+        assert rms == [name1, name2]
+
+        rms, _ = self._search_registered_models("tag.t1 LIKE 'ab%' AND tag.t2 LIKE 'xy%'")
+        assert rms == [name1, name2]
+
+        rms, _ = self._search_registered_models("tag.t3 = 'XYz'")
+        assert rms == []
+
+        rms, _ = self._search_registered_models("tag.T3 = 'XYZ'")
+        assert rms == []
+
+        rms, _ = self._search_registered_models("tag.t1 != 'abc'")
+        assert rms == [name2]
+
+        # test filter with duplicated keys
+        rms, _ = self._search_registered_models("tag.t1 != 'abcd' and tag.t1 LIKE 'ab%'")
+        assert rms == [name1]
 
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default

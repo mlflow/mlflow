@@ -23,8 +23,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
     MLFLOW_PROJECT_ENTRY_POINT,
 )
-from mlflow.utils.uri import construct_run_url
-from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_runtime, _construct_databricks_run_url
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -41,6 +40,30 @@ def mock_store():
 def mock_registry_store():
     with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
+
+
+@pytest.fixture
+def mock_databricks_tracking_store():
+    experiment_id = "test-exp-id"
+    run_id = "runid"
+
+    class MockDatabricksTrackingStore:
+        def __init__(self, run_id, experiment_id):
+            self.run_id = run_id
+            self.experiment_id = experiment_id
+
+        def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
+            return Run(
+                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
+            )
+
+    mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._tracking_store_registry.get_store",
+        return_value=mock_tracking_store,
+    ):
+        yield mock_tracking_store
 
 
 @pytest.fixture
@@ -369,19 +392,27 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
     )
 
 
-def test_create_model_version_explicitly_set_run_link(mock_registry_store):
-    run_id = "runid"
+def test_create_model_version_explicitly_set_run_link(
+    mock_registry_store, mock_databricks_tracking_store
+):
     run_link = "my-run-link"
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
     mock_registry_store.create_model_version.return_value = ModelVersion(
-        "name", 1, 0, 1, source="source", run_id=run_id, run_link=run_link
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id=mock_databricks_tracking_store.run_id,
+        run_link=run_link,
     )
+
     # mocks to make sure that even if you're in a notebook, this setting is respected.
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
@@ -393,26 +424,33 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
         )
 
 
-def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
-    experiment_id = "test-exp-id"
+def test_create_model_version_run_link_in_notebook_with_default_profile(
+    mock_registry_store, mock_databricks_tracking_store
+):
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
-    run_id = "runid"
-    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
-    get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(
-        RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
+    workspace_url = _construct_databricks_run_url(
+        hostname,
+        mock_databricks_tracking_store.experiment_id,
+        mock_databricks_tracking_store.run_id,
+        workspace_id,
     )
+
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_dbutils",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
-        client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = ModelVersion(
-            "name", 1, 0, 1, source="source", run_id=run_id, run_link=workspace_url
+            "name",
+            1,
+            0,
+            1,
+            source="source",
+            run_id=mock_databricks_tracking_store.run_id,
+            run_link=workspace_url,
         )
         model_version = client.create_model_version("name", "source", "runid")
         assert model_version.run_link == workspace_url
@@ -438,26 +476,33 @@ def test_create_model_version_non_ready_model(mock_registry_store):
         client.create_model_version("name", "source")
 
 
-def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
-    experiment_id = "test-exp-id"
+def test_create_model_version_run_link_with_configured_profile(
+    mock_registry_store, mock_databricks_tracking_store
+):
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
-    run_id = "runid"
-    workspace_url = construct_run_url(hostname, experiment_id, run_id, workspace_id)
-    get_run_mock = mock.MagicMock()
-    get_run_mock.return_value = Run(
-        RunInfo(run_id, experiment_id, "userid", "status", 0, 1, None), None
+    workspace_url = _construct_databricks_run_url(
+        hostname,
+        mock_databricks_tracking_store.experiment_id,
+        mock_databricks_tracking_store.run_id,
+        workspace_id,
     )
+
     with mock.patch(
-        "mlflow.tracking.client.is_in_databricks_notebook", return_value=False
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False
     ), mock.patch(
-        "mlflow.tracking.client.get_workspace_info_from_databricks_secrets",
+        "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
         return_value=(hostname, workspace_id),
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="otherplace")
-        client.get_run = get_run_mock
         mock_registry_store.create_model_version.return_value = ModelVersion(
-            "name", 1, 0, 1, source="source", run_id=run_id, run_link=workspace_url
+            "name",
+            1,
+            0,
+            1,
+            source="source",
+            run_id=mock_databricks_tracking_store.run_id,
+            run_link=workspace_url,
         )
         model_version = client.create_model_version("name", "source", "runid")
         assert model_version.run_link == workspace_url
@@ -593,3 +638,70 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     client.create_experiment("test_experiment")
     client.create_registered_model("test_model")
     pickle.dumps(client)
+
+
+@pytest.fixture
+def mock_registry_store_with_get_latest_version(mock_registry_store):
+    mock_get_latest_versions = mock.Mock()
+    mock_get_latest_versions.return_value = [
+        ModelVersion(
+            "model_name",
+            1,
+            0,
+        )
+    ]
+
+    mock_registry_store.get_latest_versions = mock_get_latest_versions
+    yield mock_registry_store
+
+
+def test_set_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    # set_model_version_tag using version
+    MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
+    )
+
+    mock_registry_store_with_get_latest_version.reset_mock()
+
+    # set_model_version_tag using stage
+    MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar", stage="Staging")
+    mock_registry_store_with_get_latest_version.set_model_version_tag.assert_called_once_with(
+        "model_name", 1, ModelVersionTag(key="tag1", value="foobar")
+    )
+
+    # set_model_version_tag with version and stage set
+    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
+        MlflowClient().set_model_version_tag("model_name", 1, "tag1", "foobar", stage="Staging")
+
+    # set_model_version_tag with version and stage not set
+    with pytest.raises(MlflowException, match="version or stage must be set"):
+        MlflowClient().set_model_version_tag("model_name", key="tag1", value="foobar")
+
+
+def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
+
+    # delete_model_version_tag using version
+    MlflowClient().delete_model_version_tag("model_name", 1, "tag1")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
+    )
+
+    mock_registry_store_with_get_latest_version.reset_mock()
+
+    # delete_model_version_tag using stage
+    MlflowClient().delete_model_version_tag("model_name", key="tag1", stage="Staging")
+    mock_registry_store_with_get_latest_version.delete_model_version_tag.assert_called_once_with(
+        "model_name", 1, "tag1"
+    )
+
+    # delete_model_version_tag with version and stage set
+    with pytest.raises(MlflowException, match="version and stage cannot be set together"):
+        MlflowClient().delete_model_version_tag(
+            "model_name", version=1, key="tag1", stage="staging"
+        )
+
+    # delete_model_version_tag with version and stage not set
+    with pytest.raises(MlflowException, match="version or stage must be set"):
+        MlflowClient().delete_model_version_tag("model_name", key="tag1")

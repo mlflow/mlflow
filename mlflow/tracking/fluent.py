@@ -402,7 +402,7 @@ def active_run() -> Optional[ActiveRun]:
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
-    to access such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
+    to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
 
     .. code-block:: python
         :caption: Example
@@ -524,7 +524,7 @@ def log_param(key: str, value: Any) -> None:
                 All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores support values up to length 250, but some
+                  All backend stores support values up to length 500, but some
                   may support larger values.
 
     .. code-block:: python
@@ -1090,7 +1090,7 @@ def search_experiments(
           - ``=``: Equal to.
           - ``!=``: Not equal to.
           - ``LIKE``: Case-sensitive pattern match.
-          - ``ILIKE``: Case-insensitive sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
 
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -1507,12 +1507,12 @@ def search_runs(
 
         data = {}
         data.update(info)
-        for key in metrics:
-            data["metrics." + key] = metrics[key]
-        for key in params:
-            data["params." + key] = params[key]
-        for key in tags:
-            data["tags." + key] = tags[key]
+        for key, value in metrics.items():
+            data["metrics." + key] = value
+        for key, value in params.items():
+            data["params." + key] = value
+        for key, value in tags.items():
+            data["tags." + key] = value
         return pd.DataFrame(data)
     else:
         raise ValueError(

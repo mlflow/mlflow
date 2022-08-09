@@ -85,12 +85,13 @@ def test_path_parameter():
 
         # Verify that we raise an exception when passing a non-existent local file to a
         # parameter of type "path"
-        with TempDir() as tmp, pytest.raises(ExecutionException, match="no such file or directory"):
+        with TempDir() as tmp:
             dst_dir = tmp.path()
-            entry_point.compute_parameters(
-                user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
-                storage_dir=dst_dir,
-            )
+            with pytest.raises(ExecutionException, match="no such file or directory"):
+                entry_point.compute_parameters(
+                    user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
+                    storage_dir=dst_dir,
+                )
         # Verify that we do call `download_uri` when passing a URI to a parameter of type "path"
         for i, prefix in enumerate(["dbfs:/", "s3://", "gs://"]):
             with TempDir() as tmp:

@@ -6,6 +6,11 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.environment_variables import (
+    MLFLOW_GCS_DEFAULT_TIMEOUT,
+    MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
+    MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
+)
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -26,21 +31,9 @@ class GCSArtifactRepository(ArtifactRepository):
 
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
 
-        self._GCS_DOWNLOAD_CHUNK_SIZE = (
-            int(os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE"))
-            if os.environ.get("MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE")
-            else None
-        )
-        self._GCS_UPLOAD_CHUNK_SIZE = (
-            int(os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE"))
-            if os.environ.get("MLFLOW_GCS_UPLOAD_CHUNK_SIZE")
-            else None
-        )
-        self._GCS_DEFAULT_TIMEOUT = (
-            float(os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT"))
-            if os.environ.get("MLFLOW_GCS_DEFAULT_TIMEOUT")
-            else _DEFAULT_TIMEOUT
-        )
+        self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
+        self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
+        self._GCS_DEFAULT_TIMEOUT = MLFLOW_GCS_DEFAULT_TIMEOUT.get() or _DEFAULT_TIMEOUT
 
         # If the user-supplied timeout environment variable value is -1,
         # use `None` for `self._GCS_DEFAULT_TIMEOUT`

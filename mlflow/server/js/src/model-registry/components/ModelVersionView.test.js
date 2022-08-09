@@ -12,12 +12,15 @@ import { Provider } from 'react-redux';
 import { mockRunInfo } from '../../experiment-tracking/utils/test-utils/ReduxStoreFixtures';
 import Routers from '../../experiment-tracking/routes';
 import { mountWithIntl } from '../../common/utils/TestUtils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('ModelVersionView', () => {
   let wrapper;
   let minimalProps;
   let minimalStoreRaw;
   let minimalStore;
+  let createComponentInstance;
+
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
@@ -57,16 +60,20 @@ describe('ModelVersionView', () => {
       apis: {},
     };
     minimalStore = mockStore(minimalStoreRaw);
+    createComponentInstance = (props) =>
+      mountWithIntl(
+        <DesignSystemProvider>
+          <Provider store={minimalStore}>
+            <BrowserRouter>
+              <ModelVersionView {...props} />
+            </BrowserRouter>
+          </Provider>
+        </DesignSystemProvider>,
+      );
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(minimalProps);
     expect(wrapper.length).toBe(1);
   });
 
@@ -75,13 +82,7 @@ describe('ModelVersionView', () => {
       ...minimalProps,
       modelVersion: mockModelVersionDetailed('Model A', 1, Stages.NONE, ModelVersionStatus.READY),
     };
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(props);
     expect(wrapper.find('button[data-test-id="overflow-menu-trigger"]').length).toBe(1);
   });
 
@@ -97,14 +98,8 @@ describe('ModelVersionView', () => {
           ModelVersionStatus.READY,
         ),
       };
-      wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-          <BrowserRouter>
-            <ModelVersionView {...props} />
-          </BrowserRouter>
-        </Provider>,
-      );
-      wrapper.find("[data-test-id='overflow-menu-trigger']").at(0).simulate('click');
+      wrapper = createComponentInstance(props);
+      wrapper.find("button[data-test-id='overflow-menu-trigger']").simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
       // attribute within the rendered HTML.
@@ -128,13 +123,7 @@ describe('ModelVersionView', () => {
           ModelVersionStatus.READY,
         ),
       };
-      wrapper = mountWithIntl(
-        <Provider store={minimalStore}>
-          <BrowserRouter>
-            <ModelVersionView {...props} />
-          </BrowserRouter>
-        </Provider>,
-      );
+      wrapper = createComponentInstance(props);
       wrapper.find('button[data-test-id="overflow-menu-trigger"]').at(0).simulate('click');
       // The antd `Menu.Item` component converts the `disabled` attribute to `aria-disabled`
       // when generating HTML. Accordingly, we check for the presence of the `aria-disabled`
@@ -168,13 +157,7 @@ describe('ModelVersionView', () => {
       runInfo: runInfo,
       runDisplayName: expectedRunDisplayName,
     };
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(props);
     const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
     expect(linkedRun.html()).toContain(runLink);
     expect(linkedRun.html()).toContain(runLink.substr(0, 37) + '...');
@@ -191,13 +174,7 @@ describe('ModelVersionView', () => {
       runInfo: runInfo,
       runDisplayName: expectedRunDisplayName,
     };
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(props);
     const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
     expect(linkedRun.html()).toContain(expectedRunLink);
     expect(linkedRun.html()).toContain(expectedRunDisplayName);
@@ -206,24 +183,12 @@ describe('ModelVersionView', () => {
   test('Page title is set', () => {
     const mockUpdatePageTitle = jest.fn();
     Utils.updatePageTitle = mockUpdatePageTitle;
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(minimalProps);
     expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('Model A v1 - MLflow Model');
   });
 
   test('should tags rendered in the UI', () => {
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(minimalProps);
     expect(wrapper.html()).toContain('special key');
     expect(wrapper.html()).toContain('not so special value');
   });
@@ -242,13 +207,7 @@ describe('ModelVersionView', () => {
         null,
       ),
     };
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...props} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(props);
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(4);
     expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(
@@ -266,13 +225,7 @@ describe('ModelVersionView', () => {
   });
 
   test('creator description rendered if user_id is available', () => {
-    wrapper = mountWithIntl(
-      <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionView {...minimalProps} />
-        </BrowserRouter>
-      </Provider>,
-    );
+    wrapper = createComponentInstance(minimalProps);
 
     expect(wrapper.find('.metadata-list td.ant-descriptions-item').length).toBe(5);
     expect(wrapper.find('.metadata-list span.ant-descriptions-item-label').at(0).text()).toBe(

@@ -74,10 +74,18 @@ class TransformStep(BaseStep):
         validation_df = pd.read_parquet(validation_data_path)
 
         sys.path.append(self.pipeline_root)
+
+        def get_identity_transformer():
+            from sklearn.pipeline import Pipeline
+            from sklearn.preprocessing import FunctionTransformer
+
+            return Pipeline(steps=[("identity", FunctionTransformer())])
+
         transformer_fn = getattr(
             importlib.import_module(self.transformer_module_name), self.transformer_method_name
         )
         transformer = transformer_fn()
+        transformer = transformer if transformer else get_identity_transformer()
         transformer.fit(train_df.drop(columns=[self.target_col]))
 
         def transform_dataset(dataset):

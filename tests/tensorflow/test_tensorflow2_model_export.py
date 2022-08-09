@@ -260,7 +260,7 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
     raw_preds = infer(**feed_dict)
     pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
     for col in pred_dict:
-        assert np.allclose(
+        np.testing.assert_allclose(
             np.array(pred_dict[col], dtype=np.float),
             np.array(saved_tf_iris_model.raw_results[col], dtype=np.float),
         )
@@ -286,7 +286,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
             column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()
         }
         for col in pred_dict:
-            assert np.array_equal(pred_dict[col], saved_tf_iris_model.raw_results[col])
+            np.testing.assert_array_equal(pred_dict[col], saved_tf_iris_model.raw_results[col])
 
     load_and_evaluate()
 
@@ -669,7 +669,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
     assert isinstance(results_df, pd.DataFrame)
     for key in results_df.keys():
-        assert np.array_equal(results_df[key], saved_tf_iris_model.raw_df[key])
+        np.testing.assert_array_equal(results_df[key], saved_tf_iris_model.raw_df[key])
 
     # can also call predict with a dict
     inp_dict = {}
@@ -678,7 +678,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
     for key in results.keys():
-        assert np.array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
+        np.testing.assert_array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
 
     # can not call predict with a list
     inp_list = []
@@ -782,7 +782,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         mlflow_model = mlflow.pyfunc.load_model(model_uri)
         feed_dict = {"feature1": tf.constant([[2.0]])}
         predictions = mlflow_model.predict(feed_dict)
-        assert np.allclose(predictions["dense"], model.predict(feed_dict))
+        np.testing.assert_allclose(predictions["dense"], model.predict(feed_dict).squeeze())
 
     load_and_predict()
 

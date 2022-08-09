@@ -1,0 +1,6 @@
+# Dev script dependencies
+ruamel.yaml
+requests
+packaging
+pydantic
+pyyaml

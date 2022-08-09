@@ -2,12 +2,13 @@ import functools
 import logging
 import os
 import subprocess
+from typing import Optional, TypeVar
 
+from databricks_cli.configure import provider
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
-from databricks_cli.configure import provider
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.uri import get_db_info_from_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -37,6 +38,27 @@ def _use_repl_context_if_available(name):
         return wrapper
 
     return decorator
+
+
+class MlflowCredentialContext:
+    """Sets and clears credentials on a context using the provided profile URL."""
+
+    def __init__(self, databricks_profile_url):
+        self.databricks_profile_url = databricks_profile_url or "databricks"
+        self.db_utils = _get_dbutils()
+
+    def __enter__(self):
+        db_creds = get_databricks_host_creds(self.databricks_profile_url)
+        self.db_utils.notebook.entry_point.putMlflowProperties(
+            db_creds.host,
+            db_creds.ignore_tls_verification,
+            db_creds.token,
+            db_creds.username,
+            db_creds.password,
+        )
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.db_utils.notebook.entry_point.clearMlflowProperties()
 
 
 def _get_dbutils():
@@ -482,3 +504,150 @@ def is_running_in_ipython_environment():
         return get_ipython() is not None
     except (ImportError, ModuleNotFoundError):
         return False
+
+
+def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> Optional[str]:
+    """
+    Obtains a Databricks URL corresponding to the specified MLflow Run, optionally referring
+    to an artifact within the run.
+
+    :param tracking_uri: The URI of the MLflow Tracking server containing the Run.
+    :param run_id: The ID of the MLflow Run for which to obtain a Databricks URL.
+    :param artifact_path: An optional relative artifact path within the Run to which the URL
+                          should refer.
+    :return: A Databricks URL corresponding to the specified MLflow Run
+             (and artifact path, if specified), or None if the MLflow Run does not belong to a
+             Databricks Workspace.
+    """
+    from mlflow.tracking.client import MlflowClient
+
+    try:
+        workspace_info = (
+            DatabricksWorkspaceInfo.from_environment()
+            or get_databricks_workspace_info_from_uri(tracking_uri)
+        )
+        if workspace_info is not None:
+            experiment_id = MlflowClient(tracking_uri).get_run(run_id).info.experiment_id
+            return _construct_databricks_run_url(
+                host=workspace_info.host,
+                experiment_id=experiment_id,
+                run_id=run_id,
+                workspace_id=workspace_info.workspace_id,
+                artifact_path=artifact_path,
+            )
+    except Exception:
+        return None
+
+
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+    """
+    Obtains a Databricks URL corresponding to the specified Model Version.
+
+    :param tracking_uri: The URI of the Model Registry server containing the Model Version.
+    :param name: The name of the registered model containing the Model Version.
+    :param version: Version number of the Model Version.
+    :return: A Databricks URL corresponding to the specified Model Version, or None if the
+             Model Version does not belong to a Databricks Workspace.
+    """
+    try:
+        workspace_info = (
+            DatabricksWorkspaceInfo.from_environment()
+            or get_databricks_workspace_info_from_uri(registry_uri)
+        )
+        if workspace_info is not None:
+            return _construct_databricks_model_version_url(
+                host=workspace_info.host,
+                name=name,
+                version=version,
+                workspace_id=workspace_info.workspace_id,
+            )
+    except Exception:
+        return None
+
+
+DatabricksWorkspaceInfoType = TypeVar("DatabricksWorkspaceInfo", bound="DatabricksWorkspaceInfo")
+
+
+class DatabricksWorkspaceInfo:
+
+    WORKSPACE_HOST_ENV_VAR = "_DATABRICKS_WORKSPACE_HOST"
+    WORKSPACE_ID_ENV_VAR = "_DATABRICKS_WORKSPACE_ID"
+
+    def __init__(self, host: str, workspace_id: Optional[str] = None):
+        self.host = host
+        self.workspace_id = workspace_id
+
+    @classmethod
+    def from_environment(cls) -> Optional[DatabricksWorkspaceInfoType]:
+        if DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR in os.environ:
+            return DatabricksWorkspaceInfo(
+                host=os.environ[DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR],
+                workspace_id=os.environ.get(DatabricksWorkspaceInfo.WORKSPACE_ID_ENV_VAR),
+            )
+        else:
+            return None
+
+    def to_environment(self):
+        env = {
+            DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR: self.host,
+        }
+        if self.workspace_id is not None:
+            env[DatabricksWorkspaceInfo.WORKSPACE_ID_ENV_VAR] = self.workspace_id
+
+        return env
+
+
+def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[DatabricksWorkspaceInfo]:
+    if not is_databricks_uri(tracking_uri):
+        return None
+
+    if is_databricks_default_tracking_uri(tracking_uri) and (
+        is_in_databricks_notebook() or is_in_databricks_job()
+    ):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+    else:
+        workspace_host, workspace_id = get_workspace_info_from_databricks_secrets(tracking_uri)
+        if not workspace_id:
+            _logger.info(
+                "No workspace ID specified; if your Databricks workspaces share the same"
+                " host URL, you may want to specify the workspace ID (along with the host"
+                " information in the secret manager) for run lineage tracking. For more"
+                " details on how to specify this information in the secret manager,"
+                " please refer to the Databricks MLflow documentation."
+            )
+
+    if workspace_host:
+        return DatabricksWorkspaceInfo(host=workspace_host, workspace_id=workspace_id)
+    else:
+        return None
+
+
+def _construct_databricks_run_url(
+    host: str,
+    experiment_id: str,
+    run_id: str,
+    workspace_id: Optional[str] = None,
+    artifact_path: Optional[str] = None,
+) -> str:
+    run_url = host
+    if workspace_id and workspace_id != "0":
+        run_url += "?o=" + str(workspace_id)
+
+    run_url += f"#mlflow/experiments/{experiment_id}/runs/{run_id}"
+
+    if artifact_path is not None:
+        run_url += f"/artifactPath/{artifact_path.lstrip('/')}"
+
+    return run_url
+
+
+def _construct_databricks_model_version_url(
+    host: str, name: str, version: str, workspace_id: Optional[str] = None
+) -> str:
+    model_version_url = host
+    if workspace_id and workspace_id != "0":
+        model_version_url += "?o=" + str(workspace_id)
+
+    model_version_url += f"#mlflow/models/{name}/{version}"
+
+    return model_version_url

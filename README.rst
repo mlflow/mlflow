@@ -16,22 +16,11 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |labeling| |examples| |cross-version-tests| |r-devel| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
+|docs| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack| |twitter|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg?style=for-the-badge
     :target: https://mlflow.org/docs/latest/index.html
     :alt: Latest Docs
-.. |labeling| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Labeling?label=Labeling&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ALabeling
-    :alt: Labeling Action Status
-.. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
-    :alt: Examples Action Status
-.. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
-.. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
-    :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg?style=for-the-badge&logo=pypi&logoColor=white
     :target: https://pypi.org/project/mlflow/
     :alt: Latest Python Release
@@ -57,9 +46,23 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
 
-
-
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1b7gbsopj-ckYE002CMSDR4_Bioztv8g
+
+Nightly Job Statuses
+
+|examples| |cross-version-tests| |r-devel| |test-requirements| |stale|
+
+.. |examples| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Examples?event=schedule&label=Examples&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
+    :alt: Examples Action Status
+.. |cross-version-tests| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Cross%20version%20tests?event=schedule&label=Cross%20version%20tests&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
+.. |r-devel| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/R?event=schedule&label=r-devel&style=for-the-badge&logo=github
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AR+event%3Aschedule
+.. |test-requirements| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Test%20requirements?event=schedule&label=test%20requirements&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
+.. |stale| image:: https://img.shields.io/github/workflow/status/mlflow/mlflow/Stale?event=schedule&label=stale&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
 
 Installing
 ----------

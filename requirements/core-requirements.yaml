@@ -13,19 +13,19 @@ docker:
   max_major_version: 5
 
 flask:
-  pip_release: Flask 
+  pip_release: Flask
   max_major_version: 2
 
 numpy:
-  pip_release: numpy 
+  pip_release: numpy
   max_major_version: 1
 
 scipy:
-  pip_release: scipy 
+  pip_release: scipy
   max_major_version: 1
 
 pandas:
-  pip_release: pandas 
+  pip_release: pandas
   max_major_version: 1
 
 prometheus-flask-exporter:
@@ -37,16 +37,16 @@ querystring_parser:
   max_major_version: 1
 
 sqlalchemy:
-  pip_release: sqlalchemy 
+  pip_release: sqlalchemy
   minimum: "1.4.0"
   max_major_version: 1
 
 gunicorn:
-  pip_release: gunicorn 
+  pip_release: gunicorn
   max_major_version: 20
   markers: "platform_system != 'Windows'"
 
 waitress:
-  pip_release: waitress 
+  pip_release: waitress
   max_major_version: 2
   markers: "platform_system == 'Windows'"

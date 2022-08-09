@@ -62,6 +62,13 @@ def test_yaml_read_and_write(tmpdir):
 
 
 def test_render_and_merge_yaml(tmpdir):
+    import json
+
+    json_file = random_file("json")
+    extra_config = {"key": 123}
+    with open(tmpdir / json_file, "w") as f:
+        json.dump(extra_config, f)
+
     template_yaml_file = random_file("yaml")
     with open(tmpdir / template_yaml_file, "w") as f:
         f.write(
@@ -75,13 +82,15 @@ def test_render_and_merge_yaml(tmpdir):
             test_2: {{ TEST_VAR_1 }}
             test_3: {{ TEST_VAR_2 }}
             """
+            + r"test_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
         )
 
     data = {"MY_MLFLOW_SERVER": "./mlruns", "TEST_VAR_1": ["a", 1.2], "TEST_VAR_2": {"a": 2}}
     context_yaml_file = random_file("yaml")
     file_utils.write_yaml(str(tmpdir), context_yaml_file, data)
 
-    result = file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
+    with tmpdir.as_cwd():
+        result = file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
     expected = {
         "MY_MLFLOW_SERVER": "./mlruns",
         "TEST_VAR_1": ["a", 1.2],
@@ -90,8 +99,8 @@ def test_render_and_merge_yaml(tmpdir):
         "test_1": [1, 2, 3],
         "test_2": ["a", 1.2],
         "test_3": {"a": 2},
+        "test_4": 123,
     }
-
     assert result == expected
 
 

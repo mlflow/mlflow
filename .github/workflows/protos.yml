@@ -1,0 +1,44 @@
+name: Protos
+
+on:
+  pull_request:
+    paths:
+      - mlflow/protos/**
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  protos:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repository }}
+        ref: ${{ github.event.inputs.ref }}
+        submodules: recursive
+    - name: Test building Docker image
+      working-directory: dev
+      env:
+        DOCKER_BUILDKIT: 1
+      run: |
+        docker build -t gen-protos -f Dockerfile.protos .
+        docker run --rm gen-protos protoc --version
+    - name: Install dependencies
+      run: |
+        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
+        sudo unzip $HOME/protoc.zip -d /tmp/protoc
+        sudo chmod -R 777 /tmp/protoc
+        echo "/tmp/protoc/bin" >> $GITHUB_PATH
+    - name: Run tests
+      run: |
+        ./dev/test-generate-protos.sh

@@ -30,4 +30,20 @@ describe('unit tests', () => {
     wrapper = shallow(<EditableTable {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
+
+  test('should display only one modal when deleting a tag', () => {
+    // Prep
+    wrapper = shallow(<EditableTable {...minimalProps} />);
+    const getModal = () => wrapper.find('[data-testid="editable-form-table-remove-modal"]');
+
+    // Assert
+    expect(getModal().props().visible).toBeFalsy();
+
+    // Update
+    wrapper.setState((state) => ({ ...state, deletingKey: 'tag1' }));
+
+    // Assert
+    expect(getModal().props().visible).toBeTruthy();
+    expect(getModal().length).toBe(1);
+  });
 });

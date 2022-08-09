@@ -485,7 +485,13 @@ def test_call_fit_with_arguments_score_does_not_accept():
 
     with mlflow.start_run() as run:
         model.fit(X, y, intercept_init=0)
-        mock_obj.assert_called_once_with(X, y, None)
+
+    assert len(mock_obj.call_args_list) == 1
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    assert mock_call_args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -524,7 +530,13 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
             model.fit(X, y, None, None, sample_weight)
         elif sample_weight_passed_as == "keyword":
             model.fit(X, y, sample_weight=sample_weight)
-        mock_obj.assert_called_once_with(X, y, sample_weight)
+
+    assert len(mock_obj.call_args_list) == 1
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    np.testing.assert_array_equal(mock_call_args[2], sample_weight)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -557,7 +569,12 @@ def test_only_fit_contains_sample_weight():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        mock_obj.assert_called_once_with(X, y)
+
+    assert len(mock_obj.call_args_list) == 1
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 2
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -590,7 +607,13 @@ def test_only_score_contains_sample_weight():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        mock_obj.assert_called_once_with(X, y, None)
+
+    assert len(mock_obj.call_args_list) == 1
+    mock_call_args = mock_obj.call_args_list[0][0]
+    assert len(mock_call_args) == 3
+    np.testing.assert_array_equal(mock_call_args[0], X)
+    np.testing.assert_array_equal(mock_call_args[1], y)
+    assert mock_call_args[2] is None
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -904,6 +927,54 @@ def test_autolog_logs_signature_and_input_example(data_type):
     #
     # As a workaround, use `assert_array_almost_equal` instead of `assert_array_equal`
     np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
+
+
+def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
+    from sklearn.base import BaseEstimator, TransformerMixin
+
+    X_train = pd.DataFrame(
+        {
+            "Total Volume": [64236.62, 54876.98, 118220.22],
+            "Total Bags": [8696.87, 9505.56, 8145.35],
+            "Small Bags": [8603.62, 9408.07, 8042.21],
+            "Large Bags": [93.25, 97.49, 103.14],
+            "XLarge Bags": [0.0, 0.0, 0.0],
+        }
+    )
+    y_train = pd.Series([1.33, 1.35, 0.93])
+
+    class CustomTransformer(BaseEstimator, TransformerMixin):
+        def fit(self, X, y=None):  # pylint: disable=unused-argument
+            return self
+
+        def transform(self, X, y=None):  # pylint: disable=unused-argument
+            # Perform arbitary transformation
+            if "XXLarge Bags" in X.columns:
+                raise Exception("Found unexpected 'XXLarge Bags' column!")
+            X["XXLarge Bags"] = X["XLarge Bags"] + 1
+            return X
+
+    mlflow.sklearn.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
+
+    sk_pipeline = sklearn.pipeline.make_pipeline(
+        CustomTransformer(), sklearn.linear_model.LinearRegression()
+    )
+    sk_pipeline.fit(X_train, y_train)
+
+    run_artifact_uri = mlflow.last_active_run().info.artifact_uri
+    model_conf = get_model_conf(run_artifact_uri)
+    input_example = pd.read_json(
+        os.path.join(run_artifact_uri, "model", "input_example.json"), orient="split"
+    )
+    model_signature_input_names = [inp.name for inp in model_conf.signature.inputs.inputs]
+    assert "XLarge Bags" in model_signature_input_names
+    assert "XLarge Bags" in input_example.columns
+    assert "XXLarge Bags" not in model_signature_input_names
+    assert "XXLarge Bags" not in input_example.columns
+
+    metrics = get_run_data(mlflow.last_active_run().info.run_id)[1]
+    assert "training_r2_score" in metrics
+    assert "training_rmse" in metrics
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
@@ -1667,7 +1738,7 @@ def test_basic_post_training_metric_autologging():
     assert np.isclose(lor_score_data1_original, lor_score_data1)
 
     pred1_y_original = model.predict(eval1_X)
-    assert np.allclose(pred1_y_original, pred1_y)
+    np.testing.assert_allclose(pred1_y_original, pred1_y)
 
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
@@ -1897,7 +1968,7 @@ def test_patch_for_delegated_method():
     mlflow.sklearn.autolog(disable=True)
     pred1_y_original = model.predict(eval1_X)
 
-    assert np.allclose(pred1_y, pred1_y_original)
+    np.testing.assert_allclose(pred1_y, pred1_y_original)
 
 
 @pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
@@ -1925,7 +1996,7 @@ def test_patch_for_available_if_decorated_method():
 
     transform1_y_original = model.transform(eval1_X)
 
-    assert np.allclose(transform1_y, transform1_y_original)
+    np.testing.assert_allclose(transform1_y, transform1_y_original)
 
 
 def test_is_metrics_value_loggable():

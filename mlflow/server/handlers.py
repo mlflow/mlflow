@@ -1299,7 +1299,18 @@ def get_model_version_artifact_handler():
     name = request_dict.get("name")
     version = request_dict.get("version")
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
-    return _send_artifact(get_artifact_repository(artifact_uri), request_dict["path"])
+
+    if _is_servable_proxied_run_artifact_root(artifact_uri):
+        artifact_repo = _get_artifact_repo_mlflow_artifacts()
+        artifact_path = _get_proxied_run_artifact_destination_path(
+            proxied_artifact_root=artifact_uri,
+            relative_path=request_dict["path"],
+        )
+    else:
+        artifact_repo = get_artifact_repository(artifact_uri)
+        artifact_path = request_dict["path"]
+
+    return _send_artifact(artifact_repo, artifact_path)
 
 
 @catch_mlflow_exception
