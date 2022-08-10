@@ -239,6 +239,15 @@ class Pipeline:
             ) from None
 
         pipeline_root_path = get_pipeline_root_path()
+        if " " in pipeline_root_path:
+            raise MlflowException(
+                message=(
+                    "Pipeline directory path cannot contain spaces. Please move or rename your"
+                    f" pipeline directory. Current path: {pipeline_root_path}"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from None
+
         pipeline_config = get_pipeline_config(
             pipeline_root_path=pipeline_root_path, profile=profile
         )
