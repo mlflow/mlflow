@@ -9,7 +9,7 @@ from sklearn.datasets import load_diabetes
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.predict import PredictStep
+from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -101,7 +101,12 @@ def test_predict_step_runs(
     )
     predict_step._run(str(predict_step_output_dir))
 
-    prediction_assertions(predict_step_output_dir, "parquet", "scored", spark_session)
+    # Test internal predict step output artifact
+    artifact_file_name, artifact_file_extension = _SCORED_OUTPUT_FILE_NAME.split(".")
+    prediction_assertions(
+        predict_step_output_dir, artifact_file_extension, artifact_file_name, spark_session
+    )
+    # Test user specified output
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
