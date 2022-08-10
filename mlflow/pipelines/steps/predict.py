@@ -139,9 +139,9 @@ class PredictStep(BaseStep):
                 model_name = register_config["model_name"]
             except KeyError:
                 raise MlflowException(
-                    "No model specified for batch scoring: register step does not have "
-                    "`model_name` configuration key and predict step does not have `model_uri` "
-                    "configuration key.",
+                    "No model specified for batch scoring: predict step does not have `model_uri` "
+                    "configuration key and register step does not have `model_name` configuration "
+                    " key.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             else:
