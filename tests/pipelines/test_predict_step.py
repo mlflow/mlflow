@@ -105,6 +105,62 @@ def test_predict_step_runs(
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
+def test_predict_step_uses_register_step_model_name(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    rm_name = "register_step_model"
+    train_log_and_register_model(rm_name, is_dummy=True)
+
+    predict_step = PredictStep.from_pipeline_config(
+        {
+            "steps": {
+                "register": {"model_name": rm_name},
+                "predict": {
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "_disable_env_restoration": True,
+                },
+            }
+        },
+        str(tmp_pipeline_root_path),
+    )
+    predict_step._run(str(predict_step_output_dir))
+
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+
+
+def test_predict_model_uri_takes_precendence_over_model_name(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    rm_name = "register_step_model"
+    train_log_and_register_model(rm_name)
+
+    rm_name = "predict_step_model"
+    model_uri = train_log_and_register_model(rm_name, is_dummy=True)
+
+    predict_step = PredictStep.from_pipeline_config(
+        {
+            "steps": {
+                "register": {"model_name": rm_name},
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "_disable_env_restoration": True,
+                },
+            }
+        },
+        str(tmp_pipeline_root_path),
+    )
+    predict_step._run(str(predict_step_output_dir))
+
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+
+
 @pytest.mark.parametrize("output_format", ["parquet", "delta", "table"])
 def test_predict_step_output_formats(
     tmp_pipeline_root_path: Path, predict_step_output_dir: Path, spark_session, output_format: str
@@ -218,7 +274,7 @@ def test_predict_throws_when_improperly_configured():
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_predict_throws_when_model_unspecified():
+def test_predict_throws_when_model_is_unspecified():
     pipeline_config = {
         "steps": {
             "predict": {
@@ -232,19 +288,3 @@ def test_predict_throws_when_model_unspecified():
             pipeline_config=pipeline_config,
             pipeline_root=os.getcwd(),
         )
-
-    pipeline_config_register = {
-        "steps": {
-            "predict": {
-                "output_format": "parquet",
-                "output_location": "random/path",
-            },
-            "register": {
-                "model_name": "taxi_fare_regressor",
-            },
-        }
-    }
-    PredictStep.from_pipeline_config(
-        pipeline_config=pipeline_config_register,
-        pipeline_root=os.getcwd(),
-    )
