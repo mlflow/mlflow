@@ -133,6 +133,17 @@ class PredictStep(BaseStep):
                 "Invalid `output_format` in predict step configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if "model_uri" not in step_config:
+            try:
+                register_config = pipeline_config["steps"]["predict"]
+                model_name = register_config["model_name"]
+            except KeyError:
+                raise MlflowException(
+                    "No model specified for batch scoring: register step does not have `model_name` "
+                    "configuration key and predict step does not have `model_uri` configuration key."
+                )
+            else:
+                step_config["model_uri"] = f"models:/{model_name}/latest"
         return cls(step_config, pipeline_root)
 
     @property
