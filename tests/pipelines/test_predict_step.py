@@ -274,7 +274,7 @@ def test_predict_throws_when_improperly_configured():
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
-def test_predict_throws_when_model_is_unspecified():
+def test_predict_throws_when_no_model_is_specified():
     pipeline_config = {
         "steps": {
             "predict": {
