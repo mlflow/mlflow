@@ -11,9 +11,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from mlflow.environment_variables import (
-    MLFLOW_S3_UPLOAD_EXTRA_ARGS
-)
+from mlflow.environment_variables import MLFLOW_S3_UPLOAD_EXTRA_ARGS
 
 
 _MAX_CACHE_SECONDS = 300
