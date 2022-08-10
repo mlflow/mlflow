@@ -72,9 +72,7 @@ class _BasePipeline:
         """
 
         # Save the run parameters for later
-        self._run_args = {
-            "step": step
-        }
+        self._run_args = {"step": step}
 
         # TODO Record performance here.
         # Always resolve the steps to load latest step modules before execution.

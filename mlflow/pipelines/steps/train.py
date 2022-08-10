@@ -35,7 +35,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_PIPELINE_TEMPLATE_NAME,
     MLFLOW_PIPELINE_PROFILE_NAME,
-    MLFLOW_PIPELINE_STEP_NAME
+    MLFLOW_PIPELINE_STEP_NAME,
 )
 
 _logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class TrainStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
             MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
-            MLFLOW_PIPELINE_STEP_NAME: self.step_config["run_args"]["step"]
+            MLFLOW_PIPELINE_STEP_NAME: self.step_config["run_args"].get("step") or "",
         }
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
