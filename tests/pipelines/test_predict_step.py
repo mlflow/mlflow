@@ -1,5 +1,5 @@
 import os
-from xmlrpc.client import Boolean
+import tempfile
 import pandas as pd
 from pathlib import Path
 import pytest
@@ -25,6 +25,7 @@ from tests.pipelines.helper_functions import (
 
 @pytest.fixture(scope="module", autouse=True)
 def spark_session():
+    spark_warehouse_path = os.path.abspath(tempfile.mkdtemp())
     session = (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
@@ -32,6 +33,7 @@ def spark_session():
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
+        .config("spark.sql.warehouse.dir", str(spark_warehouse_path))
         .getOrCreate()
     )
     yield session
@@ -75,7 +77,7 @@ def test_predict_step_runs(
     tmp_pipeline_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
-    register_model: Boolean,
+    register_model: bool,
 ):
     if register_model:
         rm_name = "model_" + get_random_id()
