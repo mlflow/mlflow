@@ -11,6 +11,9 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.environment_variables import (
+    MLFLOW_S3_UPLOAD_EXTRA_ARGS
+)
 
 
 _MAX_CACHE_SECONDS = 300
@@ -76,7 +79,7 @@ class S3ArtifactRepository(ArtifactRepository):
     def get_s3_file_upload_extra_args():
         import json
 
-        s3_file_upload_extra_args = os.environ.get("MLFLOW_S3_UPLOAD_EXTRA_ARGS")
+        s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)
         else:
