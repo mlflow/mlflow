@@ -215,3 +215,36 @@ def test_predict_throws_when_improperly_configured():
             },
             pipeline_root=os.getcwd(),
         )
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_predict_throws_when_model_unspecified():
+    pipeline_config = {
+        "steps": {
+            "predict": {
+                "output_format": "parquet",
+                "output_location": "random/path",
+            }
+        }
+    }
+    with pytest.raises(MlflowException, match="No model specified for batch scoring"):
+        PredictStep.from_pipeline_config(
+            pipeline_config=pipeline_config,
+            pipeline_root=os.getcwd(),
+        )
+
+    pipeline_config_register = {
+        "steps": {
+            "predict": {
+                "output_format": "parquet",
+                "output_location": "random/path",
+            },
+            "register": {
+                "model_name": "taxi_fare_regressor",
+            },
+        }
+    }
+    PredictStep.from_pipeline_config(
+        pipeline_config=pipeline_config_register,
+        pipeline_root=os.getcwd(),
+    )
