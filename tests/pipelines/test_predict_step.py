@@ -1,5 +1,5 @@
 import os
-from xmlrpc.client import Boolean
+import tempfile
 import pandas as pd
 from pathlib import Path
 import pytest
@@ -9,7 +9,7 @@ from sklearn.datasets import load_diabetes
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
-from mlflow.pipelines.steps.predict import PredictStep
+from mlflow.pipelines.steps.predict import PredictStep, _SCORED_OUTPUT_FILE_NAME
 
 # pylint: disable=unused-import
 from tests.pipelines.helper_functions import (
@@ -25,6 +25,7 @@ from tests.pipelines.helper_functions import (
 
 @pytest.fixture(scope="module", autouse=True)
 def spark_session():
+    spark_warehouse_path = os.path.abspath(tempfile.mkdtemp())
     session = (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
@@ -32,6 +33,7 @@ def spark_session():
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
+        .config("spark.sql.warehouse.dir", str(spark_warehouse_path))
         .getOrCreate()
     )
     yield session
@@ -75,7 +77,7 @@ def test_predict_step_runs(
     tmp_pipeline_root_path: Path,
     predict_step_output_dir: Path,
     spark_session,
-    register_model: Boolean,
+    register_model: bool,
 ):
     if register_model:
         rm_name = "model_" + get_random_id()
@@ -101,7 +103,70 @@ def test_predict_step_runs(
     )
     predict_step._run(str(predict_step_output_dir))
 
-    prediction_assertions(predict_step_output_dir, "parquet", "scored", spark_session)
+    # Test internal predict step output artifact
+    artifact_file_name, artifact_file_extension = _SCORED_OUTPUT_FILE_NAME.split(".")
+    prediction_assertions(
+        predict_step_output_dir, artifact_file_extension, artifact_file_name, spark_session
+    )
+    # Test user specified output
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+
+
+def test_predict_step_uses_register_step_model_name(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    rm_name = "register_step_model"
+    train_log_and_register_model(rm_name, is_dummy=True)
+
+    predict_step = PredictStep.from_pipeline_config(
+        {
+            "steps": {
+                "register": {"model_name": rm_name},
+                "predict": {
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "_disable_env_restoration": True,
+                },
+            }
+        },
+        str(tmp_pipeline_root_path),
+    )
+    predict_step._run(str(predict_step_output_dir))
+
+    prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
+
+
+def test_predict_model_uri_takes_precendence_over_model_name(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    # Train a normal model and a dummy model
+    register_step_rm_name = "register_step_model"
+    train_log_and_register_model(register_step_rm_name)
+    model_uri = train_log_and_register_model("predict_step_model", is_dummy=True)
+
+    # Specify the normal model in the register step `model_name` config key and
+    # the dummy model in the predict step `model_uri` config key
+    predict_step = PredictStep.from_pipeline_config(
+        {
+            "steps": {
+                "register": {"model_name": register_step_rm_name},
+                "predict": {
+                    "model_uri": model_uri,
+                    "output_format": "parquet",
+                    "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                    "_disable_env_restoration": True,
+                },
+            }
+        },
+        str(tmp_pipeline_root_path),
+    )
+    predict_step._run(str(predict_step_output_dir))
+
+    # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
@@ -213,5 +278,22 @@ def test_predict_throws_when_improperly_configured():
                     }
                 }
             },
+            pipeline_root=os.getcwd(),
+        )
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_predict_throws_when_no_model_is_specified():
+    pipeline_config = {
+        "steps": {
+            "predict": {
+                "output_format": "parquet",
+                "output_location": "random/path",
+            }
+        }
+    }
+    with pytest.raises(MlflowException, match="No model specified for batch scoring"):
+        PredictStep.from_pipeline_config(
+            pipeline_config=pipeline_config,
             pipeline_root=os.getcwd(),
         )
