@@ -143,16 +143,17 @@ def test_predict_model_uri_takes_precendence_over_model_name(
     predict_step_output_dir: Path,
     spark_session,
 ):
-    rm_name = "register_step_model"
-    train_log_and_register_model(rm_name)
+    # Train a normal model and a dummy model
+    register_step_rm_name = "register_step_model"
+    train_log_and_register_model(register_step_rm_name)
+    model_uri = train_log_and_register_model("predict_step_model", is_dummy=True)
 
-    rm_name = "predict_step_model"
-    model_uri = train_log_and_register_model(rm_name, is_dummy=True)
-
+    # Specify the normal model in the register step `model_name` config key and
+    # the dummy model in the predict step `model_uri` config key
     predict_step = PredictStep.from_pipeline_config(
         {
             "steps": {
-                "register": {"model_name": rm_name},
+                "register": {"model_name": register_step_rm_name},
                 "predict": {
                     "model_uri": model_uri,
                     "output_format": "parquet",
@@ -165,6 +166,7 @@ def test_predict_model_uri_takes_precendence_over_model_name(
     )
     predict_step._run(str(predict_step_output_dir))
 
+    # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
 
