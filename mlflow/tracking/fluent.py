@@ -1334,7 +1334,7 @@ def search_runs(
     experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
-    Get a pandas DataFrame of runs that fit the search criteria.
+    Search for Runs that fit the search criteria.
 
     :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
                            experiment names, but not both in the same call. Values other than
