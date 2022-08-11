@@ -1646,7 +1646,7 @@ class MlflowClient:
         page_token: Optional[str] = None,
     ) -> PagedList[Run]:
         """
-        Search for runs that fit the search criteria.
+        Search for Runs that fit the specified criteria.
 
         :param experiment_ids: List of experiment IDs, or a single int or string id.
         :param filter_string: Filter query string, defaults to searching all runs.
