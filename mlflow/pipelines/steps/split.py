@@ -142,7 +142,6 @@ class SplitStep(BaseStep):
             card.add_tab(
                 "Run Summary",
                 """
-                {{ SCHEMA_LOCATION }}
                 {{ TRAIN_SPLIT_NUM_ROWS }}
                 {{ VALIDATION_SPLIT_NUM_ROWS }}
                 {{ TEST_SPLIT_NUM_ROWS }}
