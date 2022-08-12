@@ -1,7 +1,7 @@
-@import 'components/ModelView.css';
 @import 'components/ModelVersionTable.css';
 @import 'components/ModelVersionView.css';
 @import 'components/ModelStageTransitionDropdown.css';
+@import 'components/DirectTransitionForm.css';
 
 /** TODO(Zangr) migrate globally common components and styles into src/common folder */
 .metadata-container {
@@ -21,7 +21,8 @@
   cursor: pointer;
 }
 
-.icon-pending, .icon-ready {
+.icon-pending,
+.icon-ready {
   color: green;
 }
 

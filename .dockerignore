@@ -6,11 +6,11 @@ mlflow.Rcheck
 outputs
 examples
 
-travis
+dev
 # required for Docker build
-!travis/small-requirements.txt
-!travis/large-requirements.txt
-!travis/lint-requirements.txt
+!requirements/test-requirements.txt
+!requirements/lint-requirements.txt
+!requirements/extra-ml-requirements.txt
 
 tests
 # required for Docker build
@@ -27,5 +27,3 @@ __pycache__
 ~*
 *.swp
 *.pyc
-
-

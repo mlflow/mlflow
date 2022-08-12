@@ -1,21 +1,20 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { TreeSelect } from 'antd';
+import { Button, Select } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
     // An array of available parameter keys to select
-    paramKeys: PropTypes.arrayOf(String).isRequired,
+    paramKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of available metric keys to select
-    metricKeys: PropTypes.arrayOf(String).isRequired,
-    selectedParamKeys: PropTypes.arrayOf(String).isRequired,
-    selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
+    metricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
+    selectedParamKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
+    selectedMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     handleParamsSelectChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    onClearAllSelect: PropTypes.func.isRequired,
   };
-
-  static handleFilterChange = (text, option) =>
-    option.props.title.toUpperCase().includes(text.toUpperCase());
 
   render() {
     const {
@@ -25,32 +24,72 @@ export class ParallelCoordinatesPlotControls extends React.Component {
       selectedMetricKeys,
       handleParamsSelectChange,
       handleMetricsSelectChange,
+      onClearAllSelect,
     } = this.props;
     return (
-      <div className='plot-controls'>
-        <div>Parameters:</div>
-        <TreeSelect
-          className='metrics-select'
-          searchPlaceholder='Please select parameters'
+      <div css={styles.wrapper}>
+        <div>
+          <FormattedMessage
+            defaultMessage='Parameters:'
+            description='Label text for parameters in parallel coordinates plot in MLflow'
+          />
+        </div>
+        <Select
+          mode='multiple'
+          css={styles.select}
+          placeholder={
+            <FormattedMessage
+              defaultMessage='Please select parameters'
+              description='Placeholder text for parameters in parallel coordinates plot in MLflow'
+            />
+          }
           value={selectedParamKeys}
-          showCheckedStrategy={TreeSelect.SHOW_PARENT}
-          treeCheckable
-          treeData={paramKeys.map((k) => ({ title: k, value: k, label: k}))}
           onChange={handleParamsSelectChange}
-          filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
-        />
-        <div style={{ marginTop: 20 }}>Metrics:</div>
-        <TreeSelect
-          className='metrics-select'
-          searchPlaceholder='Please select metrics'
+        >
+          {paramKeys.map((key) => (
+            <Select.Option value={key} key={key}>
+              {key}
+            </Select.Option>
+          ))}
+        </Select>
+        <div style={{ marginTop: 20 }}>
+          <FormattedMessage
+            defaultMessage='Metrics:'
+            description='Label text for metrics in parallel coordinates plot in MLflow'
+          />
+        </div>
+        <Select
+          mode='multiple'
+          css={styles.select}
+          placeholder={
+            <FormattedMessage
+              defaultMessage='Please select metrics'
+              description='Placeholder text for metrics in parallel coordinates plot in MLflow'
+            />
+          }
           value={selectedMetricKeys}
-          showCheckedStrategy={TreeSelect.SHOW_PARENT}
-          treeCheckable
-          treeData={metricKeys.map((k) => ({ title: k, value: k, label: k}))}
           onChange={handleMetricsSelectChange}
-          filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
-        />
+        >
+          {metricKeys.map((key) => (
+            <Select.Option value={key} key={key}>
+              {key}
+            </Select.Option>
+          ))}
+        </Select>
+        <div style={{ marginTop: 20 }}>
+          <Button dataTestId='clear-button' onClick={onClearAllSelect}>
+            <FormattedMessage
+              defaultMessage='Clear All'
+              description='String for the clear button to clear any selected parameters and metrics'
+            />
+          </Button>
+        </div>
       </div>
     );
   }
 }
+
+const styles = {
+  wrapper: (theme) => ({ padding: `0 ${theme.spacing.xs}px` }),
+  select: { width: '100%' },
+};

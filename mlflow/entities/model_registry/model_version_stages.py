@@ -16,6 +16,10 @@ _CANONICAL_MAPPING = {stage.lower(): stage for stage in ALL_STAGES}
 def get_canonical_stage(stage):
     key = stage.lower()
     if key not in _CANONICAL_MAPPING:
-        raise MlflowException("Invalid Model Version stage {}.".format(stage),
-                              INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "Invalid Model Version stage: {}. Value must be one of {}.".format(
+                stage, ", ".join(ALL_STAGES)
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
     return _CANONICAL_MAPPING[key]

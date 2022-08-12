@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  */
 public class MlflowClient implements Serializable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
+  private static final String DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME = "models";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -285,6 +286,27 @@ public class MlflowClient implements Serializable {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
+  /**
+   * Create a new experiment. This method allows providing all possible
+   * fields of CreateExperiment, and can be invoked as follows:
+   *
+   *   <pre>
+   *   import org.mlflow.api.proto.Service.CreateExperiment;
+   *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
+   *   request.setName(name);
+   *   request.setArtifactLocation(artifactLocation);
+   *   request.addTags(experimentTag);
+   *   createExperiment(request.build());
+   *   </pre>
+   *
+   * @return ID of the experiment created by the server.
+   */
+  public String createExperiment(CreateExperiment request) {
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/create", ijson);
+    return mapper.toCreateExperimentResponse(ojson).getExperimentId();
+  }
+
   /** Mark an experiment and associated runs, params, metrics, etc. for deletion. */
   public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
@@ -411,10 +433,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
@@ -424,10 +442,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server.
@@ -650,10 +664,6 @@ public class MlflowClient implements Serializable {
   // ********************
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the latest model version for each stage.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -678,10 +688,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the latest model version for each stage requested.
    * The current available stages are: [None, Staging, Production, Archived].
    *
@@ -711,10 +717,6 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
@@ -732,47 +734,42 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * :: Experimental ::
-   *
-   * This API may change or be removed in a future release without warning.
-   *
-   * Return a local file or directory containing all artifacts within the given registered model
-   * version. The method will download the model version artifacts to the local file system.
+   * Returns a directory containing all artifacts within the given registered model
+   * version. The method will download the model version artifacts to the local file system. Note
+   * that this method will not work if the `download_uri` refers to a single file (and not a
+   * directory) due to the way many ArtifactRepository's `download_artifacts` handle empty subpaths.
    *
    *    <pre>
-   *        File modelVersionFile = downloadModelVersion("model", 0);
+   *        File modelVersionDir = downloadModelVersion("model", 0);
    *    </pre>
    *
    * @param modelName The name of the model
    * @param version The version number of the model
-   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(String modelName, String version) {
-    String downloadUri = getModelVersionDownloadUri(modelName, version);
-
+    String path = modelName + "/" + version;
+    URIBuilder downloadUriBuilder = new URIBuilder()
+            .setScheme(DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME).setPath(path);
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
-    return repository.downloadArtifactFromUri(downloadUri);
+    return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
   }
 
   /**
-   * :: experimental ::
-   *
-   * this api may change or be removed in a future release without warning.
-   *
-   * Return a local file or directory containing all artifacts within the latest registered
+   * Returns a directory containing all artifacts within the latest registered
    * model version in the given stage. The method will download the model version artifacts
    * to the local file system.
    *
    *    <pre>
-   *        File modelVersionFile = downloadLatestModelVersion("model", "Staging");
+   *        File modelVersionDir = downloadLatestModelVersion("model", "Staging");
    *    </pre>
    *
    * (i.e., the contents of the local directory are now available).
    *
    * @param modelName The name of the model
    * @param stage The name of the stage
-   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(String modelName, String stage) {
       List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));

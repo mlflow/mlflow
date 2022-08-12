@@ -11,17 +11,17 @@ describe('Spinner', () => {
   });
 
   test('should render with no props without exploding', () => {
-    wrapper = shallow(<Spinner/>);
+    wrapper = shallow(<Spinner />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<Spinner {...minimalProps}/>);
+    wrapper = shallow(<Spinner {...minimalProps} />);
     expect(wrapper.find('.Spinner')).toHaveLength(1);
   });
 
   test('should render when showImmediately is true', () => {
-    wrapper = shallow(<Spinner {...minimalProps}/>);
+    wrapper = shallow(<Spinner {...minimalProps} />);
     wrapper.setProps({ showImmediately: true });
     expect(wrapper.find('.Spinner-immediate')).toHaveLength(1);
   });

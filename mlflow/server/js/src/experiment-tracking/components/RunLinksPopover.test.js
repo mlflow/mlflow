@@ -50,7 +50,7 @@ describe('unit tests', () => {
     wrapper = mount(
       <MemoryRouter>
         <RunLinksPopover {...props} />
-      </MemoryRouter>
+      </MemoryRouter>,
     ).find(RunLinksPopover);
 
     // The popover is attached to the document root and can't be found with wrapper.find.

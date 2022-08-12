@@ -1,0 +1,11 @@
+# Exclude `pyproject.toml` from source distributions to avoid unexpected errors caused by PEP 517 backend
+# See these links for more details:
+# - https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support
+# - https://www.python.org/dev/peps/pep-0517
+exclude pyproject.toml
+
+# Note that README.rst is included in a source distribution by default:
+# https://packaging.python.org/guides/using-manifest-in/#how-files-are-included-in-an-sdist
+include README_SKINNY.rst
+include requirements/skinny-requirements.txt
+include requirements/core-requirements.txt

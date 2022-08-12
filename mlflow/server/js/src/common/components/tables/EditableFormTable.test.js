@@ -22,8 +22,6 @@ describe('unit tests', () => {
       { key: 'tag1', name: 'tag1', value: 'value1' },
       { key: 'tag2', name: 'tag2', value: 'value2' },
     ],
-    // eslint-disable-next-line no-unused-vars
-    form: { getFieldDecorator: jest.fn(opts => c => c) },
     onSaveEdit: () => {},
     onDelete: () => {},
   };
@@ -31,5 +29,21 @@ describe('unit tests', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<EditableTable {...minimalProps} />);
     expect(wrapper.length).toBe(1);
+  });
+
+  test('should display only one modal when deleting a tag', () => {
+    // Prep
+    wrapper = shallow(<EditableTable {...minimalProps} />);
+    const getModal = () => wrapper.find('[data-testid="editable-form-table-remove-modal"]');
+
+    // Assert
+    expect(getModal().props().visible).toBeFalsy();
+
+    // Update
+    wrapper.setState((state) => ({ ...state, deletingKey: 'tag1' }));
+
+    // Assert
+    expect(getModal().props().visible).toBeTruthy();
+    expect(getModal().length).toBe(1);
   });
 });

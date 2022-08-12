@@ -1,15 +1,4 @@
-# LightGBM Example
 
-This example trains a LightGBM classifier with the iris dataset and logs hyperparameters, metrics, and trained model.
+# Examples for LightGBM Autologging
 
-## Running the code
-
-```
-python train.py --colsample-bytree 0.8 --subsample 0.9
-```
-
-## Running the code as a project
-
-```
-mlflow run . -P colsample-bytree=0.8 -P subsample=0.9
-```
+LightGBM autologging functionalities are demonstrated through two examples. The first example in the `lightgbm_native` folder logs a Booster model trained by `lightgbm.train()`. The second example in the `lightgbm_sklearn` folder shows how autologging works for LightGBM scikit-learn models. The autologging for all LightGBM models is enabled via `mlflow.lightgbm.autolog()`.

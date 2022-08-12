@@ -13,7 +13,7 @@ export default class CompareRunUtil {
   }
 
   /**
-   * Get all keys present in the data in ParamLists or MetricLists
+   * Get all keys present in the data in ParamLists or MetricLists or Schema input and outputs lists
    */
   static getKeys(lists, numeric) {
     const keys = {};
@@ -25,8 +25,10 @@ export default class CompareRunUtil {
         if (numeric && isNaN(parseFloat(item.value))) {
           keys[item.key] = false;
         }
-      }
-    ));
-    return Object.keys(keys).filter(k => keys[k]).sort();
+      }),
+    );
+    return Object.keys(keys)
+      .filter((k) => keys[k])
+      .sort();
   }
 }

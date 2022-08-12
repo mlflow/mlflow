@@ -6,8 +6,9 @@ mlflow.pyfunc
     :undoc-members:
     :show-inheritance:
 
-.. Include ``get_default_conda_env()``, which is imported from `mlflow.pyfunc.model`, in the
-   `mlflow.pyfunc` namespace
+.. Include ``get_default_pip_requirements`` and ``get_default_conda_env``,
+   which are imported from `mlflow.pyfunc.model`, in the `mlflow.pyfunc` namespace
+.. autofunction:: mlflow.pyfunc.get_default_pip_requirements
 .. autofunction:: mlflow.pyfunc.get_default_conda_env
 
 .. Include ``PythonModelContext`` as a renamed class to avoid documenting constructor parameters.

@@ -2,6 +2,7 @@
 .experiment-name {
   display: inline-block;
 }
+
 .header-container {
   display: flex;
 }
@@ -29,12 +30,13 @@
   margin-bottom: 8px;
   margin-right: 12px;
 }
+
 .metadata-header {
-  font-size: 14px;
+  font-size: 13px;
   color: #888;
 }
 .metadata-info {
-  font-size: 14px;
+  font-size: 13px;
   color: #333;
 }
 
@@ -51,8 +53,6 @@ i.expander {
   margin-right: 8px;
 }
 /* END table styling stuff */
-
-
 
 .RunView-label {
   font-weight: bold;
@@ -103,14 +103,16 @@ textarea.run-command {
 .header-container .mlflow-dropdown .mlflow-dropdown-button:hover,
 .header-container .mlflow-dropdown .mlflow-dropdown-button:active,
 .header-container .mlflow-dropdown .mlflow-dropdown-button:focus {
-    background-color: transparent;
-    border-color: transparent;
-    border: none;
-    box-shadow: none;
-    background-image: none;
+  background-color: transparent;
+  border-color: transparent;
+  border: none;
+  box-shadow: none;
+  background-image: none;
 }
 
-.modal-close-link, .modal-close-link:hover, .modal-close-link:visited {
+.modal-close-link,
+.modal-close-link:hover,
+.modal-close-link:visited {
   position: absolute;
   top: 12px;
   right: 16px;
@@ -118,7 +120,7 @@ textarea.run-command {
 }
 
 .modal-close-link:hover {
-  cursor: pointer
+  cursor: pointer;
 }
 
 .rename-run-form .mlflow-save-button {
@@ -130,15 +132,7 @@ textarea.run-command {
   padding-right: 16px;
 }
 
-.ReactModal__Overlay {
-    opacity: 0;
-    transition: opacity 200ms ease-in-out;
-}
-
-.ReactModal__Overlay--after-open{
-    opacity: 1;
-}
-
-.ReactModal__Overlay--before-close{
-    opacity: 0;
+.RunView-editDescriptionHeader {
+  height: 32px;
+  line-height: 32px;
 }

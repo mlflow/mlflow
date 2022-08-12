@@ -5,41 +5,58 @@ from mlflow.models import Model
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
 
-class AbstractStoreTest(object):
-
+class AbstractStoreTest:
     def create_test_run(self):
-        raise Exception("this should be overriden")
+        raise Exception("this should be overridden")
 
     def get_store(self):
-        raise Exception("this should be overriden")
+        raise Exception("this should be overridden")
 
     def test_record_logged_model(self):
         store = self.get_store()
         run_id = self.create_test_run().info.run_id
         m = Model(artifact_path="model/path", run_id=run_id, flavors={"tf": "flavor body"})
         store.record_logged_model(run_id, m)
-        self._verify_logged(store, run_id=run_id, params=[], metrics=[],
-                            tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))])
-        m2 = Model(artifact_path="some/other/path", run_id=run_id,
-                   flavors={"R": {"property": "value"}})
+        self._verify_logged(
+            store,
+            run_id=run_id,
+            params=[],
+            metrics=[],
+            tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))],
+        )
+        m2 = Model(
+            artifact_path="some/other/path", run_id=run_id, flavors={"R": {"property": "value"}}
+        )
         store.record_logged_model(run_id, m2)
-        self._verify_logged(store, run_id, params=[], metrics=[],
-                            tags=[RunTag(MLFLOW_LOGGED_MODELS,
-                                         json.dumps([m.to_dict(), m2.to_dict()]))])
-        m3 = Model(artifact_path="some/other/path2", run_id=run_id,
-                   flavors={"R2": {"property": "value"}})
+        self._verify_logged(
+            store,
+            run_id,
+            params=[],
+            metrics=[],
+            tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict()]))],
+        )
+        m3 = Model(
+            artifact_path="some/other/path2", run_id=run_id, flavors={"R2": {"property": "value"}}
+        )
         store.record_logged_model(run_id, m3)
-        self._verify_logged(store, run_id, params=[], metrics=[],
-                            tags=[RunTag(MLFLOW_LOGGED_MODELS,
-                                         json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))])
-        with self.assertRaises(TypeError):
+        self._verify_logged(
+            store,
+            run_id,
+            params=[],
+            metrics=[],
+            tags=[
+                RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))
+            ],
+        )
+        with self.assertRaisesRegex(
+            TypeError, "Argument 'mlflow_model' should be mlflow.models.Model, got '<class 'dict'>'"
+        ):
             store.record_logged_model(run_id, m.to_dict())
 
     @staticmethod
     def _verify_logged(store, run_id, metrics, params, tags):
         run = store.get_run(run_id)
-        all_metrics = sum([store.get_metric_history(run_id, key)
-                           for key in run.data.metrics], [])
+        all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
         logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
         assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])

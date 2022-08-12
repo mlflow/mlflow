@@ -5,24 +5,24 @@ import {
   updateModelVersionApi,
   deleteModelVersionApi,
   transitionModelVersionStageApi,
+  getModelVersionArtifactApi,
+  parseMlModelFile,
 } from '../actions';
 import { getRunApi } from '../../experiment-tracking/actions';
 import PropTypes from 'prop-types';
-import {
-  getModelVersion,
-} from '../reducers';
+import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
-import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL} from '../constants';
+import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
-import RequestStateWrapper, {
-  triggerError,
-} from '../../common/components/RequestStateWrapper';
-import { Error404View } from '../../common/components/Error404View';
+import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
+import { ErrorView } from '../../common/components/ErrorView';
 import { Spinner } from '../../common/components/Spinner';
 import { getModelPageRoute, modelListPageRoute } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
+import _ from 'lodash';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class ModelVersionPageImpl extends React.Component {
   static propTypes = {
@@ -31,7 +31,7 @@ export class ModelVersionPageImpl extends React.Component {
     match: PropTypes.object.isRequired,
     // connected props
     modelName: PropTypes.string.isRequired,
-    version: PropTypes.number.isRequired,
+    version: PropTypes.string.isRequired,
     modelVersion: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
@@ -41,6 +41,9 @@ export class ModelVersionPageImpl extends React.Component {
     deleteModelVersionApi: PropTypes.func.isRequired,
     getRunApi: PropTypes.func.isRequired,
     apis: PropTypes.object.isRequired,
+    getModelVersionArtifactApi: PropTypes.func.isRequired,
+    parseMlModelFile: PropTypes.func.isRequired,
+    schema: PropTypes.object,
   };
 
   initGetModelVersionDetailsRequestId = getUUID();
@@ -48,27 +51,41 @@ export class ModelVersionPageImpl extends React.Component {
   updateModelVersionRequestId = getUUID();
   transitionModelVersionStageRequestId = getUUID();
   getModelVersionDetailsRequestId = getUUID();
+  initGetMlModelFileRequestId = getUUID();
+  state = {
+    criticalInitialRequestIds: [
+      this.initGetModelVersionDetailsRequestId,
+      this.initGetMlModelFileRequestId,
+    ],
+  };
 
-  criticalInitialRequestIds = [
-    this.initGetModelVersionDetailsRequestId,
-  ];
+  pollingRelatedRequestIds = [this.getModelVersionDetailsRequestId, this.getRunRequestId];
 
-  pollingRelatedRequestIds = [
-    this.listTransitionRequestId,
-    this.getActivitiesRequestId,
-    this.getModelVersionDetailsRequestId,
-    this.getRunRequestId,
-  ];
-
-  hasPendingPollingRequest = () => this.pollingRelatedRequestIds.every((requestId) => {
-    const request = this.props.apis[requestId];
-    return Boolean(request && request.active);
-  });
+  hasPendingPollingRequest = () =>
+    this.pollingRelatedRequestIds.every((requestId) => {
+      const request = this.props.apis[requestId];
+      return Boolean(request && request.active);
+    });
 
   loadData = (isInitialLoading) => {
-    return Promise.all([
-      this.getModelVersionDetailAndRunInfo(isInitialLoading),
-    ]);
+    const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
+    return Promise.all([promises]);
+  };
+
+  pollData = () => {
+    const { modelName, version, history } = this.props;
+    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
+      return this.loadData().catch((e) => {
+        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+          Utils.logErrorAndNotifyUser(e);
+          this.props.deleteModelVersionApi(modelName, version, undefined, true);
+          history.push(getModelPageRoute(modelName));
+        } else {
+          console.error(e);
+        }
+      });
+    }
+    return Promise.resolve();
   };
 
   // We need to do this because currently the ModelVersionDetailed we got does not contain
@@ -85,16 +102,39 @@ export class ModelVersionPageImpl extends React.Component {
           : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }) => {
-        if (value) {
-          this.props.getRunApi(
-            value[getProtoField("model_version")].run_id,
-            this.getRunRequestId,
-          );
+        if (value && !value[getProtoField('model_version')].run_link) {
+          this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
   }
+  // We need this for getting mlModel artifact file,
+  // this will be replaced with a single backend call in the future when supported
+  getModelVersionMlModelFile() {
+    const { modelName, version } = this.props;
+    this.props
+      .getModelVersionArtifactApi(modelName, version)
+      .then((content) =>
+        this.props.parseMlModelFile(
+          modelName,
+          version,
+          content.value,
+          this.initGetMlModelFileRequestId,
+        ),
+      )
+      .catch(() => {
+        // Failure of this call chain should not block the page. Here we remove
+        // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
+        // to unblock RequestStateWrapper from rendering its content
+        this.setState((prevState) => ({
+          criticalInitialRequestIds: _.without(
+            prevState.criticalInitialRequestIds,
+            this.initGetMlModelFileRequestId,
+          ),
+        }));
+      });
+  }
 
-  handleStageTransitionDropdownSelect = (activity) => {
+  handleStageTransitionDropdownSelect = (activity, archiveExistingVersions) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {
@@ -103,6 +143,7 @@ export class ModelVersionPageImpl extends React.Component {
           modelName,
           version.toString(),
           toStage,
+          archiveExistingVersions,
           this.transitionModelVersionStageRequestId,
         )
         .then(this.loadData)
@@ -113,36 +154,15 @@ export class ModelVersionPageImpl extends React.Component {
   handleEditDescription = (description) => {
     const { modelName, version } = this.props;
     return this.props
-      .updateModelVersionApi(
-        modelName,
-        version,
-        description,
-        this.updateModelVersionRequestId,
-      )
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
       .then(this.loadData)
       .catch(console.error);
-  };
-
-  pollData = () => {
-    const { modelName, version, history } = this.props;
-    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
-      return this.loadData()
-        .catch((e) => {
-          if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
-            Utils.logErrorAndNotifyUser(e);
-            this.props.deleteModelVersionApi(modelName, version, undefined, true);
-            history.push(getModelPageRoute(modelName));
-          } else {
-            console.error(e);
-          }
-        });
-    }
-    return Promise.resolve();
   };
 
   componentDidMount() {
     this.loadData(true).catch(console.error);
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
+    this.getModelVersionMlModelFile();
   }
 
   componentWillUnmount() {
@@ -150,25 +170,23 @@ export class ModelVersionPageImpl extends React.Component {
   }
 
   render() {
-    const {
-      modelName,
-      version,
-      modelVersion,
-      runInfo,
-      runDisplayName,
-      history,
-    } = this.props;
+    const { modelName, version, modelVersion, runInfo, runDisplayName, history, schema } =
+      this.props;
 
     return (
-      <div className='App-content'>
-        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
+      <PageContainer>
+        <RequestStateWrapper
+          requestIds={this.state.criticalInitialRequestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (Utils.shouldRender404(requests, this.criticalInitialRequestIds)) {
+              if (Utils.shouldRender404(requests, this.state.criticalInitialRequestIds)) {
                 return (
-                  <Error404View
-                    resourceName={`Model ${modelName} v${version}`}
+                  <ErrorView
+                    statusCode={404}
+                    subMessage={`Model ${modelName} v${version} does not exist`}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );
@@ -177,7 +195,8 @@ export class ModelVersionPageImpl extends React.Component {
               triggerError(requests);
             } else if (loading) {
               return <Spinner />;
-            } else if (modelVersion) { // Null check to prevent NPE after delete operation
+            } else if (modelVersion) {
+              // Null check to prevent NPE after delete operation
               return (
                 <ModelVersionView
                   modelName={modelName}
@@ -188,28 +207,35 @@ export class ModelVersionPageImpl extends React.Component {
                   deleteModelVersionApi={this.props.deleteModelVersionApi}
                   history={history}
                   handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
+                  schema={schema}
                 />
               );
             }
             return null;
           }}
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { modelName, version } = ownProps.match.params;
+  const modelName = decodeURIComponent(ownProps.match.params.modelName);
+  const { version } = ownProps.match.params;
   const modelVersion = getModelVersion(state, modelName, version);
-  const runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  const schema = getModelVersionSchemas(state, modelName, version);
+  let runInfo = null;
+  if (modelVersion && !modelVersion.run_link) {
+    runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
+  }
   const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
   const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunUuid());
   const { apis } = state;
   return {
     modelName,
-    version: Number(version),
+    version,
     modelVersion,
+    schema,
     runInfo,
     runDisplayName,
     apis,
@@ -220,6 +246,8 @@ const mapDispatchToProps = {
   getModelVersionApi,
   updateModelVersionApi,
   transitionModelVersionStageApi,
+  getModelVersionArtifactApi,
+  parseMlModelFile,
   deleteModelVersionApi,
   getRunApi,
 };

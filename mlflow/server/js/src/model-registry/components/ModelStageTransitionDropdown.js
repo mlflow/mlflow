@@ -1,9 +1,11 @@
 import React from 'react';
-import { Dropdown, Menu, Icon, Modal } from 'antd';
+import { Dropdown, Menu, Modal, ChevronDownIcon } from '@databricks/design-system';
+
 import PropTypes from 'prop-types';
 import { Stages, StageTagComponents, ActivityTypes } from '../constants';
-
+import { DirectTransitionForm } from './DirectTransitionForm';
 import _ from 'lodash';
+import { FormattedMessage } from 'react-intl';
 
 export class ModelStageTransitionDropdown extends React.Component {
   static propTypes = {
@@ -21,6 +23,8 @@ export class ModelStageTransitionDropdown extends React.Component {
     handleConfirm: undefined,
   };
 
+  transitionFormRef = React.createRef();
+
   handleMenuItemClick = (activity) => {
     const { onSelect } = this.props;
     this.setState({
@@ -30,7 +34,10 @@ export class ModelStageTransitionDropdown extends React.Component {
         onSelect &&
         (() => {
           this.setState({ confirmModalVisible: false });
-          this.props.onSelect(activity);
+          const archiveExistingVersions = Boolean(
+            this.transitionFormRef.current.getFieldValue('archiveExistingVersions'),
+          );
+          this.props.onSelect(activity, archiveExistingVersions);
         }),
     });
   };
@@ -60,8 +67,13 @@ export class ModelStageTransitionDropdown extends React.Component {
               })
             }
           >
-            Transition to &nbsp;&nbsp;&nbsp;&nbsp;
-            <i className='fas fa-long-arrow-alt-right' />
+            <FormattedMessage
+              defaultMessage='Transition to'
+              description='Text for transitioning a model version to a different stage under
+                 dropdown menu in model version page'
+            />
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <i className='fas fa-long-arrow-right' />
             &nbsp;&nbsp;&nbsp;&nbsp;
             {StageTagComponents[stage]}
           </Menu.Item>
@@ -73,14 +85,40 @@ export class ModelStageTransitionDropdown extends React.Component {
   renderConfirmModal() {
     const { confirmModalVisible, confirmingActivity, handleConfirm } = this.state;
     if (confirmingActivity) {
+      const formComponent = (
+        <DirectTransitionForm
+          innerRef={this.transitionFormRef}
+          toStage={confirmingActivity.to_stage}
+        />
+      );
       return (
         <Modal
-          title='Stage Transition'
+          title={
+            <FormattedMessage
+              defaultMessage='Stage Transition'
+              description='Title text for model version stage transitions in confirm modal'
+            />
+          }
           visible={confirmModalVisible}
           onOk={handleConfirm}
           onCancel={this.handleConfirmModalCancel}
+          okText={
+            <FormattedMessage
+              defaultMessage='OK'
+              description='Text for OK button on the confirmation page for stage transition
+                 on the model versions page'
+            />
+          }
+          cancelText={
+            <FormattedMessage
+              defaultMessage='Cancel'
+              description='Text for cancel button on the confirmation page for stage
+                transitions on the model versions page'
+            />
+          }
         >
           {renderActivityDescription(confirmingActivity)}
+          {formComponent}
         </Modal>
       );
     }
@@ -98,7 +136,7 @@ export class ModelStageTransitionDropdown extends React.Component {
         >
           <span>
             {StageTagComponents[currentStage]}
-            <Icon type='down' style={{ cursor: 'pointer', marginLeft: -4 }} />
+            <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />
           </span>
         </Dropdown>
         {this.renderConfirmModal()}
@@ -111,9 +149,13 @@ export const renderActivityDescription = (activity) => {
   if (activity) {
     return (
       <div>
-        Transition to
+        <FormattedMessage
+          defaultMessage='Transition to'
+          description='Text for activity description under confirmation modal for model
+             version stage transition'
+        />
         &nbsp;&nbsp;&nbsp;
-        <i className='fas fa-long-arrow-alt-right' />
+        <i className='fas fa-long-arrow-right' />
         &nbsp;&nbsp;&nbsp;&nbsp;
         {StageTagComponents[activity.to_stage]}
       </div>

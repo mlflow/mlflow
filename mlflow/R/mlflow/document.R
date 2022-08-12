@@ -48,6 +48,8 @@ You can use the R API to `install MLflow <install_mlflow_>`_, start the `user in
     :depth: 1
 "
 rst_doc <- readLines("../../../docs/source/R-api.rst")
+# Convert non-breaking spaces inserted by pandoc to regular spaces
+rst_doc <- gsub("\302\240", " ", rst_doc)
 rst_doc <- c(rst_header, rst_doc)
 writeLines(rst_doc, "../../../docs/source/R-api.rst")
 

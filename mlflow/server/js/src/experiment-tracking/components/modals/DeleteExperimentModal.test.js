@@ -11,7 +11,7 @@ describe('DeleteExperimentModal', () => {
   const fakeExperimentId = 'fakeExpId';
 
   beforeEach(() => {
-    location = {search: 'initialSearchValue'};
+    location = { search: 'initialSearchValue' };
     const history = {
       push: (url) => {
         location.search = url;
@@ -21,7 +21,7 @@ describe('DeleteExperimentModal', () => {
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
-      activeExperimentId: '0',
+      activeExperimentIds: ['0'],
       experimentId: '0',
       experimentName: 'myFirstExperiment',
       deleteExperimentApi: (experimentId, deleteExperimentRequestId) => {
@@ -31,20 +31,28 @@ describe('DeleteExperimentModal', () => {
       listExperimentsApi: () => Promise.resolve([]),
       history: history,
     };
-    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
     expect(wrapper.find(ConfirmModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
   });
 
-  test('handleSubmit redirects user to root page if active experiment is current ' +
-    'experiment', (done) => {
+  test('handleSubmit redirects user to root page if current experiment is the only active experiment', (done) => {
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('/');
+      done();
+    });
+  });
+
+  test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', (done) => {
+    const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
+    instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
+    instance.handleSubmit().then(() => {
+      expect(location.search).toEqual('/compare-experiments/s?experiments=["1","2"]');
       done();
     });
   });
@@ -54,7 +62,7 @@ describe('DeleteExperimentModal', () => {
       ...minimalProps,
       deleteExperimentApi: () => Promise.reject(new Error('DeleteExperiment failed!')),
     };
-    wrapper = shallow(<DeleteExperimentModalImpl {...props}/>);
+    wrapper = shallow(<DeleteExperimentModalImpl {...props} />);
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('initialSearchValue');
@@ -62,11 +70,10 @@ describe('DeleteExperimentModal', () => {
     });
   });
 
-  test('handleSubmit does not perform redirection if deleted experiment is not active ' +
-    'experiment', (done) => {
-    wrapper = shallow(<DeleteExperimentModalImpl
-      {...{...minimalProps, activeExperimentId: undefined}}
-    />);
+  test('handleSubmit does not perform redirection if deleted experiment is not active experiment', (done) => {
+    wrapper = shallow(
+      <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />,
+    );
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(location.search).toEqual('initialSearchValue');

@@ -1,10 +1,10 @@
 from abc import ABCMeta, abstractmethod
 
 
-class FlavorBackend(object):
+class FlavorBackend:
     """
-        Abstract class for Flavor Backend.
-        This class defines the API interface for local model deployment of MLflow model flavors.
+    Abstract class for Flavor Backend.
+    This class defines the API interface for local model deployment of MLflow model flavors.
     """
 
     __metaclass__ = ABCMeta
@@ -35,17 +35,34 @@ class FlavorBackend(object):
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host):
+    def serve(
+        self,
+        model_uri,
+        port,
+        host,
+        timeout,
+        enable_mlserver,
+        synchronous=True,
+        stdout=None,
+        stderr=None,
+    ):
         """
         Serve the specified MLflow model locally.
 
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
         :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to ``localhost``.
+        :param timeout: Timeout in seconds to serve a request. Defaults to 60.
+        :param enable_mlserver: Whether to use MLServer or the local scoring server.
+        :param synchronous: If True, wait until server process exit and return 0, if process exit
+                            with non-zero return code, raise exception.
+                            If False, return the server process `Popen` instance immediately.
+        :param stdout: Redirect server stdout
+        :param stderr: Redirect server stderr
         """
         pass
 
-    def prepare_env(self, model_uri):
+    def prepare_env(self, model_uri, capture_output=False):
         """
         Performs any preparation necessary to predict or serve the model, for example
         downloading dependencies or initializing a conda environment. After preparation,
@@ -67,4 +84,4 @@ class FlavorBackend(object):
         :return: True if this flavor has a `build_image` method defined for building a docker
                  container capable of serving the model, False otherwise.
         """
-        return callable(getattr(self.__class__, 'build_image', None))
+        return callable(getattr(self.__class__, "build_image", None))

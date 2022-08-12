@@ -7,7 +7,7 @@ export default class LocalStorageUtils {
    * data persisted in local storage is used, to prevent old (invalid) cached data from being loaded
    * and breaking the application.
    */
-  static version = "1.0";
+  static version = '1.1';
 
   /**
    * Return a LocalStorageStore corresponding to the specified component and ID, where the ID
@@ -15,7 +15,11 @@ export default class LocalStorageUtils {
    * (e.g. cached data for multiple experiments).
    */
   static getStoreForComponent(componentName, id) {
-    return new LocalStorageStore([componentName, id].join("-"));
+    return new LocalStorageStore([componentName, id].join('-'), 'localStorage');
+  }
+
+  static getSessionScopedStoreForComponent(componentName, id) {
+    return new LocalStorageStore([componentName, id].join('-'), 'sessionStorage');
   }
 }
 
@@ -24,10 +28,15 @@ export default class LocalStorageUtils {
  * "scope".
  */
 class LocalStorageStore {
-  constructor(scope) {
+  constructor(scope, type) {
     this.scope = scope;
+    if (type === 'localStorage') {
+      this.storageObj = window.localStorage;
+    } else {
+      this.storageObj = window.sessionStorage;
+    }
   }
-  static reactComponentStateKey = "ReactComponentState";
+  static reactComponentStateKey = 'ReactComponentState';
 
   /**
    * Loads React component state cached in local storage into a vanilla JS object.
@@ -45,8 +54,7 @@ class LocalStorageStore {
    * @param stateRecord: Immutable.Record instance containing component state.
    */
   saveComponentState(stateRecord) {
-    this.setItem(
-      LocalStorageStore.reactComponentStateKey, JSON.stringify(stateRecord.toJSON()));
+    this.setItem(LocalStorageStore.reactComponentStateKey, JSON.stringify(stateRecord.toJSON()));
   }
 
   /**
@@ -54,16 +62,16 @@ class LocalStorageStore {
    * local storage.
    */
   withScopePrefix(key) {
-    return ["MLflowLocalStorage", LocalStorageUtils.version, this.scope, key].join("-");
+    return ['MLflowLocalStorage', LocalStorageUtils.version, this.scope, key].join('-');
   }
 
   /** Save the specified key-value pair in local storage. */
   setItem(key, value) {
-    window.localStorage.setItem(this.withScopePrefix(key), value);
+    this.storageObj.setItem(this.withScopePrefix(key), value);
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */
   getItem(key) {
-    return window.localStorage.getItem(this.withScopePrefix(key));
+    return this.storageObj.getItem(this.withScopePrefix(key));
   }
 }

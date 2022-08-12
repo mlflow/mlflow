@@ -1,53 +1,76 @@
+import _ from 'lodash';
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
+import { FormattedMessage } from 'react-intl';
+import { withRouter } from 'react-router';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi } from '../actions';
 import { searchModelVersionsApi } from '../../model-registry/actions';
 import { connect } from 'react-redux';
 import { getArtifactRootUri } from '../reducers/Reducers';
-import {
-  MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL,
-} from '../../model-registry/constants';
+import { MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../../model-registry/constants';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import './ArtifactPage.css';
+import { getLoggedModelPathsFromTags } from '../../common/utils/TagUtils';
 
 export class ArtifactPageImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
+    // An initially-selected artifact path to display in the artifact viewer, if any.
+    // If no path is specified, defaults to selecting & displaying the contents of the
+    // run's root artifact directory.
+    initialSelectedArtifactPath: PropTypes.string,
     artifactRootUri: PropTypes.string.isRequired,
     apis: PropTypes.object.isRequired,
     listArtifactsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+    runTags: PropTypes.object,
+    modelVersions: PropTypes.arrayOf(PropTypes.object),
   };
 
   getFailedtoListArtifactsMsg = () => {
     return (
       <span>
-        Unable to list artifacts stored under
-        <code>{this.props.artifactRootUri}</code> for the current run. Please contact your tracking
-        server administrator to notify them of this error, which can happen when the tracking server
-        lacks permission to list artifacts under the current run's root artifact directory.
+        <FormattedMessage
+          // eslint-disable-next-line max-len
+          defaultMessage="Unable to list artifacts stored under <code>{artifactUri}</code> for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory."
+          // eslint-disable-next-line max-len
+          description='Error message when the artifact is unable to load. This message is displayed in the open source ML flow only'
+          values={{ artifactUri: this.props.artifactRootUri }}
+        />
       </span>
     );
   };
 
-  state = { activeNodeIsDirectory: false };
+  state = { activeNodeIsDirectory: false, errorThrown: false };
 
   searchRequestId = getUUID();
 
-  listArtifactRequestId = getUUID();
+  listArtifactRequestIds = [getUUID()].concat(
+    this.props.initialSelectedArtifactPath
+      ? this.props.initialSelectedArtifactPath.split('/').map((s) => getUUID())
+      : [],
+  );
 
-  pollModelVersionsForCurrentRun = () => {
+  pollModelVersionsForCurrentRun = async () => {
     const { apis, runUuid } = this.props;
     const { activeNodeIsDirectory } = this.state;
     const searchRequest = apis[this.searchRequestId];
     if (activeNodeIsDirectory && !(searchRequest && searchRequest.active)) {
-      this.props
-        .searchModelVersionsApi({ run_id: runUuid }, this.searchRequestId)
-        .catch(console.error);
+      try {
+        // searchModelVersionsApi may be sync or async so we're not using <promise>.catch() syntax
+        await this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchRequestId);
+      } catch (error) {
+        // We're not reporting errors more than once when polling
+        // in order to avoid flooding logs
+        if (!this.state.errorThrown) {
+          Utils.logErrorAndNotifyUser(error);
+          this.setState({ errorThrown: true });
+        }
+      }
     }
   };
 
@@ -55,15 +78,39 @@ export class ArtifactPageImpl extends Component {
     this.setState({ activeNodeIsDirectory });
   };
 
-  componentWillMount() {
+  pollArtifactsForCurrentRun = async () => {
     const { runUuid } = this.props;
-    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
-  }
+    await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+    if (this.props.initialSelectedArtifactPath) {
+      const parts = this.props.initialSelectedArtifactPath.split('/');
+      let pathSoFar = '';
+      for (let i = 0; i < parts.length; i++) {
+        pathSoFar += parts[i];
+        // ML-12477: ListArtifacts API requests need to be sent and fulfilled for parent
+        // directories before nested child directories, as our Reducers assume that parent
+        // directories are listed before their children to construct the correct artifact tree.
+        // Index i + 1 because listArtifactRequestIds[0] would have been used up by
+        // root-level artifact API call above.
+        // eslint-disable-next-line no-await-in-loop
+        await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+        pathSoFar += '/';
+      }
+    }
+  };
 
   componentDidMount() {
     if (Utils.isModelRegistryEnabled()) {
       this.pollModelVersionsForCurrentRun();
       this.pollIntervalId = setInterval(this.pollModelVersionsForCurrentRun, POLL_INTERVAL);
+    }
+    this.pollArtifactsForCurrentRun();
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.runUuid !== this.props.runUuid) {
+      this.setState({
+        errorThrown: false,
+      });
     }
   }
 
@@ -87,12 +134,15 @@ export class ArtifactPageImpl extends Component {
           <div className='artifact-load-error-outer-container'>
             <div className='artifact-load-error-container'>
               <div>
-                <div className='artifact-load-error-header'>Loading Artifacts Failed</div>
-                <div className='artifact-load-error-info'>
-                  <i
-                    className='far fa-times-circle artifact-load-error-icon'
-                    aria-hidden='true'
+                <div className='artifact-load-error-header'>
+                  <FormattedMessage
+                    defaultMessage='Loading Artifacts Failed'
+                    // eslint-disable-next-line max-len
+                    description='Error message rendered when loading the artifacts for the experiment fails'
                   />
+                </div>
+                <div className='artifact-load-error-info'>
+                  <i className='far fa-times-circle artifact-load-error-icon' aria-hidden='true' />
                   {this.getFailedtoListArtifactsMsg()}
                 </div>
               </div>
@@ -101,28 +151,42 @@ export class ArtifactPageImpl extends Component {
         </div>
       );
     }
-    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange}/>;
-
+    return <ArtifactView {...this.props} handleActiveNodeChange={this.handleActiveNodeChange} />;
   };
 
   render() {
-    return <RequestStateWrapper requestIds={[this.listArtifactRequestId]}>
-      {this.renderArtifactView}
-    </RequestStateWrapper>;
+    return (
+      <RequestStateWrapper
+        requestIds={this.listArtifactRequestIds}
+        // eslint-disable-next-line no-trailing-spaces
+      >
+        {this.renderArtifactView}
+      </RequestStateWrapper>
+    );
   }
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { runUuid } = ownProps;
+  const { runUuid, match } = ownProps;
   const { apis } = state;
+  const { initialSelectedArtifactPath } = match.params;
   const artifactRootUri = getArtifactRootUri(runUuid, state);
-  return { artifactRootUri, apis };
-};
 
+  // Autoselect most recently created logged model
+  let selectedPath = initialSelectedArtifactPath;
+  if (!selectedPath) {
+    const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags);
+    if (loggedModelPaths.length > 0) {
+      selectedPath = _.first(loggedModelPaths);
+    }
+  }
+  return { artifactRootUri, apis, initialSelectedArtifactPath: selectedPath };
+};
 
 const mapDispatchToProps = {
   listArtifactsApi,
   searchModelVersionsApi,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
+export const ConnectedArtifactPage = connect(mapStateToProps, mapDispatchToProps)(ArtifactPageImpl);
+export default withRouter(ConnectedArtifactPage);

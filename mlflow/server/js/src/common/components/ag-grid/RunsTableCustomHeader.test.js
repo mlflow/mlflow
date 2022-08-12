@@ -11,7 +11,7 @@ describe('RunsTableCustomHeader', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<RunsTableCustomHeader {...minimalProps}/>);
+    wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -32,5 +32,56 @@ describe('RunsTableCustomHeader', () => {
     props.enableSorting = false;
     wrapper = mount(<RunsTableCustomHeader {...props} />);
     expect(wrapper.find(SortByIcon).length).toBe(0);
+  });
+
+  test('should contain child accessibility role since ag-grid has aria parent', () => {
+    wrapper = shallow(<RunsTableCustomHeader {...minimalProps} />);
+    expect(wrapper.find("[role='columnheader']").length).toBe(1);
+  });
+
+  test('should handleSortBy correctly', () => {
+    const onSortBy = jest.fn();
+    const props = {
+      ...minimalProps,
+      enableSorting: true,
+      canonicalSortKey: 'user',
+      orderByKey: 'username',
+      orderByAsc: false,
+      onSortBy,
+    };
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+    let instance = wrapper.instance();
+    instance.handleSortBy();
+
+    expect(onSortBy).toHaveBeenCalledTimes(1);
+    expect(onSortBy).toBeCalledWith(props.canonicalSortKey, false);
+
+    props.orderByKey = 'user';
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+    instance = wrapper.instance();
+    instance.handleSortBy();
+
+    expect(onSortBy).toHaveBeenCalledTimes(2);
+    expect(onSortBy).toBeCalledWith(props.canonicalSortKey, true);
+  });
+
+  test('should compute the styles based on sort key correctly', () => {
+    const style = { backgroundColor: '#e6f7ff' };
+    const key = 'user';
+    const computedStylesOnSortKey = jest.fn().mockReturnValue(style);
+    const props = {
+      computedStylesOnSortKey,
+      enableSorting: true,
+      canonicalSortKey: key,
+      orderByKey: key,
+      orderByAsc: true,
+    };
+    wrapper = mount(<RunsTableCustomHeader {...props} />);
+
+    expect(computedStylesOnSortKey).toHaveBeenCalledTimes(1);
+    expect(computedStylesOnSortKey).toBeCalledWith(key);
+
+    const containerStyle = wrapper.find('[role="columnheader"]').props().style;
+    expect(containerStyle).toHaveProperty('backgroundColor', '#e6f7ff');
   });
 });

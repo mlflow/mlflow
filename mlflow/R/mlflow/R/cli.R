@@ -5,8 +5,8 @@
 #   Defaults to \code{FALSE}.
 # @param echo Print the standard output and error to the screen? Defaults to
 #   \code{TRUE}, does not apply to background tasks.
-# @param stderr_callback NULL, or a function to call for every chunk of the standard error.
-#   Defaults to a function that prints chunks to standard error.
+# @param stderr_callback \code{NULL} (the default), or a function to call for 
+#   every chunk of the standard error, passed to \code{\link[=processx:run]{processx::run()}}.
 # @param client Mlflow client to provide environment for the cli process.
 #
 # @return A \code{processx} task.
@@ -30,11 +30,6 @@ mlflow_cli <- function(...,
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)
-  if (is.null(stderr_callback)) {
-    stderr_callback <- function(x, p) {
-      cat(x, file = stderr())
-    }
-  }
   with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)

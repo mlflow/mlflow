@@ -7,27 +7,40 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import NotFoundPage from './NotFoundPage';
 import { MetricView } from './MetricView';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { PageContainer } from '../../common/components/PageContainer';
 
 export class MetricPageImpl extends Component {
   static propTypes = {
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
-    experimentId: PropTypes.string,
+    experimentIds: PropTypes.arrayOf(PropTypes.string),
     dispatch: PropTypes.func.isRequired,
   };
 
-  componentWillMount() {
+  constructor(props) {
+    super(props);
     this.requestIds = [];
-    if (this.props.experimentId !== null) {
+  }
+
+  fetchExperiments() {
+    return this.props.experimentIds.map((experimentId) => {
       const experimentRequestId = getUUID();
-      this.props.dispatch(getExperimentApi(this.props.experimentId, experimentRequestId));
-      this.requestIds.push(experimentRequestId);
+      this.props.dispatch(getExperimentApi(experimentId, experimentRequestId));
+      return experimentRequestId;
+    });
+  }
+
+  componentDidMount() {
+    if (this.props.experimentIds !== null) {
+      const getExperimentsRequestIds = this.fetchExperiments();
+      this.requestIds.push(...getExperimentsRequestIds);
     }
     this.props.runUuids.forEach((runUuid) => {
       const getMetricHistoryReqId = getUUID();
       this.requestIds.push(getMetricHistoryReqId);
-      this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey,
-        getMetricHistoryReqId));
+      this.props.dispatch(
+        getMetricHistoryApi(runUuid, this.props.metricKey, getMetricHistoryReqId),
+      );
       // Fetch tags for each run. TODO: it'd be nice if we could just fetch the tags directly
       const getRunRequestId = getUUID();
       this.requestIds.push(getRunRequestId);
@@ -37,22 +50,27 @@ export class MetricPageImpl extends Component {
 
   renderPageContent() {
     const { runUuids } = this.props;
-    return runUuids.length >= 1
-      ? <MetricView
-          runUuids={this.props.runUuids}
-          metricKey={this.props.metricKey}
-          experimentId={this.props.experimentId}
+    return runUuids.length >= 1 ? (
+      <MetricView
+        runUuids={this.props.runUuids}
+        metricKey={this.props.metricKey}
+        experimentIds={this.props.experimentIds}
       />
-      : <NotFoundPage/>;
+    ) : (
+      <NotFoundPage />
+    );
   }
 
   render() {
     return (
-      <div className='App-content'>
-        <RequestStateWrapper requestIds={this.requestIds}>
+      <PageContainer>
+        <RequestStateWrapper
+          requestIds={this.requestIds}
+          // eslint-disable-next-line no-trailing-spaces
+        >
           {this.renderPageContent()}
         </RequestStateWrapper>
-      </div>
+      </PageContainer>
     );
   }
 }
@@ -60,16 +78,16 @@ export class MetricPageImpl extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { match, location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const runUuids = JSON.parse(searchValues["?runs"]);
-  let experimentId = null;
-  if (searchValues.hasOwnProperty("experiment")) {
-    experimentId = searchValues["experiment"];
+  const runUuids = JSON.parse(searchValues['?runs']);
+  let experimentIds = null;
+  if (searchValues.hasOwnProperty('experiments')) {
+    experimentIds = JSON.parse(searchValues['experiments']);
   }
   const { metricKey } = match.params;
   return {
     runUuids,
     metricKey,
-    experimentId,
+    experimentIds,
   };
 };
 

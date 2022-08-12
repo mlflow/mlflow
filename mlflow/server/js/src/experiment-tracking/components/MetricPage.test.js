@@ -3,9 +3,8 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { mount} from 'enzyme';
+import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 import { MetricPageImpl, MetricPage } from './MetricPage';
 import NotFoundPage from './NotFoundPage';
@@ -20,21 +19,24 @@ describe('MetricPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       dispatch: jest.fn(),
       location: {
-        search: "?runs=[]",
+        search: '?runs=[]',
       },
       match: {
         params: {
-          metricKey: "metricKey",
+          metricKey: 'metricKey',
         },
       },
     };
     commonProps = {
       ...minimalProps,
-      experimentId: 0,
+      experimentIds: [0],
     };
 
     minimalStore = mockStore({
@@ -49,9 +51,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...minimalProps}/>
+          <MetricPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
     expect(wrapper.length).toBe(1);
   });
@@ -60,9 +62,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...commonProps}/>
+          <MetricPage {...commonProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
 
     instance = wrapper.find(MetricPageImpl).instance();
@@ -79,9 +81,9 @@ describe('MetricPage', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
         <BrowserRouter>
-          <MetricPage {...props}/>
+          <MetricPage {...props} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     ).find(MetricPage);
 
     instance = wrapper.find(MetricPageImpl).instance();

@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 
 export class ConfirmModal extends Component {
   constructor(props) {
@@ -14,9 +14,9 @@ export class ConfirmModal extends Component {
     // Function which returns a promise which resolves when the submission is done.
     handleSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
-    title: PropTypes.string.isRequired,
+    title: PropTypes.node.isRequired,
     helpText: PropTypes.node.isRequired,
-    confirmButtonText: PropTypes.string.isRequired,
+    confirmButtonText: PropTypes.node.isRequired,
   };
 
   state = {
@@ -40,6 +40,7 @@ export class ConfirmModal extends Component {
   render() {
     return (
       <Modal
+        data-testid='confirm-modal'
         title={this.props.title}
         visible={this.props.isOpen}
         onOk={this.handleSubmitWrapper}
@@ -48,9 +49,7 @@ export class ConfirmModal extends Component {
         onCancel={this.onRequestCloseHandler}
         centered
       >
-        <div className='modal-explanatory-text'>
-          {this.props.helpText}
-        </div>
+        <div className='modal-explanatory-text'>{this.props.helpText}</div>
       </Modal>
     );
   }

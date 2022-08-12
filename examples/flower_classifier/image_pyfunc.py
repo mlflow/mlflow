@@ -32,7 +32,7 @@ def decode_and_resize_image(raw_bytes, size):
     return np.asarray(Image.open(BytesIO(raw_bytes)).resize(size), dtype=np.float32)
 
 
-class KerasImageClassifierPyfunc(object):
+class KerasImageClassifierPyfunc:
     """
     Image classification model with embedded pre-processing.
 
@@ -79,7 +79,7 @@ class KerasImageClassifierPyfunc(object):
         probs = self._predict_images(images)
         m, n = probs.shape
         label_idx = np.argmax(probs, axis=1)
-        labels = np.array([self._domain[i] for i in label_idx], dtype=np.str).reshape(m, 1)
+        labels = np.array([self._domain[i] for i in label_idx], dtype=str).reshape(m, 1)
         output_data = np.concatenate((labels, label_idx.reshape(m, 1), probs), axis=1)
         res = pd.DataFrame(columns=self._column_names, data=output_data)
         res.index = input.index
@@ -95,8 +95,7 @@ class KerasImageClassifierPyfunc(object):
         def preprocess_f(z):
             return decode_and_resize_image(z, self._image_dims[:2])
 
-        x = np.array(
-            images[images.columns[0]].apply(preprocess_f).tolist())
+        x = np.array(images[images.columns[0]].apply(preprocess_f).tolist())
         with self._graph.as_default():
             with self._session.as_default():
                 return self._model.predict(x)
@@ -115,28 +114,31 @@ def log_model(keras_model, artifact_path, image_dims, domain):
     with TempDir() as tmp:
         data_path = tmp.path("image_model")
         os.mkdir(data_path)
-        conf = {
-            "image_dims": "/".join(map(str, image_dims)),
-            "domain": "/".join(map(str, domain))
-        }
+        conf = {"image_dims": "/".join(map(str, image_dims)), "domain": "/".join(map(str, domain))}
         with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
         keras_path = os.path.join(data_path, "keras_model")
         mlflow.keras.save_model(keras_model, path=keras_path)
         conda_env = tmp.path("conda_env.yaml")
         with open(conda_env, "w") as f:
-            f.write(conda_env_template.format(python_version=PYTHON_VERSION,
-                                              keras_version=keras.__version__,
-                                              tf_name=tf.__name__,  # can have optional -gpu suffix
-                                              tf_version=tf.__version__,
-                                              pip_version=pip.__version__,
-                                              pillow_version=PIL.__version__))
+            f.write(
+                conda_env_template.format(
+                    python_version=PYTHON_VERSION,
+                    keras_version=keras.__version__,
+                    tf_name=tf.__name__,  # can have optional -gpu suffix
+                    tf_version=tf.__version__,
+                    pip_version=pip.__version__,
+                    pillow_version=PIL.__version__,
+                )
+            )
 
-        mlflow.pyfunc.log_model(artifact_path=artifact_path,
-                                loader_module=__name__,
-                                code_path=[__file__],
-                                data_path=data_path,
-                                conda_env=conda_env)
+        mlflow.pyfunc.log_model(
+            artifact_path=artifact_path,
+            loader_module=__name__,
+            code_path=[__file__],
+            data_path=data_path,
+            conda_env=conda_env,
+        )
 
 
 def _load_pyfunc(path):
@@ -161,14 +163,13 @@ def _load_pyfunc(path):
 conda_env_template = """
 name: flower_classifier
 channels:
-  - defaults
-  - anaconda
+  - conda-forge
 dependencies:
   - python=={python_version}
-  - keras=={keras_version}
-  - {tf_name}=={tf_version}
   - pip=={pip_version}  
-  - pillow=={pillow_version}
   - pip:
     - mlflow>=1.6
+    - pillow=={pillow_version}
+    - keras=={keras_version}
+    - {tf_name}=={tf_version}
 """

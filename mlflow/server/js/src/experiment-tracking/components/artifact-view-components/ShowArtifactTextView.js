@@ -1,7 +1,10 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from './ShowArtifactUtils';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { coy as style } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { getLanguage } from '../../../common/utils/FileUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 
 class ShowArtifactTextView extends Component {
@@ -18,7 +21,7 @@ class ShowArtifactTextView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -38,11 +41,7 @@ class ShowArtifactTextView extends Component {
 
   render() {
     if (this.state.loading) {
-      return (
-        <div className='artifact-text-view-loading'>
-          Loading...
-        </div>
-      );
+      return <div className='artifact-text-view-loading'>Loading...</div>;
     }
     if (this.state.error) {
       return (
@@ -51,24 +50,51 @@ class ShowArtifactTextView extends Component {
         </div>
       );
     } else {
+      const language = getLanguage(this.props.path);
+      const overrideStyles = {
+        fontFamily: 'Source Code Pro,Menlo,monospace',
+        fontSize: '13px',
+        overflow: 'auto',
+        marginTop: '0',
+        width: '100%',
+        height: '100%',
+      };
+      const renderedContent = ShowArtifactTextView.prettifyText(language, this.state.text);
       return (
-        <div className="ShowArtifactPage">
-          <div className="text-area-border-box">
-            <textarea className={"text-area"} readOnly value={this.state.text}/>
+        <div className='ShowArtifactPage'>
+          <div className='text-area-border-box'>
+            <SyntaxHighlighter language={language} style={style} customStyle={overrideStyles}>
+              {renderedContent}
+            </SyntaxHighlighter>
           </div>
         </div>
       );
     }
   }
 
+  static prettifyText(language, rawText) {
+    if (language === 'json') {
+      try {
+        const parsedJson = JSON.parse(rawText);
+        return JSON.stringify(parsedJson, null, 2);
+      } catch (e) {
+        return rawText;
+      }
+    }
+    return rawText;
+  }
+
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((text) => {
-      this.setState({ text: text, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((text) => {
+        this.setState({ text: text, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false });
+      });
   }
 }
 

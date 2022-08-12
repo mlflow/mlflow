@@ -9,39 +9,93 @@
 */
 
 import React from 'react';
-import { Button, Icon } from 'antd';
+import { Tooltip, Button, WithDesignSystemThemeHoc, SyncIcon } from '@databricks/design-system';
 import PropTypes from 'prop-types';
+import { injectIntl, FormattedMessage } from 'react-intl';
 
-export class LoadMoreBar extends React.PureComponent {
+export class LoadMoreBarImpl extends React.PureComponent {
   static propTypes = {
     style: PropTypes.object,
     loadingMore: PropTypes.bool.isRequired,
     onLoadMore: PropTypes.func.isRequired,
+    disableButton: PropTypes.bool,
+    nestChildren: PropTypes.bool,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
+    designSystemThemeApi: PropTypes.any.isRequired,
   };
 
-  render() {
-    const { loadingMore, onLoadMore, style } = this.props;
-    return (
-      <div
-        className='load-more-row'
-        style={{ ...styles.loadMoreRows, ...style }}
+  renderButton() {
+    const { disableButton, onLoadMore, nestChildren, intl, designSystemThemeApi } = this.props;
+    const loadMoreButton = (
+      <Button
+        className='load-more-button'
+        style={styles.loadMoreButton}
+        type='primary'
+        htmlType='button'
+        onClick={onLoadMore}
+        size='small'
+        disabled={disableButton}
       >
+        <FormattedMessage
+          defaultMessage='Load more'
+          description='Load more button text to load more experiment runs'
+        />
+      </Button>
+    );
+
+    if (disableButton) {
+      return (
+        <Tooltip
+          className='load-more-button-disabled-tooltip'
+          placement='bottom'
+          title={intl.formatMessage({
+            defaultMessage: 'No more runs to load.',
+            description:
+              'Tooltip text for load more button when there are no more experiment runs to load',
+          })}
+        >
+          {loadMoreButton}
+        </Tooltip>
+      );
+    } else if (nestChildren) {
+      return (
+        <div>
+          {loadMoreButton}
+          <Tooltip
+            className='load-more-button-nested-info-tooltip'
+            placement='bottom'
+            title={intl.formatMessage({
+              defaultMessage: 'Loaded child runs are nested under their parents.',
+              description:
+                // eslint-disable-next-line max-len
+                'Tooltip text for load more button explaining the runs are nested under their parent experiment run',
+            })}
+          >
+            <i
+              className='fas fa-info-circle'
+              css={{
+                marginLeft: designSystemThemeApi.theme.spacing.sm,
+                color: designSystemThemeApi.theme.colors.actionPrimaryBackgroundDefault,
+              }}
+            />
+          </Tooltip>
+        </div>
+      );
+    } else {
+      return loadMoreButton;
+    }
+  }
+
+  render() {
+    const { loadingMore, style } = this.props;
+    return (
+      <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
           <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
-            <Icon type='sync' spin style={styles.loadingMoreIcon}/>
+            <SyncIcon spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
-          <Button
-            className='load-more-button'
-            style={styles.loadMoreButton}
-            type='primary'
-            htmlType='button'
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            size='small'
-          >
-            Load more
-          </Button>
+          this.renderButton()
         )}
       </div>
     );
@@ -67,3 +121,5 @@ const styles = {
     paddingRight: 16,
   },
 };
+
+export const LoadMoreBar = WithDesignSystemThemeHoc(injectIntl(LoadMoreBarImpl));

@@ -1,6 +1,8 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { CompareRunContour } from './CompareRunContour';
+import { RunInfo } from '../sdk/MlflowMessages';
+import { shallowWithIntl } from '../../common/utils/TestUtils';
 
 describe('unit tests', () => {
   let wrapper;
@@ -9,7 +11,12 @@ describe('unit tests', () => {
   const runUuids = ['run_uuid_0', 'run_uuid_1', 'run_uuid_2'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map(run_uuid => ({ run_uuid })),
+    runInfos: runUuids.map((run_uuid) =>
+      RunInfo.fromJs({
+        run_uuid,
+        experiment_id: '1',
+      }),
+    ),
     runDisplayNames: runUuids,
   };
 
@@ -55,11 +62,7 @@ describe('unit tests', () => {
   test('should render a div with a message when the number of unique params/metrics is less than three', () => {
     const props = {
       ...commonProps,
-      paramLists: [
-        [{ key: 'p1', value: 1 }],
-        [{ key: 'p1', value: 2 }],
-        [{ key: 'p1', value: 3 }],
-      ],
+      paramLists: [[{ key: 'p1', value: 1 }], [{ key: 'p1', value: 2 }], [{ key: 'p1', value: 3 }]],
       metricLists: [
         [{ key: 'm1', value: 4 }],
         [{ key: 'm1', value: 5 }],
@@ -224,5 +227,63 @@ describe('unit tests', () => {
       yaxis: { key: 'p2', isMetric: false },
       zaxis: { key: 'm1', isMetric: true },
     });
+  });
+
+  test('should render a warning message when X or Y axis does not have enough data points', () => {
+    const props = {
+      ...commonProps,
+      paramLists: [
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 1 },
+        ],
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 2 },
+        ],
+        [
+          { key: 'p1', value: 0 },
+          { key: 'p2', value: 3 },
+        ],
+      ],
+      metricLists: [
+        [{ key: 'm1', value: 4 }],
+        [{ key: 'm1', value: 5 }],
+        [{ key: 'm1', value: 6 }],
+      ],
+    };
+    wrapper = shallowWithIntl(<CompareRunContour {...props} />).dive();
+
+    const renderControlsElement = () => wrapper.dive();
+
+    // X axis: p1 | Y axis: p2
+    expect(
+      renderControlsElement().text().includes("The X axis doesn't have enough unique data points"),
+    ).toBe(true);
+
+    // X axis: p2 | Y axis: p1
+    wrapper.setState({
+      xaxis: { key: 'p2', isMetric: false },
+      yaxis: { key: 'p1', isMetric: false },
+    });
+
+    expect(
+      renderControlsElement().text().includes("The Y axis doesn't have enough unique data points"),
+    ).toBe(true);
+
+    // X axis: p1 | Y axis: p1
+    wrapper.setState({ xaxis: { key: 'p1', isMetric: false } });
+    expect(
+      renderControlsElement()
+        .text()
+        .includes("The X and Y axes don't have enough unique data points"),
+    ).toBe(true);
+
+    // X axis: p2 | Y axis: p2
+    wrapper.setState({
+      xaxis: { key: 'p2', isMetric: false },
+      yaxis: { key: 'p2', isMetric: false },
+    });
+    expect(renderControlsElement().text().includes('have enough unique data points')).toBe(false);
   });
 });

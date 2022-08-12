@@ -14,7 +14,7 @@ export class RestoreRunModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    selectedRunIds: PropTypes.arrayOf(String).isRequired,
+    selectedRunIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     openErrorModal: PropTypes.func.isRequired,
     restoreRunApi: PropTypes.func.isRequired,
   };
@@ -24,8 +24,9 @@ export class RestoreRunModalImpl extends Component {
     this.props.selectedRunIds.forEach((runId) => {
       restorePromises.push(this.props.restoreRunApi(runId));
     });
-    return Promise.all(restorePromises).catch(() => {
-      this.props.openErrorModal('While restoring an experiment run, an error occurred.');
+    return Promise.all(restorePromises).catch((e) => {
+      const errorMessage = 'While restoring an experiment run, an error occurred.';
+      this.props.openErrorModal(errorMessage);
     });
   }
 
@@ -36,9 +37,9 @@ export class RestoreRunModalImpl extends Component {
         isOpen={this.props.isOpen}
         onClose={this.props.onClose}
         handleSubmit={this.handleSubmit}
-        title={`Restore Experiment ${Utils.pluralize("Run", number)}`}
+        title={`Restore Experiment ${Utils.pluralize('Run', number)}`}
         helpText={`${number} experiment ${Utils.pluralize('run', number)} will be restored.`}
-        confirmButtonText={"Restore"}
+        confirmButtonText={'Restore'}
       />
     );
   }

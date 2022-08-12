@@ -1,10 +1,10 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
-import {
-  Stages,
-} from '../constants';
-import { Dropdown } from 'antd';
+import { Stages } from '../constants';
+import { Dropdown } from '@databricks/design-system';
+import { mockGetFieldValue } from '../test-utils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('ModelStageTransitionDropdown', () => {
   let wrapper;
@@ -21,25 +21,26 @@ describe('ModelStageTransitionDropdown', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ModelStageTransitionDropdown {...minimalProps}/>);
+    wrapper = mountWithIntl(<ModelStageTransitionDropdown {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should omit current stage in dropdown', () => {
     const props = {
-      ...minimalProps,
+      ...commonProps,
       currentStage: Stages.STAGING,
     };
-    wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
-    wrapper.find('.stage-transition-dropdown').simulate('click');
-    const menuHtml = shallow(wrapper.find(Dropdown).props().overlay).html();
+    wrapper = mountWithIntl(<ModelStageTransitionDropdown {...props} />);
+    wrapper.find('.stage-transition-dropdown').first().simulate('click');
+    const menuHtml = mountWithIntl(wrapper.find(Dropdown).props().overlay).html();
+
     expect(menuHtml).not.toContain(Stages.STAGING);
     expect(menuHtml).toContain(Stages.PRODUCTION);
     expect(menuHtml).toContain(Stages.NONE);
     expect(menuHtml).toContain(Stages.ARCHIVED);
   });
 
-  test('handleMenuItemClick', () => {
+  test('handleMenuItemClick - archiveExistingVersions', () => {
     const mockOnSelect = jest.fn();
     const props = {
       ...commonProps,
@@ -47,9 +48,19 @@ describe('ModelStageTransitionDropdown', () => {
     };
     const activity = {};
     wrapper = shallow(<ModelStageTransitionDropdown {...props} />);
-    const instance = wrapper.instance();
-    instance.handleMenuItemClick(activity);
-    instance.state.handleConfirm();
-    expect(mockOnSelect).toHaveBeenCalledWith(activity);
+    const mockArchiveFieldValues = [true, false, undefined];
+    mockArchiveFieldValues.forEach((fieldValue) => {
+      const expectArchiveFieldValue = Boolean(fieldValue); // undefined should become false also
+      const instance = wrapper.instance();
+      instance.transitionFormRef = {
+        current: {
+          getFieldValue: mockGetFieldValue('', fieldValue),
+          resetFields: () => {},
+        },
+      };
+      instance.handleMenuItemClick(activity);
+      instance.state.handleConfirm();
+      expect(mockOnSelect).toHaveBeenCalledWith(activity, expectArchiveFieldValue);
+    });
   });
 });

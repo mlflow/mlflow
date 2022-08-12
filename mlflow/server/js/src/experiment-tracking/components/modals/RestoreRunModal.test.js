@@ -3,7 +3,6 @@ import { shallow } from 'enzyme';
 import { RestoreRunModalImpl } from './RestoreRunModal';
 import { ConfirmModal } from './ConfirmModal';
 
-
 describe('RestoreRunModal', () => {
   let wrapper;
   let minimalProps;
@@ -21,7 +20,7 @@ describe('RestoreRunModal', () => {
       restoreRunApi: mockRestoreRunApi,
     };
 
-    wrapper = shallow(<RestoreRunModalImpl {...minimalProps}/>);
+    wrapper = shallow(<RestoreRunModalImpl {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {
@@ -38,13 +37,16 @@ describe('RestoreRunModal', () => {
   });
 
   test('test handleRenameExperiment errors correctly', (done) => {
-    const mockFailRestoreRunApi = jest.fn(() => new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        reject();
-      }, 1000);
-    }));
-    const failRunApiProps = {...minimalProps, restoreRunApi: mockFailRestoreRunApi};
-    wrapper = shallow(<RestoreRunModalImpl {...failRunApiProps}/>);
+    const mockFailRestoreRunApi = jest.fn(
+      () =>
+        new Promise((resolve, reject) => {
+          window.setTimeout(() => {
+            reject();
+          }, 1000);
+        }),
+    );
+    const failRunApiProps = { ...minimalProps, restoreRunApi: mockFailRestoreRunApi };
+    wrapper = shallow(<RestoreRunModalImpl {...failRunApiProps} />);
 
     const promise = wrapper.find(ConfirmModal).prop('handleSubmit')();
     promise.finally(() => {

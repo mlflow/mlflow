@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.mlflow.api.proto.Service;
 import org.mlflow.tracking.MlflowClientException;
 import org.mlflow.tracking.creds.MlflowHostCreds;
+import org.mlflow.tracking.creds.DatabricksMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 /**
@@ -52,7 +53,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   // Run ID this repository is targeting.
   private final String runId;
 
-  // Used to pass the MLFLOW_TRACKING_URI on to the mlflow process.
+  // Used to pass credentials as environment variables
+  // (e.g., MLFLOW_TRACKING_URI or DATABRICKS_HOST) to the mlflow process.
   private final MlflowHostCredsProvider hostCredsProvider;
 
   public CliBasedArtifactRepository(
@@ -141,10 +143,6 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   /**
-   * :: experimental ::
-   *
-   * This api may change or be removed in a future release without warning.
-   *
    * Only available in the CliBasedArtifactRepository. Downloads an artifact to the local
    * filesystem when provided with an artifact uri. This method should not be used directly
    * by the user. Please use {@link org.mlflow.tracking.MlflowClient}
@@ -223,7 +221,11 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", PYTHON_COMMAND);
       fullCommand.addAll(mlflowCommand);
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
-      setProcessEnvironment(pb.environment(), hostCreds);
+      if (hostCreds instanceof DatabricksMlflowHostCreds) {
+        setProcessEnvironmentDatabricks(pb.environment(), (DatabricksMlflowHostCreds) hostCreds);
+      } else {
+        setProcessEnvironment(pb.environment(), hostCreds);
+      }
       process = pb.start();
       stdout = IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
       int exitValue = process.waitFor();
@@ -252,6 +254,25 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     }
     if (hostCreds.shouldIgnoreTlsVerification()) {
       environment.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    }
+  }
+
+  @VisibleForTesting
+  void setProcessEnvironmentDatabricks(
+      Map<String, String> environment,
+      DatabricksMlflowHostCreds hostCreds) {
+    environment.put("DATABRICKS_HOST", hostCreds.getHost());
+    if (hostCreds.getUsername() != null) {
+      environment.put("DATABRICKS_USERNAME", hostCreds.getUsername());
+    }
+    if (hostCreds.getPassword() != null) {
+      environment.put("DATABRICKS_PASSWORD", hostCreds.getPassword());
+    }
+    if (hostCreds.getToken() != null) {
+      environment.put("DATABRICKS_TOKEN", hostCreds.getToken());
+    }
+    if (hostCreds.shouldIgnoreTlsVerification()) {
+      environment.put("DATABRICKS_INSECURE", "true");
     }
   }
 

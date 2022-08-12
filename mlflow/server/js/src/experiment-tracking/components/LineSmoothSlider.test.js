@@ -2,7 +2,6 @@ import { shallow } from 'enzyme';
 import React from 'react';
 import { LineSmoothSlider } from './LineSmoothSlider';
 
-
 describe('LineSmoothSlider', () => {
   let wrapper;
   let minimalProps;
@@ -17,7 +16,7 @@ describe('LineSmoothSlider', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<LineSmoothSlider {...minimalProps}/>);
+    wrapper = shallow(<LineSmoothSlider {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -28,7 +27,7 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props}/>);
+    wrapper = shallow(<LineSmoothSlider {...props} />);
     expect(wrapper.state('inputValue')).toBe(5);
 
     const slider = wrapper.find('Slider').get(0);
@@ -36,7 +35,7 @@ describe('LineSmoothSlider', () => {
     expect(slider.props.max).toBe(10);
     expect(slider.props.value).toBe(5);
 
-    const inputNumber = wrapper.find('InputNumber').get(0);
+    const inputNumber = wrapper.find('[data-test-id="InputNumber"]').get(0);
     expect(inputNumber.props.min).toBe(0);
     expect(inputNumber.props.max).toBe(10);
     expect(inputNumber.props.value).toBe(5);
@@ -49,8 +48,8 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props}/>);
-    const inputNumber = wrapper.find('InputNumber');
+    wrapper = shallow(<LineSmoothSlider {...props} />);
+    const inputNumber = wrapper.find('[data-test-id="InputNumber"]');
     inputNumber.simulate('change', 6);
     expect(props.handleLineSmoothChange).toHaveBeenCalledWith(6);
     expect(wrapper.state('inputValue')).toBe(6);
@@ -63,7 +62,7 @@ describe('LineSmoothSlider', () => {
       handleLineSmoothChange: jest.fn(),
       defaultValue: 5,
     };
-    wrapper = shallow(<LineSmoothSlider {...props}/>);
+    wrapper = shallow(<LineSmoothSlider {...props} />);
     const slider = wrapper.find('Slider');
     slider.simulate('change', 1);
     expect(props.handleLineSmoothChange).toHaveBeenCalledWith(1);

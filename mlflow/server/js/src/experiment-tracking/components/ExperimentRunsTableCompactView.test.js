@@ -30,8 +30,9 @@ describe('ExperimentRunsTableCompactView', () => {
       handleLoadMoreRuns: () => {},
       loadingMore: false,
       categorizedUncheckedKeys: {},
+      modelVersionsByRunUuid: {},
     };
-    wrapper = shallow(<ExperimentRunsTableCompactView {...minimalProps}/>);
+    wrapper = shallow(<ExperimentRunsTableCompactView {...minimalProps} />);
   });
 
   test('should render with minimal props without exploding', () => {

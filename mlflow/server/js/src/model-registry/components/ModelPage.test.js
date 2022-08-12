@@ -1,18 +1,14 @@
 import React from 'react';
-import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import {
-  mockModelVersionDetailed,
-  mockRegisteredModelDetailed,
-} from '../test-utils';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
-import { mockAjax } from '../../common/utils/TestUtils';
+import { mountWithIntl } from '../../common/utils/TestUtils';
 import { modelListPageRoute } from '../routes';
 
 describe('ModelPage', () => {
@@ -23,11 +19,10 @@ describe('ModelPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
     minimalProps = {
       match: {
         params: {
-          modelName: 'Model A',
+          modelName: encodeURIComponent('Model A'),
         },
       },
       history: {
@@ -46,13 +41,7 @@ describe('ModelPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': mockRegisteredModelDetailed(
-              'Model A',
-              1,
-              Stages.PRODUCTION,
-              ModelVersionStatus.READY,
-              [],
-            ),
+            1: mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
           },
         },
       },
@@ -61,23 +50,23 @@ describe('ModelPage', () => {
   });
 
   test('should render with minimal props and store without exploding', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
   test('should redirect to model listing page when model is deleted', () => {
-    wrapper = mount(
+    wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <BrowserRouter>
           <ModelPage {...minimalProps} />
         </BrowserRouter>
-      </Provider>
+      </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
     const mockError = {

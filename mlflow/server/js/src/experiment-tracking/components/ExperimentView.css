@@ -1,20 +1,22 @@
-.ExperimentView input[type=checkbox] {
-  width: auto;
-}
-
 .ExperimentView th {
   background-color: #fafafa;
   color: #888888;
   font-weight: 500;
 }
 
-.ExperimentView td, .ExperimentView th {
+.ExperimentView td,
+.ExperimentView th {
   border-top: 1px solid #e2e2e2;
   border-bottom: 1px solid #e2e2e2;
 }
 
-.ExperimentView .metadata-list td, .ExperimentView .metadata-list th {
+.ExperimentView .metadata-list td,
+.ExperimentView .metadata-list th {
   border: none;
+}
+
+.LinkColor {
+  color: #2374bb;
 }
 
 .ExperimentView .top-row {
@@ -29,7 +31,7 @@
 }
 
 .ExperimentView .left-border {
-  border-left: 1px solid #e2e2e2;
+  border-left: 1px solid rgb(240, 240, 240);
 }
 
 .ExperimentView-run-buttons .btn {
@@ -37,8 +39,8 @@
 }
 
 .ExperimentView-run-buttons .run-count {
-  font-size: 14px;
-  color: #888888;
+  font-size: 13px;
+  color: #6b6b6b;
 }
 
 .ExperimentView-evenRow {
@@ -62,10 +64,6 @@
   min-width: 800px;
 }
 
-.ExperimentView-info {
-  margin-top: 8px;
-}
-
 .ExperimentView-info .note-view-outer-container {
   width: 100%;
   height: auto;
@@ -75,16 +73,9 @@
   padding-bottom: 12px;
 }
 
-.ExperimentView-run-buttons{
+.ExperimentView-run-buttons {
   margin-top: 16px;
   margin-bottom: 16px;
-}
-
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter {
-  display: inline-block;
-  width: 50%;
-  min-width: 210px;
-  margin-top: 8px;
 }
 
 .ExperimentView-search {
@@ -103,14 +94,11 @@
 }
 
 .ExperimentView-lifecycle-input {
-  padding-right: 8px;
+  padding-top: 8px;
 }
 
-.ExperimentView-lifecycle-button {
-  width: 80px;
-}
-
-.ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
+.ExperimentView-search-input,
+.ExperimentView-lifecycle-input {
   padding-right: 8px;
 }
 
@@ -134,12 +122,64 @@
   width: 100%;
 }
 
+.ExperimentView-editDescriptionHeader {
+  height: 32px;
+  line-height: 32px;
+}
+
 .search-button {
   width: 120px;
+  height: auto;
+  margin-left: 10px;
 }
 
 .clear-button {
-  margin-left: 8px;
+  margin-left: 10px;
+  height: auto;
+}
+
+.filter-button {
+  margin-left: 10px;
+  height: 40px;
+  width: 97px;
+}
+
+.model-versions-label {
+  padding-left: 20px;
+}
+
+.filterIcon {
+  padding-right: 8px;
+}
+
+.search-control-btns {
+  display: flex;
+}
+
+.lifecycleButtons-enter {
+  opacity: 0.01;
+}
+
+.lifecycleButtons-enter.lifecycleButtons-enter-active {
+  opacity: 1;
+  transition: opacity 500ms linear;
+}
+
+.lifecycleButtons-exit {
+  opacity: 1;
+}
+
+.lifecycleButtons-exit.lifecycleButtons-exit-active {
+  opacity: 0.01;
+  transition: opacity 300ms ease-in;
+}
+
+.ExperimentView-linked-model-button {
+  margin-left: 10px;
+}
+
+.ExperimentView-lifecycle-button {
+  margin-left: 10px;
 }
 
 div.error-message {
@@ -147,6 +187,7 @@ div.error-message {
   margin-left: 0;
   /*width: auto;*/
 }
+
 span.error-message {
   color: #db1905;
 }
@@ -183,8 +224,13 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-sort-toggle {
-  color: #888;
+  color: #2272b4;
   cursor: pointer;
+}
+
+.ExperimentView .param-sort-toggle-group {
+  display: flex;
+  align-items: center;
 }
 
 .ExperimentView .underline-on-hover:hover {
@@ -212,14 +258,18 @@ span.error-message {
 }
 
 .ExperimentView .metric-param-container-cell {
-  min-width: 280px;
-  padding: 8px;
+  width: 250px;
+  padding: 12px 8px;
+  overflow-x: hidden;
+  text-overflow: ellipsis;
 }
 
 .ExperimentView .metric-param-cell {
-  display: inline-block;
-  width: 250px;
-  padding: 0;
+  box-sizing: border-box;
+}
+
+.ExperimentView .flex {
+  display: flex;
 }
 
 .ExperimentView .tag-cell-item {
@@ -233,7 +283,7 @@ span.error-message {
 .ExperimentView .ReactVirtualized__Table__headerRow {
   overflow: visible;
   text-transform: inherit;
-  font-weight: inherit;
+  font-weight: 500;
 }
 
 .ExperimentView .ReactVirtualized__Table__Grid:focus {
@@ -243,21 +293,25 @@ span.error-message {
 /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
 .ExperimentView .ReactVirtualized__Table__rowColumn {
   overflow: visible !important;
+  margin-right: 0;
 }
 
 .ExperimentView .ReactVirtualized__Table__headerColumn {
-  color: rgb(136, 136, 136);
+  color: rgba(0, 0, 0, 0.85); /* Mimic antd v4 */
+  background-color: #fafafa;
+  margin-right: 0;
+  font-size: 13px;
 }
 
 .ExperimentView .ReactVirtualized__Table .run-table-container {
-  padding: 8px;
+  padding: 12px 8px;
 }
 
-.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-sort-toggle {
+.ExperimentView .ReactVirtualized__Table .run-table-container.metric-param-sort-toggle {
   padding: 0;
 }
 
-.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-value {
+.ExperimentView .ReactVirtualized__Table .run-table-container.metric-param-value {
   padding: 0;
 }
 
@@ -270,11 +324,19 @@ span.error-message {
   flex: 1 1 auto;
   flex-direction: column;
   display: flex;
+  border-radius: 4px;
+}
+
+.compact-view-table-container {
   min-height: 800px;
 }
 
+.ExperimentView-runs {
+  padding-top: 5px;
+}
+
 .ExperimentView .ReactVirtualized__Table__row:hover {
-  background-color: #f5f5f5;
+  background-color: #fafafa;
 }
 
 .search-input-tooltip .ant-popover-inner-content {
@@ -288,12 +350,30 @@ span.error-message {
   border-left-color: rgba(0, 0, 0, 0.75);
 }
 
-.ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover{
-  background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
+.artifact-location-public-tooltip .ant-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
 }
 
-.ExperimentView .ag-row-hover .ag-column-hover {
-  background-color: #e8f6fd !important;
+.artifact-location-public-tooltip.ant-popover-placement-bottom
+  > .ant-popover-content
+  > .ant-popover-arrow {
+  border-top-color: rgba(0, 0, 0, 0.75);
+  border-left-color: rgba(0, 0, 0, 0.75);
+}
+
+.ExperimentView .sort-select {
+  width: auto;
+}
+
+.ExperimentView .start-time-select {
+  width: 150px;
+}
+
+.ExperimentView .sort-select .ant-select-selection-item,
+.ExperimentView .start-time-select .ant-select-selection-item {
+  font-size: 13px;
 }
 
 .ExperimentView .multi-column-view .load-more-button,
@@ -309,6 +389,48 @@ span.error-message {
 
 .ExperimentView .multi-column-view {
   width: 100%;
-  height: 700px;
   margin-bottom: 50px;
+}
+
+.ExperimentView .ag-overlay-wrapper {
+  align-items: start;
+}
+
+/* Removing the padding from the parent cell being added and 
+   explicitly specifying the header with the padding.
+   Without this, the sorting selection on the header would 
+   be padded because of the parent padding. */
+.ExperimentView .ag-theme-balham .ag-header-cell {
+  padding: 0;
+}
+
+/* Adding the padding back on the checkbox, 
+   since the checkbox doesn't use the custom header where we added 
+   the padding which we removed from other columns above. */
+.ExperimentView .ag-header-cell .ag-checkbox {
+  padding: 0 12px;
+}
+
+.ExperimentView .version-link {
+  display: flex;
+  align-items: center;
+}
+
+.ExperimentView .model-link-text {
+  padding-left: 3px;
+}
+
+.breadcrumb-caret {
+  font-size: 11px;
+  vertical-align: 4px;
+  padding-left: 5px;
+  cursor: pointer;
+}
+
+.breadcrumb-caret-hidden {
+  font-size: 11px;
+  vertical-align: 4px;
+  padding-left: 5px;
+  cursor: pointer;
+  visibility: hidden;
 }

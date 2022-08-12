@@ -3,17 +3,13 @@ import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
-import {
-  mockModelVersionDetailed,
-  mockRegisteredModelDetailed,
-} from '../test-utils';
+import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { ModelVersionPage, ModelVersionPageImpl } from './ModelVersionPage';
 import Utils from '../../common/utils/Utils';
 import { getModelPageRoute } from '../routes';
-import { mockAjax } from '../../common/utils/TestUtils';
 
 describe('ModelVersionPage', () => {
   let wrapper;
@@ -23,11 +19,14 @@ describe('ModelVersionPage', () => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
 
   beforeEach(() => {
-    mockAjax();
+    // TODO: remove global fetch mock by explicitly mocking all the service API calls
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
+    );
     minimalProps = {
       match: {
         params: {
-          modelName: 'Model A',
+          modelName: encodeURIComponent('Model A'),
           version: '1',
         },
       },
@@ -46,17 +45,17 @@ describe('ModelVersionPage', () => {
         },
         modelVersionsByModel: {
           'Model A': {
-            '1': mockModelVersionDetailed(
+            1: mockModelVersionDetailed(
               'Model A',
-              1,
+              '1',
               Stages.PRODUCTION,
               ModelVersionStatus.READY,
-              [],
             ),
           },
         },
         activitiesByModelVersion: {},
         transitionRequestsByModelVersion: {},
+        mlModelArtifactByModelVersion: {},
       },
       apis: {},
     });
@@ -89,6 +88,7 @@ describe('ModelVersionPage', () => {
     };
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn(() => Promise.reject(mockError));
+    expect(instance.props.modelName).toEqual('Model A');
     return instance.pollData().then(() => {
       expect(minimalProps.history.push).toHaveBeenCalledWith(getModelPageRoute('Model A'));
     });

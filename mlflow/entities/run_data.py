@@ -2,14 +2,18 @@ from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.protos.service_pb2 import RunData as ProtoRunData, Param as ProtoParam,\
-    RunTag as ProtoRunTag
+from mlflow.protos.service_pb2 import (
+    RunData as ProtoRunData,
+    Param as ProtoParam,
+    RunTag as ProtoRunTag,
+)
 
 
 class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).
     """
+
     def __init__(self, metrics=None, params=None, tags=None):
         """
         Construct a new :py:class:`mlflow.entities.RunData` instance.

@@ -23,6 +23,7 @@ import org.mlflow.api.proto.Service.RunInfo;
 import org.mlflow.tracking.MlflowClient;
 import org.mlflow.tracking.TestClientProvider;
 import org.mlflow.tracking.creds.BasicMlflowHostCreds;
+import org.mlflow.tracking.creds.DatabricksMlflowHostCreds;
 import org.mlflow.tracking.creds.MlflowHostCreds;
 
 public class CliBasedArtifactRepositoryTest {
@@ -181,6 +182,45 @@ public class CliBasedArtifactRepositoryTest {
     Map<String, String> expectedEnv = new HashMap<>();
     expectedEnv.put("MLFLOW_TRACKING_URI", "insecure-host");
     expectedEnv.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvDatabricksUserPass() {
+    CliBasedArtifactRepository repo = newRepo();
+    DatabricksMlflowHostCreds hostCreds = new DatabricksMlflowHostCreds(
+      "just-host", "user", "pass");
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironmentDatabricks(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("DATABRICKS_HOST", "just-host");
+    expectedEnv.put("DATABRICKS_USERNAME", "user");
+    expectedEnv.put("DATABRICKS_PASSWORD", "pass");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvDatabricksToken() {
+    CliBasedArtifactRepository repo = newRepo();
+    DatabricksMlflowHostCreds hostCreds = new DatabricksMlflowHostCreds("just-host", "token");
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironmentDatabricks(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("DATABRICKS_HOST", "just-host");
+    expectedEnv.put("DATABRICKS_TOKEN", "token");
+    Assert.assertEquals(env, expectedEnv);
+  }
+
+  @Test
+  public void testSettingProcessEnvDatabricksInsecure() {
+    CliBasedArtifactRepository repo = newRepo();
+    DatabricksMlflowHostCreds hostCreds = new DatabricksMlflowHostCreds(
+      "insecure-host", null, null, null, true);
+    Map<String, String> env = new HashMap<>();
+    repo.setProcessEnvironmentDatabricks(env, hostCreds);
+    Map<String, String> expectedEnv = new HashMap<>();
+    expectedEnv.put("DATABRICKS_HOST", "insecure-host");
+    expectedEnv.put("DATABRICKS_INSECURE", "true");
     Assert.assertEquals(env, expectedEnv);
   }
 

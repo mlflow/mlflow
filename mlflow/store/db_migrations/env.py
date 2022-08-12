@@ -1,4 +1,3 @@
-
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -12,7 +11,7 @@ config = context.config
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
-fileConfig(config.config_file_name)
+fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -62,7 +61,7 @@ def run_migrations_online():
     # for reference by the upgrade routine. For more information, see
     # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
     # connection-with-a-series-of-migration-commands-and-environments
-    connectable = config.attributes.get('connection', None)
+    connectable = config.attributes.get("connection", None)
     if connectable is None:
         connectable = engine_from_config(
             config.get_section(config.config_ini_section),

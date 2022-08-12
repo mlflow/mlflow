@@ -1,16 +1,41 @@
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
-from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
-    GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, LogModel, DeleteTag, SetExperimentTag, GetExperimentByName
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    MlflowService,
+    GetExperiment,
+    GetRun,
+    SearchRuns,
+    ListExperiments,
+    SearchExperiments,
+    GetMetricHistory,
+    LogMetric,
+    LogParam,
+    SetTag,
+    UpdateRun,
+    CreateRun,
+    DeleteRun,
+    RestoreRun,
+    DeleteExperiment,
+    RestoreExperiment,
+    UpdateExperiment,
+    LogBatch,
+    LogModel,
+    DeleteTag,
+    SetExperimentTag,
+    GetExperimentByName,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    extract_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 
-_PATH_PREFIX = "/api/2.0"
-_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
 
 class RestStore(AbstractStore):
@@ -23,7 +48,7 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super(RestStore, self).__init__()
+        super().__init__()
         self.get_host_creds = get_host_creds
 
     def _call_endpoint(self, api, json_body):
@@ -31,16 +56,59 @@ class RestStore(AbstractStore):
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+    ):
         """
-        :return: a list of all known Experiment objects
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, the server will pick a maximum number of results to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(ListExperiments(view_type=view_type))
+        req_body = message_to_json(
+            ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
+        )
         response_proto = self._call_endpoint(ListExperiments, req_body)
-        return [Experiment.from_proto(experiment_proto)
-                for experiment_proto in response_proto.experiments]
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
+        # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
+        # returns an empty string (default value for a string proto field).
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
 
-    def create_experiment(self, name, artifact_location=None):
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        req_body = message_to_json(
+            SearchExperiments(
+                view_type=view_type,
+                max_results=max_results,
+                page_token=page_token,
+                order_by=order_by,
+                filter=filter_string,
+            )
+        )
+        response_proto = self._call_endpoint(SearchExperiments, req_body)
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
+
+    def create_experiment(self, name, artifact_location=None, tags=None):
         """
         Create a new experiment.
         If an experiment with the given name already exists, throws exception.
@@ -49,8 +117,10 @@ class RestStore(AbstractStore):
 
         :return: experiment_id (string) for the newly created experiment if successful, else None
         """
-        req_body = message_to_json(CreateExperiment(
-            name=name, artifact_location=artifact_location))
+        tag_protos = [tag.to_proto() for tag in tags] if tags else []
+        req_body = message_to_json(
+            CreateExperiment(name=name, artifact_location=artifact_location, tags=tag_protos)
+        )
         response_proto = self._call_endpoint(CreateExperiment, req_body)
         return response_proto.experiment_id
 
@@ -76,8 +146,9 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
-        req_body = message_to_json(UpdateExperiment(
-            experiment_id=str(experiment_id), new_name=new_name))
+        req_body = message_to_json(
+            UpdateExperiment(experiment_id=str(experiment_id), new_name=new_name)
+        )
         self._call_endpoint(UpdateExperiment, req_body)
 
     def get_run(self, run_id):
@@ -93,9 +164,10 @@ class RestStore(AbstractStore):
         return Run.from_proto(response_proto.run)
 
     def update_run_info(self, run_id, run_status, end_time):
-        """ Updates the metadata of the specified run. """
-        req_body = message_to_json(UpdateRun(run_uuid=run_id, run_id=run_id, status=run_status,
-                                             end_time=end_time))
+        """Updates the metadata of the specified run."""
+        req_body = message_to_json(
+            UpdateRun(run_uuid=run_id, run_id=run_id, status=run_status, end_time=end_time)
+        )
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
@@ -106,14 +178,20 @@ class RestStore(AbstractStore):
 
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
-        :param source_type: Enum (integer) describing the source of the run
+        :param start_time: timestamp of the initialization of the run
+        :param tags: tags to apply to this run at initialization
 
         :return: The created Run object
         """
         tag_protos = [tag.to_proto() for tag in tags]
-        req_body = message_to_json(CreateRun(
-            experiment_id=str(experiment_id), user_id=user_id,
-            start_time=start_time, tags=tag_protos))
+        req_body = message_to_json(
+            CreateRun(
+                experiment_id=str(experiment_id),
+                user_id=user_id,
+                start_time=start_time,
+                tags=tag_protos,
+            )
+        )
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         return run
@@ -125,10 +203,16 @@ class RestStore(AbstractStore):
         :param run_id: String id for the run
         :param metric: Metric instance to log
         """
-        req_body = message_to_json(LogMetric(
-            run_uuid=run_id, run_id=run_id,
-            key=metric.key, value=metric.value, timestamp=metric.timestamp,
-            step=metric.step))
+        req_body = message_to_json(
+            LogMetric(
+                run_uuid=run_id,
+                run_id=run_id,
+                key=metric.key,
+                value=metric.value,
+                timestamp=metric.timestamp,
+                step=metric.step,
+            )
+        )
         self._call_endpoint(LogMetric, req_body)
 
     def log_param(self, run_id, param):
@@ -138,8 +222,9 @@ class RestStore(AbstractStore):
         :param run_id: String id for the run
         :param param: Param instance to log
         """
-        req_body = message_to_json(LogParam(
-            run_uuid=run_id, run_id=run_id, key=param.key, value=param.value))
+        req_body = message_to_json(
+            LogParam(run_uuid=run_id, run_id=run_id, key=param.key, value=param.value)
+        )
         self._call_endpoint(LogParam, req_body)
 
     def set_experiment_tag(self, experiment_id, tag):
@@ -149,8 +234,9 @@ class RestStore(AbstractStore):
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
-        req_body = message_to_json(SetExperimentTag(
-            experiment_id=experiment_id, key=tag.key, value=tag.value))
+        req_body = message_to_json(
+            SetExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
+        )
         self._call_endpoint(SetExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):
@@ -160,8 +246,9 @@ class RestStore(AbstractStore):
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
-        req_body = message_to_json(SetTag(
-            run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
+        req_body = message_to_json(
+            SetTag(run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value)
+        )
         self._call_endpoint(SetTag, req_body)
 
     def delete_tag(self, run_id, key):
@@ -182,20 +269,24 @@ class RestStore(AbstractStore):
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        req_body = message_to_json(GetMetricHistory(
-            run_uuid=run_id, run_id=run_id, metric_key=metric_key))
+        req_body = message_to_json(
+            GetMetricHistory(run_uuid=run_id, run_id=run_id, metric_key=metric_key)
+        )
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+    def _search_runs(
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+    ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
-        sr = SearchRuns(experiment_ids=experiment_ids,
-                        filter=filter_string,
-                        run_view_type=ViewType.to_proto(run_view_type),
-                        max_results=max_results,
-                        order_by=order_by,
-                        page_token=page_token)
+        sr = SearchRuns(
+            experiment_ids=experiment_ids,
+            filter=filter_string,
+            run_view_type=ViewType.to_proto(run_view_type),
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
@@ -220,29 +311,28 @@ class RestStore(AbstractStore):
             return Experiment.from_proto(response_proto.experiment)
         except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_DOES_NOT_EXIST):
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            ):
                 return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.REQUEST_LIMIT_EXCEEDED):
-                raise e
-            # Fall back to using ListExperiments-based implementation.
-            for experiment in self.list_experiments(ViewType.ALL):
-                if experiment.name == experiment_name:
-                    return experiment
-            return None
+            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                # Fall back to using ListExperiments-based implementation.
+                for experiment in self.list_experiments(ViewType.ALL):
+                    if experiment.name == experiment_name:
+                        return experiment
+                return None
+            raise e
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
+        )
         self._call_endpoint(LogBatch, req_body)
 
     def record_logged_model(self, run_id, mlflow_model):
-        req_body = message_to_json(
-            LogModel(run_id=run_id, model_json=mlflow_model.to_json())
-        )
+        req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
         self._call_endpoint(LogModel, req_body)
 
 
@@ -262,13 +352,24 @@ class DatabricksRestStore(RestStore):
             return Experiment.from_proto(response_proto.experiment)
         except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_DOES_NOT_EXIST):
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            ):
                 return None
-            elif e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.ENDPOINT_NOT_FOUND):
+            elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 # Fall back to using ListExperiments-based implementation.
-                for experiment in self.list_experiments(ViewType.ALL):
-                    if experiment.name == experiment_name:
-                        return experiment
+                for experiments in self._paginate_list_experiments(ViewType.ALL):
+                    for experiment in experiments:
+                        if experiment.name == experiment_name:
+                            return experiment
                 return None
             raise e
+
+    def _paginate_list_experiments(self, view_type):
+        page_token = None
+        while True:
+            experiments = self.list_experiments(view_type=view_type, page_token=page_token)
+            yield experiments
+
+            if not experiments.token:
+                break
+            page_token = experiments.token

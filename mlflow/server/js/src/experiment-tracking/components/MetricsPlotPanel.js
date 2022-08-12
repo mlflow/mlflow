@@ -2,41 +2,67 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import { getMetricHistoryApi} from '../actions';
+import { getMetricHistoryApi, getRunApi } from '../actions';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
 import { MetricsPlotView } from './MetricsPlotView';
-import { getRunTags } from '../reducers/Reducers';
+import { getRunTags, getRunInfo } from '../reducers/Reducers';
 import {
   MetricsPlotControls,
   X_AXIS_WALL,
   X_AXIS_RELATIVE,
   X_AXIS_STEP,
 } from './MetricsPlotControls';
+import MetricsSummaryTable from './MetricsSummaryTable';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { saveAs } from 'file-saver';
+import { normalizeMetricsHistoryEntry } from '../utils/MetricsUtils';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
+export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
+// A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
+// prior to this threshold. The metrics plot doesn't automatically update hanging runs.
+export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
+
+export const convertMetricsToCsv = (metrics) => {
+  const header = ['run_id', ...Object.keys(metrics[0].history[0])];
+  const rows = metrics.flatMap(({ runUuid, history }) =>
+    history.map((metric) => [runUuid, ...Object.values(metric)]),
+  );
+  return [header]
+    .concat(rows)
+    .map((row) => row.join(','))
+    .join('\n');
+};
+
 export class MetricsPlotPanel extends React.Component {
   static propTypes = {
-    experimentId: PropTypes.string.isRequired,
-    runUuids: PropTypes.arrayOf(String).isRequired,
+    experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+    runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
+    completedRunUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
     metricKey: PropTypes.string.isRequired,
     // A map of { runUuid : { metricKey: value } }
     latestMetricsByRunUuid: PropTypes.object.isRequired,
     // An array of distinct metric keys across all runUuids
-    distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    distinctMetricKeys: PropTypes.arrayOf(PropTypes.string).isRequired,
     // An array of { metricKey, history, runUuid, runDisplayName }
-    metricsWithRunInfoAndHistory: PropTypes.arrayOf(Object).isRequired,
+    metricsWithRunInfoAndHistory: PropTypes.arrayOf(PropTypes.object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
+    getRunApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
-    runDisplayNames: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    containsInfinities: PropTypes.bool.isRequired,
+  };
+
+  static defaultProps = {
+    containsInfinities: false,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -71,9 +97,88 @@ export class MetricsPlotPanel extends React.Component {
       popoverX: 0,
       popoverY: 0,
       popoverRunItems: [],
+      focused: true,
     };
     this.displayPopover = false;
+    this.intervalId = null;
     this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
+  }
+
+  hasMultipleExperiments() {
+    return this.props.experimentIds && this.props.experimentIds.length > 1;
+  }
+
+  onFocus = () => {
+    this.setState({ focused: true });
+  };
+
+  onBlur = () => {
+    this.setState({ focused: false });
+  };
+
+  clearEventListeners = () => {
+    // `window.removeEventListener` does nothing when called with an unregistered event listener:
+    // https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/removeEventListener
+    window.removeEventListener('focus', this.onFocus);
+    window.removeEventListener('blur', this.onBlur);
+  };
+
+  clearInterval = () => {
+    // `clearInterval` does nothing when called with `null` or `undefine`:
+    // https://www.w3.org/TR/2011/WD-html5-20110525/timers.html#dom-windowtimers-cleartimeout
+    clearInterval(this.intervalId);
+    this.intervalId = null;
+  };
+
+  allRunsCompleted = () => {
+    return this.props.completedRunUuids.length === this.props.runUuids.length;
+  };
+
+  isHangingRunUuid = (activeRunUuid) => {
+    const metrics = this.props.latestMetricsByRunUuid[activeRunUuid];
+    if (!metrics) {
+      return false;
+    }
+    const timestamps = Object.values(metrics).map(({ timestamp }) => timestamp);
+    const latestTimestamp = Math.max(...timestamps);
+    return new Date().getTime() - latestTimestamp > METRICS_PLOT_HANGING_RUN_THRESHOLD_MS;
+  };
+
+  getActiveRunUuids = () => {
+    const { completedRunUuids, runUuids } = this.props;
+    const activeRunUuids = _.difference(runUuids, completedRunUuids);
+    return activeRunUuids.filter(_.negate(this.isHangingRunUuid)); // Exclude hanging runs
+  };
+
+  shouldPoll = () => {
+    return !(this.allRunsCompleted() || this.getActiveRunUuids().length === 0);
+  };
+
+  componentDidMount() {
+    if (this.shouldPoll()) {
+      // Set event listeners to detect when this component gains/loses focus,
+      // e.g., a user switches to a different browser tab or app.
+      window.addEventListener('blur', this.onBlur);
+      window.addEventListener('focus', this.onFocus);
+      this.intervalId = setInterval(() => {
+        // Skip polling if this component is out of focus.
+        if (this.state.focused) {
+          const activeRunUuids = this.getActiveRunUuids();
+          this.loadMetricHistory(activeRunUuids, this.getUrlState().selectedMetricKeys);
+          this.loadRuns(activeRunUuids);
+
+          if (!this.shouldPoll()) {
+            this.clearEventListeners();
+            this.clearInterval();
+          }
+        }
+      }, METRICS_PLOT_POLLING_INTERVAL_MS);
+    }
+  }
+
+  componentWillUnmount() {
+    this.clearEventListeners();
+    this.clearInterval();
   }
 
   getUrlState() {
@@ -102,16 +207,36 @@ export class MetricsPlotPanel extends React.Component {
   // state updates, e.g. in a setState callback
   updateUrlState = (updatedState) => {
     const { runUuids, metricKey, location, history } = this.props;
-    const experimentId = qs.parse(location.search)['experiment'];
+    const experimentIds = JSON.parse(qs.parse(location.search)['experiments']);
     const newState = {
       ...this.getUrlState(),
       ...updatedState,
     };
-    const { selectedXAxis, selectedMetricKeys, showPoint, yAxisLogScale, lineSmoothness,
-      layout, deselectedCurves, lastLinearYAxisRange } = newState;
-    history.replace(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys,
-      layout, selectedXAxis, yAxisLogScale, lineSmoothness, showPoint, deselectedCurves,
-      lastLinearYAxisRange));
+    const {
+      selectedXAxis,
+      selectedMetricKeys,
+      showPoint,
+      yAxisLogScale,
+      lineSmoothness,
+      layout,
+      deselectedCurves,
+      lastLinearYAxisRange,
+    } = newState;
+    history.replace(
+      Routes.getMetricPageRoute(
+        runUuids,
+        metricKey,
+        experimentIds,
+        selectedMetricKeys,
+        layout,
+        selectedXAxis,
+        yAxisLogScale,
+        lineSmoothness,
+        showPoint,
+        deselectedCurves,
+        lastLinearYAxisRange,
+      ),
+    );
   };
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -125,6 +250,16 @@ export class MetricsPlotPanel extends React.Component {
           requestIds.push(id);
         }
       });
+    });
+    return requestIds;
+  };
+
+  loadRuns = (runUuids) => {
+    const requestIds = [];
+    runUuids.forEach((runUuid) => {
+      const id = getUUID();
+      this.props.getRunApi(runUuid);
+      requestIds.push(id);
     });
     return requestIds;
   };
@@ -146,6 +281,7 @@ export class MetricsPlotPanel extends React.Component {
       // Metric history can be large. Doing an in-place here to save memory
       metric.history.sort(isStep ? Utils.compareByStepAndTimestamp : Utils.compareByTimestamp);
     });
+
     return metrics;
   };
 
@@ -157,16 +293,15 @@ export class MetricsPlotPanel extends React.Component {
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     const state = this.getUrlState();
     const newLayout = _.cloneDeep(state.layout);
-    const newAxisType = yAxisLogScale ? "log" : "linear";
+    const newAxisType = yAxisLogScale ? 'log' : 'linear';
 
     // Handle special case of a linear y-axis scale with negative values converted to log scale &
     // now being restored to linear scale, by restoring the old linear-axis range from
     // state.linearYAxisRange. In particular, we assume that if state.linearYAxisRange
     // is non-empty, it contains a linear y axis range with negative values.
-    if (!yAxisLogScale && state.lastLinearYAxisRange &&
-        state.lastLinearYAxisRange.length > 0) {
+    if (!yAxisLogScale && state.lastLinearYAxisRange && state.lastLinearYAxisRange.length > 0) {
       newLayout.yaxis = {
-        type: "linear",
+        type: 'linear',
         range: state.lastLinearYAxisRange,
       };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
@@ -176,7 +311,11 @@ export class MetricsPlotPanel extends React.Component {
     // Otherwise, if plot previously had no y axis range configured, simply set the axis type to
     // log or linear scale appropriately
     if (!state.layout.yaxis || !state.layout.yaxis.range) {
-      newLayout.yaxis = { type: newAxisType, autorange: true };
+      newLayout.yaxis = {
+        type: newAxisType,
+        autorange: true,
+        ...(newAxisType === 'log' ? { exponentformat: 'e' } : {}),
+      };
       this.updateUrlState({ layout: newLayout, lastLinearYAxisRange: [] });
       return;
     }
@@ -205,11 +344,13 @@ export class MetricsPlotPanel extends React.Component {
         newLayout.yaxis = {
           type: 'log',
           autorange: true,
+          exponentformat: 'e',
         };
       } else {
         newLayout.yaxis = {
           type: 'log',
           range: [Math.log(oldYRange[0]) / Math.log(10), Math.log(oldYRange[1]) / Math.log(10)],
+          exponentformat: 'e',
         };
       }
     } else {
@@ -231,11 +372,11 @@ export class MetricsPlotPanel extends React.Component {
     // Set axis value type, & reset axis scaling via autorange
     const state = this.getUrlState();
     const axisEnumToPlotlyType = {
-      [X_AXIS_WALL]: "date",
-      [X_AXIS_RELATIVE]: "linear",
-      [X_AXIS_STEP]: "linear",
+      [X_AXIS_WALL]: 'date',
+      [X_AXIS_RELATIVE]: 'linear',
+      [X_AXIS_STEP]: 'linear',
     };
-    const axisType = axisEnumToPlotlyType[e.target.value] || "linear";
+    const axisType = axisEnumToPlotlyType[e.target.value] || 'linear';
     const newLayout = {
       ...state.layout,
       xaxis: {
@@ -246,11 +387,11 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ selectedXAxis: e.target.value, layout: newLayout });
   };
 
-
   getAxisType() {
     const state = this.getUrlState();
-    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ?
-        "log" : "linear";
+    return state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log'
+      ? 'log'
+      : 'linear';
   }
 
   /**
@@ -267,14 +408,14 @@ export class MetricsPlotPanel extends React.Component {
     // Unfortunately, we need to parse out the x & y axis range changes from the onLayout event...
     // see https://plot.ly/javascript/plotlyjs-events/#update-data
     const {
-      "xaxis.range[0]": newXRange0,
-      "xaxis.range[1]": newXRange1,
-      "yaxis.range[0]": newYRange0,
-      "yaxis.range[1]": newYRange1,
-      "xaxis.autorange": xAxisAutorange,
-      "yaxis.autorange": yAxisAutorange,
-      "yaxis.showspikes": yAxisShowSpikes,
-      "xaxis.showspikes": xAxisShowSpikes,
+      'xaxis.range[0]': newXRange0,
+      'xaxis.range[1]': newXRange1,
+      'yaxis.range[0]': newYRange0,
+      'yaxis.range[1]': newYRange1,
+      'xaxis.autorange': xAxisAutorange,
+      'yaxis.autorange': yAxisAutorange,
+      'yaxis.showspikes': yAxisShowSpikes,
+      'xaxis.showspikes': xAxisShowSpikes,
       ...restFields
     } = newLayout;
 
@@ -307,10 +448,13 @@ export class MetricsPlotPanel extends React.Component {
     }
     if (yAxisAutorange) {
       lastLinearYAxisRange = [];
-      const axisType = state.layout && state.layout.yaxis &&
-      state.layout.yaxis.type === 'log' ? "log" : "linear";
+      const axisType =
+        state.layout && state.layout.yaxis && state.layout.yaxis.type === 'log' ? 'log' : 'linear';
       newYAxis.autorange = true;
       newYAxis.type = axisType;
+    }
+    if (newYAxis.type === 'log') {
+      newYAxis.exponentformat = 'e';
     }
     // Merge new X & Y axis info into layout
     mergedLayout = {
@@ -321,12 +465,18 @@ export class MetricsPlotPanel extends React.Component {
     this.updateUrlState({ layout: mergedLayout, lastLinearYAxisRange });
   };
 
+  handleDownloadCsv = () => {
+    const csv = convertMetricsToCsv(this.props.metricsWithRunInfoAndHistory);
+    const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
+    saveAs(blob, 'metrics.csv');
+  };
+
   // Return unique key identifying the curve or bar chart corresponding to the specified
   // Plotly plot data element
   static getCurveKey(plotDataElem) {
     // In bar charts, each legend item consists of a single run ID (all bars for that run are
     // associated with & toggled by that legend item)
-    if (plotDataElem.type === "bar") {
+    if (plotDataElem.type === 'bar') {
       return plotDataElem.runId;
     } else {
       // In line charts, each (run, metricKey) tuple has its own legend item, so construct
@@ -343,9 +493,11 @@ export class MetricsPlotPanel extends React.Component {
     // If two clicks in short succession, trigger double-click event
     const state = this.getUrlState();
     const currentTime = Date.now();
-    if (currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
-      curveNumber === this.lastClickedLegendCurveId) {
-      this.handleLegendDoubleClick({curveNumber, data});
+    if (
+      currentTime - this.prevLegendClickTime < this.MAX_DOUBLE_CLICK_INTERVAL_MS &&
+      curveNumber === this.lastClickedLegendCurveId
+    ) {
+      this.handleLegendDoubleClick({ curveNumber, data });
       this.prevLegendClickTime = Math.inf;
     } else {
       // Otherwise, record time of current click & trigger click event
@@ -359,7 +511,7 @@ export class MetricsPlotPanel extends React.Component {
         } else {
           existingDeselectedCurves.add(curveKey);
         }
-        this.updateUrlState({deselectedCurves: Array.from(existingDeselectedCurves)});
+        this.updateUrlState({ deselectedCurves: Array.from(existingDeselectedCurves) });
       }, this.SINGLE_CLICK_EVENT_DELAY_MS);
       this.prevLegendClickTime = currentTime;
     }
@@ -372,25 +524,31 @@ export class MetricsPlotPanel extends React.Component {
    * Handle double-clicking on a single curve within the plot legend in order to toggle display
    * of the selected curve on (and disable display of all other curves).
    */
-  handleLegendDoubleClick = ({curveNumber, data}) => {
+  handleLegendDoubleClick = ({ curveNumber, data }) => {
     window.clearTimeout(this.legendClickTimeout);
     // Exclude everything besides the current curve key
     const curveKey = MetricsPlotPanel.getCurveKey(data[curveNumber]);
     const allCurveKeys = data.map((elem) => MetricsPlotPanel.getCurveKey(elem));
     const newDeselectedCurves = allCurveKeys.filter((curvePair) => curvePair !== curveKey);
-    this.updateUrlState({deselectedCurves: newDeselectedCurves});
+    this.updateUrlState({ deselectedCurves: newDeselectedCurves });
     return false;
   };
 
-  handleMetricsSelectChange = (metricValues, metricLabels, { triggerValue }) => {
-    const requestIds = this.loadMetricHistory(this.props.runUuids, [triggerValue]);
-    this.setState((prevState) => ({
-      historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-    }), () => {
-      this.updateUrlState({
-        selectedMetricKeys: metricValues,
-      });
-    });
+  handleMetricsSelectChange = (metricKeys) => {
+    const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
+    const newMetricKeys = metricKeys.filter((k) => !existingMetricKeys.includes(k));
+
+    const requestIds = this.loadMetricHistory(this.props.runUuids, newMetricKeys);
+    this.setState(
+      (prevState) => ({
+        historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
+      }),
+      () => {
+        this.updateUrlState({
+          selectedMetricKeys: metricKeys,
+        });
+      },
+    );
   };
 
   handleShowPointChange = (showPoint) => this.updateUrlState({ showPoint });
@@ -411,15 +569,18 @@ export class MetricsPlotPanel extends React.Component {
       if (this.displayPopover) {
         this.displayPopover = false;
         const { popoverVisible, popoverX, popoverY } = this.state;
-        const { points, event: { clientX, clientY } } = data;
+        const {
+          points,
+          event: { clientX, clientY },
+        } = data;
         const samePointClicked = popoverX === clientX && popoverY === clientY;
         const runItems = points
           .sort((a, b) => b.y - a.y)
-          .map(point => ({
+          .map((point) => ({
             runId: point.data.runId,
             name: point.data.name,
             color: point.fullData.marker.color,
-            y: point.text,
+            y: point.y,
           }));
 
         this.setState({
@@ -430,30 +591,22 @@ export class MetricsPlotPanel extends React.Component {
         });
       }
     }, 300);
-  }
+  };
 
   render() {
-    const { experimentId, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
-    const {
-      popoverVisible,
-      popoverX,
-      popoverY,
-      popoverRunItems,
-    } = this.state;
+    const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
+    const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
     const state = this.getUrlState();
-    const {
-      showPoint,
-      selectedXAxis,
-      selectedMetricKeys,
-      lineSmoothness,
-    } = state;
-    const yAxisLogScale = this.getAxisType() === "log";
+    const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
+    const yAxisLogScale = this.getAxisType() === 'log';
     const { historyRequestIds } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
+          numRuns={this.props.runUuids.length}
+          numCompletedRuns={this.props.completedRunUuids.length}
           distinctMetricKeys={distinctMetricKeys}
           selectedXAxis={selectedXAxis}
           selectedMetricKeys={selectedMetricKeys}
@@ -466,42 +619,53 @@ export class MetricsPlotPanel extends React.Component {
           initialLineSmoothness={lineSmoothness}
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
+          handleDownloadCsv={this.handleDownloadCsv}
+          disableSmoothnessControl={this.props.containsInfinities}
         />
-        <RequestStateWrapper
+        <div className='metrics-plot-data'>
+          <RequestStateWrapper
             requestIds={historyRequestIds}
             // In this case where there are no history request IDs (e.g. on the
             // initial page load / before we try to load additional metrics),
             // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
-        >
-          <RunLinksPopover
-            experimentId={experimentId}
-            visible={popoverVisible}
-            x={popoverX}
-            y={popoverY}
-            runItems={popoverRunItems}
-            handleKeyDown={this.handleKeyDownOnPopover}
-            handleClose={() => this.setState({ popoverVisible: false })}
-            handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
-          />
-          <MetricsPlotView
-            runUuids={runUuids}
-            runDisplayNames={runDisplayNames}
-            xAxis={selectedXAxis}
-            metrics={this.getMetrics()}
-            metricKeys={selectedMetricKeys}
-            showPoint={showPoint}
-            chartType={chartType}
-            isComparing={MetricsPlotPanel.isComparing(location.search)}
-            lineSmoothness={lineSmoothness}
-            extraLayout={state.layout}
-            deselectedCurves={state.deselectedCurves}
-            onLayoutChange={this.handleLayoutChange}
-            onClick={this.updatePopover}
-            onLegendClick={this.handleLegendClick}
-            onLegendDoubleClick={this.handleLegendDoubleClick}
-          />
-        </RequestStateWrapper>
+          >
+            {this.hasMultipleExperiments() ? null : (
+              <RunLinksPopover
+                experimentId={experimentIds[0]}
+                visible={popoverVisible}
+                x={popoverX}
+                y={popoverY}
+                runItems={popoverRunItems}
+                handleKeyDown={this.handleKeyDownOnPopover}
+                handleClose={() => this.setState({ popoverVisible: false })}
+                handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
+              />
+            )}
+            <MetricsPlotView
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              xAxis={selectedXAxis}
+              metrics={this.getMetrics()}
+              metricKeys={selectedMetricKeys}
+              showPoint={showPoint}
+              chartType={chartType}
+              isComparing={MetricsPlotPanel.isComparing(location.search)}
+              lineSmoothness={lineSmoothness}
+              extraLayout={state.layout}
+              deselectedCurves={state.deselectedCurves}
+              onLayoutChange={this.handleLayoutChange}
+              onClick={this.updatePopover}
+              onLegendClick={this.handleLegendClick}
+              onLegendDoubleClick={this.handleLegendDoubleClick}
+            />
+            <MetricsSummaryTable
+              runUuids={runUuids}
+              runDisplayNames={runDisplayNames}
+              metricKeys={selectedMetricKeys}
+            />
+          </RequestStateWrapper>
+        </div>
       </div>
     );
   }
@@ -509,6 +673,9 @@ export class MetricsPlotPanel extends React.Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
+  const completedRunUuids = runUuids.filter(
+    (runUuid) => getRunInfo(runUuid, state).status !== 'RUNNING',
+  );
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
 
   // All metric keys from all runUuids, non-distinct
@@ -517,8 +684,9 @@ const mapStateToProps = (state, ownProps) => {
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
-
   const runDisplayNames = [];
+
+  let containsInfinities = false;
 
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
@@ -528,14 +696,18 @@ const mapStateToProps = (state, ownProps) => {
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey) => {
-        const history = metricsHistory[metricKey].map((entry) => ({
-          key: entry.key,
-          value: entry.value,
-          step: Number.parseInt(entry.step, 10) || 0, // default step to 0
-          timestamp: Number.parseFloat(entry.timestamp),
-        }));
-        return { metricKey, history, runUuid, runDisplayName };
-      })
+          const history = metricsHistory[metricKey].map((entry) =>
+            normalizeMetricsHistoryEntry(entry),
+          );
+          if (
+            history.some(
+              ({ value }) => typeof value === 'number' && !isNaN(value) && !isFinite(value),
+            )
+          ) {
+            containsInfinities = true;
+          }
+          return { metricKey, history, runUuid, runDisplayName };
+        })
       : [];
   });
 
@@ -544,14 +716,11 @@ const mapStateToProps = (state, ownProps) => {
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
+    completedRunUuids,
+    containsInfinities,
   };
 };
 
-const mapDispatchToProps = { getMetricHistoryApi };
+const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
-export default withRouter(
-  connect(
-    mapStateToProps,
-    mapDispatchToProps,
-  )(MetricsPlotPanel),
-);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));

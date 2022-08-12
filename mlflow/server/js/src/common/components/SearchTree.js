@@ -6,9 +6,8 @@ import React from 'react';
 import { Input, Tree } from 'antd';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
+import { injectIntl } from 'react-intl';
 
-
-const { TreeNode } = Tree;
 const { Search } = Input;
 export const NodeShape = {
   // display name of the node
@@ -19,7 +18,7 @@ export const NodeShape = {
   children: PropTypes.arrayOf(PropTypes.object),
 };
 
-export class SearchTree extends React.Component {
+export class SearchTreeImpl extends React.Component {
   static propTypes = {
     // A forest of data nodes for rendering the checkbox tree view
     data: PropTypes.arrayOf(PropTypes.shape(NodeShape)),
@@ -29,6 +28,7 @@ export class SearchTree extends React.Component {
     checkedKeys: PropTypes.array.isRequired,
     // Handler called when user press ESC key in the search input
     onSearchInputEscapeKeyPress: PropTypes.func.isRequired,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   state = {
@@ -56,9 +56,9 @@ export class SearchTree extends React.Component {
     const expandedKeys = _.uniq(
       dataList
         .map((item) =>
-          (item.title.toLowerCase().includes(value.toLowerCase())
+          item.title.toLowerCase().includes(value.toLowerCase())
             ? getParentKey(item.key, data)
-            : null),
+            : null,
         )
         .filter((item) => !_.isEmpty(item)),
     );
@@ -102,32 +102,46 @@ export class SearchTree extends React.Component {
           // We set the span title to display search tree node text on hover
           <span style={styles.treeNodeTextStyle} title={item.title}>
             {beforeStr}
-            <span className='search-highlight' style={styles.searchHighlight}>{matchStr}</span>
+            <span className='search-highlight' style={styles.searchHighlight}>
+              {matchStr}
+            </span>
             {afterStr}
           </span>
         ) : (
           // We set the span title to display search tree node text on hover
-          <span style={styles.treeNodeTextStyle} title={item.title}>{item.title}</span>
+          <span style={styles.treeNodeTextStyle} title={item.title}>
+            {item.title}
+          </span>
         );
       if (item.children) {
-        return (
-          <TreeNode key={item.key} title={title}>
-            {this.renderTreeNodes(item.children)}
-          </TreeNode>
-        );
+        return {
+          key: item.key,
+          title,
+          children: this.renderTreeNodes(item.children),
+          'data-test-id': item.key,
+        };
       }
-      return <TreeNode key={item.key} title={title} />;
+      return {
+        key: item.key,
+        title,
+        'data-test-id': item.key,
+      };
     });
   };
 
   render() {
-    const { data, checkedKeys } = this.props;
+    const { data, checkedKeys, intl } = this.props;
     const { expandedKeys, autoExpandParent, searchValue } = this.state;
     return (
       <div>
         <Search
           style={{ marginBottom: 8 }}
-          placeholder='Search'
+          placeholder={intl.formatMessage({
+            defaultMessage: 'Search',
+            description:
+              // eslint-disable-next-line max-len
+              'Placeholder text for input box to search for the columns names that could be selected or unselected to be rendered on the experiment runs table',
+          })}
           value={searchValue}
           onChange={this.handleSearch}
           onKeyUp={this.handleSearchInputKeyUp}
@@ -139,9 +153,8 @@ export class SearchTree extends React.Component {
           expandedKeys={expandedKeys}
           autoExpandParent={autoExpandParent}
           checkedKeys={checkedKeys}
-        >
-          {this.renderTreeNodes(data)}
-        </Tree>
+          treeData={this.renderTreeNodes(data)}
+        />
       </div>
     );
   }
@@ -176,7 +189,7 @@ export const getParentKey = (key, treeData) => {
   for (let i = 0; i < treeData.length; i++) {
     const node = treeData[i];
     if (node.children) {
-      if (node.children.some(item => item.key === key)) {
+      if (node.children.some((item) => item.key === key)) {
         parentKey = node.key;
       } else {
         parentKey = getParentKey(key, node.children);
@@ -187,14 +200,13 @@ export const getParentKey = (key, treeData) => {
   return parentKey;
 };
 
-
 export const styles = {
   treeNodeTextStyle: {
-    display: 'inline-block',
     maxWidth: 400,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    marginRight: 20,
   },
   searchHighlight: { color: '#f50' },
 };
+
+export const SearchTree = injectIntl(SearchTreeImpl);

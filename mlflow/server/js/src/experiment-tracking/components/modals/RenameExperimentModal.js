@@ -5,7 +5,7 @@ import debounce from 'lodash/debounce';
 
 import { GenericInputModal } from './GenericInputModal';
 import { RenameForm, NEW_NAME_FIELD } from './RenameForm';
-import { getExperimentNameValidator } from './validation';
+import { getExperimentNameValidator } from '../../../common/forms/validations';
 
 import { updateExperimentApi, getExperimentApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
@@ -15,7 +15,7 @@ export class RenameExperimentModalImpl extends Component {
     isOpen: PropTypes.bool,
     experimentId: PropTypes.string,
     experimentName: PropTypes.string,
-    experimentNames: PropTypes.arrayOf(String).isRequired,
+    experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     onClose: PropTypes.func.isRequired,
     updateExperimentApi: PropTypes.func.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
@@ -41,6 +41,7 @@ export class RenameExperimentModalImpl extends Component {
     return (
       <GenericInputModal
         title='Rename Experiment'
+        okText='Save'
         isOpen={isOpen}
         handleSubmit={this.handleRenameExperiment}
         onClose={this.props.onClose}
@@ -67,5 +68,7 @@ const mapDispatchToProps = {
   getExperimentApi,
 };
 
-export const RenameExperimentModal = connect(mapStateToProps,
-  mapDispatchToProps)(RenameExperimentModalImpl);
+export const RenameExperimentModal = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(RenameExperimentModalImpl);

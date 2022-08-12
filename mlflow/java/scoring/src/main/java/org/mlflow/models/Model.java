@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.mlflow.Flavor;
 import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
@@ -40,6 +41,15 @@ public class Model {
 
   @JsonProperty("input_example")
   private Map<String, Object> input_example;
+
+  @JsonProperty("model_uuid")
+  private String modelUuid;
+
+  @JsonProperty("mlflow_version")
+  private String mlflowVersion;
+
+  @JsonProperty("databricks_runtime")
+  private String databricksRuntime;
 
   private String rootPath;
 
@@ -80,6 +90,25 @@ public class Model {
   /** @return The MLflow model's run id */
   public Optional<String> getRunId() {
     return Optional.ofNullable(this.runId);
+  }
+
+    /** @return The MLflow model's uuid */
+  public Optional<String> getModelUuid() {
+    return Optional.ofNullable(this.modelUuid);
+  }
+
+
+  /** @return The version of MLflow with which the model was saved */
+  public Optional<String> getMlflowVersion() {
+    return Optional.ofNullable(this.mlflowVersion);
+  }
+
+  /**
+   * @return If the model was trained on Databricks, the version the Databricks Runtime
+   * that was used to train the model
+   */
+  public Optional<String> getDatabricksRuntime() {
+    return Optional.ofNullable(this.databricksRuntime);
   }
 
   /** @return The path to the root directory of the MLflow model */

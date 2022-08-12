@@ -1,15 +1,22 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import AppErrorBoundary from './AppErrorBoundary';
-
+import { SupportPageUrl } from '../../constants';
 
 describe('AppErrorBoundary', () => {
   let wrapper;
   let minimalProps;
 
   beforeEach(() => {
-    minimalProps = { children: 'testChild' };
-    wrapper = shallow(<AppErrorBoundary {...minimalProps}/>);
+    minimalProps = {
+      children: 'testChild',
+    };
+    wrapper = shallow(<AppErrorBoundary {...minimalProps} />);
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   test('should render with minimal props without exploding', () => {
@@ -23,6 +30,6 @@ describe('AppErrorBoundary', () => {
     instance.forceUpdate();
     expect(wrapper.find('.error-image').length).toBe(1);
     expect(wrapper.text()).not.toMatch('testChild');
-    expect(wrapper.find({ href: "https://github.com/mlflow/mlflow/issues" }).length).toBe(1);
+    expect(wrapper.find({ href: SupportPageUrl }).length).toBe(1);
   });
 });

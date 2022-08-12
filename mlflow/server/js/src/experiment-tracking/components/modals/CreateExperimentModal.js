@@ -7,7 +7,7 @@ import debounce from 'lodash/debounce';
 import Routes from '../../routes';
 import { GenericInputModal } from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
-import { getExperimentNameValidator } from './validation';
+import { getExperimentNameValidator } from '../../../common/forms/validations';
 
 import { createExperimentApi, listExperimentsApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
@@ -16,7 +16,7 @@ export class CreateExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
-    experimentNames: PropTypes.arrayOf(String).isRequired,
+    experimentNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     createExperimentApi: PropTypes.func.isRequired,
     listExperimentsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
@@ -32,7 +32,9 @@ export class CreateExperimentModalImpl extends Component {
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
     await this.props.listExperimentsApi();
 
-    const { value: { experiment_id: newExperimentId } } = response;
+    const {
+      value: { experiment_id: newExperimentId },
+    } = response;
     if (newExperimentId) {
       this.props.history.push(Routes.getExperimentPageRoute(newExperimentId));
     }
@@ -48,11 +50,12 @@ export class CreateExperimentModalImpl extends Component {
     return (
       <GenericInputModal
         title='Create Experiment'
+        okText='Create'
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}
       >
-        <CreateExperimentForm visible={isOpen} validator={this.debouncedExperimentNameValidator} />
+        <CreateExperimentForm validator={this.debouncedExperimentNameValidator} />
       </GenericInputModal>
     );
   }
@@ -70,5 +73,5 @@ const mapDispatchToProps = {
 };
 
 export const CreateExperimentModal = withRouter(
-  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl)
+  connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl),
 );

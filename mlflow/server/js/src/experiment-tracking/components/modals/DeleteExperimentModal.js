@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import PropTypes from 'prop-types';
-import { deleteExperimentApi, listExperimentsApi} from '../../actions';
+import { deleteExperimentApi, listExperimentsApi } from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
@@ -12,7 +12,7 @@ export class DeleteExperimentModalImpl extends Component {
   static propTypes = {
     isOpen: PropTypes.bool.isRequired,
     onClose: PropTypes.func.isRequired,
-    activeExperimentId: PropTypes.string,
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string),
     experimentId: PropTypes.string.isRequired,
     experimentName: PropTypes.string.isRequired,
     deleteExperimentApi: PropTypes.func.isRequired,
@@ -21,16 +21,25 @@ export class DeleteExperimentModalImpl extends Component {
   };
 
   handleSubmit = () => {
-    const { experimentId, activeExperimentId } = this.props;
+    const { experimentId, activeExperimentIds } = this.props;
     const deleteExperimentRequestId = getUUID();
 
     const deletePromise = this.props
       .deleteExperimentApi(experimentId, deleteExperimentRequestId)
       .then(() => {
-        // check whether the deleted experiment is currently selected
-        if (experimentId === activeExperimentId) {
-          // navigate to root URL and let route pick the next active experiment to show
-          this.props.history.push(Routes.rootRoute);
+        // reload the page if an active experiment was deleted
+        if (activeExperimentIds?.includes(experimentId)) {
+          if (activeExperimentIds.length === 1) {
+            // send it to root
+            this.props.history.push(Routes.rootRoute);
+          } else {
+            const experimentIds = activeExperimentIds.filter((eid) => eid !== experimentId);
+            const route =
+              experimentIds.length === 1
+                ? Routes.getExperimentPageRoute(experimentIds[0])
+                : Routes.getCompareExperimentsPageRoute(experimentIds);
+            this.props.history.push(route);
+          }
         }
       })
       .then(() => this.props.listExperimentsApi(deleteExperimentRequestId))
@@ -56,14 +65,14 @@ export class DeleteExperimentModalImpl extends Component {
                 will be deleted.
               </b>
             </p>
-            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
+            {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
               <p>
-                Deleted experiments are restorable for 30 days, after which they are purged.
-                <br />
-                Artifacts are not automatically purged and must be manually deleted.
+                Deleted experiments are restorable for 30 days, after which they are purged along
+                with their associated runs, including metrics, params, tags, and artifacts.
               </p>
-            : ''
-          }
+            ) : (
+              ''
+            )}
           </div>
         }
         confirmButtonText={'Delete'}
@@ -78,5 +87,5 @@ const mapDispatchToProps = {
 };
 
 export const DeleteExperimentModal = withRouter(
-  connect(undefined, mapDispatchToProps)(DeleteExperimentModalImpl)
+  connect(undefined, mapDispatchToProps)(DeleteExperimentModalImpl),
 );

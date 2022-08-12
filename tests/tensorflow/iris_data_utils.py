@@ -6,19 +6,18 @@ import tensorflow as tf
 TRAIN_URL = "http://download.tensorflow.org/data/iris_training.csv"
 TEST_URL = "http://download.tensorflow.org/data/iris_test.csv"
 
-CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth',
-                    'PetalLength', 'PetalWidth', 'Species']
-SPECIES = ['Setosa', 'Versicolor', 'Virginica']
+CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
+SPECIES = ["Setosa", "Versicolor", "Virginica"]
 
 
 def maybe_download():
-    train_path = tf.keras.utils.get_file(TRAIN_URL.split('/')[-1], TRAIN_URL)
-    test_path = tf.keras.utils.get_file(TEST_URL.split('/')[-1], TEST_URL)
+    train_path = tf.keras.utils.get_file(TRAIN_URL.split("/")[-1], TRAIN_URL)
+    test_path = tf.keras.utils.get_file(TEST_URL.split("/")[-1], TEST_URL)
 
     return train_path, test_path
 
 
-def load_data(y_name='Species'):
+def load_data(y_name="Species"):
     """Returns the iris dataset as (train_x, train_y), (test_x, test_y)."""
     train_path, test_path = maybe_download()
 
@@ -79,7 +78,7 @@ def _parse_line(line):
     features = dict(zip(CSV_COLUMN_NAMES, fields))
 
     # Separate the label from the features
-    label = features.pop('Species')
+    label = features.pop("Species")
 
     return features, label
 

@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from './ShowArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -11,7 +11,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 function onEachFeature(feature, layer) {
   if (feature.properties && feature.properties.popupContent) {
-    const popupContent = feature.properties.popupContent;
+    const { popupContent } = feature.properties;
     layer.bindPopup(popupContent);
   }
 }
@@ -32,7 +32,7 @@ class ShowArtifactMapView extends Component {
 
   static defaultProps = {
     getArtifact: getArtifactContent,
-  }
+  };
 
   state = {
     loading: true,
@@ -122,12 +122,15 @@ class ShowArtifactMapView extends Component {
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props.getArtifact(artifactLocation).then((rawFeatures) => {
-      const parsedFeatures = JSON.parse(rawFeatures);
-      this.setState({ features: parsedFeatures, loading: false });
-    }).catch((error) => {
-      this.setState({ error: error, loading: false, features: undefined });
-    });
+    this.props
+      .getArtifact(artifactLocation)
+      .then((rawFeatures) => {
+        const parsedFeatures = JSON.parse(rawFeatures);
+        this.setState({ features: parsedFeatures, loading: false });
+      })
+      .catch((error) => {
+        this.setState({ error: error, loading: false, features: undefined });
+      });
   }
 }
 

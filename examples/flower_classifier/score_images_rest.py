@@ -24,8 +24,9 @@ def score_model(path, host, port):
     :return: Server response.
     """
     if os.path.isdir(path):
-        filenames = [os.path.join(path, x) for x in os.listdir(path)
-                     if os.path.isfile(os.path.join(path, x))]
+        filenames = [
+            os.path.join(path, x) for x in os.listdir(path) if os.path.isfile(os.path.join(path, x))
+        ]
     else:
         filenames = [path]
 
@@ -33,18 +34,22 @@ def score_model(path, host, port):
         with open(x, "rb") as f:
             return f.read()
 
-    data = pd.DataFrame(data=[base64.encodebytes(read_image(x)) for x in filenames],
-                        columns=["image"]).to_json(orient="split")
+    data = pd.DataFrame(
+        data=[base64.encodebytes(read_image(x)) for x in filenames], columns=["image"]
+    ).to_json(orient="split")
 
-    response = requests.post(url='{host}:{port}/invocations'.format(host=host, port=port),
-                             data=data,
-                             headers={"Content-Type": "application/json; format=pandas-split"})
+    response = requests.post(
+        url="{host}:{port}/invocations".format(host=host, port=port),
+        data=data,
+        headers={"Content-Type": "application/json; format=pandas-split"},
+    )
 
     if response.status_code != 200:
-        raise Exception("Status Code {status_code}. {text}".format(
-            status_code=response.status_code,
-            text=response.text
-        ))
+        raise Exception(
+            "Status Code {status_code}. {text}".format(
+                status_code=response.status_code, text=response.text
+            )
+        )
     return response
 
 
@@ -60,5 +65,5 @@ def run(data_path, host, port):
     print(score_model(data_path, host, port).text)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

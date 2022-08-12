@@ -1,10 +1,9 @@
-from __future__ import print_function
-
 import os
 
 import click
 from tabulate import tabulate
 
+import mlflow
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store, fluent
@@ -23,12 +22,15 @@ def commands():
 
 @commands.command()
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
-@click.option("--artifact-location", "-l",
-              help="Base location for runs to store artifact results. Artifacts will be stored "
-                   "at $artifact_location/$run_id/artifacts. See "
-                   "https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded for "
-                   "more info on the properties of artifact location. "
-                   "If no location is provided, the tracking server will pick a default.")
+@click.option(
+    "--artifact-location",
+    "-l",
+    help="Base location for runs to store artifact results. Artifacts will be stored "
+    "at $artifact_location/$run_id/artifacts. See "
+    "https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded for "
+    "more info on the properties of artifact location. "
+    "If no location is provided, the tracking server will pick a default.",
+)
 def create(experiment_name, artifact_location):
     """
     Create an experiment.
@@ -42,23 +44,34 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
+    click.echo("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
 @commands.command("list")
-@click.option("--view", "-v", default="active_only",
-              help="Select view type for list experiments. Valid view types are "
-                   "'active_only' (default), 'deleted_only', and 'all'.")
+@click.option(
+    "--view",
+    "-v",
+    default="active_only",
+    help="Select view type for list experiments. Valid view types are "
+    "'active_only' (default), 'deleted_only', and 'all'.",
+)
 def list_experiments(view):
     """
     List all experiments in the configured tracking server.
     """
-    store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = store.list_experiments(view_type)
-    table = [[exp.experiment_id, exp.name, exp.artifact_location if is_uri(exp.artifact_location)
-              else os.path.abspath(exp.artifact_location)] for exp in experiments]
-    print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+    experiments = mlflow.list_experiments(view_type)
+    table = [
+        [
+            exp.experiment_id,
+            exp.name,
+            exp.artifact_location
+            if is_uri(exp.artifact_location)
+            else os.path.abspath(exp.artifact_location),
+        ]
+        for exp in experiments
+    ]
+    click.echo(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
 
 
 @commands.command("delete")
@@ -81,7 +94,7 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    print("Experiment with ID %s has been deleted." % str(experiment_id))
+    click.echo("Experiment with ID %s has been deleted." % str(experiment_id))
 
 
 @commands.command("restore")
@@ -94,7 +107,7 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
-    print("Experiment with id %s has been restored." % str(experiment_id))
+    click.echo("Experiment with id %s has been restored." % str(experiment_id))
 
 
 @commands.command("rename")
@@ -107,7 +120,7 @@ def rename_experiment(experiment_id, new_name):
     """
     store = _get_store()
     store.rename_experiment(experiment_id, new_name)
-    print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
+    click.echo("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
 
 
 @commands.command("csv")
@@ -121,8 +134,9 @@ def generate_csv_with_runs(experiment_id, filename):
     runs = fluent.search_runs(experiment_ids=experiment_id)
     if filename:
         runs.to_csv(filename, index=False)
-        print(
-            "Experiment with ID %s has been exported as a CSV to file: %s." %
-            (experiment_id, filename))
+        click.echo(
+            "Experiment with ID %s has been exported as a CSV to file: %s."
+            % (experiment_id, filename)
+        )
     else:
-        print(runs.to_csv(index=False))
+        click.echo(runs.to_csv(index=False))
