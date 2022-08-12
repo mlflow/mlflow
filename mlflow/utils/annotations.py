@@ -39,7 +39,7 @@ def deprecated(alternative=None, since=None, impact=None):
 
     def deprecated_decorator(func):
         since_str = " since %s" % since if since else ""
-        impact_str = impact if impact else "This method will be removed in a near future release."
+        impact_str = impact if impact else "This method will be removed in a future release."
 
         notice = "``{function_name}`` is deprecated{since_string}. {impact}".format(
             function_name=".".join([func.__module__, func.__name__]),
