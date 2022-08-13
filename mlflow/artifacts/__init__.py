@@ -5,7 +5,6 @@ import json
 import logging
 import pathlib
 from typing import Optional
-from PIL import Image
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking import _get_store
@@ -87,6 +86,8 @@ def load_json(artifact_uri):
 def load_image(artifact_uri):
     local_artifact = download_artifacts(artifact_uri)
     try:
+        from PIL import Image
+
         image_obj = Image.open(local_artifact)
         if is_running_in_ipython_environment():
             from IPython import display

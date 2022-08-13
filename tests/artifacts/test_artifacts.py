@@ -3,7 +3,6 @@ import json
 import pytest
 
 import mlflow
-from PIL import Image
 from mlflow.artifacts import load_text, load_json, load_image
 from mlflow.exceptions import MlflowException
 
@@ -36,6 +35,8 @@ def run_with_json_artifact(tmp_path):
 
 @pytest.fixture()
 def run_with_image_artifact():
+    from PIL import Image
+
     artifact_path = "test"
     artifact_content = Image.new("RGB", (100, 100))
     with mlflow.start_run() as run:
@@ -110,6 +111,8 @@ def test_load_json(run_with_json_artifact):
 
 
 def test_load_image(run_with_image_artifact):
+    from PIL import Image
+
     artifact_uri, _, _, _ = run_with_image_artifact
     text_file = artifact_uri + "/image.png"
     assert isinstance(load_image(text_file), Image.Image)
