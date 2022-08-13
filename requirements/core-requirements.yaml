@@ -50,3 +50,7 @@ waitress:
   pip_release: waitress
   max_major_version: 2
   markers: "platform_system == 'Windows'"
+
+pillow:
+  pip_release: pillow
+  max_major_version: 9
