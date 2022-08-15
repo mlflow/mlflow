@@ -419,10 +419,10 @@ def _should_use_mlflowdbfs(root_uri):
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     if (
-        not is_valid_dbfs_uri(root_uri) or
-        not is_databricks_acled_artifacts_uri(root_uri) or
-        not databricks_utils.is_in_databricks_runtime() or
-        environment_variables._DISABLE_MLFLOWDBFS.get() not in ["", "False", "false"]
+        not is_valid_dbfs_uri(root_uri)
+        or not is_databricks_acled_artifacts_uri(root_uri)
+        or not databricks_utils.is_in_databricks_runtime()
+        or environment_variables._DISABLE_MLFLOWDBFS.get() not in ["", "False", "false"]
     ):
         return False
 
