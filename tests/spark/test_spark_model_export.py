@@ -661,7 +661,17 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mlflowdbfs_available,
     expectedURI,
 ):
+    def mock_spark_session_load(path):
+        raise Exception("MlflowDbfsClient operation failed!")
+
+    mock_spark_session = mock.Mock()
+    mock_read_spark_session = mock.Mock()
+    mock_read_spark_session.load = mock_spark_session_load
+
     with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+        return_value=mock_spark_session,
+    ), mock.patch(
         "mlflow.get_artifact_uri",
         return_value=artifact_uri,
     ), mock.patch(
@@ -678,6 +688,44 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
             sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
             mock_save.assert_called_once_with(expectedURI.format(mlflow.active_run().info.run_id))
+
+
+@pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])
+def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(monkeypatch, spark_model_iris, dummy_read_shows_mlflowdbfs_available):
+    def mock_spark_session_load(path):
+        if dummy_read_shows_mlflowdbfs_available:
+            raise Exception("MlflowdbfsClient operation failed!")
+        else:
+            raise Exception("mlflowdbfs filesystem not found")
+
+    mock_read_spark_session = mock.Mock()
+    mock_read_spark_session.load = mock_spark_session_load
+    mock_spark_session = mock.Mock()
+    mock_spark_session.read = mock_read_spark_session
+
+    with mock.patch(
+        "mlflow.utils._spark_utils._get_active_spark_session",
+        return_value=mock_spark_session,
+    ), mock.patch(
+        "mlflow.get_artifact_uri",
+        return_value="dbfs:/databricks/mlflow-tracking/a/b",
+    ), mock.patch(
+        "mlflow.spark._HadoopFileSystem.is_filesystem_available",
+        side_effect=Exception("MlflowDbfsClient operation failed!"),
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch.object(
+        spark_model_iris.model, "save"
+    ) as mock_save:
+        with mlflow.start_run():
+            monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
+            sparkm.log_model(spark_model=spark_model_iris.model, artifact_path="model")
+            run_id = mlflow.active_run().info.run_id
+            mock_save.assert_called_once_with(
+                f"mlflowdbfs:///artifacts?run_id={run_id}&path=/model/sparkml"
+                if dummy_read_shows_mlflowdbfs_available
+                else "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"
+            )
 
 
 def test_shutil_copytree_without_file_permissions(tmpdir):

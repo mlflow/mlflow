@@ -418,15 +418,26 @@ def _should_use_mlflowdbfs(root_uri):
     # the Hadoop FileSystem API until a read call has been issued.
     from mlflow.utils._spark_utils import _get_active_spark_session
 
-    if not is_valid_dbfs_uri(root_uri) or not is_databricks_acled_artifacts_uri(root_uri):
+    if (
+        not is_valid_dbfs_uri(root_uri) or
+        not is_databricks_acled_artifacts_uri(root_uri) or
+        not databricks_utils.is_in_databricks_runtime() or
+        environment_variables._DISABLE_MLFLOWDBFS.get() not in ["", "False", "false"]
+    ):
         return False
 
+    mlflowdbfs_read_exception_str = None
     try:
         _get_active_spark_session().read.load("mlflowdbfs:///artifact?run_id=foo&path=/bar")
     except Exception as e:
         # The load invocation is expected to throw an exception.
-        if "MlflowdbfsClient" in str(e):
-            # The subsequent logic used to determine mlflowdbfs availability on Databricks
+        mlflowdbfs_read_exception_str = str(e)
+
+    try:
+        return _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
+    except Exception:
+        if "MlflowdbfsClient" in (mlflowdbfs_read_exception_str or ""):
+            # The HDFS filesystem logic used to determine mlflowdbfs availability on Databricks
             # clusters may not work on certain Databricks cluster types due to unavailability of
             # the _HadoopFileSystem.is_filesystem_available() API. As a temporary workaround,
             # we check the contents of the expected exception raised by a dummy mlflowdbfs
@@ -438,17 +449,8 @@ def _should_use_mlflowdbfs(root_uri):
             # TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check
             # below is determined to work on all Databricks cluster types
             return True
-
-    try:
-        return (
-            databricks_utils.is_in_databricks_runtime()
-            and environment_variables._DISABLE_MLFLOWDBFS.get() in ["", "False", "false"]
-            and _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
-        )
-    except Exception:
-        # TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check
-        # is determined to work on all Databricks cluster types
-        return False
+        else:
+            return False
 
 
 def _save_model_metadata(
