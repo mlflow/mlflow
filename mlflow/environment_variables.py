@@ -15,7 +15,7 @@ class _EnvironmentVariable:
         self.default = default
 
     @property
-    def defined(self):
+    def is_defined(self):
         return self.name in os.environ
 
     def get(self):
@@ -44,15 +44,14 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
 
     def get(self):
-        if not self.defined:
+        if not self.is_defined:
             return self.default
 
         val = os.getenv(self.name)
         lowercased = val.lower()
-        if lowercased not in ["true", "false"]:
+        if lowercased not in ["true", "false", "1", "0"]:
             raise ValueError(
-                f"{self.name} value must be either 'true' or 'false' (case-insensitive), "
-                f"but got {val}"
+                f"{self.name} value must be one of ['true', 'false', '1', '0'], but got {val}"
             )
         return lowercased == "true"
 
