@@ -41,11 +41,10 @@ warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 from mlflow import projects
-from mlflow import tracking
+from mlflow import client 
 import mlflow.models
 import mlflow.artifacts
 import mlflow.pipelines
-import mlflow.client
 
 # model flavors
 _model_flavors_supported = []

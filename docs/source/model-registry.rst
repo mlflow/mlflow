@@ -87,7 +87,7 @@ version to one of the other valid stages.
 API Workflow
 ------------
 
-An alternative way to interact with Model Registry is using the :ref:`MLflow model flavor <python-api>` or :ref:`MLflow Client Tracking API <mlflow.tracking>` interface.
+An alternative way to interact with Model Registry is using the :ref:`MLflow model flavor <python-api>` or :ref:`MLflow Client Tracking API <mlflow.client>` interface.
 In particular, you can register a model during an MLflow experiment run or after all your experiment runs.
 
 Adding an MLflow Model to the Model Registry

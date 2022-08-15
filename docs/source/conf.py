@@ -370,6 +370,7 @@ def _get_reference_map():
     """
     ref_map = {
         # < Invalid reference >: < valid reference >
+        "mlflow.tracking.client": "mlflow.client",
         "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
         "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
     }

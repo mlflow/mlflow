@@ -730,7 +730,7 @@ add tags to a run, and more.
 
 .. code-block:: py
 
-    from  mlflow.tracking import MlflowClient
+    from  mlflow import MlflowClient
     client = MlflowClient()
     experiments = client.list_experiments() # returns a list of mlflow.entities.Experiment
     run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run

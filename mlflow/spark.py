@@ -418,6 +418,9 @@ def _should_use_mlflowdbfs(root_uri):
     # the Hadoop FileSystem API until a read call has been issued.
     from mlflow.utils._spark_utils import _get_active_spark_session
 
+    if not is_valid_dbfs_uri(root_uri) or not is_databricks_acled_artifacts_uri(root_uri):
+        return False
+
     try:
         _get_active_spark_session().read.load("mlflowdbfs:///artifact?run_id=foo&path=/bar")
     except Exception as e:
@@ -438,9 +441,7 @@ def _should_use_mlflowdbfs(root_uri):
 
     try:
         return (
-            is_valid_dbfs_uri(root_uri)
-            and is_databricks_acled_artifacts_uri(root_uri)
-            and databricks_utils.is_in_databricks_runtime()
+            databricks_utils.is_in_databricks_runtime()
             and environment_variables._DISABLE_MLFLOWDBFS.get() in ["", "False", "false"]
             and _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
         )
