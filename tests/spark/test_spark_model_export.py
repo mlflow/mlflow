@@ -640,18 +640,22 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
 
 
 @pytest.mark.parametrize(
-    "db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
+    "artifact_uri, db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
     [
-        ("12.0", "", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
-        ("12.0", "false", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
-        ("12.0", "", False, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
-        ("12.0", "1", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
-        ("", "", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "false", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "", False, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "1", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "", "", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "true", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        ("dbfs:/root/a/b", "12.0", "", True, "dbfs:/root/a/b/model/sparkml/sparkml"),
+        ("s3://mybucket/a/b", "12.0", "", True, "s3://mybucket/a/b/model/sparkml/sparkml"),
     ],
 )
 def test_model_logged_via_mlflowdbfs_when_appropriate(
     monkeypatch,
     spark_model_iris,
+    artifact_uri,
     db_runtime_version,
     mlflowdbfs_disabled,
     mlflowdbfs_available,
@@ -659,7 +663,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
 ):
     with mock.patch(
         "mlflow.get_artifact_uri",
-        return_value="dbfs:/databricks/mlflow-tracking/a/b",
+        return_value=artifact_uri,
     ), mock.patch(
         "mlflow.spark._HadoopFileSystem.is_filesystem_available",
         return_value=mlflowdbfs_available,
