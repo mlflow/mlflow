@@ -64,7 +64,7 @@ def serve(
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
-    env_manager = env_manager or _EnvManager.CONDA
+    env_manager = env_manager or _EnvManager.VIRTUALENV
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
     ).serve(
@@ -119,7 +119,7 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
-    env_manager = env_manager or _EnvManager.CONDA
+    env_manager = env_manager or _EnvManager.VIRTUALENV
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(
@@ -149,7 +149,7 @@ def prepare_env(
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
     """
-    env_manager = env_manager or _EnvManager.CONDA
+    env_manager = env_manager or _EnvManager.VIRTUALENV
     return _get_flavor_backend(
         model_uri, env_manager=env_manager, install_mlflow=install_mlflow
     ).prepare_env(model_uri=model_uri)
@@ -205,7 +205,7 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
     """
-    env_manager = env_manager or _EnvManager.CONDA
+    env_manager = env_manager or _EnvManager.VIRTUALENV
     _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager).build_image(
         model_uri,
         name,
