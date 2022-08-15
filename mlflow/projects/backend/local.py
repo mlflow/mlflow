@@ -43,7 +43,11 @@ from mlflow.utils import env_manager as _EnvManager
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 from mlflow.projects import env_type
-
+from mlflow.environment_variables import (
+    MLFLOW_KERBEROS_TICKET_CACHE,
+    MLFLOW_KERBEROS_USER,
+    MLFLOW_PYARROW_EXTRA_CONF,
+)
 
 _logger = logging.getLogger(__name__)
 
