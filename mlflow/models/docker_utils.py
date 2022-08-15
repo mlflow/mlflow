@@ -38,41 +38,45 @@ RUN python /tmp/get-pip.py
 RUN pip install virtualenv
 """
 
-if os.getenv("http_proxy") is not None and os.getenv("https_proxy") is not None:
+
+def _get_maven_proxy():
+    http_proxy = os.getenv("http_proxy")
+    https_proxy = os.getenv("https_proxy")
+    if http_proxy is None or https_proxy is None:
+        return ""
 
     # Expects proxies as either PROTOCOL://{USER}:{PASSWORD}@HOSTNAME:PORT
     # or PROTOCOL://HOSTNAME:PORT
-    parsed_http_proxy = urlparse(os.environ["http_proxy"])
+    parsed_http_proxy = urlparse(http_proxy)
     assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
-    assert isinstance(parsed_http_proxy.port, int), f"Invalid Proxy Port: {parsed_http_proxy.port}"
+    assert isinstance(parsed_http_proxy.port, int), f"Invalid proxy port: {parsed_http_proxy.port}"
 
-    parsed_https_proxy = urlparse(os.environ["https_proxy"])
+    parsed_https_proxy = urlparse(https_proxy)
     assert parsed_https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
     assert isinstance(
         parsed_https_proxy.port, int
-    ), f"Invalid Proxy Port: {parsed_https_proxy.port}"
+    ), f"Invalid proxy port: {parsed_https_proxy.port}"
 
-    MAVEN_PROXY = (
-        " -DproxySet=true -Dhttp.proxyHost={http_proxy_host} "
-        "-Dhttp.proxyPort={http_proxy_port} -Dhttps.proxyHost={https_proxy_host} "
-        "-Dhttps.proxyPort={https_proxy_port} -Dhttps.nonProxyHosts=repo.maven.apache.org"
-    ).format(
-        http_proxy_host=parsed_http_proxy.hostname,
-        http_proxy_port=parsed_http_proxy.port,
-        https_proxy_host=parsed_https_proxy.hostname,
-        https_proxy_port=parsed_https_proxy.port,
+    maven_proxy_options = (
+        "-DproxySet=true",
+        f"-Dhttp.proxyHost={parsed_http_proxy.hostname}",
+        f"-Dhttp.proxyPort={parsed_http_proxy.port}",
+        f"-Dhttps.proxyHost={parsed_https_proxy.hostname}",
+        f"-Dhttps.proxyPort={parsed_https_proxy.port}",
+        "-Dhttps.nonProxyHosts=repo.maven.apache.org",
     )
 
-    if parsed_http_proxy.username is not None and parsed_http_proxy.password is not None:
+    if parsed_http_proxy.username is None or parsed_http_proxy.password is None:
+        return " ".join(maven_proxy_options)
 
-        MAVEN_PROXY += (
-            " -Dhttp.proxyUser={proxy_username} -Dhttp.proxyPassword={proxy_password}".format(
-                proxy_username=parsed_http_proxy.username, proxy_password=parsed_http_proxy.password
-            )
+    return " ".join(
+        maven_proxy_options
+        + (
+            f"-Dhttp.proxyUser={parsed_http_proxy.username}",
+            f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
         )
+    )
 
-else:
-    MAVEN_PROXY = ""  # No Proxy
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
@@ -120,6 +124,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     Get docker build commands for installing MLflow given a Docker context dir and optional source
     directory
     """
+    maven_proxy = _get_maven_proxy()
     if mlflow_home:
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=dockerfile_context_dir)
         return (
@@ -130,7 +135,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "mkdir -p /opt/java/jars && "
             "mv /opt/mlflow/mlflow/java/scoring/target/"
             "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-        ).format(mlflow_dir=mlflow_dir, maven_proxy=MAVEN_PROXY)
+        ).format(mlflow_dir=mlflow_dir, maven_proxy=maven_proxy)
     else:
         return (
             "RUN pip install mlflow=={version}\n"
@@ -146,7 +151,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN cd /opt/java && mvn "
             "--batch-mode dependency:copy-dependencies "
             "-DoutputDirectory=/opt/java/jars {maven_proxy}\n"
-        ).format(version=mlflow.version.VERSION, maven_proxy=MAVEN_PROXY)
+        ).format(version=mlflow.version.VERSION, maven_proxy=maven_proxy)
 
 
 def _build_image(
