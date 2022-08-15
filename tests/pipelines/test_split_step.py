@@ -126,3 +126,30 @@ def test_from_pipeline_config_works_with_target_col(tmp_path):
         os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
     ), mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
         assert SplitStep.from_pipeline_config({"target_col": "fake_col"}, "fake_root") is not None
+
+
+def test_split_step_skips_profiling_when_specified(tmp_path):
+    ingest_output_dir = tmp_path / "steps" / "ingest" / "outputs"
+    ingest_output_dir.mkdir(parents=True)
+    split_output_dir = tmp_path / "steps" / "split" / "outputs"
+    split_output_dir.mkdir(parents=True)
+
+    num_rows = 1000
+    num_good_rows = 900
+    input_dataframe = pd.DataFrame(
+        {
+            "a": list(range(num_rows)),
+            "b": [str(i) for i in range(num_rows)],
+            "y": [float(i % 2) if i < num_good_rows else None for i in range(num_rows)],
+        }
+    )
+    input_dataframe.to_parquet(str(ingest_output_dir / "dataset.parquet"))
+
+    with mock.patch.dict(
+        os.environ, {_MLFLOW_PIPELINES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_path)}
+    ), mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling,\
+            mock.patch("mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"):
+        split_step = SplitStep({"target_col": "y", "disable_profiling": True}, "fake_root")
+        split_step._run(str(split_output_dir))
+
+    mock_profiling.assert_not_called()
