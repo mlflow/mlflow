@@ -82,6 +82,14 @@ MLFLOW_KERBEROS_USER = _EnvironmentVariable("MLFLOW_KERBEROS_USER", str, None)
 #: (default: ``None``)
 MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", str, None)
 
+#: Specify whether to get mlflow s3 endpoint url.
+#: (default: ``None``)
+MLFLOW_S3_ENDPOINT_URL = _EnvironmentVariable("MLFLOW_S3_ENDPOINT_URL", str, None)
+
+#: Specify whether to get mlflow s3 ignore tls configurations.
+#: (default: ``None``)
+MLFLOW_S3_IGNORE_TLS = _EnvironmentVariable("MLFLOW_S3_IGNORE_TLS", str, None)
+
 #: Specifies the ``pool_size`` parameter to use for ``sqlalchemy.create_engine`` in the SQLAlchemy
 #: tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size
 #: for more information.

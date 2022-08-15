@@ -13,6 +13,11 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.environment_variables import MLFLOW_S3_UPLOAD_EXTRA_ARGS
 
+from mlflow.environment_variables import (
+    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
+    MLFLOW_S3_ENDPOINT_URL,
+    MLFLOW_S3_IGNORE_TLS,
+)
 
 _MAX_CACHE_SECONDS = 300
 
@@ -84,8 +89,8 @@ class S3ArtifactRepository(ArtifactRepository):
             return None
 
     def _get_s3_client(self):
-        s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
-        ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
+        s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
+        ignore_tls = MLFLOW_S3_IGNORE_TLS.get()
 
         do_verify = True
         if ignore_tls:
