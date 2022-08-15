@@ -49,13 +49,11 @@ def _get_maven_proxy():
     # or PROTOCOL://HOSTNAME:PORT
     parsed_http_proxy = urlparse(http_proxy)
     assert parsed_http_proxy.hostname is not None, "Invalid `http_proxy` hostname."
-    assert isinstance(parsed_http_proxy.port, int), f"Invalid proxy port: {parsed_http_proxy.port}"
+    assert parsed_http_proxy.port is not None, f"Invalid proxy port: {parsed_http_proxy.port}"
 
     parsed_https_proxy = urlparse(https_proxy)
     assert parsed_https_proxy.hostname is not None, "Invalid `https_proxy` hostname."
-    assert isinstance(
-        parsed_https_proxy.port, int
-    ), f"Invalid proxy port: {parsed_https_proxy.port}"
+    assert parsed_https_proxy.port is not None, f"Invalid proxy port: {parsed_https_proxy.port}"
 
     maven_proxy_options = (
         "-DproxySet=true",
