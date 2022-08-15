@@ -20,5 +20,5 @@ RUN apt-get update && \
     # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless
 
-# missing packages necessary for running tests
-RUN pip install pyarrow pandas-profiling markdown
+# packages necessary for development and running tests
+RUN pip install -e .[pipelines]
