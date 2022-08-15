@@ -578,7 +578,7 @@ def build_and_push_container(build, push, container, env_manager, mlflow_home):
     The image is built locally and it requires Docker to run.
     The image is pushed to ECR under current active AWS account and to current active AWS region.
     """
-    env_manager = env_manager or em.CONDA
+    env_manager = env_manager or em.VIRTUALENV
     if not (build or push):
         click.echo("skipping both build and push, have nothing to do!")
     if build:
