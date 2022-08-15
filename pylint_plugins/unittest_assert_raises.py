@@ -17,7 +17,7 @@ class UnittestAssertRaises(BaseChecker):
         "W0003": (
             "`assertRaises` and `assertRaisesRegex` must be replaced with `pytest.raises`",
             name,
-            "Use `assertRaisesRegex` instead",
+            "Use `pytest.raises` instead",
         ),
     }
     priority = -1
