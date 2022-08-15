@@ -642,12 +642,48 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
 @pytest.mark.parametrize(
     "artifact_uri, db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
     [
-        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
-        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "false", True, "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml"),
-        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "", False, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
-        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "1", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
-        ("dbfs:/databricks/mlflow-tracking/a/b", "", "", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
-        ("dbfs:/databricks/mlflow-tracking/a/b", "12.0", "true", True, "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml"),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "",
+            True,
+            "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "false",
+            True,
+            "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "",
+            False,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "1",
+            True,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "",
+            "",
+            True,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "true",
+            True,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
+        ),
         ("dbfs:/root/a/b", "12.0", "", True, "dbfs:/root/a/b/model/sparkml/sparkml"),
         ("s3://mybucket/a/b", "12.0", "", True, "s3://mybucket/a/b/model/sparkml/sparkml"),
     ],
@@ -671,10 +707,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
-    ), mock.patch(
-        "mlflow.get_artifact_uri",
-        return_value=artifact_uri,
-    ), mock.patch(
+    ), mock.patch("mlflow.get_artifact_uri", return_value=artifact_uri,), mock.patch(
         "mlflow.spark._HadoopFileSystem.is_filesystem_available",
         return_value=mlflowdbfs_available,
     ), mock.patch(
@@ -691,7 +724,9 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
 
 
 @pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])
-def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(monkeypatch, spark_model_iris, dummy_read_shows_mlflowdbfs_available):
+def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
+    monkeypatch, spark_model_iris, dummy_read_shows_mlflowdbfs_available
+):
     def mock_spark_session_load(path):
         if dummy_read_shows_mlflowdbfs_available:
             raise Exception("MlflowdbfsClient operation failed!")
