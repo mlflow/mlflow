@@ -1,9 +1,9 @@
 """
 APIs for interacting with artifacts in MLflow
 """
-import json
 import pathlib
 from typing import Optional
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store

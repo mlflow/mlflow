@@ -1,4 +1,5 @@
 import pathlib
+
 import pytest
 
 import mlflow
@@ -14,22 +15,21 @@ def run_with_artifact(tmp_path):
     with mlflow.start_run() as run:
         mlflow.log_artifact(local_path, artifact_path)
 
-    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
-    return (artifact_uri, run, artifact_path, artifact_content)
+    return (run, artifact_path, artifact_content)
 
 
 def test_download_artifacts_with_uri(run_with_artifact):
-    artifact_uri, run, artifact_path, artifact_content = run_with_artifact
+    run, artifact_path, artifact_content = run_with_artifact
     run_uri = f"runs:/{run.info.run_id}/{artifact_path}"
-
-    for uri in (run_uri, artifact_uri):
+    actual_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    for uri in (run_uri, actual_uri):
         download_output_path = mlflow.artifacts.download_artifacts(artifact_uri=uri)
         downloaded_artifact_path = next(pathlib.Path(download_output_path).iterdir())
         assert downloaded_artifact_path.read_text() == artifact_content
 
 
 def test_download_artifacts_with_run_id_and_path(run_with_artifact):
-    _, run, artifact_path, artifact_content = run_with_artifact
+    run, artifact_path, artifact_content = run_with_artifact
     download_output_path = mlflow.artifacts.download_artifacts(
         run_id=run.info.run_id, artifact_path=artifact_path
     )
@@ -38,7 +38,7 @@ def test_download_artifacts_with_run_id_and_path(run_with_artifact):
 
 
 def test_download_artifacts_with_run_id_no_path(run_with_artifact):
-    _, run, artifact_path, _ = run_with_artifact
+    run, artifact_path, _ = run_with_artifact
     artifact_relative_path_top_level_dir = pathlib.PurePosixPath(artifact_path).parts[0]
     downloaded_output_path = mlflow.artifacts.download_artifacts(run_id=run.info.run_id)
     downloaded_artifact_directory_name = next(pathlib.Path(downloaded_output_path).iterdir()).name
@@ -47,7 +47,7 @@ def test_download_artifacts_with_run_id_no_path(run_with_artifact):
 
 @pytest.mark.parametrize("dst_subdir_path", [None, "doesnt_exist_yet/subdiir"])
 def test_download_artifacts_with_dst_path(run_with_artifact, tmp_path, dst_subdir_path):
-    _, run, artifact_path, _ = run_with_artifact
+    run, artifact_path, _ = run_with_artifact
     dst_path = tmp_path / dst_subdir_path if dst_subdir_path else tmp_path
 
     download_output_path = mlflow.artifacts.download_artifacts(
