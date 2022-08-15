@@ -127,3 +127,39 @@ def _verify_is_pipeline_root_directory(pipeline_root_path: str) -> str:
         raise MlflowException(
             f"Failed to find {_PIPELINE_CONFIG_FILE_NAME} in {pipeline_yaml_path}!"
         )
+
+def fetch_and_validate_pipeline(uri, version):
+    work_dir = _fetch_pipeline(uri=uri, version=version)
+    # validation logic?
+    return work_dir
+
+def _fetch_pipeline(uri, version=None):
+    # copied from projects, needs to be adapted for pipeliens
+    """
+    Fetch a project into a local directory, returning the path to the local project directory.
+    """
+    parsed_uri, subdirectory = _parse_subdirectory(uri)
+    use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else _parse_file_uri(parsed_uri)
+
+    if use_temp_dst_dir:
+        _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
+    if _is_zip_uri(parsed_uri):
+        parsed_uri = _parse_file_uri(parsed_uri)
+        _unzip_repo(
+            zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
+            dst_dir=dst_dir,
+        )
+    elif _is_local_uri(parsed_uri):
+        if use_temp_dst_dir:
+            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+        if version is not None:
+            if not _is_git_repo(_parse_file_uri(parsed_uri)):
+                raise ExecutionException("Setting a version is only supported for Git project URIs")
+            _fetch_git_repo(parsed_uri, version, dst_dir)
+    else:
+        _fetch_git_repo(parsed_uri, version, dst_dir)
+    res = os.path.abspath(os.path.join(dst_dir, subdirectory))
+    if not os.path.exists(res):
+        raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
+    return res

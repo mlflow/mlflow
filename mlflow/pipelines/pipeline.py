@@ -7,6 +7,7 @@ from mlflow.pipelines.utils import (
     get_pipeline_config,
     get_pipeline_name,
     get_pipeline_root_path,
+    fetch_and_validate_pipeline,
 )
 from mlflow.pipelines.utils.execution import (
     clean_execution_state,
@@ -29,7 +30,7 @@ class _BasePipeline:
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str) -> None:
+    def __init__(self, pipeline_root_path: str, profile: str, uri: str = None) -> None:
         """
         Pipeline base class.
 
@@ -40,7 +41,10 @@ class _BasePipeline:
                         {pipeline_root_path}/profiles/{profile}.yaml is read and merged with
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
-        self._pipeline_root_path = pipeline_root_path
+        if uri:
+            self._pipeline_root_path = fetch_and_validate_pipeline(uri)
+        else:
+            self._pipeline_root_path = pipeline_root_path 
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
