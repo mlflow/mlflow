@@ -11,6 +11,7 @@ def test_create_sqlalchemy_engine_inject_pool_options():
             "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "2",
             "MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE": "3600",
             "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW": "4",
+            "MLFLOW_SQLALCHEMYSTORE_ECHO": "true",
         },
     ):
         with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
@@ -21,6 +22,7 @@ def test_create_sqlalchemy_engine_inject_pool_options():
                 pool_size=2,
                 pool_recycle=3600,
                 max_overflow=4,
+                echo=True,
             )
 
 

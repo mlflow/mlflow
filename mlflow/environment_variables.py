@@ -34,6 +34,25 @@ class _EnvironmentVariable:
         return repr(self.name)
 
 
+class _BooleanEnvironmentVariable(_EnvironmentVariable):
+    """
+    Represents a boolean environment variable.
+    """
+
+    def get(self):
+        if self.name not in os.environ:
+            return self.default
+
+        val = os.getenv(self.name)
+        lowercased = val.lower()
+        if lowercased not in ["true", "false"]:
+            raise ValueError(
+                f"{self.name} value must be either 'true' or 'false' (case-insensitive), "
+                f"but got {val}"
+            )
+        return lowercased == "true"
+
+
 #: Specify the maximum number of retries for MLflow http request
 #: (default: ``5``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
@@ -90,3 +109,9 @@ MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE = _EnvironmentVariable(
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
     "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", int, None
 )
+
+#: Specifies the ``echo`` parameter to use for ``sqlalchemy.create_engine`` in the
+#: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.echo
+#: for more information.
+#: (default: ``False``)
+MLFLOW_SQLALCHEMYSTORE_ECHO = _EnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", bool, False)
