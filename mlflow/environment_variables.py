@@ -14,6 +14,10 @@ class _EnvironmentVariable:
         self.type = type_
         self.default = default
 
+    @property
+    def defined(self):
+        return self.name in os.environ
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
@@ -40,7 +44,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
 
     def get(self):
-        if self.name not in os.environ:
+        if not self.defined:
             return self.default
 
         val = os.getenv(self.name)
@@ -114,4 +118,6 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.echo
 #: for more information.
 #: (default: ``False``)
-MLFLOW_SQLALCHEMYSTORE_ECHO = _EnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", bool, False)
+MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_ECHO", bool, False
+)
