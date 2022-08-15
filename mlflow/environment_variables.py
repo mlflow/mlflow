@@ -43,6 +43,13 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
     Represents a boolean environment variable.
     """
 
+    def __init__(self, name, default):
+        # `default not in [True, False, None]` doesn't work because `1 in [True]`
+        # (or `0 == [False]`) returns True.
+        if not (default is True or default is False or default is None):
+            raise ValueError(f"{name} default value must be one of [True, False, None]")
+        super().__init__(name, bool, default)
+
     def get(self):
         if not self.is_defined:
             return self.default
@@ -51,9 +58,10 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         lowercased = val.lower()
         if lowercased not in ["true", "false", "1", "0"]:
             raise ValueError(
-                f"{self.name} value must be one of ['true', 'false', '1', '0'], but got {val}"
+                f"{self.name} value must be one of ['true', 'false', '1', '0'] (case-insensitive), "
+                f"but got {val}"
             )
-        return lowercased == "true"
+        return lowercased in ["true", "1"]
 
 
 #: Specify the maximum number of retries for MLflow http request
@@ -117,6 +125,4 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: SQLAlchemy tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.echo
 #: for more information.
 #: (default: ``False``)
-MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable(
-    "MLFLOW_SQLALCHEMYSTORE_ECHO", bool, False
-)
+MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
