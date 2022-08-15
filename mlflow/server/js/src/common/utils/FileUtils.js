@@ -44,3 +44,11 @@ export const TEXT_EXTENSIONS = new Set([
 export const HTML_EXTENSIONS = new Set(['html']);
 export const MAP_EXTENSIONS = new Set(['geojson']);
 export const PDF_EXTENSIONS = new Set(['pdf']);
+export const AUDIO_EXTENSIONS = new Set([
+  'wav',
+  'mp3',
+  'aac',
+  'ogg',
+  'caf',
+  'flac',
+]);

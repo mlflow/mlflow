@@ -7,6 +7,7 @@ import {
   getExtension,
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 import { decorators, Treebeard } from 'react-treebeard';
@@ -514,6 +515,8 @@ decorators.Header = ({ style, node }) => {
       iconType = 'file-image-o';
     } else if (TEXT_EXTENSIONS.has(extension)) {
       iconType = 'file-code-o';
+    } else if (AUDIO_EXTENSIONS.has(extension)) {
+      iconType = 'file-audio-o';
     } else {
       iconType = 'file-text-o';
     }

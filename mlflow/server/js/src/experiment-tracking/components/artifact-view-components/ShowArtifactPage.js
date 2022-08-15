@@ -15,6 +15,7 @@ import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
+import ShowArtifactAudioView from './ShowArtifactAudioView'
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
