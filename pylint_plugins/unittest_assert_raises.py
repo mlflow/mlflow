@@ -4,7 +4,9 @@ from pylint.checkers import BaseChecker
 
 
 def _is_unittest_assert_raises(node: astroid.Call):
-    return isinstance(node.func, astroid.Attribute) and node.func.as_string() == "self.assertRaises"
+    return isinstance(node.func, astroid.Attribute) and (
+        node.func.as_string() in ("self.assertRaises", "self.assertRaisesRegex")
+    )
 
 
 class UnittestAssertRaises(BaseChecker):
@@ -13,7 +15,7 @@ class UnittestAssertRaises(BaseChecker):
     name = "unittest-assert-raises"
     msgs = {
         "W0003": (
-            "`assertRaises` must be replaced with `assertRaisesRegex`",
+            "`assertRaises` and `assertRaisesRegex` must be replaced with `pytest.raises`",
             name,
             "Use `assertRaisesRegex` instead",
         ),
