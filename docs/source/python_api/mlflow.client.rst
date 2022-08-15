@@ -1,7 +1,7 @@
-.. _mlflow.client:
+.. _mlflow.tracking:
 
 mlflow.client
-=============
+===============
 
 .. automodule:: mlflow.client
     :members:
