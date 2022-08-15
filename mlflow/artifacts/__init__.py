@@ -2,16 +2,12 @@
 APIs for interacting with artifacts in MLflow
 """
 import json
-import logging
 import pathlib
 from typing import Optional
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store
-from mlflow.utils.databricks_utils import is_running_in_ipython_environment
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
-
-_logger = logging.getLogger(__name__)
 
 
 def download_artifacts(
@@ -61,39 +57,3 @@ def download_artifacts(
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
     return artifact_location
-
-
-def load_text(artifact_uri):
-    local_artifact = download_artifacts(artifact_uri)
-    with open(local_artifact) as local_artifact_fd:
-        try:
-            return str(local_artifact_fd.read())
-        except Exception as e:
-            _logger.exception(e)
-            raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
-
-
-def load_json(artifact_uri):
-    local_artifact = download_artifacts(artifact_uri)
-    with open(local_artifact) as local_artifact_fd:
-        try:
-            return json.load(local_artifact_fd)
-        except json.JSONDecodeError as e:
-            _logger.exception(e)
-            raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
-
-
-def load_image(artifact_uri):
-    local_artifact = download_artifacts(artifact_uri)
-    try:
-        from PIL import Image
-
-        image_obj = Image.open(local_artifact)
-        if is_running_in_ipython_environment():
-            from IPython import display
-
-            display(image_obj)
-        return image_obj
-    except Exception as e:
-        _logger.exception(e)
-        raise MlflowException("Unable to form a PIL Image object from file content", BAD_REQUEST)

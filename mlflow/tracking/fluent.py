@@ -3,7 +3,7 @@ Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
 import os
-
+import json
 import atexit
 import time
 import logging
@@ -32,6 +32,9 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
+from mlflow.utils.databricks_utils import is_running_in_ipython_environment
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
+
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
@@ -42,7 +45,8 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.annotations import experimental
-
+from mlflow.artifacts import download_artifacts
+from PIL import Image
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -1928,3 +1932,102 @@ def autolog(
             raise
         else:
             _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+
+
+def load_text(artifact_uri: str) -> str:
+    """
+    Loads content of the file in artifact_uri as python str object
+    :param artifact_uri: artifact location
+    :returns str object
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        with mlflow.start_run() as run:
+            artifact_uri = run.info.artifact_uri
+            mlflow.log_text("This is a sentence", "file.txt")
+            file_content  = mlflow.load_text(artifact_uri + "/file.txt")
+            print(file_content)
+
+    .. code-block:: text
+        :caption: Output
+
+        This is a sentence
+    """
+    local_artifact = download_artifacts(artifact_uri)
+    with open(local_artifact) as local_artifact_fd:
+        try:
+            return str(local_artifact_fd.read())
+        except Exception as e:
+            _logger.exception(e)
+            raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+
+
+def load_dict(artifact_uri: str) -> dict:
+    """
+    Loads content of the file in artifact_uri as json/dict object
+    :param artifact_uri: artifact location
+    :returns JSON object
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        import json
+        with mlflow.start_run() as run:
+            artifact_uri = run.info.artifact_uri
+            mlflow.log_text(json.dumps({"mlflow-version": "0.28", "n_cores": "10"}), "conf.json")
+            conf_json  = mlflow.load_dict(artifact_uri + "/conf.json")
+            print(conf_json)
+
+    .. code-block:: text
+        :caption: Output
+
+        {'mlflow-version': '0.28', 'n_cores': '10'}
+
+
+    """
+    local_artifact = download_artifacts(artifact_uri)
+    with open(local_artifact) as local_artifact_fd:
+        try:
+            return json.load(local_artifact_fd)
+        except json.JSONDecodeError as e:
+            _logger.exception(e)
+            raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+
+
+def load_image(artifact_uri: str) -> Image:
+    """
+    Loads content of the file in artifact_uri as PIL.Image object
+    :param artifact_uri: artifact location
+    :returns PIL.Image object
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from PIL import Image
+        with mlflow.start_run() as run:
+            image = Image.new("RGB", (100, 100))
+            artifact_uri = run.info.artifact_uri
+            mlflow.log_image(image, "image.png")
+            image  = mlflow.load_image(artifact_uri + "/image.png")
+            print(image)
+
+    .. code-block:: text
+        :caption: Output
+
+        <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
+    """
+    local_artifact = download_artifacts(artifact_uri)
+    try:
+        image_obj = Image.open(local_artifact)
+        if is_running_in_ipython_environment():
+            from IPython import display
+
+            display(image_obj)
+        return image_obj
+    except Exception as e:
+        _logger.exception(e)
+        raise MlflowException("Unable to form a PIL Image object from file content", BAD_REQUEST)

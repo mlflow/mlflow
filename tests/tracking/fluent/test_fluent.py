@@ -7,7 +7,8 @@ import random
 import uuid
 import inspect
 import time
-
+import json
+import pathlib
 import pytest
 from unittest import mock
 
@@ -1147,3 +1148,78 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+@pytest.fixture()
+def run_with_artifact(tmp_path):
+    artifact_path = "test"
+    artifact_content = "content"
+    local_path = tmp_path.joinpath("file.txt")
+    local_path.write_text(artifact_content)
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(local_path, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return (artifact_uri, run, artifact_path, artifact_content)
+
+
+@pytest.fixture()
+def run_with_json_artifact(tmp_path):
+    artifact_path = "test"
+    artifact_content = {"mlflow-version": "0.28", "n_cores": "10"}
+    local_path = tmp_path.joinpath("file.txt")
+    local_path.write_text(json.dumps(artifact_content))
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(local_path, artifact_path)
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return (artifact_uri, run, artifact_path, artifact_content)
+
+
+@pytest.fixture()
+def run_with_image_artifact():
+    from PIL import Image
+
+    artifact_path = "test"
+    image = Image.new("RGB", (100, 100))
+    with mlflow.start_run() as run:
+        mlflow.log_image(image, artifact_path + "/image.png")
+
+    artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
+    return (artifact_uri, run, artifact_path, image)
+
+
+def test_load_text(run_with_artifact):
+    artifact_uri, _, _, artifact_content = run_with_artifact
+    text_file = artifact_uri + "/file.txt"
+    assert mlflow.load_text(text_file) == artifact_content
+
+
+def test_load_dict(run_with_json_artifact):
+    artifact_uri, _, _, artifact_content = run_with_json_artifact
+    artifact_file = artifact_uri + "/file.txt"
+    assert mlflow.load_dict(artifact_file) == artifact_content
+
+
+def test_load_json_invalid_json(run_with_artifact):
+    artifact_uri, _, _, _ = run_with_artifact
+    artifact_file = artifact_uri + "/file.txt"
+    with pytest.raises(mlflow.exceptions.MlflowException, match="Unable to form a JSON object"):
+        mlflow.load_dict(artifact_file)
+
+
+def test_load_image(run_with_image_artifact):
+    from PIL import Image
+
+    artifact_uri, _, _, _ = run_with_image_artifact
+    artifact_file = artifact_uri + "/image.png"
+    assert isinstance(mlflow.load_image(artifact_file), Image.Image)
+
+
+def test_load_image_invalid_image(run_with_artifact):
+    artifact_uri, _, _, _ = run_with_artifact
+    artifact_file = artifact_uri + "/file.txt"
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="Unable to form a PIL Image object"
+    ):
+        mlflow.load_image(artifact_file)
