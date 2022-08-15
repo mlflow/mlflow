@@ -39,7 +39,7 @@ class IngestStep(BaseStep):
         super().__init__(step_config, pipeline_root)
 
         dataset_format = step_config.get("format")
-        self.disable_profiling = step_config.get("disable_profiler", False)
+        self.disable_profiling = step_config.get("disable_profiling", False)
         if not dataset_format:
             raise MlflowException(
                 message=(
