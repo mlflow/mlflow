@@ -32,8 +32,6 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
-from mlflow.utils.databricks_utils import is_running_in_ipython_environment
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
@@ -45,6 +43,8 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import is_running_in_ipython_environment
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.artifacts import download_artifacts
 from PIL import Image
 
