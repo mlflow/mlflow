@@ -68,8 +68,8 @@ def _get_maven_proxy():
         return " ".join(maven_proxy_options)
 
     return " ".join(
-        maven_proxy_options
-        + (
+        (
+            *maven_proxy_options,
             f"-Dhttp.proxyUser={parsed_http_proxy.username}",
             f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
         )
