@@ -116,11 +116,13 @@ class TrainStep(BaseStep):
         estimator = estimator_fn()
         mlflow.autolog(log_models=False)
 
+        run_args = self.step_config.get("run_args") or {}
+
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PIPELINE),
             MLFLOW_PIPELINE_TEMPLATE_NAME: self.step_config["template_name"],
             MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
-            MLFLOW_PIPELINE_STEP_NAME: self.step_config["run_args"].get("step") or "",
+            MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
