@@ -92,7 +92,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
-        self.disable_profiling = self.step_config.get("disable_profiling")
+        self.disable_profiling = self.step_config.get("disable_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
