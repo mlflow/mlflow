@@ -45,7 +45,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 
     def __init__(self, name, default):
         # `default not in [True, False, None]` doesn't work because `1 in [True]`
-        # (or `0 == [False]`) returns True.
+        # (or `0 in [False]`) returns True.
         if not (default is True or default is False or default is None):
             raise ValueError(f"{name} default value must be one of [True, False, None]")
         super().__init__(name, bool, default)
