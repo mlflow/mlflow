@@ -28,7 +28,7 @@ MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
-MAX_PARAM_VAL_LENGTH = 250
+MAX_PARAM_VAL_LENGTH = 500
 MAX_TAG_VAL_LENGTH = 5000
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
@@ -110,8 +110,8 @@ def _is_numeric(value):
 
 def _validate_metric(key, value, timestamp, step):
     """
-    Check that a param with the specified key, value, timestamp is valid and raise an exception if
-    it isn't.
+    Check that a metric with the specified key, value, timestamp, and step is valid and raise an
+    exception if it isn't.
     """
     _validate_metric_name(key)
     # value must be a Number
@@ -180,6 +180,7 @@ def _validate_model_version_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
+    _validate_tag_value(value)
     _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
@@ -264,7 +265,7 @@ def _validate_tag_name(name):
 
 
 def _validate_length_limit(entity_name, limit, value):
-    if len(value) > limit:
+    if value is not None and len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s"
             % (entity_name, value[:250], len(value), limit),
@@ -386,3 +387,16 @@ def _validate_db_type_string(db_type):
     if db_type not in DATABASE_ENGINES:
         error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_version_or_stage_exists(version, stage):
+    if version and stage:
+        raise MlflowException("version and stage cannot be set together", INVALID_PARAMETER_VALUE)
+
+    if not (version or stage):
+        raise MlflowException("version or stage must be set", INVALID_PARAMETER_VALUE)
+
+
+def _validate_tag_value(value):
+    if value == None:
+        raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)

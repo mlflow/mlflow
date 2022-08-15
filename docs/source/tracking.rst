@@ -12,6 +12,8 @@ MLflow Tracking lets you log and query experiments using :ref:`Python <python-ap
   :local:
   :depth: 2
 
+.. _tracking-concepts:
+
 Concepts
 ========
 
@@ -285,7 +287,7 @@ Logging Functions
 the URI can either be a HTTP/HTTPS URI for a remote server, a database connection string, or a
 local path to log data to a directory. The URI defaults to ``mlruns``.
 
-:py:func:`mlflow.tracking.get_tracking_uri` returns the current tracking URI.
+:py:func:`mlflow.get_tracking_uri` returns the current tracking URI.
 
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
@@ -305,11 +307,11 @@ with no active run automatically starts a new one.
 currently active run, if any.
 **Note**: You cannot access currently-active run attributes
 (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
-such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
+such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` as follows:
 
 .. code-block:: py
 
-    client = mlflow.tracking.MlflowClient()
+    client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
 :py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
@@ -720,7 +722,7 @@ Managing Experiments and Runs with the Tracking Service API
 -----------------------------------------------------------
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
-which is available through client SDK in the :py:mod:`mlflow.tracking` module.
+which is available through client SDK in the :py:mod:`mlflow.client` module.
 This makes it possible to query data about past runs, log additional information about them, create experiments,
 add tags to a run, and more.
 
@@ -738,7 +740,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
+The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
@@ -760,7 +762,7 @@ machine, including any remote machine that can connect to your tracking server.
 
 The UI contains the following key features:
 
-* Experiment-based run listing and comparison
+* Experiment-based run listing and comparison (including run comparison across multiple experiments)
 * Searching for runs by parameter or metric value
 * Visualizing run metrics
 * Downloading run results
@@ -860,7 +862,7 @@ Artifact Stores
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
-default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+default location to store artifacts for all runs in this experiment. Additionally, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 
@@ -1087,6 +1089,8 @@ You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalch
 | MLflow Environment Variable             | SQLAlchemy QueuePool Option |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE`` | ``pool_recycle``            |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
 +-----------------------------------------+-----------------------------+

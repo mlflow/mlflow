@@ -1,10 +1,9 @@
 import React, { Component } from 'react';
 import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
-import { Input, Button, Form } from 'antd';
+import { Form, Input, Button, Spacer } from '@databricks/design-system';
 import { EditableFormTable } from './tables/EditableFormTable';
 import _ from 'lodash';
-import { Spacer } from '../../shared/building_blocks/Spacer';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 export class EditableTagsTableViewImpl extends Component {
@@ -69,24 +68,20 @@ export class EditableTagsTableViewImpl extends Component {
   };
 
   render() {
-    const {
-      isRequestPending,
-      handleSaveEdit,
-      handleDeleteTag,
-      handleAddTag,
-      innerRef,
-    } = this.props;
+    const { isRequestPending, handleSaveEdit, handleDeleteTag, handleAddTag, innerRef } =
+      this.props;
 
     return (
-      <Spacer direction='vertical' size='small'>
+      <>
         <EditableFormTable
           columns={this.tableColumns}
           data={this.getData()}
           onSaveEdit={handleSaveEdit}
           onDelete={handleDeleteTag}
         />
-        <div style={styles.addTagForm.wrapper}>
-          <Form ref={innerRef} layout='inline' onFinish={handleAddTag}>
+        <Spacer size='small' />
+        <div>
+          <Form ref={innerRef} layout='inline' onFinish={handleAddTag} css={styles.form}>
             <Form.Item
               name='name'
               rules={[
@@ -108,7 +103,6 @@ export class EditableTagsTableViewImpl extends Component {
                   description:
                     'Default text for name placeholder in editable tags table form in MLflow',
                 })}
-                style={styles.addTagForm.nameInput}
               />
             </Form.Item>
             <Form.Item name='value' rules={[]}>
@@ -119,7 +113,6 @@ export class EditableTagsTableViewImpl extends Component {
                   description:
                     'Default text for value placeholder in editable tags table form in MLflow',
                 })}
-                style={styles.addTagForm.valueInput}
               />
             </Form.Item>
             <Form.Item>
@@ -132,23 +125,13 @@ export class EditableTagsTableViewImpl extends Component {
             </Form.Item>
           </Form>
         </div>
-      </Spacer>
+      </>
     );
   }
 }
 
 const styles = {
-  addTagForm: {
-    wrapper: {
-      marginLeft: 7,
-      marginTop: 8,
-    },
-    label: {
-      marginTop: 20,
-    },
-    nameInput: { width: 186 },
-    valueInput: { width: 186 },
-  },
+  form: (theme) => ({ '& > div': { marginRight: theme.spacing.sm } }),
 };
 
 export const EditableTagsTableView = injectIntl(EditableTagsTableViewImpl);

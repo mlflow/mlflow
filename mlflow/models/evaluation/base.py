@@ -3,6 +3,7 @@ import mlflow
 import hashlib
 import json
 import os
+from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
@@ -11,6 +12,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.annotations import experimental
+from mlflow.utils.proto_json_utils import NumpyEncoder
 import logging
 import struct
 import sys
@@ -119,7 +121,7 @@ class EvaluationResult:
         """Write the evaluation results to the specified local filesystem path"""
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, "metrics.json"), "w") as fp:
-            json.dump(self.metrics, fp)
+            json.dump(self.metrics, fp, cls=NumpyEncoder)
 
         artifacts_metadata = {
             artifact_name: {
@@ -132,7 +134,7 @@ class EvaluationResult:
             json.dump(artifacts_metadata, fp)
 
         artifacts_dir = os.path.join(path, "artifacts")
-        os.mkdir(artifacts_dir)
+        os.makedirs(artifacts_dir, exist_ok=True)
 
         for artifact in self.artifacts.values():
             filename = pathlib.Path(urllib.parse.urlparse(artifact.uri).path).name
@@ -318,12 +320,13 @@ class EvaluationDataset:
                     "dataframe."
                 )
             if self._spark_df_type and isinstance(data, self._spark_df_type):
-                _logger.warning(
-                    "Specified Spark DataFrame is too large for model evaluation. Only "
-                    f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
-                    "If you want evaluate on the whole spark dataframe, please manually call "
-                    "`spark_dataframe.toPandas()`."
-                )
+                if data.count() > EvaluationDataset.SPARK_DATAFRAME_LIMIT:
+                    _logger.warning(
+                        "Specified Spark DataFrame is too large for model evaluation. Only "
+                        f"the first {EvaluationDataset.SPARK_DATAFRAME_LIMIT} rows will be used."
+                        "If you want evaluate on the whole spark dataframe, please manually call "
+                        "`spark_dataframe.toPandas()`."
+                    )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
             self._labels_data = data[targets].to_numpy()
@@ -616,7 +619,7 @@ def _evaluate(
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     model_uuid = model.metadata.model_uuid
     dataset._log_dataset_tag(client, run_id, model_uuid)
 
@@ -765,7 +768,8 @@ def evaluate(
                  - A Pandas DataFrame or Spark DataFrame, containing evaluation features and
                    labels. If ``feature_names`` argument not specified, all columns are regarded
                    as feature columns. Otherwise, only column names present in ``feature_names``
-                   are regarded as feature columns.
+                   are regarded as feature columns. If it is Spark DataFrame, only the first 10000
+                   rows in the Spark DataFrame will be used as evaluation data.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``

@@ -1,13 +1,32 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import {
-  ExperimentRunsTableMultiColumnView2,
+  ExperimentRunsTableMultiColumnView2Impl,
   ModelsCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
 import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
 import { MemoryRouter as Router } from 'react-router-dom';
 import { RunInfo } from '../sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';
+
+/**
+ * Let's create our own mocked version of agGrid wrapper
+ * that is not dynamically imported, otherwise deeply coupled
+ * tests below will fail.
+ */
+/* eslint-disable global-require */
+jest.mock('../../common/components/ag-grid/AgGridLoader', () => ({
+  MLFlowAgGridLoader: (props) => {
+    const AgGridReactImpl = require('@ag-grid-community/react').AgGridReact;
+    return (
+      <AgGridReactImpl
+        modules={[require('@ag-grid-community/client-side-row-model').ClientSideRowModelModule]}
+        {...props}
+      />
+    );
+  },
+}));
+/* eslint-enable global-require */
 
 function getChildColumnNames(columnDefs, parentName) {
   return columnDefs
@@ -55,6 +74,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
         [COLUMN_TYPES.METRICS]: [],
         [COLUMN_TYPES.TAGS]: [],
       },
+      designSystemThemeApi: { theme: { colors: {} } },
     };
     commonProps = {
       ...minimalProps,
@@ -69,7 +89,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   });
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...minimalProps} />);
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2Impl {...minimalProps} />);
     expect(wrapper.length).toBe(1);
   });
 
@@ -117,7 +137,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
         },
       ],
     };
-    wrapper = mountWithIntl(<ExperimentRunsTableMultiColumnView2 {...props} />);
+    wrapper = mountWithIntl(<ExperimentRunsTableMultiColumnView2Impl {...props} />);
     const loggedModelLink = wrapper.find('.logged-model-link');
     expect(loggedModelLink).toHaveLength(1);
     expect(loggedModelLink.prop('href')).toEqual('./#/experiments/0/runs/123/artifactPath/model');
@@ -284,7 +304,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     const expectedParameterColumnNames = ['param1', 'param2'];
     const expectedTagColumnNames = ['tag1', 'tag2'];
 
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2Impl {...commonProps} />);
     const instance = wrapper.instance();
     const columnNames = instance.state.columnDefs.map((column) => {
       return column.headerName;
@@ -314,7 +334,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     const expectedParameterColumnNames = ['param1'];
     const expectedTagColumnNames = ['tag1'];
 
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2Impl {...commonProps} />);
     const instance = wrapper.instance();
     instance.setColumnDefs = setColumnDefsSpy;
 
@@ -362,7 +382,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     const expectedParameterColumnNames = ['param1', 'param2', 'param3'];
     const expectedTagColumnNames = ['tag1', 'tag2', 'tag3'];
 
-    wrapper = shallow(<ExperimentRunsTableMultiColumnView2 {...commonProps} />);
+    wrapper = shallow(<ExperimentRunsTableMultiColumnView2Impl {...commonProps} />);
     const instance = wrapper.instance();
     instance.setColumnDefs = setColumnDefsSpy;
 

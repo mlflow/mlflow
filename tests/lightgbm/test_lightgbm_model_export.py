@@ -6,7 +6,7 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 from sklearn.pipeline import Pipeline
 import lightgbm as lgb
 

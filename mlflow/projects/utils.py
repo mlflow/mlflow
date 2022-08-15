@@ -9,11 +9,11 @@ from distutils import dir_util
 
 import mlflow.utils
 from mlflow.utils import databricks_utils
+from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow import tracking
-from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.mlflow_tags import (
@@ -30,9 +30,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
 
-_GIT_URI_REGEX = re.compile(
-    r"^((git|ssh|http(s)?)|(git@[\w\.]+))(:(//)?)([\w\.@\:/\-~]+)(\.git)(/)?"
-)
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
@@ -72,22 +69,6 @@ def _get_storage_dir(storage_dir):
     return tempfile.mkdtemp(dir=storage_dir)
 
 
-def _get_git_repo_url(work_dir):
-    from git import Repo
-    from git.exc import GitCommandError, InvalidGitRepositoryError
-
-    try:
-        repo = Repo(work_dir, search_parent_directories=True)
-        remote_urls = [remote.url for remote in repo.remotes]
-        if len(remote_urls) == 0:
-            return None
-    except GitCommandError:
-        return None
-    except InvalidGitRepositoryError:
-        return None
-    return remote_urls[0]
-
-
 def _expand_uri(uri):
     if _is_local_uri(uri):
         return os.path.abspath(uri)
@@ -99,31 +80,33 @@ def _is_file_uri(uri):
     return _FILE_URI_REGEX.match(uri)
 
 
-def _is_git_repo(path):
+def _is_git_repo(path) -> bool:
     """Returns True if passed-in path is a valid git repository"""
     import git
 
     try:
-        git.Repo(path)
-        return True
+        repo = git.Repo(path)
+        if len(repo.branches) > 0:
+            return True
     except git.exc.InvalidGitRepositoryError:
-        return False
+        pass
+    return False
 
 
-def _is_local_uri(uri):
-    """Returns True if passed-in URI should be interpreted as a path on the local filesystem."""
-    if _GIT_URI_REGEX.match(uri):
-        return False
+def _parse_file_uri(uri: str) -> str:
+    """Converts file URIs to filesystem paths"""
+    if _is_file_uri(uri):
+        parsed_file_uri = urllib.parse.urlparse(uri)
+        return str(
+            pathlib.Path(parsed_file_uri.netloc, parsed_file_uri.path, parsed_file_uri.fragment)
+        )
+    return uri
 
-    parsed_uri = urllib.parse.urlparse(uri)
-    drive = pathlib.Path(uri).drive
 
-    if drive != "" and drive.lower()[0] == parsed_uri.scheme:
-        return not _is_git_repo(uri)
-    elif parsed_uri.scheme in ("file", ""):
-        return not _is_git_repo(parsed_uri.path)
-    else:
-        return False
+def _is_local_uri(uri: str) -> bool:
+    """Returns True if passed-in URI should be interpreted as a folder on the local filesystem."""
+    resolved_uri = pathlib.Path(_parse_file_uri(uri)).resolve()
+    return resolved_uri.exists()
 
 
 def _is_zip_uri(uri):
@@ -166,22 +149,23 @@ def _fetch_project(uri, version=None):
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)
-    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else parsed_uri
+    dst_dir = tempfile.mkdtemp() if use_temp_dst_dir else _parse_file_uri(parsed_uri)
+
     if use_temp_dst_dir:
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
-        if _is_file_uri(parsed_uri):
-            parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
-            parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
+        parsed_uri = _parse_file_uri(parsed_uri)
         _unzip_repo(
             zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
             dst_dir=dst_dir,
         )
-    elif _is_local_uri(uri):
-        if version is not None:
-            raise ExecutionException("Setting a version is only supported for Git project URIs")
+    elif _is_local_uri(parsed_uri):
         if use_temp_dst_dir:
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+        if version is not None:
+            if not _is_git_repo(_parse_file_uri(parsed_uri)):
+                raise ExecutionException("Setting a version is only supported for Git project URIs")
+            _fetch_git_repo(parsed_uri, version, dst_dir)
     else:
         _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
@@ -219,7 +203,9 @@ def _fetch_git_repo(uri, version, dst_dir):
     import git
 
     repo = git.Repo.init(dst_dir)
-    origin = repo.create_remote("origin", uri)
+    origin = next((remote for remote in repo.remotes), None)
+    if origin is None:
+        origin = repo.create_remote("origin", uri)
     if version is not None:
         try:
             origin.fetch(refspec=version, depth=GIT_FETCH_DEPTH)
@@ -282,7 +268,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
         source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
-    source_version = _get_git_commit(work_dir)
+    source_version = get_git_commit(work_dir)
     existing_run = fluent.active_run()
     if existing_run:
         parent_run_id = existing_run.info.run_id
@@ -300,7 +286,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
-    repo_url = _get_git_repo_url(work_dir)
+    repo_url = get_git_repo_url(work_dir)
     if repo_url is not None:
         tags[MLFLOW_GIT_REPO_URL] = repo_url
         tags[LEGACY_MLFLOW_GIT_REPO_URL] = repo_url
@@ -376,4 +362,9 @@ def get_databricks_env_vars(tracking_uri):
         env_vars["DATABRICKS_TOKEN"] = config.token
     if config.ignore_tls_verification:
         env_vars["DATABRICKS_INSECURE"] = str(config.ignore_tls_verification)
+
+    workspace_info = databricks_utils.get_databricks_workspace_info_from_uri(tracking_uri)
+    if workspace_info is not None:
+        env_vars.update(workspace_info.to_environment())
+
     return env_vars

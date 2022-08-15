@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Modal } from 'antd';
+import { Modal } from '@databricks/design-system';
 
 export class ConfirmModal extends Component {
   constructor(props) {
@@ -40,6 +40,7 @@ export class ConfirmModal extends Component {
   render() {
     return (
       <Modal
+        data-testid='confirm-modal'
         title={this.props.title}
         visible={this.props.isOpen}
         onOk={this.handleSubmitWrapper}

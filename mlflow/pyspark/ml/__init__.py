@@ -2,12 +2,15 @@ from collections import defaultdict, namedtuple, OrderedDict
 import logging
 import numpy as np
 import time
+import os
 from pkg_resources import resource_filename
+from urllib.parse import urlparse
 import weakref
 
 import mlflow
-from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
+from mlflow.entities import Metric, Param
+from mlflow.exceptions import MlflowException
 from mlflow.utils import (
     _chunk_dict,
     _truncate_dict,
@@ -23,6 +26,11 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
+from mlflow.utils.rest_utils import (
+    augmented_raise_for_status,
+    http_request,
+    MlflowHostCreds,
+)
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
@@ -39,14 +47,36 @@ AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 
 def _read_log_model_allowlist_from_file(allowlist_file):
-    allowlist = set()
-    with open(allowlist_file) as f:
-        for line in f:
+    def _parse_allowlist_file(line_iter):
+        allowlist = set()
+        for line in line_iter:
             stripped = line.strip()
             is_blankline_or_comment = stripped == "" or stripped.startswith("#")
             if not is_blankline_or_comment:
                 allowlist.add(stripped)
-    return allowlist
+        return allowlist
+
+    url_parsed = urlparse(allowlist_file)
+    scheme = url_parsed.scheme
+    path = url_parsed.path
+    if os.name == "nt" and not url_parsed.hostname:
+        path = scheme + "://" + path
+        scheme = ""
+    if scheme in ("file", ""):
+        if not os.path.exists(path):
+            raise MlflowException.invalid_parameter_value(f"{allowlist_file} does not exist")
+
+        with open(allowlist_file) as f:
+            return _parse_allowlist_file(f)
+    else:
+        host_creds = MlflowHostCreds(
+            host=scheme + "://" + (url_parsed.hostname or ""),
+            username=url_parsed.username,
+            password=url_parsed.password,
+        )
+        response = http_request(host_creds=host_creds, endpoint=path, method="GET")
+        augmented_raise_for_status(response)
+        return _parse_allowlist_file(response.iter_lines(decode_unicode=True))
 
 
 def _read_log_model_allowlist():
@@ -690,7 +720,7 @@ class _AutologgingMetricsManager:
         """
         # Note: if the case log the same metric key multiple times,
         #  newer value will overwrite old value
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         client.log_metric(run_id=run_id, key=key, value=value)
         if self._metric_info_artifact_need_update[run_id]:
             evaluator_call_list = []
@@ -706,6 +736,17 @@ class _AutologgingMetricsManager:
 # The global `_AutologgingMetricsManager` instance which holds information used in
 # post-training metric autologging. See doc of class `_AutologgingMetricsManager` for details.
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
+
+
+def _get_columns_with_unsupported_data_type(df):
+    from mlflow.types.schema import DataType
+
+    supported_spark_types = DataType.get_spark_types()
+    unsupported_columns = []
+    for field in df.schema.fields:
+        if field.dataType not in supported_spark_types:
+            unsupported_columns.append(field)
+    return unsupported_columns
 
 
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
@@ -845,6 +886,12 @@ def autolog(
                                  with spark ml pipeline/estimator artifacts during training.
                                  If ``False`` signatures are not logged.
 
+                                 .. warning::
+
+                                    Currently, only scalar Spark data types are supported. If
+                                    model inputs/outputs contain non-scalar Spark data types such
+                                    as ``pyspark.ml.linalg.Vector``, signatures are not logged.
+
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
@@ -969,7 +1016,29 @@ def autolog(
                     model_output = spark_model.transform(input_slice_df).drop(
                         *input_slice_df.columns
                     )
-                    return infer_signature(input_example_slice, model_output.toPandas())
+                    # TODO: Remove this once we support non-scalar spark data types
+                    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Model outputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Output schema is not be logged."
+                        )
+                        model_output = None
+                    else:
+                        model_output = model_output.toPandas()
+
+                    return infer_signature(input_example_slice, model_output)
+
+                # TODO: Remove this once we support non-scalar spark data types
+                nonlocal log_model_signatures
+                if log_model_signatures:
+                    unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Model inputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Model signature is not logged."
+                        )
+                        log_model_signatures = False
 
                 input_example, signature = resolve_input_example_and_signature(
                     _get_input_example_as_pd_df,

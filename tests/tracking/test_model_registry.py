@@ -14,7 +14,7 @@ import tempfile
 
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.tracking import MlflowClient
+from mlflow import MlflowClient
 from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
@@ -344,6 +344,13 @@ def test_set_delete_registered_model_tag_flow(mlflow_client, backend_store_uri):
     assert registered_model_detailed.tags == {"numeric value": "12345"}
 
 
+def test_set_registered_model_tag_with_empty_string_as_value(mlflow_client):
+    name = "SetRMTagEmptyValueTest"
+    mlflow_client.create_registered_model(name)
+    mlflow_client.set_registered_model_tag(name, "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_registered_model(name).tags.items()
+
+
 def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
@@ -375,7 +382,7 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     mv3 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_2")
     assert mv3.version == "3"
     assert [mvd1] == mlflow_client.search_model_versions("source_path = 'path/to/model'")
-    assert [mvd1, mvd2] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
+    assert [mvd2, mvd1] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
 
     assert "path/to/model" == mlflow_client.get_model_version_download_uri(name, "1")
 
@@ -583,3 +590,11 @@ def test_set_delete_model_version_tag_flow(mlflow_client, backend_store_uri):
     mlflow_client.delete_model_version_tag(name, "1", "key")
     model_version_detailed = mlflow_client.get_model_version(name, "1")
     assert model_version_detailed.tags == {"numeric value": "12345"}
+
+
+def test_set_model_version_tag_with_empty_string_as_value(mlflow_client):
+    name = "SetMVTagEmptyValueTest"
+    mlflow_client.create_registered_model(name)
+    mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
+    mlflow_client.set_model_version_tag(name, "1", "tag_key", "")
+    assert {"tag_key": ""}.items() <= mlflow_client.get_model_version(name, "1").tags.items()

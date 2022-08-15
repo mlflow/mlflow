@@ -10,8 +10,7 @@ import {
 } from '../reducers/Reducers';
 import _ from 'lodash';
 import { Empty } from 'antd';
-
-import './ParallelCoordinatesPlotPanel.css';
+import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
@@ -52,16 +51,19 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     const { runUuids, allParamKeys, allMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
-      <div className='parallel-coordinates-plot-panel'>
-        <ParallelCoordinatesPlotControls
-          paramKeys={allParamKeys}
-          metricKeys={allMetricKeys}
-          selectedParamKeys={selectedParamKeys}
-          selectedMetricKeys={selectedMetricKeys}
-          handleMetricsSelectChange={this.handleMetricsSelectChange}
-          handleParamsSelectChange={this.handleParamsSelectChange}
-          onClearAllSelect={this.onClearAllSelect}
-        />
+      <CompareRunPlotContainer
+        controls={
+          <ParallelCoordinatesPlotControls
+            paramKeys={allParamKeys}
+            metricKeys={allMetricKeys}
+            selectedParamKeys={selectedParamKeys}
+            selectedMetricKeys={selectedMetricKeys}
+            handleMetricsSelectChange={this.handleMetricsSelectChange}
+            handleParamsSelectChange={this.handleParamsSelectChange}
+            onClearAllSelect={this.onClearAllSelect}
+          />
+        }
+      >
         {!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys) ? (
           <ParallelCoordinatesPlotView
             runUuids={runUuids}
@@ -71,7 +73,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
         ) : (
           <Empty style={{ width: '100%', height: '100%' }} />
         )}
-      </div>
+      </CompareRunPlotContainer>
     );
   }
 }

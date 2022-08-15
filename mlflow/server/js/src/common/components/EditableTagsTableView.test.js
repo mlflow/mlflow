@@ -2,6 +2,7 @@ import React from 'react';
 import { EditableTagsTableView, EditableTagsTableViewImpl } from './EditableTagsTableView';
 import { mountWithIntl } from '../utils/TestUtils';
 import { BrowserRouter } from 'react-router-dom';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 describe('unit tests', () => {
   let wrapper;
@@ -19,21 +20,22 @@ describe('unit tests', () => {
     isRequestPending: false,
   };
 
-  test('should render with minimal props without exploding', () => {
-    wrapper = mountWithIntl(
-      <BrowserRouter>
-        <EditableTagsTableView {...minimalProps} />
-      </BrowserRouter>,
+  const createComponentInstance = () =>
+    mountWithIntl(
+      <DesignSystemProvider>
+        <BrowserRouter>
+          <EditableTagsTableView {...minimalProps} />
+        </BrowserRouter>
+      </DesignSystemProvider>,
     );
+
+  test('should render with minimal props without exploding', () => {
+    wrapper = createComponentInstance();
     expect(wrapper.length).toBe(1);
   });
 
   test('should validate tag name properly', () => {
-    wrapper = mountWithIntl(
-      <BrowserRouter>
-        <EditableTagsTableView {...minimalProps} />
-      </BrowserRouter>,
-    );
+    wrapper = createComponentInstance();
     instance = wrapper.find(EditableTagsTableViewImpl).instance();
     const validationCallback = jest.fn();
     instance.tagNameValidator(undefined, 'tag1', validationCallback);

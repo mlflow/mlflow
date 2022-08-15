@@ -7,6 +7,7 @@ import pathlib
 import pytest
 
 import mlflow
+from mlflow import MlflowClient
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
@@ -48,17 +49,16 @@ ArtifactsServer = namedtuple(
 def artifacts_server():
     with tempfile.TemporaryDirectory() as tmpdir:
         port = get_safe_port()
-        backend_store_uri = os.path.join(tmpdir, "mlruns")
+        backend_store_uri = f'sqlite:///{os.path.join(tmpdir, "mlruns.db")}'
         artifacts_destination = os.path.join(tmpdir, "mlartifacts")
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
-        uri_prefix = "file:///" if is_windows() else ""
         process = _launch_server(
             LOCALHOST,
             port,
-            uri_prefix + backend_store_uri,
+            backend_store_uri,
             default_artifact_root,
-            uri_prefix + artifacts_destination,
+            ("file:///" + artifacts_destination if is_windows() else artifacts_destination),
         )
         yield ArtifactsServer(
             backend_store_uri, default_artifact_root, artifacts_destination, url, process
@@ -163,7 +163,7 @@ def test_log_artifacts(artifacts_server, tmpdir):
     with mlflow.start_run() as run:
         mlflow.log_artifacts(tmpdir)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert sorted(artifacts) == ["a.txt", "dir"]
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id, "dir")]
@@ -189,7 +189,7 @@ def test_list_artifacts(artifacts_server, tmpdir):
     tmp_path_a.write("0")
     tmp_path_b = tmpdir.join("b.txt")
     tmp_path_b.write("1")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     with mlflow.start_run() as run:
         assert client.list_artifacts(run.info.run_id) == []
         mlflow.log_artifact(tmp_path_a)
@@ -213,7 +213,7 @@ def test_download_artifacts(artifacts_server, tmpdir):
         mlflow.log_artifact(tmp_path_a)
         mlflow.log_artifact(tmp_path_b, "dir")
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     dest_path = client.download_artifacts(run.info.run_id, "")
     assert sorted(os.listdir(dest_path)) == ["a.txt", "dir"]
     assert read_file(os.path.join(dest_path, "a.txt")) == "0"
@@ -300,3 +300,23 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
     )
     get_artifact_response.raise_for_status()
     assert get_artifact_response.text == "abcdefg"
+
+
+def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_server):
+    url = artifacts_server.url
+    artifact_file = pathlib.Path(artifacts_server.artifacts_destination, "a.txt")
+    artifact_file.parent.mkdir(exist_ok=True, parents=True)
+    artifact_file.write_text("abcdefg")
+
+    name = "GetModelVersionTest"
+    mlflow_client = MlflowClient(artifacts_server.backend_store_uri)
+    mlflow_client.create_registered_model(name)
+    # An artifact root with scheme http, https, or mlflow-artifacts is a proxied artifact root
+    mlflow_client.create_model_version(name, "mlflow-artifacts:", 1)
+
+    get_model_version_artifact_response = requests.get(
+        url=f"{url}/model-versions/get-artifact",
+        params={"name": name, "version": "1", "path": "a.txt"},
+    )
+    get_model_version_artifact_response.raise_for_status()
+    assert get_model_version_artifact_response.text == "abcdefg"

@@ -60,8 +60,10 @@ def sagemaker_deployment_client():
     )
 
 
-def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name):
-    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+def create_sagemaker_deployment_through_cli(app_name, model_uri, region_name, env=None):
+    if env is None:
+        env = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
+    result = CliRunner(env=env).invoke(
         cli_commands,
         [
             "create",
@@ -303,15 +305,36 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
-    pretrained_model, sagemaker_client, sagemaker_deployment_client
+    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
-    name = "test-app"
-    sagemaker_deployment_client.create_deployment(
-        name=name,
-        model_uri=pretrained_model.model_uri,
-    )
+    expected_model_environment = {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
+
+    if proxies_enabled:
+        proxy_variables = {
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
+            "no_proxy": "localhost",
+        }
+        expected_model_environment.update(proxy_variables)
+        name = "test-app-proxies"
+        with mock.patch.dict(os.environ, proxy_variables, clear=True):
+            sagemaker_deployment_client.create_deployment(
+                name=name,
+                model_uri=pretrained_model.model_uri,
+            )
+    else:
+        name = "test-app"
+        with mock.patch.dict(os.environ, {}, clear=True):
+            sagemaker_deployment_client.create_deployment(
+                name=name,
+                model_uri=pretrained_model.model_uri,
+            )
 
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
@@ -335,19 +358,49 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
-        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
-        "SERVING_ENVIRONMENT": "SageMaker",
-    }
+
+    assert model_environment == expected_model_environment
 
 
+@pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_local(
-    pretrained_model, sagemaker_client
+    proxies_enabled, pretrained_model, sagemaker_client
 ):
-    app_name = "test-app"
     region_name = sagemaker_client.meta.region_name
-    create_sagemaker_deployment_through_cli(app_name, pretrained_model.model_uri, region_name)
+    environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
+    expected_model_environment = {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
+
+    if proxies_enabled:
+        proxy_variables = {
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
+            "no_proxy": "localhost",
+        }
+        expected_model_environment.update(proxy_variables)
+        app_name = "test-app-proxies"
+        create_sagemaker_deployment_through_cli(
+            app_name,
+            pretrained_model.model_uri,
+            region_name,
+            {**environment_variables, **proxy_variables},
+        )
+    else:
+        proxy_variables = {
+            "http_proxy": None,
+            "https_proxy": None,
+            "no_proxy": None,
+        }
+        app_name = "test-app"
+        create_sagemaker_deployment_through_cli(
+            app_name,
+            pretrained_model.model_uri,
+            region_name,
+            {**environment_variables, **proxy_variables},
+        )
 
     s3_client = boto3.client("s3", region_name=region_name)
     default_bucket = mfs._get_default_s3_bucket(region_name)
@@ -370,15 +423,14 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
-        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
-        "SERVING_ENVIRONMENT": "SageMaker",
-    }
+
+    assert model_environment == expected_model_environment
 
 
+@pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
-    pretrained_model, sagemaker_client, sagemaker_deployment_client
+    proxies_enabled, pretrained_model, sagemaker_client, sagemaker_deployment_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     artifact_path = "model"
@@ -389,12 +441,31 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path
     )
+    expected_model_environment = {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
-    name = "test-app"
-    sagemaker_deployment_client.create_deployment(
-        name=name,
-        model_uri=model_s3_uri,
-    )
+    if proxies_enabled:
+        proxy_variables = {
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "http://user:password@proxy.example.net:1234",
+            "no_proxy": "localhost",
+        }
+        expected_model_environment.update(proxy_variables)
+        name = "test-app-proxies"
+        with mock.patch.dict(os.environ, proxy_variables, clear=True):
+            sagemaker_deployment_client.create_deployment(
+                name=name,
+                model_uri=model_s3_uri,
+            )
+    else:
+        name = "test-app"
+        with mock.patch.dict(os.environ, {}, clear=True):
+            sagemaker_deployment_client.create_deployment(
+                name=name,
+                model_uri=model_s3_uri,
+            )
 
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=name)
     endpoint_production_variants = endpoint_description["ProductionVariants"]
@@ -417,15 +488,14 @@ def test_create_deployment_creates_sagemaker_and_s3_resources_with_expected_name
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
-        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
-        "SERVING_ENVIRONMENT": "SageMaker",
-    }
+
+    assert model_environment == expected_model_environment
 
 
+@pytest.mark.parametrize("proxies_enabled", [True, False])
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_env_from_s3(
-    pretrained_model, sagemaker_client
+    proxies_enabled, pretrained_model, sagemaker_client
 ):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     artifact_path = "model"
@@ -436,9 +506,39 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
         bucket_name=default_bucket, artifact_path=pretrained_model.model_path
     )
+    environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
+    expected_model_environment = {
+        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
+        "SERVING_ENVIRONMENT": "SageMaker",
+    }
 
-    app_name = "test-app"
-    create_sagemaker_deployment_through_cli(app_name, model_s3_uri, region_name)
+    if proxies_enabled:
+        proxy_variables = {
+            "http_proxy": "http://user:password@proxy.example.net:1234",
+            "https_proxy": "https://user:password@proxy.example.net:1234",
+            "no_proxy": "localhost",
+        }
+        expected_model_environment.update(proxy_variables)
+        app_name = "test-app-proxies"
+        create_sagemaker_deployment_through_cli(
+            app_name,
+            model_s3_uri,
+            region_name,
+            {**environment_variables, **proxy_variables},
+        )
+    else:
+        proxy_variables = {
+            "http_proxy": None,
+            "https_proxy": None,
+            "no_proxy": None,
+        }
+        app_name = "test-app"
+        create_sagemaker_deployment_through_cli(
+            app_name,
+            model_s3_uri,
+            region_name,
+            {**environment_variables, **proxy_variables},
+        )
 
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
@@ -462,10 +562,8 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
-        "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
-        "SERVING_ENVIRONMENT": "SageMaker",
-    }
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
@@ -1005,10 +1103,20 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_replace_mode(
     model_environment = sagemaker_client.describe_model(ModelName=model_name)["PrimaryContainer"][
         "Environment"
     ]
-    assert model_environment == {
+    expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
+    if os.getenv("http_proxy") is not None:
+        expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
+
+    if os.getenv("https_proxy") is not None:
+        expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
+
+    if os.getenv("no_proxy") is not None:
+        expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
+
+    assert model_environment == expected_model_environment
 
 
 @mock_sagemaker_aws_services
@@ -1264,7 +1372,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
         result = sagemaker_deployment_client.predict("test", df)
 
         assert isinstance(result, pd.DataFrame)
-        assert result.equals(output_df)
+        pd.testing.assert_frame_equal(result, output_df)
 
 
 @mock_sagemaker_aws_services

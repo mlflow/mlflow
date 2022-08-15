@@ -1,4 +1,4 @@
-import mlflow
+from mlflow import MlflowClient
 from mlflow.models.evaluation import (
     ModelEvaluator,
     EvaluationArtifact,
@@ -32,7 +32,7 @@ class DummyEvaluator(ModelEvaluator):
         """
         Helper method to log metrics into specified run.
         """
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         timestamp = int(time.time() * 1000)
         client.log_batch(
             run_id,
@@ -46,7 +46,7 @@ class DummyEvaluator(ModelEvaluator):
     def evaluate(
         self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
     ) -> EvaluationResult:
-        client = mlflow.tracking.MlflowClient()
+        client = MlflowClient()
         X = dataset.features_data
         y = dataset.labels_data
         y_pred = model.predict(X)

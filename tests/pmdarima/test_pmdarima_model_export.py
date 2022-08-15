@@ -145,7 +145,7 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-    signature = infer_signature(test_data["orders"], forecast) if use_signature else None
+    signature = infer_signature(test_data[["orders"]], forecast) if use_signature else None
     example = test_data[0:10].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
@@ -369,19 +369,13 @@ def test_pmdarima_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path)
 
     with pytest.raises(MlflowException, match="The provided prediction pd.DataFrame "):
-
-        predict_conf_rows = pd.DataFrame([{"n_periods": 60}, {"n_periods": 100}])
-        loaded_pyfunc.predict(predict_conf_rows)
+        loaded_pyfunc.predict(pd.DataFrame([{"n_periods": 60}, {"n_periods": 100}]))
 
     with pytest.raises(MlflowException, match="The provided prediction configuration "):
-
-        predict_conf_name = pd.DataFrame([{"invalid": True}])
-        loaded_pyfunc.predict(predict_conf_name)
+        loaded_pyfunc.predict(pd.DataFrame([{"invalid": True}]))
 
     with pytest.raises(MlflowException, match="The provided `n_periods` value "):
-
-        predict_conf_rows = pd.DataFrame([{"n_periods": "60"}])
-        loaded_pyfunc.predict(predict_conf_rows)
+        loaded_pyfunc.predict(pd.DataFrame([{"n_periods": "60"}]))
 
 
 def test_pmdarima_pyfunc_return_correct_structure(auto_arima_model, model_path):

@@ -9,10 +9,7 @@
 */
 
 import React from 'react';
-import { SyncOutlined } from '@ant-design/icons';
-import { WithDesignSystemThemeHoc } from '@databricks/design-system';
-import { css } from 'emotion';
-import { Button, Tooltip } from 'antd';
+import { Tooltip, Button, WithDesignSystemThemeHoc, SyncIcon } from '@databricks/design-system';
 import PropTypes from 'prop-types';
 import { injectIntl, FormattedMessage } from 'react-intl';
 
@@ -75,10 +72,11 @@ export class LoadMoreBarImpl extends React.PureComponent {
             })}
           >
             <i
-              className={`fas fa-info-circle ${css({
-                marginLeft: designSystemThemeApi.theme.spacing.paddingSm,
+              className='fas fa-info-circle'
+              css={{
+                marginLeft: designSystemThemeApi.theme.spacing.sm,
                 color: designSystemThemeApi.theme.colors.actionPrimaryBackgroundDefault,
-              })}`}
+              }}
             />
           </Tooltip>
         </div>
@@ -94,7 +92,7 @@ export class LoadMoreBarImpl extends React.PureComponent {
       <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
           <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
-            <SyncOutlined spin style={styles.loadingMoreIcon} />
+            <SyncIcon spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
           this.renderButton()

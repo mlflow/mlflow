@@ -60,13 +60,7 @@ describe('ShowArtifactHtmlView', () => {
       expect(wrapper.instance().state.html).toBeDefined();
       expect(wrapper.instance().state.error).toBeUndefined();
       expect(wrapper.find(Iframe).length).toBe(1);
-      expect(
-        wrapper
-          .find(Iframe)
-          .first()
-          .dive()
-          .prop('id'),
-      ).toEqual('html');
+      expect(wrapper.find(Iframe).first().dive().prop('id')).toEqual('html');
       done();
     });
   });

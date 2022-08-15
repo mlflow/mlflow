@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { css } from 'emotion';
 
 /**
  * A component used to arrange sub-components horizontally, with some justified to the
@@ -12,12 +11,12 @@ export class FlexBar extends React.Component {
   static propTypes = {
     left: PropTypes.node,
     right: PropTypes.node,
-  }
+  };
 
   render() {
     const { left, right } = this.props;
     return (
-      <div className={css(styles.flexBox)}>
+      <div css={styles.flexBox}>
         {left}
         {right}
       </div>

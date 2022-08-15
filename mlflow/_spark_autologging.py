@@ -7,8 +7,8 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 import mlflow
+from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import _truncate_and_ellipsize
 from mlflow.utils.autologging_utils import (
@@ -169,7 +169,7 @@ def _get_repl_id():
     return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
-class PythonSubscriber(object, metaclass=ExceptionSafeClass):
+class PythonSubscriber(metaclass=ExceptionSafeClass):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
     information propagated from Java to the current MLflow run, starting a run if necessary.

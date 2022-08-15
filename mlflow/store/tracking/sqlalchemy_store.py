@@ -4,6 +4,7 @@ import random
 import time
 import uuid
 import threading
+from functools import reduce
 
 import math
 import sqlalchemy
@@ -11,7 +12,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy.future import select
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import (
@@ -38,7 +39,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_utils import SearchUtils, SearchExperimentsUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
@@ -50,6 +51,7 @@ from mlflow.utils.validation import (
     _validate_tag,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
+    _validate_param,
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -338,6 +340,71 @@ class SqlAlchemyStore(AbstractStore):
             view_type=view_type, max_results=max_results, page_token=page_token, eager=True
         )
 
+    def _search_experiments(
+        self,
+        view_type,
+        max_results,
+        filter_string,
+        order_by,
+        page_token,
+    ):
+        def compute_next_token(current_size):
+            next_token = None
+            if max_results == current_size:
+                final_offset = offset + max_results
+                next_token = SearchExperimentsUtils.create_page_token(final_offset)
+
+            return next_token
+
+        if not isinstance(max_results, int) or max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                f"Invalid value for max_results. It must be at most {SEARCH_MAX_RESULTS_THRESHOLD},"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+        with self.ManagedSessionMaker() as session:
+            parsed_filters = SearchExperimentsUtils.parse_search_filter(filter_string)
+            attribute_filters, non_attribute_filters = _get_search_experiments_filter_clauses(
+                parsed_filters, self._get_dialect()
+            )
+
+            order_by_clauses = _get_search_experiments_order_by_clauses(order_by)
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+            lifecycle_stags = set(LifecycleStage.view_type_to_stages(view_type))
+
+            stmt = (
+                reduce(lambda s, f: s.join(f), non_attribute_filters, select(SqlExperiment))
+                .options(*self._get_eager_experiment_query_options())
+                .filter(*attribute_filters, SqlExperiment.lifecycle_stage.in_(lifecycle_stags))
+                .order_by(*order_by_clauses)
+                .offset(offset)
+                .limit(max_results)
+            )
+            queried_experiments = session.execute(stmt).scalars(SqlExperiment).all()
+            experiments = [e.to_mlflow_entity() for e in queried_experiments]
+            next_page_token = compute_next_token(len(experiments))
+
+        return experiments, next_page_token
+
+    def search_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        filter_string=None,
+        order_by=None,
+        page_token=None,
+    ):
+        experiments, next_page_token = self._search_experiments(
+            view_type, max_results, filter_string, order_by, page_token
+        )
+        return PagedList(experiments, next_page_token)
+
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """
         :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
@@ -405,12 +472,33 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
+            runs = self._list_run_infos(session, experiment_id)
+            for run in runs:
+                self._mark_run_deleted(session, run)
             self._save_to_db(objs=experiment, session=session)
+
+    def _mark_run_deleted(self, session, run):
+        self._check_run_is_active(run)
+        run.lifecycle_stage = LifecycleStage.DELETED
+        run.deleted_time = int(time.time() * 1000)
+        self._save_to_db(objs=run, session=session)
+
+    def _mark_run_active(self, session, run):
+        run.lifecycle_stage = LifecycleStage.ACTIVE
+        run.deleted_time = None
+        self._save_to_db(objs=run, session=session)
+
+    def _list_run_infos(self, session, experiment_id):
+        runs = session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
+        return runs
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
+            runs = self._list_run_infos(session, experiment_id)
+            for run in runs:
+                self._mark_run_active(session, run)
             self._save_to_db(objs=experiment, session=session)
 
     def rename_experiment(self, experiment_id, new_name):
@@ -427,6 +515,10 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
+            # Note: we need to ensure the generated "run_id" only contains digits and lower
+            # case letters, because some query filters contain "IN" clause, and in MYSQL the
+            # "IN" clause is case-insensitive, we use a trick that filters out comparison values
+            # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
@@ -443,6 +535,7 @@ class SqlAlchemyStore(AbstractStore):
                 status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=start_time,
                 end_time=None,
+                deleted_time=None,
                 source_version="",
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
@@ -554,6 +647,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_deleted(run)
             run.lifecycle_stage = LifecycleStage.ACTIVE
+            run.deleted_time = None
             self._save_to_db(objs=run, session=session)
 
     def delete_run(self, run_id):
@@ -561,6 +655,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
+            run.deleted_time = int(time.time() * 1000)
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -572,14 +667,24 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         with self.ManagedSessionMaker() as session:
-            run_ids = (
-                session.query(SqlRun.run_uuid)
-                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED)
+            runs = (
+                session.query(SqlRun)
+                .filter(
+                    SqlRun.lifecycle_stage == LifecycleStage.DELETED,
+                    SqlRun.deleted_time <= (current_time - older_than),
+                )
                 .all()
             )
-            return [run_id[0] for run_id in run_ids]
+            return [run.run_uuid for run in runs]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
@@ -787,6 +892,7 @@ class SqlAlchemyStore(AbstractStore):
             return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_id, param):
+        _validate_param(param.key, param.value)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1252,3 +1358,54 @@ def _get_orderby_clauses(order_by_list, session):
         clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
     return select_clauses, clauses, ordering_joins
+
+
+def _get_search_experiments_filter_clauses(parsed_filters, dialect):
+    attribute_filters = []
+    non_attribute_filters = []
+    for f in parsed_filters:
+        type_ = f["type"]
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+        if type_ == "attribute":
+            attr = getattr(SqlExperiment, key)
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for attribute: {comparator}"
+                )
+            f = SearchUtils.get_sql_filter_ops(attr, comparator, dialect)(value)
+            attribute_filters.append(f)
+        elif type_ == "tag":
+            if comparator not in ("=", "!=", "LIKE", "ILIKE"):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid comparator for tag: {comparator}"
+                )
+            val_filter = SearchUtils.get_sql_filter_ops(
+                SqlExperimentTag.value, comparator, dialect
+            )(value)
+            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
+            non_attribute_filters.append(
+                select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
+            )
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
+
+    return attribute_filters, non_attribute_filters
+
+
+def _get_search_experiments_order_by_clauses(order_by):
+    order_by_clauses = []
+    for (type_, key, ascending) in map(
+        SearchExperimentsUtils.parse_order_by_for_search_experiments, order_by or []
+    ):
+        if type_ == "attribute":
+            order_by_clauses.append((getattr(SqlExperiment, key), ascending))
+        else:
+            raise MlflowException.invalid_parameter_value(f"Invalid order_by entity: {type_}")
+
+    # Add a tie-breaker
+    if not any(col == SqlExperiment.experiment_id for col, _ in order_by_clauses):
+        order_by_clauses.append((SqlExperiment.experiment_id, False))
+
+    return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]

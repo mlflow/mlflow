@@ -15,7 +15,7 @@ on:
       - branch-[0-9]+.[0-9]+
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -35,6 +35,8 @@ jobs:
         working-directory: mlflow/server/js
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v1
         with:
           node-version: '16'

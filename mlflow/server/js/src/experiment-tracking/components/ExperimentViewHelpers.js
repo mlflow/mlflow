@@ -2,7 +2,9 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { FormattedMessage } from 'react-intl';
 // eslint-disable-next-line no-unused-vars
-import { Descriptions, Button, Popover } from 'antd';
+import { Descriptions } from 'antd';
+import { Button } from '@databricks/design-system';
+
 import './ExperimentView.css';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
@@ -27,13 +29,16 @@ export function ExperimentNoteSection(props) {
             description='Header for displaying notes for the experiment table'
           />
           {!showNotesEditor && (
-            <Button type='link' onClick={startEditingDescription}>
-              <FormattedMessage
-                defaultMessage='Edit'
-                // eslint-disable-next-line max-len
-                description='Text for the edit button next to the description section title on the experiment view page'
-              />
-            </Button>
+            <>
+              {' '}
+              <Button type='link' onClick={startEditingDescription}>
+                <FormattedMessage
+                  defaultMessage='Edit'
+                  // eslint-disable-next-line max-len
+                  description='Text for the edit button next to the description section title on the experiment view page'
+                />
+              </Button>
+            </>
           )}
         </span>
       }

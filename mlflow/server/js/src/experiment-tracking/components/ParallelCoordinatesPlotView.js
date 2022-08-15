@@ -35,9 +35,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const { paramDimensions, metricDimensions, metricKeys } = this.props;
     const lastMetricKey = this.findLastKeyFromState(metricKeys);
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
-    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
-      lastMetricDimension,
-    );
+    const colorScaleConfigs =
+      ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
     // This make sure axis order consistency across renders.
     const orderedDimensions = ParallelCoordinatesPlotView.getDimensionsOrderedBySequence(
       [...paramDimensions, ...metricDimensions],
@@ -117,7 +116,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
       <LazyPlot
         layout={{ autosize: true, margin: { t: 50 } }}
         useResizeHandler
-        style={{ width: '100%', height: '100%' }}
+        css={styles.plot}
         data={this.getData()}
         onUpdate={this.handlePlotUpdate}
         className='pcp-plot'
@@ -212,6 +211,12 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
     label: key,
     ...attributes,
   };
+};
+
+const styles = {
+  plot: {
+    width: '100%',
+  },
 };
 
 const mapStateToProps = (state, ownProps) => {

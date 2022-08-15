@@ -17,12 +17,12 @@ from tensorflow.keras import layers
 import yaml
 
 import mlflow
+from mlflow import MlflowClient
 import mlflow.keras
 import mlflow.tensorflow
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_INTEGRATIONS,
     BatchMetricsLogger,
@@ -184,7 +184,7 @@ def test_tf_keras_autolog_log_models_configuration(
 
     model.fit(data, labels, epochs=10)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_id = client.list_run_infos(experiment_id="0")[0].run_id
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -217,7 +217,7 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, initial_e
         data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
     )
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
@@ -248,7 +248,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_epsilon" in data.params
     assert "opt_amsgrad" in data.params
     assert data.params["opt_amsgrad"] == "False"
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
     num_of_epochs = len(history.history["loss"])
     assert len(all_epoch_acc) == num_of_epochs == 10
@@ -360,6 +360,36 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
+def test_tf_keras_autolog_succeeds_for_tf_datasets_lacking_batch_size_info():
+    X_train = np.random.rand(100, 100)
+    y_train = np.random.randint(0, 10, 100)
+
+    train_ds = tf.data.Dataset.from_tensor_slices((X_train, y_train))
+    train_ds = train_ds.batch(50)
+    train_ds = train_ds.cache().prefetch(buffer_size=5)
+    assert not hasattr(train_ds, "_batch_size")
+
+    model = tf.keras.Sequential()
+    model.add(
+        tf.keras.Input(
+            100,
+        )
+    )
+    model.add(tf.keras.layers.Dense(256, activation="relu"))
+    model.add(tf.keras.layers.Dropout(rate=0.4))
+    model.add(tf.keras.layers.Dense(10, activation="sigmoid"))
+    model.compile(
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+        optimizer="Adam",
+        metrics=["accuracy"],
+    )
+
+    mlflow.tensorflow.autolog()
+    model.fit(train_ds, epochs=100)
+
+    assert mlflow.last_active_run().data.params["batch_size"] == "None"
+
+
 def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
     every_n_iter = 5
     num_training_epochs = 17
@@ -374,7 +404,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
             initial_epoch=0,
         )
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
@@ -397,7 +427,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     with mlflow.start_run() as run:
         model.fit(random_train_data, random_one_hot_labels, epochs=1)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     assert "loss" in run_metrics
@@ -418,7 +448,7 @@ def test_tf_keras_autolog_names_positional_parameters_correctly(
         model.fit(data, labels, 8, epochs=10, steps_per_epoch=1)
         run_id = mlflow.active_run().info.run_id
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_info = client.get_run(run_id)
     assert run_info.data.params.get("batch_size") == "8"
 
@@ -427,7 +457,7 @@ def test_tf_keras_autolog_names_positional_parameters_correctly(
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     run, _ = tf_keras_random_data_run
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
@@ -443,9 +473,10 @@ def get_tf_keras_random_data_run_with_callback(
     restore_weights,
     patience,
     initial_epoch,
+    log_models,
 ):
     # pylint: disable=unused-argument
-    mlflow.tensorflow.autolog(every_n_iter=1)
+    mlflow.tensorflow.autolog(every_n_iter=1, log_models=log_models)
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -472,7 +503,7 @@ def get_tf_keras_random_data_run_with_callback(
         data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch
     )
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
@@ -484,6 +515,7 @@ def tf_keras_random_data_run_with_callback(
     restore_weights,
     patience,
     initial_epoch,
+    log_models,
 ):
     return get_tf_keras_random_data_run_with_callback(
         random_train_data,
@@ -492,9 +524,11 @@ def tf_keras_random_data_run_with_callback(
         restore_weights,
         patience,
         initial_epoch,
+        log_models=log_models,
     )
 
 
+@pytest.mark.parametrize("log_models", [True, False])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -516,7 +550,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     # never observes a loss improvement due to an extremely large `min_delta` value
     assert restored_epoch == initial_epoch
     assert "loss" in history.history
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
     loss = history.history["loss"]
@@ -526,6 +560,9 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert steps == [*history.epoch, callback.stopped_epoch + 1]
     # Check that MLflow has logged the correct metric values
     np.testing.assert_allclose(values, [*loss, callback.best])
+
+    artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
+    assert "tensorboard_logs" in artifacts
 
 
 @pytest.mark.parametrize("restore_weights", [True])
@@ -562,6 +599,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
             restore_weights,
             patience,
             initial_epoch,
+            log_models=False,
         )
     patched_metrics_data = dict(patched_metrics_data)
     original_metrics = run.data.metrics
@@ -573,6 +611,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     assert restored_epoch == initial_epoch
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
@@ -591,13 +630,14 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
@@ -616,13 +656,14 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == callback.patience + 1
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("log_models", [False])
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
@@ -639,7 +680,7 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert "restored_epoch" not in metrics
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
@@ -1052,7 +1093,7 @@ def tf_estimator_random_data_run(tmpdir, export):
     directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
     create_tf_estimator_model(str(directory), export)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
@@ -1068,7 +1109,7 @@ def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
         )
         run_id = mlflow.active_run().info.run_id
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.get_run(run_id)
 
     assert "loss" in run.data.metrics
@@ -1083,7 +1124,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
     mlflow.tensorflow.autolog()
 
     create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     artifacts = client.list_artifacts(tf_estimator_v1_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -1093,7 +1134,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
 
 @pytest.mark.parametrize("export", [True, False])
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     assert any("tensorboard_logs" in a.path and a.is_dir for a in artifacts)
 
@@ -1102,7 +1143,7 @@ def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
     mlflow.tensorflow.autolog(exclusive=True)
 
     create_tf_estimator_model(tmpdir, export=False)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     tf_estimator_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
     assert "loss" in tf_estimator_run.data.metrics
@@ -1122,7 +1163,7 @@ def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         create_tf_estimator_model(str(tmpdir), export=False, training_steps=1)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     metrics = client.get_metric_history(run.info.run_id, "loss")
     assert len(metrics) == 1
     assert metrics[0].step == 1
@@ -1130,7 +1171,7 @@ def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
 
 @pytest.mark.parametrize("export", [True])
 def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
@@ -1148,7 +1189,7 @@ def test_flush_queue_is_thread_safe():
     from mlflow.entities import Metric
     from mlflow.tensorflow import _flush_queue, _metric_queue_lock
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run = client.create_run(experiment_id="0")
     metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
     mlflow.tensorflow._metric_queue.append(metric_queue_item)
@@ -1236,8 +1277,9 @@ def test_autolog_text_vec_model(tmpdir):
     np.testing.assert_array_equal(loaded_model.predict(train_samples), model.predict(train_samples))
 
 
-def test_fit_generator(random_train_data, random_one_hot_labels):
-    mlflow.tensorflow.autolog()
+@pytest.mark.parametrize("log_models", [True, False])
+def test_fit_generator(random_train_data, random_one_hot_labels, log_models):
+    mlflow.tensorflow.autolog(log_models=log_models)
     model = create_tf_keras_model()
 
     def generator():
@@ -1247,15 +1289,18 @@ def test_fit_generator(random_train_data, random_one_hot_labels):
     with mlflow.start_run() as run:
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
 
-    run = mlflow.tracking.MlflowClient().get_run(run.info.run_id)
+    client = MlflowClient()
+    run = client.get_run(run.info.run_id)
     params = run.data.params
     metrics = run.data.metrics
+    artifacts = [f.path for f in client.list_artifacts(run.info.run_id)]
     assert "epochs" in params
     assert params["epochs"] == "10"
     assert "steps_per_epoch" in params
     assert params["steps_per_epoch"] == "1"
     assert "accuracy" in metrics
     assert "loss" in metrics
+    assert "tensorboard_logs" in artifacts
 
 
 def test_tf_keras_model_autolog_registering_model(random_train_data, random_one_hot_labels):
@@ -1284,7 +1329,7 @@ def test_fluent_autolog_with_tf_keras_logs_expected_content(
     with mlflow.start_run() as run:
         model.fit(random_train_data, random_one_hot_labels, epochs=10)
 
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     run_data = client.get_run(run.info.run_id).data
     assert "accuracy" in run_data.metrics
     assert "epochs" in run_data.params
@@ -1316,7 +1361,7 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
     fit_params = {"epochs": 10, "batch_size": 10}
     with mlflow.start_run() as run:
         model.fit(random_train_data, random_one_hot_labels, **fit_params)
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     assert client.get_run(run.info.run_id).data.params.keys() >= fit_params.keys()
 
 
@@ -1383,7 +1428,7 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
 
 def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
     ml_model_filename = "MLmodel"
     assert str(os.path.join("model", ml_model_filename)) in artifacts

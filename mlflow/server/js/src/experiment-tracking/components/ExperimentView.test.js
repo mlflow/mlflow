@@ -107,6 +107,7 @@ const getDefaultExperimentViewProps = () => {
     location: { pathname: '/' },
     modelVersionsByRunUuid: {},
     compareExperiments: false,
+    numberOfNewRuns: 0,
   };
 };
 
@@ -373,10 +374,9 @@ describe('Sort by dropdown', () => {
     );
     expect(wrapper.exists(`[data-test-id="sort-select-acc-${COLUMN_SORT_BY_DESC}"]`)).toBe(true);
 
-    wrapper
-      .find("Select [data-test-id='sort-select-dropdown']")
-      .first()
-      .prop('onChange')('attributes.start_time');
+    wrapper.find("Select[data-test-id='sort-select-dropdown']").first().prop('onChange')(
+      'attributes.start_time',
+    );
 
     expect(onSearchSpy).toBeCalledWith({
       orderByAsc: false,
@@ -405,10 +405,9 @@ describe('Start time dropdown', () => {
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_30_DAYS"]')).toBe(true);
     expect(wrapper.exists('[data-test-id="start-time-select-LAST_YEAR"]')).toBe(true);
 
-    wrapper
-      .find("Select [data-test-id='start-time-select-dropdown']")
-      .first()
-      .prop('onChange')('LAST_7_DAYS');
+    wrapper.find("Select[data-test-id='start-time-select-dropdown']").first().prop('onChange')(
+      'LAST_7_DAYS',
+    );
 
     expect(onSearchSpy).toBeCalledWith({
       startTime: 'LAST_7_DAYS',

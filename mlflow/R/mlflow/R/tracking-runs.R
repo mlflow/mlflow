@@ -5,9 +5,9 @@ NULL
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)
-  } else if (value == Inf) {
+  } else if (is.infinite(value) & value > 0) {
     "Infinity"
-  } else if (value == -Inf) {
+  } else if (is.infinite(value) & value < 0) {
     "-Infinity"
   } else {
     as.character(value)
@@ -258,13 +258,14 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   key <- cast_string(key)
-  value <- cast_string(value)
+  value <- cast_string(value, allow_na = TRUE)
+  value <- ifelse(is.na(value), "NA", value)
 
   data <- list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
-    value = cast_string(value)
+    value = value
   )
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = data)
   mlflow_register_tracking_event("log_param", data)
@@ -427,7 +428,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
-  gsub("\n", "", result$stdout)
+  trimws(result$stdout)
 }
 
 #' List Run Infos

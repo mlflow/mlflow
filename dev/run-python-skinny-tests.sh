@@ -18,7 +18,7 @@ pytest tests/test_skinny_client_omits_sql_libs.py
 # After verifying skinny client does not include store specific requirements,
 # we are installing sqlalchemy store requirements as our example store for the test suite.
 # SQL Alchemy serves as a simple, fully featured option to test skinny client store scenarios.
-python -m pip install sqlalchemy alembic sqlparse
+python -m pip install sqlalchemy alembic
 
 # Given the example store does not delete dependencies, we verify non store related dependencies
 # after the example store setup. This verifies both the example store and skinny client do not add
@@ -36,5 +36,8 @@ pytest \
   tests/utils/test_requirements_utils.py::test_infer_requirements_excludes_mlflow \
   tests/utils/test_search_utils.py \
   tests/store/tracking/test_file_store.py
+
+python -m pip install pandas
+pytest tests/test_skinny_client_autolog_without_scipy.py
 
 test $err = 0

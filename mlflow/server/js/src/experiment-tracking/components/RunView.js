@@ -14,7 +14,8 @@ import Utils from '../../common/utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
-import { Button, Descriptions, message } from 'antd';
+import { Descriptions, message } from 'antd';
+import { Button } from '@databricks/design-system';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { setTagApi, deleteTagApi } from '../actions';
@@ -201,15 +202,8 @@ export class RunViewImpl extends Component {
   }
 
   render() {
-    const {
-      runUuid,
-      run,
-      params,
-      tags,
-      latestMetrics,
-      getMetricPagePath,
-      modelVersions,
-    } = this.props;
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath, modelVersions } =
+      this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
@@ -260,16 +254,14 @@ export class RunViewImpl extends Component {
 
         {/* Metadata List */}
         <Descriptions className='metadata-list'>
-          {
-            <Descriptions.Item
-              label={this.props.intl.formatMessage({
-                defaultMessage: 'Run ID',
-                description: 'Label for displaying the ID of the experiment run',
-              })}
-            >
-              {runUuid}
-            </Descriptions.Item>
-          }
+          <Descriptions.Item
+            label={this.props.intl.formatMessage({
+              defaultMessage: 'Run ID',
+              description: 'Label for displaying the ID of the experiment run',
+            })}
+          >
+            {runUuid}
+          </Descriptions.Item>
           <Descriptions.Item
             label={this.props.intl.formatMessage({
               defaultMessage: 'Date',
@@ -615,7 +607,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath, plotTitle) => {
         name: (
           <Link to={getMetricPagePath(key)} title={plotTitle}>
             {key}
-            <i className='fas fa-chart-line' style={{ paddingLeft: '6px' }} />
+            <i className='fas fa-line-chart' style={{ paddingLeft: '6px' }} />
           </Link>
         ),
         value: <span title={value}>{Utils.formatMetric(value)}</span>,

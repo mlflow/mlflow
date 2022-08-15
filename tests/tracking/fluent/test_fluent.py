@@ -12,6 +12,7 @@ import pytest
 from unittest import mock
 
 import mlflow
+from mlflow import MlflowClient
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow.entities import (
@@ -30,7 +31,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.dbmodels.models import SqlExperiment
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (
     _EXPERIMENT_ID_ENV_VAR,
     _EXPERIMENT_NAME_ENV_VAR,
@@ -326,7 +326,7 @@ def test_list_experiments(view_type, tmpdir):
 
     if view_type == ViewType.DELETED_ONLY:
         # Delete the default experiment
-        mlflow.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
+        MlflowClient(sqlite_uri).delete_experiment("0")
 
     # This is a bit hacky but much faster than creating experiments one by one with
     # `mlflow.create_experiment`
@@ -342,8 +342,8 @@ def test_list_experiments(view_type, tmpdir):
         ]
         session.add_all(experiments)
 
+    url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
     try:
-        url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
         mlflow.set_tracking_uri(url)
         # `max_results` is unspecified
         assert len(mlflow.list_experiments(view_type)) == num_experiments
@@ -355,6 +355,71 @@ def test_list_experiments(view_type, tmpdir):
         assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
     finally:
         process.terminate()
+
+
+def test_search_experiments(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+
+    num_all_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1  # +1 for the default experiment
+    num_active_experiments = SEARCH_MAX_RESULTS_DEFAULT // 2
+    num_deleted_experiments = SEARCH_MAX_RESULTS_DEFAULT - num_active_experiments
+
+    active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
+    tag_values = ["x", "x", "y"]
+    for (idx, active_experiment_name) in enumerate(active_experiment_names):
+        if idx < 3:
+            tags = {"tag": tag_values[idx]}
+        else:
+            tags = None
+        mlflow.create_experiment(active_experiment_name, tags=tags)
+
+    deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
+    for deleted_experiment_name in deleted_experiment_names:
+        exp_id = mlflow.create_experiment(deleted_experiment_name)
+        mlflow.delete_experiment(exp_id)
+
+    # max_results is unspecified
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+    assert len(experiments) == num_all_experiments
+    # max_results is larger than the number of experiments in the database
+    experiments = mlflow.search_experiments(
+        view_type=ViewType.ALL, max_results=num_all_experiments + 1
+    )
+    assert len(experiments) == num_all_experiments
+    # max_results is equal to the number of experiments in the database
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL, max_results=num_all_experiments)
+    assert len(experiments) == num_all_experiments
+    # max_results is smaller than the number of experiments in the database
+    experiments = mlflow.search_experiments(
+        view_type=ViewType.ALL, max_results=num_all_experiments - 1
+    )
+    assert len(experiments) == num_all_experiments - 1
+
+    # Filter by view_type
+    experiments = mlflow.search_experiments(view_type=ViewType.ACTIVE_ONLY)
+    assert [e.name for e in experiments] == active_experiment_names[::-1] + ["Default"]
+    experiments = mlflow.search_experiments(view_type=ViewType.DELETED_ONLY)
+    assert [e.name for e in experiments] == deleted_experiment_names[::-1]
+    experiments = mlflow.search_experiments(view_type=ViewType.ALL)
+    assert [e.name for e in experiments] == (
+        deleted_experiment_names[::-1] + active_experiment_names[::-1] + ["Default"]
+    )
+    # Filter by name
+    experiments = mlflow.search_experiments(filter_string="name = 'active_1'")
+    assert [e.name for e in experiments] == ["active_1"]
+    experiments = mlflow.search_experiments(filter_string="name ILIKE 'active_%'")
+    assert [e.name for e in experiments] == active_experiment_names[::-1]
+
+    # Filter by tags
+    experiments = mlflow.search_experiments(filter_string="tags.tag = 'x'")
+    assert [e.name for e in experiments] == active_experiment_names[:2][::-1]
+    experiments = mlflow.search_experiments(filter_string="tags.tag = 'y'")
+    assert [e.experiment_id for e in experiments] == ["3"]
+
+    # Order by name
+    experiments = mlflow.search_experiments(order_by=["name DESC"], max_results=3)
+    assert [e.name for e in experiments] == sorted(active_experiment_names, reverse=True)[:3]
 
 
 @pytest.fixture
@@ -645,10 +710,10 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
 
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        set_experiment("test-run")
         with pytest.raises(
             MlflowException, match="active run ID does not match environment run ID"
         ):
-            set_experiment("test-run")
             start_run()
 
 
@@ -1050,3 +1115,35 @@ def test_last_active_run_returns_most_recently_ended_active_run():
     assert last_active_run.info.run_id == run_id
     assert last_active_run.data.metrics == {"a": 1.0}
     assert last_active_run.data.params == {"b": "2"}
+
+
+def test_set_experiment_tag():
+    test_tags = {"new_test_tag_1": "abc", "new_test_tag_2": 5, "new/nested/tag": "cbd"}
+    tag_counter = 0
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(current_experiment.tags) == 0
+        for tag_key, tag_value in test_tags.items():
+            mlflow.set_experiment_tag(tag_key, tag_value)
+            tag_counter += 1
+            current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+            assert tag_counter == len(current_experiment.tags)
+        finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(finished_experiment.tags) == len(test_tags)
+        for tag_key, tag_value in test_tags.items():
+            assert str(test_tags[tag_key] == tag_value)
+
+
+def test_set_experiment_tags():
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(current_experiment.tags) == 0
+        mlflow.set_experiment_tags(exact_expected_tags)
+    finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+    # Validate tags
+    assert len(finished_experiment.tags) == len(exact_expected_tags)
+    for tag_key, tag_value in finished_experiment.tags.items():
+        assert str(exact_expected_tags[tag_key]) == tag_value

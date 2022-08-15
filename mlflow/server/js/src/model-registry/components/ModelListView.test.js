@@ -27,12 +27,13 @@ describe('ModelListView', () => {
     onSearchSpy = jest.fn();
     minimalProps = {
       models: [],
-      nameSearchInput: '',
-      tagSearchInput: '',
+      searchInput: '',
       orderByKey: 'name',
       orderByAsc: true,
       currentPage: 1,
       nextPageToken: null, // no next page
+      selectedStatusFilter: '',
+      selectedOwnerFilter: '',
       onSearch: onSearchSpy,
       onClear: jest.fn(),
       onClickNext: jest.fn(),
@@ -40,6 +41,9 @@ describe('ModelListView', () => {
       onClickSortableColumn: jest.fn(),
       onSetMaxResult: jest.fn(),
       getMaxResultValue: jest.fn().mockReturnValue(10),
+      onSearchInputChange: jest.fn(),
+      onStatusFilterChange: jest.fn(),
+      onOwnerFilterChange: jest.fn(),
     };
     minimalStore = mockStore({});
   });
@@ -87,7 +91,7 @@ describe('ModelListView', () => {
     wrapper.setProps({
       children: (
         <BrowserRouter>
-          <ModelListView {...{ ...minimalProps, nameSearchInput: 'xyz' }} />
+          <ModelListView {...{ ...minimalProps, searchInput: 'xyz' }} />
         </BrowserRouter>
       ),
     });
@@ -182,38 +186,6 @@ describe('ModelListView', () => {
     expect(wrapper.find('td.table-tag-container').text()).toBe('_');
   });
 
-  test('the name search input is called with nameSearchInput value', () => {
-    wrapper = setupModelListViewWithIntl();
-    wrapper.find(ModelListViewImpl).setState({
-      nameSearchInput: 'xyz',
-    });
-    instance = wrapper.find(ModelListViewImpl).instance();
-    instance.handleSearch({ preventDefault: () => {} });
-    expect(onSearchSpy).toHaveBeenCalledTimes(1);
-    expect(onSearchSpy).toBeCalledWith(
-      'xyz',
-      '',
-      instance.setLoadingFalse,
-      instance.setLoadingFalse,
-    );
-  });
-
-  test('the tag search input is called with tagSearchInput value', () => {
-    wrapper = setupModelListViewWithIntl();
-    wrapper.find(ModelListViewImpl).setState({
-      tagSearchInput: 'tags.key1="value1"',
-    });
-    instance = wrapper.find(ModelListViewImpl).instance();
-    instance.handleSearch({ preventDefault: () => {} });
-    expect(onSearchSpy).toHaveBeenCalledTimes(1);
-    expect(onSearchSpy).toBeCalledWith(
-      '',
-      'tags.key1="value1"',
-      instance.setLoadingFalse,
-      instance.setLoadingFalse,
-    );
-  });
-
   const findColumn = (table, index) =>
     table.props().columns.find((elem) => elem.dataIndex === index);
 
@@ -237,24 +209,9 @@ describe('ModelListView', () => {
     expect(findColumn(table, 'last_updated_timestamp').sortOrder).toBe(undefined);
     // the table doesn't actually sort, though, and displays exactly what's given.
     expect(wrapper.find('td.model-name').length).toBe(3);
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(0)
-        .text(),
-    ).toBe('Model B');
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(1)
-        .text(),
-    ).toBe('model c');
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(2)
-        .text(),
-    ).toBe('Model a');
+    expect(wrapper.find('td.model-name').at(0).text()).toBe('Model B');
+    expect(wrapper.find('td.model-name').at(1).text()).toBe('model c');
+    expect(wrapper.find('td.model-name').at(2).text()).toBe('Model a');
 
     props = {
       ...minimalProps,
@@ -269,24 +226,9 @@ describe('ModelListView', () => {
     expect(findColumn(table, 'last_updated_timestamp').sortOrder).toBe('descend');
     // the table doesn't actually sort, though, and displays exactly what's given.
     expect(wrapper.find('td.model-name').length).toBe(3);
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(0)
-        .text(),
-    ).toBe('Model B');
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(1)
-        .text(),
-    ).toBe('model c');
-    expect(
-      wrapper
-        .find('td.model-name')
-        .at(2)
-        .text(),
-    ).toBe('Model a');
+    expect(wrapper.find('td.model-name').at(0).text()).toBe('Model B');
+    expect(wrapper.find('td.model-name').at(1).text()).toBe('model c');
+    expect(wrapper.find('td.model-name').at(2).text()).toBe('Model a');
   });
 
   test('lastNavigationActionWasClickPrev is set properly on actions', () => {
@@ -312,31 +254,5 @@ describe('ModelListView', () => {
     expect(mockUpdatePageTitle.mock.calls[0][0]).toBe('MLflow Models');
   });
 
-  test('clear button clears inputs', () => {
-    wrapper = setupModelListViewWithIntl();
-    wrapper.find(ModelListViewImpl).setState({ nameSearchInput: 'xyz' });
-    wrapper.find(ModelListViewImpl).setState({ tagSearchInput: 'tags.k="v"' });
-
-    instance = wrapper.find(ModelListViewImpl).instance();
-    instance.handleClear();
-
-    expect(instance.state.lastNavigationActionWasClickPrev).toBe(false);
-
-    expect(instance.state.nameSearchInput).toBe('');
-    expect(instance.state.tagSearchInput).toBe('');
-  });
-
-  test('search inputs are properly passed to handleSearch', () => {
-    wrapper = setupModelListViewWithIntl();
-    wrapper.find(ModelListViewImpl).setState({ nameSearchInput: 'xyz' });
-    wrapper.find(ModelListViewImpl).setState({ tagSearchInput: 'tags.k="v"' });
-
-    const event = { preventDefault: () => {} };
-    instance = wrapper.find(ModelListViewImpl).instance();
-    instance.handleSearch(event);
-
-    expect(onSearchSpy.mock.calls.length).toBe(1);
-    expect(onSearchSpy.mock.calls[0][0]).toBe('xyz');
-    expect(onSearchSpy.mock.calls[0][1]).toBe('tags.k="v"');
-  });
+  // eslint-disable-next-line
 });

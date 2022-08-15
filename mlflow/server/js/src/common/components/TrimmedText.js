@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { css } from 'emotion';
 import PropTypes from 'prop-types';
-import { Button } from '../../shared/building_blocks/Button';
+import { Button } from '@databricks/design-system';
 
 export const TrimmedText = ({ text, maxSize, className, allowShowMore = false }) => {
   if (text.length <= maxSize) {
@@ -19,7 +18,7 @@ export const TrimmedText = ({ text, maxSize, className, allowShowMore = false })
           type='link'
           onClick={() => setShowMore(!showMore)}
           size='small'
-          className={styles.expandButton}
+          css={styles.expandButton}
           data-test-id='trimmed-text-button'
         >
           {showMore ? 'collapse' : 'expand'}
@@ -30,9 +29,9 @@ export const TrimmedText = ({ text, maxSize, className, allowShowMore = false })
 };
 
 const styles = {
-  expandButton: css({
+  expandButton: {
     display: 'inline-block',
-  }),
+  },
 };
 
 TrimmedText.propTypes = {

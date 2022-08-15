@@ -5,15 +5,13 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { RunInfo, Experiment } from '../sdk/MlflowMessages';
 import { Link } from 'react-router-dom';
+import { WithDesignSystemThemeHoc } from '@databricks/design-system';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
 
-import { AgGridReact } from '@ag-grid-community/react/main';
-import { Grid } from '@ag-grid-community/core';
-import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-model';
 import { RunsTableCustomHeader } from '../../common/components/ag-grid/RunsTableCustomHeader';
-import '@ag-grid-community/core/dist/styles/ag-grid.css';
-import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
+import { MLFlowAgGridLoader } from '../../common/components/ag-grid/AgGridLoader';
+
 import registeredModelSvg from '../../common/static/registered-model.svg';
 import loggedModelSvg from '../../common/static/logged-model.svg';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -25,7 +23,6 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { TrimmedText } from '../../common/components/TrimmedText';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { css } from 'emotion';
 import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS, ATTRIBUTE_COLUMN_SORT_KEY } from '../constants';
 
 const PARAM_PREFIX = '$$$param$$$';
@@ -36,7 +33,7 @@ const MAX_METRICS_COLS = 3;
 const MAX_TAG_COLS = 3;
 const EMPTY_CELL_PLACEHOLDER = '-';
 
-export class ExperimentRunsTableMultiColumnView2 extends React.Component {
+export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
   static propTypes = {
     experiments: PropTypes.arrayOf(PropTypes.instanceOf(Experiment)),
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
@@ -65,6 +62,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     categorizedUncheckedKeys: PropTypes.object.isRequired,
     nestChildren: PropTypes.bool,
     compareExperiments: PropTypes.bool,
+    designSystemThemeApi: PropTypes.shape({ theme: PropTypes.object }).isRequired,
   };
 
   static defaultProps = {
@@ -159,9 +157,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       orderByAsc,
       onSortBy,
       onExpand,
+      designSystemThemeApi,
     } = this.props;
     const commonSortOrderProps = { orderByKey, orderByAsc, onSortBy };
-    const getStyle = (key) => (key === this.props.orderByKey ? { backgroundColor: '#e6f7ff' } : {});
+    const { theme } = designSystemThemeApi;
+    const getStyle = (key) =>
+      key === this.props.orderByKey ? { backgroundColor: theme.colors.blue100 } : {};
     const headerStyle = (key) => getStyle(key);
     const cellStyle = (params) => getStyle(params.colDef.headerComponentParams.canonicalSortKey);
 
@@ -345,7 +346,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       visibleTagKeyList,
       nestChildren,
     } = this.props;
-    const { getNameValueMapFromList } = ExperimentRunsTableMultiColumnView2;
+    const { getNameValueMapFromList } = ExperimentRunsTableMultiColumnView2Impl;
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
@@ -357,68 +358,71 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     const referenceTime = new Date();
     // Round reference time down to the nearest second, to avoid unnecessary re-renders
     referenceTime.setMilliseconds(0);
-    const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
-      const tags = tagsList[idx];
-      const params = paramsList[idx];
-      const metrics = metricsList[idx].map(({ key, value }) => ({
-        key,
-        value: Utils.formatMetric(value),
-      }));
-      const runInfo = runInfos[idx];
+    const runs = mergedRows.map(
+      ({ idx, isParent, hasExpander, expanderOpen, childrenIds, level }) => {
+        const tags = tagsList[idx];
+        const params = paramsList[idx];
+        const metrics = metricsList[idx].map(({ key, value }) => ({
+          key,
+          value: Utils.formatMetric(value),
+        }));
+        const runInfo = runInfos[idx];
 
-      const runUuid = runInfo.getRunUuid();
-      const { experiment_id: experimentId } = runInfo;
-      const experimentName = experimentNameMap[experimentId];
-      const user = Utils.getUser(runInfo, tags);
-      const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
-      const runName = Utils.getRunName(tags) || '-';
-      const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
-        key,
-        value,
-      }));
+        const runUuid = runInfo.getRunUuid();
+        const { experiment_id: experimentId } = runInfo;
+        const experimentName = experimentNameMap[experimentId];
+        const user = Utils.getUser(runInfo, tags);
+        const duration = Utils.getDuration(runInfo.start_time, runInfo.end_time);
+        const runName = Utils.getRunName(tags) || '-';
+        const visibleTags = Utils.getVisibleTagValues(tags).map(([key, value]) => ({
+          key,
+          value,
+        }));
 
-      const runDateInfo = {
-        startTime: runInfo.start_time,
-        referenceTime,
-        experimentId,
-        runUuid,
-        runStatus: runInfo.status,
-        isParent,
-        hasExpander,
-        expanderOpen,
-        childrenIds,
-      };
+        const runDateInfo = {
+          startTime: runInfo.start_time,
+          referenceTime,
+          experimentId,
+          runUuid,
+          runStatus: runInfo.status,
+          isParent,
+          hasExpander,
+          expanderOpen,
+          childrenIds,
+          level,
+        };
 
-      const models = {
-        registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
-        loggedModels: Utils.getLoggedModelsFromTags(tags),
-        experimentId: runInfo.experiment_id,
-        runUuid: runInfo.run_uuid,
-      };
+        const models = {
+          registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
+          loggedModels: Utils.getLoggedModelsFromTags(tags),
+          experimentId: runInfo.experiment_id,
+          runUuid: runInfo.run_uuid,
+        };
 
-      const version = {
-        version: Utils.getSourceVersion(tags),
-        name: Utils.getSourceName(tags),
-        type: Utils.getSourceType(tags),
-      };
+        const version = {
+          version: Utils.getSourceVersion(tags),
+          name: Utils.getSourceName(tags),
+          type: Utils.getSourceType(tags),
+        };
 
-      return {
-        runUuid,
-        runDateInfo,
-        runInfo,
-        experimentName,
-        experimentId,
-        duration,
-        user,
-        runName,
-        tags,
-        models,
-        version,
-        ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
-        ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
-        ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
-      };
-    });
+        return {
+          runUuid,
+          runDateInfo,
+          runInfo,
+          experimentName,
+          experimentId,
+          duration,
+          user,
+          runName,
+          tags,
+          models,
+          version,
+          ...getNameValueMapFromList(params, paramKeyList, PARAM_PREFIX),
+          ...getNameValueMapFromList(metrics, metricKeyList, METRIC_PREFIX),
+          ...getNameValueMapFromList(visibleTags, visibleTagKeyList, TAG_PREFIX),
+        };
+      },
+    );
 
     return runs;
   }
@@ -544,11 +548,15 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       nextPageToken,
       numRunsFromLatestSearch,
       nestChildren,
+      designSystemThemeApi,
     } = this.props;
-    const { defaultColDef, frameworkComponents } = ExperimentRunsTableMultiColumnView2;
-    const agGridOverrides = css({
+    const { theme } = designSystemThemeApi;
+    const { defaultColDef, frameworkComponents } = ExperimentRunsTableMultiColumnView2Impl;
+    const agGridOverrides = {
       '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
       '--ag-header-foreground-color': '#20272e',
+      '--ag-header-background-color': `${theme.colors.grey100}`,
+      '--ag-row-hover-color': `${theme.colors.grey200}`,
       '&.ag-grid-sticky .ag-header': {
         position: 'sticky',
         top: 0,
@@ -562,19 +570,19 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         borderRadius: '4px',
         overflow: 'visible',
       },
-    });
+    };
 
     return (
       <div
-        className={`ag-theme-balham multi-column-view ag-grid-sticky ${agGridOverrides}`}
+        className='ag-theme-balham multi-column-view ag-grid-sticky'
+        css={agGridOverrides}
         data-test-id='detailed-runs-table-view'
       >
-        <AgGridReact
+        <MLFlowAgGridLoader
           defaultColDef={defaultColDef}
           columnDefs={this.state.columnDefs}
           rowData={this.getRowData()}
           domLayout='autoHeight'
-          modules={[Grid, ClientSideRowModelModule]}
           rowSelection='multiple'
           onGridReady={this.handleGridReady}
           onSelectionChanged={this.handleSelectionChange}
@@ -591,23 +599,29 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           getRowId={getRowId}
         />
         <div style={{ textAlign: 'center' }}>
-          {// don't show LoadMoreBar if there are no runs at all
-          runInfos.length ? (
-            <LoadMoreBar
-              loadingMore={loadingMore}
-              onLoadMore={handleLoadMoreRuns}
-              disableButton={ExperimentViewUtil.disableLoadMoreButton({
-                numRunsFromLatestSearch,
-                nextPageToken,
-              })}
-              nestChildren={nestChildren}
-            />
-          ) : null}
+          {
+            // don't show LoadMoreBar if there are no runs at all
+            runInfos.length ? (
+              <LoadMoreBar
+                loadingMore={loadingMore}
+                onLoadMore={handleLoadMoreRuns}
+                disableButton={ExperimentViewUtil.disableLoadMoreButton({
+                  numRunsFromLatestSearch,
+                  nextPageToken,
+                })}
+                nestChildren={nestChildren}
+              />
+            ) : null
+          }
         </div>
       </div>
     );
   }
 }
+
+export const ExperimentRunsTableMultiColumnView2 = WithDesignSystemThemeHoc(
+  ExperimentRunsTableMultiColumnView2Impl,
+);
 
 function getRowId(params) {
   return params.data.runUuid;
@@ -624,6 +638,7 @@ function DateCellRenderer(props) {
     hasExpander,
     expanderOpen,
     childrenIds,
+    level,
   } = props.value;
   const { onExpand } = props;
   return (
@@ -636,16 +651,17 @@ function DateCellRenderer(props) {
           key={'Expander-' + runUuid}
           style={{ paddingRight: 8, display: 'inline' }}
         >
+          <span style={{ paddingLeft: 18 * level }} />
           <i
             className={`ExperimentView-expander far fa-${expanderOpen ? 'minus' : 'plus'}-square`}
           />
         </div>
       ) : (
-        <span style={{ paddingLeft: 18 }} />
+        <span style={{ paddingLeft: level === 0 ? 12 : 18 * level + 12 }} />
       )}
       <Link
         to={Routes.getRunPageRoute(experimentId, runUuid)}
-        style={{ paddingLeft: isParent ? 0 : 16 }}
+        style={{ paddingLeft: isParent ? 0 : 8 }}
         title={Utils.formatTimestamp(startTime)}
       >
         {ExperimentViewUtil.getRunStatusIcon(runStatus)}{' '}
@@ -676,8 +692,20 @@ function SourceCellRenderer(props) {
 SourceCellRenderer.propTypes = { value: PropTypes.object };
 
 function VersionCellRenderer(props) {
-  const { version, name, type } = props.value;
-  return Utils.renderSourceVersion(version, name, type) || EMPTY_CELL_PLACEHOLDER;
+  // prettier-ignore
+  const {
+    version,
+    name,
+    type,
+  } = props.value;
+  return (
+    // prettier-ignore
+    Utils.renderSourceVersion(
+      version,
+      name,
+      type,
+    ) || EMPTY_CELL_PLACEHOLDER
+  );
 }
 
 VersionCellRenderer.propTypes = { value: PropTypes.object };
@@ -704,15 +732,7 @@ ExperimentNameRenderer.propTypes = {
 export function ModelsCellRenderer(props) {
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels);
-  const imageStyle = {
-    wrapper: css({
-      img: {
-        height: '15px',
-        position: 'relative',
-        marginRight: '4px',
-      },
-    }),
-  };
+
   if (models && models.length) {
     const modelToRender = models[0];
     let modelDiv;
@@ -760,7 +780,7 @@ export function ModelsCellRenderer(props) {
     }
 
     return (
-      <div className={`logged-model-cell ${imageStyle.wrapper}`}>
+      <div className='logged-model-cell' css={styles.imageWrapper}>
         {modelDiv}
         {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
       </div>
@@ -768,5 +788,15 @@ export function ModelsCellRenderer(props) {
   }
   return EMPTY_CELL_PLACEHOLDER;
 }
+
+const styles = {
+  imageWrapper: {
+    img: {
+      height: '15px',
+      position: 'relative',
+      marginRight: '4px',
+    },
+  },
+};
 
 ModelsCellRenderer.propTypes = { value: PropTypes.object };

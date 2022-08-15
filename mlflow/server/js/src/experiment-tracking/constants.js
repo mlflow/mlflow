@@ -68,3 +68,7 @@ export const PAGINATION_DEFAULT_STATE = {
 
 export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
 export const POLL_INTERVAL = 15000;
+
+export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
+export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER =
+  'mlflow.experiment.primaryMetric.greaterIsBetter';

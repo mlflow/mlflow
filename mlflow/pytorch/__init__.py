@@ -239,7 +239,7 @@ def log_model(
 
         class LinearNNModel(torch.nn.Module):
             def __init__(self):
-                super(LinearNNModel, self).__init__()
+                super().__init__()
                 self.linear = torch.nn.Linear(1, 1)  # One in and one out
 
             def forward(self, x):
@@ -948,7 +948,7 @@ def autolog(
             from pytorch_lightning.metrics.functional import accuracy
 
         import mlflow.pytorch
-        from mlflow.tracking import MlflowClient
+        from mlflow import MlflowClient
 
         # For brevity, here is the simplest most minimal example with just a training
         # loop step, (no validation, no testing). It illustrates how you can use MLflow
@@ -956,7 +956,7 @@ def autolog(
 
         class MNISTModel(pl.LightningModule):
             def __init__(self):
-                super(MNISTModel, self).__init__()
+                super().__init__()
                 self.l1 = torch.nn.Linear(28 * 28, 10)
 
             def forward(self, x):
@@ -964,8 +964,10 @@ def autolog(
 
             def training_step(self, batch, batch_nb):
                 x, y = batch
-                loss = F.cross_entropy(self(x), y)
-                acc = accuracy(loss, y)
+                logits = self(x)
+                loss = F.cross_entropy(logits, y)
+                pred = logits.argmax(dim=1)
+                acc = accuracy(pred, y)
 
                 # Use the current of PyTorch logger
                 self.log("train_loss", loss, on_epoch=True)

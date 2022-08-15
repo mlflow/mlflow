@@ -1,21 +1,22 @@
 import React, { Component } from 'react';
-import { css } from 'emotion';
 import { AllHtmlEntities } from 'html-entities';
 import PropTypes from 'prop-types';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
-import { Row, Col, Select } from 'antd';
+import { Select as AntDSelect } from 'antd';
+import { Select, Spacer } from '@databricks/design-system';
 import './CompareRunView.css';
 import { RunInfo } from '../sdk/MlflowMessages';
 import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
-import './CompareRunScatter.css';
 import CompareRunUtil from './CompareRunUtil';
 import { FormattedMessage } from 'react-intl';
 import { LazyPlot } from './LazyPlot';
+import { CompareRunPlotContainer } from './CompareRunPlotContainer';
 
-const { Option, OptGroup } = Select;
-
+// TODO(FEINF-957): Temporarily we need to import OptGroup from antd
+const { OptGroup } = AntDSelect;
+const { Option } = Select;
 export class CompareRunScatterImpl extends Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -107,111 +108,110 @@ export class CompareRunScatterImpl extends Component {
     });
 
     return (
-      <div className='responsive-table-container'>
-        <div className='container-fluid'>
-          <div className='row'>
-            <Row>
-              <Col span={6}>
-                <div className={css(styles.group)}>
-                  <label htmlFor='x-axis-selector'>
-                    <FormattedMessage
-                      defaultMessage='X-axis:'
-                      description='Label text for x-axis in scatter plot comparison in MLflow'
-                    />
-                  </label>
-                  {this.renderSelect('x')}
-                </div>
-                <div className={css(styles.group)}>
-                  <label htmlFor='y-axis-selector'>
-                    <FormattedMessage
-                      defaultMessage='Y-axis:'
-                      description='Label text for y-axis in scatter plot comparison in MLflow'
-                    />
-                  </label>
-                  {this.renderSelect('y')}
-                </div>
-              </Col>
-              <Col span={18}>
-                <LazyPlot
-                  data={[
-                    {
-                      x: xs,
-                      y: ys,
-                      text: tooltips,
-                      hoverinfo: 'text',
-                      type: 'scattergl',
-                      mode: 'markers',
-                      marker: {
-                        size: 10,
-                        color: 'rgba(200, 50, 100, .75)',
-                      },
-                    },
-                  ]}
-                  layout={{
-                    margin: {
-                      t: 30,
-                    },
-                    hovermode: 'closest',
-                    xaxis: {
-                      title: this.encodeHtml(Utils.truncateString(this.state['x'].key, keyLength)),
-                    },
-                    yaxis: {
-                      title: this.encodeHtml(Utils.truncateString(this.state['y'].key, keyLength)),
-                    },
-                  }}
-                  className={'scatter-plotly'}
-                  config={{
-                    responsive: true,
-                    displaylogo: false,
-                    scrollZoom: true,
-                    modeBarButtonsToRemove: [
-                      'sendDataToCloud',
-                      'select2d',
-                      'lasso2d',
-                      'resetScale2d',
-                      'hoverClosestCartesian',
-                      'hoverCompareCartesian',
-                    ],
-                  }}
-                  useResizeHandler
+      <CompareRunPlotContainer
+        controls={
+          <>
+            <div>
+              <label htmlFor='x-axis-selector'>
+                <FormattedMessage
+                  defaultMessage='X-axis:'
+                  description='Label text for x-axis in scatter plot comparison in MLflow'
                 />
-              </Col>
-            </Row>
-          </div>
-        </div>
-      </div>
+              </label>
+              {this.renderSelect('x')}
+            </div>
+            <Spacer size='medium' />
+            <div>
+              {' '}
+              <label htmlFor='y-axis-selector'>
+                <FormattedMessage
+                  defaultMessage='Y-axis:'
+                  description='Label text for y-axis in scatter plot comparison in MLflow'
+                />
+              </label>
+              {this.renderSelect('y')}
+            </div>
+          </>
+        }
+      >
+        <LazyPlot
+          data={[
+            {
+              x: xs,
+              y: ys,
+              text: tooltips,
+              hoverinfo: 'text',
+              type: 'scattergl',
+              mode: 'markers',
+              marker: {
+                size: 10,
+                color: 'rgba(200, 50, 100, .75)',
+              },
+            },
+          ]}
+          layout={{
+            margin: {
+              t: 30,
+            },
+            hovermode: 'closest',
+            xaxis: {
+              title: this.encodeHtml(Utils.truncateString(this.state['x'].key, keyLength)),
+            },
+            yaxis: {
+              title: this.encodeHtml(Utils.truncateString(this.state['y'].key, keyLength)),
+            },
+          }}
+          css={styles.plot}
+          config={{
+            responsive: true,
+            displaylogo: false,
+            scrollZoom: true,
+            modeBarButtonsToRemove: [
+              'sendDataToCloud',
+              'select2d',
+              'lasso2d',
+              'resetScale2d',
+              'hoverClosestCartesian',
+              'hoverCompareCartesian',
+            ],
+          }}
+          useResizeHandler
+        />
+      </CompareRunPlotContainer>
     );
   }
 
   renderSelect(axis) {
     return (
-      <Select
-        className={css(styles.select)}
-        id={axis + '-axis-selector'}
-        aria-label={`${axis} axis`}
-        onChange={(value) => {
-          const [prefix, ...keyParts] = value.split('-');
-          const key = keyParts.join('-');
-          const isMetric = prefix === 'metric';
-          this.setState({ [axis]: { isMetric, key } });
-        }}
-        value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
-      >
-        <OptGroup label='Parameter'>
-          {this.paramKeys.map((p) => (
-            <Option key={'param-' + p} value={'param-' + p}>
-              {p}
-            </Option>
-          ))}
-        </OptGroup>
-        <OptGroup label='Metric'>
-          {this.metricKeys.map((m) => (
-            <Option key={'metric-' + m} value={'metric-' + m}>
-              {m}
-            </Option>
-          ))}
-        </OptGroup>
-      </Select>
+      <div>
+        <Select
+          css={styles.select}
+          id={axis + '-axis-selector'}
+          aria-label={`${axis} axis`}
+          onChange={(value) => {
+            const [prefix, ...keyParts] = value.split('-');
+            const key = keyParts.join('-');
+            const isMetric = prefix === 'metric';
+            this.setState({ [axis]: { isMetric, key } });
+          }}
+          value={(this.state[axis].isMetric ? 'metric-' : 'param-') + this.state[axis].key}
+        >
+          <OptGroup label='Parameter'>
+            {this.paramKeys.map((p) => (
+              <Option key={'param-' + p} value={'param-' + p}>
+                {p}
+              </Option>
+            ))}
+          </OptGroup>
+          <OptGroup label='Metric'>
+            {this.metricKeys.map((m) => (
+              <Option key={'metric-' + m} value={'metric-' + m}>
+                {m}
+              </Option>
+            ))}
+          </OptGroup>
+        </Select>
+      </div>
     );
   }
 
@@ -247,8 +247,8 @@ const styles = {
   select: {
     width: '100%',
   },
-  group: {
-    marginBottom: 16,
+  plot: {
+    width: '100%',
   },
 };
 

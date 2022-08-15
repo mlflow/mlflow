@@ -22,8 +22,7 @@ import {
 import Utils from '../../common/utils/Utils';
 import _ from 'lodash';
 import { getModelVersionPageRoute } from '../../model-registry/routes';
-import { Tooltip } from 'antd';
-import { Typography } from '@databricks/design-system';
+import { Tooltip, Typography } from '@databricks/design-system';
 import './ArtifactView.css';
 import spinner from '../../common/static/mlflow-spinner.png';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
@@ -363,7 +362,7 @@ function ModelVersionInfoSection(props) {
     >
       <span className='model-name'>{name}</span>
       <span>,&nbsp;v{version}&nbsp;</span>
-      <i className='fas fa-external-link-alt' />
+      <i className='fas fa-external-link-o' />
     </a>
   );
 
@@ -431,7 +430,7 @@ const TREEBEARD_STYLE = {
       margin: 0,
       padding: 0,
       backgroundColor: '#FAFAFA',
-      fontSize: '14px',
+      fontSize: '13px',
       maxWidth: '500px',
       height: '100%',
       overflow: 'scroll',
@@ -512,11 +511,11 @@ decorators.Header = ({ style, node }) => {
     // eslint-disable-next-line react/prop-types
     const extension = getExtension(node.name);
     if (IMAGE_EXTENSIONS.has(extension)) {
-      iconType = 'file-image';
+      iconType = 'file-image-o';
     } else if (TEXT_EXTENSIONS.has(extension)) {
-      iconType = 'file-code';
+      iconType = 'file-code-o';
     } else {
-      iconType = 'file-alt';
+      iconType = 'file-text-o';
     }
   }
   const iconClass = `fa fa-${iconType}`;

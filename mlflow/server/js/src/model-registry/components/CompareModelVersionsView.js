@@ -1,25 +1,26 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
+import _ from 'lodash';
+import { FormattedMessage } from 'react-intl';
+import { Switch } from 'antd';
+import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+
+import { getParams, getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
 import '../../experiment-tracking/components/CompareRunView.css';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
+import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
 import Routes from '../../experiment-tracking/routes';
-import { Link } from 'react-router-dom';
 import { getLatestMetrics } from '../../experiment-tracking/reducers/MetricReducer';
 import CompareRunUtil from '../../experiment-tracking/components/CompareRunUtil';
 import Utils from '../../common/utils/Utils';
-import { Tabs, Switch } from 'antd';
 import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/ParallelCoordinatesPlotPanel';
 import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
-import { css } from 'emotion';
-import _ from 'lodash';
 import { getModelVersionSchemas } from '../reducers';
-import { FormattedMessage } from 'react-intl';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
-import { useDesignSystemTheme } from '@databricks/design-system';
 
 const { TabPane } = Tabs;
 
@@ -27,10 +28,10 @@ function CenteredText(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      className={css({
+      css={{
         textAlign: 'center',
         color: theme.colors.textSecondary,
-      })}
+      }}
       {...props}
     />
   );
@@ -40,7 +41,8 @@ function CompareTable(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <table
-      className={`compare-table table ${css({
+      className='compare-table table'
+      css={{
         'th.main-table-header': {
           backgroundColor: theme.colors.white,
           padding: 0,
@@ -48,7 +50,7 @@ function CompareTable(props) {
         'td.highlight-data': {
           backgroundColor: theme.colors.backgroundValidationWarning,
         },
-      })}`}
+      }}
       {...props}
     />
   );
@@ -58,7 +60,7 @@ function CollapseButton(props) {
   const { theme } = useDesignSystemTheme();
   return (
     <button
-      className={css({
+      css={{
         textAlign: 'left',
         display: 'flex',
         alignItems: 'center',
@@ -66,7 +68,7 @@ function CollapseButton(props) {
         backgroundColor: theme.colors.white,
         paddingLeft: 0,
         cursor: 'pointer',
-      })}
+      }}
       {...props}
     />
   );
@@ -108,11 +110,11 @@ export class CompareModelVersionsViewImpl extends Component {
   };
 
   icons = {
-    plusIcon: <i className='far fa-plus-square' />,
-    minusIcon: <i className='far fa-minus-square' />,
+    plusIcon: <i className='far fa-plus-square-o' />,
+    minusIcon: <i className='far fa-minus-square-o' />,
     downIcon: <i className='fas fa-caret-down' />,
     rightIcon: <i className='fas fa-caret-right' />,
-    chartIcon: <i className='fas fa-chart-line padding-left-text' />,
+    chartIcon: <i className='fas fa-line-chart padding-left-text' />,
   };
 
   onToggleClick = (active) => {
@@ -131,6 +133,8 @@ export class CompareModelVersionsViewImpl extends Component {
       runInfos,
       runUuids,
       runDisplayNames,
+      paramLists,
+      metricLists,
     } = this.props;
     const title = (
       <FormattedMessage
@@ -152,9 +156,11 @@ export class CompareModelVersionsViewImpl extends Component {
 
     return (
       <div
-        className={`CompareModelVersionsView
-        ${compareModelVersionsViewClassName}
-        ${classNames.wrapper(runInfos.length)}`}
+        className='CompareModelVersionsView'
+        css={{
+          ...styles.compareModelVersionsView,
+          ...styles.wrapper(runInfos.length),
+        }}
       >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
         <div className='responsive-table-container'>
@@ -241,13 +247,40 @@ export class CompareModelVersionsViewImpl extends Component {
           <TabPane
             tab={
               <FormattedMessage
+                defaultMessage='Parallel Coordinates Plot'
+                description='Tab text for parallel coordinates plot on the model comparison page'
+              />
+            }
+            key='parallel-coordinates-plot'
+          >
+            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
                 defaultMessage='Scatter Plot'
                 description='Tab text for scatter plot on the model comparison page'
               />
             }
-            key='1'
+            key='scatter-plot'
           >
             <CompareRunScatter runUuids={runUuids} runDisplayNames={runDisplayNames} />
+          </TabPane>
+          <TabPane
+            tab={
+              <FormattedMessage
+                defaultMessage='Box Plot'
+                description='Tab pane title for box plot on the compare runs page'
+              />
+            }
+            key='box-plot'
+          >
+            <CompareRunBox
+              runUuids={runUuids}
+              runInfos={runInfos}
+              paramLists={paramLists}
+              metricLists={metricLists}
+            />
           </TabPane>
           <TabPane
             tab={
@@ -256,20 +289,9 @@ export class CompareModelVersionsViewImpl extends Component {
                 description='Tab text for contour plot on the model comparison page'
               />
             }
-            key='2'
+            key='contour-plot'
           >
             <CompareRunContour runUuids={runUuids} runDisplayNames={runDisplayNames} />
-          </TabPane>
-          <TabPane
-            tab={
-              <FormattedMessage
-                defaultMessage='Parallel Coordinates Plot'
-                description='Tab text for parallel coordinates plot on the model comparison page'
-              />
-            }
-            key='3'
-          >
-            <ParallelCoordinatesPlotPanel runUuids={runUuids} />
           </TabPane>
         </Tabs>
       </div>
@@ -715,86 +737,85 @@ const mapStateToProps = (state, ownProps) => {
 };
 
 const DEFAULT_COLUMN_WIDTH = 200;
-const classNames = {
-  wrapper: (numRuns) =>
-    css({
-      '.compare-table': {
-        // 1 extra unit for header column
-        minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
-      },
-    }),
-};
 
-const compareModelVersionsViewClassName = css({
-  'button:focus': {
-    outline: 'none',
-    boxShadow: 'none',
+const styles = {
+  wrapper: (numRuns) => ({
+    '.compare-table': {
+      // 1 extra unit for header column
+      minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
+    },
+  }),
+  compareModelVersionsView: {
+    'button:focus': {
+      outline: 'none',
+      boxShadow: 'none',
+    },
+    'td.block-content th.block-content': {
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      tableLayout: 'fixed',
+      boxSizing: 'content-box',
+    },
+    'th.schema-table-header': {
+      height: 28,
+      padding: 0,
+    },
+    'tr.table-row': {
+      display: 'table',
+      width: '100%',
+      tableLayout: 'fixed',
+    },
+    'tr.hidden-row': {
+      display: 'none',
+    },
+    'tbody.scrollable-table': {
+      width: '100%',
+      display: 'block',
+      border: 'none',
+      maxHeight: 400,
+      overflowY: 'auto',
+    },
+    'tbody.schema-scrollable-table': {
+      maxHeight: 200,
+    },
+    '.switch-button-container': {
+      display: 'flex',
+      paddingTop: 16,
+      paddingBottom: 16,
+    },
+    'button.schema-collapse-button': {
+      textAlign: 'left',
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+    },
+    '.collapse-button': {
+      textAlign: 'left',
+      display: 'flex',
+      alignItems: 'center',
+      border: 'none',
+      backgroundColor: 'white',
+      paddingLeft: 0,
+    },
+    '.cell-content': {
+      maxWidth: '200px',
+      minWidth: '100px',
+    },
+    '.padding-left-text': {
+      paddingLeft: 8,
+    },
+    '.padding-right-text': {
+      paddingRight: 16,
+    },
+    '.toggle-switch': {
+      marginTop: 2,
+    },
+    '.header': {
+      paddingLeft: 8,
+      fontSize: 16,
+    },
   },
-  'td.block-content th.block-content': {
-    whiteSpace: 'nowrap',
-    textOverflow: 'ellipsis',
-    tableLayout: 'fixed',
-    boxSizing: 'content-box',
-  },
-  'th.schema-table-header': {
-    height: 28,
-    padding: 0,
-  },
-  'tr.table-row': {
-    display: 'table',
-    width: '100%',
-    tableLayout: 'fixed',
-  },
-  'tr.hidden-row': {
-    display: 'none',
-  },
-  'tbody.scrollable-table': {
-    width: '100%',
-    display: 'block',
-    border: 'none',
-    maxHeight: 400,
-    overflowY: 'auto',
-  },
-  'tbody.schema-scrollable-table': {
-    maxHeight: 200,
-  },
-  '.switch-button-container': {
-    display: 'flex',
-    paddingTop: 16,
-    paddingBottom: 16,
-  },
-  'button.schema-collapse-button': {
-    textAlign: 'left',
-    display: 'block',
-    width: '100%',
-    height: '100%',
-    border: 'none',
-  },
-  '.collapse-button': {
-    textAlign: 'left',
-    display: 'flex',
-    alignItems: 'center',
-    border: 'none',
-    backgroundColor: 'white',
-    paddingLeft: 0,
-  },
-  '.cell-content': {
-    maxWidth: '200px',
-    minWidth: '100px',
-  },
-  '.padding-left-text': {
-    paddingLeft: 8,
-  },
-  '.padding-right-text': {
-    paddingRight: 16,
-  },
-  '.toggle-switch': {
-    marginTop: 2,
-  },
-  '.header': {
-    paddingLeft: 8,
-    fontSize: 16,
-  },
-});
+};
 
 export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);

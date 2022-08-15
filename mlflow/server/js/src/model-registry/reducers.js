@@ -41,6 +41,9 @@ const modelByName = (state = {}, action) => {
         ...state[modelName],
         ...detailedModel,
       };
+      if (_.isEqual(modelWithUpdatedMetadata, state[modelName])) {
+        return state;
+      }
       return {
         ...state,
         ...{ [modelName]: modelWithUpdatedMetadata },
@@ -65,6 +68,9 @@ const modelVersionsByModel = (state = {}, action) => {
         ...state[modelName],
         [modelVersion.version]: modelVersion,
       };
+      if (_.isEqual(state[modelName], updatedMap)) {
+        return state;
+      }
       return {
         ...state,
         [modelName]: updatedMap,
@@ -75,9 +81,8 @@ const modelVersionsByModel = (state = {}, action) => {
       if (!modelVersions) {
         return state;
       }
-
       // Merge all modelVersions into the store
-      return modelVersions.reduce(
+      const newModelVersions = modelVersions.reduce(
         (newState, modelVersion) => {
           const { name, version } = modelVersion;
           return {
@@ -90,6 +95,11 @@ const modelVersionsByModel = (state = {}, action) => {
         },
         { ...state },
       );
+
+      if (_.isEqual(state, newModelVersions)) {
+        return state;
+      }
+      return newModelVersions;
     }
     case fulfilled(DELETE_MODEL_VERSION): {
       const { modelName, version } = action.meta;
@@ -187,7 +197,7 @@ const tagsByRegisteredModel = (state = {}, action) => {
         const { tags } = detailedModel;
         const newState = { ...state };
         newState[modelName] = tagArrToObject(tags);
-        return newState;
+        return _.isEqual(newState, state) ? state : newState;
       } else {
         return state;
       }

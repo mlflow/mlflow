@@ -91,10 +91,6 @@
     "defaultMessage": "Model schema",
     "description": "Heading text for the model schema of the registered model from the experiment run"
   },
-  "2AmV5N": {
-    "defaultMessage": "Search by model name",
-    "description": "Placeholder text inside model search bar"
-  },
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
@@ -263,6 +259,10 @@
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
   },
+  "8xji5J": {
+    "defaultMessage": "X-axis:",
+    "description": "Label text for X-axis in box plot comparison in MLflow"
+  },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
@@ -278,6 +278,10 @@
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
+  },
+  "9KXBFn": {
+    "defaultMessage": "Tags",
+    "description": "Row group title for tags of runs on the experiment compare runs page"
   },
   "9W3kev": {
     "defaultMessage": "Register",
@@ -318,6 +322,10 @@
   "BwyYS1": {
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the metrics for the experiment run "
+  },
+  "C4y1fv": {
+    "defaultMessage": "-∞",
+    "description": "Label displaying negative infinity symbol displayed on a plot UI element"
   },
   "CGVHLD": {
     "defaultMessage": "Parameters",
@@ -371,6 +379,10 @@
     "defaultMessage": "Only show differences",
     "description": "Switch to select only columns with different values across runs"
   },
+  "ES952j": {
+    "defaultMessage": "Not a number ({metricKey})",
+    "description": "Label indicating \"not-a-number\" used as a hover text in a plot UI element"
+  },
   "EwcVCu": {
     "defaultMessage": "Clear",
     "description": "String for the clear button to clear any filters or sorting that we may have applied on the experiment table"
@@ -382,10 +394,6 @@
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
-  },
-  "FBsWC+": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle show points for metric experiment run"
   },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
@@ -459,9 +467,9 @@
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
   },
-  "Hq00g9": {
-    "defaultMessage": "On",
-    "description": "Checked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
+  "Hk0RSH": {
+    "defaultMessage": "Y-axis:",
+    "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
   "HyBP+D": {
     "defaultMessage": "Tags",
@@ -487,10 +495,6 @@
     "defaultMessage": "Failed to add tag. Error: {userVisibleError}",
     "description": "Text for user visible error when adding tag in model version view"
   },
-  "Ibw+mW": {
-    "defaultMessage": "Filter",
-    "description": "String for the filter button to filter model registry table\n                   for models"
-  },
   "Ik96R6": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
@@ -511,6 +515,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
   },
+  "KwMekr": {
+    "defaultMessage": "Download CSV",
+    "description": "String for the download csv button to download metrics from this run offline in a CSV format"
+  },
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
@@ -522,10 +530,6 @@
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
-  },
-  "MZKOA3": {
-    "defaultMessage": "Off",
-    "description": "Unchecked toggle text for reverse color toggle in contour plot\n                        comparison in MLflow"
   },
   "MatV9u": {
     "defaultMessage": "Create",
@@ -635,10 +639,6 @@
     "defaultMessage": "Line Smoothness",
     "description": "Label for the smoothness slider for the graph plot for metrics"
   },
-  "Te670G": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle log scale graph for metric experiment run"
-  },
   "ThrXMh": {
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
@@ -675,6 +675,10 @@
     "defaultMessage": "Linked Models:",
     "description": "Filtering label for filtering experiments based on if the models are linked or not to the experiment"
   },
+  "VP+qFF": {
+    "defaultMessage": "Show diff only",
+    "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
+  },
   "VbEMGm": {
     "defaultMessage": "Register Model",
     "description": "Button text to register the model for deployment"
@@ -694,10 +698,6 @@
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
-  },
-  "WomXZ4": {
-    "defaultMessage": "Failed to load chart.",
-    "description": "Error message when the plotly javascript library fails to load."
   },
   "WqtISN": {
     "defaultMessage": "Job Output",
@@ -719,6 +719,10 @@
     "defaultMessage": "Version {versionNum}",
     "description": "Text for current version under the header on the model version view page"
   },
+  "XaD7FM": {
+    "defaultMessage": "Select parameters/metrics to plot.",
+    "description": "Text to show when x or y axis is not selected on box plot"
+  },
   "Xqs6q2": {
     "defaultMessage": "Without Model Versions",
     "description": "Linked model dropdown option to show experiment runs without model versions only"
@@ -738,6 +742,10 @@
   "YLvpXM": {
     "defaultMessage": "Track machine learning training runs in experiments. <link>Learn more</link>",
     "description": "Information banner text to provide more information about experiments runs page"
+  },
+  "YRFAGK": {
+    "defaultMessage": "Negative infinity ({metricKey})",
+    "description": "Label indicating negative infinity used as a hover text in a plot UI element"
   },
   "YkcoeV": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -782,6 +790,10 @@
   "aB6xFd": {
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
+  },
+  "aGxvDa": {
+    "defaultMessage": "To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}",
+    "description": "Tooltip string to explain how to search models from the model registry table"
   },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
@@ -943,9 +955,17 @@
     "defaultMessage": "Tag \"{value}\" already exists.",
     "description": "Validation message for tags that already exist in tags table in MLflow"
   },
+  "hcDB9U": {
+    "defaultMessage": "+∞",
+    "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
   "iQzwqe": {
     "defaultMessage": "Min",
     "description": "Column title for the column displaying the minimum metric values for a metric"
+  },
+  "iXb99e": {
+    "defaultMessage": "Box Plot",
+    "description": "Tab pane title for box plot on the compare runs page"
   },
   "iZm6YQ": {
     "defaultMessage": "<link>Learn more</link>",
@@ -971,10 +991,6 @@
     "defaultMessage": "With Model Versions",
     "description": "Linked model dropdown option to show experiment runs with model versions only"
   },
-  "kU2h2z": {
-    "defaultMessage": "Off",
-    "description": "Toggle off option to toggle show points for metric experiment run"
-  },
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
@@ -982,6 +998,10 @@
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
+  },
+  "kjxsOJ": {
+    "defaultMessage": "Search by model names or tags",
+    "description": "Placeholder text inside model search bar"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -998,6 +1018,10 @@
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "m9e01X": {
+    "defaultMessage": "No tags to display.",
+    "description": "Text shown when there are no tags to display"
   },
   "mI1o3S": {
     "defaultMessage": "Artifacts",
@@ -1038,6 +1062,10 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "nam2iP": {
+    "defaultMessage": "This view is deprecated and will be removed in a future release.",
+    "description": "Deprecation of compact view"
   },
   "ny+fBZ": {
     "defaultMessage": "Columns",
@@ -1143,10 +1171,6 @@
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
     "description": "Text for time in days since given date for MLflow views"
   },
-  "tUSlmi": {
-    "defaultMessage": "On",
-    "description": "Toggle on option to toggle log scale graph for metric experiment run"
-  },
   "tc9+eK": {
     "defaultMessage": "Register Model",
     "description": "Register model modal title to register the model for deployment"
@@ -1207,6 +1231,10 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text for delete model modal on model view page"
   },
+  "yL9JKm": {
+    "defaultMessage": "NaN",
+    "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
+  },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
@@ -1242,5 +1270,9 @@
   "zMhOr3": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for model version deletion modal in model versions view page"
+  },
+  "zWGmon": {
+    "defaultMessage": "Positive infinity ({metricKey})",
+    "description": "Label indicating positive infinity used as a hover text in a plot UI element"
   }
 }

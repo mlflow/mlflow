@@ -27,7 +27,7 @@ class HomeView extends Component {
     const { experimentIds, experiments, compareExperiments } = this.props;
     const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
     const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
-    const hasExperiments = experiments.length > 0;
+    const hasExperiments = experimentIds?.length > 0;
 
     if (experimentIds === undefined) {
       const firstExp = getFirstActiveExperiment(experiments);
@@ -56,10 +56,7 @@ class HomeView extends Component {
       <div className='outer-container' style={{ height: containerHeight }}>
         <div>
           <Spacer />
-          <ExperimentListView
-            activeExperimentId={experimentIds && experimentIds[0]}
-            experiments={experiments}
-          />
+          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
         </div>
         <PageContainer>
           {hasExperiments ? (
