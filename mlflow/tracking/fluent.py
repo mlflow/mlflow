@@ -1936,9 +1936,9 @@ def autolog(
 
 def load_text(artifact_uri: str) -> str:
     """
-    Loads content of the file in artifact_uri as python str object
+    Loads content of the artifact file as python str object
     :param artifact_uri: artifact location
-    :returns str object
+    :return: str
 
     .. code-block:: python
         :caption: Example
@@ -1966,9 +1966,9 @@ def load_text(artifact_uri: str) -> str:
 
 def load_dict(artifact_uri: str) -> dict:
     """
-    Loads content of the file in artifact_uri as json/dict object
+    Loads content of the artifact file as json/dict object
     :param artifact_uri: artifact location
-    :returns JSON object
+    :return: dict
 
     .. code-block:: python
         :caption: Example
@@ -1999,9 +1999,9 @@ def load_dict(artifact_uri: str) -> dict:
 
 def load_image(artifact_uri: str) -> Image:
     """
-    Loads content of the file in artifact_uri as PIL.Image object
+    Loads content of the artifact file as PIL.Image object
     :param artifact_uri: artifact location
-    :returns PIL.Image object
+    :return: PIL.Image
 
     .. code-block:: python
         :caption: Example
