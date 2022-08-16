@@ -11,7 +11,7 @@ dev
 !requirements/lint-requirements.txt
 !requirements/extra-ml-requirements.txt
 
-node_modules
+*/node_modules
 coverage
 build
 npm-debug.log*
