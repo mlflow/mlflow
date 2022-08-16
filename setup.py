@@ -71,6 +71,7 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "docker>=4.0.0",
     "fastapi",
     "uvicorn",
+    "google-cloud-profiler",
     "Flask",
     "gunicorn; platform_system != 'Windows'",
     "numpy",

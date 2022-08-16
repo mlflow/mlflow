@@ -26,6 +26,8 @@ from typing import List, Optional, Dict
 import uvicorn
 import asyncio
 import json
+import cProfile, pstats, io
+from pstats import SortKey
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -77,7 +79,8 @@ FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIEN
 
 PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 FASTAPI_THREAD_LIMIT_ENV_KEY          = "FASTAPI_THREAD_LIMIT"
-PRELOAD_GUNICORN_APP_ENV_KEY          = "PRELOAD_GUNICORN_APP"
+FASTAPI_PROFILER_ON_FLAG              = "FASTAPI_PROFILER_ON"
+GOOGLE_PROFILER_ON_FLAG               = "GOOGLE_PROFILER_ON"
 
 _logger = logging.getLogger(__name__)
 
@@ -240,16 +243,56 @@ def init(model: PyFuncModel):
     fast_app = FastAPI(title= __name__, version= "v1")
     fast_app.include_router(APIRouter())
     input_schema = model.metadata.get_input_schema()
+    is_profiler_on = (os.getenv(FASTAPI_PROFILER_ON_FLAG, 'false').lower() == 'true')
+    profiler = cProfile.Profile()
 
     @fast_app.on_event("startup")
     def startup():
         print("Starting FastAPI app")
+        if is_profiler_on:
+            print("Profiler will profile each call.")
+
+        if os.getenv(GOOGLE_PROFILER_ON_FLAG, 'false').lower() == 'true':
+            print("google profiler starting")
+            print("MLINFRA_MODEL_NAME param: ",  os.getenv("MLINFRA_MODEL_NAME", 'mlinfra_default_model').lower())
+            print("MLINFRA_MODEL_VERSION param: ",  os.getenv("MLINFRA_MODEL_VERSION", 'mlinfra_default_model').lower())
+            print("GOOGLE_APPLICATION_CREDENTIALS param: ",  os.getenv("GOOGLE_APPLICATION_CREDENTIALS", '').lower())
+            import googlecloudprofiler
+            try:
+                googlecloudprofiler.start(
+                service= os.getenv("MLINFRA_MODEL_NAME", 'default_ml_model').lower(),
+                service_version=os.getenv("MLINFRA_MODEL_VERSION", '1.0.0').lower(),
+                verbose=3,
+                project_id='service-profiler',
+                )
+
+                print("google profiler on")
+            except (ValueError, NotImplementedError) as exc:
+                print("google profiler exception: ", exc)  # Handle errors here
+
         fast_app_thread_limit  = int(os.getenv(FASTAPI_THREAD_LIMIT_ENV_KEY, 0))
         if fast_app_thread_limit > 0:
             from anyio.lowlevel import RunVar
             from anyio import CapacityLimiter
             RunVar("_default_thread_limiter").set(CapacityLimiter(fast_app_thread_limit))
             print(f"FastAPI thread limiter set to {fast_app_thread_limit} threads")
+
+    @fast_app.on_event("shutdown")
+    def shutdown():
+        print("Running app shutdown handler.")
+
+        if is_profiler_on:
+            print("Profiling stopped.")
+            profiler.disable()
+
+            s = io.StringIO()
+            sortby = SortKey.CUMULATIVE
+            ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
+            ps.print_stats(20)
+            print(s.getvalue())
+            profiler.dump_stats('/tmp/profiler_pstat.stats')
+            print("profiler stats dumped to /tmp/profiler_pstat.stats")
+        return
 
     @fast_app.get("/ping")
     def ping():  # pylint: disable=unused-variable
@@ -337,7 +380,12 @@ def init(model: PyFuncModel):
             )
 
         try:
-            raw_predictions = model.predict(data)
+            if not is_profiler_on:
+                raw_predictions = model.predict(data)
+            else:
+                profiler.enable()
+                raw_predictions = model.predict(data)
+                profiler.disable()
         except MlflowException as e:
             _handle_serving_error(
                 error_message=e.message, error_code=BAD_REQUEST, include_traceback=False
@@ -401,9 +449,6 @@ def get_cmd(
         command = (
             "gunicorn mlflow.pyfunc.scoring_server.wsgi:app --worker-class uvicorn.workers.UvicornWorker"
         )
-
-        if int(os.getenv(PRELOAD_GUNICORN_APP_ENV_KEY, False)):
-            command += " --preload"
 
     else:
         args = []
