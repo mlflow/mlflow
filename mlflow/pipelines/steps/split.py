@@ -92,7 +92,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
-        self.disable_profiling = self.step_config.get("disable_profiling", False)
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
@@ -115,7 +115,7 @@ class SplitStep(BaseStep):
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
-        if not self.disable_profiling:
+        if not self.skip_data_profiling:
             # Build profiles for input dataset, and train / validation / test splits
             train_profile = get_pandas_data_profile(
                 train_df.reset_index(drop=True),

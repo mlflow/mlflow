@@ -647,7 +647,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
                     "format": "parquet",
                     "location": str(dataset_path),
                 },
-                "steps": {"ingest": {"disable_profiling": True}},
+                "steps": {"ingest": {"skip_data_profiling": True}},
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)

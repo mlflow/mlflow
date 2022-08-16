@@ -152,7 +152,7 @@ def test_split_step_skips_profiling_when_specified(tmp_path):
     ) as mock_profiling, mock.patch(
         "mlflow.pipelines.step.get_pipeline_name", return_value="fake_name"
     ):
-        split_step = SplitStep({"target_col": "y", "disable_profiling": True}, "fake_root")
+        split_step = SplitStep({"target_col": "y", "skip_data_profiling": True}, "fake_root")
         split_step._run(str(split_output_dir))
 
     mock_profiling.assert_not_called()

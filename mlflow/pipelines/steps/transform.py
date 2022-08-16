@@ -50,7 +50,7 @@ class TransformStep(BaseStep):
         self.run_end_time = None
         self.execution_duration = None
         self.target_col = self.step_config.get("target_col")
-        self.disable_profiling = self.step_config.get("disable_profiling", False)
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         (self.transformer_module_name, self.transformer_method_name,) = self.step_config[
             "transformer_method"
         ].rsplit(".", 1)
@@ -125,7 +125,7 @@ class TransformStep(BaseStep):
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
 
-        if not self.disable_profiling:
+        if not self.skip_data_profiling:
             # Tab 1 and 2: build profiles for train_transformed, validation_transformed
             train_transformed_profile = get_pandas_data_profile(
                 train_transformed,

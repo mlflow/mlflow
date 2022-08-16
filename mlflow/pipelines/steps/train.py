@@ -45,7 +45,7 @@ class TrainStep(BaseStep):
         self.pipeline_config = pipeline_config
         self.tracking_config = TrackingConfig.from_dict(step_config)
         self.target_col = self.step_config.get("target_col")
-        self.disable_profiling = self.step_config.get("disable_profiling", False)
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         self.train_module_name, self.estimator_method_name = self.step_config[
             "estimator_method"
         ].rsplit(".", 1)
@@ -353,7 +353,7 @@ class TrainStep(BaseStep):
             "<h3 class='section-title'>Summary Metrics</h3>{{ METRICS }} ",
         ).add_html("METRICS", metric_table_html)
 
-        if not self.disable_profiling:
+        if not self.skip_data_profiling:
             # Tab 2: Prediction and error data profile.
             pred_and_error_df_profile = get_pandas_data_profile(
                 pred_and_error_df.reset_index(drop=True),
