@@ -2,6 +2,7 @@
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
 import os
+import re
 from subprocess import Popen
 import urllib.parse
 import sys
@@ -163,6 +164,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 def deploy(
     app_name,
     model_uri,
+    variant_name=None,
     execution_role_arn=None,
     assume_role_arn=None,
     bucket=None,
@@ -200,6 +202,10 @@ def deploy(
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
+
+    :variant_name: (optional) The name to assign to the new production variant.
+                      - If variant_name violates sagemaker constraints on naming an MlflowException 
+                        will be raised.
 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
@@ -388,6 +394,17 @@ def deploy(
         **assume_role_credentials,
     )
 
+    if variant_name:
+        pattern = r"[a-zA-Z0-9](-*[a-zA-Z0-9]){0,62}"
+        if not re.fullmatch(pattern, variant_name):
+            raise MlflowException(
+            message=(
+                "Variant name must match the following pattern" 
+                " {variant_pattern}".format(variant_pattern=pattern)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
             endpoint_name=app_name,
@@ -403,6 +420,7 @@ def deploy(
             role=execution_role_arn,
             sage_client=sage_client,
             s3_client=s3_client,
+            variant_name=variant_name,
         )
     else:
         deployment_operation = _create_sagemaker_endpoint(
@@ -418,6 +436,7 @@ def deploy(
             data_capture_config=data_capture_config,
             role=execution_role_arn,
             sage_client=sage_client,
+            variant_name=variant_name,
         )
 
     if synchronous:
@@ -1425,7 +1444,6 @@ def _create_sagemaker_transform_job(
 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
-
 def _create_sagemaker_endpoint(
     endpoint_name,
     model_name,
@@ -1439,6 +1457,7 @@ def _create_sagemaker_endpoint(
     instance_count,
     role,
     sage_client,
+    variant_name=None,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to create.
@@ -1456,6 +1475,7 @@ def _create_sagemaker_endpoint(
                        creating the new SageMaker model associated with this application.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
+    :variant_name: (optional) The name to assign to the new production variant.
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
@@ -1471,8 +1491,11 @@ def _create_sagemaker_endpoint(
     )
     _logger.info("Created model with arn: %s", model_response["ModelArn"])
 
+    if not variant_name:
+        variant_name = model_name
+
     production_variant = {
-        "VariantName": model_name,
+        "VariantName": variant_name,
         "ModelName": model_name,
         "InitialInstanceCount": instance_count,
         "InstanceType": instance_type,
@@ -1545,6 +1568,7 @@ def _update_sagemaker_endpoint(
     role,
     sage_client,
     s3_client,
+    variant_name=None,
 ):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.
@@ -1563,7 +1587,8 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
-    """
+    :variant_name: (optional) The name to assign to the new production variant if it doesn't already exist.
+                     - If variant_name already exists an MlflowException will be raised.    """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
         raise ValueError(msg)
@@ -1591,15 +1616,26 @@ def _update_sagemaker_endpoint(
     )
     _logger.info("Created new model with arn: %s", new_model_response["ModelArn"])
 
+    if not variant_name: 
+        variant_name = model_name
+
     if mode == DEPLOYMENT_MODE_ADD:
         new_model_weight = 0
         production_variants = deployed_production_variants
+        variant_name_list = [variant["VariantName"] for variant in production_variants]
+        if variant_name and variant_name in variant_name_list:
+            raise MlflowException(
+            message=(
+                "Variant {variant_name} already exists!".format(variant_name=variant_name)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     elif mode == DEPLOYMENT_MODE_REPLACE:
         new_model_weight = 1
         production_variants = []
 
     new_production_variant = {
-        "VariantName": model_name,
+        "VariantName": variant_name,
         "ModelName": model_name,
         "InitialInstanceCount": instance_count,
         "InstanceType": instance_type,
