@@ -189,11 +189,11 @@ def create_sqlalchemy_engine(db_uri):
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = int(pool_size)
+        pool_kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = int(pool_max_overflow)
+        pool_kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = int(pool_recycle)
+        pool_kwargs["pool_recycle"] = pool_recycle
     if echo:
         pool_kwargs["echo"] = echo
     if pool_kwargs:
