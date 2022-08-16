@@ -71,7 +71,7 @@ body:
         ##### Bad Example #####
         # - `import mlflow` is missing.
         # - `model` is undefined.
-        # - Can't be copy-pasted in a Python terminal to reproduce the problem.
+        # - Can't be copy-pasted in a Python terminal to reproduce the issue.
 
         with mlflow.start_run():
             mlflow.sklearn.log_model(model, "model")
@@ -79,7 +79,7 @@ body:
         ##### Good Example #####
         # - Contains all necessary imports statements.
         # - No undefined variables.
-        # - Can be copy-pasted in a Python terminal to reproduce the problem.
+        # - Can be copy-pasted in a Python terminal to reproduce the issue.
 
         from sklearn.datasets import load_iris
         from sklearn.linear_model import LinearRegression
