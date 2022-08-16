@@ -70,11 +70,6 @@ i.expander {
   padding-right: 10px;
 }
 
-textarea.run-command {
-  width: 100%;
-  font-family: Menlo, Consolas, monospace;
-}
-
 .header-container .mlflow-menu > li.mlflow-menu-item:hover {
   background-image: none;
   background-color: rgb(1, 147, 225);

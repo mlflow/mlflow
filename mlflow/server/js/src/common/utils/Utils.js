@@ -49,6 +49,8 @@ class Utils {
   static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
   static loggedModelsTag = 'mlflow.log-model.history';
+  static pipelineProfileNameTag = 'mlflow.pipeline.profile.name';
+  static pipeLineStepNameTag = 'mlflow.pipeline.step.name';
 
   static formatMetric(value) {
     if (value === 0) {
@@ -606,6 +608,22 @@ class Utils {
     const gitCommitTag = runTags[Utils.gitCommitTag];
     if (gitCommitTag) {
       return gitCommitTag.value;
+    }
+    return '';
+  }
+
+  static getPipelineProfileName(runTags) {
+    const tag = runTags[Utils.pipelineProfileNameTag];
+    if (tag) {
+      return tag.value;
+    }
+    return '';
+  }
+
+  static getPipelineStepName(runTags) {
+    const tag = runTags[Utils.pipeLineStepNameTag];
+    if (tag) {
+      return tag.value;
     }
     return '';
   }
