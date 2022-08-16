@@ -46,7 +46,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_running_in_ipython_environment
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.artifacts import download_artifacts
-from PIL import Image
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -1997,7 +1996,7 @@ def load_dict(artifact_uri: str) -> dict:
             raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
-def load_image(artifact_uri: str) -> Image:
+def load_image(artifact_uri: str):
     """
     Loads content of the artifact file as PIL.Image object
     :param artifact_uri: artifact location
@@ -2021,6 +2020,13 @@ def load_image(artifact_uri: str) -> Image:
         <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
     """
     local_artifact = download_artifacts(artifact_uri)
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise ImportError(
+            "`log_image` requires Pillow to serialize a numpy array as an image."
+            "Please install it via: pip install Pillow"
+        ) from exc
     try:
         image_obj = Image.open(local_artifact)
         if is_running_in_ipython_environment():
