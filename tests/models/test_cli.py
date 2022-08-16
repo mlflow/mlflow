@@ -133,7 +133,15 @@ def test_mlflow_is_not_installed_unless_specified():
         _mlflow_conda_env(path=os.path.join(fake_model_path, "conda.yaml"), install_mlflow=False)
         # The following should fail because there should be no mlflow in the env:
         p = subprocess.Popen(
-            ["mlflow", "models", "predict", "-m", fake_model_path],
+            [
+                "mlflow",
+                "models",
+                "predict",
+                "-m",
+                fake_model_path,
+                "--env-manager",
+                "conda",
+            ],
             stderr=subprocess.PIPE,
             cwd=tmp.path(""),
         )
