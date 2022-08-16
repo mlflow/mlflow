@@ -23,7 +23,19 @@ class ShowArtifactAudioView extends Component {
     loading: true,
     error: undefined,
     waveform: undefined,
+    playing: false,
   };
+
+  waveform = WaveSurfer.create({
+    barWidth: 3,
+    cursorWidth: 1,
+    container: '#waveform',
+    height: 80,
+    progressColor: '#2D5BFF',
+    responsive: true,
+    waveColor: '#EFEFEF',
+    cursorColor: 'black',
+  });
 
   componentDidMount() {
     this.fetchArtifacts();
@@ -45,10 +57,6 @@ class ShowArtifactAudioView extends Component {
           Oops we couldn't load your audio file because of an error.
         </div>
       );
-    } else if (this.state.table) {
-      return (
-        <table></table>
-      )
     } else {
       const language = getLanguage(this.props.path);
       const overrideStyles = {
@@ -62,22 +70,23 @@ class ShowArtifactAudioView extends Component {
       return (
         <div className='ShowArtifactPage'>
           <div className='text-area-border-box'>
-            <SyntaxHighlighter language={language} style={style} customStyle={overrideStyles}>
-              {this.state.text}
-            </SyntaxHighlighter>
+            <div className='WaveformContainer'>
+              <div id="waveform" />
+            </div>
           </div>
         </div>
       );
     }
   }
 
-  static parseCSV(rawText) {
-    try {
-      // Parse here
-    } catch(e) {
-      throw e;
-    }
+  loadAudio(artifact) {
+    this.waveform.load(artifact);
   }
+
+  handlePlayPause = () => {
+    this.setState({ playing: !this.state.playing });
+    this.waveform.playPause();
+  };
 
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
@@ -85,8 +94,7 @@ class ShowArtifactAudioView extends Component {
       .getArtifact(artifactLocation)
       .then((text) => {
         try {
-          const tableData = parseCSV(text);
-          
+          this.loadAudio();
         } catch (e) {
           this.setState({ text: text, loading: false }); // Note this needs a banner on it
         }
