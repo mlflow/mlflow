@@ -557,7 +557,7 @@ Instructions for VSCode:
   - find the "mlflow-test" container, confirm with ``Enter`` key
   - a new code editor should appear running inside the context of Docker container
   - you can now freely change source code and corresponding tests, the changes will be reflected on your machine filesystem
-  - to run code or tests inside container, you can open a terminal with ``[Ctrl/CMD]+Shift+``` and run any command which will be executed inside container, e.g. ``pytest tests/test_import.py``
+  - to run code or tests inside container, you can open a terminal with ``[Ctrl/CMD]+Shift+``` and run any command which will be executed inside container, e.g. ``pytest tests/test_version.py``
 
 After typing ``exit`` in the terminal window that executed ``dev/run-test-container.sh``, the container will be shut down and removed.
 
