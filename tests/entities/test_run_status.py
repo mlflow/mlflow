@@ -1,4 +1,5 @@
 import unittest
+import pytest
 
 from mlflow.entities import RunStatus
 
@@ -34,13 +35,13 @@ class TestRunStatus(unittest.TestCase):
         self.assertEqual("KILLED", RunStatus.to_string(RunStatus.KILLED))
         self.assertEqual(RunStatus.KILLED, RunStatus.from_string("KILLED"))
 
-        with self.assertRaisesRegex(
-            Exception, r"Could not get string corresponding to run status -120"
+        with pytest.raises(
+            Exception, match=r"Could not get string corresponding to run status -120"
         ):
             RunStatus.to_string(-120)
 
-        with self.assertRaisesRegex(
-            Exception, r"Could not get run status corresponding to string the IMPO"
+        with pytest.raises(
+            Exception, match=r"Could not get run status corresponding to string the IMPO"
         ):
             RunStatus.from_string("the IMPOSSIBLE status string")
 
