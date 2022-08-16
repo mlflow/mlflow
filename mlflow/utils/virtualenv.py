@@ -6,7 +6,9 @@ import re
 from pathlib import Path
 from packaging.version import Version
 
+import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import Model, MLMODEL_FILE_NAME
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.requirements_utils import _parse_requirements
 from mlflow.utils.environment import (
@@ -147,6 +149,15 @@ def _install_python(version, pyenv_root=None, capture_output=False):
     return Path(pyenv_root).joinpath("versions", version, *path_to_bin)
 
 
+def _get_conda_env_file(mlmodel_file):
+    for flavor, config in Model.load(mlmodel_file).flavors.items():
+        if flavor == mlflow.pyfunc.FLAVOR_NAME:
+            env = config.get(mlflow.pyfunc.ENV)
+            if env:
+                return env
+    return _CONDA_ENV_FILE_NAME
+
+
 def _get_python_env(local_model_path):
     """
     Constructs `_PythonEnv` from the model artifacts stored in `local_model_path`. If
@@ -160,7 +171,8 @@ def _get_python_env(local_model_path):
     """
     python_env_file = local_model_path / _PYTHON_ENV_FILE_NAME
     requirements_file = local_model_path / _REQUIREMENTS_FILE_NAME
-    conda_env_file = local_model_path / _CONDA_ENV_FILE_NAME
+    conda_env_file = local_model_path / _get_conda_env_file(local_model_path / MLMODEL_FILE_NAME)
+
     if python_env_file.exists():
         return _PythonEnv.from_yaml(python_env_file)
     else:
