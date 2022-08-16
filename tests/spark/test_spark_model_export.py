@@ -665,13 +665,6 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
-            "12.0",
-            "1",
-            True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
-        ),
-        (
-            "dbfs:/databricks/mlflow-tracking/a/b",
             "",
             "",
             True,
