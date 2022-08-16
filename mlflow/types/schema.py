@@ -2,18 +2,10 @@ import json
 from enum import Enum
 
 import numpy as np
-import pandas as pd
 import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
-
-
-def _pandas_string_type():
-    try:
-        return pd.StringDtype()
-    except AttributeError:
-        return object
 
 
 class DataType(Enum):
@@ -43,7 +35,7 @@ class DataType(Enum):
     """32b floating point numbers. """
     double = (5, np.dtype("float64"), "DoubleType")
     """64b floating point numbers. """
-    string = (6, np.dtype("str"), "StringType", _pandas_string_type())
+    string = (6, np.dtype("str"), "StringType", object)
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", object)
     """Sequence of raw bytes."""
@@ -65,6 +57,10 @@ class DataType(Enum):
         import pyspark.sql.types
 
         return getattr(pyspark.sql.types, self._spark_type)()
+
+    @classmethod
+    def get_spark_types(cls):
+        return [dt.to_spark() for dt in cls._member_map_.values()]
 
 
 class ColSpec:

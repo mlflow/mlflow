@@ -417,11 +417,9 @@ def test_prepare_env_fails(sk_model):
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
@@ -457,11 +455,9 @@ def test_build_docker_virtualenv(iris_data, sk_model):
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                mlflow.sklearn.log_model(
-                    sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
-                )
+            mlflow.sklearn.log_model(
+                sk_model, "model", extra_pip_requirements=[PROTOBUF_REQUIREMENT]
+            )
         else:
             mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
@@ -478,6 +474,22 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
         image_name, host_port, gunicorn_options
     )
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
+
+
+def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
+    model_path = tmp_path.joinpath("model")
+    mlflow.sklearn.save_model(sk_model, model_path)
+    image_name = pyfunc_build_image(model_uri=None)
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
+        image_name,
+        host_port,
+        gunicorn_options,
+        extra_docker_run_options=["-v", f"{model_path}:/opt/ml/model"],
+    )
+    x = iris_data[0]
+    df = pd.DataFrame(x)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):

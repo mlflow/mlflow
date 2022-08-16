@@ -7,6 +7,7 @@ from pathlib import Path
 
 from mlflow.pyfunc import _warn_dependency_requirement_mismatches, get_model_dependencies
 import mlflow.utils.requirements_utils
+from mlflow.utils import PYTHON_VERSION
 
 from tests.helper_functions import AnyStringWith
 from mlflow.exceptions import MlflowException
@@ -159,9 +160,12 @@ flavors:
     env: conda.yaml
     loader_module: mlflow.sklearn
     model_path: model.pkl
-    python_version: 3.7.12
+    python_version: {python_version}
 model_uuid: 722a374a432f48f09ee85da92df13bca
-run_id: 765e66a5ba404650be51cb02cda66f35"""
+run_id: 765e66a5ba404650be51cb02cda66f35
+""".format(
+            python_version=PYTHON_VERSION
+        )
     )
 
     conda_yml_file = tmp_path / "conda.yaml"
@@ -169,7 +173,7 @@ run_id: 765e66a5ba404650be51cb02cda66f35"""
 channels:
 - conda-forge
 dependencies:
-- python=3.7.12
+- python={python_version}
 - pip=22.0.3
 - scikit-learn=0.22.0
 - tensorflow=2.0.0
@@ -177,7 +181,10 @@ dependencies:
   - mlflow
   - cloudpickle==2.0.0
   - scikit-learn==1.0.1
-name: mlflow-env"""
+name: mlflow-env
+""".format(
+        python_version=PYTHON_VERSION
+    )
 
     conda_yml_file.write_text(conda_yml_file_content)
 
@@ -198,7 +205,9 @@ name: mlflow-env"""
         )
         mock_warning.assert_called_once_with(
             "The following conda dependencies have been excluded from the environment file: "
-            "python=3.7.12, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0."
+            "python={python_version}, pip=22.0.3, scikit-learn=0.22.0, tensorflow=2.0.0.".format(
+                python_version=PYTHON_VERSION
+            )
         )
 
     conda_yml_file.write_text(
@@ -206,11 +215,13 @@ name: mlflow-env"""
 channels:
 - conda-forge
 dependencies:
-- python=3.7.12
+- python={python_version}
 - pip=22.0.3
 - scikit-learn=0.22.0
 - tensorflow=2.0.0
-    """
+    """.format(
+            python_version=PYTHON_VERSION
+        )
     )
 
     with pytest.raises(MlflowException, match="No pip section found in conda.yaml file"):

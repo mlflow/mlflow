@@ -32,6 +32,8 @@ describe('ModelListView', () => {
       orderByAsc: true,
       currentPage: 1,
       nextPageToken: null, // no next page
+      selectedStatusFilter: '',
+      selectedOwnerFilter: '',
       onSearch: onSearchSpy,
       onClear: jest.fn(),
       onClickNext: jest.fn(),
@@ -39,6 +41,9 @@ describe('ModelListView', () => {
       onClickSortableColumn: jest.fn(),
       onSetMaxResult: jest.fn(),
       getMaxResultValue: jest.fn().mockReturnValue(10),
+      onSearchInputChange: jest.fn(),
+      onStatusFilterChange: jest.fn(),
+      onOwnerFilterChange: jest.fn(),
     };
     minimalStore = mockStore({});
   });

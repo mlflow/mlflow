@@ -9,7 +9,7 @@ from packaging.version import Version
 
 import pytest
 import random
-import sklearn.datasets as datasets
+from sklearn import datasets
 import sklearn.neighbors as knn
 
 from io import StringIO
@@ -447,7 +447,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
-    # types are forced ignoting overflow and loss of precision:
+    # types are forced ignoring overflow and loss of precision:
 
     bad_df = """{
       "columns":["bad_integer", "bad_float", "bad_string", "bad_boolean"],
@@ -461,7 +461,6 @@ def test_parse_with_schema(pandas_df_with_all_types):
         [
             ColSpec("integer", "bad_integer"),
             ColSpec("float", "bad_float"),
-            ColSpec("float", "good_float"),
             ColSpec("string", "bad_string"),
             ColSpec("boolean", "bad_boolean"),
         ]

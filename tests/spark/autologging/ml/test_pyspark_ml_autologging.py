@@ -50,6 +50,7 @@ from pyspark.sql import SparkSession
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from tests.helper_functions import AnyStringWith
 
 
 MODEL_DIR = "model"
@@ -89,6 +90,19 @@ def dataset_text(spark_session):
             (3, "hadoop mapreduce", 0.0),
         ],
         ["id", "text", "label"],
+    ).cache()
+
+
+@pytest.fixture(scope="module")
+def dataset_numeric(spark_session):
+    return spark_session.createDataFrame(
+        [
+            (1.0, 0),
+            (0.0, 1),
+            (1.0, 2),
+            (0.0, 3),
+        ],
+        ["number", "label"],
     ).cache()
 
 
@@ -924,7 +938,7 @@ def test_autolog_registering_model(spark_session, dataset_binomial):
         assert registered_model.name == registered_model_name
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+def _read_model_conf_as_dict(run):
     artifacts_dir = pathlib.Path(run.info.artifact_uri.replace("file://", ""))
     client = MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "model")]
@@ -932,15 +946,25 @@ def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
     with open(ml_model_path, "r") as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
-        assert data is not None
-        assert "signature" in data
-        signature = data["signature"]
-        assert signature is not None
-        assert "inputs" in signature
-        assert "outputs" in signature
-        assert json.loads(signature["inputs"]) == input_sig_spec
-        assert json.loads(signature["outputs"]) == output_sig_spec
+        return yaml.load(f, Loader=yaml.FullLoader)
+
+
+def _read_schema(schema_str):
+    if schema_str is None:
+        return None
+    return json.loads(schema_str)
+
+
+def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
+    data = _read_model_conf_as_dict(run)
+    assert data is not None
+    assert "signature" in data
+    signature = data["signature"]
+    assert signature is not None
+    assert "inputs" in signature
+    assert "outputs" in signature
+    assert _read_schema(signature["inputs"]) == input_sig_spec
+    assert _read_schema(signature["outputs"]) == output_sig_spec
 
 
 def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
@@ -960,15 +984,8 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"name": "features", "type": "string"}],
-            [
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-            ],
-        )
+        model_conf = _read_model_conf_as_dict(run)
+        assert "signature" not in model_conf
 
 
 def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
@@ -987,18 +1004,35 @@ def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
         _assert_autolog_infers_model_signature_correctly(
-            run,
-            [
-                {"name": "text", "type": "string"},
-            ],
-            [
-                {"name": "words", "type": "string"},
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-            ],
+            run, input_sig_spec=[{"name": "text", "type": "string"}], output_sig_spec=None
         )
+
+
+def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
+    mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
+    with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+        lr.fit(dataset_multinomial)
+        mock_warning.assert_called_once_with(AnyStringWith("Model signature is not logged"))
+        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
+        model_conf = Model.load(model_path.joinpath("MLmodel"))
+        assert model_conf.signature is None
+
+
+def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
+    mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
+    input_cols = [c for c in dataset_numeric.columns if c != "label"]
+    pipe = Pipeline(
+        stages=[VectorAssembler(inputCols=input_cols, outputCol="features"), LinearRegression()]
+    )
+    with mlflow.start_run() as run, mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+        pipe.fit(dataset_numeric)
+        mock_warning.assert_called_once_with(AnyStringWith("Output schema is not be logged"))
+        ml_model_path = pathlib.Path(run.info.artifact_uri).joinpath("model", "MLmodel")
+        with open(ml_model_path) as f:
+            data = yaml.safe_load(f)
+            signature = data["signature"]
+            assert json.loads(signature["inputs"]) == [{"name": "number", "type": "double"}]
+            assert signature["outputs"] is None
 
 
 @pytest.fixture
@@ -1045,15 +1079,7 @@ def test_signature_with_index_to_string_stage(
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
         _assert_autolog_infers_model_signature_correctly(
-            run,
-            [{"name": "id", "type": "long"}],
-            [
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-                {"name": "originalLabel", "type": "string"},
-            ],
+            run, input_sig_spec=[{"name": "id", "type": "long"}], output_sig_spec=None
         )
 
 
@@ -1096,14 +1122,8 @@ def test_signature_with_non_feature_input_columns(
         pipeline_for_feature_cols.fit(input_df_with_non_features)
         _assert_autolog_infers_model_signature_correctly(
             run,
-            [{"name": "id", "type": "long"}],
-            [
-                {"name": "features", "type": "string"},
-                {"name": "rawPrediction", "type": "string"},
-                {"name": "probability", "type": "string"},
-                {"name": "prediction", "type": "double"},
-                {"name": "originalLabel", "type": "string"},
-            ],
+            input_sig_spec=[{"name": "id", "type": "long"}],
+            output_sig_spec=None,
         )
 
 

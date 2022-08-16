@@ -108,14 +108,7 @@ jobs:
         source ./dev/install-common-deps.sh --ml
     - name: Run tests
       run: |
-        # Establish SSH to localhost for test_sftp_artifact_repo.py
-        ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa
-
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        ssh-keyscan -H localhost >> ~/.ssh/known_hosts
-        ssh $(whoami)@localhost exit
-        export LOGNAME=$(whoami)
-
+        source dev/setup-ssh.sh
         ./dev/run-python-tests.sh
 
   database:
@@ -140,7 +133,10 @@ jobs:
         do
           # Set `--no-TTY` to show container logs on GitHub Actions:
           # https://github.com/actions/virtual-environments/issues/5022
-          ./tests/db/compose.sh run --rm --no-TTY $service pytest tests/store/tracking/test_sqlalchemy_store.py tests/db
+          ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+            tests/store/tracking/test_sqlalchemy_store.py \
+            tests/store/model_registry/test_sqlalchemy_store.py \
+            tests/db
         done
 
         test $err = 0
@@ -165,31 +161,6 @@ jobs:
       run: |
         cd mlflow/java
         mvn clean package -q
-
-  protos:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ github.event.inputs.repository }}
-        ref: ${{ github.event.inputs.ref }}
-        submodules: recursive
-    - name: Test building Docker image
-      working-directory: dev
-      env:
-        DOCKER_BUILDKIT: 1
-      run: |
-        docker build -t gen-protos -f Dockerfile.protos .
-        docker run --rm gen-protos protoc --version
-    - name: Install dependencies
-      run: |
-        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /tmp/protoc
-        sudo chmod -R 777 /tmp/protoc
-        echo "/tmp/protoc/bin" >> $GITHUB_PATH
-    - name: Run tests
-      run: |
-        ./dev/test-generate-protos.sh
 
   flavors:
     runs-on: ubuntu-latest

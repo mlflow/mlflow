@@ -738,6 +738,17 @@ class _AutologgingMetricsManager:
 _AUTOLOGGING_METRICS_MANAGER = _AutologgingMetricsManager()
 
 
+def _get_columns_with_unsupported_data_type(df):
+    from mlflow.types.schema import DataType
+
+    supported_spark_types = DataType.get_spark_types()
+    unsupported_columns = []
+    for field in df.schema.fields:
+        if field.dataType not in supported_spark_types:
+            unsupported_columns.append(field)
+    return unsupported_columns
+
+
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
@@ -875,6 +886,12 @@ def autolog(
                                  with spark ml pipeline/estimator artifacts during training.
                                  If ``False`` signatures are not logged.
 
+                                 .. warning::
+
+                                    Currently, only scalar Spark data types are supported. If
+                                    model inputs/outputs contain non-scalar Spark data types such
+                                    as ``pyspark.ml.linalg.Vector``, signatures are not logged.
+
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
@@ -999,7 +1016,29 @@ def autolog(
                     model_output = spark_model.transform(input_slice_df).drop(
                         *input_slice_df.columns
                     )
-                    return infer_signature(input_example_slice, model_output.toPandas())
+                    # TODO: Remove this once we support non-scalar spark data types
+                    unsupported_columns = _get_columns_with_unsupported_data_type(model_output)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Model outputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Output schema is not be logged."
+                        )
+                        model_output = None
+                    else:
+                        model_output = model_output.toPandas()
+
+                    return infer_signature(input_example_slice, model_output)
+
+                # TODO: Remove this once we support non-scalar spark data types
+                nonlocal log_model_signatures
+                if log_model_signatures:
+                    unsupported_columns = _get_columns_with_unsupported_data_type(input_df)
+                    if unsupported_columns:
+                        _logger.warning(
+                            "Model inputs contain unsupported Spark data types: "
+                            f"{unsupported_columns}. Model signature is not logged."
+                        )
+                        log_model_signatures = False
 
                 input_example, signature = resolve_input_example_and_signature(
                     _get_input_example_as_pd_df,

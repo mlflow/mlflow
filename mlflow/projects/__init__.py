@@ -8,7 +8,7 @@ import logging
 import warnings
 
 import mlflow.projects.databricks
-import mlflow.tracking as tracking
+from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects.submitted_run import SubmittedRun

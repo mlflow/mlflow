@@ -20,7 +20,6 @@ import {
   ModelRegistryOnboardingString,
   onboarding,
 } from '../../common/constants';
-import { QuestionCircleFilled } from '@ant-design/icons';
 import { SimplePagination } from '../../common/components/SimplePagination';
 import { Spinner } from '../../common/components/Spinner';
 import { CreateModelButton } from './CreateModelButton';
@@ -33,7 +32,7 @@ import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { PageContainer } from '../../common/components/PageContainer';
-import { Button, Popover } from '@databricks/design-system';
+import { Button, Popover, QuestionMarkFillIcon } from '@databricks/design-system';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -222,10 +221,10 @@ export class ModelListViewImpl extends React.Component {
     this.setState({ loading: false });
   };
 
-  handleSearch = (event) => {
+  handleSearch = (event, searchInput) => {
     event.preventDefault();
     this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
-    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse);
+    this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse, searchInput);
   };
 
   static getSortFieldName = (column) => {
@@ -392,9 +391,7 @@ export class ModelListViewImpl extends React.Component {
           <FlexBar
             left={
               <Spacer size='small' direction='horizontal'>
-                <span css={styles.createModelButtonWrapper}>
-                  <CreateModelButton />
-                </span>
+                <CreateModelButton />
               </Spacer>
             }
             right={
@@ -405,7 +402,7 @@ export class ModelListViewImpl extends React.Component {
                     content={this.searchInputHelpTooltipContent}
                     placement='bottom'
                   >
-                    <QuestionCircleFilled />
+                    <QuestionMarkFillIcon />
                   </Popover>
                 </Spacer>
 
@@ -415,7 +412,6 @@ export class ModelListViewImpl extends React.Component {
                       onChange={this.handleSearchInput}
                       value={this.props.searchInput}
                       onSearch={this.handleSearch}
-                      onPressEnter={this.handleSearch}
                       placeholder={this.props.intl.formatMessage({
                         defaultMessage: 'Search by model names or tags',
                         description: 'Placeholder text inside model search bar',
@@ -469,12 +465,6 @@ export class ModelListViewImpl extends React.Component {
 export const ModelListView = injectIntl(ModelListViewImpl);
 
 const styles = {
-  createModelButtonWrapper: {
-    marginLeft: 'auto',
-    order: 2,
-    height: '40px',
-    width: '120px',
-  },
   nameSearchBox: {
     width: '446px',
   },

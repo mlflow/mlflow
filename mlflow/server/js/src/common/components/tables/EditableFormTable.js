@@ -1,9 +1,15 @@
 import React from 'react';
-import { EditOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Table, Input, Popconfirm, Button, Form } from 'antd';
+import {
+  Input,
+  Button,
+  Form,
+  Modal,
+  Table,
+  PencilIcon,
+  Spinner,
+  TrashIcon,
+} from '@databricks/design-system';
 import PropTypes from 'prop-types';
-import { IconButton } from '../../components/IconButton';
-import _ from 'lodash';
 import { FormattedMessage } from 'react-intl';
 
 const EditableContext = React.createContext();
@@ -63,14 +69,10 @@ export class EditableTable extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = { editingKey: '', isRequestPending: false };
+    this.state = { editingKey: '', isRequestPending: false, deletingKey: '' };
     this.columns = this.initColumns();
     this.form = React.createRef();
   }
-
-  // set table width as sum of columns rather than hard coding a width
-  // see ML-11973
-  getTotalTableWidth = () => _.sumBy(this.columns, 'width');
 
   initColumns = () => [
     ...this.props.columns.map((col) =>
@@ -100,12 +102,11 @@ export class EditableTable extends React.Component {
         />
       ),
       dataIndex: 'operation',
-      width: 200,
       render: (text, record) => {
         const { editingKey, isRequestPending } = this.state;
         const editing = this.isEditing(record);
         if (editing && isRequestPending) {
-          return <LoadingOutlined />;
+          return <Spinner size='small' />;
         }
         return editing ? (
           <span>
@@ -124,38 +125,16 @@ export class EditableTable extends React.Component {
           </span>
         ) : (
           <span>
-            <IconButton
-              icon={<EditOutlined />}
+            <Button
+              icon={<PencilIcon />}
               disabled={editingKey !== ''}
               onClick={() => this.edit(record.key)}
-              style={{ marginRight: 10 }}
             />
-            <Popconfirm
-              title={
-                <FormattedMessage
-                  defaultMessage='Are you sure you want to delete this tag？'
-                  description='Title text for confirmation pop-up to delete a tag from table
-                     in MLflow'
-                />
-              }
-              okText={
-                <FormattedMessage
-                  defaultMessage='Confirm'
-                  description='OK button text for confirmation pop-up to delete a tag from table
-                     in MLflow'
-                />
-              }
-              cancelText={
-                <FormattedMessage
-                  defaultMessage='Cancel'
-                  description='Cancel button text for confirmation pop-up to delete a tag from
-                     table in MLflow'
-                />
-              }
-              onConfirm={() => this.delete(record.key)}
-            >
-              <IconButton icon={<i className='far fa-trash-o' />} disabled={editingKey !== ''} />
-            </Popconfirm>
+            <Button
+              icon={<TrashIcon />}
+              disabled={editingKey !== ''}
+              onClick={() => this.setState({ deletingKey: record.key })}
+            />
           </span>
         );
       },
@@ -180,13 +159,15 @@ export class EditableTable extends React.Component {
     });
   };
 
-  delete = (key) => {
-    const record = this.props.data.find((r) => r.key === key);
-    if (record) {
-      this.setState({ isRequestPending: true });
-      this.props.onDelete({ ...record }).then(() => {
-        this.setState({ editingKey: '', isRequestPending: false });
-      });
+  delete = async (key) => {
+    try {
+      const record = this.props.data.find((r) => r.key === key);
+      if (record) {
+        this.setState({ isRequestPending: true });
+        await this.props.onDelete({ ...record });
+      }
+    } finally {
+      this.setState({ deletingKey: '', isRequestPending: false });
     }
   };
 
@@ -200,9 +181,11 @@ export class EditableTable extends React.Component {
       <EditableContext.Provider value={{ formRef: this.form }}>
         <Table
           className='editable-table'
+          data-testid='editable-table'
           dataSource={data}
           columns={this.columns}
           size='middle'
+          tableLayout='fixed'
           pagination={false}
           locale={{
             emptyText: (
@@ -213,7 +196,34 @@ export class EditableTable extends React.Component {
             ),
           }}
           scroll={{ y: 280 }}
-          style={{ width: this.getTotalTableWidth() }}
+        />
+        <Modal
+          data-testid='editable-form-table-remove-modal'
+          title={
+            <FormattedMessage
+              defaultMessage='Are you sure you want to delete this tag？'
+              description='Title text for confirmation pop-up to delete a tag from table
+                     in MLflow'
+            />
+          }
+          visible={this.state.deletingKey}
+          okText={
+            <FormattedMessage
+              defaultMessage='Confirm'
+              description='OK button text for confirmation pop-up to delete a tag from table
+                     in MLflow'
+            />
+          }
+          cancelText={
+            <FormattedMessage
+              defaultMessage='Cancel'
+              description='Cancel button text for confirmation pop-up to delete a tag from
+                     table in MLflow'
+            />
+          }
+          confirmLoading={this.state.isRequestPending}
+          onOk={() => this.delete(this.state.deletingKey)}
+          onCancel={() => this.setState({ deletingKey: '' })}
         />
       </EditableContext.Provider>
     );
