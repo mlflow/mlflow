@@ -1,4 +1,5 @@
 import os
+import pytest
 from unittest import mock, TestCase
 
 from mlflow.store.db import utils
@@ -78,7 +79,7 @@ class TestCreateSqlAlchemyEngineWithRetry(TestCase):
         ) as mock_create_sqlalchemy_engine, mock.patch(
             "time.sleep"
         ):
-            with self.assertRaisesRegex(Exception, r"failed"):
+            with pytest.raises(Exception, match=r"failed"):
                 utils.create_sqlalchemy_engine_with_retry("mydb://host:port/")
             assert (
                 mock_create_sqlalchemy_engine.mock_calls
