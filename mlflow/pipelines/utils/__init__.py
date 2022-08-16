@@ -128,15 +128,17 @@ def _verify_is_pipeline_root_directory(pipeline_root_path: str) -> str:
             f"Failed to find {_PIPELINE_CONFIG_FILE_NAME} in {pipeline_yaml_path}!"
         )
 
+
 def fetch_and_validate_pipeline(uri, version):
     work_dir = _fetch_pipeline(uri=uri, version=version)
     # validation logic?
     return work_dir
 
+
 def _fetch_pipeline(uri, version=None):
     # copied from projects, needs to be adapted for pipeliens
     """
-    Fetch a project into a local directory, returning the path to the local project directory.
+    Fetch a pipeline into a local directory, returning the path to the local pipeline directory.
     """
     parsed_uri, subdirectory = _parse_subdirectory(uri)
     use_temp_dst_dir = _is_zip_uri(parsed_uri) or not _is_local_uri(parsed_uri)

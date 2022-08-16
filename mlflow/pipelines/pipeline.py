@@ -30,7 +30,7 @@ class _BasePipeline:
     """
 
     @experimental
-    def __init__(self, pipeline_root_path: str, profile: str, uri: str = None) -> None:
+    def __init__(self, pipeline_root_path: str, profile: str) -> None:
         """
         Pipeline base class.
 
@@ -41,10 +41,7 @@ class _BasePipeline:
                         {pipeline_root_path}/profiles/{profile}.yaml is read and merged with
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
-        if uri:
-            self._pipeline_root_path = fetch_and_validate_pipeline(uri)
-        else:
-            self._pipeline_root_path = pipeline_root_path 
+        self._pipeline_root_path = pipeline_root_path
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
@@ -210,7 +207,7 @@ class Pipeline:
     """
 
     @experimental
-    def __new__(cls, profile: str) -> RegressionPipeline:
+    def __new__(cls, profile: str, uri: str, version: str) -> RegressionPipeline:
         """
         Creates an instance of an MLflow Pipeline for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -221,6 +218,10 @@ class Pipeline:
                         task-specific pipeline. Profiles customize the configuration of
                         one or more pipeline steps, and pipeline executions with different profiles
                         often produce different results.
+        :param uri: URI of pipeline to run. A local filesystem path
+            or a Git repository URI (e.g. https://github.com/mlflow/mlp-regression-template)
+            pointing to a directory containing an pipeline.yaml file.
+        :param version: For Git-based pipelines, either a commit hash or a branch name.
         :return: A pipeline for a particular ML problem or MLOps task. For example, an instance of
                  :py:class:`RegressionPipeline
                  <mlflow.pipelines.regression.v1.pipeline.RegressionPipeline>`
@@ -242,7 +243,17 @@ class Pipeline:
                 error_code=INVALID_PARAMETER_VALUE,
             ) from None
 
-        pipeline_root_path = get_pipeline_root_path()
+        # if version and not uri:
+        #     raise MlflowException(
+        #         "A version can only be used for Git-based pipelines",
+        #         error_code=INVALID_PARAMETER_VALUE,
+        #     ) from None
+
+        if uri:
+            pipeline_root_path = fetch_and_validate_pipeline(uri, version)
+        else:
+            pipeline_root_path = get_pipeline_root_path()
+
         if " " in pipeline_root_path:
             raise MlflowException(
                 message=(
