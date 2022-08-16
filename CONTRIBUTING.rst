@@ -530,7 +530,7 @@ Docker development (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Instead of setting up local or virtual environment, it's possible to write code and tests inside a Docker container that will contain an isolated Python environment setup inside.
-It's possible to build and run preconfigured image, then attach with the compatible code editor (e.g. VSCode) into running container. This helps avoiding issues with local setup, e.g. on CPU architectures that are not yet fully compatible with all dependency packages (e.g. Apple M-architecture).
+It's possible to build and run preconfigured image, then attach with the compatible code editor (e.g. VSCode) into a running container. This helps avoiding issues with local setup, e.g. on CPU architectures that are not yet fully compatible with all dependency packages (e.g. Apple arm64 architecture).
 
 Prerequisites
 +++++++++++++
