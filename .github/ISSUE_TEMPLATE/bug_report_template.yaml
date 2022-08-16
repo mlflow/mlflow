@@ -66,23 +66,19 @@ body:
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
       placeholder: |
         ```python
-        # Please make sure the code is runnable
-
         ##### Bad Example #####
-        # - `import mlflow` is missing.
-        # - `model` is undefined.
-        # - Can't be copy-pasted in a Python terminal to reproduce the issue.
+        # - contains undefined variables.
+        # - requires modifications to run (e.g. adding missing import statements).
 
-        with mlflow.start_run():
-            mlflow.sklearn.log_model(model, "model")
+        with mlflow.start_run():  # `mlflow` is not imported
+            mlflow.sklearn.log_model(model, "model")  # `model` is undefined
 
         ##### Good Example #####
-        # - Contains all necessary imports statements.
-        # - No undefined variables.
-        # - Can be copy-pasted in a Python terminal to reproduce the issue.
+        # - does not contain any undefined variables.
+        # - does not require any modifications to run.
 
         from sklearn.datasets import load_iris
-        from sklearn.linear_model import LinearRegression
+        from sklearn.linear_model import LogisticRegression
         import mlflow
 
         X, y = load_iris(return_X_y=True)
