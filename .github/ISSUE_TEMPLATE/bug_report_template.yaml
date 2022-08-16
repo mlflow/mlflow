@@ -68,7 +68,7 @@ body:
         ```python
         # Please make sure the code is runnable
 
-        ### Bad Example:
+        ##### Bad Example #####
         # - `import mlflow` is missing.
         # - `model` is undefined.
         # - Can't be copy-pasted in a Python terminal to reproduce the problem.
@@ -76,7 +76,7 @@ body:
         with mlflow.start_run():
             mlflow.sklearn.log_model(model, "model")
 
-        # Good Example:
+        ##### Good Example #####
         # - Contains all necessary imports statements.
         # - No undefined variables.
         # - Can be copy-pasted in a Python terminal to reproduce the problem.
