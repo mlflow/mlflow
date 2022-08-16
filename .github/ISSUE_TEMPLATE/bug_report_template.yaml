@@ -66,7 +66,29 @@ body:
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
       placeholder: |
         ```python
-        # code to reproduce issue
+        # Please make sure the code is runnable
+
+        ### Bad Example:
+        # - `import mlflow` is missing.
+        # - `model` is undefined.
+        # - Can't be copy-pasted in a Python terminal to reproduce the problem.
+
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(model, "model")
+
+        # Good Example:
+        # - Contains all necessary imports statements.
+        # - No undefined variables.
+        # - Can be copy-pasted in a Python terminal to reproduce the problem.
+
+        from sklearn.datasets import load_iris
+        from sklearn.linear_model import LinearRegression
+        import mlflow
+
+        X, y = load_iris(return_X_y=True)
+        model = LogisticRegression().fit(X, y)
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(model, "model")
         ```
     validations:
       required: true
