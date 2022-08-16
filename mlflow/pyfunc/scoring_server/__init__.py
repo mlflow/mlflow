@@ -80,6 +80,7 @@ FORMATS = [CONTENT_TYPE_FORMAT_RECORDS_ORIENTED, CONTENT_TYPE_FORMAT_SPLIT_ORIEN
 PREDICTIONS_WRAPPER_ATTR_NAME_ENV_KEY = "PREDICTIONS_WRAPPER_ATTR_NAME"
 FASTAPI_THREAD_LIMIT_ENV_KEY          = "FASTAPI_THREAD_LIMIT"
 FASTAPI_PROFILER_ON_FLAG              = "FASTAPI_PROFILER_ON"
+GOOGLE_PROFILER_ON_FLAG               = "GOOGLE_PROFILER_ON"
 
 _logger = logging.getLogger(__name__)
 
@@ -251,6 +252,24 @@ def init(model: PyFuncModel):
         if is_profiler_on:
             print("Profiler will profile each call.")
 
+        if os.getenv(GOOGLE_PROFILER_ON_FLAG, 'false').lower() == 'true':
+            print("google profiler starting")
+            print("MLINFRA_MODEL_NAME param: ",  os.getenv("MLINFRA_MODEL_NAME", 'mlinfra_default_model').lower())
+            print("MLINFRA_MODEL_VERSION param: ",  os.getenv("MLINFRA_MODEL_VERSION", 'mlinfra_default_model').lower())
+            print("GOOGLE_APPLICATION_CREDENTIALS param: ",  os.getenv("GOOGLE_APPLICATION_CREDENTIALS", '').lower())
+            import googlecloudprofiler
+            try:
+                googlecloudprofiler.start(
+                service= os.getenv("MLINFRA_MODEL_NAME", 'default_ml_model').lower(),
+                service_version=os.getenv("MLINFRA_MODEL_VERSION", '1.0.0').lower(),
+                verbose=3,
+                project_id='service-profiler',
+                )
+
+                print("google profiler on")
+            except (ValueError, NotImplementedError) as exc:
+                print("google profiler exception: ", exc)  # Handle errors here
+
         fast_app_thread_limit  = int(os.getenv(FASTAPI_THREAD_LIMIT_ENV_KEY, 0))
         if fast_app_thread_limit > 0:
             from anyio.lowlevel import RunVar
@@ -273,6 +292,7 @@ def init(model: PyFuncModel):
             print(s.getvalue())
             profiler.dump_stats('/tmp/profiler_pstat.stats')
             print("profiler stats dumped to /tmp/profiler_pstat.stats")
+        return
 
     @fast_app.get("/ping")
     def ping():  # pylint: disable=unused-variable
