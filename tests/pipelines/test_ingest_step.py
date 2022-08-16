@@ -633,3 +633,27 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.parquet"
+    pandas_df.to_parquet(dataset_path)
+
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "parquet",
+                    "location": str(dataset_path),
+                },
+                "steps": {"ingest": {"skip_data_profiling": True}},
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+    expected_step_card_path = os.path.join(tmp_path, "card.html")
+    with open(expected_step_card_path, "r") as f:
+        step_card_html_content = f.read()
+    assert "Profile of Ingested Dataset" not in step_card_html_content
+    mock_profiling.assert_not_called()
