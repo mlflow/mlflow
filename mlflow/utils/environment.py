@@ -1,7 +1,6 @@
 import yaml
 import os
 import logging
-import sys
 import re
 import hashlib
 
@@ -64,14 +63,10 @@ class _PythonEnv:
     @classmethod
     def current(cls):
         return cls(
-            python=cls._get_current_python(),
+            python=PYTHON_VERSION,
             build_dependencies=cls.get_current_build_dependencies(),
             dependencies=[f"-r {_REQUIREMENTS_FILE_NAME}"],
         )
-
-    @staticmethod
-    def _get_current_python():
-        return ".".join(map(str, sys.version_info[:3]))
 
     @staticmethod
     def _get_package_version(package_name):
@@ -159,10 +154,11 @@ class _PythonEnv:
                 )
 
         if python is None:
-            raise MlflowException(
-                f"Could not extract python version from {path}",
-                error_code=INVALID_PARAMETER_VALUE,
+            _logger.warning(
+                f"{path} does not include a python version specification. "
+                f"Using the current python version {PYTHON_VERSION}."
             )
+            python = PYTHON_VERSION
 
         if unmatched_dependencies:
             _logger.warning(
