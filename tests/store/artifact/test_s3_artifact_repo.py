@@ -102,7 +102,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
     assert cache_info.currsize == 3
 
 
-@pytest.mark.parametrize("ignore_tls_env, verify", [("", None), ("true", False), ("false", None)])
+@pytest.mark.parametrize("ignore_tls_env, verify", [("0", None), ("1", False), ("true", False), ("false", None)])
 def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
     from unittest.mock import ANY
 

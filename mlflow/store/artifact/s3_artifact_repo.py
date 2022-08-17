@@ -89,11 +89,7 @@ class S3ArtifactRepository(ArtifactRepository):
 
     def _get_s3_client(self):
         s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
-        ignore_tls = MLFLOW_S3_IGNORE_TLS.get()
-
-        do_verify = True
-        if ignore_tls:
-            do_verify = ignore_tls.lower() not in ["true", "yes", "1"]
+        do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
         # The valid verify argument value is None/False/path to cert bundle file, See
         # https://github.com/boto/boto3/blob/73865126cad3938ca80a2f567a1c79cb248169a7/
