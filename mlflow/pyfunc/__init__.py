@@ -709,11 +709,45 @@ def _warn_dependency_requirement_mismatches(model_path):
 
 
 class ModelServerPyfunc:
-    def __init__(self, client):
-        self._client = client
+    def __init__(self, model_path, env_dir, env_manager):
+        self._model_path = model_path
+        self._env_dir = env_dir
+        self._env_manager = env_manager
 
     def predict(self, _input):
-        return self._client.invoke(_input)
+        from mlflow.models.cli import _get_flavor_backend
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+        pyfunc_backend = _get_flavor_backend(
+            self._model_path,
+            workers=1,
+            install_mlflow=False,
+            env_manager=self._env_manager,
+            env_root_dir=self._env_dir,
+        )
+        pyfunc_backend.prepare_env(
+            model_uri=self._model_path, capture_output=is_in_databricks_runtime()
+        )
+        server_port = find_free_port()
+        scoring_server_proc = pyfunc_backend.serve(
+            model_uri=self._model_path,
+            port=server_port,
+            host="127.0.0.1",
+            timeout=60,
+            enable_mlserver=False,
+            synchronous=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        client = ScoringServerClient("127.0.0.1", server_port)
+        try:
+            client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+        except Exception:
+            raise MlflowException("MLflow model server failed to launch")
+
+        result = client.invoke(_input)
+        os.kill(scoring_server_proc.pid, signal.SIGTERM)
+        return result
 
 
 def load_model(
@@ -761,34 +795,19 @@ def load_model(
 
     if env_manager != _EnvManager.LOCAL:
         from mlflow.models.cli import _get_flavor_backend
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
         env_root_dir = _get_or_create_env_root_dir(False)
-        pyfunc_backend = _get_flavor_backend(
+        _get_flavor_backend(
             local_path,
             install_mlflow=False,
             env_manager=env_manager,
             env_root_dir=env_root_dir,
-        )
-        pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-        server_port = find_free_port()
-        scoring_server_proc = pyfunc_backend.serve(
-            model_uri=local_path,
-            port=server_port,
-            host="127.0.0.1",
-            timeout=60,
-            enable_mlserver=False,
-            synchronous=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        client = ScoringServerClient("127.0.0.1", server_port)
-        try:
-            client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-        except Exception:
-            raise MlflowException("MLflow model server failed to launch")
+        ).prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
 
-        return PyFuncModel(model_meta=model_meta, model_impl=ModelServerPyfunc(client))
+        return PyFuncModel(
+            model_meta=model_meta,
+            model_impl=ModelServerPyfunc(local_path, env_root_dir, env_manager),
+        )
 
     if not suppress_warnings:
         _warn_dependency_requirement_mismatches(local_path)
