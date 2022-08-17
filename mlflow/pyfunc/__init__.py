@@ -708,8 +708,16 @@ def _warn_dependency_requirement_mismatches(model_path):
         _logger.debug("", exc_info=True)
 
 
+class ModelServerPyfunc:
+    def __init__(self, client):
+        self._client = client
+
+    def predict(self, _input):
+        return self._client.invoke(_input)
+
+
 def load_model(
-    model_uri: str, suppress_warnings: bool = False, dst_path: str = None
+    model_uri: str, suppress_warnings: bool = False, dst_path: str = None, env_manager="local"
 ) -> PyFuncModel:
     """
     Load a model stored in Python function format.
@@ -733,13 +741,57 @@ def load_model(
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
+     :param env_manager: The environment manager to use in order to create the python environment
+                        for model inference. Default value is ``local``, and the following values
+                        are supported:
+
+                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                           that was used to train the model.
+                         - ``virtualenv``: Use virtualenv to restore the python environment that
+                           was used to train the model.
+                         - ``local``: Use the current Python environment for model inference, which
+                           may differ from the environment used to train the model and may lead to
+                           errors or invalid predictions.
     """
+
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+    _EnvManager.validate(env_manager)
+
+    if env_manager != _EnvManager.LOCAL:
+        from mlflow.models.cli import _get_flavor_backend
+        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+
+        env_root_dir = _get_or_create_env_root_dir(False)
+        pyfunc_backend = _get_flavor_backend(
+            local_path,
+            install_mlflow=False,
+            env_manager=env_manager,
+            env_root_dir=env_root_dir,
+        )
+        pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
+        server_port = find_free_port()
+        scoring_server_proc = pyfunc_backend.serve(
+            model_uri=local_path,
+            port=server_port,
+            host="127.0.0.1",
+            timeout=60,
+            enable_mlserver=False,
+            synchronous=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        client = ScoringServerClient("127.0.0.1", server_port)
+        try:
+            client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
+        except Exception:
+            raise MlflowException("MLflow model server failed to launch")
+
+        return PyFuncModel(model_meta=model_meta, model_impl=ModelServerPyfunc(client))
 
     if not suppress_warnings:
         _warn_dependency_requirement_mismatches(local_path)
-
-    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:
