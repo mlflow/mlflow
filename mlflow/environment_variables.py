@@ -115,8 +115,8 @@ MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", st
 MLFLOW_S3_ENDPOINT_URL = _EnvironmentVariable("MLFLOW_S3_ENDPOINT_URL", str, None)
 
 #: Specifies whether to get mlflow s3 ignore tls configurations.
-#: (default: ``None``)
-MLFLOW_S3_IGNORE_TLS = _EnvironmentVariable("MLFLOW_S3_IGNORE_TLS", str, None)
+#: (default: ``False``)
+MLFLOW_S3_IGNORE_TLS = _BooleanEnvironmentVariable("MLFLOW_S3_IGNORE_TLS", False)
 
 #: Specifies the ``pool_size`` parameter to use for ``sqlalchemy.create_engine`` in the SQLAlchemy
 #: tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size
