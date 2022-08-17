@@ -13,7 +13,7 @@
     "python.defaultInterpreterPath": "~/miniconda/envs/mlflow-dev-env/bin/python",
     // Disable automatic environment activation on terminal creation because we run `conda activate mlflow-dev-env` in `.zshrc`.
     "python.terminal.activateEnvironment": false,
-    // Auto import complemtion feature often imports incorrect modules.
+    // Auto import completion feature often imports incorrect modules.
     "python.analysis.autoImportCompletions": false,
     // Disable lint check because pylint is slow
     "python.linting.enabled": false,
@@ -23,13 +23,11 @@
   },
   "extensions": [
     "dbaeumer.vscode-eslint",
-    "eamodio.gitlens",
     "esbenp.prettier-vscode",
-    "GitHub.vscode-pull-request-github",
     "ms-python.python",
-    "oderwat.indent-rainbow",
     "PKief.material-icon-theme",
     "ritwickdey.LiveServer",
-    "shardulm94.trailing-spaces"
+    "shardulm94.trailing-spaces",
+    "oderwat.indent-rainbow"
   ]
 }

@@ -1,11 +1,10 @@
 version: '3'
 services:
   mlflow:
-    image: 'ghcr.io/harupy/mlflow-devcontainer'
+    image: 'ghcr.io/mlflow/mlflow-devcontainer'
     working_dir: /workspaces/mlflow
     environment:
       MLFLOW_HOME: /workspaces/mlflow
-      # Use a SQLite backend for model registry
       MLFLOW_TRACKING_URI: sqlite:////workspaces/mlflow/mlruns.sqlite
     volumes:
       - $PWD:/workspaces/mlflow
