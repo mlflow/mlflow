@@ -782,6 +782,7 @@ def load_model(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
+        _logger.info(f"Scoring server process: {scoring_server_proc.pid}")
         client = ScoringServerClient("127.0.0.1", server_port)
         try:
             client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
