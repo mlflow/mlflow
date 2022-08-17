@@ -215,6 +215,21 @@ def test_download_artifacts():
             assert expected_data == fd.read()
 
 
+def test__download_file():
+    expected_data = b"hello"
+    artifact_path = "test__download_file.txt"
+    # mock hdfs
+    hdfs = mock.Mock()
+    hdfs.open = mock_open(read_data=expected_data)
+
+    with TempDir() as tmp_dir:
+        if not hdfs.isdir(artifact_path):
+            _download_hdfs_file(hdfs, artifact_path, os.path.join(tmp_dir.path(), artifact_path))
+            with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
+                assert expected_data == fd.read()
+
+
+
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
 def test_delete_artifacts(hdfs_system_mock):
     delete_mock = hdfs_system_mock.return_value.delete
