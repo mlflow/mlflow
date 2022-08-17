@@ -7,6 +7,7 @@ import {
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
+  DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -15,6 +16,7 @@ import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
+import ShowArtifactTableView from './ShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
@@ -58,6 +60,8 @@ class ShowArtifactPage extends Component {
       } else if (normalizedExtension) {
         if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <ShowArtifactTableView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {

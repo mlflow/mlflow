@@ -2980,6 +2980,7 @@ __metadata:
     leaflet: ^1.5.1
     lodash: ^4.17.21
     moment: ^2.24.0
+    papaparse: ^5.3.2
     plotly.js: 2.5.1
     prettier: ^2.6.2
     prop-types: ^15.7.2
@@ -20159,6 +20160,13 @@ fsevents@~2.1.2:
   version: 1.0.10
   resolution: "pako@npm:1.0.10"
   checksum: 02e35639495ba8a36a489a925c37f6faffb4be75238da1d52371cb38f674b18c5c95babed24f4616d9877776bd00e4969e7e9f6413ae9b3fd43189a7cea237c3
+  languageName: node
+  linkType: hard
+
+"papaparse@npm:^5.3.2":
+  version: 5.3.2
+  resolution: "papaparse@npm:5.3.2"
+  checksum: a5950ef931a42f6759a8d3823a43dd30f375b37a0ddea6ea5448c0c5024cd226819231958c49c24fbcdeab297c63fd1d630130b3439876ea0fd17d8a267738ae
   languageName: node
   linkType: hard
 
