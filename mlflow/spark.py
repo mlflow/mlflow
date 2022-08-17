@@ -418,19 +418,36 @@ def _should_use_mlflowdbfs(root_uri):
     # the Hadoop FileSystem API until a read call has been issued.
     from mlflow.utils._spark_utils import _get_active_spark_session
 
+    if (
+        not is_valid_dbfs_uri(root_uri)
+        or not is_databricks_acled_artifacts_uri(root_uri)
+        or not databricks_utils.is_in_databricks_runtime()
+        or (environment_variables._DISABLE_MLFLOWDBFS.get() or "").lower() == "true"
+    ):
+        return False
+
+    mlflowdbfs_read_exception_str = None
     try:
         _get_active_spark_session().read.load("mlflowdbfs:///artifact?run_id=foo&path=/bar")
-    except Exception:
+    except Exception as e:
         # The load invocation is expected to throw an exception.
-        pass
+        mlflowdbfs_read_exception_str = str(e)
 
-    return (
-        is_valid_dbfs_uri(root_uri)
-        and is_databricks_acled_artifacts_uri(root_uri)
-        and databricks_utils.is_in_databricks_runtime()
-        and environment_variables._DISABLE_MLFLOWDBFS.get() in ["", "False", "false"]
-        and _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
-    )
+    try:
+        return _HadoopFileSystem.is_filesystem_available(_MLFLOWDBFS_SCHEME)
+    except Exception:
+        # The HDFS filesystem logic used to determine mlflowdbfs availability on Databricks
+        # clusters may not work on certain Databricks cluster types due to unavailability of
+        # the _HadoopFileSystem.is_filesystem_available() API. As a temporary workaround,
+        # we check the contents of the expected exception raised by a dummy mlflowdbfs
+        # read for evidence that mlflowdbfs is available. If "MlflowdbfsClient" is present
+        # in the exception contents, we can safely assume that mlflowdbfs is available because
+        # `MlflowdbfsClient` is exclusively used by mlflowdbfs for performing MLflow
+        # file storage operations
+        #
+        # TODO: Remove this logic once the _HadoopFileSystem.is_filesystem_available() check
+        # below is determined to work on all Databricks cluster types
+        return "MlflowdbfsClient" in (mlflowdbfs_read_exception_str or "")
 
 
 def _save_model_metadata(

@@ -173,6 +173,7 @@ def deploy(
     instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
+    data_capture_config=None,
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
@@ -273,6 +274,25 @@ def deploy(
                         ]
                      }
         mfs.deploy(..., vpc_config=vpc_config)
+
+    :param data_capture_config: A dictionary specifying the data capture configuration to use when
+                       creating the new SageMaker model associated with this application. For more
+                       information, see
+                       https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sagemaker as mfs
+        data_capture_config = {
+                        'EnableCapture': True,
+                        'InitalSamplingPercentage': 100,
+                        'DestinationS3Uri": 's3://my-bucket/path',
+                        'CaptureOptions': [
+                            {'CaptureMode': 'Output'}
+                        ],
+                     }
+        mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param flavor: The name of the flavor of the model to use for deployment. Must be either
                    ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -395,6 +415,7 @@ def deploy(
             instance_type=instance_type,
             instance_count=instance_count,
             vpc_config=vpc_config,
+            data_capture_config=data_capture_config,
             role=execution_role_arn,
             sage_client=sage_client,
         )
@@ -1414,6 +1435,7 @@ def _create_sagemaker_endpoint(
     flavor,
     instance_type,
     vpc_config,
+    data_capture_config,
     instance_count,
     role,
     sage_client,
@@ -1430,6 +1452,8 @@ def _create_sagemaker_endpoint(
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this SageMaker endpoint.
+    :param data_capture_config: A dictionary specifying the data capture configuration to use when
+                       creating the new SageMaker model associated with this application.
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     """
@@ -1455,11 +1479,15 @@ def _create_sagemaker_endpoint(
         "InitialVariantWeight": 1,
     }
     config_name = _get_sagemaker_config_name(endpoint_name)
-    endpoint_config_response = sage_client.create_endpoint_config(
-        EndpointConfigName=config_name,
-        ProductionVariants=[production_variant],
-        Tags=[{"Key": "app_name", "Value": endpoint_name}],
-    )
+    endpoint_config_kwargs = {
+        "EndpointConfigName": config_name,
+        "ProductionVariants": [production_variant],
+        "Tags": [{"Key": "app_name", "Value": endpoint_name}],
+    }
+    if data_capture_config is not None:
+        endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
+
+    endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
     )
@@ -1860,6 +1888,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
             instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
             vpc_config=None,
+            data_capture_config=None,
             synchronous=True,
             timeout_seconds=1200,
         )
@@ -1876,7 +1905,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config"}
+        dict_fields = {"vpc_config", "data_capture_config"}
         for key, value in custom_config.items():
             if key not in config:
                 continue
@@ -1919,7 +1948,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                        If ``None``, a flavor is automatically selected from the model's available
                        flavors. If the specified flavor is not present or not supported for
                        deployment, an exception will be thrown.
-        :param config: Configuration paramaters. The supported paramaters are:
+        :param config: Configuration parameters. The supported parameters are:
 
                        - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
                          to deploy SageMaker to another AWS account. If this parameter is not
@@ -2015,6 +2044,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+
+                       - ``data_capture_config``: A dictionary specifying the data capture
+                         configuration to use when creating the new SageMaker model associated with
+                         this application.
+                         For more information, see
+                         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                         Defaults to ``None``.
         :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
@@ -2069,7 +2105,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
-                    "Subnets": ["subnet-123456abc"]}'
+                    "Subnets": ["subnet-123456abc"]}' \\
+                    -C data_capture_config='{"EnableCapture": True, \\
+                    'InitalSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
+                    'CaptureOptions': [{'CaptureMode': 'Output'}]}'
         """
         final_config = self._default_deployment_config()
         if config:
@@ -2089,6 +2128,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             instance_type=final_config["instance_type"],
             instance_count=final_config["instance_count"],
             vpc_config=final_config["vpc_config"],
+            data_capture_config=final_config["data_capture_config"],
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
         )
@@ -2123,7 +2163,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                        flavors. If the specified flavor is not present or not supported for
                        deployment, an exception will be thrown.
 
-        :param config: Configuration paramaters. The supported paramaters are:
+        :param config: Configuration parameters. The supported parameters are:
 
                        - ``assume_role_arn``: The name of an IAM cross-account role to be assumed
                          to deploy SageMaker to another AWS account. If this parameter is not
@@ -2216,6 +2256,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          #SageMaker.Client.create_model>`_. For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
                          Defaults to ``None``.
+
+                       - ``data_capture_config``: A dictionary specifying the data capture
+                         configuration to use when creating the new SageMaker model associated with
+                         this application.
+                         For more information, see
+                         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
+                         Defaults to ``None``.
         :param endpoint: (optional) Endpoint containing the deployment to update. Currently
                          unsupported
 
@@ -2232,6 +2279,14 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     'subnet-123456abc',
                 ]
             }
+            data_capture_config = {
+                'EnableCapture': True,
+                'InitalSamplingPercentage': 100,
+                'DestinationS3Uri": 's3://my-bucket/path',
+                'CaptureOptions': [
+                    {'CaptureMode': 'Output'}
+                ]
+            }
             config=dict(
                 assume_role_arn="arn:aws:123:role/assumed_role",
                 execution_role_arn="arn:aws:456:role/execution_role",
@@ -2245,6 +2300,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 synchronous=True,
                 timeout_seconds=300,
                 vpc_config=vpc_config
+                data_capture_config=data_capture_config
             )
             client = SageMakerDeploymentClient("sagemaker")
             client.update_deployment(
@@ -2271,7 +2327,10 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
-                    "Subnets": ["subnet-123456abc"]}'
+                    "Subnets": ["subnet-123456abc"]}' \\
+                    -C data_capture_config='{"EnableCapture": True, \\
+                    'InitalSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
+                    'CaptureOptions': [{'CaptureMode': 'Output'}]}'
         """
         final_config = self._default_deployment_config(create_mode=False)
         if config:
@@ -2304,6 +2363,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             instance_type=final_config["instance_type"],
             instance_count=final_config["instance_count"],
             vpc_config=final_config["vpc_config"],
+            data_capture_config=final_config["data_capture_config"],
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
         )
@@ -2316,7 +2376,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         Delete a SageMaker application.
 
         :param name: Name of the deployed application.
-        :param config: Configuration paramaters. The supported paramaters are:
+        :param config: Configuration parameters. The supported parameters are:
 
                        - ``assume_role_arn``: The name of an IAM role to be assumed to delete
                          the SageMaker deployment.
