@@ -34,17 +34,17 @@ class _EnvironmentVariable:
         return repr(self.name)
 
 
-#: Specify the maximum number of retries for MLflow http request
+#: Specifies the maximum number of retries for MLflow http request
 #: (default: ``5``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)
 
-#: Specify backoff factor for MLflow http request
+#: Specifies backoff factor for MLflow http request
 #: (default: ``2``)
 MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR = _EnvironmentVariable(
     "MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", int, 2
 )
 
-#: Specify timeout in seconds for MLflow http request
+#: Specifies timeout in seconds for MLflow http request
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
@@ -62,31 +62,31 @@ MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZ
 #: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
 MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
 
-#: Specify whether to disable model logging and loading via mlflowdbfs.
+#: Specifies whether to disable model logging and loading via mlflowdbfs.
 #: (default: `None`)
 _DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, None)
 
-#: Specify whether to get extra S3 upload arguments.
+#: Specifies whether to get extra S3 upload arguments.
 #: (default: ``None``)
 MLFLOW_S3_UPLOAD_EXTRA_ARGS = _EnvironmentVariable("MLFLOW_S3_UPLOAD_EXTRA_ARGS", str, None)
 
-#: Specify whether to get kerberos extra cache.
+#: Specifies whether to get kerberos extra cache.
 #: (default: ``None``)
 MLFLOW_KERBEROS_TICKET_CACHE = _EnvironmentVariable("MLFLOW_KERBEROS_TICKET_CACHE", str, None)
 
-#: Specify whether to get kerberos user.
+#: Specifies whether to get kerberos user.
 #: (default: ``None``)
 MLFLOW_KERBEROS_USER = _EnvironmentVariable("MLFLOW_KERBEROS_USER", str, None)
 
-#: Specify whether to get extra pyarrow configurations.
+#: Specifies whether to get extra pyarrow configurations.
 #: (default: ``None``)
 MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", str, None)
 
-#: Specify whether to get mlflow s3 endpoint url.
+#: Specifies whether to get mlflow s3 endpoint url.
 #: (default: ``None``)
 MLFLOW_S3_ENDPOINT_URL = _EnvironmentVariable("MLFLOW_S3_ENDPOINT_URL", str, None)
 
-#: Specify whether to get mlflow s3 ignore tls configurations.
+#: Specifies whether to get mlflow s3 ignore tls configurations.
 #: (default: ``None``)
 MLFLOW_S3_IGNORE_TLS = _EnvironmentVariable("MLFLOW_S3_IGNORE_TLS", str, None)
 
