@@ -9,11 +9,11 @@ from mlflow.exceptions import ExecutionException
 from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME
 from mlflow.projects import env_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
-DEFAULT_PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
 
 def _find_mlproject(directory):
@@ -121,7 +121,7 @@ def load_project(directory):
             name=project_name,
         )
 
-    default_python_env_path = os.path.join(directory, DEFAULT_PYTHON_ENV_FILE_NAME)
+    default_python_env_path = os.path.join(directory, _PYTHON_ENV_FILE_NAME)
     if os.path.exists(default_python_env_path):
         return Project(
             env_type=env_type.VIRTUAL_ENV,
