@@ -6,18 +6,13 @@ import yaml
 import os
 import uuid
 
-from typing import Any, Dict, Optional, Union, Callable, NamedTuple, List
+from typing import Any, Dict, Optional, Union, Callable, NamedTuple
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types import Schema
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
-
-import numpy as np
-import pandas
-import scipy.sparse
 
 _logger = logging.getLogger(__name__)
 
@@ -32,17 +27,6 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "1.7.0 or above."
 )
 _MLFLOW_VERSION_KEY = "mlflow_version"
-
-PyFuncInput = Union[
-    pandas.DataFrame,
-    np.ndarray,
-    scipy.sparse.csc_matrix,  # Why do we use a string format "scipy.sparse.csc_matrix" here before?
-    scipy.sparse.csr_matrix,
-    List[Any],
-    Dict[str, Any],
-]
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
-DataInputType = Union[PyFuncInput, PyFuncOutput]
 
 
 class ModelInfo(NamedTuple):
@@ -386,38 +370,3 @@ def get_model_signature(model_uri: str) -> dict:
     """
     model_info = get_model_info(model_uri)
     return model_info.signature_dict
-
-
-def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputType:
-    """
-    Validate that the input data schema matches expected schema.
-
-    :param data: Input data to be validated. Supported types are:
-                    - Pandas DataFrame
-                    - Pandas Series
-                    - Numpy ndarray
-                    - scipy.sparse.csc_matrix
-                    - scipy.sparse.csr_matrix
-                    - List[Any]
-                    - Dict[str, Any]
-                    - list
-
-    :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
-
-    :return: Validated input data.
-    """
-    if isinstance(
-        data,
-        (
-            pandas.DataFrame,
-            np.ndarray,
-            scipy.sparse.csc_matrix,
-            scipy.sparse.csr_matrix,
-            dict,
-            pandas.Series,
-            list,
-        ),
-    ):
-        return mlflow.pyfunc._enforce_schema(data, expected_schema)
-    else:
-        raise MlflowException("Unsupported input data type: {}".format(type(data)))
