@@ -13,6 +13,7 @@ from mlflow.projects import env_type
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
+DEFAULT_PYTHON_ENV_FILE_NAME = "python_env.yaml"
 
 
 def _find_mlproject(directory):
@@ -115,6 +116,16 @@ def load_project(directory):
         return Project(
             env_type=env_type.CONDA,
             env_config_path=conda_env_path,
+            entry_points=entry_points,
+            docker_env=None,
+            name=project_name,
+        )
+
+    default_python_env_path = os.path.join(directory, DEFAULT_PYTHON_ENV_FILE_NAME)
+    if os.path.exists(default_python_env_path):
+        return Project(
+            env_type=env_type.VIRTUAL_ENV,
+            env_config_path=default_python_env_path,
             entry_points=entry_points,
             docker_env=None,
             name=project_name,

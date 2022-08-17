@@ -6,7 +6,11 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.virtualenv import _create_virtualenv
 
-from tests.projects.utils import TEST_VIRTUALENV_PROJECT_DIR, TEST_VIRTUALENV_CONDA_PROJECT_DIR
+from tests.projects.utils import (
+    TEST_VIRTUALENV_PROJECT_DIR,
+    TEST_VIRTUALENV_CONDA_PROJECT_DIR,
+    TEST_VIRTUALENV_NO_PYTHON_ENV,
+)
 
 
 spy_on_create_virtualenv = mock.patch(
@@ -28,6 +32,17 @@ def test_virtualenv_project_execution_without_env_manager(create_virtualenv_spy)
     # python_env project should be executed using virtualenv without explicitly specifying
     # env_manager="virtualenv"
     submitted_run = mlflow.projects.run(TEST_VIRTUALENV_PROJECT_DIR, entry_point="test")
+    submitted_run.wait()
+    create_virtualenv_spy.assert_called_once()
+
+
+@spy_on_create_virtualenv
+def test_virtualenv_project_execution_no_python_env(create_virtualenv_spy):
+    """
+    When an MLproject file doesn't contain a python_env field but python_env.yaml exists,
+    virtualenv should be used as an environment manager.
+    """
+    submitted_run = mlflow.projects.run(TEST_VIRTUALENV_NO_PYTHON_ENV, entry_point="test")
     submitted_run.wait()
     create_virtualenv_spy.assert_called_once()
 
