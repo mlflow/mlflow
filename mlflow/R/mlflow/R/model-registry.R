@@ -295,7 +295,7 @@ mlflow_delete_model_version <- function(name, version, client = NULL) {
 #'
 #' @param name Name of the registered model.
 #' @param version Model version number.
-#' @param stage Transition `model_version` to this tage.
+#' @param stage Transition `model_version` to this stage.
 #' @param archive_existing_versions (Optional)
 #' @template roxlate-client
 #' @export
