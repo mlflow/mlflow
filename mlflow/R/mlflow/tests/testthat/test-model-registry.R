@@ -298,7 +298,6 @@ test_that("mlflow can transition a model", {
       expect_true(paste(args[1:2],
                   collapse = "/") == "model-versions/transition-stage")
       expect_equal(args$verb, "POST")
-      expect_equal(rapply(args$data, as.character, how = "replace"), "foo")
       return(list(model_version = list(
                   name = "mymodel",
                   version = 1,
