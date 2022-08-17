@@ -40,5 +40,5 @@ jobs:
           docker image inspect $IMAGE_NAME
       - name: Push image
         run: |
-          echo "${{ github.token }}" | docker login ghcr.io -u mlflow --password-stdin
+          echo "${{ secrets.MLFLOW_AUTOMATION_TOKEN }}" | docker login ghcr.io -u mlflow-automation --password-stdin
           docker push $IMAGE_NAME
