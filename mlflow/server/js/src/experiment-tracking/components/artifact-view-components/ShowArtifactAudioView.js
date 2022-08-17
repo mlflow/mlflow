@@ -2,6 +2,8 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import WaveSurfer from 'wavesurfer.js';
+import './ShowArtifactAudioView.css';
 
 class ShowArtifactAudioView extends Component {
   constructor(props) {
@@ -24,18 +26,11 @@ class ShowArtifactAudioView extends Component {
     error: undefined,
     waveform: undefined,
     playing: false,
+    audioDuration: 0,
+    timeElapsed: 0,
   };
 
-  waveform = WaveSurfer.create({
-    barWidth: 3,
-    cursorWidth: 1,
-    container: '#waveform',
-    height: 80,
-    progressColor: '#2D5BFF',
-    responsive: true,
-    waveColor: '#EFEFEF',
-    cursorColor: 'black',
-  });
+  waveform = undefined;
 
   componentDidMount() {
     this.fetchArtifacts();
@@ -43,8 +38,20 @@ class ShowArtifactAudioView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      this.waveform.destroy();
+      this.setState({
+        playing: false,
+        audioDuration: 0,
+        timeElapsed: 0,
+        loading: true,
+        error: undefined,
+      });
       this.fetchArtifacts();
     }
+  }
+
+  componentWillUnmount() {
+    this.waveform.destroy();
   }
 
   render() {
@@ -58,29 +65,71 @@ class ShowArtifactAudioView extends Component {
         </div>
       );
     } else {
-      const language = getLanguage(this.props.path);
-      const overrideStyles = {
-        fontFamily: 'Source Code Pro,Menlo,monospace',
-        fontSize: '13px',
-        overflow: 'auto',
-        marginTop: '0',
-        width: '100%',
-        height: '100%',
-      };
       return (
-        <div className='ShowArtifactPage'>
-          <div className='text-area-border-box'>
-            <div className='WaveformContainer'>
-              <div id="waveform" />
+        <div className='text-area-border-box'>
+          <div className='WaveformContainer'>
+            <div className='playback-controls'>
+              <a title={this.state.playing ? 'Pause' : 'Play'} onClick={this.handlePlayPause}>
+                <i
+                  className={this.state.playing ? 'fas fa-pause' : 'fas fa-play'}
+                  style={{ fontSize: 21 }}
+                ></i>
+              </a>
+              <div style={{ width: 15 }}></div>
+              <div className='timecode'>
+                {`${ShowArtifactAudioView.formatTimecode(
+                  this.state.timeElapsed,
+                )} / ${ShowArtifactAudioView.formatTimecode(this.state.audioDuration)}`}
+              </div>
             </div>
+            <div id='waveform'></div>
           </div>
         </div>
       );
     }
   }
 
+  static formatTimecode(seconds) {
+    return new Date(1000 * seconds).toISOString().substring(11, 19);
+  }
+
   loadAudio(artifact) {
-    this.waveform.load(artifact);
+    try {
+      this.waveform = WaveSurfer.create({
+        waveColor: '#1890ff',
+        progressColor: '#2374BB',
+        cursorColor: '#333333',
+        container: '#waveform',
+        responsive: true,
+        height: 592,
+      });
+    } catch (e) {
+      throw Error(e);
+    }
+    const blob = new window.Blob([new Uint8Array(artifact)]);
+    try {
+      this.waveform.loadBlob(blob);
+    } catch (e) {
+      throw Error(e);
+    }
+
+    this.waveform.on('ready', () => {
+      this.setState({ audioDuration: this.waveform.getDuration() });
+    });
+
+    this.waveform.on('error', (error) => {
+      this.setState({ error: error });
+    });
+
+    this.waveform.on('audioprocess', () => {
+      if (this.waveform.isPlaying()) {
+        this.setState({ timeElapsed: this.waveform.getCurrentTime() });
+      }
+    });
+
+    this.waveform.on('finish', () => {
+      this.setState({ playing: false });
+    });
   }
 
   handlePlayPause = () => {
@@ -91,12 +140,13 @@ class ShowArtifactAudioView extends Component {
   fetchArtifacts() {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
-      .getArtifact(artifactLocation)
-      .then((text) => {
+      .getArtifact(artifactLocation, true)
+      .then((arrayBuffer) => {
         try {
-          this.loadAudio();
+          this.setState({ waveform: arrayBuffer, loading: false });
+          this.loadAudio(arrayBuffer);
         } catch (e) {
-          this.setState({ text: text, loading: false }); // Note this needs a banner on it
+          this.setState({ waveform: arrayBuffer, loading: false });
         }
       })
       .catch((error) => {
@@ -104,3 +154,5 @@ class ShowArtifactAudioView extends Component {
       });
   }
 }
+
+export default ShowArtifactAudioView;
