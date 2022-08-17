@@ -124,7 +124,7 @@ def load_project(directory):
     default_python_env_path = os.path.join(directory, _PYTHON_ENV_FILE_NAME)
     if os.path.exists(default_python_env_path):
         return Project(
-            env_type=env_type.VIRTUALENV,
+            env_type=env_type.PYTHON,
             env_config_path=default_python_env_path,
             entry_points=entry_points,
             docker_env=None,
