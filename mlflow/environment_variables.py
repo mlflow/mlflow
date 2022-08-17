@@ -96,27 +96,27 @@ MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", 
 #: (default: ``None``)
 _DISABLE_MLFLOWDBFS = _EnvironmentVariable("DISABLE_MLFLOWDBFS", str, None)
 
-#: Specifies whether to get extra S3 upload arguments.
+#: Specifies extra arguments for S3 artifact uploads.
 #: (default: ``None``)
 MLFLOW_S3_UPLOAD_EXTRA_ARGS = _EnvironmentVariable("MLFLOW_S3_UPLOAD_EXTRA_ARGS", str, None)
 
-#: Specifies whether to get kerberos extra cache.
+#: Specifies the location of a Kerberos ticket cache to use for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_KERBEROS_TICKET_CACHE = _EnvironmentVariable("MLFLOW_KERBEROS_TICKET_CACHE", str, None)
 
-#: Specifies whether to get kerberos user.
+#: Specifies a Kerberos user for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_KERBEROS_USER = _EnvironmentVariable("MLFLOW_KERBEROS_USER", str, None)
 
-#: Specifies whether to get extra pyarrow configurations.
+#: Specifies extra pyarrow configurations for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", str, None)
 
-#: Specifies whether to get mlflow s3 endpoint url.
+#: Specifies the S3 endpoint URL to use for S3 artifact operations.
 #: (default: ``None``)
 MLFLOW_S3_ENDPOINT_URL = _EnvironmentVariable("MLFLOW_S3_ENDPOINT_URL", str, None)
 
-#: Specifies whether to get mlflow s3 ignore tls configurations.
+#: Specifies whether or not to skip TLS certificate verification for S3 artifact operations.
 #: (default: ``False``)
 MLFLOW_S3_IGNORE_TLS = _BooleanEnvironmentVariable("MLFLOW_S3_IGNORE_TLS", False)
 
