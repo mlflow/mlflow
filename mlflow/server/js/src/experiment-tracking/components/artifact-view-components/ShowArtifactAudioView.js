@@ -28,6 +28,7 @@ class ShowArtifactAudioView extends Component {
     playing: false,
     audioDuration: 0,
     timeElapsed: 0,
+    waveformPainting: undefined,
   };
 
   waveform = undefined;
@@ -56,7 +57,7 @@ class ShowArtifactAudioView extends Component {
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-text-view-loading'>Loading...</div>;
+      return <div className='artifact-text-view-loading'>Loading artifact...</div>;
     }
     if (this.state.error) {
       return (
@@ -65,23 +66,32 @@ class ShowArtifactAudioView extends Component {
         </div>
       );
     } else {
+      let audioInfo;
+      if (this.state.waveformPainting) {
+        audioInfo = 'Generating waveform...';
+      } else {
+        audioInfo = (
+          <>
+            <a title={this.state.playing ? 'Pause' : 'Play'} onClick={this.handlePlayPause}>
+              <i
+                className={this.state.playing ? 'fas fa-pause' : 'fas fa-play'}
+                style={{ fontSize: 21 }}
+              ></i>
+            </a>
+            <div style={{ width: 15 }}></div>
+            <div className='timecode'>
+              {`${ShowArtifactAudioView.formatTimecode(
+                this.state.timeElapsed,
+              )} / ${ShowArtifactAudioView.formatTimecode(this.state.audioDuration)}`}
+            </div>
+          </>
+        );
+      }
+
       return (
         <div className='text-area-border-box'>
           <div className='WaveformContainer'>
-            <div className='playback-controls'>
-              <a title={this.state.playing ? 'Pause' : 'Play'} onClick={this.handlePlayPause}>
-                <i
-                  className={this.state.playing ? 'fas fa-pause' : 'fas fa-play'}
-                  style={{ fontSize: 21 }}
-                ></i>
-              </a>
-              <div style={{ width: 15 }}></div>
-              <div className='timecode'>
-                {`${ShowArtifactAudioView.formatTimecode(
-                  this.state.timeElapsed,
-                )} / ${ShowArtifactAudioView.formatTimecode(this.state.audioDuration)}`}
-              </div>
-            </div>
+            <div className='playback-controls'>{audioInfo}</div>
             <div id='waveform'></div>
           </div>
         </div>
@@ -109,12 +119,13 @@ class ShowArtifactAudioView extends Component {
     const blob = new window.Blob([new Uint8Array(artifact)]);
     try {
       this.waveform.loadBlob(blob);
+      this.setState({ waveformPainting: true });
     } catch (e) {
       throw Error(e);
     }
 
     this.waveform.on('ready', () => {
-      this.setState({ audioDuration: this.waveform.getDuration() });
+      this.setState({ audioDuration: this.waveform.getDuration(), waveformPainting: false });
     });
 
     this.waveform.on('error', (error) => {
