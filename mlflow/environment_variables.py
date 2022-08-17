@@ -37,6 +37,7 @@ class _EnvironmentVariable:
     def __repr__(self):
         return repr(self.name)
 
+
 class _BooleanEnvironmentVariable(_EnvironmentVariable):
     """
     Represents a boolean environment variable.
@@ -61,6 +62,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
                 f"but got {val}"
             )
         return lowercased in ["true", "1"]
+
 
 #: Specifies the maximum number of retries for MLflow http request
 #: (default: ``5``)
