@@ -7,6 +7,7 @@ import {
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -15,7 +16,7 @@ import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
-import ShowArtifactAudioView from './ShowArtifactAudioView'
+import ShowArtifactAudioView from './ShowArtifactAudioView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
 import warningSvg from '../../../common/static/warning.svg';
@@ -67,6 +68,8 @@ class ShowArtifactPage extends Component {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <ShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (
           this.props.runTags &&
           getLoggedModelPathsFromTags(this.props.runTags).includes(normalizedExtension)
