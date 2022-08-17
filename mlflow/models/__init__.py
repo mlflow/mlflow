@@ -21,7 +21,7 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 
-from .model import Model
+from .model import Model, get_model_info, get_model_signature, validate_schema
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
 from .evaluation import evaluate, EvaluationArtifact, EvaluationResult, list_evaluators
@@ -33,7 +33,10 @@ __all__ = [
     "evaluate",
     "EvaluationArtifact",
     "EvaluationResult",
+    "get_model_info",
+    "get_model_signature",
     "list_evaluators",
+    "validate_schema",
 ]
 
 

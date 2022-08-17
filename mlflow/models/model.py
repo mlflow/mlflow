@@ -6,13 +6,18 @@ import yaml
 import os
 import uuid
 
-from typing import Any, Dict, Optional, Union, Callable, NamedTuple
+from typing import Any, Dict, Optional, Union, Callable, NamedTuple, List
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import Schema
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
+import numpy as np
+import pandas
+import scipy.sparse
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +32,17 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "1.7.0 or above."
 )
 _MLFLOW_VERSION_KEY = "mlflow_version"
+
+PyFuncInput = Union[
+    pandas.DataFrame,
+    np.ndarray,
+    scipy.sparse.csc_matrix,  # Why do we use a string format "scipy.sparse.csc_matrix" here before?
+    scipy.sparse.csr_matrix,
+    List[Any],
+    Dict[str, Any],
+]
+PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
+DataInputType = Union[PyFuncInput, PyFuncOutput]
 
 
 class ModelInfo(NamedTuple):
@@ -307,3 +323,101 @@ class Model:
                     await_registration_for=await_registration_for,
                 )
         return mlflow_model.get_model_info()
+
+
+def get_model_info(model_uri: str) -> ModelInfo:
+    """
+    Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+    model metadata from the logged model uri.
+
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+            metadata of the logged model.
+    """
+    from mlflow.pyfunc import _download_artifact_from_uri
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=None)
+    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+    return ModelInfo(
+        artifact_path=model_meta.artifact_path,
+        flavors=model_meta.flavors,
+        model_uri=model_uri,
+        model_uuid=model_meta.model_uuid,
+        run_id=model_meta.run_id,
+        saved_input_example_info=model_meta.saved_input_example_info,
+        signature_dict=model_meta.signature.to_dict() if model_meta.signature else None,
+        utc_time_created=model_meta.utc_time_created,
+        mlflow_version=model_meta.mlflow_version,
+    )
+
+
+def get_model_signature(model_uri: str) -> dict:
+    """
+    Get the model signature from the logged model uri.
+
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+                      - ``mlflow-artifacts:/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+    :return: A dictionary that contains the model signature.
+    """
+    model_info = get_model_info(model_uri)
+    return model_info.signature_dict
+
+
+def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputType:
+    """
+    Validate that the input data schema matches expected schema.
+
+    :param data: Input data to be validated. Supported types are:
+                    - Pandas DataFrame
+                    - Pandas Series
+                    - Numpy ndarray
+                    - scipy.sparse.csc_matrix
+                    - scipy.sparse.csr_matrix
+                    - List[Any]
+                    - Dict[str, Any]
+                    - list
+
+    :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
+
+    :return: Validated input data.
+    """
+    if isinstance(
+        data,
+        (
+            pandas.DataFrame,
+            np.ndarray,
+            scipy.sparse.csc_matrix,
+            scipy.sparse.csr_matrix,
+            dict,
+            pandas.Series,
+            list,
+        ),
+    ):
+        return mlflow.pyfunc._enforce_schema(data, expected_schema)
+    else:
+        raise MlflowException("Unsupported input data type: {}".format(type(data)))

@@ -222,7 +222,7 @@ import threading
 import collections
 import subprocess
 
-from typing import Any, Union, List, Dict, Iterator, Tuple
+from typing import Any, Union, Iterator, Tuple
 import mlflow
 import mlflow.pyfunc.model
 from mlflow.models import Model, ModelSignature, ModelInputExample
@@ -282,6 +282,7 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils import find_free_port
 from mlflow.utils.nfs_on_spark import get_nfs_cache_root_dir
+from mlflow.models.model import DataInputType, PyFuncInput, PyFuncOutput
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -291,15 +292,6 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[
-    pandas.DataFrame,
-    np.ndarray,
-    "scipy.sparse.csc_matrix",
-    "scipy.sparse.csr_matrix",
-    List[Any],
-    Dict[str, Any],
-]
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -478,7 +470,7 @@ def _enforce_tensor_spec(
     return values
 
 
-def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
+def _enforce_col_schema(pfInput: DataInputType, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     if input_schema.has_input_names():
         input_names = input_schema.input_names()
@@ -491,7 +483,7 @@ def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
     return new_pfInput
 
 
-def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
+def _enforce_tensor_schema(pfInput: DataInputType, input_schema: Schema):
     """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
 
     def _is_sparse_matrix(x):
@@ -539,7 +531,7 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     return new_pfInput
 
 
-def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
+def _enforce_schema(pfInput: DataInputType, input_schema: Schema):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -553,7 +545,7 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     and type specified in model's input schema.
     """
     if not input_schema.is_tensor_spec():
-        if isinstance(pfInput, (list, np.ndarray, dict)):
+        if isinstance(pfInput, (list, np.ndarray, dict, pandas.Series)):
             try:
                 pfInput = pandas.DataFrame(pfInput)
             except Exception as e:
@@ -649,7 +641,11 @@ class PyFuncModel:
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        return self._model_impl.predict(data)
+        prediction = self._model_impl.predict(data)
+        output_schema = self.metadata.get_output_schema()
+        if output_schema is not None:
+            prediction = _enforce_schema(prediction, output_schema)
+        return prediction
 
     @property
     def metadata(self):
