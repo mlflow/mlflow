@@ -65,11 +65,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     },
     POST = function(){
       POST( api_url,
-            body = if (is.null(data)) NULL else rapply(
-              data,
-              function(.x) ifelse(!is.logical(.x), as.character(.x), .x),
-              how = "replace"
-            ),
+            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
             encode = "json",
             mlflow_rest_timeout(),
             config = rest_config$config,
