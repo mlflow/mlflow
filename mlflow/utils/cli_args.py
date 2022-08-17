@@ -94,15 +94,21 @@ def _resolve_env_manager(ctx, _, env_manager):
     return None
 
 
-ENV_MANAGER = click.option(
-    "--env-manager",
-    default=None,
-    type=click.UNPROCESSED,
-    callback=_resolve_env_manager,
+def _create_env_manager_option(help_string):
+    return click.option(
+        "--env-manager",
+        default=None,
+        type=click.UNPROCESSED,
+        callback=_resolve_env_manager,
+        help=help_string,
+    )
+
+
+ENV_MANAGER = _create_env_manager_option(
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
-    help="""
-If specified, create an environment for MLmodel/MLproject using the specified
+    help_string="""
+If specified, create an environment for MLmodel using the specified
 environment manager. The following values are supported:
 
 \b
@@ -111,6 +117,22 @@ environment manager. The following values are supported:
 - virtualenv: use virtualenv (and pyenv for Python version management)
 
 If unspecified, default to conda.
+""",
+)
+
+ENV_MANAGER_PROJECTS = _create_env_manager_option(
+    help_string="""
+If specified, create an environment for MLproject using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- conda: use conda
+- virtualenv: use virtualenv (and pyenv for Python version management)
+
+If unspecified, the appropriate environment manager is automatically selected based on
+the project configuration. For example, if `MLproject.yaml` contains a `python_env` key,
+virtualenv is used.
 """,
 )
 

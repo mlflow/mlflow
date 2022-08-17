@@ -111,7 +111,7 @@ def cli():
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
 @cli_args.NO_CONDA
-@cli_args.ENV_MANAGER
+@cli_args.ENV_MANAGER_PROJECTS
 @click.option(
     "--storage-dir",
     envvar="MLFLOW_TMP_DIR",
