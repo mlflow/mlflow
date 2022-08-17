@@ -48,14 +48,14 @@ RUN echo "conda activate ${DEV_ENVIRONMENT_NAME}" >> ~/.zshrc
 
 # Install mlflow
 RUN mkdir -p mlflow
-COPY mlflow/version.py ./mlflow
-COPY mlflow/__init__.py ./mlflow
-COPY README.rst .
 COPY setup.py .
-RUN conda run -n ${DEV_ENVIRONMENT_NAME} pip install -e '.[extras]'
+COPY mlflow/__init__.py ./mlflow
+COPY mlflow/version.py ./mlflow
+COPY README.rst .
+COPY requirements ./requirements
+RUN conda run -n ${DEV_ENVIRONMENT_NAME} pip install -e '.[extras,pipelines]'
 
 # Install python dev dependencies
-COPY requirements ./requirements
 RUN conda run -n ${DEV_ENVIRONMENT_NAME} pip install \
     -r ./requirements/lint-requirements.txt \
     -r ./requirements/doc-requirements.txt \

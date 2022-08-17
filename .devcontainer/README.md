@@ -13,7 +13,7 @@ This directory contains a set of files to automatically build a development envi
 ## Prerequisites
 
 - Visual Studio Code
-- The `Remote - Containers` extension
+- The Remote - Containers extension
 - Docker
 
 See [Remote development in Containers](https://code.visualstudio.com/docs/remote/containers-tutorial) for more information.
