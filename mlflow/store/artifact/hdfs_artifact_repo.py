@@ -149,11 +149,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             return local_dir
 
     def _download_file(self, remote_file_path, local_path):
-        hdfs_base_path = _resolve_base_path(self.path, remote_file_path)
-
-        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-            if not hdfs.isdir(hdfs_base_path):
-                _download_hdfs_file(hdfs, hdfs_base_path, local_path)
+        raise MlflowException("This is not implemented. Should never be called.")
 
     def delete_artifacts(self, artifact_path=None):
         path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
