@@ -225,7 +225,10 @@ def test_spark_udf_with_single_arg(spark):
         mlflow.pyfunc.log_model("model", python_model=TestModel())
 
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=StringType()
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=StringType(),
+            env_manager="conda",
         )
 
         data1 = spark.createDataFrame(pd.DataFrame({"a": [1], "b": [4]})).repartition(1)

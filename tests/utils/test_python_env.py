@@ -89,7 +89,7 @@ dependencies:
     assert python_env.dependencies == ["a", "b"]
 
 
-def test_from_conda_yaml_selects_current_python_version_if_conda_yaml_does_not_include_it(tmp_path):
+def test_from_conda_yaml_use_current_python_version_when_no_python_spec_in_conda_yaml(tmp_path):
     content = """
 name: example
 channels:
