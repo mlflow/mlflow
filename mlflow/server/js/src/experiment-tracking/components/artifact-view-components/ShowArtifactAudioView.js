@@ -39,7 +39,9 @@ class ShowArtifactAudioView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      this.waveform.destroy();
+      if (this.waveform) {
+        this.waveform.destroy();
+      }
       this.setState({
         playing: false,
         audioDuration: 0,
@@ -52,23 +54,25 @@ class ShowArtifactAudioView extends Component {
   }
 
   componentWillUnmount() {
-    this.waveform.destroy();
+    if (this.waveform) {
+      this.waveform.destroy();
+    }
   }
 
   render() {
     if (this.state.loading) {
-      return <div className='artifact-text-view-loading'>Loading artifact...</div>;
+      return <div className='artifact-audio-view-loading'>Loading artifact...</div>;
     }
     if (this.state.error) {
       return (
-        <div className='artifact-text-view-error'>
+        <div className='artifact-audio-view-error'>
           Oops we couldn't load your audio file because of an error.
         </div>
       );
     } else {
       let audioInfo;
       if (this.state.waveformPainting) {
-        audioInfo = 'Generating waveform...';
+        audioInfo = <div className='artifact-audio-load-progress'>Generating waveform...</div>;
       } else {
         audioInfo = (
           <>
