@@ -501,9 +501,9 @@ def test_log_metric_validation():
 def test_log_param():
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.log_param("name_1", "a")
-        mlflow.log_param("name_2", "b")
-        mlflow.log_param("nested/nested/name", 5)
+        assert mlflow.log_param("name_1", "a") == "a"
+        assert mlflow.log_param("name_2", "b") == "b"
+        assert mlflow.log_param("nested/nested/name", 5) == 5
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
     assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
