@@ -79,6 +79,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
         try:
             if db_type == SQLITE:
                 session.execute("PRAGMA foreign_keys = ON;")
+                session.execute("PRAGMA busy_timeout = 20000;")
                 session.execute("PRAGMA case_sensitive_like = true;")
             yield session
             session.commit()
