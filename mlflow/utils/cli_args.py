@@ -45,38 +45,8 @@ RUN_ID = click.option(
     help="ID of the MLflow run that generated the referenced content.",
 )
 
-NO_CONDA = click.option(
-    "--no-conda",
-    is_flag=True,
-    help="This flag is deprecated. Use `--env-manager=local` instead. "
-    "If specified, will assume that MLmodel/MLproject is running within "
-    "a Conda environment with the necessary dependencies for "
-    "the current project instead of attempting to create a new "
-    "conda environment.",
-)
 
-
-def _resolve_env_manager(ctx, _, env_manager):
-    no_conda = ctx.params.get("no_conda", False)
-    # Both `--no-conda` and `--env-manager` are specified
-    if no_conda and env_manager is not None:
-        raise click.BadParameter(
-            "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
-        )
-
-    # Only `--no-conda` is specified
-    if no_conda:
-        warnings.warn(
-            (
-                "`--no-conda` is deprecated and will be removed in a future MLflow release. "
-                "Use `--env-manager=local` instead."
-            ),
-            FutureWarning,
-            stacklevel=2,
-        )
-        return _EnvManager.LOCAL
-
-    # Only `--env-manager` is specified
+def _resolve_env_manager(_, __, env_manager):
     if env_manager is not None:
         _EnvManager.validate(env_manager)
         if env_manager == _EnvManager.VIRTUALENV:
@@ -90,7 +60,6 @@ def _resolve_env_manager(ctx, _, env_manager):
             )
         return env_manager
 
-    # Neither `--no-conda` nor `--env-manager` is specified
     return None
 
 
