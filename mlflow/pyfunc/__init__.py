@@ -369,11 +369,7 @@ class PyFuncModel:
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        prediction = self._model_impl.predict(data)
-        output_schema = self.metadata.get_output_schema()
-        if output_schema is not None:
-            prediction = _enforce_schema(prediction, output_schema)
-        return prediction
+        return self._model_impl.predict(data)
 
     @property
     def metadata(self):
