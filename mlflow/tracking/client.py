@@ -798,7 +798,7 @@ class MlflowClient:
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
-    def log_param(self, run_id: str, key: str, value: Any) -> None:
+    def log_param(self, run_id: str, key: str, value: Any) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -810,6 +810,7 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
+        :return: the parameter value that is logged.
 
         .. code-block:: python
             :caption: Example
@@ -833,7 +834,8 @@ class MlflowClient:
             # Log the parameter. Unlike mlflow.log_param this method
             # does not start a run if one does not exist. It will log
             # the parameter in the backend store
-            client.log_param(run.info.run_id, "p", 1)
+            p_value = client.log_param(run.info.run_id, "p", 1)
+            assert p_value == 1
             client.set_terminated(run.info.run_id)
             run = client.get_run(run.info.run_id)
             print_run_info(run)
@@ -850,6 +852,7 @@ class MlflowClient:
             status: FINISHED
         """
         self._tracking_client.log_param(run_id, key, value)
+        return value
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
