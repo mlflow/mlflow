@@ -1,10 +1,9 @@
 FROM condaforge/miniforge3
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 WORKDIR /app
 
-ADD . /app
-
-ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     # install prequired modules to support install of mlflow and related components
     apt-get install -y default-libmysqlclient-dev build-essential curl \
@@ -13,12 +12,15 @@ RUN apt-get update && \
     # Without `charset-normalizer=2.0.12`, `conda install` below would fail with:
     # CondaHTTPError: HTTP 404 NOT FOUND for url <https://conda.anaconda.org/conda-forge/noarch/charset-normalizer-2.0.11-pyhd8ed1ab_0.conda>
     conda install python=3.7 charset-normalizer=2.0.12 && \
-    # install required python packages
-    pip install -r requirements/test-requirements.txt -r requirements/lint-requirements.txt --no-cache-dir && \
-    # install mlflow in editable form
-    pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
     mkdir -p /usr/share/man/man1 && apt-get install -y openjdk-11-jre-headless
 
-# packages necessary for development and running tests
-RUN pip install -e .[pipelines]
+# Install required python packages first
+ADD requirements /app/requirements
+RUN pip install -r requirements/test-requirements.txt -r requirements/lint-requirements.txt --no-cache-dir
+
+# Add the rest of files and install mlflow in editable form + packages necessary for development
+ADD . /app
+RUN pip install --no-cache-dir -e . && \
+    # packages necessary for development and running tests
+    pip install -e .[pipelines]
