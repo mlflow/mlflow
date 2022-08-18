@@ -44,6 +44,11 @@ from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 from mlflow.projects import env_type
 
+from mlflow.environment_variables import (
+    MLFLOW_KERBEROS_TICKET_CACHE,
+    MLFLOW_KERBEROS_USER,
+    MLFLOW_PYARROW_EXTRA_CONF,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -360,9 +365,9 @@ def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     cmds = []
     envs = {
-        "MLFLOW_KERBEROS_TICKET_CACHE": os.environ.get("MLFLOW_KERBEROS_TICKET_CACHE"),
-        "MLFLOW_KERBEROS_USER": os.environ.get("MLFLOW_KERBEROS_USER"),
-        "MLFLOW_PYARROW_EXTRA_CONF": os.environ.get("MLFLOW_PYARROW_EXTRA_CONF"),
+        "MLFLOW_KERBEROS_TICKET_CACHE": MLFLOW_KERBEROS_TICKET_CACHE.get(),
+        "MLFLOW_KERBEROS_USER": MLFLOW_KERBEROS_USER.get(),
+        "MLFLOW_PYARROW_EXTRA_CONF": MLFLOW_PYARROW_EXTRA_CONF.get(),
     }
     envs = dict((k, v) for k, v in envs.items() if v is not None)
 

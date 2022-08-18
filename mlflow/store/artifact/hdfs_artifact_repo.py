@@ -9,6 +9,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
+from mlflow.environment_variables import (
+    MLFLOW_KERBEROS_TICKET_CACHE,
+    MLFLOW_KERBEROS_USER,
+    MLFLOW_PYARROW_EXTRA_CONF,
+)
+
 
 class HdfsArtifactRepository(ArtifactRepository):
     """
@@ -169,9 +175,9 @@ def hdfs_system(scheme, host, port):
     """
     import pyarrow as pa
 
-    kerb_ticket = os.getenv("MLFLOW_KERBEROS_TICKET_CACHE")
-    kerberos_user = os.getenv("MLFLOW_KERBEROS_USER")
-    extra_conf = _parse_extra_conf(os.getenv("MLFLOW_PYARROW_EXTRA_CONF"))
+    kerb_ticket = MLFLOW_KERBEROS_TICKET_CACHE.get()
+    kerberos_user = MLFLOW_KERBEROS_USER.get()
+    extra_conf = _parse_extra_conf(MLFLOW_PYARROW_EXTRA_CONF.get())
 
     if host:
         host = scheme + "://" + host

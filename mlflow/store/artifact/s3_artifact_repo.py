@@ -12,6 +12,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
+from mlflow.environment_variables import (
+    MLFLOW_S3_UPLOAD_EXTRA_ARGS,
+    MLFLOW_S3_ENDPOINT_URL,
+    MLFLOW_S3_IGNORE_TLS,
+)
 
 _MAX_CACHE_SECONDS = 300
 
@@ -76,19 +81,15 @@ class S3ArtifactRepository(ArtifactRepository):
     def get_s3_file_upload_extra_args():
         import json
 
-        s3_file_upload_extra_args = os.environ.get("MLFLOW_S3_UPLOAD_EXTRA_ARGS")
+        s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)
         else:
             return None
 
     def _get_s3_client(self):
-        s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
-        ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
-
-        do_verify = True
-        if ignore_tls:
-            do_verify = ignore_tls.lower() not in ["true", "yes", "1"]
+        s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
+        do_verify = not MLFLOW_S3_IGNORE_TLS.get()
 
         # The valid verify argument value is None/False/path to cert bundle file, See
         # https://github.com/boto/boto3/blob/73865126cad3938ca80a2f567a1c79cb248169a7/
