@@ -918,7 +918,7 @@ def _get_or_create_env_root_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
+def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VIRTUALENV):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -994,13 +994,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager="local"):
     :param env_manager: The environment manager to use in order to create the python environment
                         for model inference. Note that environment is only restored in the context
                         of the PySpark UDF; the software environment outside of the UDF is
-                        unaffected. Default value is ``local``, and the following values are
+                        unaffected. Default value is ``virtualenv``, and the following values are
                         supported:
 
-                         - ``conda``: (Recommended) Use Conda to restore the software environment
-                           that was used to train the model.
                          - ``virtualenv``: Use virtualenv to restore the python environment that
                            was used to train the model.
+                         - ``conda``: (Recommended) Use Conda to restore the software environment
+                           that was used to train the model.
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.

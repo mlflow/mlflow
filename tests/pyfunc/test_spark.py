@@ -44,7 +44,9 @@ types = [np.int32, int, str, np.float32, np.double]
 def score_model_as_udf(model_uri, pandas_df, result_type="double"):
     spark = get_spark_session(pyspark.SparkConf())
     spark_df = spark.createDataFrame(pandas_df).coalesce(1)
-    pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
+    pyfunc_udf = spark_udf(
+        spark=spark, model_uri=model_uri, result_type=result_type, env_manager="local"
+    )
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
 
@@ -149,12 +151,12 @@ def test_spark_udf(spark, model_path):
                     expected = expected.astype(np.float32)
 
             expected = [list(row[1]) if is_array else row[1][0] for row in expected.iterrows()]
-            pyfunc_udf = spark_udf(spark, model_path, result_type=t)
+            pyfunc_udf = spark_udf(spark, model_path, result_type=t, env_manager="local")
             new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
             actual = list(new_df.select("prediction").toPandas()["prediction"])
             assert expected == actual
             if not is_array:
-                pyfunc_udf = spark_udf(spark, model_path, result_type=tname)
+                pyfunc_udf = spark_udf(spark, model_path, result_type=tname, env_manager="local")
                 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
@@ -219,7 +221,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 def test_spark_udf_with_single_arg(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            return [",".join(model_input.columns.tolist())] * len(model_input)
+            return [",".join(map(str, model_input.columns.tolist()))] * len(model_input)
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel())
@@ -254,7 +256,10 @@ def test_spark_udf_autofills_no_arguments(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         res = good_data.withColumn("res", udf()).select("res").toPandas()
         assert res["res"][0] == ["a", "b", "c"]
@@ -314,7 +319,10 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         data = spark.createDataFrame(
             pd.DataFrame(
@@ -342,7 +350,10 @@ def test_spark_udf_with_datetime_columns(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(StringType()),
+            env_manager="local",
         )
         data = spark.range(10).selectExpr(
             "current_timestamp() as timestamp", "current_date() as date"

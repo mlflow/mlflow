@@ -127,7 +127,7 @@ environment manager. The following values are supported:
 - virtualenv: use virtualenv (and pyenv for Python version management)
 - conda: use conda
 
-If unspecified, default to conda.
+If unspecified, default to virtualenv.
 """,
 )
 
