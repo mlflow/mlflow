@@ -219,7 +219,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(spark, sklearn_model, model
 def test_spark_udf_with_single_arg(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
-            return [",".join(model_input.columns.tolist())] * len(model_input)
+            return [",".join(map(str, model_input.columns.tolist()))] * len(model_input)
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel())
