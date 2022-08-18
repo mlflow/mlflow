@@ -1627,7 +1627,7 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
      experiment_name = NULL,
      backend = NULL,
      backend_config = NULL,
-     no_conda = FALSE,
+     env_manager = NULL,
      storage_dir = NULL
    )
 
@@ -1666,13 +1666,11 @@ Arguments
 |                               | describe the cluster to use when     |
 |                               | launching a run on Databricks.       |
 +-------------------------------+--------------------------------------+
-| ``no_conda``                  | If specified, assume that MLflow is  |
-|                               | running within a Conda environment   |
-|                               | with the necessary dependencies for  |
-|                               | the current project instead of       |
-|                               | attempting to create a new Conda     |
-|                               | environment. Only valid if running   |
-|                               | locally.                             |
+| ``env_manager``               | If specified, create an environment  |
+|                               | for the project using the specified  |
+|                               | environment manager. Available       |
+|                               | options are ‘local’, ‘virtualenv’,   |
+|                               | and ‘conda’.                         |
 +-------------------------------+--------------------------------------+
 | ``storage_dir``               | Valid only when ``backend`` is       |
 |                               | local. MLflow downloads artifacts    |

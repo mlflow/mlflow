@@ -13,7 +13,7 @@ mlflow_run(
   experiment_name = NULL,
   backend = NULL,
   backend_config = NULL,
-  no_conda = FALSE,
+  env_manager = NULL,
   storage_dir = NULL
 )
 }
@@ -35,9 +35,8 @@ mlflow_run(
 \item{backend_config}{Path to JSON file which will be passed to the backend. For the Databricks backend,
 it should describe the cluster to use when launching a run on Databricks.}
 
-\item{no_conda}{If specified, assume that MLflow is running within a Conda environment with the necessary
-dependencies for the current project instead of attempting to create a new Conda environment. Only
-valid if running locally.}
+\item{env_manager}{If specified, create an environment for the project using the specified environment manager.
+Available options are 'local', 'virtualenv', and 'conda'.}
 
 \item{storage_dir}{Valid only when `backend` is local. MLflow downloads artifacts from distributed URIs passed to
 parameters of type `path` to subdirectories of `storage_dir`.}

@@ -30,7 +30,6 @@ def commands():
 @cli_args.HOST
 @cli_args.TIMEOUT
 @cli_args.WORKERS
-@cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
@@ -40,7 +39,6 @@ def serve(
     host,
     timeout,
     workers,
-    no_conda,  # pylint: disable=unused-argument
     env_manager=None,
     install_mlflow=False,
     enable_mlserver=False,
@@ -101,7 +99,6 @@ def serve(
     "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
     ".html",
 )
-@cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def predict(
@@ -110,7 +107,6 @@ def predict(
     output_path,
     content_type,
     json_format,
-    no_conda,  # pylint: disable=unused-argument
     env_manager,
     install_mlflow,
 ):
@@ -135,12 +131,10 @@ def predict(
 
 @commands.command("prepare-env")
 @cli_args.MODEL_URI
-@cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def prepare_env(
     model_uri,
-    no_conda,  # pylint: disable=unused-argument
     env_manager,
     install_mlflow,
 ):

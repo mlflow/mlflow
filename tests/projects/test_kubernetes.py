@@ -59,7 +59,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     project_name = "mlflow-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
-    command = ["mlflow", "run", ".", "--no-conda", "-P", "alpha=0.5"]
+    command = ["mlflow", "run", ".", "--env-manager", "local", "-P", "alpha=0.5"]
     env_vars = {"RUN_ID": "1"}
     job_definition = kb._get_kubernetes_job_definition(
         project_name=project_name,

@@ -113,7 +113,6 @@ def cli():
     "provided is different for each execution backend and is documented "
     "at https://www.mlflow.org/docs/latest/projects.html.",
 )
-@cli_args.NO_CONDA
 @cli_args.ENV_MANAGER_PROJECTS
 @click.option(
     "--storage-dir",
@@ -145,7 +144,6 @@ def run(
     experiment_id,
     backend,
     backend_config,
-    no_conda,  # pylint: disable=unused-argument
     env_manager,
     storage_dir,
     run_id,
