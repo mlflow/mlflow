@@ -9,6 +9,7 @@ from mlflow.exceptions import ExecutionException
 from mlflow.tracking import artifact_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME
 from mlflow.projects import env_type
 
 MLPROJECT_FILE_NAME = "mlproject"
@@ -113,6 +114,16 @@ def load_project(directory):
         return Project(
             env_type=env_type.CONDA,
             env_config_path=conda_env_path,
+            entry_points=entry_points,
+            docker_env=None,
+            name=project_name,
+        )
+
+    default_python_env_path = os.path.join(directory, _PYTHON_ENV_FILE_NAME)
+    if os.path.exists(default_python_env_path):
+        return Project(
+            env_type=env_type.PYTHON,
+            env_config_path=default_python_env_path,
             entry_points=entry_points,
             docker_env=None,
             name=project_name,

@@ -18,6 +18,9 @@ TEST_VIRTUALENV_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_virtu
 TEST_VIRTUALENV_CONDA_PROJECT_DIR = os.path.join(
     TEST_DIR, "resources", "example_virtualenv_conda_project"
 )
+TEST_VIRTUALENV_NO_PYTHON_ENV = os.path.join(
+    TEST_DIR, "resources", "example_virtualenv_no_python_env"
+)
 TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
