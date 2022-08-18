@@ -1646,11 +1646,8 @@ MLflow currently supports the following environment management tools to restore 
 
 local
     Use the local environment. No extra tools are required.
-conda
-    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
-    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
-virtualenv
+virtualenv (preferred)
     Create environments using virtualenv and pyenv (for python version management). Virtualenv and
     pyenv (for Linux and macOS) or pyenv-win (for Windows) must be installed for this mode of environment reconstruction.
 
@@ -1658,17 +1655,19 @@ virtualenv
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
 
-    .. note::
-        Virtualenv support is still experimental and may be changed in a future MLflow release.
+conda (discouraged)
+    Create environments using conda. Conda must be installed for this mode of environment reconstruction.
+
+    - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 
 The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
 
 .. code-block:: bash
 
-    # Use conda
-    mlflow models serve ... --env-manager=conda
     # Use virtualenv
     mlflow models predict ... --env-manager=virtualenv
+    # Use conda
+    mlflow models serve ... --env-manager=conda
 
 .. _azureml_deployment:
 
