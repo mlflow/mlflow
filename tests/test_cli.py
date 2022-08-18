@@ -74,13 +74,6 @@ def test_server_mlflow_artifacts_options():
         run_server_mock.assert_called_once()
 
 
-def test_server_default_artifact_root_validation():
-    with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite:///my.db"])
-        assert result.output.startswith("Option 'default-artifact-root' is required")
-        run_server_mock.assert_not_called()
-
-
 @pytest.mark.parametrize("command", [server, ui])
 def test_tracking_uri_validation_failure(command):
     handlers._tracking_store = None
@@ -404,10 +397,10 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
         process.kill()
 
 
-def test_mlflow_artifact_service_unavailable_without_config():
+def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port)]
+    cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
     process = subprocess.Popen(cmd)
     try:
         _await_server_up_or_die(port, timeout=10)
