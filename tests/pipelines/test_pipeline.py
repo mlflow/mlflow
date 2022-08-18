@@ -1,5 +1,6 @@
 import os
 import pathlib
+from distutils.dir_util import copy_tree
 
 import pandas as pd
 import pytest
@@ -29,6 +30,7 @@ from tests.pipelines.helper_functions import (
     enter_pipeline_example_directory,
     enter_test_pipeline_directory,
     list_all_artifacts,
+    chdir,
 )  # pylint: enable=unused-import
 
 _STEP_NAMES = ["ingest", "split", "train", "transform", "evaluate"]
@@ -54,6 +56,20 @@ def test_create_pipeline_and_clean_works():
 def test_create_pipeline_fails_with_empty_profile_name(empty_profile):
     with pytest.raises(MlflowException, match="A profile name must be provided"):
         _ = Pipeline(profile=empty_profile)
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory")
+def test_create_pipeline_fails_with_path_containing_space(tmp_path):
+    space_parent = tmp_path / "space parent"
+    space_path = space_parent / "child"
+    os.makedirs(space_parent, exist_ok=True)
+    os.makedirs(space_path, exist_ok=True)
+    copy_tree(os.getcwd(), str(space_path))
+
+    with chdir(space_path), pytest.raises(
+        MlflowException, match="Pipeline directory path cannot contain spaces"
+    ):
+        Pipeline(profile="local")
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory")

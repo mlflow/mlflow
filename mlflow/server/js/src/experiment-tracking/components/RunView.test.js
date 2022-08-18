@@ -204,7 +204,7 @@ describe('RunView', () => {
     );
 
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(false);
-    wrapper.find("[data-test-id='overflow-menu-trigger']").at(0).simulate('click');
+    wrapper.find("button[data-test-id='overflow-menu-trigger']").simulate('click');
     wrapper.find('[data-test-id="overflow-rename-button"]').hostNodes().simulate('click');
     expect(wrapper.find(RunViewImpl).instance().state.showRunRenameModal).toBe(true);
   });

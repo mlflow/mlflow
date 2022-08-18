@@ -16,17 +16,28 @@ MODEL_PATH = click.option(
     "run-id or local filesystem path without run-id.",
 )
 
+_model_uri_help_string = (
+    "URI to the model. A local path, a 'runs:/' URI, or a"
+    " remote storage URI (e.g., an 's3://' URI). For more information"
+    " about supported remote URIs for model artifacts, see"
+    " https://mlflow.org/docs/latest/tracking.html#artifact-stores"
+)
+
+MODEL_URI_BUILD_DOCKER = click.option(
+    "--model-uri",
+    "-m",
+    metavar="URI",
+    default=None,
+    required=False,
+    help="[Optional] " + _model_uri_help_string,
+)
+
 MODEL_URI = click.option(
     "--model-uri",
     "-m",
-    default=None,
     metavar="URI",
     required=True,
-    help="URI to the model. A local path, a 'runs:/' URI, or a"
-    " remote storage URI (e.g., an 's3://' URI). For more information"
-    " about supported remote URIs for model artifacts, see"
-    " https://mlflow.org/docs/latest/tracking.html"
-    "#artifact-stores",
+    help=_model_uri_help_string,
 )
 
 MLFLOW_HOME = click.option(
@@ -63,23 +74,45 @@ def _resolve_env_manager(_, __, env_manager):
     return None
 
 
-ENV_MANAGER = click.option(
-    "--env-manager",
-    default=None,
-    type=click.UNPROCESSED,
-    callback=_resolve_env_manager,
+def _create_env_manager_option(help_string):
+    return click.option(
+        "--env-manager",
+        default=None,
+        type=click.UNPROCESSED,
+        callback=_resolve_env_manager,
+        help=help_string,
+    )
+
+
+ENV_MANAGER = _create_env_manager_option(
     # '\b' prevents rewrapping text:
     # https://click.palletsprojects.com/en/8.1.x/documentation/#preventing-rewrapping
-    help="""
-If specified, create an environment for MLmodel/MLproject using the specified
+    help_string="""
+If specified, create an environment for MLmodel using the specified
 environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- conda: use conda
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
 
 If unspecified, default to conda.
+""",
+)
+
+ENV_MANAGER_PROJECTS = _create_env_manager_option(
+    help_string="""
+If specified, create an environment for MLproject using the specified
+environment manager. The following values are supported:
+
+\b
+- local: use the local environment
+- virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
+
+If unspecified, the appropriate environment manager is automatically selected based on
+the project configuration. For example, if `MLproject.yaml` contains a `python_env` key,
+virtualenv is used.
 """,
 )
 

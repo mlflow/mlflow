@@ -1,6 +1,6 @@
 import React from 'react';
 import _ from 'lodash';
-import { Modal, Button } from 'antd';
+import { Modal, Button } from '@databricks/design-system';
 import { FormattedMessage, injectIntl } from 'react-intl';
 
 import {

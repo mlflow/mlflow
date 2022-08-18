@@ -287,7 +287,7 @@ Logging Functions
 the URI can either be a HTTP/HTTPS URI for a remote server, a database connection string, or a
 local path to log data to a directory. The URI defaults to ``mlruns``.
 
-:py:func:`mlflow.tracking.get_tracking_uri` returns the current tracking URI.
+:py:func:`mlflow.get_tracking_uri` returns the current tracking URI.
 
 :py:func:`mlflow.create_experiment` creates a new experiment and returns its ID. Runs can be
 launched under the experiment by passing the experiment ID to ``mlflow.start_run``.
@@ -307,7 +307,7 @@ with no active run automatically starts a new one.
 currently active run, if any.
 **Note**: You cannot access currently-active run attributes
 (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order to access
-such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
+such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` as follows:
 
 .. code-block:: py
 
@@ -722,7 +722,7 @@ Managing Experiments and Runs with the Tracking Service API
 -----------------------------------------------------------
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
-which is available through client SDK in the :py:mod:`mlflow.tracking` module.
+which is available through client SDK in the :py:mod:`mlflow.client` module.
 This makes it possible to query data about past runs, log additional information about them, create experiments,
 add tags to a run, and more.
 
@@ -740,7 +740,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
+The :py:func:`MlflowClient.set_tag() <mlflow.client.MlflowClient.set_tag>` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
@@ -1089,6 +1089,8 @@ You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalch
 | MLflow Environment Variable             | SQLAlchemy QueuePool Option |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE`` | ``pool_recycle``            |
 +-----------------------------------------+-----------------------------+
 | ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
 +-----------------------------------------+-----------------------------+

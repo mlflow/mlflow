@@ -1,50 +1,43 @@
 """
 A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
 
-# How to run:
+# Usage:
 
 ```
-# ===== Include all items =====
-
+# Test all items
 python dev/set_matrix.py
 
-# ===== Include only `ml-package-versions.yml` updates =====
+# Exclude items for dev versions
+python dev/set_matrix.py --no-dev
 
-REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
-python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
+# Test items affected by config file updates
+python dev/set_matrix.py --ref-versions-yaml \
+    "https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
 
-# ===== Include only flavor file updates =====
+# Test items affected by flavor module updates
+python dev/set_matrix.py --changed-files "mlflow/sklearn/__init__.py"
 
-CHANGED_FILES="
-mlflow/keras.py
-mlflow/tensorflow/__init__.py
-"
-python dev/set_matrix.py --changed-files $CHANGED_FILES
+# Test a specific flavor
+python dev/set_matrix.py --flavors sklearn
 
-# ===== Include both `ml-package-versions.yml` & flavor file updates =====
-
-python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files $CHANGED_FILES
-```
-
-# How to run doctests:
-
-```
-pytest dev/set_matrix.py --doctest-modules
+# Test a specific version
+python dev/set_matrix.py --versions 1.1.1
 ```
 """
-
 import sys
 import argparse
-from packaging.version import Version
-from packaging.specifiers import SpecifierSet
 import json
 import os
 import re
 import shutil
-import urllib.request
 import functools
+import typing as t
 
 import yaml
+import requests
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version as OriginalVersion, InvalidVersion
+from pydantic import BaseModel, validator
 
 VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
@@ -52,258 +45,200 @@ DEV_VERSION = "dev"
 DEV_NUMERIC = "9999.9999.9999"
 
 
-def read_yaml(location, if_error=None):
-    """
-    Reads a YAML file.
+class Version(OriginalVersion):
+    def __init__(self, version):
+        self._is_dev = version == DEV_VERSION
+        super().__init__(DEV_NUMERIC if self._is_dev else version)
 
-    Examples
-    --------
-    >>> read_yaml("https://raw.githubusercontent.com/mlflow/mlflow/master/.circleci/config.yml")
-    {...}
-    >>> read_yaml(".circleci/config.yml")
-    {...}
-    >>> read_yaml("non_existent.yml", if_error={})
-    Failed to read ...
-    {}
-    """
+    def __str__(self):
+        return DEV_VERSION if self._is_dev else super().__str__()
+
+    @classmethod
+    def create_dev(cls):
+        return cls(DEV_VERSION)
+
+
+class PackageInfo(BaseModel):
+    pip_release: str
+    install_dev: t.Optional[str]
+
+
+class TestConfig(BaseModel):
+    minimum: Version
+    maximum: Version
+    unsupported: t.Optional[t.List[Version]]
+    requirements: t.Optional[t.Dict[str, t.List[str]]]
+    run: str
+    allow_unreleased_max_version: t.Optional[bool]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @validator("minimum", pre=True)
+    def validate_minimum(cls, v):  # pylint: disable=no-self-argument
+        return Version(v)
+
+    @validator("maximum", pre=True)
+    def validate_maximum(cls, v):  # pylint: disable=no-self-argument
+        return Version(v)
+
+    @validator("unsupported", pre=True)
+    def validate_unsupported(cls, v):  # pylint: disable=no-self-argument
+        return [Version(v) for v in v] if v else None
+
+
+class MatrixItem(BaseModel):
+    name: str
+    flavor: str
+    category: str
+    job_name: str
+    install: str
+    run: str
+    package: str
+    version: Version
+    supported: bool
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def __hash__(self):
+        return hash(frozenset(dict(self)))
+
+
+def read_yaml(location, if_error=None):
     try:
-        if re.search("^https?://", location):
-            with urllib.request.urlopen(location) as f:
-                return yaml.load(f, Loader=yaml.SafeLoader)
+        if re.match(r"^https?://", location):
+            resp = requests.get(location)
+            resp.raise_for_status()
+            return yaml.safe_load(resp.text)
         else:
             with open(location) as f:
-                return yaml.load(f, Loader=yaml.SafeLoader)
+                return yaml.safe_load(f)
     except Exception as e:
         if if_error is not None:
             print("Failed to read '{}' due to: `{}`".format(location, e))
             return if_error
-
         raise
 
 
 @functools.lru_cache()
 def get_released_versions(package_name):
-    """
-    Fetches the released versions & datetimes of the specified Python package.
+    url = f"https://pypi.org/pypi/{package_name}/json"
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    versions = []
+    for version, distributions in data["releases"].items():
+        if len(distributions) == 0 or any(d.get("yanked", False) for d in distributions):
+            continue
 
-    Examples
-    --------
-    >>> get_released_versions("scikit-learn")
-    {'0.10': '2012-01-11T14:42:25', '0.11': '2012-05-08T00:40:14', ...}
-    """
-    url = "https://pypi.python.org/pypi/{}/json".format(package_name)
-    data = json.load(urllib.request.urlopen(url))
+        try:
+            version = Version(version)
+        except InvalidVersion:
+            # Ignore invalid versions such as https://pypi.org/project/pytz/2004d
+            continue
 
-    versions = {
-        # We can actually select any element in `dist_files` because all the distribution files
-        # should have almost the same upload time.
-        version: dist_files[0]["upload_time"]
-        for version, dist_files in data["releases"].items()
-        # If len(dist_files) = 0, this release is unavailable.
-        # Example: https://pypi.org/project/xgboost/0.7
-        #
-        # > pip install 'xgboost==0.7'
-        # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0 and (not dist_files[0].get("yanked", False))
-    }
+        if version.is_devrelease or version.is_prerelease:
+            continue
+
+        versions.append(version)
+
     return versions
 
 
-def select_latest_micro_versions(versions):
+def get_latest_micro_versions(versions):
     """
-    Selects the latest micro version in each minor version.
-
-    Examples
-    --------
-    >>> versions = {
-    ...     "1.3.0": "2020-01-01T00:00:00",
-    ...     "1.3.1": "2020-02-01T00:00:00",  # latest in 1.3
-    ...     "1.4.0": "2020-03-01T00:00:00",
-    ...     "1.4.1": "2020-04-01T00:00:00",
-    ...     "1.4.2": "2020-05-01T00:00:00",  # latest in 1.4
-    ... }
-    >>> select_latest_micro_versions(versions)
-    ['1.3.1', '1.4.2']
+    Returns the latest micro version in each minor version.
     """
-    seen_minors = set()
-    res = []
-
-    for ver, _ in sorted(
-        versions.items(),
-        # Sort by (minor_version, upload_time) in descending order
-        key=lambda x: (Version(x[0]).release[:2], x[1]),
-        reverse=True,
-    ):
-        minor_ver = Version(ver).release[:2]
-
-        if minor_ver not in seen_minors:
-            seen_minors.add(minor_ver)
-            res.insert(0, ver)
-
-    return res
+    seen = set()
+    latest_micro_versions = []
+    for ver in sorted(versions, reverse=True):
+        major_and_minor = ver.release[:2]
+        if major_and_minor not in seen:
+            seen.add(major_and_minor)
+            latest_micro_versions.append(ver)
+    return latest_micro_versions
 
 
-def filter_versions(versions, min_ver, max_ver, excludes=None, allow_unreleased_max_version=False):
+def filter_versions(
+    versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+):
     """
-    Filter versions that satisfy the following conditions:
-
-    1. is a final or post release that PEP 440 defines
-    2. is newer than or equal to `min_ver`
-    3. shares the same major version as `max_ver` or `min_ver`
-    4. (Optional) is not in `excludes`
-
-    Examples
-    --------
-    >>> versions = {
-    ...     "0.1.0": "2020-01-01T00:00:01",
-    ...     "0.2.0": "2020-01-01T00:00:02",
-    ...     "1.0.0": "2020-01-01T00:00:00",
-    ...     "1.1.0": "2020-01-01T00:01:00",
-    ... }
-    >>> filter_versions(versions, "0.1.0", "0.2.0")  # fetch up to the latest in 0.x.y
-    {'0.1.0': ..., '0.2.0': ...}
-    >>> filter_versions(versions, "0.1.0", "1.0.0")  # fetch up to the latest in 1.x.y
-    {'0.1.0': ..., '0.2.0': ..., '1.0.0': ..., '1.1.0': ...}
-    >>> filter_versions(versions, "0.1.0", "1.0.0", excludes=["0.2.0"])
-    {'0.1.0': ..., '1.0.0': ..., '1.1.0': ...}
+    Returns the versions that satisfy the following conditions:
+    1. Newer than or equal to `min_ver`.
+    2. Older than or equal to `max_ver.major`.
+    3. Not in `unsupported`.
     """
-    if excludes is None:
-        excludes = []
-
+    unsupported = unsupported or []
     # Prevent specifying non-existent versions
     assert min_ver in versions
     assert max_ver in versions or allow_unreleased_max_version
-    assert all(v in versions for v in excludes)
+    assert all(v in versions for v in unsupported)
 
-    versions = {Version(v): t for v, t in versions.items() if v not in excludes}
+    def _is_not_unsupported(v):
+        return v not in unsupported
 
-    def _is_final_or_post_release(v):
-        # final release: https://www.python.org/dev/peps/pep-0440/#final-releases
-        # post release: https://www.python.org/dev/peps/pep-0440/#post-releases
-        return (v.base_version == v.public) or (v.is_postrelease)
+    def _is_older_than_or_equal_to_max_major_version(v):
+        return v.major <= max_ver.major
 
-    versions = {v: t for v, t in versions.items() if _is_final_or_post_release(v)}
-    versions = {v: t for v, t in versions.items() if v.major <= Version(max_ver).major}
-    versions = {str(v): t for v, t in versions.items() if v >= Version(min_ver)}
+    def _is_newer_than_or_equal_to_min_version(v):
+        return v >= min_ver
 
-    return versions
+    return list(
+        functools.reduce(
+            lambda vers, f: filter(f, vers),
+            [
+                _is_not_unsupported,
+                _is_older_than_or_equal_to_max_major_version,
+                _is_newer_than_or_equal_to_min_version,
+            ],
+            versions,
+        )
+    )
+
+
+FLAVOR_FILE_PATTERN = re.compile(r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)")
 
 
 def get_changed_flavors(changed_files, flavors):
     """
     Detects changed flavors from a list of changed files.
-
-    Examples
-    --------
-    >>> flavors = ["pytorch", "xgboost"]
-    >>> get_changed_flavors(["mlflow/pytorch/__init__.py", "mlflow/xgboost.py"], flavors)
-    ['pytorch', 'xgboost']
-    >>> get_changed_flavors(["mlflow/xgboost.py"], flavors)
-    ['xgboost']
-    >>> get_changed_flavors(["tests/xgboost/test_xxx.py"], flavors)
-    ['xgboost']
-    >>> get_changed_flavors(["tests/xgboost_autolog/test_xxx.py"], flavors)
-    ['xgboost']
-    >>> get_changed_flavors(["tests/xgboost_autologging/test_xxx.py"], flavors)
-    ['xgboost']
-    >>> get_changed_flavors(["README.rst"], flavors)
-    []
-    >>> get_changed_flavors([], flavors)
-    []
     """
-    changed_flavors = []
+    changed_flavors = set()
     for f in changed_files:
-        pattern = r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
-        #                           ~~~~~
-        #                           # This group captures a flavor name
-        match = re.search(pattern, f)
-
-        if (match is not None) and (match.group(2) in flavors):
-            changed_flavors.append(match.group(2))
-
+        match = FLAVOR_FILE_PATTERN.match(f)
+        if match and match.group(2) in flavors:
+            changed_flavors.add(match.group(2))
     return changed_flavors
 
 
-def process_requirements(requirements, version=None):
-    """
-    Examples
-    --------
-    >>> process_requirements(None)
-    []
-    >>> process_requirements({"== 0.1": ["foo"]}, "0.1")
-    ['foo']
-    >>> process_requirements({"< 0.2": ["foo"]}, "0.1")
-    ['foo']
-    >>> process_requirements({"> 0.1, != 0.2": ["foo"]}, "0.3")
-    ['foo']
-    >>> process_requirements({"== 0.1": ["foo"], "== 0.2": ["bar"]}, "0.2")
-    ['bar']
-    >>> process_requirements({">= 0.1": ["foo"], ">= 0.2": ["bar"]}, "0.2")
-    ['bar', 'foo']
-    >>> process_requirements({"== dev": ["foo"]}, "0.1")
-    []
-    >>> process_requirements({"< dev": ["foo"]}, "0.1")
-    ['foo']
-    >>> process_requirements({"> 0.1": ["foo"]}, "dev")
-    ['foo']
-    >>> process_requirements({"== dev": ["foo"]}, "dev")
-    ['foo']
-    >>> process_requirements({"> 0.1, != dev": ["foo"]}, "dev")
-    []
-    """
-    if requirements is None:
-        return []
+def get_matched_requirements(requirements, version=None):
+    if not isinstance(requirements, dict):
+        raise TypeError(
+            "Invalid object type for `requirements`: '{}'. Must be dict.".format(type(requirements))
+        )
 
-    if isinstance(requirements, list):
-        return requirements
-
-    if isinstance(requirements, dict):
-        reqs = set()
-        for specifier, packages in requirements.items():
-            specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
-            if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
-                reqs = reqs.union(packages)
-        return sorted(reqs)
-
-    raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
+    reqs = set()
+    for specifier, packages in requirements.items():
+        specifier_set = SpecifierSet(specifier.replace(DEV_VERSION, DEV_NUMERIC))
+        if specifier_set.contains(DEV_NUMERIC if version == DEV_VERSION else version):
+            reqs = reqs.union(packages)
+    return sorted(reqs)
 
 
 def remove_comments(s):
-    """
-    Examples
-    --------
-    >>> code = '''
-    ... # comment 1
-    ...  # comment 2
-    ... echo foo
-    ... '''
-    >>> remove_comments(code)
-    'echo foo'
-    """
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
 
 
 def make_pip_install_command(packages):
-    """
-    Examples
-    --------
-    >>> make_pip_install_command(["foo", "bar"])
-    "pip install 'foo' 'bar'"
-    """
     return "pip install " + " ".join("'{}'".format(x) for x in packages)
 
 
 def divider(title, length=None):
-    r"""
-    Examples
-    --------
-    >>> divider("1234", 20)
-    '\n======= 1234 ======='
-    """
     length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
     rest = length - len(title) - 2
     left = rest // 2 if rest % 2 else (rest + 1) // 2
-    return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
+    return "\n{} {} {}\n".format("=" * left, title, "=" * (rest - left))
 
 
 def split_by_comma(x):
@@ -357,163 +292,157 @@ def parse_args(args):
             "If unspecified, all versions are tested."
         ),
     )
-
     parser.add_argument(
-        "--exclude-dev-versions",
+        "--no-dev",
         action="store_true",
-        required=False,
         default=False,
-        help="If True, exclude dev versions from the test matrix.",
+        help="If True, exclude dev versions in the test matrix.",
     )
 
     return parser.parse_args(args)
 
 
-class Hashabledict(dict):
-    def __hash__(self):
-        return hash(frozenset(self))
+def get_flavor(name):
+    return {"pytorch-lightning": "pytorch"}.get(name, name)
 
 
 def expand_config(config):
-    matrix = []
-    for flavor_key, cfgs in config.items():
-        flavor = flavor_key.split("-")[0]
-        package_info = cfgs.pop("package_info")
-        all_versions = get_released_versions(package_info["pip_release"])
-
-        for key, cfg in cfgs.items():
-            # Released versions
-            min_ver = cfg["minimum"]
-            max_ver = cfg["maximum"]
+    matrix = set()
+    for name, cfgs in config.items():
+        flavor = get_flavor(name)
+        package_info = PackageInfo(**cfgs.pop("package_info"))
+        all_versions = get_released_versions(package_info.pip_release)
+        for category, cfg in cfgs.items():
+            cfg = TestConfig(**cfg)
             versions = filter_versions(
                 all_versions,
-                min_ver,
-                max_ver,
-                cfg.get("unsupported"),
-                allow_unreleased_max_version=cfg.get("allow_unreleased_max_version", False),
+                cfg.minimum,
+                cfg.maximum,
+                cfg.unsupported or [],
+                allow_unreleased_max_version=cfg.allow_unreleased_max_version or False,
             )
-            versions = select_latest_micro_versions(versions)
+            versions = get_latest_micro_versions(versions)
 
-            # Explicitly include the minimum supported version
-            if min_ver not in versions:
-                versions.append(min_ver)
+            # Always test the minimum version
+            if cfg.minimum not in versions:
+                versions.append(cfg.minimum)
 
-            pip_release = package_info["pip_release"]
             for ver in versions:
-                job_name = " / ".join([flavor_key, ver, key])
-                requirements = ["{}=={}".format(pip_release, ver)]
-                requirements.extend(process_requirements(cfg.get("requirements"), ver))
+                requirements = ["{}=={}".format(package_info.pip_release, ver)]
+                requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
-                run = remove_comments(cfg["run"])
+                run = remove_comments(cfg.run)
 
-                matrix.append(
-                    Hashabledict(
+                matrix.add(
+                    MatrixItem(
+                        name=name,
                         flavor=flavor,
-                        job_name=job_name,
+                        category=category,
+                        job_name=f"{name} / {category} / {ver}",
                         install=install,
                         run=run,
-                        package=pip_release,
+                        package=package_info.pip_release,
                         version=ver,
-                        supported=Version(ver) <= Version(max_ver),
+                        supported=ver <= cfg.maximum,
                     )
                 )
 
-            # Development version
-            if "install_dev" in package_info:
-                job_name = " / ".join([flavor_key, DEV_VERSION, key])
-                requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
-                install = (
-                    make_pip_install_command(requirements) + "\n" if requirements else ""
-                ) + remove_comments(package_info["install_dev"])
-                run = remove_comments(cfg["run"])
+            if package_info.install_dev:
+                install_dev = remove_comments(package_info.install_dev)
+                if cfg.requirements:
+                    requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
+                    install = make_pip_install_command(requirements) + "\n" + install_dev
+                else:
+                    install = install_dev
 
-                matrix.append(
-                    Hashabledict(
+                run = remove_comments(cfg.run)
+                dev_version = Version.create_dev()
+                matrix.add(
+                    MatrixItem(
+                        name=name,
                         flavor=flavor,
-                        job_name=job_name,
+                        category=category,
+                        job_name=f"{name} / {category} / {dev_version}",
                         install=install,
                         run=run,
-                        package=pip_release,
-                        version=DEV_VERSION,
+                        package=package_info.pip_release,
+                        version=dev_version,
                         supported=False,
                     )
                 )
     return matrix
 
 
-def process_ref_versions_yaml(ref_versions_yaml, matrix_base):
-    if ref_versions_yaml is None:
-        return set()
-
-    config_ref = read_yaml(ref_versions_yaml, if_error={})
-    matrix_ref = set(expand_config(config_ref))
-    return matrix_base.difference(matrix_ref)
-
-
-def process_changed_files(changed_files, matrix_base):
-    if changed_files is None:
-        return set()
-
-    flavors = set(x["flavor"] for x in matrix_base)
+def apply_changed_files(changed_files, matrix):
+    all_flavors = set(x.flavor for x in matrix)
     changed_flavors = (
-        # If this file (`dev/set_matrix.py`) has been changed, re-run all tests
-        flavors
+        # If this file has been changed, re-run all tests
+        all_flavors
         if (__file__ in changed_files)
-        else get_changed_flavors(changed_files, flavors)
+        else get_changed_flavors(changed_files, all_flavors)
     )
-    return set(filter(lambda x: x["flavor"] in changed_flavors, matrix_base))
+    return set(filter(lambda x: x.flavor in changed_flavors, matrix))
 
 
 def generate_matrix(args):
     args = parse_args(args)
-    config_base = read_yaml(args.versions_yaml)
-    matrix_base = set(expand_config(config_base))
-
-    # If both `--ref-versions-yaml` and `--changed-files` are unspecified, no further processing is
-    # required.
-    if args.ref_versions_yaml is None and args.changed_files is None:
-        matrix_final = matrix_base
+    config = read_yaml(args.versions_yaml)
+    if (args.ref_versions_yaml, args.changed_files).count(None) == 2:
+        matrix = expand_config(config)
     else:
-        # Matrix entries for changes on `ml-package-versions.yml`
-        matrix_diff_config = process_ref_versions_yaml(args.ref_versions_yaml, matrix_base)
-        # Matrix entries for changes on python scripts under `mlflow` and `tests`
-        matrix_diff_flavors = process_changed_files(args.changed_files, matrix_base)
-        # Merge `matrix_diff_config` and `matrix_diff_flavors`
-        matrix_final = matrix_diff_config.union(matrix_diff_flavors)
+        matrix = set()
+        mat = expand_config(config)
+
+        if args.ref_versions_yaml:
+            ref_config = read_yaml(args.ref_versions_yaml, if_error={})
+            ref_matrix = expand_config(ref_config)
+            matrix.update(mat.difference(ref_matrix))
+
+        if args.changed_files:
+            matrix.update(apply_changed_files(args.changed_files, mat))
 
     # Apply the filtering arguments
-    if args.exclude_dev_versions:
-        matrix_final = filter(lambda x: x["version"] != DEV_VERSION, matrix_final)
+    if args.no_dev:
+        matrix = filter(lambda x: x.version != Version.create_dev(), matrix)
 
     if args.flavors:
-        matrix_final = filter(lambda x: x["flavor"] in args.flavors, matrix_final)
+        matrix = filter(lambda x: x.flavor in args.flavors, matrix)
 
     if args.versions:
-        matrix_final = filter(lambda x: x["version"] in args.versions, matrix_final)
+        matrix = filter(lambda x: x.version in map(Version, args.versions), matrix)
 
-    return set(matrix_final)
+    return set(matrix)
+
+
+class CustomEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, MatrixItem):
+            return dict(o)
+        elif isinstance(o, Version):
+            return str(o)
+        return super().default(o)
+
+
+def set_action_output(name, value):
+    # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
+    # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
+    print(f"::set-output name={name}::{value}")
 
 
 def main(args):
     print(divider("Parameters"))
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
-    matrix = sorted(matrix, key=lambda x: x["job_name"])
-    job_names = [x["job_name"] for x in matrix]
-    matrix = {"job_name": job_names, "include": matrix}
+    is_matrix_empty = len(matrix) == 0
+    matrix = sorted(matrix, key=lambda x: x.job_name)
+    matrix = {"include": matrix, "job_name": [x.job_name for x in matrix]}
 
-    print(divider("Result"))
-    print(json.dumps(matrix, indent=2))
+    print(divider("Matrix"))
+    print(json.dumps(matrix, indent=2, cls=CustomEncoder))
 
     if "GITHUB_ACTIONS" in os.environ:
-        # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
-        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter
-        # Note that this actually doesn't print anything to the console.
-        print("::set-output name=matrix::{}".format(json.dumps(matrix)))
-
-        # Set a flag that indicates whether or not the matrix is empty. If this flag is 'true',
-        # skip the subsequent jobs.
-        print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true"))
+        set_action_output("matrix", json.dumps(matrix, cls=CustomEncoder))
+        set_action_output("is_matrix_empty", "true" if is_matrix_empty else "false")
 
 
 if __name__ == "__main__":

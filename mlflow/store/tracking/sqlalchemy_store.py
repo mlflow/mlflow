@@ -51,6 +51,7 @@ from mlflow.utils.validation import (
     _validate_tag,
     _validate_list_experiments_max_results,
     _validate_param_keys_unique,
+    _validate_param,
     _validate_experiment_name,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -479,10 +480,12 @@ class SqlAlchemyStore(AbstractStore):
     def _mark_run_deleted(self, session, run):
         self._check_run_is_active(run)
         run.lifecycle_stage = LifecycleStage.DELETED
+        run.deleted_time = int(time.time() * 1000)
         self._save_to_db(objs=run, session=session)
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
+        run.deleted_time = None
         self._save_to_db(objs=run, session=session)
 
     def _list_run_infos(self, session, experiment_id):
@@ -512,6 +515,10 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
+            # Note: we need to ensure the generated "run_id" only contains digits and lower
+            # case letters, because some query filters contain "IN" clause, and in MYSQL the
+            # "IN" clause is case-insensitive, we use a trick that filters out comparison values
+            # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
                 experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
@@ -528,6 +535,7 @@ class SqlAlchemyStore(AbstractStore):
                 status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=start_time,
                 end_time=None,
+                deleted_time=None,
                 source_version="",
                 lifecycle_stage=LifecycleStage.ACTIVE,
             )
@@ -639,6 +647,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_deleted(run)
             run.lifecycle_stage = LifecycleStage.ACTIVE
+            run.deleted_time = None
             self._save_to_db(objs=run, session=session)
 
     def delete_run(self, run_id):
@@ -646,6 +655,7 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
+            run.deleted_time = int(time.time() * 1000)
             self._save_to_db(objs=run, session=session)
 
     def _hard_delete_run(self, run_id):
@@ -657,14 +667,24 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             session.delete(run)
 
-    def _get_deleted_runs(self):
+    def _get_deleted_runs(self, older_than=0):
+        """
+        Get all deleted run ids.
+        Args:
+            older_than: get runs that is older than this variable in number of milliseconds.
+                        defaults to 0 ms to get all deleted runs.
+        """
+        current_time = int(time.time() * 1000)
         with self.ManagedSessionMaker() as session:
-            run_ids = (
-                session.query(SqlRun.run_uuid)
-                .filter(SqlRun.lifecycle_stage == LifecycleStage.DELETED)
+            runs = (
+                session.query(SqlRun)
+                .filter(
+                    SqlRun.lifecycle_stage == LifecycleStage.DELETED,
+                    SqlRun.deleted_time <= (current_time - older_than),
+                )
                 .all()
             )
-            return [run_id[0] for run_id in run_ids]
+            return [run.run_uuid for run in runs]
 
     def _get_metric_value_details(self, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
@@ -872,6 +892,7 @@ class SqlAlchemyStore(AbstractStore):
             return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_id, param):
+        _validate_param(param.key, param.value)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
@@ -1363,7 +1384,7 @@ def _get_search_experiments_filter_clauses(parsed_filters, dialect):
             val_filter = SearchUtils.get_sql_filter_ops(
                 SqlExperimentTag.value, comparator, dialect
             )(value)
-            key_filter = SqlExperimentTag.key == key
+            key_filter = SearchUtils.get_sql_filter_ops(SqlExperimentTag.key, "=", dialect)(key)
             non_attribute_filters.append(
                 select(SqlExperimentTag).filter(key_filter, val_filter).subquery()
             )

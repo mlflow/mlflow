@@ -4,15 +4,10 @@ import { Input } from '@databricks/design-system';
 import { CopyButton } from './CopyButton';
 
 export const CopyBox = ({ copyText }) => (
-  <>
-    <Input
-      readOnly
-      value={copyText}
-      style={{ width: 'calc(100% - 75px)' }}
-      data-test-id='copy-box'
-    />{' '}
+  <div css={{ display: 'flex', gap: 4 }}>
+    <Input readOnly value={copyText} data-test-id='copy-box' />
     <CopyButton copyText={copyText} />
-  </>
+  </div>
 );
 
 CopyBox.propTypes = {

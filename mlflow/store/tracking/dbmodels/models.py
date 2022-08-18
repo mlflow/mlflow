@@ -10,6 +10,7 @@ from sqlalchemy import (
     BigInteger,
     PrimaryKeyConstraint,
     Boolean,
+    Index,
 )
 from mlflow.entities import (
     Experiment,
@@ -142,6 +143,10 @@ class SqlRun(Base):
     """
     Run end time: `BigInteger`.
     """
+    deleted_time = Column(BigInteger, nullable=True, default=None)
+    """
+    Run deleted time: `BigInteger`. Timestamp of when run is deleted, defaults to none.
+    """
     source_version = Column(String(50))
     """
     Source version: `String` (limit 50 characters).
@@ -256,6 +261,10 @@ class SqlTag(Base):
     """
 
     __tablename__ = "tags"
+    __table_args__ = (
+        PrimaryKeyConstraint("key", "run_uuid", name="tag_pk"),
+        Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+    )
 
     key = Column(String(250))
     """
@@ -274,8 +283,6 @@ class SqlTag(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="tag_pk"),)
-
     def __repr__(self):
         return "<SqlRunTag({}, {})>".format(self.key, self.value)
 
@@ -290,6 +297,12 @@ class SqlTag(Base):
 
 class SqlMetric(Base):
     __tablename__ = "metrics"
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "key", "timestamp", "step", "run_uuid", "value", "is_nan", name="metric_pk"
+        ),
+        Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+    )
 
     key = Column(String(250))
     """
@@ -322,12 +335,6 @@ class SqlMetric(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint(
-            "key", "timestamp", "step", "run_uuid", "value", "is_nan", name="metric_pk"
-        ),
-    )
-
     def __repr__(self):
         return "<SqlMetric({}, {}, {}, {})>".format(self.key, self.value, self.timestamp, self.step)
 
@@ -347,6 +354,10 @@ class SqlMetric(Base):
 
 class SqlLatestMetric(Base):
     __tablename__ = "latest_metrics"
+    __table_args__ = (
+        PrimaryKeyConstraint("key", "run_uuid", name="latest_metric_pk"),
+        Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+    )
 
     key = Column(String(250))
     """
@@ -379,8 +390,6 @@ class SqlLatestMetric(Base):
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="latest_metric_pk"),)
-
     def __repr__(self):
         return "<SqlLatestMetric({}, {}, {}, {})>".format(
             self.key, self.value, self.timestamp, self.step
@@ -402,14 +411,18 @@ class SqlLatestMetric(Base):
 
 class SqlParam(Base):
     __tablename__ = "params"
+    __table_args__ = (
+        PrimaryKeyConstraint("key", "run_uuid", name="param_pk"),
+        Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+    )
 
     key = Column(String(250))
     """
     Param key: `String` (limit 250 characters). Part of *Primary Key* for ``params`` table.
     """
-    value = Column(String(250), nullable=False)
+    value = Column(String(500), nullable=False)
     """
-    Param value: `String` (limit 250 characters). Defined as *Non-null* in schema.
+    Param value: `String` (limit 500 characters). Defined as *Non-null* in schema.
     """
     run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
@@ -420,8 +433,6 @@ class SqlParam(Base):
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
-
-    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="param_pk"),)
 
     def __repr__(self):
         return "<SqlParam({}, {})>".format(self.key, self.value)

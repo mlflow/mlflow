@@ -87,13 +87,13 @@ def test_regressor_evaluation(linear_regressor_model_uri, diabetes_dataset):
     expected_metrics["score"] = model._model_impl.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_diabetes_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
@@ -151,11 +151,11 @@ def test_multi_classifier_evaluation(multiclass_logistic_regressor_model_uri, ir
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key], metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
+            expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**iris_dataset._metadata, "model": model.metadata.model_uuid}
@@ -207,13 +207,13 @@ def test_bin_classifier_evaluation(binary_logistic_regressor_model_uri, breast_c
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_breast_cancer_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
@@ -261,13 +261,13 @@ def test_spark_regressor_model_evaluation(spark_linear_regressor_model_uri, diab
 
     expected_metrics = _get_regressor_metrics(y, y_pred)
 
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_diabetes_spark_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     model = mlflow.pyfunc.load_model(spark_linear_regressor_model_uri)
 
@@ -303,13 +303,13 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
-            expected_metrics[metric_key],
+            expected_metric_val,
             metrics[metric_key + "_on_data_breast_cancer_dataset"],
             rtol=1e-3,
         )
-        assert np.isclose(expected_metrics[metric_key], result.metrics[metric_key], rtol=1e-3)
+        assert np.isclose(expected_metric_val, result.metrics[metric_key], rtol=1e-3)
 
     assert json.loads(tags["mlflow.datasets"]) == [
         {**breast_cancer_dataset._metadata, "model": model.metadata.model_uuid}
