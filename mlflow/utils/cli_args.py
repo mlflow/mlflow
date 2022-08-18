@@ -113,8 +113,8 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- conda: use conda
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
 
 If unspecified, default to conda.
 """,
@@ -127,8 +127,8 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- conda: use conda
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- conda: use conda
 
 If unspecified, the appropriate environment manager is automatically selected based on
 the project configuration. For example, if `MLproject.yaml` contains a `python_env` key,
