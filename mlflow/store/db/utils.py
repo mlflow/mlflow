@@ -79,6 +79,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
         try:
             if db_type == SQLITE:
                 session.execute("PRAGMA foreign_keys = ON;")
+                session.execute("PRAGMA busy_timeout = 20000;")
                 session.execute("PRAGMA case_sensitive_like = true;")
             yield session
             session.commit()
@@ -189,11 +190,11 @@ def create_sqlalchemy_engine(db_uri):
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = int(pool_size)
+        pool_kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = int(pool_max_overflow)
+        pool_kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = int(pool_recycle)
+        pool_kwargs["pool_recycle"] = pool_recycle
     if echo:
         pool_kwargs["echo"] = echo
     if pool_kwargs:
