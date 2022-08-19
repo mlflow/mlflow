@@ -526,7 +526,7 @@ checkout of MLflow:
 These commands generate a new migration script (e.g., at ``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``)
 that you should then edit to add migration logic.
 
-Docker development (experimental)
+Developing inside a Docker container (experimental)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Instead of setting up local or virtual environment, it's possible to write code and tests inside a Docker container that will contain an isolated Python environment setup inside.
