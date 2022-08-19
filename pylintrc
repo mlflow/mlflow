@@ -178,8 +178,8 @@ enable=c-extension-no-member,
        useless-object-inheritance,
        consider-using-from-import,
        consider-merging-isinstance,
-       consider-using-dict-items
-
+       consider-using-dict-items,
+       unnecessary-comprehension
 
 [REPORTS]
 
