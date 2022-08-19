@@ -2,9 +2,10 @@ name: Test package build
 
 on:
   push:
-    branches: [master]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
   pull_request:
-    branches: [master]
   workflow_dispatch:
     inputs:
       repository:

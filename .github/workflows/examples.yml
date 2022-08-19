@@ -2,7 +2,6 @@ name: Examples
 
 on:
   pull_request:
-    branches: [ master ]
   schedule:
     # Run this action daily at 13:00 UTC
     - cron: "0 13 * * *"
