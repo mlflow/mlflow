@@ -645,7 +645,8 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
         "db_runtime_version",
         "mlflowdbfs_disabled",
         "mlflowdbfs_available",
-        "dbutils_available,expectedURI",
+        "dbutils_available",
+        "expectedURI",
     ),
     [
         (
