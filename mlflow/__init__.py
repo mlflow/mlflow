@@ -167,9 +167,6 @@ evaluate = mlflow.models.evaluate
 last_active_run = mlflow.tracking.fluent.last_active_run
 MlflowClient = mlflow.client.MlflowClient
 
-load_text = mlflow.tracking.fluent.load_text
-load_dict = mlflow.tracking.fluent.load_dict
-load_image = mlflow.tracking.fluent.load_image
 
 run = projects.run
 
@@ -216,7 +213,4 @@ __all__ = [
     "evaluate",
     "last_active_run",
     "MlflowClient",
-    "load_text",
-    "load_dict",
-    "load_image",
 ] + _model_flavors_supported
