@@ -1077,9 +1077,9 @@ def evaluate(
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
                                              :py:class:`mlflow.models.MetricThreshold` used for
-                                             model validation. Metric name must be one of the
-                                             builtin metric's name or
-                                             name of a custom metric in custom_metrics argument.
+                                             model validation. Each metric name must either be the name of
+                                             a builtin metric or the name of a custom metric defined in the
+                                             ``custom_metrics`` parameter.
 
                                              .. code-block:: python
                                                  :caption: Example of Model Validation
