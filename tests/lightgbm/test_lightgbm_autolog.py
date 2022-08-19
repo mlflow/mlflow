@@ -537,7 +537,7 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
 
         features = model.feature_name()
         importance = model.feature_importance(importance_type=imp_type)
-        imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
+        imp = dict(zip(features, importance.tolist()))
 
         assert loaded_imp == imp
 
