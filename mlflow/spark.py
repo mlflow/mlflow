@@ -426,6 +426,13 @@ def _should_use_mlflowdbfs(root_uri):
     ):
         return False
 
+    try:
+        databricks_utils._get_dbutils()
+    except Exception:
+        # If dbutils is unavailable, indicate that mlflowdbfs is unavailable
+        # because usage of mlflowdbfs depends on dbutils
+        return False
+
     mlflowdbfs_read_exception_str = None
     try:
         _get_active_spark_session().read.load("mlflowdbfs:///artifact?run_id=foo&path=/bar")
