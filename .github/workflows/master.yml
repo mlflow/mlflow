@@ -58,7 +58,7 @@ jobs:
         pip install -r requirements/lint-requirements.txt
     - name: Test custom pylint-plugins
       run : |
-        pytest tests/pylint_plugins
+        pytest pylint_plugins/tests
     - name: Run lint checks
       run: |
         ./dev/lint.sh
