@@ -68,7 +68,7 @@ other capabilities.
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "alembic",
     # Required
-    "docker>=4.0.0",
+    "docker==5.0.3",
     "fastapi",
     "uvicorn",
     "google-cloud-profiler",
@@ -76,8 +76,6 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "gunicorn; platform_system != 'Windows'",
     "numpy",
     "scipy",
-    "requests>=2.26.0",
-    "urllib3>=1.26.0",
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
