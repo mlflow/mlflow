@@ -640,12 +640,20 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,expectedURI",
+    (
+        "artifact_uri",
+        "db_runtime_version",
+        "mlflowdbfs_disabled",
+        "mlflowdbfs_available",
+        "dbutils_available",
+        "expectedURI",
+    ),
     [
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "12.0",
             "",
+            True,
             True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
         ),
@@ -654,19 +662,30 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "12.0",
             "false",
             True,
+            True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+        ),
+        (
+            "dbfs:/databricks/mlflow-tracking/a/b",
+            "12.0",
+            "false",
+            True,
+            False,
+            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "12.0",
             "",
             False,
+            True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "",
             "",
+            True,
             True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
@@ -675,10 +694,11 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "12.0",
             "true",
             True,
+            True,
             "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml/sparkml",
         ),
-        ("dbfs:/root/a/b", "12.0", "", True, "dbfs:/root/a/b/model/sparkml/sparkml"),
-        ("s3://mybucket/a/b", "12.0", "", True, "s3://mybucket/a/b/model/sparkml/sparkml"),
+        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml/sparkml"),
+        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml/sparkml"),
     ],
 )
 def test_model_logged_via_mlflowdbfs_when_appropriate(
@@ -688,6 +708,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     db_runtime_version,
     mlflowdbfs_disabled,
     mlflowdbfs_available,
+    dbutils_available,
     expectedURI,
 ):
     def mock_spark_session_load(path):
@@ -697,6 +718,22 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mock_read_spark_session = mock.Mock()
     mock_read_spark_session.load = mock_spark_session_load
 
+    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+
+    def mock_get_dbutils():
+        import inspect
+
+        # _get_dbutils is called during run creation and model logging; to avoid breaking run
+        # creation, we only mock the output if _get_dbutils is called during spark model logging
+        caller_fn_name = inspect.stack()[1].function
+        if caller_fn_name == "_should_use_mlflowdbfs":
+            if dbutils_available:
+                return mock.Mock()
+            else:
+                raise Exception("dbutils not available")
+        else:
+            return og_getdbutils()
+
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
@@ -705,6 +742,9 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         return_value=mlflowdbfs_available,
     ), mock.patch(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils",
+        mock_get_dbutils,
     ), mock.patch.object(
         spark_model_iris.model, "save"
     ) as mock_save:
@@ -731,6 +771,19 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     mock_spark_session = mock.Mock()
     mock_spark_session.read = mock_read_spark_session
 
+    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+
+    def mock_get_dbutils():
+        import inspect
+
+        # _get_dbutils is called during run creation and model logging; to avoid breaking run
+        # creation, we only mock the output if _get_dbutils is called during spark model logging
+        caller_fn_name = inspect.stack()[1].function
+        if caller_fn_name == "_should_use_mlflowdbfs":
+            return mock.Mock()
+        else:
+            return og_getdbutils()
+
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
@@ -742,6 +795,9 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
         side_effect=Exception("MlflowDbfsClient operation failed!"),
     ), mock.patch(
         "mlflow.utils.databricks_utils.MlflowCredentialContext", autospec=True
+    ), mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils",
+        mock_get_dbutils,
     ), mock.patch.object(
         spark_model_iris.model, "save"
     ) as mock_save:
