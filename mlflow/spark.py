@@ -427,7 +427,7 @@ def _should_use_mlflowdbfs(root_uri):
         return False
 
     try:
-        mlflow.databricks_utils._get_dbutils()
+        databricks_utils._get_dbutils()
     except Exception:
         # If dbutils is unavailable, indicate that mlflowdbfs is unavailable
         # because usage of mlflowdbfs depends on dbutils
