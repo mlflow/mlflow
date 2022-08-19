@@ -1121,10 +1121,9 @@ def evaluate(
 
                                                      )
 
-    :param baseline_model: (Optional) A string URI referring to a MLflow model with the pyfunc
-                                      flavor as a baseline model to be compared with the
-                                      candidate model (specified by the `model` param) for model
-                                      validation. (pyfunc model instance is not allowed)
+    :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
+                                      flavor. If specified, the candidate ``model`` is compared to this baseline
+                                      for model validation purposes.
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
