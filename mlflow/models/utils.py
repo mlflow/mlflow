@@ -12,22 +12,20 @@ from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
 
 try:
-    import scipy.sparse
+    from scipy.sparse import csr_matrix, csc_matrix
 
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
 
 
-ModelInputExample = Union[
-    pd.DataFrame, np.ndarray, dict, list, "scipy.sparse.csr_matrix", "scipy.sparse.csc_matrix"
-]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix"]
 
 PyFuncInput = Union[
     pd.DataFrame,
     np.ndarray,
-    "scipy.sparse.csc_matrix",
-    "scipy.sparse.csr_matrix",
+    "csc_matrix",
+    "csr_matrix",
     List[Any],
     Dict[str, Any],
 ]
@@ -90,7 +88,7 @@ class _Example:
                 # we can safely assume that if no scipy is installed,
                 # the user won't log scipy sparse matrices
                 return False
-            return isinstance(x, (scipy.sparse.csc_matrix, scipy.sparse.csr_matrix))
+            return isinstance(x, (csc_matrix, csr_matrix))
 
         def _handle_ndarray_nans(x: np.ndarray):
             if np.issubdtype(x.dtype, np.number):
@@ -107,7 +105,7 @@ class _Example:
             else:
                 return {"inputs": _handle_ndarray_nans(input_array).tolist()}
 
-        def _handle_sparse_matrix(x: Union["scipy.sparse.csr_matrix", "scipy.sparse.csc_matrix"]):
+        def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
             return {
                 "data": _handle_ndarray_nans(x.data).tolist(),
                 "indices": x.indices.tolist(),
@@ -171,7 +169,7 @@ class _Example:
             }
         elif _is_sparse_matrix(input_example):
             self.data = _handle_sparse_matrix(input_example)
-            if isinstance(input_example, scipy.sparse.csc_matrix):
+            if isinstance(input_example, csc_matrix):
                 example_type = "sparse_matrix_csc"
             else:
                 example_type = "sparse_matrix_csr"
@@ -256,9 +254,9 @@ def _read_sparse_matrix_from_json(path, example_type):
         shape = tuple(matrix_data["shape"])
 
         if example_type == "sparse_matrix_csc":
-            return scipy.sparse.csc_matrix((data, indices, indptr), shape=shape)
+            return csc_matrix((data, indices, indptr), shape=shape)
         else:
-            return scipy.sparse.csr_matrix((data, indices, indptr), shape=shape)
+            return csr_matrix((data, indices, indptr), shape=shape)
 
 
 def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
@@ -281,7 +279,7 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
 
 
 def _enforce_tensor_spec(
-    values: Union[np.ndarray, "scipy.sparse.csc_matrix", "scipy.sparse.csr_matrix"],
+    values: Union[np.ndarray, "csc_matrix", "csr_matrix"],
     tensor_spec: TensorSpec,
 ):
     """
@@ -432,7 +430,7 @@ def _enforce_tensor_schema(pfInput: DataInputType, input_schema: Schema):
         if not HAS_SCIPY:
             # we can safely assume that it's not a sparse matrix if scipy is not installed
             return False
-        return isinstance(x, (scipy.sparse.csr_matrix, scipy.sparse.csc_matrix))
+        return isinstance(x, (csr_matrix, csc_matrix))
 
     if input_schema.has_input_names():
         if isinstance(pfInput, dict):
@@ -566,8 +564,8 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
         (
             pd.DataFrame,
             np.ndarray,
-            scipy.sparse.csc_matrix,
-            scipy.sparse.csr_matrix,
+            csc_matrix,
+            csr_matrix,
             dict,
             pd.Series,
             list,
