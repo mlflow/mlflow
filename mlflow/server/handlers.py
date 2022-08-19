@@ -464,11 +464,23 @@ def catch_mlflow_exception(func):
 _TEXT_EXTENSIONS = [
     "txt",
     "log",
+    "err",
+    "cfg",
+    "conf",
+    "cnf",
+    "cf",
+    "ini",
+    "properties",
+    "prop",
+    "hocon",
+    "toml",
     "yaml",
     "yml",
+    "xml",
     "json",
     "js",
     "py",
+    "py3",
     "csv",
     "tsv",
     "md",
@@ -1459,12 +1471,11 @@ def _download_artifact(artifact_path):
     """
     basename = posixpath.basename(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
-    tmp_path = os.path.join(tmp_dir.name, basename)
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    artifact_repo._download_file(artifact_path, tmp_path)
+    dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
     # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(tmp_path, "rb")
+    file_handle = open(dst, "rb")
 
     def stream_and_remove_file():
         yield from file_handle
