@@ -28,7 +28,7 @@ def resolve_default_artifact_root(
         else:
             msg = (
                 "Option 'default-artifact-root' is required when backend store is not "
-                "local file based."
+                "local file based and artifact serving is disabled."
             )
             eprint(msg)
             raise click.UsageError(message=msg)
