@@ -20,6 +20,7 @@ import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { saveAs } from 'file-saver';
+import { normalizeMetricsHistoryEntry } from '../utils/MetricsUtils';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -57,6 +58,11 @@ export class MetricsPlotPanel extends React.Component {
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
+    containsInfinities: PropTypes.bool.isRequired,
+  };
+
+  static defaultProps = {
+    containsInfinities: false,
   };
 
   // The fields below are exposed as instance attributes rather than component state so that they
@@ -275,6 +281,7 @@ export class MetricsPlotPanel extends React.Component {
       // Metric history can be large. Doing an in-place here to save memory
       metric.history.sort(isStep ? Utils.compareByStepAndTimestamp : Utils.compareByTimestamp);
     });
+
     return metrics;
   };
 
@@ -613,6 +620,7 @@ export class MetricsPlotPanel extends React.Component {
           yAxisLogScale={yAxisLogScale}
           showPoint={showPoint}
           handleDownloadCsv={this.handleDownloadCsv}
+          disableSmoothnessControl={this.props.containsInfinities}
         />
         <div className='metrics-plot-data'>
           <RequestStateWrapper
@@ -678,6 +686,8 @@ const mapStateToProps = (state, ownProps) => {
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
   const runDisplayNames = [];
 
+  let containsInfinities = false;
+
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
@@ -686,12 +696,16 @@ const mapStateToProps = (state, ownProps) => {
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey) => {
-          const history = metricsHistory[metricKey].map((entry) => ({
-            key: entry.key,
-            value: entry.value,
-            step: Number.parseInt(entry.step, 10) || 0, // default step to 0
-            timestamp: Number.parseFloat(entry.timestamp),
-          }));
+          const history = metricsHistory[metricKey].map((entry) =>
+            normalizeMetricsHistoryEntry(entry),
+          );
+          if (
+            history.some(
+              ({ value }) => typeof value === 'number' && !isNaN(value) && !isFinite(value),
+            )
+          ) {
+            containsInfinities = true;
+          }
           return { metricKey, history, runUuid, runDisplayName };
         })
       : [];
@@ -703,6 +717,7 @@ const mapStateToProps = (state, ownProps) => {
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
     completedRunUuids,
+    containsInfinities,
   };
 };
 

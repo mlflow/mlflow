@@ -20,6 +20,9 @@ describe('unit tests', () => {
     xAxis: X_AXIS_RELATIVE,
     onLayoutChange: jest.fn(),
     showPoint: false,
+    numRuns: 1,
+    numCompletedRuns: 1,
+    handleDownloadCsv: jest.fn(),
   };
   const minimalPropsForBarChart = { ...minimalPropsForLineChart, chartType: CHART_TYPE_BAR };
 
@@ -42,5 +45,12 @@ describe('unit tests', () => {
     expect(wrapper.find('[data-testid="show-point-toggle"]')).toHaveLength(0);
     expect(wrapper.find('[data-testid="smoothness-toggle"]')).toHaveLength(0);
     expect(wrapper.find('[data-testid="x-axis-radio"]')).toHaveLength(0);
+  });
+
+  test('should hide smoothness controls when disabled', () => {
+    wrapper = shallowWithInjectIntl(
+      <MetricsPlotControls {...minimalPropsForLineChart} disableSmoothnessControl />,
+    );
+    expect(wrapper.find('[data-testid="smoothness-toggle"]')).toHaveLength(0);
   });
 });

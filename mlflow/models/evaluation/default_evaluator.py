@@ -264,7 +264,7 @@ def _gen_classifier_curve(
         auc = [sk_metrics.auc(x_data, y_data) for _, x_data, y_data, _ in curve_list]
 
     def _do_plot(**kwargs):
-        import matplotlib.pyplot as pyplot
+        from matplotlib import pyplot
 
         _, ax = plot_lines(**kwargs)
         dash_line_args = {
@@ -447,7 +447,7 @@ class DefaultEvaluator(ModelEvaluator):
         do_plot,
         artifact_name,
     ):
-        import matplotlib.pyplot as pyplot
+        from matplotlib import pyplot
 
         artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
@@ -521,7 +521,7 @@ class DefaultEvaluator(ModelEvaluator):
 
         try:
             import shap
-            import matplotlib.pyplot as pyplot
+            from matplotlib import pyplot
         except ImportError:
             _logger.warning(
                 "SHAP or matplotlib package is not installed, so model explainability insights "

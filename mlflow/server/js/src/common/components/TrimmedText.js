@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button } from '../../shared/building_blocks/Button';
+import { Button } from '@databricks/design-system';
 
 export const TrimmedText = ({ text, maxSize, className, allowShowMore = false }) => {
   if (text.length <= maxSize) {

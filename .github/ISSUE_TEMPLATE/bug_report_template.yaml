@@ -66,7 +66,44 @@ body:
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
       placeholder: |
         ```python
-        # code to reproduce issue
+        ##### Bad Example #####
+        # - contains undefined variables.
+        # - requires modifications to run (e.g. adding missing import statements).
+
+        with mlflow.start_run():  # `mlflow` is not imported
+            mlflow.sklearn.log_model(model, "model")  # `model` is undefined
+
+        ##### Good Example #####
+        # - does not contain any undefined variables.
+        # - does not require any modifications to run.
+
+        from sklearn.datasets import load_iris
+        from sklearn.linear_model import LogisticRegression
+        import mlflow
+
+        X, y = load_iris(return_X_y=True)
+        model = LogisticRegression().fit(X, y)
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(model, "model")
+        ```
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Stack trace
+      description: |
+        Provide a **full** stack trace.
+      placeholder: |
+        ```python
+        # Good: full stack trace
+        Traceback (most recent call last):
+          File "example.py", line 1, in <module>
+            raise Exception("something went wrong")
+        Exception: something went wrong
+
+        # Bad: truncated stack trace
+        ...
+        Exception: something went wrong
         ```
     validations:
       required: true
@@ -74,13 +111,14 @@ body:
     attributes:
       label: Other info / logs
       description: |
-        Include any logs or source code that would be helpful to diagnose the problem. If including tracebacks, please include the full traceback. Large logs and files should be attached.
+        Include any logs or source code that would be helpful to diagnose the problem. Large logs and files should be attached.
       placeholder: |
-        ```python-traceback
-        Traceback (most recent call last):
-          File "example.py", line 1, in <module>
-            raise Exception("something went wrong")
-        Exception: something went wrong
+        ```
+        # Tracking server logs
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Starting gunicorn 20.1.0
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Listening at: http://127.0.0.1:5000 (222636)
+        [2022-08-01 16:03:02 +0900] [222636] [INFO] Using worker: sync
+        [2022-08-01 16:03:02 +0900] [222639] [INFO] Booting worker with pid: 222639
         ```
     validations:
       required: false

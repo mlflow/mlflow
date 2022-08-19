@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from 'antd';
+import { Button } from '@databricks/design-system';
 import { CreateModelModal } from './CreateModelModal';
 import PropTypes from 'prop-types';
 import { FormattedMessage } from 'react-intl';

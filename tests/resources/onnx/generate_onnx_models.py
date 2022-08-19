@@ -15,7 +15,7 @@ import numpy as np
 import onnx
 import onnxmltools
 import pandas as pd
-import sklearn.datasets as datasets
+from sklearn import datasets
 import tensorflow.compat.v1 as tf
 import tf2onnx
 from skl2onnx.common.data_types import FloatTensorType

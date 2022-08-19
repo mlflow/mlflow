@@ -585,10 +585,10 @@ To avoid having to write parameters repeatedly, you can add default parameters i
 Building Multistep Workflows
 -----------------------------
 
-The :py:func:`mlflow.projects.run` API, combined with :py:mod:`mlflow.tracking`, makes it possible to build
+The :py:func:`mlflow.projects.run` API, combined with :py:mod:`mlflow.client`, makes it possible to build
 multi-step workflows with separate projects (or entry points in the same project) as the individual
 steps. Each call to :py:func:`mlflow.projects.run` returns a run object, that you can use with
-:py:mod:`mlflow.tracking` to determine when the run has ended and get its output artifacts. These artifacts
+:py:mod:`mlflow.client` to determine when the run has ended and get its output artifacts. These artifacts
 can then be passed into another step that takes ``path`` or ``uri`` parameters. You can coordinate
 all of the workflow in a single Python program that looks at the results of each step and decides
 what to submit next using custom code. Some example use cases for multi-step workflows include:

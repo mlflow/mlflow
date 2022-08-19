@@ -28,7 +28,7 @@ MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
-MAX_PARAM_VAL_LENGTH = 250
+MAX_PARAM_VAL_LENGTH = 500
 MAX_TAG_VAL_LENGTH = 5000
 MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
@@ -110,8 +110,8 @@ def _is_numeric(value):
 
 def _validate_metric(key, value, timestamp, step):
     """
-    Check that a param with the specified key, value, timestamp is valid and raise an exception if
-    it isn't.
+    Check that a metric with the specified key, value, timestamp, and step is valid and raise an
+    exception if it isn't.
     """
     _validate_metric_name(key)
     # value must be a Number
@@ -265,7 +265,7 @@ def _validate_tag_name(name):
 
 
 def _validate_length_limit(entity_name, limit, value):
-    if len(value) > limit:
+    if value is not None and len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s"
             % (entity_name, value[:250], len(value), limit),

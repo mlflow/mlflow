@@ -124,6 +124,7 @@ def test_log_code_snapshot(tmp_path: pathlib.Path):
         "requirements.txt",
         "profiles/local.yaml",
         "steps/train.py",
+        "runtime/pipeline.yaml",
     ]
     for f in files:
         path = tmp_path.joinpath(f)
@@ -131,8 +132,9 @@ def test_log_code_snapshot(tmp_path: pathlib.Path):
         path.write_text("")
 
     mlflow.set_experiment(experiment_id="0")
+    pipeline_config = {"name": "fake_config", "dict": {"key": 123}}
     with mlflow.start_run() as run:
-        log_code_snapshot(tmp_path, run.info.run_id)
+        log_code_snapshot(tmp_path, run.info.run_id, pipeline_config=pipeline_config)
         tracking_uri = mlflow.get_tracking_uri()
 
     artifacts = set(list_all_artifacts(tracking_uri, run.info.run_id))

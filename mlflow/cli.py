@@ -1,16 +1,19 @@
 import json
 import os
+import re
 import sys
 import logging
 
 import click
 from click import UsageError
+from datetime import timedelta
 
 import mlflow.db
 import mlflow.experiments
 import mlflow.deployments.cli
 import mlflow.pipelines.cli
-import mlflow.projects as projects
+from mlflow import projects
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import version
@@ -484,6 +487,13 @@ def server(
 
 @cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
 @click.option(
+    "--older-than",
+    default=None,
+    help="Optional. Remove run(s) older than the specified time limit. "
+    "Specify a string in #d#h#m#s format. Float values are also supported."
+    "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
+)
+@click.option(
     "--backend-store-uri",
     metavar="PATH",
     default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -500,7 +510,7 @@ def server(
     " are not specified, data is removed for all runs in the `deleted`"
     " lifecycle stage.",
 )
-def gc(backend_store_uri, run_ids):
+def gc(older_than, backend_store_uri, run_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -510,8 +520,28 @@ def gc(backend_store_uri, run_ids):
         raise MlflowException(
             "This cli can only be used with a backend that allows hard-deleting runs"
         )
+
+    time_delta = 0
+
+    if older_than is not None:
+        regex = re.compile(
+            r"^((?P<days>[\.\d]+?)d)?((?P<hours>[\.\d]+?)h)?((?P<minutes>[\.\d]+?)m)"
+            r"?((?P<seconds>[\.\d]+?)s)?$"
+        )
+        parts = regex.match(older_than)
+        if parts is None:
+            raise MlflowException(
+                "Could not parse any time information from '{}'. "
+                "Examples of valid strings: '8h', '2d8h5m20s', '2m4s'".format(older_than),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
+        time_delta = int(timedelta(**time_params).total_seconds() * 1000)
+
+    deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     if not run_ids:
-        run_ids = backend_store._get_deleted_runs()
+        run_ids = deleted_run_ids_older_than
+
     else:
         run_ids = run_ids.split(",")
 
@@ -521,6 +551,13 @@ def gc(backend_store_uri, run_ids):
             raise MlflowException(
                 "Run % is not in `deleted` lifecycle stage. Only runs in "
                 "`deleted` lifecycle stage can be deleted." % run_id
+            )
+        # raise MlflowException if run_id is newer than older_than parameter
+        if older_than and run_id not in deleted_run_ids_older_than:
+            raise MlflowException(
+                f"Run {run_id} is not older than the required age. "
+                f"Only runs older than {older_than} can be deleted.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()

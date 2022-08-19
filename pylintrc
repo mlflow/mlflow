@@ -175,7 +175,10 @@ enable=c-extension-no-member,
        line-too-long,
        use-a-generator,
        super-with-arguments,
-       useless-object-inheritance
+       useless-object-inheritance,
+       consider-using-from-import,
+       consider-merging-isinstance,
+       consider-using-dict-items
 
 
 [REPORTS]

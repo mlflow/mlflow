@@ -1,10 +1,15 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { MetricsPlotView } from './MetricsPlotView';
-import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
+import { MetricsPlotViewImpl as MetricsPlotView } from './MetricsPlotView';
+import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../../common/utils/Utils';
 import { LazyPlot } from './LazyPlot';
+import { generateInfinityAnnotations } from '../utils/MetricsUtils';
+
+jest.mock('../utils/MetricsUtils');
+
+const emptyAnnotationsMock = { annotations: [], shapes: [] };
 
 const metricsForLine = [
   {
@@ -230,6 +235,7 @@ describe('unit tests', () => {
       onLegendDoubleClick: jest.fn(),
       onLegendClick: jest.fn(),
       deselectedCurves: [],
+      intl: { formatMessage: (x) => x.toString() },
     };
     minimalPropsForSmoothedLineChart = {
       ...minimalPropsForLineChart,
@@ -255,6 +261,8 @@ describe('unit tests', () => {
       metrics: metricsForBarWithNaNs,
       metricKeys: metricsForBarWithNaNs.map((metric) => metric.metricKey),
     };
+
+    generateInfinityAnnotations.mockImplementation(() => emptyAnnotationsMock);
   });
 
   test('should render line chart with minimal props without exploding', () => {
@@ -345,7 +353,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -407,7 +415,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -469,7 +477,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -531,7 +539,7 @@ describe('unit tests', () => {
           marker: { opacity: 1 },
         },
       ],
-      layout: {},
+      layout: { ...emptyAnnotationsMock },
     });
   });
 
@@ -594,16 +602,25 @@ describe('unit tests', () => {
     expect(MetricsPlotView.getLineLegend('metric_1', 'Run abc', false)).toBe('metric_1');
   });
 
-  test('parseTimestamp()', () => {
+  test('getXValuesForLineChart()', () => {
     const timestamp = 1556662044000;
+    const anotherTimestamp = timestamp + 5000;
     const timestampStr = Utils.formatTimestamp(timestamp);
-    const history = [{ timestamp: 1556662043000 }];
-    // convert to step when axis is Time (Relative)
-    expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_RELATIVE)).toBe(1);
+    const anotherTimestampStr = Utils.formatTimestamp(anotherTimestamp);
+    const history = [
+      { step: 0, timestamp },
+      { step: 1, timestamp: anotherTimestamp },
+    ];
+    // convert to step when axis is Step
+    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_STEP)).toEqual([0, 1]);
+    // convert to relative time in seconds when axis is Time (Relative)
+    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_RELATIVE)).toEqual([0, 5]);
     // convert to date time string when axis is Time (Wall)
-    expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_WALL)).toBe(timestampStr);
+    expect(MetricsPlotView.getXValuesForLineChart(history, X_AXIS_WALL)).toEqual([
+      timestampStr,
+      anotherTimestampStr,
+    ]);
   });
-
   test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
     const plot = wrapper.find(LazyPlot);

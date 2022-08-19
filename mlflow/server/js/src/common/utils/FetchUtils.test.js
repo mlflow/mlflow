@@ -1,6 +1,6 @@
 import {
   defaultResponseParser,
-  getDefaultHeaders,
+  getDefaultHeadersFromCookies,
   HTTPMethods,
   jsonBigIntResponseParser,
   parseResponse,
@@ -27,14 +27,14 @@ import {
 import { ErrorWrapper } from './ErrorWrapper';
 
 describe('FetchUtils', () => {
-  describe('getDefaultHeaders', () => {
+  describe('getDefaultHeadersFromCookies', () => {
     it('empty cookie should result in no headers', () => {
-      expect(getDefaultHeaders('')).toEqual({});
+      expect(getDefaultHeadersFromCookies('')).toEqual({});
     });
 
     it('cookies from static service are parsed correctly', () => {
       expect(
-        getDefaultHeaders(
+        getDefaultHeadersFromCookies(
           `a=b; mlflow-request-header-My-CSRF=1; mlflow-request-header-Hello=World; c=d`,
         ),
       ).toEqual({ 'My-CSRF': '1', Hello: 'World' });

@@ -1,12 +1,17 @@
 import React from 'react';
 import _ from 'lodash';
-import { QuestionCircleOutlined } from '@ant-design/icons';
-import { Select, Switch, Tooltip, Radio } from '@databricks/design-system';
+import {
+  Button,
+  Select,
+  Switch,
+  Tooltip,
+  Radio,
+  QuestionMarkBorderIcon,
+} from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
-import { Button } from '../../shared/building_blocks/Button';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 
@@ -36,6 +41,11 @@ export class MetricsPlotControlsImpl extends React.Component {
     numRuns: PropTypes.number.isRequired,
     numCompletedRuns: PropTypes.number.isRequired,
     handleDownloadCsv: PropTypes.func.isRequired,
+    disableSmoothnessControl: PropTypes.bool.isRequired,
+  };
+
+  static defaultProps = {
+    disableSmoothnessControl: false,
   };
 
   handleMetricsSelectFilterChange = (text, option) =>
@@ -58,6 +68,7 @@ export class MetricsPlotControlsImpl extends React.Component {
       showPoint,
       numRuns,
       numCompletedRuns,
+      disableSmoothnessControl,
     } = this.props;
 
     const lineSmoothnessTooltipText = (
@@ -92,7 +103,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                   description='Label for the progress bar to show the number of completed runs'
                 />{' '}
                 <Tooltip title={completedRunsTooltipText}>
-                  <QuestionCircleOutlined />
+                  <QuestionMarkBorderIcon />
                 </Tooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
@@ -114,24 +125,26 @@ export class MetricsPlotControlsImpl extends React.Component {
                 onChange={this.props.handleShowPointChange}
               />
             </div>
-            <div className='block-control'>
-              <div className='control-label'>
-                <FormattedMessage
-                  defaultMessage='Line Smoothness'
-                  description='Label for the smoothness slider for the graph plot for metrics'
-                />{' '}
-                <Tooltip title={lineSmoothnessTooltipText}>
-                  <QuestionCircleOutlined />
-                </Tooltip>
+            {!disableSmoothnessControl && (
+              <div className='block-control'>
+                <div className='control-label'>
+                  <FormattedMessage
+                    defaultMessage='Line Smoothness'
+                    description='Label for the smoothness slider for the graph plot for metrics'
+                  />{' '}
+                  <Tooltip title={lineSmoothnessTooltipText}>
+                    <QuestionMarkBorderIcon />
+                  </Tooltip>
+                </div>
+                <LineSmoothSlider
+                  data-testid='smoothness-toggle'
+                  min={1}
+                  max={MAX_LINE_SMOOTHNESS}
+                  handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
+                  defaultValue={initialLineSmoothness}
+                />
               </div>
-              <LineSmoothSlider
-                data-testid='smoothness-toggle'
-                min={1}
-                max={MAX_LINE_SMOOTHNESS}
-                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 100)}
-                defaultValue={initialLineSmoothness}
-              />
-            </div>
+            )}
             <div className='block-control'>
               <div className='control-label'>
                 <FormattedMessage

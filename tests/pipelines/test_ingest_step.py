@@ -251,22 +251,23 @@ def test_ingest_throws_for_custom_dataset_when_custom_loader_function_throws_une
     with mock.patch(
         "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe",
         side_effect=Exception("Failed to load!"),
-    ) as mock_custom_loader, pytest.raises(
-        MlflowException, match="Unable to load data file at path.*using custom loader method"
-    ):
+    ) as mock_custom_loader:
         setattr(mock_custom_loader, "__name__", "custom_load_file_as_dataframe")
-        IngestStep.from_pipeline_config(
-            pipeline_config={
-                "data": {
-                    "format": "fooformat",
-                    "location": str(dataset_path),
-                    "custom_loader_method": (
-                        "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
-                    ),
-                }
-            },
-            pipeline_root=os.getcwd(),
-        ).run(output_directory=tmp_path)
+        with pytest.raises(
+            MlflowException, match="Unable to load data file at path.*using custom loader method"
+        ):
+            IngestStep.from_pipeline_config(
+                pipeline_config={
+                    "data": {
+                        "format": "fooformat",
+                        "location": str(dataset_path),
+                        "custom_loader_method": (
+                            "tests.pipelines.test_ingest_step.custom_load_file_as_dataframe"
+                        ),
+                    }
+                },
+                pipeline_root=os.getcwd(),
+            ).run(output_directory=tmp_path)
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -632,3 +633,27 @@ def test_ingest_throws_when_dataset_files_have_wrong_format(pandas_df, tmp_path)
             },
             pipeline_root=os.getcwd(),
         ).run(output_directory=tmp_path)
+
+
+@pytest.mark.usefixtures("enter_test_pipeline_directory")
+def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
+    dataset_path = tmp_path / "df.parquet"
+    pandas_df.to_parquet(dataset_path)
+
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+        IngestStep.from_pipeline_config(
+            pipeline_config={
+                "data": {
+                    "format": "parquet",
+                    "location": str(dataset_path),
+                },
+                "steps": {"ingest": {"skip_data_profiling": True}},
+            },
+            pipeline_root=os.getcwd(),
+        ).run(output_directory=tmp_path)
+
+    expected_step_card_path = os.path.join(tmp_path, "card.html")
+    with open(expected_step_card_path, "r") as f:
+        step_card_html_content = f.read()
+    assert "Profile of Ingested Dataset" not in step_card_html_content
+    mock_profiling.assert_not_called()

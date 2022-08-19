@@ -382,7 +382,7 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     mv3 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_2")
     assert mv3.version == "3"
     assert [mvd1] == mlflow_client.search_model_versions("source_path = 'path/to/model'")
-    assert [mvd1, mvd2] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
+    assert [mvd2, mvd1] == mlflow_client.search_model_versions("run_id = 'run_id_1'")
 
     assert "path/to/model" == mlflow_client.get_model_version_download_uri(name, "1")
 

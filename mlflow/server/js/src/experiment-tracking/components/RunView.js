@@ -14,7 +14,8 @@ import Utils from '../../common/utils/Utils';
 import { NOTE_CONTENT_TAG, NoteInfo } from '../utils/NoteUtils';
 import { RenameRunModal } from './modals/RenameRunModal';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
-import { Button, Descriptions, message } from 'antd';
+import { Descriptions, message } from 'antd';
+import { Button } from '@databricks/design-system';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { setTagApi, deleteTagApi } from '../actions';
@@ -125,6 +126,26 @@ export class RunViewImpl extends Component {
     const sourceVersion = Utils.getSourceVersion(tags);
     const entryPointName = Utils.getEntryPointName(tags);
     const backend = Utils.getBackend(tags);
+
+    if (Utils.getSourceType(tags) === 'PIPELINE') {
+      const profileName = Utils.getPipelineProfileName(tags);
+      const stepName = Utils.getPipelineStepName(tags);
+      runCommand = '';
+      if (sourceName) {
+        runCommand += `git clone ${sourceName}\n`;
+      }
+
+      if (sourceVersion) {
+        runCommand += `git checkout ${sourceVersion}\n`;
+      }
+
+      runCommand += `mlflow pipelines run -p ${shellEscape(profileName)}`;
+
+      if (stepName) {
+        runCommand += ' -s ' + shellEscape(stepName);
+      }
+    }
+
     if (Utils.getSourceType(tags) === 'PROJECT') {
       runCommand = 'mlflow run ' + shellEscape(sourceName);
       if (sourceVersion && sourceVersion !== 'latest') {
@@ -393,7 +414,12 @@ export class RunViewImpl extends Component {
               onChange={this.handleCollapseChange('runCommand')}
               data-test-id='run-command-section'
             >
-              <textarea className='run-command text-area' readOnly value={runCommand} />
+              <textarea
+                css={styles.runCommandArea}
+                // Setting row count basing on the number of line breaks
+                rows={(runCommand.match(/\n/g) || []).length + 1}
+                value={runCommand}
+              />
             </CollapsibleSection>
           ) : null}
           <CollapsibleSection
@@ -619,4 +645,11 @@ const shellEscape = (str) => {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;
+};
+
+const styles = {
+  runCommandArea: (theme) => ({
+    fontFamily: 'Menlo, Consolas, monospace',
+    width: '100%',
+  }),
 };

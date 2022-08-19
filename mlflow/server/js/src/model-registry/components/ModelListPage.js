@@ -162,9 +162,11 @@ export class ModelListPageImpl extends React.Component {
     );
   };
 
-  handleSearch = (callback, errorCallback) => {
+  handleSearch = (callback, errorCallback, searchInput) => {
     this.resetHistoryState();
-    this.loadPage(1, callback, errorCallback);
+    this.setState({ searchInput: searchInput }, () => {
+      this.loadPage(1, callback, errorCallback);
+    });
   };
 
   handleClear = (callback, errorCallback) => {

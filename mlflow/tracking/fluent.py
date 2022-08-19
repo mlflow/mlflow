@@ -402,7 +402,7 @@ def active_run() -> Optional[ActiveRun]:
 
     **Note**: You cannot access currently-active run attributes
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
-    to access such attributes, use the :py:class:`mlflow.MlflowClient` as follows:
+    to access such attributes, use the :py:class:`mlflow.client.MlflowClient` as follows:
 
     .. code-block:: python
         :caption: Example
@@ -514,7 +514,7 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
-def log_param(key: str, value: Any) -> None:
+def log_param(key: str, value: Any) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -524,8 +524,10 @@ def log_param(key: str, value: Any) -> None:
                 All backend stores support keys up to length 250, but some may
                 support larger keys.
     :param value: Parameter value (string, but will be string-ified if not).
-                  All backend stores support values up to length 250, but some
+                  All backend stores support values up to length 500, but some
                   may support larger values.
+
+    :return: the parameter value that is logged.
 
     .. code-block:: python
         :caption: Example
@@ -533,10 +535,11 @@ def log_param(key: str, value: Any) -> None:
         import mlflow
 
         with mlflow.start_run():
-            mlflow.log_param("learning_rate", 0.01)
+            value = mlflow.log_param("learning_rate", 0.01)
+            assert value == 0.01
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_param(run_id, key, value)
+    return MlflowClient().log_param(run_id, key, value)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -1090,7 +1093,7 @@ def search_experiments(
           - ``=``: Equal to.
           - ``!=``: Not equal to.
           - ``LIKE``: Case-sensitive pattern match.
-          - ``ILIKE``: Case-insensitive sensitive pattern match.
+          - ``ILIKE``: Case-insensitive pattern match.
 
         Logical operators
           - ``AND``: Combines two sub-queries and returns True if both of them are True.
@@ -1334,7 +1337,7 @@ def search_runs(
     experiment_names: Optional[List[str]] = None,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
-    Get a pandas DataFrame of runs that fit the search criteria.
+    Search for Runs that fit the specified criteria.
 
     :param experiment_ids: List of experiment IDs. Search can work with experiment IDs or
                            experiment names, but not both in the same call. Values other than
@@ -1507,12 +1510,12 @@ def search_runs(
 
         data = {}
         data.update(info)
-        for key in metrics:
-            data["metrics." + key] = metrics[key]
-        for key in params:
-            data["params." + key] = params[key]
-        for key in tags:
-            data["tags." + key] = tags[key]
+        for key, value in metrics.items():
+            data["metrics." + key] = value
+        for key, value in params.items():
+            data["params." + key] = value
+        for key, value in tags.items():
+            data["tags." + key] = value
         return pd.DataFrame(data)
     else:
         raise ValueError(

@@ -8,7 +8,7 @@ from collections import namedtuple
 from unittest import mock
 
 import numpy as np
-import sklearn.datasets as datasets
+from sklearn import datasets
 import h2o
 from h2o.estimators.gbm import H2OGradientBoostingEstimator
 

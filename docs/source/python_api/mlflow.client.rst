@@ -1,9 +1,9 @@
 .. _mlflow.tracking:
 
-mlflow.tracking
+mlflow.client
 ===============
 
-.. automodule:: mlflow.tracking
+.. automodule:: mlflow.client
     :members:
     :undoc-members:
     :show-inheritance:

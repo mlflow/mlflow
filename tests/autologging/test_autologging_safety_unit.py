@@ -10,7 +10,7 @@ from contextlib import nullcontext as does_not_raise
 from unittest import mock
 
 import mlflow
-import mlflow.utils.autologging_utils as autologging_utils
+from mlflow.utils import autologging_utils
 from mlflow.entities import RunStatus
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import (
@@ -482,7 +482,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
             AssertionError, match="failed to set autologging tag with expected value"
         ):
             patch_destination.fn()
-            assert validate_run_mock.call_count == 1
+        assert validate_run_mock.call_count == 1
 
         validate_run_mock.reset_mock()
 
@@ -490,7 +490,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
             # If a user-generated run existed prior to the autologged training session, we expect
             # that safe patch will not attempt to validate it
             patch_destination.fn()
-            assert not validate_run_mock.called
+        assert not validate_run_mock.called
 
 
 def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
@@ -1007,11 +1007,11 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
 
     with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         patch_function(lambda: "foo")
-        assert patch_function_active_run == active_run
-        # `with_managed_run` should not terminate a preexisting MLflow run,
-        # even if the patch function throws
-        status2 = client.get_run(active_run.info.run_id).info.status
-        assert RunStatus.from_string(status2) == RunStatus.FINISHED
+    assert patch_function_active_run == active_run
+    # `with_managed_run` should not terminate a preexisting MLflow run,
+    # even if the patch function throws
+    status2 = client.get_run(active_run.info.run_id).info.status
+    assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
 def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
@@ -1062,11 +1062,11 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
     with mlflow.start_run() as active_run, pytest.raises(Exception, match="bad implementation"):
         TestPatch.call(lambda: "foo")
-        assert patch_function_active_run == active_run
-        # `with_managed_run` should not terminate a preexisting MLflow run,
-        # even if the patch function throws
-        status2 = client.get_run(active_run.info.run_id).info.status
-        assert RunStatus.from_string(status2) == RunStatus.FINISHED
+    assert patch_function_active_run == active_run
+    # `with_managed_run` should not terminate a preexisting MLflow run,
+    # even if the patch function throws
+    status2 = client.get_run(active_run.info.run_id).info.status
+    assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
 def test_with_managed_run_sets_specified_run_tags():

@@ -198,6 +198,47 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     assert not os.path.exists(artifact_path)
 
 
+def test_mlflow_gc_sqlite_older_than(sqlite_store):
+    store = sqlite_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
+        subprocess.run(
+            [
+                "mlflow",
+                "gc",
+                "--backend-store-uri",
+                sqlite_store[1],
+                "--older-than",
+                "10d10h10m10s",
+                "--run-ids",
+                run.info.run_uuid,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    assert "is not older than the required age" in exp.value.stderr
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 1
+
+    time.sleep(1)
+    subprocess.check_output(
+        [
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            sqlite_store[1],
+            "--older-than",
+            "1s",
+            "--run-ids",
+            run.info.run_uuid,
+        ]
+    )
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+
+
 @pytest.mark.parametrize("create_artifacts_in_run", [True, False])
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
@@ -237,6 +278,47 @@ def test_mlflow_gc_not_deleted_run(file_store):
     assert len(runs) == 1
 
 
+def test_mlflow_gc_file_store_older_than(file_store):
+    store = file_store[0]
+    run = _create_run_in_store(store)
+    store.delete_run(run.info.run_uuid)
+    with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
+        subprocess.run(
+            [
+                "mlflow",
+                "gc",
+                "--backend-store-uri",
+                file_store[1],
+                "--older-than",
+                "10d10h10m10s",
+                "--run-ids",
+                run.info.run_uuid,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    assert "is not older than the required age" in exp.value.stderr
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 1
+
+    time.sleep(1)
+    subprocess.check_output(
+        [
+            "mlflow",
+            "gc",
+            "--backend-store-uri",
+            file_store[1],
+            "--older-than",
+            "1s",
+            "--run-ids",
+            run.info.run_uuid,
+        ]
+    )
+    runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
+    assert len(runs) == 0
+
+
 @pytest.mark.parametrize(
     "enable_mlserver",
     [
@@ -260,15 +342,13 @@ def test_mlflow_models_serve(enable_mlserver):
 
     with mlflow.start_run():
         if enable_mlserver:
-            # MLServer requires Python 3.7, so we'll force that Python version.
-            with mock.patch("mlflow.utils.environment.PYTHON_VERSION", "3.7"):
-                # We also need that MLServer is present on the Conda
-                # environment, so we'll add that as an extra requirement.
-                mlflow.pyfunc.log_model(
-                    artifact_path="model",
-                    python_model=model,
-                    extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
-                )
+            # We need that MLServer is present on the Conda environment, so we'll add that
+            # as an extra requirement.
+            mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=model,
+                extra_pip_requirements=["mlserver", "mlserver-mlflow", PROTOBUF_REQUIREMENT],
+            )
         else:
             mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
         model_uri = mlflow.get_artifact_uri("model")
