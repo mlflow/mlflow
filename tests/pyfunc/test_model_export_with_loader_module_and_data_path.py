@@ -350,12 +350,12 @@ def test_tensor_multi_named_schema_enforcement():
     }
 
     # test that missing column raises
-    inp1 = {k: v for k, v in inp.items()}
+    inp1 = inp.copy()
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         pyfunc_model.predict(inp1.pop("b"))
 
     # test that extra column is ignored
-    inp2 = {k: v for k, v in inp.items()}
+    inp2 = inp.copy()
     inp2["x"] = 1
 
     # test that extra column is removed
@@ -378,7 +378,7 @@ def test_tensor_multi_named_schema_enforcement():
     assert expected_types == actual_types
 
     # test that type casting is not supported
-    inp4 = {k: v for k, v in inp.items()}
+    inp4 = inp.copy()
     inp4["a"] = inp4["a"].astype(np.int32)
     with pytest.raises(
         MlflowException, match="dtype of input int32 does not match expected dtype uint64"
@@ -409,7 +409,7 @@ def test_tensor_multi_named_schema_enforcement():
         pyfunc_model.predict(inp6)
 
     # test empty ndarray does not work
-    inp7 = {k: v for k, v in inp.items()}
+    inp7 = inp.copy()
     inp7["a"] = np.array([])
     with pytest.raises(
         MlflowException, match=re.escape("Shape of input (0,) does not match expected shape")
