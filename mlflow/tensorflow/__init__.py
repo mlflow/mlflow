@@ -68,6 +68,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
+from mlflow.tensorflow import keras as keras_flavor
 
 FLAVOR_NAME = "tensorflow"
 
@@ -92,16 +93,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    import tensorflow as tf
-
-    pip_deps = [_get_pinned_requirement("tensorflow")]
-
-    # tensorflow >= 2.6.0 requires keras:
-    # https://github.com/tensorflow/tensorflow/blob/v2.6.0/tensorflow/tools/pip_package/setup.py#L106
-    # To prevent a different version of keras from being installed by tensorflow when creating
-    # a serving environment, add a pinned requirement for keras
-    if Version(tf.__version__) >= Version("2.6.0"):
-        pip_deps.append(_get_pinned_requirement("keras"))
+    pip_deps = [_get_pinned_requirement("tensorflow"), _get_pinned_requirement("keras")]
 
     return pip_deps
 
@@ -117,10 +109,12 @@ def get_default_conda_env():
 @keyword_only
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-    tf_saved_model_dir,
-    tf_meta_graph_tags,
-    tf_signature_def_key,
+    *,
     artifact_path,
+    tf_saved_model_dir=None,
+    tf_meta_graph_tags=None,
+    tf_signature_def_key=None,
+    keras_model=None,
     conda_env=None,
     code_paths=None,
     signature: ModelSignature = None,
@@ -132,7 +126,11 @@ def log_model(
 ):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
-    for the current run. This method operates on TensorFlow variables and graphs that have been
+    for the current run or log a Keras model.
+    If logging TensorFlow graphs and variables as an MLflow model, `keras_model` argument
+    must not be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
+    arguments must be set.
+    this method operates on TensorFlow variables and graphs that have been
     serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
     format, see the TensorFlow documentation:
     https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
@@ -147,6 +145,11 @@ def log_model(
     rather than lists of length one. All other model output types are included as-is in the output
     DataFrame.
 
+    If logging keras model, `keras_model` argument
+    must be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
+    arguments must not be set.
+
+    :param artifact_path: The run-relative path to which to log model artifacts.
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
@@ -158,7 +161,7 @@ def log_model(
                                  definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
-    :param artifact_path: The run-relative path to which to log model artifacts.
+    :param keras_model: Keras model to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -194,6 +197,25 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    if keras_model is not None:
+        if tf_saved_model_dir is None or tf_meta_graph_tags is None or tf_signature_def_key is None:
+            raise ValueError(
+                "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
+                "and `tf_signature_def_key` arguments cannot be set."
+            )
+        return keras_flavor.log_model(
+            artifact_path=artifact_path,
+            keras_model=keras_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            registered_model_name=registered_model_name,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+        )
+
     if signature is not None:
         warnings.warn(
             "The pyfunc inference behavior of TensorFlow models logged "
@@ -1026,7 +1048,7 @@ def autolog(
             _logger,
         )
 
-        mlflow.keras.log_model(
+        keras_flavor.log_model(
             keras_model=history.model,
             artifact_path="model",
             input_example=input_example,
