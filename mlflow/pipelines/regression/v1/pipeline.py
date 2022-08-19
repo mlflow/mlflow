@@ -514,6 +514,8 @@ class RegressionPipeline(_BasePipeline):
                 register_output_dir, "registered_model_version.json"
             )
             if os.path.exists(registered_model_info_path):
+                if from_cli:
+                    return registered_model_info_path
                 registered_model_info = RegisteredModelVersionInfo.from_json(
                     path=registered_model_info_path
                 )
