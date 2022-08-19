@@ -167,7 +167,6 @@ evaluate = mlflow.models.evaluate
 last_active_run = mlflow.tracking.fluent.last_active_run
 MlflowClient = mlflow.client.MlflowClient
 
-
 run = projects.run
 
 __all__ = [

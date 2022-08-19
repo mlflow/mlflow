@@ -3,6 +3,7 @@ Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
 import os
+
 import atexit
 import time
 import logging
@@ -31,7 +32,6 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
 )
-
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
