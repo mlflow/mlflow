@@ -92,6 +92,7 @@ class SplitStep(BaseStep):
         self.num_dropped_rows = None
 
         self.target_col = self.step_config.get("target_col")
+        self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
         if self.target_col is None:
             raise MlflowException(
                 "Missing target_col config in pipeline config.",
@@ -111,32 +112,35 @@ class SplitStep(BaseStep):
         self.split_ratios = split_ratios
 
     def _build_profiles_and_card(self, train_df, validation_df, test_df) -> BaseCard:
-        # Build profiles for input dataset, and train / validation / test splits
-        train_profile = get_pandas_data_profile(
-            train_df.reset_index(drop=True),
-            "Profile of Train Dataset",
-        )
-        validation_profile = get_pandas_data_profile(
-            validation_df.reset_index(drop=True),
-            "Profile of Validation Dataset",
-        )
-        test_profile = get_pandas_data_profile(
-            test_df.reset_index(drop=True),
-            "Profile of Test Dataset",
-        )
-
         # Build card
         card = BaseCard(self.pipeline_name, self.name)
-        # Tab #1 - #3: data profiles for train/validation and test.
-        card.add_tab("Data Profile (Train)", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", train_profile
-        )
-        card.add_tab("Data Profile (Validation)", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", validation_profile
-        )
-        card.add_tab("Data Profile (Test)", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", test_profile
-        )
+
+        if not self.skip_data_profiling:
+            # Build profiles for input dataset, and train / validation / test splits
+            train_profile = get_pandas_data_profile(
+                train_df.reset_index(drop=True),
+                "Profile of Train Dataset",
+            )
+            validation_profile = get_pandas_data_profile(
+                validation_df.reset_index(drop=True),
+                "Profile of Validation Dataset",
+            )
+            test_profile = get_pandas_data_profile(
+                test_df.reset_index(drop=True),
+                "Profile of Test Dataset",
+            )
+
+            # Tab #1 - #3: data profiles for train/validation and test.
+            card.add_tab("Data Profile (Train)", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", train_profile
+            )
+            card.add_tab("Data Profile (Validation)", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", validation_profile
+            )
+            card.add_tab("Data Profile (Test)", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", test_profile
+            )
+
         # Tab #4: run summary.
         (
             card.add_tab(
