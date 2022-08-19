@@ -27,7 +27,7 @@ from mlflow.projects.utils import (
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
-from mlflow.utils import env_manager as _EnvManager
+from mlflow.utils import env_manager as _EnvManager, env
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -64,6 +64,25 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     return _get_experiment_id()
 
+def _resolve_tracking_uri(tracking_uri=None):
+    """
+    Resolve tracking uri.
+
+    Checks whether the environment contains a tracking uri and one has been passed.
+
+    If ``tracking_uri`` is provided and is not None, and enviornment does not 
+    contain a tracking uri, then the passed value will be set as the new tracking
+    uri.
+
+    Not to be confused with ``utils.resolve_tracking_uri``, which resolves
+    the tracking uri by prioritizing the passed value over the environment.
+
+    :param tracking_uri: The uri which the tracking is supposed to interact with.
+    :return: str | None
+    """
+    if env.get_env(tracking._TRACKING_URI_ENV_VAR) is None and tracking_uri is not None:
+        return tracking_uri
+    return None
 
 def _run(
     uri,
@@ -195,6 +214,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
+    tracking_uri=None, # Inserted at the bottom for backwards compatibility
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -262,6 +282,9 @@ def run(
                         - virtualenv: use virtualenv (and pyenv for Python version management)
 
                         If unspecified, default to conda.
+    :param tracking_uri: The uri which the tracking is supposed to interact with.
+                     If ``None``, the tracking will be against local mlflow server.
+                     If environment variable ``MLFLOW_TRACKING_URI`` is set, it will be used by default.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
@@ -321,8 +344,12 @@ def run(
 
     if backend == "databricks":
         mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
-    elif backend == "local" and run_id is not None:
-        backend_config_dict[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
+    else:
+        if backend == "local" and run_id is not None:
+            backend_config_dict[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
+        if tracking_uri is not None:
+            if _resolve_tracking_uri(tracking_uri) is not None:
+                mlflow.set_tracking_uri(_resolve_tracking_uri(tracking_uri))
 
     experiment_id = _resolve_experiment_id(
         experiment_name=experiment_name, experiment_id=experiment_id
