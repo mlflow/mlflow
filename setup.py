@@ -77,7 +77,7 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "numpy",
     "scipy",
     "requests==2.26.0",
-    "urllib3==1.26.0"
+    "urllib3==1.26.0",
     "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
