@@ -11,9 +11,9 @@ image_name="mlflow-r-dev"
 n=0
 until [ "$n" -ge 3 ]
 do
-   docker build -f Dockerfile.dev -t $image_name . && break
-   n=$((n+1))
-   sleep 5
+  docker build -f Dockerfile.dev -t $image_name . && break
+  n=$((n+1))
+  sleep 5
 done
 
 docker run \
