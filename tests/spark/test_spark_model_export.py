@@ -640,7 +640,13 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, db_runtime_version,mlflowdbfs_disabled,mlflowdbfs_available,dbutils_available,expectedURI",
+    (
+        "artifact_uri",
+        "db_runtime_version",
+        "mlflowdbfs_disabled",
+        "mlflowdbfs_available",
+        "dbutils_available,expectedURI",
+    ),
     [
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
