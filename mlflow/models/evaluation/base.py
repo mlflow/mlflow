@@ -935,9 +935,7 @@ def evaluate(
         - The evaluation dataset label values must be numeric or boolean, all feature values
           must be numeric, and each feature column must only contain scalar values.
 
-    :param model: A pyfunc model instance, or a URI referring to such a model, as
-                  the candidate_model to be compared with baseline_model
-                  (specified by the `baseline_model` param) for model validation.
+    :param model: A pyfunc model instance, or a URI referring to such a model.
 
     :param data: One of the following:
 
