@@ -180,7 +180,7 @@ class _BasePipeline:
 
     @experimental
     @abc.abstractmethod
-    def get_artifact(self, artifact_name: str):
+    def get_artifact(self, artifact_name: str, from_cli: bool = False):
         """
         Read an artifact from pipeline output. artifact names can be obtained from
         `Pipeline.inspect()` or `Pipeline.run()` output.

@@ -337,7 +337,7 @@ class RegressionPipeline(_BasePipeline):
         return super().run(step=step)
 
     @experimental
-    def get_artifact(self, artifact_name: str) -> Optional[Any]:
+    def get_artifact(self, artifact_name: str, from_cli: bool = False) -> Optional[Any]:
         """
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
