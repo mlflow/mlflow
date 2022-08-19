@@ -431,6 +431,8 @@ class RegressionPipeline(_BasePipeline):
 
             data_path = os.path.join(output_dir, file_name)
             if os.path.exists(data_path):
+                if from_cli:
+                    return data_path
                 return pd.read_parquet(data_path)
             else:
                 log_artifact_not_found_warning(artifact_name, step_name)
