@@ -115,6 +115,7 @@ def log_model(
     tf_meta_graph_tags=None,
     tf_signature_def_key=None,
     keras_model=None,
+    custom_objects=None,
     conda_env=None,
     code_paths=None,
     signature: ModelSignature = None,
@@ -123,11 +124,13 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run or log a Keras model.
-    If logging TensorFlow graphs and variables as an MLflow model, `keras_model` argument
+    If logging a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
+    `keras_model` argument
     must not be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
     arguments must be set.
     this method operates on TensorFlow variables and graphs that have been
@@ -161,7 +164,13 @@ def log_model(
                                  definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
-    :param keras_model: Keras model to be saved.
+    :param keras_model: The Keras model to be saved.
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -206,6 +215,7 @@ def log_model(
         return keras_flavor.log_model(
             artifact_path=artifact_path,
             keras_model=keras_model,
+            custom_objects=custom_objects,
             conda_env=conda_env,
             code_paths=code_paths,
             signature=signature,
@@ -214,6 +224,7 @@ def log_model(
             await_registration_for=await_registration_for,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            **kwargs
         )
 
     if signature is not None:
@@ -248,10 +259,13 @@ def log_model(
 @keyword_only
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
-    tf_saved_model_dir,
-    tf_meta_graph_tags,
-    tf_signature_def_key,
+    *,
     path,
+    tf_saved_model_dir=None,
+    tf_meta_graph_tags=None,
+    tf_signature_def_key=None,
+    keras_model=None,
+    custom_objects=None,
     mlflow_model=None,
     conda_env=None,
     code_paths=None,
@@ -259,14 +273,19 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    **kwargs,
 ):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
-    to a local path. This method operates on TensorFlow variables and graphs that have been
+    to a local path or save a Keras model to a path on the local file system.
+
+    If saving a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
+    this method operates on TensorFlow variables and graphs that have been
     serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
     format, see the TensorFlow documentation:
     https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
 
+    :param path: Local path where the MLflow model is to be saved.
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
@@ -278,7 +297,13 @@ def save_model(
                                  signature definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.savedmodelbuilder`` method.
-    :param path: Local path where the MLflow model is to be saved.
+    :param keras_model: The Keras model to be saved.
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -306,6 +331,26 @@ def save_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
+    if keras_model is not None:
+        if tf_saved_model_dir is None or tf_meta_graph_tags is None or tf_signature_def_key is None:
+            raise ValueError(
+                "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
+                "and `tf_signature_def_key` arguments cannot be set."
+            )
+        return keras_flavor.save_model(
+            path=path,
+            keras_model=keras_model,
+            custom_objects=custom_objects,
+            mlflow_model=mlflow_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            **kwargs
+        )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     _logger.info(

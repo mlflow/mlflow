@@ -200,7 +200,6 @@ def log_model(
     conda_env=None,
     code_paths=None,
     custom_objects=None,
-    keras_module=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -223,9 +222,6 @@ def log_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param keras_module: Keras module to be used to save / load the model
-                         (``keras`` or ``tf.keras``). If not provided, MLflow will
-                         attempt to infer the Keras module based on the given model.
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -293,7 +289,6 @@ def log_model(
         conda_env=conda_env,
         code_paths=code_paths,
         custom_objects=custom_objects,
-        keras_module=keras_module,
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
@@ -331,7 +326,6 @@ def save_model(
     code_paths=None,
     mlflow_model=None,
     custom_objects=None,
-    keras_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -353,9 +347,6 @@ def save_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param keras_module: Keras module to be used to save / load the model
-                         (``keras`` or ``tf.keras``). If not provided, MLflow will
-                         attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -393,42 +384,15 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
+    import keras.engine.network
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if keras_module is None:
-
-        def _is_plain_keras(model):
-            try:
-                import keras
-
-                # NB: Network is the first parent with save method
-                import keras.engine.network
-
-                return isinstance(model, keras.engine.network.Network)
-            except ImportError:
-                return False
-
-        def _is_tf_keras(model):
-            try:
-                # NB: Network is not exposed in tf.keras, we check for Model instead.
-                import tensorflow.keras.models
-
-                return isinstance(model, tensorflow.keras.models.Model)
-            except ImportError:
-                return False
-
-        if _is_plain_keras(keras_model):
-            keras_module = importlib.import_module("keras")
-        elif _is_tf_keras(keras_model):
-            keras_module = importlib.import_module("tensorflow.keras")
-        else:
-            raise MlflowException(
-                "Unable to infer keras module from the model, please specify "
-                "which keras module ('keras' or 'tensorflow.keras') is to be "
-                "used to save and load the model."
-            )
-    elif type(keras_module) == str:
-        keras_module = importlib.import_module(keras_module)
+    if not isinstance(keras_model, keras.engine.network.Network):
+        raise MlflowException(
+            "The `keras_model` argument value is not a keras model instance."
+        )
+    keras_module = importlib.import_module("keras")
 
     # check if path exists
     path = os.path.abspath(path)
