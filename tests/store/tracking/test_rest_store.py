@@ -217,7 +217,7 @@ class TestRestStore:
         with mock_http_request() as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd" * 1000))
             body = message_to_json(
-                SetTag(run_id="some_uuid", run_id="some_uuid", key="t1", value="abcd" * 1000)
+                SetTag(run_id="some_uuid", key="t1", value="abcd" * 1000)
             )
             self._verify_requests(mock_http, creds, "runs/set-tag", "POST", body)
 

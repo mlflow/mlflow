@@ -760,6 +760,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             if k in ["source_name", "source_type", "source_version", "name", "entry_point_name"]:
                 continue
 
+            if k == "run_uuid":
+                k = "run_id"
+
             v2 = getattr(run.info, k)
             if k == "source_type":
                 self.assertEqual(v, SourceType.to_string(v2))
