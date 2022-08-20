@@ -2172,7 +2172,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id, start_time=current_run, tags=(),
+                experiment_id=experiment_id,
+                start_time=current_run,
+                tags=(),
             ).info.run_uuid
 
             run_ids.append(run_id)
@@ -2269,10 +2271,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self.store.create_experiment("test_experiment1")
 
         r1 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(),
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
         ).info.run_uuid
         r2 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(),
+            experiment_id=experiment_id,
+            start_time=0,
+            tags=(),
         ).info.run_uuid
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))

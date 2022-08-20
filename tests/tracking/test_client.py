@@ -53,9 +53,7 @@ def mock_databricks_tracking_store():
             self.experiment_id = experiment_id
 
         def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
-            return Run(
-                RunInfo(self.run_id, self.experiment_id, "status", 0, 1, None), None
-            )
+            return Run(RunInfo(self.run_id, self.experiment_id, "status", 0, 1, None), None)
 
     mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
 

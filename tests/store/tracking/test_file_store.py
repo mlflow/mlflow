@@ -1192,9 +1192,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_log_batch(self):
         fs = FileStore(self.test_root)
-        run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[]
-        )
+        run = fs.create_run(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[])
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
@@ -1205,9 +1203,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         self._verify_logged(fs, run_id, metric_entities, param_entities, tag_entities)
 
     def _create_run(self, fs):
-        return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[]
-        )
+        return fs.create_run(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[])
 
     def test_log_batch_max_length_value(self):
         param_entities = [Param("long param", "x" * 500), Param("short param", "xyz")]
