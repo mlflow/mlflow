@@ -187,12 +187,12 @@ def _create_run_in_store(store, create_artifacts=True):
 def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
     store = sqlite_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", sqlite_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
@@ -201,7 +201,7 @@ def test_mlflow_gc_sqlite(sqlite_store, create_artifacts_in_run):
 def test_mlflow_gc_sqlite_older_than(sqlite_store):
     store = sqlite_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
         subprocess.run(
             [
@@ -212,7 +212,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
                 "--older-than",
                 "10d10h10m10s",
                 "--run-ids",
-                run.info.run_uuid,
+                run.info.run_id,
             ],
             check=True,
             capture_output=True,
@@ -232,7 +232,7 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
             "--older-than",
             "1s",
             "--run-ids",
-            run.info.run_uuid,
+            run.info.run_id,
         ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
@@ -243,12 +243,12 @@ def test_mlflow_gc_sqlite_older_than(sqlite_store):
 def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
     store = file_store[0]
     run = _create_run_in_store(store, create_artifacts=create_artifacts_in_run)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_output(["mlflow", "gc", "--backend-store-uri", file_store[1]])
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
     artifact_path = url2pathname(unquote(urlparse(run.info.artifact_uri).path))
     assert not os.path.exists(artifact_path)
@@ -257,14 +257,14 @@ def test_mlflow_gc_file_store(file_store, create_artifacts_in_run):
 def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     subprocess.check_output(
-        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_id]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
     with pytest.raises(MlflowException, match=r"Run .+ not found"):
-        store.get_run(run.info.run_uuid)
+        store.get_run(run.info.run_id)
 
 
 def test_mlflow_gc_not_deleted_run(file_store):
@@ -272,7 +272,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError, match=r".+"):
         subprocess.check_output(
-            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
+            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_id]
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1
@@ -281,7 +281,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
 def test_mlflow_gc_file_store_older_than(file_store):
     store = file_store[0]
     run = _create_run_in_store(store)
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     with pytest.raises(subprocess.CalledProcessError, match=r".+") as exp:
         subprocess.run(
             [
@@ -292,7 +292,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
                 "--older-than",
                 "10d10h10m10s",
                 "--run-ids",
-                run.info.run_uuid,
+                run.info.run_id,
             ],
             check=True,
             capture_output=True,
@@ -312,7 +312,7 @@ def test_mlflow_gc_file_store_older_than(file_store):
             "--older-than",
             "1s",
             "--run-ids",
-            run.info.run_uuid,
+            run.info.run_id,
         ]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)

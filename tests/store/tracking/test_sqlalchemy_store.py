@@ -872,9 +872,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         deleted_run_ids = self.store._get_deleted_runs()
         self.assertEqual([], deleted_run_ids)
 
-        self.store.delete_run(run.info.run_uuid)
+        self.store.delete_run(run.info.run_id)
         deleted_run_ids = self.store._get_deleted_runs()
-        self.assertEqual([run.info.run_uuid], deleted_run_ids)
+        self.assertEqual([run.info.run_id], deleted_run_ids)
 
     def test_log_metric(self):
         run = self._run_factory()
@@ -2180,7 +2180,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for _ in range(nb_runs):
             run_id = self.store.create_run(
                 experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
-            ).info.run_uuid
+            ).info.run_id
 
             run_ids.append(run_id)
 
@@ -2277,10 +2277,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         r1 = self.store.create_run(
             experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
-        ).info.run_uuid
+        ).info.run_id
         r2 = self.store.create_run(
             experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
-        ).info.run_uuid
+        ).info.run_id
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))
         self.store.set_tag(r2, RunTag(key="t2", value="1"))

@@ -81,7 +81,7 @@ test_that("mlflow can log model and load it back with a uri", {
     expect_true(5 == predicted)
     mlflow_log_model(predictor, testthat_model_name)
   })
-  runs_uri <- paste("runs:", run$run_uuid, testthat_model_name, sep = "/")
+  runs_uri <- paste("runs:", run$run_id, testthat_model_name, sep = "/")
   loaded_model <- mlflow_load_model(runs_uri)
   expect_true(5 == mlflow_predict(loaded_model, 0:10))
   actual_uri <- paste(run$artifact_uri, testthat_model_name, sep = "/")
@@ -102,7 +102,7 @@ test_that("mlflow can log model and load it back with a uri", {
 
 test_that("mlflow log model records correct metadata with the tracking server", {
   with(run <- mlflow_start_run(), {
-    print(run$run_uuid[1])
+    print(run$run_id[1])
     model <- structure(
       list(some = "stuff"),
       class = "test"
@@ -116,7 +116,7 @@ test_that("mlflow log model records correct metadata with the tracking server", 
     models <- tags$value[which(tags$key == "mlflow.log-model.history")]
     model_spec_actual <- fromJSON(models, simplifyDataFrame = FALSE)[[1]]
     expect_equal(testthat_model_name, model_spec_actual$artifact_path)
-    expect_equal(run$run_uuid[1], model_spec_actual$run_id)
+    expect_equal(run$run_id[1], model_spec_actual$run_id)
     expect_equal(model_spec_expected$flavors, model_spec_actual$flavors)
   })
 })

@@ -85,7 +85,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                 run_folder = os.path.join(exp_folder, run_id)
                 os.makedirs(run_folder)
                 run_info = {
-                    "run_uuid": run_id,
                     "run_id": run_id,
                     "experiment_id": exp,
                     "user_id": random_str(random_int(10, 25)),

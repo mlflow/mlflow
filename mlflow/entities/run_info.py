@@ -88,11 +88,6 @@ class RunInfo(_MLflowObject):
         return RunInfo.from_proto(proto)
 
     @property
-    def run_uuid(self):
-        """[Deprecated, use run_id instead] String containing run UUID."""
-        return self._run_uuid
-
-    @property
     def run_id(self):
         """String containing run id."""
         return self._run_id
@@ -136,7 +131,6 @@ class RunInfo(_MLflowObject):
 
     def to_proto(self):
         proto = ProtoRunInfo()
-        proto.run_uuid = self.run_uuid
         proto.run_id = self.run_id
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
@@ -157,7 +151,6 @@ class RunInfo(_MLflowObject):
         if end_time == 0:
             end_time = None
         return cls(
-            run_uuid=proto.run_uuid,
             run_id=proto.run_id,
             experiment_id=proto.experiment_id,
             user_id=proto.user_id,

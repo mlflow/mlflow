@@ -196,7 +196,6 @@ class SqlRun(Base):
         :return: :py:class:`mlflow.entities.Run`.
         """
         run_info = RunInfo(
-            run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             experiment_id=str(self.experiment_id),
             user_id=self.user_id,

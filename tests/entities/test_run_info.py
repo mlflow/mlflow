@@ -20,7 +20,6 @@ class TestRunInfo(unittest.TestCase):
         artifact_uri,
     ):
         self.assertIsInstance(ri, RunInfo)
-        self.assertEqual(ri.run_uuid, run_id)
         self.assertEqual(ri.run_id, run_id)
         self.assertEqual(ri.experiment_id, experiment_id)
         self.assertEqual(ri.user_id, user_id)
@@ -41,7 +40,6 @@ class TestRunInfo(unittest.TestCase):
         lifecycle_stage = LifecycleStage.ACTIVE
         artifact_uri = random_str(random_int(10, 40))
         ri = RunInfo(
-            run_uuid=run_id,
             run_id=run_id,
             experiment_id=experiment_id,
             user_id=user_id,
@@ -87,7 +85,6 @@ class TestRunInfo(unittest.TestCase):
             artifact_uri,
         )
         as_dict = {
-            "run_uuid": run_id,
             "run_id": run_id,
             "experiment_id": experiment_id,
             "user_id": user_id,

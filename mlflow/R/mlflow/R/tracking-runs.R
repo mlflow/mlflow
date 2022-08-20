@@ -40,7 +40,6 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
   timestamp <- round(timestamp %||% current_time())
   step <- round(cast_nullable_scalar_double(step) %||% 0)
   data <- list(
-    run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value,
@@ -75,7 +74,7 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
   response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST", data = data
   )
-  run_id <- response$run$info$run_uuid
+  run_id <- response$run$info$run_id
   data$run_id <- run_id
   mlflow_register_tracking_event("create_run", data)
 
@@ -129,7 +128,7 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
   response <- mlflow_rest(
     "runs", "get",
     client = client, verb = "GET",
-    query = list(run_uuid = run_id, run_id = run_id)
+    query = list(run_id = run_id)
   )
   parse_run(response$run)
 }
@@ -210,7 +209,6 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
   value <- cast_string(value)
 
   data <- list(
-    run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value
@@ -262,7 +260,6 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   value <- ifelse(is.na(value), "NA", value)
 
   data <- list(
-    run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value
@@ -291,7 +288,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
   response <- mlflow_rest(
     "metrics", "get-history",
     client = client, verb = "GET",
-    query = list(run_uuid = run_id, run_id = run_id, metric_key = metric_key)
+    query = list(run_id = run_id, metric_key = metric_key)
   )
 
   response$metrics %>%
@@ -361,7 +358,6 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
     "artifacts", "list",
     client = client, verb = "GET",
     query = list(
-      run_uuid = run_id,
       run_id = run_id,
       path = path
     )
@@ -384,7 +380,6 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
 
 mlflow_set_terminated <- function(status, end_time, run_id, client) {
   data <- list(
-    run_uuid = run_id,
     run_id = run_id,
     status = status,
     end_time = end_time
@@ -392,7 +387,7 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
   response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = data)
   mlflow_register_tracking_event("set_terminated", data)
 
-  mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
+  mlflow_get_run(client = client, run_id = response$run_info$run_id)
 }
 
 #' Download Artifacts

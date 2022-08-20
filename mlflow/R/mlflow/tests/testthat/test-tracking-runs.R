@@ -14,7 +14,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
     tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
   )
 
-  run <- mlflow_get_run(client = client, run$run_uuid)
+  run <- mlflow_get_run(client = client, run$run_id)
 
   expect_identical(run$user_id, "user1")
 
@@ -58,7 +58,7 @@ test_that("mlflow_end_run() works properly", {
 
   # Verify that only expected run field names are present and that all run info fields are set
   # (not NA).
-  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  run_info_names <- c("run_id", "experiment_id", "user_id", "status", "start_time",
   "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   run_data_names <- c("metrics", "params", "tags")
   expect_setequal(c(run_info_names, run_data_names), names(run))
@@ -74,14 +74,14 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
   )
   client <- mlflow_client()
   for (i in seq(3, 1, -1)) {
-    expect_equal(mlflow:::mlflow_get_active_run_id(), runs[[i]]$run_uuid)
-    run <- mlflow_end_run(client = client, run_id = runs[[i]]$run_uuid)
-    expect_identical(run$run_uuid, runs[[i]]$run_uuid)
+    expect_equal(mlflow:::mlflow_get_active_run_id(), runs[[i]]$run_id)
+    run <- mlflow_end_run(client = client, run_id = runs[[i]]$run_id)
+    expect_identical(run$run_id, runs[[i]]$run_id)
     if (i > 1) {
       tags <- run$tags[[1]]
       expect_equal(
         tags[tags$key == "mlflow.parentRunId",]$value,
-        runs[[i - 1]]$run_uuid
+        runs[[i - 1]]$run_id
       )
     }
   }
@@ -97,9 +97,9 @@ test_that("mlflow_restore_run() work properly", {
     tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
   )
 
-  run2 <- mlflow_get_run(client = client, run1$run_uuid)
-  mlflow_delete_run(client = client, run_id = run1$run_uuid)
-  run3 <- mlflow_restore_run(client = client, run_id = run1$run_uuid)
+  run2 <- mlflow_get_run(client = client, run1$run_id)
+  mlflow_delete_run(client = client, run_id = run1$run_id)
+  run3 <- mlflow_restore_run(client = client, run_id = run1$run_id)
 
   for (run in list(run1, run2, run3)) {
     expect_identical(run$user_id, "user1")
@@ -147,7 +147,7 @@ test_that("logging functionality", {
   expect_true(pos_inf_value >= 1.7976931348623157e308)
   neg_inf_value <- metrics$value[metrics$key == "-inf"]
   expect_true(neg_inf_value <= -1.7976931348623157e308)
-  run_id <- run$run_uuid
+  run_id <- run$run_id
   tags <- run$tags[[1]]
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])
   expect_setequal(run$params[[1]]$key, c("na", "nan", "param_key"))
@@ -165,7 +165,7 @@ test_that("logging functionality", {
   run_end_time <- ended_run$end_time
   expect_true(difftime(run_start_time, start_time_lower_bound) >= 0)
   expect_true(difftime(run_end_time, end_time_upper_bound) <= 0)
-  metric_history <- mlflow_get_metric_history("mse", ended_run$run_uuid)
+  metric_history <- mlflow_get_metric_history("mse", ended_run$run_id)
   expect_identical(metric_history$key, c("mse", "mse"))
   expect_identical(metric_history$value, c(24, 25))
   expect_identical(metric_history$step, c(0, 0))
@@ -683,11 +683,11 @@ test_that("mlflow observers receive tracking event callbacks", {
     )
   }
 
-  mlflow_end_run(client = client, run_id = run$run_uuid)
+  mlflow_end_run(client = client, run_id = run$run_id)
   expect_equal(length(tracking_events), num_observers)
   for (idx in seq(num_observers)) {
     expect_equal(
-      tracking_events[[idx]]$set_terminated[[1]]$run_uuid, run$run_uuid
+      tracking_events[[idx]]$set_terminated[[1]]$run_id, run$run_id
     )
   }
 })

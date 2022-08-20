@@ -22,7 +22,6 @@ public class MlflowProtobufMapperTest {
     Map<String, String> serializedMessage = gson.fromJson(result, type);
 
     Map<String, String> expectedMessage = new HashMap<>();
-    expectedMessage.put("run_uuid", "my-id");
     expectedMessage.put("run_id", "my-id");
     expectedMessage.put("key", "my-key");
     expectedMessage.put("value", "my-value");

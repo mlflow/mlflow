@@ -130,7 +130,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.start != 1", "Invalid attribute key"),
         ("attribute.end_time != 1", "Invalid attribute key"),
         ("attribute.run_id != 1", "Invalid attribute key"),
-        ("attribute.run_uuid != 1", "Invalid attribute key"),
         ("attribute.experiment_id != 1", "Invalid attribute key"),
         ("attribute.lifecycle_stage = 'ACTIVE'", "Invalid attribute key"),
         ("attribute.name != 1", "Invalid attribute key"),
@@ -211,7 +210,6 @@ def test_invalid_clauses(filter_string, error_message):
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
     run = Run(
         run_info=RunInfo(
-            run_uuid="hi",
             run_id="hi",
             experiment_id=0,
             user_id="user-id",
@@ -249,7 +247,6 @@ def test_correct_filtering(filter_string, matching_runs):
     runs = [
         Run(
             run_info=RunInfo(
-                run_uuid="hi",
                 run_id="hi",
                 experiment_id=0,
                 user_id="user-id",
@@ -264,7 +261,6 @@ def test_correct_filtering(filter_string, matching_runs):
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="hi2",
                 run_id="hi2",
                 experiment_id=0,
                 user_id="user-id",
@@ -281,7 +277,6 @@ def test_correct_filtering(filter_string, matching_runs):
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="hi3",
                 run_id="hi3",
                 experiment_id=1,
                 user_id="user-id",
@@ -305,7 +300,6 @@ def test_filter_runs_by_start_time():
     runs = [
         Run(
             run_info=RunInfo(
-                run_uuid=run_id,
                 run_id=run_id,
                 experiment_id=0,
                 user_id="user-id",
@@ -346,7 +340,6 @@ def test_correct_sorting(order_bys, matching_runs):
     runs = [
         Run(
             run_info=RunInfo(
-                run_uuid="9",
                 run_id="9",
                 experiment_id=0,
                 user_id="user-id",
@@ -361,7 +354,6 @@ def test_correct_sorting(order_bys, matching_runs):
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="8",
                 run_id="8",
                 experiment_id=0,
                 user_id="user-id",
@@ -378,7 +370,6 @@ def test_correct_sorting(order_bys, matching_runs):
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="7",
                 run_id="7",
                 experiment_id=1,
                 user_id="user-id",
@@ -410,7 +401,6 @@ def test_order_by_metric_with_nans_infs_nones():
         Run(
             run_info=RunInfo(
                 run_id=x,
-                run_uuid=x,
                 experiment_id=0,
                 user_id="user",
                 status=RunStatus.to_string(RunStatus.FINISHED),
@@ -507,7 +497,6 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     runs = [
         Run(
             run_info=RunInfo(
-                run_uuid="0",
                 run_id="0",
                 experiment_id=0,
                 user_id="user-id",
@@ -520,7 +509,6 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="1",
                 run_id="1",
                 experiment_id=0,
                 user_id="user-id",
@@ -533,7 +521,6 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         ),
         Run(
             run_info=RunInfo(
-                run_uuid="2",
                 run_id="2",
                 experiment_id=0,
                 user_id="user-id",

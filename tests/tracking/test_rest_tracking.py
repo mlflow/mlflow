@@ -230,7 +230,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     fetched_run = mlflow_client.get_run(run_id)
     for run in [created_run, fetched_run]:
         assert run.info.run_id == run_id
-        assert run.info.run_uuid == run_id
         assert run.info.experiment_id == experiment_id
         assert run.info.user_id == user
         assert run.info.start_time == create_run_kwargs["start_time"]
@@ -488,7 +487,7 @@ def test_set_tag_validation(mlflow_client):
         mlflow_client.tracking_uri,
         "/api/2.0/mlflow/runs/set-tag",
         {
-            "run_uuid": run_id,
+            "run_id": run_id,
             "key": "key",
             "value": "value",
         },

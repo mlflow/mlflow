@@ -571,7 +571,6 @@ class FileStore(AbstractStore):
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
-            run_uuid=run_uuid,
             run_id=run_uuid,
             experiment_id=experiment_id,
             artifact_uri=artifact_uri,
