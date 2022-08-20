@@ -295,6 +295,15 @@ def iris_pandas_df_dataset():
     return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
+@pytest.fixture
+def iris_pandas_df_num_cols_dataset():
+    X, y = get_iris()
+    eval_X, eval_y = X[0::3], y[0::3]
+    data = pd.DataFrame(eval_X)
+    data["y"] = eval_y
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_num_cols_dataset")
+
+
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
     y_true = iris_dataset.labels_data
     classifier_model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
@@ -513,9 +522,12 @@ def test_gen_md5_for_arraylike_obj():
     assert get_md5(list3) == get_md5(list4)
 
 
-def test_dataset_hash(iris_dataset, iris_pandas_df_dataset, diabetes_spark_dataset):
+def test_dataset_hash(
+    iris_dataset, iris_pandas_df_dataset, iris_pandas_df_num_cols_dataset, diabetes_spark_dataset
+):
     assert iris_dataset.hash == "99329a790dc483e7382c0d1d27aac3f3"
     assert iris_pandas_df_dataset.hash == "799d4f50e2e353127f94a0e5300add06"
+    assert iris_pandas_df_num_cols_dataset.hash == "0194e59415d97e0f64631bcb31e6c6b7"
     assert diabetes_spark_dataset.hash == "e646b03e976240bd0c79c6bcc1ae0bda"
 
 
