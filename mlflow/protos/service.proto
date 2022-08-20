@@ -626,10 +626,8 @@ message RunInfo {
   // The experiment ID.
   optional string experiment_id = 2;
 
-  // User who initiated the run.
-  // This field is deprecated as of MLflow 1.0, and will be removed in a future
-  // MLflow release. Use 'mlflow.user' tag instead.
-  optional string user_id = 6;
+  // Reserved for user_id field, which was removed in MLflow 2.0
+  reserved 6;
 
   // Current status of the run.
   optional RunStatus status = 7;
@@ -827,10 +825,8 @@ message CreateRun {
   // ID of the associated experiment.
   optional string experiment_id = 1;
 
-  // ID of the user executing the run.
-  // This field is deprecated as of MLflow 1.0, and will be removed in a future
-  // MLflow release. Use 'mlflow.user' tag instead.
-  optional string user_id = 2;
+  // Reserved for user_id field, which was removed in MLflow 2.0
+  reserved 2;
 
   // Unix timestamp in milliseconds of when the run started.
   optional int64 start_time = 7;
