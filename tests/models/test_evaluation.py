@@ -292,8 +292,7 @@ def iris_pandas_df_dataset():
             "y": eval_y,
         }
     )
-    ds = EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
-    return ds
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
 @pytest.fixture
@@ -302,8 +301,7 @@ def iris_pandas_df_num_cols_dataset():
     eval_X, eval_y = X[0::3], y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
-    ds = EvaluationDataset(data=data, targets="y", name="iris_pandas_df_num_cols_dataset")
-    return ds
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_num_cols_dataset")
 
 
 def test_classifier_evaluate(multiclass_logistic_regressor_model_uri, iris_dataset):
