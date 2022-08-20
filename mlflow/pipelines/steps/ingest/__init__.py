@@ -187,9 +187,11 @@ class IngestStep(BaseIngestStep):
                 message="The `data` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        data_config = pipeline_config["data"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
 
         return cls(
-            step_config=pipeline_config["data"],
+            step_config={**data_config, **ingest_config},
             pipeline_root=pipeline_root,
         )
 
@@ -206,9 +208,11 @@ class IngestScoringStep(BaseIngestStep):
                 message="The `data_scoring` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        data_scoring_config = pipeline_config["data_scoring"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
 
         return cls(
-            step_config=pipeline_config["data_scoring"],
+            step_config={**data_scoring_config, **ingest_config},
             pipeline_root=pipeline_root,
         )
 
