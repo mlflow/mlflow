@@ -14,38 +14,42 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 _logger = logging.getLogger(__name__)
 
 
-# This should maybe imported from the preprocessing step for consistency
-_INPUT_FILE_NAME = "dataset.parquet"
+# This should maybe imported from the ingest scoring step for consistency
+_INPUT_FILE_NAME = "scoring-dataset.parquet"
 _SCORED_OUTPUT_FILE_NAME = "scored.parquet"
+_PREDICTION_COLUMN_NAME = "prediction"
 
 
 class PredictStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
+        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
 
         self.run_end_time = None
         self.execution_duration = None
 
     def _build_profiles_and_card(self, scored_df) -> BaseCard:
-        # Build profiles for input dataset, and train / validation / test splits
-        scored_data_profile = get_pandas_data_profile(
-            scored_df.reset_index(drop=True),
-            "Profile of Scored Dataset",
-        )
-
-        # Build card
+        # Build profiles for scored dataset
         card = BaseCard(self.pipeline_name, self.name)
-        # Tab #1: data profile for scored data:
-        card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
-            "PROFILE", scored_data_profile
-        )
-        # Tab #2: run summary.
+
+        if not self.skip_data_profiling:
+            _logger.info("Profiling ingested dataset")
+            scored_dataset_profile = get_pandas_data_profile(
+                scored_df, "Profile of Scored Dataset"
+            )
+
+            # Optional tab : data profile for scored data:
+            card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
+                "PROFILE", scored_dataset_profile
+            )
+
+        # Tab #1/2: run summary.
         (
             card.add_tab(
                 "Run Summary",
                 """
                 {{ SCORED_DATA_NUM_ROWS }}
-                {{ EXE_DURATION}}
+                {{ EXE_DURATION }}
                 {{ LAST_UPDATE_TIME }}
                 """,
             ).add_markdown(
@@ -88,12 +92,15 @@ class PredictStep(BaseStep):
             relative_path=_INPUT_FILE_NAME,
         )
         input_sdf = spark.read.parquet(ingested_data_path)
+        if input_sdf.columns.contains(_PREDICTION_COLUMN_NAME):
+            _logger.warn(f"Input scoring dataframe already contains a column '{_PREDICTION_COLUMN_NAME}'. "
+                         f"This column will be dropped in favor of the predict output column name.")
 
         # score dataset
         model_uri = self.step_config["model_uri"]
         env_manager = "local" if "_disable_env_restoration" in self.step_config else "conda"
         predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=env_manager)
-        scored_sdf = input_sdf.withColumn("prediction", predict(struct(*input_sdf.columns)))
+        scored_sdf = input_sdf.withColumn(_PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns)))
 
         # save predictions
         # note: the current output writing logic allows no overwrites
@@ -107,7 +114,7 @@ class PredictStep(BaseStep):
 
         # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
-        scored_pdf.to_parquet(os.path.join(output_directory, "scored.parquet"), engine="pyarrow")
+        scored_pdf.to_parquet(os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME), engine="pyarrow")
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time

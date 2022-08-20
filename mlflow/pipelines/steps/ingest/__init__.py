@@ -23,7 +23,6 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     _DATASET_FORMAT_SPARK_TABLE = "spark_table"
     _DATASET_FORMAT_DELTA = "delta"
     _DATASET_FORMAT_PARQUET = "parquet"
-    _DATASET_OUTPUT_NAME = "dataset.parquet"
     _DATASET_PROFILE_OUTPUT_NAME = "dataset_profile.html"
     _STEP_CARD_OUTPUT_NAME = "card.pkl"
     _SUPPORTED_DATASETS = [
@@ -67,7 +66,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         import pandas as pd
 
         dataset_dst_path = os.path.abspath(
-            os.path.join(output_directory, BaseIngestStep._DATASET_OUTPUT_NAME)
+            os.path.join(output_directory, self.dataset_output_name)
         )
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
@@ -180,6 +179,10 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
 
 class IngestStep(BaseIngestStep):
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+        super().__init__(step_config, pipeline_root)
+        self.dataset_output_name = "dataset.parquet"
+
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
         if "data" not in pipeline_config:
@@ -201,6 +204,10 @@ class IngestStep(BaseIngestStep):
 
 
 class IngestScoringStep(BaseIngestStep):
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+        super().__init__(step_config, pipeline_root)
+        self.dataset_output_name = "scoring-dataset.parquet"
+
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
         if "data_scoring" not in pipeline_config:

@@ -66,15 +66,15 @@ def train_and_log_model(is_dummy=False):
         return run.info.run_id, fitted_model
 
 
-def train_log_and_register_model(rm_name, is_dummy=False):
+def train_log_and_register_model(model_name, is_dummy=False):
     run_id, _ = train_and_log_model(is_dummy)
     runs_uri = "runs:/{}/train/model".format(run_id)
-    mv = mlflow.register_model(runs_uri, rm_name)
+    model_version = mlflow.register_model(runs_uri, model_name)
     client = mlflow.tracking.MlflowClient()
     client.transition_model_version_stage(
-        name=rm_name, version=mv.version, stage="Production", archive_existing_versions=True
+        name=model_name, version=model_version.version, stage="Production", archive_existing_versions=True
     )
-    return "models:/{model_name}/Production".format(model_name=rm_name)
+    return "models:/{model_name}/Production".format(model_name=model_name)
 
 
 ## Fixtures

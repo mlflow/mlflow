@@ -46,6 +46,7 @@ class _BasePipeline:
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
         self._template = get_pipeline_config(self._pipeline_root_path, self._profile).get(
+            # TODO: Think about renaming this to something else
             "template"
         )
 

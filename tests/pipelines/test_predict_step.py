@@ -6,6 +6,7 @@ import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.utils import AnalysisException
 from sklearn.datasets import load_diabetes
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.pipelines.utils import _PIPELINE_CONFIG_FILE_NAME
@@ -60,14 +61,16 @@ def predict_step_output_dir(tmp_pipeline_root_path: Path, tmp_pipeline_exec_path
     )
     ingest_scoring_step_output_dir.mkdir(parents=True)
     X, _ = load_diabetes(as_frame=True, return_X_y=True)
-    X.to_parquet(ingest_scoring_step_output_dir.joinpath("dataset.parquet"))
+    X.to_parquet(ingest_scoring_step_output_dir.joinpath("scoring-dataset.parquet"))
     predict_step_output_dir = tmp_pipeline_exec_path.joinpath("steps", "predict", "outputs")
     predict_step_output_dir.mkdir(parents=True)
     pipeline_yaml = tmp_pipeline_root_path.joinpath(_PIPELINE_CONFIG_FILE_NAME)
     pipeline_yaml.write_text(
         """
-template: "regression/v1"
-"""
+template: "{template_to_use}"
+""".format(
+            template_to_use="regression/v1",
+        )
     )
     return predict_step_output_dir
 
@@ -80,8 +83,8 @@ def test_predict_step_runs(
     register_model: bool,
 ):
     if register_model:
-        rm_name = "model_" + get_random_id()
-        model_uri = train_log_and_register_model(rm_name, is_dummy=True)
+        model_name = "model_" + get_random_id()
+        model_uri = train_log_and_register_model(model_name, is_dummy=True)
     else:
         run_id, _ = train_and_log_model(is_dummy=True)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -297,3 +300,32 @@ def test_predict_throws_when_no_model_is_specified():
             pipeline_config=pipeline_config,
             pipeline_root=os.getcwd(),
         )
+
+def test_predict_skips_profiling_when_specified(
+    tmp_pipeline_root_path: Path,
+    predict_step_output_dir: Path,
+    spark_session,
+):
+    model_name = "model_" + get_random_id()
+    model_uri = train_log_and_register_model(model_name, is_dummy=True)
+    with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
+        PredictStep.from_pipeline_config(
+            {
+                "steps": {
+                    "predict": {
+                        "model_uri": model_uri,
+                        "output_format": "parquet",
+                        "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
+                        "_disable_env_restoration": True,
+                        "skip_data_profiling": True,
+                    }
+                }
+            },
+            str(tmp_pipeline_root_path),
+        ).run(str(predict_step_output_dir))
+
+    expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
+    with open(expected_step_card_path, "r") as f:
+        step_card_html_content = f.read()
+    assert "Profile of Scored Dataset" not in step_card_html_content
+    mock_profiling.assert_not_called()

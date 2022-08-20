@@ -19,7 +19,7 @@ def run_pipeline_step(
     pipeline_root_path: str,
     pipeline_steps: List[BaseStep],
     target_step: BaseStep,
-    template: str = None,
+    template: str,
 ) -> BaseStep:
     """
     Runs the specified step in the specified pipeline, as well as all dependent steps.
@@ -30,6 +30,8 @@ def run_pipeline_step(
                            steps must be provided in the order that they are intended to be
                            executed.
     :param target_step: The step to run.
+    :param template: The template to use when selecting a Makefile to load.  If the template is
+                     invalid, an exception is thrown.
     :return: The last step that successfully completed during the pipeline execution. If execution
              was successful, this always corresponds to the supplied target step. If execution was
              unsuccessful, this corresponds to the step that failed.
@@ -150,7 +152,7 @@ def get_step_output_path(pipeline_root_path: str, step_name: str, relative_path:
 
 
 def _get_or_create_execution_directory(
-    pipeline_root_path: str, pipeline_steps: List[BaseStep], template: str = None
+    pipeline_root_path: str, pipeline_steps: List[BaseStep], template: str
 ) -> str:
     """
     Obtains the path of the execution directory on the local filesystem corresponding to the
@@ -290,7 +292,7 @@ def _run_make(execution_directory_path, rule_name: str, extra_env: Dict[str, str
     )
 
 
-def _create_makefile(pipeline_root_path, execution_directory_path, template: str = None) -> None:
+def _create_makefile(pipeline_root_path, execution_directory_path, template) -> None:
     """
     Creates a Makefile with a set of relevant MLflow Pipelines targets for the specified pipeline,
     overwriting the preexisting Makefile if one exists. The Makefile is created in the specified
