@@ -393,10 +393,10 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
         };
 
         const models = {
-          registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [],
+          registeredModels: modelVersionsByRunUuid[runInfo.run_id] || [],
           loggedModels: Utils.getLoggedModelsFromTags(tags),
           experimentId: runInfo.experiment_id,
-          runUuid: runInfo.run_uuid,
+          runUuid: runInfo.run_id,
         };
 
         const version = {
@@ -437,7 +437,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
       const selectedRunUuids = [];
       event.api.getSelectedRows().forEach(({ runInfo }) => {
         if (runInfo) {
-          selectedRunUuids.push(runInfo.run_uuid);
+          selectedRunUuids.push(runInfo.run_id);
         }
       });
       // Do not trigger callback if the selection is not changed. This check helps improving

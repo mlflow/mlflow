@@ -118,7 +118,7 @@ export default class ExperimentViewUtil {
         style: { whiteSpace: 'inherit' },
         children: (
           <div style={childLeftMargin}>
-            <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_uuid)}>
+            <Link to={Routes.getRunPageRoute(runInfo.experiment_id, runInfo.run_id)}>
               {Utils.formatTimestamp(startTime)}
             </Link>
           </div>
@@ -265,7 +265,7 @@ export default class ExperimentViewUtil {
       const row = [
         Utils.formatTimestamp(runInfo.start_time),
         Utils.getDuration(runInfo.start_time, runInfo.end_time) || '',
-        runInfo.run_uuid,
+        runInfo.run_id,
         Utils.getRunName(tagsList[index]), // add run name to csv export row
         Utils.getSourceType(tagsList[index]),
         Utils.getSourceName(tagsList[index]),
@@ -590,9 +590,9 @@ export default class ExperimentViewUtil {
   static getNestedRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
-      runIdToIdx[r.run_uuid] = idx;
+      runIdToIdx[r.run_id] = idx;
     });
-    const treeNodes = runInfos.map((r) => new TreeNode(r.run_uuid));
+    const treeNodes = runInfos.map((r) => new TreeNode(r.run_id));
     tagsList.forEach((tags, idx) => {
       const parentRunId = tags['mlflow.parentRunId'];
       if (parentRunId) {
@@ -627,7 +627,7 @@ export default class ExperimentViewUtil {
     rootsIdxs.forEach((index) => {
       function dfs(idx, curr_level) {
         if (!visited.has(idx)) {
-          const runId = runInfos[idx].run_uuid;
+          const runId = runInfos[idx].run_id;
           let row = undefined;
           if (parentIdToChildren[runId]) {
             row = {
@@ -635,7 +635,7 @@ export default class ExperimentViewUtil {
               isParent: true,
               hasExpander: true,
               expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
-              childrenIds: parentIdToChildren[runId].map((cIdx) => runInfos[cIdx].run_uuid),
+              childrenIds: parentIdToChildren[runId].map((cIdx) => runInfos[cIdx].run_id),
               runId,
               level: curr_level,
             };
@@ -669,7 +669,7 @@ export default class ExperimentViewUtil {
         idx,
         isParent: true,
         hasExpander: false,
-        runId: runInfos[idx].run_uuid,
+        runId: runInfos[idx].run_id,
       }));
     }
   }

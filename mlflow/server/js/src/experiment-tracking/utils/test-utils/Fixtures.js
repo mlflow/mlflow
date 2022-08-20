@@ -18,7 +18,7 @@ const createExperiment = ({
   });
 
 const createRunInfo = () => {
-  return RunInfo.fromJs({ run_uuid: 0 });
+  return RunInfo.fromJs({ run_id: 0 });
 };
 
 const fixtures = {

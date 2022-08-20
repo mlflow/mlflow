@@ -70,7 +70,7 @@ export const mockRunInfo = (
   lifecycle_stage = undefined,
 ) => {
   return RunInfo.fromJs({
-    run_uuid: run_id,
+    run_id: run_id,
     experiment_id: experiment_id,
     artifact_uri: artifact_uri,
     lifecycle_stage: lifecycle_stage,

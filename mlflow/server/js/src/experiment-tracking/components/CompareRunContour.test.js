@@ -8,12 +8,12 @@ describe('unit tests', () => {
   let wrapper;
   let instance;
 
-  const runUuids = ['run_uuid_0', 'run_uuid_1', 'run_uuid_2'];
+  const runUuids = ['run_id_0', 'run_id_1', 'run_id_2'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map((run_uuid) =>
+    runInfos: runUuids.map((run_id) =>
       RunInfo.fromJs({
-        run_uuid,
+        run_id,
         experiment_id: '1',
       }),
     ),

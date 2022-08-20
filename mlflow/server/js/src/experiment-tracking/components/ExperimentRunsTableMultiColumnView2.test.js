@@ -115,7 +115,7 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
           end_time: 1,
           experiment_id: '0',
           lifecycle_stage: 'active',
-          run_uuid: '123',
+          run_id: '123',
           start_time: 0,
           status: 'FINISHED',
           user_id: 'user_id',

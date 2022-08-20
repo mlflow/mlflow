@@ -11,9 +11,9 @@ describe('CompareRunBox', () => {
   const runUuids = ['1', '2', '3'];
   const commonProps = {
     runUuids,
-    runInfos: runUuids.map((run_uuid) =>
+    runInfos: runUuids.map((run_id) =>
       RunInfo.fromJs({
-        run_uuid,
+        run_id,
         experiment_id: '0',
       }),
     ),

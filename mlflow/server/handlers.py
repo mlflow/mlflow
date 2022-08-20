@@ -424,8 +424,6 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     for schema_key, schema_validation_fns in schema.items():
         if schema_key in request_json or _assert_required in schema_validation_fns:
             value = request_json.get(schema_key)
-            if schema_key == "run_id" and value is None and "run_uuid" in request_json:
-                value = request_json.get("run_uuid")
             _validate_param_against_schema(
                 schema=schema_validation_fns,
                 param=schema_key,
@@ -532,7 +530,7 @@ def get_artifact_handler():
 
     query_string = request.query_string.decode("utf-8")
     request_dict = parser.parse(query_string, normalized=True)
-    run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
+    run_id = request_dict.get("run_id")
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
@@ -694,7 +692,7 @@ def _update_run():
             "status": [_assert_string],
         },
     )
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     updated_info = _get_tracking_store().update_run_info(
         run_id, request_message.status, request_message.end_time
     )
@@ -746,7 +744,7 @@ def _log_metric():
     metric = Metric(
         request_message.key, request_message.value, request_message.timestamp, request_message.step
     )
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     _get_tracking_store().log_metric(run_id, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype="application/json")
@@ -766,7 +764,7 @@ def _log_param():
         },
     )
     param = Param(request_message.key, request_message.value)
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     _get_tracking_store().log_param(run_id, param)
     response_message = LogParam.Response()
     response = Response(mimetype="application/json")
@@ -805,7 +803,7 @@ def _set_tag():
         },
     )
     tag = RunTag(request_message.key, request_message.value)
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     _get_tracking_store().set_tag(run_id, tag)
     response_message = SetTag.Response()
     response = Response(mimetype="application/json")
@@ -837,7 +835,7 @@ def _get_run():
         GetRun(), schema={"run_id": [_assert_required, _assert_string]}
     )
     response_message = GetRun.Response()
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -893,7 +891,7 @@ def _list_artifacts():
         path = request_message.path
     else:
         path = None
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     run = _get_tracking_store().get_run(run_id)
 
     if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
@@ -957,7 +955,7 @@ def _get_metric_history():
         },
     )
     response_message = GetMetricHistory.Response()
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
     response = Response(mimetype="application/json")

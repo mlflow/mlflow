@@ -27,7 +27,7 @@ describe('CompareRunScatter', () => {
       entities: {
         runInfosByUuid: {
           'uuid-1234-5678-9012': RunInfo.fromJs({
-            run_uuid: 'uuid-1234-5678-9012',
+            run_id: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
             status: 'RUNNING',
@@ -37,7 +37,7 @@ describe('CompareRunScatter', () => {
             lifecycle_stage: 'active',
           }),
           'uuid-1234-5678-9013': RunInfo.fromJs({
-            run_uuid: 'uuid-1234-5678-9013',
+            run_id: 'uuid-1234-5678-9013',
             experiment_id: '12345',
             user_id: 'me@me.com',
             status: 'RUNNING',

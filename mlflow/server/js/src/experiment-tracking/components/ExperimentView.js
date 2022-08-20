@@ -271,9 +271,9 @@ export class ExperimentView extends Component {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a prop)
     const newRunsSelected = {};
     nextProps.runInfos.forEach((rInfo) => {
-      const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
+      const prevRunSelected = prevState.runsSelected[rInfo.run_id];
       if (prevRunSelected) {
-        newRunsSelected[rInfo.run_uuid] = prevRunSelected;
+        newRunsSelected[rInfo.run_id] = prevRunSelected;
       }
     });
     let persistedState;
@@ -1157,8 +1157,8 @@ export class ExperimentView extends Component {
       this.setState({ runsSelected: {} });
     } else {
       const runsSelected = {};
-      this.props.runInfos.forEach(({ run_uuid }) => {
-        runsSelected[run_uuid] = true;
+      this.props.runInfos.forEach(({ run_id }) => {
+        runsSelected[run_id] = true;
       });
       this.setState({ runsSelected: runsSelected });
     }
@@ -1282,7 +1282,7 @@ export class ExperimentView extends Component {
     const { runInfos } = this.props;
     const runsSelectedList = Object.keys(this.state.runsSelected);
     const experimentIds = runInfos
-      .filter(({ run_uuid }) => runsSelectedList.includes(run_uuid))
+      .filter(({ run_id }) => runsSelectedList.includes(run_id))
       .map(({ experiment_id }) => experiment_id);
     this.props.history.push(
       Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()),
@@ -1317,7 +1317,7 @@ export const mapStateToProps = (state, ownProps) => {
   const experimentIds = ownProps.experiments.map(({ experiment_id }) => experiment_id.toString());
   const runUuids = Object.values(runInfosByUuid)
     .filter(({ experiment_id }) => experimentIds.includes(experiment_id))
-    .map(({ run_uuid }) => run_uuid);
+    .map(({ run_id }) => run_id);
 
   const { modelVersionsByRunUuid } = state.entities;
 
@@ -1334,9 +1334,9 @@ export const mapStateToProps = (state, ownProps) => {
       if (modelVersionFilter === MODEL_VERSION_FILTER.ALL_RUNS) {
         return true;
       } else if (modelVersionFilter === MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS) {
-        return rInfo.run_uuid in modelVersionsByRunUuid;
+        return rInfo.run_id in modelVersionsByRunUuid;
       } else if (modelVersionFilter === MODEL_VERSION_FILTER.WTIHOUT_MODEL_VERSIONS) {
-        return !(rInfo.run_uuid in modelVersionsByRunUuid);
+        return !(rInfo.run_id in modelVersionsByRunUuid);
       } else {
         console.warn('Invalid input to model version filter - defaulting to showing all runs.');
         return true;

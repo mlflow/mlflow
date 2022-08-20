@@ -41,7 +41,7 @@ describe('RunView', () => {
       entities: {
         runInfosByUuid: {
           'uuid-1234-5678-9012': RunInfo.fromJs({
-            run_uuid: 'uuid-1234-5678-9012',
+            run_id: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
             status: 'RUNNING',
@@ -115,7 +115,7 @@ describe('RunView', () => {
         runInfosByUuid: {
           ...minimalStoreRaw.entities.runInfosByUuid,
           'uuid-1234-5678-9012': RunInfo.fromJs({
-            run_uuid: 'uuid-1234-5678-9012',
+            run_id: 'uuid-1234-5678-9012',
             experiment_id: '12345',
             user_id: 'me@me.com',
             status: 'RUNNING',

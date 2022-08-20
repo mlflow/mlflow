@@ -74,25 +74,25 @@ export const getRunApi = (runId, id = getUUID()) => {
 };
 
 export const DELETE_RUN_API = 'DELETE_RUN_API';
-export const deleteRunApi = (runUuid, id = getUUID()) => {
+export const deleteRunApi = (runId, id = getUUID()) => {
   return (dispatch) => {
     const deleteResponse = dispatch({
       type: DELETE_RUN_API,
-      payload: MlflowService.deleteRun({ run_id: runUuid }),
+      payload: MlflowService.deleteRun({ run_id: runId }),
       meta: { id: getUUID() },
     });
-    return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
+    return deleteResponse.then(() => dispatch(getRunApi(runId, id)));
   };
 };
 export const RESTORE_RUN_API = 'RESTORE_RUN_API';
-export const restoreRunApi = (runUuid, id = getUUID()) => {
+export const restoreRunApi = (runId, id = getUUID()) => {
   return (dispatch) => {
     const restoreResponse = dispatch({
       type: RESTORE_RUN_API,
-      payload: MlflowService.restoreRun({ run_id: runUuid }),
+      payload: MlflowService.restoreRun({ run_id: runId }),
       meta: { id: getUUID() },
     });
-    return restoreResponse.then(() => dispatch(getRunApi(runUuid, id)));
+    return restoreResponse.then(() => dispatch(getRunApi(runId, id)));
   };
 };
 
@@ -181,56 +181,56 @@ export const loadMoreRunsApi = (params) => ({
   meta: { id: params.id || getUUID() },
 });
 
-// TODO: run_uuid is deprecated, use run_id instead
+// TODO: run_id is deprecated, use run_id instead
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
-export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
+export const listArtifactsApi = (runId, path, id = getUUID()) => {
   return {
     type: LIST_ARTIFACTS_API,
     payload: MlflowService.listArtifacts({
-      run_uuid: runUuid,
+      run_id: runId,
       path: path,
     }),
-    meta: { id: id, runUuid: runUuid, path: path },
+    meta: { id: id, runId: runId, path: path },
   };
 };
 
-// TODO: run_uuid is deprecated, use run_id instead
+// TODO: run_id is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
-export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
+export const getMetricHistoryApi = (runId, metricKey, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: MlflowService.getMetricHistory({
-      run_uuid: runUuid,
+      run_id: runId,
       metric_key: decodeURIComponent(metricKey),
     }),
-    meta: { id: id, runUuid: runUuid, key: metricKey },
+    meta: { id: id, runId: runId, key: metricKey },
   };
 };
 
-// TODO: run_uuid is deprecated, use run_id instead
+// TODO: run_id is deprecated, use run_id instead
 export const SET_TAG_API = 'SET_TAG_API';
-export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
+export const setTagApi = (runId, tagName, tagValue, id = getUUID()) => {
   return {
     type: SET_TAG_API,
     payload: MlflowService.setTag({
-      run_uuid: runUuid,
+      run_id: runId,
       key: tagName,
       value: tagValue,
     }),
-    meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
+    meta: { id: id, runId: runId, key: tagName, value: tagValue },
   };
 };
 
-// TODO: run_uuid is deprecated, use run_id instead
+// TODO: run_id is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
-export const deleteTagApi = (runUuid, tagName, id = getUUID()) => {
+export const deleteTagApi = (runId, tagName, id = getUUID()) => {
   return {
     type: DELETE_TAG_API,
     payload: MlflowService.deleteTag({
-      run_id: runUuid,
+      run_id: runId,
       key: tagName,
     }),
-    meta: { id: id, runUuid: runUuid, key: tagName },
+    meta: { id: id, runId: runId, key: tagName },
   };
 };
 

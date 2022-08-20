@@ -534,7 +534,7 @@ export class CompareModelVersionsViewImpl extends Component {
       return (
         <Link
           to={Routes.getMetricPageRoute(
-            runInfos.map((info) => info.run_uuid).filter((uuid, idx) => data[idx] !== undefined),
+            runInfos.map((info) => info.run_id).filter((uuid, idx) => data[idx] !== undefined),
             key,
             // TODO: Refactor so that the breadcrumb
             // on the linked page is for model registry
@@ -703,9 +703,9 @@ const mapStateToProps = (state, ownProps) => {
         runUuids.push(runUuid);
       } else {
         if (runUuid) {
-          runInfos.push(RunInfo.fromJs({ run_uuid: runUuid }));
+          runInfos.push(RunInfo.fromJs({ run_id: runUuid }));
         } else {
-          runInfos.push(RunInfo.fromJs({ run_uuid: 'None' }));
+          runInfos.push(RunInfo.fromJs({ run_id: 'None' }));
         }
         runInfosValid.push(false);
         metricLists.push([]);

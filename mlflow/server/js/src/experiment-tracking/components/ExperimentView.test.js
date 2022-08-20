@@ -65,7 +65,7 @@ const getDefaultExperimentViewProps = () => {
     updateUrlWithViewState: updateUrlWithViewStateSpy,
     runInfos: [
       RunInfo.fromJs({
-        run_uuid: 'run-id',
+        run_id: 'run-id',
         experiment_id: EXPERIMENT_ID,
         status: 'FINISHED',
         start_time: 1,

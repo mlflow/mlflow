@@ -148,7 +148,7 @@ describe('ExperimentViewUtil', () => {
   });
 
   test('should not nest children if nestChildren is false', () => {
-    const runInfos = [{ run_uuid: 1 }, { run_uuid: 2 }];
+    const runInfos = [{ run_id: 1 }, { run_id: 2 }];
     const tagsList = [
       {
         'mlflow.parentRunId': {
@@ -228,7 +228,7 @@ describe('ExperimentViewUtil', () => {
     const categorizedUncheckedKeys = DEFAULT_CATEGORIZED_UNCHECKED_KEYS;
     const runInfos = [
       RunInfo.fromJs({
-        run_uuid: 'run-id1',
+        run_id: 'run-id1',
         experiment_id: '3',
         status: 'FINISHED',
         start_time: 1,
@@ -237,7 +237,7 @@ describe('ExperimentViewUtil', () => {
         lifecycle_stage: 'active',
       }),
       RunInfo.fromJs({
-        run_uuid: 'run-id2',
+        run_id: 'run-id2',
         experiment_id: '3',
         status: 'FINISHED',
         start_time: 2,
@@ -319,7 +319,7 @@ describe('ExperimentViewUtil', () => {
     };
     const runInfos = [
       RunInfo.fromJs({
-        run_uuid: 'run-id1',
+        run_id: 'run-id1',
         experiment_id: '3',
         status: 'FINISHED',
         start_time: 1,
@@ -328,7 +328,7 @@ describe('ExperimentViewUtil', () => {
         lifecycle_stage: 'active',
       }),
       RunInfo.fromJs({
-        run_uuid: 'run-id2',
+        run_id: 'run-id2',
         experiment_id: '3',
         status: 'FINISHED',
         start_time: 2,
@@ -460,7 +460,7 @@ describe('ExperimentViewUtil', () => {
   test('getNestedRowRenderMetadata ensures the UI renders properly when parent runs have been deleted and are referenced by their children', () => {
     const createRun = (runId) =>
       RunInfo.fromJs({
-        run_uuid: runId,
+        run_id: runId,
         experiment_id: '3',
         status: 'FINISHED',
         start_time: 1,

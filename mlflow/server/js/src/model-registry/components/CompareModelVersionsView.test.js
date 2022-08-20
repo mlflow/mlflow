@@ -49,7 +49,7 @@ describe('unconnected tests', () => {
       ...minimumProps,
       runInfos: [
         RunInfo.fromJs({
-          run_uuid: '123',
+          run_id: '123',
           experiment_id: '0',
           user_id: 'test.user',
           status: 'FINISHED',
@@ -59,7 +59,7 @@ describe('unconnected tests', () => {
           lifecycle_stage: 'active',
         }),
         RunInfo.fromJs({
-          run_uuid: 'somebadrunID',
+          run_id: 'somebadrunID',
         }),
       ],
       runInfosValid: [true, false],
@@ -133,7 +133,7 @@ describe('connected tests', () => {
       entities: {
         runInfosByUuid: {
           123: RunInfo.fromJs({
-            run_uuid: '123',
+            run_id: '123',
             experiment_id: '0',
             user_id: 'test.user',
             status: 'FINISHED',

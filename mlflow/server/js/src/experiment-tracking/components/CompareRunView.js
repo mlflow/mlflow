@@ -113,10 +113,10 @@ export class CompareRunView extends Component {
   renderExperimentNameRowItems() {
     const { experiments } = this.props;
     const experimentNameMap = Utils.getExperimentNameMap(Utils.sortExperimentsById(experiments));
-    return this.props.runInfos.map(({ experiment_id, run_uuid }) => {
+    return this.props.runInfos.map(({ experiment_id, run_id }) => {
       const { name, basename } = experimentNameMap[experiment_id];
       return (
-        <td className='meta-info' key={run_uuid}>
+        <td className='meta-info' key={run_id}>
           <Link to={Routes.getExperimentPageRoute(experiment_id)} title={name}>
             {basename}
           </Link>
@@ -232,7 +232,7 @@ export class CompareRunView extends Component {
           <Link
             to={Routes.getMetricPageRoute(
               this.props.runInfos
-                .map((info) => info.run_uuid)
+                .map((info) => info.run_id)
                 .filter((uuid, idx) => data[idx] !== undefined),
               key,
               experimentIds,
@@ -306,7 +306,7 @@ export class CompareRunView extends Component {
       const startTime = runInfo.getStartTime();
       const endTime = runInfo.getEndTime();
       return {
-        runUuid: runInfo.run_uuid,
+        runUuid: runInfo.run_id,
         startTime: startTime ? Utils.formatTimestamp(startTime) : unknown,
         endTime: endTime ? Utils.formatTimestamp(endTime) : unknown,
         duration: startTime && endTime ? Utils.getDuration(startTime, endTime) : unknown,
@@ -466,7 +466,7 @@ export class CompareRunView extends Component {
                   />
                 </th>
                 {this.props.runInfos.map((r) => (
-                  <th scope='row' className='data-value' key={r.run_uuid} css={colWidthStyle}>
+                  <th scope='row' className='data-value' key={r.run_id} css={colWidthStyle}>
                     <Tooltip
                       title={r.getRunUuid()}
                       color='gray'
@@ -492,7 +492,7 @@ export class CompareRunView extends Component {
                 </th>
                 {runNames.map((runName, i) => {
                   return (
-                    <td className='data-value' key={runInfos[i].run_uuid} css={colWidthStyle}>
+                    <td className='data-value' key={runInfos[i].run_id} css={colWidthStyle}>
                       <div className='truncate-text single-line'>
                         <Tooltip
                           title={runName}
@@ -632,7 +632,7 @@ export class CompareRunView extends Component {
               return (
                 <td
                   className='data-value'
-                  key={this.props.runInfos[i].run_uuid}
+                  key={this.props.runInfos[i].run_id}
                   css={colWidthStyle}
                 >
                   <Tooltip

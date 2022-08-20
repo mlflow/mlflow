@@ -171,7 +171,7 @@ export const paramsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const { run } = action.payload;
-      const runUuid = run.info.run_uuid;
+      const runUuid = run.info.run_id;
       const params = run.data.params || [];
       const newState = { ...state };
       newState[runUuid] = paramArrToObject(params);
@@ -183,7 +183,7 @@ export const paramsByRunUuid = (state = {}, action) => {
       const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const runUuid = rJson.info.run_uuid;
+          const runUuid = rJson.info.run_id;
           const params = rJson.data.params || [];
           newState[runUuid] = paramArrToObject(params);
         });
@@ -223,7 +223,7 @@ export const tagsByRunUuid = (state = {}, action) => {
       const newState = { ...state };
       if (runs) {
         runs.forEach((rJson) => {
-          const runUuid = rJson.info.run_uuid;
+          const runUuid = rJson.info.run_id;
           const tags = rJson.data.tags || [];
           newState[runUuid] = tagArrToObject(tags);
         });

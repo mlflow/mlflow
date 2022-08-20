@@ -139,18 +139,18 @@ export class ExperimentRunsTableCompactView extends React.Component {
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const runInfo = runInfos[idx];
-    const modelVersionInfo = modelVersionsByRunUuid[runInfo.run_uuid];
-    const selected = runsSelected[runInfo.run_uuid] === true;
+    const modelVersionInfo = modelVersionsByRunUuid[runInfo.run_id];
+    const selected = runsSelected[runInfo.run_id] === true;
     const rowContents = [
-      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), 'div'),
+      ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_id), 'div'),
       ExperimentViewUtil.getExpander(
         hasExpander,
         expanderOpen,
         () => {
-          onExpand(runInfo.run_uuid, childrenIds);
+          onExpand(runInfo.run_id, childrenIds);
           this.setState({ expanding: true });
         },
-        runInfo.run_uuid,
+        runInfo.run_id,
         'div',
       ),
     ];
@@ -203,7 +203,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     if (this.shouldShowBaggedColumn(true)) {
       rowContents.push(
         <div
-          key={'params-container-cell-' + runInfo.run_uuid}
+          key={'params-container-cell-' + runInfo.run_id}
           className='metric-param-container-cell'
         >
           {paramsCellContents}
@@ -242,7 +242,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     if (this.shouldShowBaggedColumn(false)) {
       rowContents.push(
         <div
-          key={'metrics-container-cell-' + runInfo.run_uuid}
+          key={'metrics-container-cell-' + runInfo.run_id}
           className='metric-param-container-cell'
         >
           {metricsCellContents}
@@ -250,7 +250,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
       );
     }
     return {
-      key: runInfo.run_uuid,
+      key: runInfo.run_id,
       contents: rowContents,
       isChild: !isParent,
     };

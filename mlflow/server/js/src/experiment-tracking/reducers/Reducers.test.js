@@ -1032,7 +1032,7 @@ describe('test artifactRootUriByRunUuid', () => {
       payload: {
         run: {
           info: {
-            run_uuid: 'run01',
+            run_id: 'run01',
             experiment_id: '1',
             artifact_uri: 'some/path',
           },
@@ -1052,7 +1052,7 @@ describe('test artifactRootUriByRunUuid', () => {
       payload: {
         run: {
           info: {
-            run_uuid: 'run02',
+            run_id: 'run02',
             experiment_id: '1',
             artifact_uri: 'some/other/path',
           },
@@ -1073,7 +1073,7 @@ describe('test artifactRootUriByRunUuid', () => {
       payload: {
         run: {
           info: {
-            run_uuid: 'run02',
+            run_id: 'run02',
             experiment_id: '1',
             artifact_uri: 'some/other/updated/path',
           },
@@ -1298,7 +1298,7 @@ describe('test public accessors', () => {
         end_time: undefined,
         experiment_id: 'experiment01',
         lifecycle_stage: undefined,
-        run_uuid: 'run01',
+        run_id: 'run01',
         start_time: undefined,
         status: undefined,
         user_id: undefined,
@@ -1354,7 +1354,7 @@ describe('test public accessors', () => {
       payload: {
         run: {
           info: {
-            run_uuid: 'run01',
+            run_id: 'run01',
             experiment_id: '1',
             artifact_uri: 'some/path',
           },
@@ -1400,11 +1400,11 @@ describe('test public accessors', () => {
 
   test('getSharedParamKeysByRunUuids', () => {
     const runA = RunInfo.fromJs({
-      run_uuid: 'run01',
+      run_id: 'run01',
       experiment_id: '1',
     });
     const runB = RunInfo.fromJs({
-      run_uuid: 'run02',
+      run_id: 'run02',
       experiment_id: '1',
     });
     const actionA = {

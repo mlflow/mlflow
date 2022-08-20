@@ -116,7 +116,7 @@ Param.fromJs = function fromJs(pojo) {
 export const RunInfo = Immutable.Record(
   {
     // optional STRING
-    run_uuid: undefined,
+    run_id: undefined,
 
     // optional STRING
     experiment_id: undefined,
@@ -155,8 +155,8 @@ RunInfo.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_RunInfo = ModelBuilder.extend(RunInfo, {
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
+  getRunId() {
+    return this.run_id !== undefined ? this.run_id : '';
   },
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : '0';
@@ -487,7 +487,7 @@ GetExperiment.fromJs = function fromJs(pojo) {
 export const GetRun = Immutable.Record(
   {
     // required STRING
-    run_uuid: undefined,
+    run_id: undefined,
   },
   'GetRun',
 );
@@ -505,8 +505,8 @@ GetRun.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_GetRun = ModelBuilder.extend(GetRun, {
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
+  getRunId() {
+    return this.run_id !== undefined ? this.run_id : '';
   },
 });
 
@@ -851,7 +851,7 @@ FileInfo.fromJs = function fromJs(pojo) {
 export const ListArtifacts = Immutable.Record(
   {
     // optional STRING
-    run_uuid: undefined,
+    run_id: undefined,
 
     // optional STRING
     path: undefined,
@@ -872,8 +872,8 @@ ListArtifacts.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_ListArtifacts = ModelBuilder.extend(ListArtifacts, {
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
+  getRunId() {
+    return this.run_id !== undefined ? this.run_id : '';
   },
   getPath() {
     return this.path !== undefined ? this.path : '';
@@ -895,7 +895,7 @@ ListArtifacts.fromJs = function fromJs(pojo) {
 export const GetArtifact = Immutable.Record(
   {
     // optional STRING
-    run_uuid: undefined,
+    run_id: undefined,
 
     // optional STRING
     path: undefined,
@@ -916,8 +916,8 @@ GetArtifact.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_GetArtifact = ModelBuilder.extend(GetArtifact, {
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
+  getRunId() {
+    return this.run_id !== undefined ? this.run_id : '';
   },
   getPath() {
     return this.path !== undefined ? this.path : '';
@@ -939,7 +939,7 @@ GetArtifact.fromJs = function fromJs(pojo) {
 export const GetMetricHistory = Immutable.Record(
   {
     // required STRING
-    run_uuid: undefined,
+    run_id: undefined,
 
     // required STRING
     metric_key: undefined,
@@ -960,8 +960,8 @@ GetMetricHistory.fromJsReviver = function fromJsReviver(key, value) {
 };
 
 const extended_GetMetricHistory = ModelBuilder.extend(GetMetricHistory, {
-  getRunUuid() {
-    return this.run_uuid !== undefined ? this.run_uuid : '';
+  getRunId() {
+    return this.run_id !== undefined ? this.run_id : '';
   },
   getMetricKey() {
     return this.metric_key !== undefined ? this.metric_key : '';

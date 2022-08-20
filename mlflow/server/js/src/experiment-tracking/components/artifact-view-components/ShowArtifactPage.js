@@ -139,11 +139,11 @@ const getFileTooLargeView = () => {
   );
 };
 
-export const getSrc = (path, runUuid) => {
+export const getSrc = (path, runId) => {
   const basePath = process.env.HOSTED_PATH || '';
   const endpointPath = 'get-artifact';
-  return `${basePath}${endpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(
-    runUuid,
+  return `${basePath}${endpointPath}?path=${encodeURIComponent(path)}&run_id=${encodeURIComponent(
+    runId,
   )}`;
 };
 

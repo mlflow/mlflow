@@ -619,9 +619,8 @@ message RunInfo {
   // Unique identifier for the run.
   optional string run_id = 15;
 
-  // [Deprecated, use run_id instead] Unique identifier for the run. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // The experiment ID.
   optional string experiment_id = 2;
@@ -850,9 +849,8 @@ message UpdateRun {
   // ID of the run to update. Must be provided.
   optional string run_id = 4;
 
-  // [Deprecated, use run_id instead] ID of the run to update.. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Updated status of the run.
   optional RunStatus status = 2;
@@ -891,9 +889,8 @@ message LogMetric {
   // ID of the run under which to log the metric. Must be provided.
   optional string run_id = 6;
 
-  // [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
@@ -916,9 +913,8 @@ message LogParam {
   // ID of the run under which to log the param. Must be provided.
   optional string run_id = 4;
 
-  // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -954,9 +950,8 @@ message SetTag {
   // ID of the run under which to log the tag. Must be provided.
   optional string run_id = 4;
 
-  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Name of the tag. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
@@ -989,9 +984,8 @@ message GetRun {
   // ID of the run to fetch. Must be provided.
   optional string run_id = 2;
 
-  // [Deprecated, use run_id instead] ID of the run to fetch. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, and tags).
@@ -1049,9 +1043,8 @@ message ListArtifacts {
   // ID of the run whose artifacts to list. Must be provided.
   optional string run_id = 3;
 
-  // [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
@@ -1089,9 +1082,8 @@ message GetMetricHistory {
   // ID of the run from which to fetch metric values. Must be provided.
   optional string run_id = 3;
 
-  // [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
-  // will be removed in a future MLflow version.
-  optional string run_uuid = 1;
+  // Reserved for run_uuid field, which was removed in MLflow 2.0
+  reserved 1;
 
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];

@@ -42,7 +42,7 @@ class RunInfo(_MLflowObject):
 
     def __init__(
         self,
-        run_uuid,
+        run_id,
         experiment_id,
         user_id,
         status,
@@ -50,10 +50,9 @@ class RunInfo(_MLflowObject):
         end_time,
         lifecycle_stage,
         artifact_uri=None,
-        run_id=None,
     ):
-        if run_uuid is None:
-            raise Exception("run_uuid cannot be None")
+        if run_id is None:
+            raise Exception("run_id cannot be None")
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if user_id is None:
@@ -62,11 +61,7 @@ class RunInfo(_MLflowObject):
             raise Exception("status cannot be None")
         if start_time is None:
             raise Exception("start_time cannot be None")
-        actual_run_id = run_id or run_uuid
-        if actual_run_id is None:
-            raise Exception("run_id and run_uuid cannot both be None")
-        self._run_uuid = actual_run_id
-        self._run_id = actual_run_id
+        self._run_id = run_id
         self._experiment_id = experiment_id
         self._user_id = user_id
         self._status = status
