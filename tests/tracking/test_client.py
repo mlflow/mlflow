@@ -54,7 +54,7 @@ def mock_databricks_tracking_store():
 
         def get_run(self, *args, **kwargs):  # pylint: disable=unused-argument
             return Run(
-                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
+                RunInfo(self.run_id, self.experiment_id, "status", 0, 1, None), None
             )
 
     mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
@@ -88,7 +88,6 @@ def test_client_create_run(mock_store, mock_time):
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id="unknown",
         start_time=int(mock_time * 1000),
         tags=[],
     )
@@ -106,10 +105,9 @@ def test_client_create_experiment(mock_store):
 
 def test_client_create_run_overrides(mock_store):
     experiment_id = mock.Mock()
-    user = mock.Mock()
     start_time = mock.Mock()
     tags = {
-        MLFLOW_USER: user,
+        MLFLOW_USER: mock.Mock(),
         MLFLOW_PARENT_RUN_ID: mock.Mock(),
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
         MLFLOW_SOURCE_NAME: mock.Mock(),
@@ -122,7 +120,6 @@ def test_client_create_run_overrides(mock_store):
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
     )
@@ -130,7 +127,6 @@ def test_client_create_run_overrides(mock_store):
     MlflowClient().create_run(experiment_id, start_time, tags)
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
     )

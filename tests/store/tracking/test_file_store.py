@@ -88,7 +88,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
                     "run_uuid": run_id,
                     "run_id": run_id,
                     "experiment_id": exp,
-                    "user_id": random_str(random_int(10, 25)),
                     "status": random.choice(RunStatus.all_status()),
                     "start_time": random_int(1, 10),
                     "end_time": random_int(20, 30),
@@ -615,7 +614,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             with TempDir() as tmp:
                 fs = FileStore(tmp.path(), artifact_root_uri)
                 exp_id = fs.create_experiment("exp")
-                run = fs.create_run(experiment_id=exp_id, user_id="user", start_time=0, tags=[])
+                run = fs.create_run(experiment_id=exp_id, start_time=0, tags=[])
                 self.assertEqual(
                     run.info.artifact_uri,
                     expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
@@ -632,7 +631,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_create_run_returns_expected_run_data(self):
         fs = FileStore(self.test_root)
         no_tags_run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[]
         )
         assert isinstance(no_tags_run.data, RunData)
         assert len(no_tags_run.data.tags) == 0
@@ -644,7 +643,6 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         tags_entities = [RunTag(key, value) for key, value in tags_dict.items()]
         tags_run = fs.create_run(
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-            user_id="user",
             start_time=0,
             tags=tags_entities,
         )
@@ -1195,7 +1193,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[]
         )
         run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
@@ -1208,7 +1206,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id="user", start_time=0, tags=[]
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, start_time=0, tags=[]
         )
 
     def test_log_batch_max_length_value(self):

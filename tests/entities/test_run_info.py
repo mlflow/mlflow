@@ -12,7 +12,6 @@ class TestRunInfo(unittest.TestCase):
         ri,
         run_id,
         experiment_id,
-        user_id,
         status,
         start_time,
         end_time,
@@ -23,7 +22,6 @@ class TestRunInfo(unittest.TestCase):
         self.assertEqual(ri.run_uuid, run_id)
         self.assertEqual(ri.run_id, run_id)
         self.assertEqual(ri.experiment_id, experiment_id)
-        self.assertEqual(ri.user_id, user_id)
         self.assertEqual(ri.status, status)
         self.assertEqual(ri.start_time, start_time)
         self.assertEqual(ri.end_time, end_time)
@@ -34,7 +32,6 @@ class TestRunInfo(unittest.TestCase):
     def _create():
         run_id = str(uuid.uuid4())
         experiment_id = str(random_int(10, 2000))
-        user_id = random_str(random_int(10, 25))
         status = RunStatus.to_string(random.choice(RunStatus.all_status()))
         start_time = random_int(1, 10)
         end_time = start_time + random_int(1, 10)
@@ -44,7 +41,6 @@ class TestRunInfo(unittest.TestCase):
             run_uuid=run_id,
             run_id=run_id,
             experiment_id=experiment_id,
-            user_id=user_id,
             status=status,
             start_time=start_time,
             end_time=end_time,
@@ -55,7 +51,6 @@ class TestRunInfo(unittest.TestCase):
             ri,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -68,7 +63,6 @@ class TestRunInfo(unittest.TestCase):
             ri1,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -79,7 +73,6 @@ class TestRunInfo(unittest.TestCase):
             ri1,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -90,7 +83,6 @@ class TestRunInfo(unittest.TestCase):
             "run_uuid": run_id,
             "run_id": run_id,
             "experiment_id": experiment_id,
-            "user_id": user_id,
             "status": status,
             "start_time": start_time,
             "end_time": end_time,
@@ -105,7 +97,6 @@ class TestRunInfo(unittest.TestCase):
             ri2,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -117,7 +108,6 @@ class TestRunInfo(unittest.TestCase):
             ri3,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -132,7 +122,6 @@ class TestRunInfo(unittest.TestCase):
             ri4,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,

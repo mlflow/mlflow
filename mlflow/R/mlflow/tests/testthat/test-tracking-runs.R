@@ -16,8 +16,6 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
 
   run <- mlflow_get_run(client = client, run$run_uuid)
 
-  expect_identical(run$user_id, "user1")
-
   expect_true(
     all(purrr::transpose(run$tags[[1]]) %in%
       list(
@@ -58,7 +56,7 @@ test_that("mlflow_end_run() works properly", {
 
   # Verify that only expected run field names are present and that all run info fields are set
   # (not NA).
-  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  run_info_names <- c("run_uuid", "experiment_id", "status", "start_time",
   "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   run_data_names <- c("metrics", "params", "tags")
   expect_setequal(c(run_info_names, run_data_names), names(run))
@@ -102,8 +100,6 @@ test_that("mlflow_restore_run() work properly", {
   run3 <- mlflow_restore_run(client = client, run_id = run1$run_uuid)
 
   for (run in list(run1, run2, run3)) {
-    expect_identical(run$user_id, "user1")
-
     expect_true(
       all(purrr::transpose(run$tags[[1]]) %in%
         list(

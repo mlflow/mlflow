@@ -171,13 +171,12 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, start_time, tags):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
         :param experiment_id: ID of the experiment for this run
-        :param user_id: ID of the user launching this run
         :param start_time: timestamp of the initialization of the run
         :param tags: tags to apply to this run at initialization
 
@@ -187,7 +186,6 @@ class RestStore(AbstractStore):
         req_body = message_to_json(
             CreateRun(
                 experiment_id=str(experiment_id),
-                user_id=user_id,
                 start_time=start_time,
                 tags=tag_protos,
             )

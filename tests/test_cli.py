@@ -171,7 +171,6 @@ def file_store():
 def _create_run_in_store(store, create_artifacts=True):
     config = {
         "experiment_id": "0",
-        "user_id": "Anderson",
         "start_time": int(time.time()),
         "tags": {},
     }

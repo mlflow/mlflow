@@ -118,7 +118,6 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
           run_uuid: '123',
           start_time: 0,
           status: 'FINISHED',
-          user_id: 'user_id',
           getRunUuid: () => '123',
         }),
       ],

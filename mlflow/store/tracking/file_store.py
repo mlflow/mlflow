@@ -551,7 +551,7 @@ class FileStore(AbstractStore):
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, start_time, tags):
         """
         Creates a run with the specified attributes.
         """
@@ -575,7 +575,6 @@ class FileStore(AbstractStore):
             run_id=run_uuid,
             experiment_id=experiment_id,
             artifact_uri=artifact_uri,
-            user_id=user_id,
             status=RunStatus.to_string(RunStatus.RUNNING),
             start_time=start_time,
             end_time=None,

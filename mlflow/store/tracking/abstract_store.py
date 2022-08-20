@@ -185,13 +185,14 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, start_time, tags):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
         :param experiment_id: String id of the experiment for this run
-        :param user_id: ID of the user launching this run
+        :param start_time: timestamp of the initialization of the run
+        :param tags: tags to apply to this run at initialization
 
         :return: The created Run object
         """

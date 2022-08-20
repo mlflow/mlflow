@@ -1301,7 +1301,6 @@ describe('test public accessors', () => {
         run_uuid: 'run01',
         start_time: undefined,
         status: undefined,
-        user_id: undefined,
       }),
     );
   });

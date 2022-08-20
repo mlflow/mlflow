@@ -27,13 +27,14 @@ describe('ExperimentViewUtil', () => {
 
   test('getRunInfoCellsForRow returns a row containing userid, start time, and status', () => {
     const runInfo = {
-      user_id: 'user1',
       start_time: new Date('2020-01-02').getTime(),
       status: 'FINISHED',
     };
     const runInfoCells = ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
-      {},
+      {
+        'mlflow.user': 'user1',
+      },
       false,
       'div',
       () => {},

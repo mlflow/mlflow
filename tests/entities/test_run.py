@@ -13,7 +13,6 @@ class TestRun(TestRunInfo, TestRunData):
             run.info,
             ri.run_id,
             ri.experiment_id,
-            ri.user_id,
             ri.status,
             ri.start_time,
             ri.end_time,
@@ -28,7 +27,6 @@ class TestRun(TestRunInfo, TestRunData):
             run_info,
             run_id,
             experiment_id,
-            user_id,
             status,
             start_time,
             end_time,
@@ -44,7 +42,6 @@ class TestRun(TestRunInfo, TestRunData):
             "run_uuid": run_id,
             "run_id": run_id,
             "experiment_id": experiment_id,
-            "user_id": user_id,
             "status": status,
             "start_time": start_time,
             "end_time": end_time,
@@ -75,7 +72,6 @@ class TestRun(TestRunInfo, TestRunData):
             run_uuid="hi",
             run_id="hi",
             experiment_id=0,
-            user_id="user-id",
             status=RunStatus.FAILED,
             start_time=0,
             end_time=1,
@@ -89,7 +85,7 @@ class TestRun(TestRunInfo, TestRunData):
             "params={}, tags={}>, info=<RunInfo: artifact_uri=None, end_time=1, "
             "experiment_id=0, "
             "lifecycle_stage='active', run_id='hi', run_uuid='hi', "
-            "start_time=0, status=4, user_id='user-id'>>"
+            "start_time=0, status=4>>"
         )
         assert str(run1) == expected
 

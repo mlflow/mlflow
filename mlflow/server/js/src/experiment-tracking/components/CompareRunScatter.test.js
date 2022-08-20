@@ -29,7 +29,6 @@ describe('CompareRunScatter', () => {
           'uuid-1234-5678-9012': RunInfo.fromJs({
             run_uuid: 'uuid-1234-5678-9012',
             experiment_id: '12345',
-            user_id: 'me@me.com',
             status: 'RUNNING',
             start_time: 12345678990,
             end_time: 12345678999,
@@ -39,7 +38,6 @@ describe('CompareRunScatter', () => {
           'uuid-1234-5678-9013': RunInfo.fromJs({
             run_uuid: 'uuid-1234-5678-9013',
             experiment_id: '12345',
-            user_id: 'me@me.com',
             status: 'RUNNING',
             start_time: 12345678990,
             end_time: 12345678999,

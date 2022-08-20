@@ -44,7 +44,6 @@ class RunInfo(_MLflowObject):
         self,
         run_uuid,
         experiment_id,
-        user_id,
         status,
         start_time,
         end_time,
@@ -56,8 +55,6 @@ class RunInfo(_MLflowObject):
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
-        if user_id is None:
-            raise Exception("user_id cannot be None")
         if status is None:
             raise Exception("status cannot be None")
         if start_time is None:
@@ -68,7 +65,6 @@ class RunInfo(_MLflowObject):
         self._run_uuid = actual_run_id
         self._run_id = actual_run_id
         self._experiment_id = experiment_id
-        self._user_id = user_id
         self._status = status
         self._start_time = start_time
         self._end_time = end_time
@@ -107,11 +103,6 @@ class RunInfo(_MLflowObject):
         """String ID of the experiment for the current run."""
         return self._experiment_id
 
-    @property
-    def user_id(self):
-        """String ID of the user who initiated this run."""
-        return self._user_id
-
     @searchable_attribute
     def status(self):
         """
@@ -144,7 +135,6 @@ class RunInfo(_MLflowObject):
         proto.run_uuid = self.run_uuid
         proto.run_id = self.run_id
         proto.experiment_id = self.experiment_id
-        proto.user_id = self.user_id
         proto.status = RunStatus.from_string(self.status)
         proto.start_time = self.start_time
         if self.end_time:
@@ -165,7 +155,6 @@ class RunInfo(_MLflowObject):
             run_uuid=proto.run_uuid,
             run_id=proto.run_id,
             experiment_id=proto.experiment_id,
-            user_id=proto.user_id,
             status=RunStatus.to_string(proto.status),
             start_time=proto.start_time,
             end_time=end_time,

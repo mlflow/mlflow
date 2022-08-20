@@ -177,7 +177,6 @@ class TestRestStore:
                 cr_body = message_to_json(
                     CreateRun(
                         experiment_id="43",
-                        user_id=user_name,
                         start_time=13579000,
                         tags=[
                             ProtoRunTag(key="mlflow.source.name", value=source_name),

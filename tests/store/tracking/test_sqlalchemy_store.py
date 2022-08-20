@@ -635,9 +635,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                         db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
                     )
                     exp_id = store.create_experiment(name="exp")
-                    run = store.create_run(
-                        experiment_id=exp_id, user_id="user", start_time=0, tags=[]
-                    )
+                    run = store.create_run(experiment_id=exp_id, start_time=0, tags=[])
                     self.assertEqual(
                         run.info.artifact_uri,
                         expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
@@ -741,7 +739,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         config = {
             "experiment_id": experiment_id,
             "name": "test run",
-            "user_id": "Anderson",
             "run_uuid": "test",
             "status": RunStatus.to_string(RunStatus.SCHEDULED),
             "source_type": SourceType.to_string(SourceType.LOCAL),
@@ -769,7 +766,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
         return {
             "experiment_id": experiment_id,
-            "user_id": "Anderson",
             "start_time": start_time if start_time is not None else int(time.time()),
             "tags": tags,
         }
@@ -793,7 +789,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         actual = self.store.create_run(**expected)
 
         self.assertEqual(actual.info.experiment_id, experiment_id)
-        self.assertEqual(actual.info.user_id, expected["user_id"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
         self.assertEqual(len(actual.data.tags), len(tags))
@@ -1337,7 +1332,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             name = str(names[0]) + "/" + names[1]
             run_id = self.store.create_run(
                 experiment_id,
-                user_id="MrDuck",
                 start_time=123,
                 tags=[
                     entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
@@ -1398,7 +1392,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         def create_run(start_time, end):
             return self.store.create_run(
                 experiment_id,
-                user_id="MrDuck",
                 start_time=start_time,
                 tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)],
             ).info.run_id
@@ -2179,7 +2172,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
+                experiment_id=experiment_id, start_time=current_run, tags=(),
             ).info.run_uuid
 
             run_ids.append(run_id)
@@ -2276,10 +2269,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self.store.create_experiment("test_experiment1")
 
         r1 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=(),
         ).info.run_uuid
         r2 = self.store.create_run(
-            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+            experiment_id=experiment_id, start_time=0, tags=(),
         ).info.run_uuid
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))
@@ -2294,7 +2287,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
-    run = store.create_run(experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run = store.create_run(experiment_id=experiment_id, start_time=0, tags=[])
     run_id = run.info.run_id
     metric = entities.Metric("mymetric", 1, 0, 0)
     store.log_metric(run_id=run_id, metric=metric)

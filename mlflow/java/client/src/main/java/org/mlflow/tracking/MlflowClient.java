@@ -8,6 +8,7 @@ import org.mlflow.artifacts.CliBasedArtifactRepository;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
+import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.io.File;
 import java.io.Serializable;
@@ -88,11 +89,14 @@ public class MlflowClient implements Serializable {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
     request.setStartTime(System.currentTimeMillis());
-    // userId is deprecated and will be removed in a future release.
-    // It should be set as the `mlflow.user` tag instead.
     String username = System.getProperty("user.name");
     if (username != null) {
-      request.setUserId(System.getProperty("user.name"));
+      request.addTags(
+        RunTag.newBuilder()
+          .setKey(MlflowTagConstants.USER)
+          .setValue(System.getProperty("user.name"))
+          .build()
+      );
     }
     return createRun(request.build());
   }

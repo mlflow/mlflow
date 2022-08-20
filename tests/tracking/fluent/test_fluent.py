@@ -89,7 +89,6 @@ def create_run(
             run_uuid=run_id,
             run_id=run_id,
             experiment_id=exp_id,
-            user_id=uid,
             status=status,
             start_time=start,
             end_time=end,
@@ -831,15 +830,6 @@ def test_start_run_resumes_existing_run_and_sets_description_twice():
     mlflow.end_run()
     with pytest.raises(MlflowException, match=match):
         mlflow.start_run(run_id, tags=invalid_tags, description=description)
-
-
-def test_get_run():
-    run_id = uuid.uuid4().hex
-    mock_run = mock.Mock()
-    mock_run.info.user_id = "my_user_id"
-    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        run = get_run(run_id)
-        assert run.info.user_id == "my_user_id"
 
 
 def validate_search_runs(results, data, output_format):

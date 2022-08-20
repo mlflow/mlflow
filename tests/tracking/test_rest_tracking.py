@@ -232,7 +232,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         assert run.info.run_id == run_id
         assert run.info.run_uuid == run_id
         assert run.info.experiment_id == experiment_id
-        assert run.info.user_id == user
         assert run.info.start_time == create_run_kwargs["start_time"]
         for tag in create_run_kwargs["tags"]:
             assert tag in run.data.tags
@@ -249,7 +248,6 @@ def test_create_run_defaults(mlflow_client):
     run = mlflow_client.get_run(run_id)
     assert run.info.run_id == run_id
     assert run.info.experiment_id == experiment_id
-    assert run.info.user_id == "unknown"
 
 
 def test_log_metrics_params_tags(mlflow_client):

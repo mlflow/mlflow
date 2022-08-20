@@ -30,7 +30,9 @@ class MLflowTrackingRestApi:
         payload = {
             "experiment_id": self.experiment_id,
             "start_time": int(time.time() * 1000),
-            "user_id": _get_user_id(),
+            "tags": {
+                "mlflow.user": _get_user_id(),
+            },
         }
         r = requests.post(url, json=payload)
         run_id = None

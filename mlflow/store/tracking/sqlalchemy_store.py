@@ -510,7 +510,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.name = new_name
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, start_time, tags):
+    def create_run(self, experiment_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -531,7 +531,7 @@ class SqlAlchemyStore(AbstractStore):
                 source_type=SourceType.to_string(SourceType.UNKNOWN),
                 source_name="",
                 entry_point_name="",
-                user_id=user_id,
+                user_id="",
                 status=RunStatus.to_string(RunStatus.RUNNING),
                 start_time=start_time,
                 end_time=None,

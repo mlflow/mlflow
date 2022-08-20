@@ -56,10 +56,6 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
 mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NULL, client) {
   experiment_id <- resolve_experiment_id(experiment_id)
 
-  # Read user_id from tags
-  # user_id is deprecated and will be removed from a future release
-  user_id <- tags[[MLFLOW_TAGS$MLFLOW_USER]] %||% "unknown"
-
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
     unname()
@@ -68,7 +64,6 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
 
   data <- list(
     experiment_id = experiment_id,
-    user_id = user_id,
     start_time = start_time,
     tags = tags
   )

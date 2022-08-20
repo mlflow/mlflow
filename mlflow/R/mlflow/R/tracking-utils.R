@@ -142,7 +142,7 @@ parse_run <- function(r) {
 
 fill_missing_run_cols <- function(r) {
   # Ensure the current runs list has at least all the names in expected_list
-  expected_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  expected_names <- c("run_uuid", "experiment_id", "status", "start_time",
     "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   r[setdiff(expected_names, names(r))] <- NA
   r
