@@ -30,11 +30,10 @@ from mlflow.sklearn.utils import (
     _is_plotting_supported,
     _get_arg_names,
     _log_child_runs_info,
-    _log_estimator_content
+    _log_estimator_content,
 )
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
