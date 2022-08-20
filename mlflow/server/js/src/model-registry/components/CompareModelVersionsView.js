@@ -310,14 +310,14 @@ export class CompareModelVersionsViewImpl extends Component {
             />
           </th>
           {runInfos.map((r, idx) => (
-            <th scope='column' className='data-value block-content' key={r.getRunUuid()}>
+            <th scope='column' className='data-value block-content' key={r.getRunId()}>
               {/* Do not show links for invalid run IDs */}
               {runInfosValid[idx] ? (
-                <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                  {r.getRunUuid()}
+                <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunId())}>
+                  {r.getRunId()}
                 </Link>
               ) : (
-                r.getRunUuid()
+                r.getRunId()
               )}
             </th>
           ))}
@@ -357,7 +357,7 @@ export class CompareModelVersionsViewImpl extends Component {
           </th>
           {runNames.map((runName, i) => {
             return (
-              <td className='meta-info block-content' key={runInfos[i].getRunUuid()}>
+              <td className='meta-info block-content' key={runInfos[i].getRunId()}>
                 <div className='truncate-text single-line cell-content'>{runName}</div>
               </td>
             );
@@ -378,7 +378,7 @@ export class CompareModelVersionsViewImpl extends Component {
                 ? Utils.formatTimestamp(run.getStartTime())
                 : '(unknown)';
             return (
-              <td className='meta-info block-content' key={run.getRunUuid()}>
+              <td className='meta-info block-content' key={run.getRunId()}>
                 {startTime}
               </td>
             );
@@ -618,7 +618,7 @@ export class CompareModelVersionsViewImpl extends Component {
           {data[k].map((value, i) => (
             <td
               className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
-              key={this.props.runInfos[i].getRunUuid()}
+              key={this.props.runInfos[i].getRunId()}
             >
               <span className='truncate-text single-line cell-content'>
                 {value === undefined ? '-' : formatter(value)}

@@ -58,7 +58,7 @@ public class ModelRegistryMlflowClientTest {
         String expId = client.createExperiment(expName);
 
         RunInfo runCreated = client.createRun(expId);
-        String runId = runCreated.getRunUuid();
+        String runId = runCreated.getRunId();
 
         tempDir = Files.createTempDirectory("tempDir").toFile();
         tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();

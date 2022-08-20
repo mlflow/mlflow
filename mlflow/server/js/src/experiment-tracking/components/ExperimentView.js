@@ -1345,7 +1345,7 @@ export const mapStateToProps = (state, ownProps) => {
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
-    const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
+    const metricsByRunUuid = getLatestMetrics(runInfo.getRunId(), state);
     const metrics = Object.values(metricsByRunUuid || {});
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
@@ -1353,14 +1353,14 @@ export const mapStateToProps = (state, ownProps) => {
     return metrics;
   });
   const paramsList = runInfos.map((runInfo) => {
-    const params = Object.values(getParams(runInfo.getRunUuid(), state));
+    const params = Object.values(getParams(runInfo.getRunId(), state));
     params.forEach((param) => {
       paramKeysSet.add(param.key);
     });
     return params;
   });
 
-  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunId(), state));
   // Only show description if we're viewing runs from a single experiment
   const experimentTags =
     !ownProps.compareExperiments && getExperimentTags(ownProps.experiments[0].experiment_id, state);

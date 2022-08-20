@@ -95,7 +95,7 @@ export const runInfosByUuid = (state = {}, action) => {
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);
-          newState[runInfo.getRunUuid()] = runInfo;
+          newState[runInfo.getRunId()] = runInfo;
         });
       }
       return newState;
@@ -108,7 +108,7 @@ export const runInfosByUuid = (state = {}, action) => {
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);
-          newState[runInfo.getRunUuid()] = runInfo;
+          newState[runInfo.getRunId()] = runInfo;
         });
       }
       return newState;
@@ -149,7 +149,7 @@ export const modelVersionsByRunUuid = (state = {}, action) => {
 const amendRunInfosByUuid = (state, runInfo) => {
   return {
     ...state,
-    [runInfo.getRunUuid()]: runInfo,
+    [runInfo.getRunId()]: runInfo,
   };
 };
 
@@ -212,7 +212,7 @@ export const tagsByRunUuid = (state = {}, action) => {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       const tags = action.payload.run.data.tags || [];
-      const runUuid = runInfo.getRunUuid();
+      const runUuid = runInfo.getRunId();
       const newState = { ...state };
       newState[runUuid] = tagArrToObject(tags);
       return newState;
@@ -365,7 +365,7 @@ export const artifactRootUriByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      const runUuid = runInfo.getRunUuid();
+      const runUuid = runInfo.getRunId();
       return {
         ...state,
         [runUuid]: runInfo.getArtifactUri(),

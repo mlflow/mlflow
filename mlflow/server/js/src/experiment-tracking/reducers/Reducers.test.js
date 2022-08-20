@@ -201,7 +201,7 @@ describe('test runInfosByUuid', () => {
     };
     const new_state_0 = deepFreeze(runInfosByUuid(undefined, actionA));
     expect(new_state_0).toEqual({
-      [runA.getRunUuid()]: runA,
+      [runA.getRunId()]: runA,
     });
     const actionB = {
       type: fulfilled(GET_RUN_API),
@@ -214,7 +214,7 @@ describe('test runInfosByUuid', () => {
     const new_state_1 = runInfosByUuid(new_state_0, actionB);
     expect(new_state_1).not.toEqual(new_state_0);
     expect(new_state_1).toEqual({
-      [runB.getRunUuid()]: runB,
+      [runB.getRunId()]: runB,
     });
   });
 
@@ -231,8 +231,8 @@ describe('test runInfosByUuid', () => {
     const new_state = deepFreeze(runInfosByUuid(state, action));
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
-      [runA.getRunUuid()]: runA,
-      [runB.getRunUuid()]: runB,
+      [runA.getRunId()]: runA,
+      [runB.getRunId()]: runB,
     });
   });
 
@@ -243,9 +243,9 @@ describe('test runInfosByUuid', () => {
     const removed = mockRunInfo('removed');
     const newRun = mockRunInfo('new');
     const state = deepFreeze({
-      [preserved.getRunUuid()]: preserved,
-      [replacedOld.getRunUuid()]: replacedOld,
-      [removed.getRunUuid()]: removed,
+      [preserved.getRunId()]: preserved,
+      [replacedOld.getRunId()]: replacedOld,
+      [removed.getRunId()]: removed,
     });
     const action = {
       type: fulfilled(SEARCH_RUNS_API),
@@ -261,9 +261,9 @@ describe('test runInfosByUuid', () => {
     // make sure the reducer did not modify the original state
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
-      [preserved.getRunUuid()]: preserved,
-      [replacedNew.getRunUuid()]: replacedNew,
-      [newRun.getRunUuid()]: newRun,
+      [preserved.getRunId()]: preserved,
+      [replacedNew.getRunId()]: replacedNew,
+      [newRun.getRunId()]: newRun,
     });
   });
 
@@ -272,9 +272,9 @@ describe('test runInfosByUuid', () => {
     const replacedOld = mockRunInfo('replaced', 'old');
     const removed = mockRunInfo('removed');
     const state = deepFreeze({
-      [preserved.getRunUuid()]: preserved,
-      [replacedOld.getRunUuid()]: replacedOld,
-      [removed.getRunUuid()]: removed,
+      [preserved.getRunId()]: preserved,
+      [replacedOld.getRunId()]: replacedOld,
+      [removed.getRunId()]: removed,
     });
     const action = {
       type: rejected(SEARCH_RUNS_API),
@@ -293,9 +293,9 @@ describe('test runInfosByUuid', () => {
     const removed = mockRunInfo('removed');
     const newRun = mockRunInfo('new');
     const state = deepFreeze({
-      [preserved.getRunUuid()]: preserved,
-      [replacedOld.getRunUuid()]: replacedOld,
-      [removed.getRunUuid()]: removed,
+      [preserved.getRunId()]: preserved,
+      [replacedOld.getRunId()]: replacedOld,
+      [removed.getRunId()]: removed,
     });
     const action = {
       type: fulfilled(LOAD_MORE_RUNS_API),
@@ -311,10 +311,10 @@ describe('test runInfosByUuid', () => {
     // make sure the reducer did not modify the original state
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
-      [preserved.getRunUuid()]: preserved,
-      [removed.getRunUuid()]: removed,
-      [replacedNew.getRunUuid()]: replacedNew,
-      [newRun.getRunUuid()]: newRun,
+      [preserved.getRunId()]: preserved,
+      [removed.getRunId()]: removed,
+      [replacedNew.getRunId()]: replacedNew,
+      [newRun.getRunId()]: newRun,
     });
   });
 });
@@ -363,8 +363,8 @@ describe('test modelVersionsByUuid', () => {
     const new_state = deepFreeze(modelVersionsByRunUuid(state, action));
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
-      [runA.getRunUuid()]: [mvA],
-      [runB.getRunUuid()]: [mvB],
+      [runA.getRunId()]: [mvA],
+      [runB.getRunId()]: [mvB],
     });
   });
 
@@ -409,8 +409,8 @@ describe('test modelVersionsByUuid', () => {
       'run03',
     );
     const state = deepFreeze({
-      [run1.getRunUuid()]: [mvA],
-      [run2.getRunUuid()]: [mvB, mvC],
+      [run1.getRunId()]: [mvA],
+      [run2.getRunId()]: [mvB, mvC],
     });
     const action = {
       type: fulfilled(SEARCH_MODEL_VERSIONS),
@@ -422,9 +422,9 @@ describe('test modelVersionsByUuid', () => {
     // make sure the reducer did not modify the original state
     expect(new_state).not.toEqual(state);
     expect(new_state).toEqual({
-      [run1.getRunUuid()]: [mvA],
-      [run2.getRunUuid()]: [mvB],
-      [run3.getRunUuid()]: [mvD],
+      [run1.getRunId()]: [mvA],
+      [run2.getRunId()]: [mvB],
+      [run3.getRunId()]: [mvD],
     });
   });
 });

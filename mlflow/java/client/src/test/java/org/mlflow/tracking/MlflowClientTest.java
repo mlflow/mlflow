@@ -159,7 +159,7 @@ public class MlflowClientTest {
     long startTime = System.currentTimeMillis();
 
     RunInfo runCreated = client.createRun(expId);
-    runId = runCreated.getRunUuid();
+    runId = runCreated.getRunId();
     logger.debug("runId=" + runId);
 
     List<RunInfo> runInfos = client.listRunInfos(expId);
@@ -263,7 +263,7 @@ public class MlflowClientTest {
 
     // Create run
     RunInfo runCreated = client.createRun(expId);
-    String runId = runCreated.getRunUuid();
+    String runId = runCreated.getRunId();
     client.setTag(runId, "tag0", "val0");
     client.setTag(runId, "tag1", "val1");
     client.deleteTag(runId, "tag0");
@@ -308,11 +308,11 @@ public class MlflowClientTest {
     String sourceFile = "MyFile.java";
 
     RunInfo runCreated_1 = client.createRun(expId);
-    String runId_1 = runCreated_1.getRunUuid();
+    String runId_1 = runCreated_1.getRunId();
     logger.debug("runId=" + runId_1);
 
     RunInfo runCreated_2 = client.createRun(expId);
-    String runId_2 = runCreated_2.getRunUuid();
+    String runId_2 = runCreated_2.getRunId();
     logger.debug("runId=" + runId_2);
 
     // Log parameters
@@ -345,10 +345,10 @@ public class MlflowClientTest {
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_2);
 
     // parameter based searches
     searchResult = client.searchRuns(experimentIds,
@@ -358,36 +358,36 @@ public class MlflowClientTest {
             "params.min_samples_leaf != '" + MIN_SAMPLES_LEAF + "'");
     Assert.assertEquals(searchResult.size(), 0);
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '5'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '15'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_2);
 
     // tag based search
     searchResult = client.searchRuns(experimentIds, "tag.user_email = '" + USER_EMAIL + "'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.user_email != '" + USER_EMAIL + "'");
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'works'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getRunId(), runId_2);
 
     // Paged searchRuns
 
     List<Run> searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", 
             ViewType.ACTIVE_ONLY, 1000, Lists.newArrayList("metrics.accuracy_score")).getItems());
-    Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2);
+    Assert.assertEquals(searchRuns.get(0).getInfo().getRunId(), runId_1);
+    Assert.assertEquals(searchRuns.get(1).getInfo().getRunId(), runId_2);
 
     searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
             1000, Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"))
             .getItems());
-    Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2);
+    Assert.assertEquals(searchRuns.get(1).getInfo().getRunId(), runId_1);
+    Assert.assertEquals(searchRuns.get(0).getInfo().getRunId(), runId_2);
 
     Page<Run> page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000);
     Assert.assertEquals(page.getPageSize(), 2);
@@ -414,12 +414,12 @@ public class MlflowClientTest {
     String expName = createExperimentName();
     String expId = client.createExperiment(expName);
     RunInfo parentRun = client.createRun(expId);
-    String parentRunId = parentRun.getRunUuid();
+    String parentRunId = parentRun.getRunId();
     RunInfo childRun = client.createRun(CreateRun.newBuilder()
     .setExperimentId(expId)
     .build());
-    client.setTag(childRun.getRunUuid(), "mlflow.parentRunId", parentRunId);
-    List<RunTag> childTags = client.getRun(childRun.getRunUuid()).getData().getTagsList();
+    client.setTag(childRun.getRunId(), "mlflow.parentRunId", parentRunId);
+    List<RunTag> childTags = client.getRun(childRun.getRunId()).getData().getTagsList();
     String parentRunIdTagValue = childTags.stream()
       .filter(t -> t.getKey().equals("mlflow.parentRunId"))
       .findFirst()

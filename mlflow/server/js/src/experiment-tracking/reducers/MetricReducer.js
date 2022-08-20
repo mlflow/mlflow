@@ -43,7 +43,7 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
   switch (action.type) {
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
-      const runUuid = runInfo.getRunUuid();
+      const runUuid = runInfo.getRunId();
       const metrics = action.payload.run.data.metrics || [];
       return {
         ...state,

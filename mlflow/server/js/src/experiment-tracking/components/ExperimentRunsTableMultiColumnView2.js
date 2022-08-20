@@ -368,7 +368,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
         }));
         const runInfo = runInfos[idx];
 
-        const runUuid = runInfo.getRunUuid();
+        const runUuid = runInfo.getRunId();
         const { experiment_id: experimentId } = runInfo;
         const experimentName = experimentNameMap[experimentId];
         const user = Utils.getUser(runInfo, tags);
@@ -478,7 +478,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
     // So, we need to be aware of this and not re-render when selection stays the same.
     this.gridApi.forEachNode((node) => {
       const { runInfo } = node.data;
-      if (runInfo && selectedRunsSet.has(runInfo.getRunUuid())) {
+      if (runInfo && selectedRunsSet.has(runInfo.getRunId())) {
         node.setSelected(true);
       }
     });

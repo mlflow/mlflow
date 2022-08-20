@@ -468,14 +468,14 @@ export class CompareRunView extends Component {
                 {this.props.runInfos.map((r) => (
                   <th scope='row' className='data-value' key={r.run_id} css={colWidthStyle}>
                     <Tooltip
-                      title={r.getRunUuid()}
+                      title={r.getRunId()}
                       color='gray'
                       placement='topLeft'
                       overlayStyle={{ maxWidth: '400px' }}
                       mouseEnterDelay={1.0}
                     >
-                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunUuid())}>
-                        {r.getRunUuid()}
+                      <Link to={Routes.getRunPageRoute(r.getExperimentId(), r.getRunId())}>
+                        {r.getRunId()}
                       </Link>
                     </Tooltip>
                   </th>

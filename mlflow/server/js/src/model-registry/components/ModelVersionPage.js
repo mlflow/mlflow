@@ -228,8 +228,8 @@ const mapStateToProps = (state, ownProps) => {
   if (modelVersion && !modelVersion.run_link) {
     runInfo = getRunInfo(modelVersion && modelVersion.run_id, state);
   }
-  const tags = runInfo && getRunTags(runInfo.getRunUuid(), state);
-  const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunUuid());
+  const tags = runInfo && getRunTags(runInfo.getRunId(), state);
+  const runDisplayName = tags && Utils.getRunDisplayName(tags, runInfo.getRunId());
   const { apis } = state;
   return {
     modelName,
