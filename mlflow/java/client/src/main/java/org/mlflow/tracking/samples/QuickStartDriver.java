@@ -56,7 +56,7 @@ public class QuickStartDriver {
 
     RunInfo runCreated = client.createRun(expId);
     System.out.println("CreateRun: " + runCreated);
-    String runId = runCreated.getRunUuid();
+    String runId = runCreated.getRunId();
 
     // Log parameters
     client.logParam(runId, "min_samples_leaf", "2");

@@ -18,7 +18,6 @@ from google.protobuf.text_format import Parse as ParseTextIntoProto
 from mlflow.utils.proto_json_utils import (
     message_to_json,
     parse_dict,
-    _stringify_all_experiment_ids,
     parse_tf_serving_input,
     _dataframe_from_json,
     _DateTimeEncoder,
@@ -222,32 +221,6 @@ def test_parse_legacy_experiment():
     assert experiment.experiment_id == "123"
     assert experiment.name == "name"
     assert experiment.artifact_location == ""
-
-
-def test_back_compat():
-    in_json = {
-        "experiment_id": 123,
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": [1, 2, 3, 4, 5],
-        "things": {
-            "experiment_id": 4,
-            "more_things": {"experiment_id": 7, "experiment_ids": [2, 3, 4, 5]},
-        },
-    }
-
-    _stringify_all_experiment_ids(in_json)
-    exp_json = {
-        "experiment_id": "123",
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": ["1", "2", "3", "4", "5"],
-        "things": {
-            "experiment_id": "4",
-            "more_things": {"experiment_id": "7", "experiment_ids": ["2", "3", "4", "5"]},
-        },
-    }
-    assert exp_json == in_json
 
 
 def assert_result(result, expected_result):

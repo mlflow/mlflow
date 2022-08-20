@@ -165,9 +165,7 @@ class RestStore(AbstractStore):
 
     def update_run_info(self, run_id, run_status, end_time):
         """Updates the metadata of the specified run."""
-        req_body = message_to_json(
-            UpdateRun(run_id=run_id, status=run_status, end_time=end_time)
-        )
+        req_body = message_to_json(UpdateRun(run_id=run_id, status=run_status, end_time=end_time))
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
 
@@ -221,9 +219,7 @@ class RestStore(AbstractStore):
         :param run_id: String id for the run
         :param param: Param instance to log
         """
-        req_body = message_to_json(
-            LogParam(run_id=run_id, key=param.key, value=param.value)
-        )
+        req_body = message_to_json(LogParam(run_id=run_id, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
 
     def set_experiment_tag(self, experiment_id, tag):
@@ -245,9 +241,7 @@ class RestStore(AbstractStore):
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
-        req_body = message_to_json(
-            SetTag(run_id=run_id, key=tag.key, value=tag.value)
-        )
+        req_body = message_to_json(SetTag(run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
 
     def delete_tag(self, run_id, key):
@@ -268,9 +262,7 @@ class RestStore(AbstractStore):
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        req_body = message_to_json(
-            GetMetricHistory(run_id=run_id, metric_key=metric_key)
-        )
+        req_body = message_to_json(GetMetricHistory(run_id=run_id, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 

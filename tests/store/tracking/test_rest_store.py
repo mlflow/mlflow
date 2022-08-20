@@ -203,7 +203,7 @@ class TestRestStore:
         with mock_http_request() as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
             body = message_to_json(
-                LogParam(run_id="some_uuid", run_id="some_uuid", key="k1", value="v1")
+                LogParam(run_id="some_uuid", key="k1", value="v1")
             )
             self._verify_requests(mock_http, creds, "runs/log-parameter", "POST", body)
 

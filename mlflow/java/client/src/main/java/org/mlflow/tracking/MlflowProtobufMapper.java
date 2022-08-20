@@ -40,7 +40,6 @@ class MlflowProtobufMapper {
 
   String makeLogParam(String runId, String key, String value) {
     LogParam.Builder builder = LogParam.newBuilder();
-    builder.setRunUuid(runId);
     builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
@@ -49,7 +48,6 @@ class MlflowProtobufMapper {
 
   String makeLogMetric(String runId, String key, double value, long timestamp, long step) {
     LogMetric.Builder builder = LogMetric.newBuilder();
-    builder.setRunUuid(runId);
     builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
@@ -68,7 +66,6 @@ class MlflowProtobufMapper {
 
   String makeSetTag(String runId, String key, String value) {
     SetTag.Builder builder = SetTag.newBuilder();
-    builder.setRunUuid(runId);
     builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
@@ -102,7 +99,6 @@ class MlflowProtobufMapper {
 
   String makeUpdateRun(String runId, RunStatus status, long endTime) {
     UpdateRun.Builder builder = UpdateRun.newBuilder();
-    builder.setRunUuid(runId);
     builder.setRunId(runId);
     builder.setStatus(status);
     builder.setEndTime(endTime);

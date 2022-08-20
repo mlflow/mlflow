@@ -630,11 +630,7 @@ export class CompareRunView extends Component {
             {values.map((value, i) => {
               const cellText = value === undefined ? '' : formatter(value);
               return (
-                <td
-                  className='data-value'
-                  key={this.props.runInfos[i].run_id}
-                  css={colWidthStyle}
-                >
+                <td className='data-value' key={this.props.runInfos[i].run_id} css={colWidthStyle}>
                   <Tooltip
                     title={cellText}
                     color='gray'
