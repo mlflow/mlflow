@@ -34,9 +34,7 @@ class PredictStep(BaseStep):
 
         if not self.skip_data_profiling:
             _logger.info("Profiling ingested dataset")
-            scored_dataset_profile = get_pandas_data_profile(
-                scored_df, "Profile of Scored Dataset"
-            )
+            scored_dataset_profile = get_pandas_data_profile(scored_df, "Profile of Scored Dataset")
 
             # Optional tab : data profile for scored data:
             card.add_tab("Scored Data Profile", "{{PROFILE}}").add_pandas_profile(
@@ -92,15 +90,19 @@ class PredictStep(BaseStep):
             relative_path=_INPUT_FILE_NAME,
         )
         input_sdf = spark.read.parquet(ingested_data_path)
-        if input_sdf.columns.contains(_PREDICTION_COLUMN_NAME):
-            _logger.warn(f"Input scoring dataframe already contains a column '{_PREDICTION_COLUMN_NAME}'. "
-                         f"This column will be dropped in favor of the predict output column name.")
+        if _PREDICTION_COLUMN_NAME in input_sdf.columns:
+            _logger.warning(
+                f"Input scoring dataframe already contains a column '{_PREDICTION_COLUMN_NAME}'. "
+                f"This column will be dropped in favor of the predict output column name."
+            )
 
         # score dataset
         model_uri = self.step_config["model_uri"]
         env_manager = "local" if "_disable_env_restoration" in self.step_config else "conda"
         predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=env_manager)
-        scored_sdf = input_sdf.withColumn(_PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns)))
+        scored_sdf = input_sdf.withColumn(
+            _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
+        )
 
         # save predictions
         # note: the current output writing logic allows no overwrites
@@ -114,7 +116,9 @@ class PredictStep(BaseStep):
 
         # predict step artifacts
         scored_pdf = scored_sdf.toPandas()
-        scored_pdf.to_parquet(os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME), engine="pyarrow")
+        scored_pdf.to_parquet(
+            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME), engine="pyarrow"
+        )
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time

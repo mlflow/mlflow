@@ -65,9 +65,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     def _run(self, output_directory: str) -> BaseCard:
         import pandas as pd
 
-        dataset_dst_path = os.path.abspath(
-            os.path.join(output_directory, self.dataset_output_name)
-        )
+        dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
         )
@@ -179,9 +177,11 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 
 
 class IngestStep(BaseIngestStep):
+    _DATASET_OUTPUT_NAME = "dataset.parquet"
+
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.dataset_output_name = "dataset.parquet"
+        self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
@@ -204,9 +204,11 @@ class IngestStep(BaseIngestStep):
 
 
 class IngestScoringStep(BaseIngestStep):
+    _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
+
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
         super().__init__(step_config, pipeline_root)
-        self.dataset_output_name = "scoring-dataset.parquet"
+        self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):

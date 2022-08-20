@@ -72,7 +72,10 @@ def train_log_and_register_model(model_name, is_dummy=False):
     model_version = mlflow.register_model(runs_uri, model_name)
     client = mlflow.tracking.MlflowClient()
     client.transition_model_version_stage(
-        name=model_name, version=model_version.version, stage="Production", archive_existing_versions=True
+        name=model_name,
+        version=model_version.version,
+        stage="Production",
+        archive_existing_versions=True,
     )
     return "models:/{model_name}/Production".format(model_name=model_name)
 

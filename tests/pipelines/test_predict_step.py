@@ -301,10 +301,10 @@ def test_predict_throws_when_no_model_is_specified():
             pipeline_root=os.getcwd(),
         )
 
+
 def test_predict_skips_profiling_when_specified(
     tmp_pipeline_root_path: Path,
     predict_step_output_dir: Path,
-    spark_session,
 ):
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
