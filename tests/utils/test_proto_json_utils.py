@@ -214,7 +214,7 @@ def test_parse_dict_int_as_string_backcompat():
 
 
 def test_parse_legacy_experiment():
-    in_json = {"experiment_id": 123, "name": "name", "unknown": "field"}
+    in_json = {"experiment_id": "123", "name": "name", "unknown": "field"}
     message = ProtoExperiment()
     parse_dict(in_json, message)
     experiment = Experiment.from_proto(message)
