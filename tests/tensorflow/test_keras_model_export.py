@@ -20,7 +20,6 @@ import yaml
 from unittest import mock
 
 import mlflow
-import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -228,27 +227,27 @@ def test_that_keras_module_arg_works(model_path):
         x = MyModel("x123")
         path0 = os.path.join(model_path, "0")
         with pytest.raises(MlflowException, match="Unable to infer keras module from the model"):
-            mlflow.keras.save_model(x, path0)
-        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
-        y = mlflow.keras.load_model(path0)
+            mlflow.tensorflow.save_model(x, path0)
+        mlflow.tensorflow.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
+        y = mlflow.tensorflow.load_model(path0)
         assert x == y
         path1 = os.path.join(model_path, "1")
-        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
-        z = mlflow.keras.load_model(path1)
+        mlflow.tensorflow.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
+        z = mlflow.tensorflow.load_model(path1)
         assert x == z
         # Tests model log
         with mlflow.start_run() as active_run:
             with pytest.raises(
                 MlflowException, match="Unable to infer keras module from the model"
             ):
-                mlflow.keras.log_model(x, "model0")
-            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
-            a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
+                mlflow.tensorflow.log_model(x, "model0")
+            mlflow.tensorflow.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
+            a = mlflow.tensorflow.load_model("runs:/{}/model0".format(active_run.info.run_id))
             assert x == a
-            mlflow.keras.log_model(
+            mlflow.tensorflow.log_model(
                 x, "model1", keras_module=FakeKerasModule.__name__, save_format="h5"
             )
-            b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
+            b = mlflow.tensorflow.load_model("runs:/{}/model1".format(active_run.info.run_id))
             assert x == b
 
 
@@ -270,9 +269,9 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_path = os.path.join(model_path, "plain")
     expected = keras_model.predict(x.values)
     kwargs = {"save_format": save_format} if save_format else {}
-    mlflow.keras.save_model(keras_model, model_path, **kwargs)
+    mlflow.tensorflow.save_model(keras_model, model_path, **kwargs)
     # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflow.tensorflow.load_model(model_path)
     # When saving as SavedModel, we actually convert the model
     # to a slightly different format, so we cannot assume it is
     # exactly the same.
@@ -288,7 +287,7 @@ def test_pyfunc_serve_and_score(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.keras.log_model(
+        model_info = mlflow.tensorflow.log_model(
             model,
             "model",
             extra_pip_requirements=[PROTOBUF_REQUIREMENT],
@@ -310,7 +309,7 @@ def test_score_model_as_spark_udf(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.keras.log_model(model, "model")
+        model_info = mlflow.tensorflow.log_model(model, "model")
     expected = model.predict(x.values)
     spark_udf_preds = score_model_as_udf(
         model_uri=model_info.model_uri, pandas_df=pd.DataFrame(x), result_type="float"
@@ -327,7 +326,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.keras.save_model(
+                mlflow.tensorflow.save_model(
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
@@ -341,9 +340,9 @@ def test_signature_and_examples_are_saved_correctly(model, data):
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
-    mlflow.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
+    mlflow.tensorflow.save_model(custom_model, model_path, custom_objects=custom_objects)
     # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflow.tensorflow.load_model(model_path)
     assert all(model_loaded.predict(x.values) == custom_predicted)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -361,16 +360,16 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
 
     incorrect_custom_objects = {"MyDense": DifferentCustomLayer()}
     correct_custom_objects = {"MyDense": custom_layer}
-    mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
-    model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
+    mlflow.tensorflow.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
+    model_loaded = mlflow.tensorflow.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
     with pytest.raises(TypeError, match=r".+"):
-        model_loaded = mlflow.keras.load_model(model_path)
+        model_loaded = mlflow.tensorflow.load_model(model_path)
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
-    mlflow.keras.save_model(model, model_path)
+    mlflow.tensorflow.save_model(model, model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -378,7 +377,7 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+    model_loaded = mlflow.tensorflow.load_model(model_uri=model_uri)
     assert all(model_loaded.predict(x.values) == predicted)
 
 
@@ -390,14 +389,14 @@ def test_model_log(model, data, predicted):
             if should_start_run:
                 mlflow.start_run()
             artifact_path = "keras_model"
-            model_info = mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_info = mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
             assert model_info.model_uri == model_uri
 
             # Load model
-            model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+            model_loaded = mlflow.tensorflow.load_model(model_uri=model_uri)
             assert all(model_loaded.predict(x.values) == predicted)
 
             # Loading pyfunc model
@@ -411,7 +410,7 @@ def test_log_model_calls_register_model(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             model, artifact_path=artifact_path, registered_model_name="AdsModel1"
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -426,14 +425,14 @@ def test_log_model_no_registered_model_name(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.keras.log_model(model, artifact_path=artifact_path)
+        mlflow.tensorflow.log_model(model, artifact_path=artifact_path)
         mlflow.register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
+    mlflow.tensorflow.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -448,9 +447,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
-    conda_env = dict(mlflow.keras.get_default_conda_env())
+    conda_env = dict(mlflow.tensorflow.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
+    mlflow.tensorflow.save_model(keras_model=model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -464,7 +463,7 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
 def test_model_save_persists_requirements_in_mlflow_model_directory(
     model, model_path, keras_custom_env
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
+    mlflow.tensorflow.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
@@ -475,19 +474,19 @@ def test_log_model_with_pip_requirements(model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.keras.log_model(model, "model", pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(model, "model", pip_requirements=req_file.strpath)
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.keras.log_model(model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"])
+        mlflow.tensorflow.log_model(model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.keras.log_model(model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"])
+        mlflow.tensorflow.log_model(model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             ["mlflow", "b", "-c constraints.txt"],
@@ -497,17 +496,17 @@ def test_log_model_with_pip_requirements(model, tmpdir):
 
 
 def test_log_model_with_extra_pip_requirements(model, tmpdir):
-    default_reqs = mlflow.keras.get_default_pip_requirements()
+    default_reqs = mlflow.tensorflow.get_default_pip_requirements()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.keras.log_model(model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(model, "model", extra_pip_requirements=req_file.strpath)
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             model,
             "model",
             extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
@@ -518,7 +517,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             model,
             "model",
             extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
@@ -533,7 +532,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
 def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env
         )
         model_path = _download_artifact_from_uri(
@@ -549,7 +548,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env
         )
         model_path = _download_artifact_from_uri(
@@ -573,16 +572,16 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     model, model_path
 ):
-    mlflow.keras.save_model(keras_model=model, path=model_path)
-    _assert_pip_requirements(model_path, mlflow.keras.get_default_pip_requirements())
+    mlflow.tensorflow.save_model(keras_model=model, path=model_path)
+    _assert_pip_requirements(model_path, mlflow.tensorflow.get_default_pip_requirements())
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path)
+        mlflow.tensorflow.log_model(keras_model=model, artifact_path=artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
-    _assert_pip_requirements(model_uri, mlflow.keras.get_default_pip_requirements())
+    _assert_pip_requirements(model_uri, mlflow.tensorflow.get_default_pip_requirements())
 
 
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
@@ -592,16 +591,16 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
+    mlflow.tensorflow.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
     shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME, None)
     assert flavor_conf is not None
     del flavor_conf["data"]
     model_conf.save(model_conf_path)
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflow.tensorflow.load_model(model_path)
     assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
@@ -613,7 +612,7 @@ def test_save_model_with_tf_save_format(model_path):
     is _not_ "h5".
     """
     keras_model = mock.Mock(spec=tf.keras.Model)
-    mlflow.keras.save_model(keras_model=keras_model, path=model_path, save_format="tf")
+    mlflow.tensorflow.save_model(keras_model=keras_model, path=model_path, save_format="tf")
     _, args, kwargs = keras_model.save.mock_calls[0]
     # Ensure that save_format propagated through
     assert kwargs["save_format"] == "tf"
@@ -623,10 +622,10 @@ def test_save_model_with_tf_save_format(model_path):
 
 def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
-    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
+    mlflow.tensorflow.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME, None)
     assert flavor_conf is not None
     assert flavor_conf.get("save_format") == "tf"
     assert not os.path.exists(
@@ -636,21 +635,21 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
         os.path.join(model_path, "data", "model")
     ), "Expected directory containing saved_model.pb"
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflow.tensorflow.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
 def test_load_without_save_format(tf_keras_model, model_path):
     """Ensures that keras models without save_format can still be loaded."""
-    mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
+    mlflow.tensorflow.save_model(tf_keras_model, model_path, save_format="h5")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME)
+    flavor_conf = model_conf.flavors.get(mlflow.tensorflow.FLAVOR_NAME)
     assert flavor_conf is not None
     del flavor_conf["save_format"]
     model_conf.save(model_conf_path)
 
-    model_loaded = mlflow.keras.load_model(model_path)
+    model_loaded = mlflow.tensorflow.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()
 
 
@@ -676,7 +675,7 @@ def test_pyfunc_serve_and_score_transformers():
     model.compile()
 
     with mlflow.start_run():
-        mlflow.keras.log_model(
+        mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
             keras_module=tf.keras,
@@ -692,10 +691,10 @@ def test_pyfunc_serve_and_score_transformers():
 def test_log_model_with_code_paths(model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.keras._add_code_from_conf_to_system_path"
+        "mlflow.tensorflow.keras._add_code_from_conf_to_system_path"
     ) as add_mock:
-        mlflow.keras.log_model(model, artifact_path, code_paths=[__file__])
+        mlflow.tensorflow.log_model(model, artifact_path, code_paths=[__file__])
         model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.keras.FLAVOR_NAME)
-        mlflow.keras.load_model(model_uri)
+        _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
+        mlflow.tensorflow.load_model(model_uri)
         add_mock.assert_called()

@@ -18,7 +18,6 @@ import yaml
 
 import mlflow
 from mlflow import MlflowClient
-import mlflow.keras
 import mlflow.tensorflow
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
@@ -462,7 +461,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
     assert "tensorboard_logs" in artifacts
-    model = mlflow.keras.load_model("runs:/" + run.info.run_id + "/model")
+    model = mlflow.tensorflow.load_model("runs:/" + run.info.run_id + "/model")
     model.predict(random_train_data)
 
 
@@ -1273,7 +1272,7 @@ def test_autolog_text_vec_model(tmpdir):
     with mlflow.start_run() as run:
         model.fit(train_samples, train_labels, epochs=1)
 
-    loaded_model = mlflow.keras.load_model("runs:/" + run.info.run_id + "/model")
+    loaded_model = mlflow.tensorflow.load_model("runs:/" + run.info.run_id + "/model")
     np.testing.assert_array_equal(loaded_model.predict(train_samples), model.predict(train_samples))
 
 
@@ -1396,7 +1395,7 @@ def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
     if Version(tf.__version__) >= Version("2.6"):
         import keras  # pylint: disable=unused-variable,unused-import
 
-        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+        assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
 def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
@@ -1410,7 +1409,7 @@ def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
     # so the original keras autologging is disabled
     if Version(tf.__version__) >= Version("2.6"):
         # NB: For TF >= 2.6, import tensorflow.keras will trigger importing keras
-        assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+        assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
 @pytest.mark.skipif(
@@ -1423,7 +1422,7 @@ def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     import keras  # pylint: disable=unused-variable,unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-    assert autologging_is_disabled(mlflow.keras.FLAVOR_NAME)
+    assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
 def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
