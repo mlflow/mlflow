@@ -1860,25 +1860,22 @@ def autolog(
         nonlocal FULLY_IMPORTED_KERAS, TF_AUTOLOG_SETUP_CALLED
         FULLY_IMPORTED_KERAS = True
 
-        if Version(keras_module.__version__) >= Version("2.6.0"):
-            # NB: Keras unconditionally depends on TensorFlow beginning with Version 2.6.0, and
-            # many classes defined in the `keras` module are aliases of classes in the `tf.keras`
-            # module. Accordingly, TensorFlow autologging serves as a replacement for Keras
-            # autologging in Keras >= 2.6.0
-            try:
-                import tensorflow
+        # NB: Keras unconditionally depends on TensorFlow beginning with Version 2.6.0, and
+        # many classes defined in the `keras` module are aliases of classes in the `tf.keras`
+        # module. Accordingly, TensorFlow autologging serves as a replacement for Keras
+        # autologging in Keras >= 2.6.0
+        try:
+            import tensorflow
 
-                setup_autologging(tensorflow)
-                TF_AUTOLOG_SETUP_CALLED = True
-            except Exception as e:
-                _logger.debug(
-                    "Failed to set up TensorFlow autologging for tf.keras models upon"
-                    " Keras library import: %s",
-                    str(e),
-                )
-                raise
-        else:
-            setup_autologging(keras_module)
+            setup_autologging(tensorflow)
+            TF_AUTOLOG_SETUP_CALLED = True
+        except Exception as e:
+            _logger.debug(
+                "Failed to set up TensorFlow autologging for tf.keras models upon"
+                " Keras library import: %s",
+                str(e),
+            )
+            raise
 
     register_post_import_hook(conditionally_set_up_keras_autologging, "keras", overwrite=True)
 
