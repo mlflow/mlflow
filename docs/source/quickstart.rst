@@ -151,7 +151,7 @@ either a local directory or a GitHub URI:
     mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
+specifies its dependencies. If you haven't configured a :ref:`tracking server <tracking_server>`,
 projects log their Tracking API data in the local ``mlruns`` directory so you can see these
 runs using ``mlflow ui``.
 
