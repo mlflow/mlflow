@@ -238,7 +238,7 @@ class TestDatabricksModelArtifactRepository:
                 signed_uri_mock["signed_uri"],
                 ANY,
                 ANY,
-                DatabricksModelsArtifactRepository._process_raw_headers(signed_uri_mock["headers"])
+                DatabricksModelsArtifactRepository._process_raw_headers(signed_uri_mock["headers"]),
             )
 
     def test_download_file_get_request_fail(self, databricks_model_artifact_repo):
