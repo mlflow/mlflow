@@ -411,9 +411,19 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
   });
 
   test('should render tag that is a valid http(s) as clickable link', () => {
-    expect(TagCellRenderer({value: "https://some_url.com"})).toEqual(<a href="https://some_url.com" target="_blank" rel="noreferrer">https://some_url.com</a>);
-    expect(TagCellRenderer({value: "http://some_url.com"})).toEqual(<a href="http://some_url.com" target="_blank" rel="noreferrer">http://some_url.com</a>);
-    expect(TagCellRenderer({value: "some text"})).toEqual("some text");
-    expect(TagCellRenderer({value: "some text https://some_url.com"})).toEqual("some text https://some_url.com");
-  })
+    expect(TagCellRenderer({ value: 'https://some_url.com' })).toEqual(
+      <a href='https://some_url.com' target='_blank' rel='noreferrer'>
+        https://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'http://some_url.com' })).toEqual(
+      <a href='http://some_url.com' target='_blank' rel='noreferrer'>
+        http://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'some text' })).toEqual('some text');
+    expect(TagCellRenderer({ value: 'some text https://some_url.com' })).toEqual(
+      'some text https://some_url.com',
+    );
+  });
 });

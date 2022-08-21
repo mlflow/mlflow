@@ -902,5 +902,7 @@ test('isValidHttpUrl', () => {
   expect(Utils.isValidHttpUrl('some other text https://some_url.com/')).toEqual(false);
   expect(Utils.isValidHttpUrl('fualksdhjakjsdh')).toEqual(false);
   expect(Utils.isValidHttpUrl('#')).toEqual(false);
+  // disable no-script-url rule to test that javascript protocol is not seen as valid url
+  /* eslint-disable no-script-url*/
   expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
 });
