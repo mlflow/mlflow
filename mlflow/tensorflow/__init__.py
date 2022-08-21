@@ -23,7 +23,6 @@ from threading import RLock
 import numpy as np
 
 import mlflow
-import mlflow.keras
 from mlflow import pyfunc
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -87,13 +86,15 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 _AUTOLOG_RUN_ID = None
 
 
-def get_default_pip_requirements():
+def get_default_pip_requirements(include_cloudpickle=False):
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("tensorflow"), _get_pinned_requirement("keras")]
+    if include_cloudpickle:
+        pip_deps.append(_get_pinned_requirement("cloudpickle"))
 
     return pip_deps
 
@@ -207,7 +208,7 @@ def log_model(
              metadata of the logged model.
     """
     if keras_model is not None:
-        if tf_saved_model_dir is None or tf_meta_graph_tags is None or tf_signature_def_key is None:
+        if tf_saved_model_dir is not None or tf_meta_graph_tags is not None or tf_signature_def_key is not None:
             raise ValueError(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."
@@ -332,7 +333,7 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     if keras_model is not None:
-        if tf_saved_model_dir is None or tf_meta_graph_tags is None or tf_signature_def_key is None:
+        if tf_saved_model_dir is not None or tf_meta_graph_tags is not None or tf_signature_def_key is not None:
             raise ValueError(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."

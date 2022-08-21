@@ -327,7 +327,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.tensorflow.save_model(
-                    model, path=path, signature=signature, input_example=example
+                    keras_model=model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature

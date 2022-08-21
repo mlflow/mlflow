@@ -36,8 +36,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tensorflow import get_default_pip_requirements
-from mlflow.tensorflow import FLAVOR_NAME
 
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
@@ -350,6 +348,7 @@ def save_model(
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
     import keras.models
+    from mlflow.tensorflow import get_default_pip_requirements, FLAVOR_NAME
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -433,7 +432,7 @@ def save_model(
     include_cloudpickle = custom_objects is not None
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements(include_cloudpickle, keras_module)
+            default_reqs = get_default_pip_requirements(include_cloudpickle)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
