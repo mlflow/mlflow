@@ -34,12 +34,17 @@ def _get_flavor_configuration(model_path, flavor_name):
         )
 
     model_conf = Model.load(model_configuration_path)
-    if flavor_name not in model_conf.flavors:
-        raise MlflowException(
-            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
-            RESOURCE_DOES_NOT_EXIST,
-        )
-    conf = model_conf.flavors[flavor_name]
+    if flavor_name == "tensorflow" and "keras" in model_conf.flavors:
+        # Patch code for backwards compatibility on loading keras model saved by old
+        # mlflow version.
+        conf = model_conf.flavors["keras"]
+    else:
+        if flavor_name not in model_conf.flavors:
+            raise MlflowException(
+                'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        conf = model_conf.flavors[flavor_name]
     return conf
 
 

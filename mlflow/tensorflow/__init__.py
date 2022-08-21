@@ -68,7 +68,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.models import infer_signature
-from mlflow.tensorflow import keras as keras_flavor
+from mlflow.tensorflow import keras as mlflow_keras
 
 FLAVOR_NAME = "tensorflow"
 
@@ -212,7 +212,7 @@ def log_model(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."
             )
-        return keras_flavor.log_model(
+        return mlflow_keras.log_model(
             artifact_path=artifact_path,
             keras_model=keras_model,
             custom_objects=custom_objects,
@@ -337,7 +337,7 @@ def save_model(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."
             )
-        return keras_flavor.save_model(
+        return mlflow_keras.save_model(
             path=path,
             keras_model=keras_model,
             custom_objects=custom_objects,
@@ -439,7 +439,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     )
 
 
-def load_model(model_uri, dst_path=None):
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
@@ -478,6 +478,17 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
+
+    model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
+    model_conf = Model.load(model_configuration_path)
+    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
+        is_keras_model = True
+    else:
+        is_keras_model = False
+
+    if is_keras_model:
+        return mlflow_keras.load_model(local_model_path, flavor_conf, **kwargs)
+
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     (
         tf_saved_model_dir,
@@ -1093,7 +1104,7 @@ def autolog(
             _logger,
         )
 
-        keras_flavor.log_model(
+        mlflow_keras.log_model(
             keras_model=history.model,
             artifact_path="model",
             input_example=input_example,

@@ -37,9 +37,8 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tensorflow import get_default_pip_requirements
+from mlflow.tensorflow import FLAVOR_NAME
 
-
-FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
@@ -145,39 +144,7 @@ def _load_pyfunc(path):
         raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(model_uri, dst_path=None, **kwargs):
-    """
-    Load a Keras model from a local file or a run.
-
-    Extra arguments are passed through to keras.load_model.
-
-    :param model_uri: The location, in URI format, of the MLflow model. For example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-    :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
-                     path will be created.
-
-    :return: A Keras model instance.
-
-    .. code-block:: python
-        :caption: Example
-
-        # Load persisted model as a Keras model or as a PyFunc, call predict() on a pandas DataFrame
-        keras_model = mlflow.keras.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2" + "/models")
-        predictions = keras_model.predict(x_test)
-    """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+def load_model(local_model_path, flavor_conf, **kwargs):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     keras_module = importlib.import_module(flavor_conf.get("keras_module", "keras"))
     keras_model_artifacts_path = os.path.join(
@@ -193,7 +160,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
     )
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     keras_model,
     artifact_path,
@@ -318,7 +284,6 @@ def _save_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     keras_model,
     path,
@@ -384,11 +349,11 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.keras.save_model(keras_model, keras_model_path)
     """
-    import keras.engine.network
+    import keras.models
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    if not isinstance(keras_model, keras.engine.network.Network):
+    if not isinstance(keras_model, keras.models.Model):
         raise MlflowException(
             "The `keras_model` argument value is not a keras model instance."
         )
@@ -456,7 +421,7 @@ def save_model(
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
         mlflow_model,
-        loader_module="mlflow.keras",
+        loader_module="mlflow.tensorflow.keras",
         data=data_subpath,
         env=_CONDA_ENV_FILE_NAME,
         code=code_dir_subpath,
