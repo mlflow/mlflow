@@ -221,7 +221,8 @@ class TestDatabricksModelArtifactRepository:
         signed_uri_response_mock = mock.MagicMock()
         signed_uri_response_mock.status_code = 200
         signed_uri_mock = {
-            "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567"
+            "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
+            "headers": {"key": "header_name", "value": "header_value"}
         }
         signed_uri_response_mock.text = json.dumps(signed_uri_mock)
         with mock.patch(
