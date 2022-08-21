@@ -1063,6 +1063,15 @@ class Utils {
     }
     return `./#${route}`; // issue-2213 use relative path in case there is a url prefix
   }
+
+  static isValidHttpUrl(str) {
+    try {
+      const url = new URL(str);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (err) {
+      return false;
+    }
+  }
 }
 
 export default Utils;
