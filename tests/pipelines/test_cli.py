@@ -62,3 +62,13 @@ def test_pipelines_cli_works_with_non_default_profile():
     result = CliRunner().invoke(pipelines_cli.clean, env={_PIPELINE_PROFILE_ENV_VAR: "databricks"})
     assert "with profile: 'databricks'" in result.output
     assert result.exit_code == 0
+
+
+@pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
+def test_pipelines_get_artifact_works():
+    result = CliRunner().invoke(
+        pipelines_cli.get_artifact,
+        args="--artifact model",
+        env={_PIPELINE_PROFILE_ENV_VAR: "local"},
+    )
+    assert result.exit_code == 0
