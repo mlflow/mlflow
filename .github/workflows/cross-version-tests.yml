@@ -133,6 +133,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
+      - uses: ./.github/actions/setup-pyenv
       - name: Get cache key
         env:
           INSTALL_COMMAND: ${{ matrix.install }}
