@@ -181,7 +181,6 @@ export const loadMoreRunsApi = (params) => ({
   meta: { id: params.id || getUUID() },
 });
 
-// TODO: run_id is deprecated, use run_id instead
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
 export const listArtifactsApi = (runId, path, id = getUUID()) => {
   return {
@@ -194,7 +193,6 @@ export const listArtifactsApi = (runId, path, id = getUUID()) => {
   };
 };
 
-// TODO: run_id is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
 export const getMetricHistoryApi = (runId, metricKey, id = getUUID()) => {
   return {
@@ -207,7 +205,6 @@ export const getMetricHistoryApi = (runId, metricKey, id = getUUID()) => {
   };
 };
 
-// TODO: run_id is deprecated, use run_id instead
 export const SET_TAG_API = 'SET_TAG_API';
 export const setTagApi = (runId, tagName, tagValue, id = getUUID()) => {
   return {
@@ -221,7 +218,6 @@ export const setTagApi = (runId, tagName, tagValue, id = getUUID()) => {
   };
 };
 
-// TODO: run_id is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
 export const deleteTagApi = (runId, tagName, id = getUUID()) => {
   return {
