@@ -484,6 +484,8 @@ def _enforce_schema(pfInput: DataInputType, input_schema: Schema):
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
+    if isinstance(pfInput, pd.Series):
+        pfInput = pd.DataFrame(pfInput)
     if not input_schema.is_tensor_spec():
         if isinstance(pfInput, (list, np.ndarray, dict, pd.Series)):
             try:
@@ -556,21 +558,20 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
                     - list
 
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
-
     :return: Validated input data.
+    :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
+             not match the schema.
+
+    .. code-block:: python
+            :caption: Example usage of validate_schema
+
+            import mlflow.models
+
+            # Suppose you've already got a model_uri
+            model_info = mlflow.models.get_model_info(model_uri)
+            # Get model signature directly
+            model_signature = model_info.signature
+            # validate schema
+            mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
-    if isinstance(
-        data,
-        (
-            pd.DataFrame,
-            np.ndarray,
-            csc_matrix,
-            csr_matrix,
-            dict,
-            pd.Series,
-            list,
-        ),
-    ):
-        return _enforce_schema(data, expected_schema)
-    else:
-        raise MlflowException("Unsupported input data type: {}".format(type(data)))
+    return _enforce_schema(data, expected_schema)

@@ -1,6 +1,7 @@
 import os
 import pytest
 from datetime import date
+import warnings
 
 import mlflow
 import pandas as pd
@@ -158,7 +159,12 @@ def test_model_info():
                 "some/path", TestFlavor, signature=sig, input_example=input_example
             )
         model_uri = "runs:/{}/some/path".format(run.info.run_id)
-        model_info_fetched = mlflow.models.get_model_info(model_uri)
+
+        with warnings.catch_warnings(record=True) as w:
+            model_info_fetched = mlflow.models.get_model_info(model_uri)
+            assert "These fields ``%s`` will be deprecated." % ["signature_dict"] in str(
+                w[0].message
+            )
         local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
         assert model_info.run_id == run.info.run_id == model_info_fetched.run_id
@@ -182,7 +188,8 @@ def test_model_info():
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
 
-        assert model_info.signature_dict == sig.to_dict() == model_info_fetched.signature_dict
+        model_signature = model_info_fetched.signature
+        assert model_info.signature_dict == sig.to_dict() == model_signature.to_dict()
 
         assert (
             Version(model_info.mlflow_version)
