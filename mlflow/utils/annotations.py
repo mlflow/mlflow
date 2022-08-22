@@ -29,52 +29,24 @@ def _experimental(api: Any, api_type: str):
     return api
 
 
-def deprecated(
-    alternative=None, since=None, impact=None, deprecated_fields=None, alternative_fields=None
-):
+def deprecated(alternative=None, since=None, impact=None):
     """
     Decorator for marking APIs deprecated in the docstring.
-    If deprecated_fields is not None, then only these fields of the API will be deprecated.
-
-    :param func: A function or class to mark
-    :returns Decorated function/class.
+    :param func: A function to mark
+    :returns Decorated function.
     """
 
     def deprecated_decorator(func):
         since_str = " since %s" % since if since else ""
         impact_str = impact if impact else "This method will be removed in a future release."
 
-        if alternative is not None and alternative_fields is not None:
-            raise ValueError("Only one of `alternative` and `alternative_fields` can be specified")
-
-        prefix = ""
-        if (
-            deprecated_fields is not None
-            and isinstance(deprecated_fields, list)
-            and len(deprecated_fields) > 0
-        ):
-            impact_str = (
-                impact if impact else "These fields ``%s`` will be deprecated." % deprecated_fields
-            )
-            prefix = "Some fields of "
-
-        notice = "{prefix}``{function_name}`` is deprecated{since_string}. {impact}".format(
-            prefix=prefix,
-            function_name=".".join([func.__module__, func.__name__])
-            if ("__module__" in dir(func) and "__name__" in dir(func))
-            else "",
+        notice = "``{function_name}`` is deprecated{since_string}. {impact}".format(
+            function_name=".".join([func.__module__, func.__name__]),
             since_string=since_str,
             impact=impact_str,
         )
         if alternative is not None and alternative.strip():
             notice += " Use ``%s`` instead." % alternative
-
-        if (
-            alternative_fields is not None
-            and isinstance(alternative_fields, list)
-            and len(alternative_fields) > 0
-        ):
-            notice += " Use ``%s`` instead." % alternative_fields
 
         @wraps(func)
         def deprecated_func(*args, **kwargs):
@@ -87,6 +59,55 @@ def deprecated(
         return deprecated_func
 
     return deprecated_decorator
+
+
+def deprecated_fields_included(
+    deprecated_fields=None, alternative_fields=None, since=None, impact=None
+):
+    """
+    Decorator for marking deprecated_fields of the class in the docstring.
+
+    :param cls: A class to mark
+    :returns Decorated class.
+    """
+
+    def deprecated_fields_included_decorator(cls):
+        since_str = " since %s" % since if since else ""
+        impact_str = impact if impact else ""
+
+        if (
+            deprecated_fields is not None
+            and isinstance(deprecated_fields, list)
+            and len(deprecated_fields) > 0
+        ):
+            impact_str = (
+                impact if impact else "These fields ``%s`` will be deprecated." % deprecated_fields
+            )
+
+        notice = "Some fields of ``{cls_name}`` is deprecated{since_string}. {impact}".format(
+            cls_name=cls.__class__.__name__,
+            since_string=since_str,
+            impact=impact_str,
+        )
+
+        if (
+            alternative_fields is not None
+            and isinstance(alternative_fields, list)
+            and len(alternative_fields) > 0
+        ):
+            notice += " Use ``%s`` instead." % alternative_fields
+
+        @wraps(cls)
+        def deprecated_cls(*args, **kwargs):
+            warnings.warn(notice, category=DeprecationWarning, stacklevel=2)
+            return cls(*args, **kwargs)
+
+        if cls.__doc__ is not None:
+            deprecated_cls.__doc__ = ".. Warning:: " + notice + "\n" + cls.__doc__
+
+        return deprecated_cls
+
+    return deprecated_fields_included_decorator
 
 
 def keyword_only(func):

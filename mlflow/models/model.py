@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Union, Callable, NamedTuple
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated_fields_included
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
 
@@ -30,7 +30,9 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 _MLFLOW_VERSION_KEY = "mlflow_version"
 
 
-@deprecated(deprecated_fields=["signature_dict"], alternative_fields=["signature"], since="1.28.1")
+@deprecated_fields_included(
+    deprecated_fields=["signature_dict"], alternative_fields=["signature"], since="1.28.1"
+)
 class ModelInfo(NamedTuple):
     """
     The metadata of a logged MLflow Model.
