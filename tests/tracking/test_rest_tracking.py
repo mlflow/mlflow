@@ -656,6 +656,7 @@ def test_set_terminated_status(mlflow_client):
 
 
 def test_artifacts(mlflow_client, tmp_path):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(path_to_local_file_uri(str(tmp_path)))
