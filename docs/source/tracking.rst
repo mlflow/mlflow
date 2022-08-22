@@ -203,7 +203,7 @@ need for an end-user to provide access credentials to interact with an underlyin
 .. figure:: _static/images/scenario_5.png
 
 .. code-block:: bash
-    :caption: Command to run the server in this configuration
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server \
       --backend-store-uri postgresql:://URI \
@@ -262,7 +262,7 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
 .. figure:: _static/images/scenario_6.png
 
 .. code-block:: bash
-    :caption: Command to run the server in this configuration
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server --artifact-destination-root s3://bucket_name --artifacts-only --host remote_host
 
@@ -816,7 +816,7 @@ MLflow Tracking Servers
 You run an MLflow tracking server using ``mlflow server``.  An example configuration for a server is:
 
 .. code-block:: bash
-    :caption: Command to run the server in this configuration
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server \
         --backend-store-uri /mnt/persistent-disk \
