@@ -376,8 +376,8 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
         rm.latest_versions for rm in mlflow_client.list_registered_models() if rm.name == name
     ]
     model_versions_by_name = mlflow_client.search_model_versions("name = '%s'" % name)
-    assert set(["1", "2"]) == set([mv.version for mv in model_versions_by_name])
-    assert set([name]) == set([mv.name for mv in model_versions_by_name])
+    assert {"1", "2"} == set([mv.version for mv in model_versions_by_name])
+    assert {name} == set([mv.name for mv in model_versions_by_name])
 
     mv3 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_2")
     assert mv3.version == "3"
@@ -452,8 +452,8 @@ def test_update_model_version_flow(mlflow_client, backend_store_uri):
         rm.latest_versions for rm in mlflow_client.list_registered_models() if rm.name == name
     ]
     assert 1 == len(model_versions_detailed)
-    assert set(["1", "2"]) == set([mvd.version for mvd in model_versions_detailed[0]])
-    assert set([name]) == set([mvd.name for mvd in model_versions_detailed[0]])
+    assert {"1", "2"} == {mvd.version for mvd in model_versions_detailed[0]}
+    assert {name} == {mvd.name for mvd in model_versions_detailed[0]}
 
     # update description
     start_time_3 = now()
