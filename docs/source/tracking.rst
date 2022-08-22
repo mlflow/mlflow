@@ -133,6 +133,7 @@ server running, the MLflow client interacts with the tracking server via REST re
 .. figure:: _static/images/scenario_3.png
 
 .. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server --backend-store-uri file::///path/to/mlruns --no-serve-artifacts
 
