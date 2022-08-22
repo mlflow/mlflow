@@ -121,7 +121,7 @@ def _is_valid_put_block_list_header(header_name):
             "If-Modified-Since",
             "If-Unmodified-Since",
             "If-Match",
-            "If-None-Match",
+            "If-None-Match"
         }            
 
 
