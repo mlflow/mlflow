@@ -161,6 +161,7 @@ a Postgres database for backend entity storage, and an S3 bucket for artifact st
 .. figure:: _static/images/scenario_4.png
 
 .. code-block:: bash
+    :caption: Command to run the tracking server in this configuration
 
     mlflow server --backend-store-uri postgresql:://URI --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
 
