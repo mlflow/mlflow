@@ -98,12 +98,7 @@ def _is_valid_put_block_list_header(header_name):
              en-us/rest/api/storageservices/
              specifying-conditional-headers-for-blob-service-operations#Subheading1.
     """
-<<<<<<< HEAD
     return header_name.startswith("x-ms-meta-") or header_name in {
-=======
-    return header_name.startswith("x-ms-meta-") or header_name in set(
-        [
->>>>>>> parent of f0ba57da (Update client.py)
             "Authorization",
             "Date",
             "x-ms-date",
@@ -126,8 +121,7 @@ def _is_valid_put_block_list_header(header_name):
             "If-Unmodified-Since",
             "If-Match",
             "If-None-Match",
-        ]
-    )
+        }
 
 
 def _is_valid_put_block_header(header_name):
@@ -138,12 +132,7 @@ def _is_valid_put_block_header(header_name):
              https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
              request-headers-customer-provided-encryption-keys.
     """
-<<<<<<< HEAD
     return header_name in {
-=======
-    return header_name in set(
-        [
->>>>>>> parent of f0ba57da (Update client.py)
             "Authorization",
             "x-ms-date",
             "x-ms-version",
@@ -156,5 +145,4 @@ def _is_valid_put_block_header(header_name):
             "x-ms-encryption-key",
             "x-ms-encryption-key-sha256",
             "x-ms-encryption-algorithm",
-        ]
-    )
+        }    
