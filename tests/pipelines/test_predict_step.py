@@ -304,7 +304,7 @@ def test_predict_skips_profiling_when_specified(
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
     with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
-        predict_step = PredictStep.from_pipeline_config(
+        PredictStep.from_pipeline_config(
             {
                 "steps": {
                     "predict": {
@@ -316,8 +316,7 @@ def test_predict_skips_profiling_when_specified(
                 }
             },
             str(tmp_pipeline_root_path),
-        )
-        predict_step._run(str(predict_step_output_dir), _env_manager="local")
+        ).run(str(predict_step_output_dir))
 
     expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
     with open(expected_step_card_path, "r") as f:
