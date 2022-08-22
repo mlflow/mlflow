@@ -1764,7 +1764,6 @@ def autolog(
     """
     from mlflow import (
         tensorflow,
-        keras,
         gluon,
         xgboost,
         lightgbm,
@@ -1782,7 +1781,7 @@ def autolog(
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
         "tensorflow": tensorflow.autolog,
-        "keras": keras.autolog,
+        "keras": tensorflow.autolog,
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,

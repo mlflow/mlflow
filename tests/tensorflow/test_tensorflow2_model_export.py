@@ -790,7 +790,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
 def test_log_model_with_code_paths(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run(), mock.patch(
-        "mlflow.tensorflow.keras._add_code_from_conf_to_system_path"
+        "mlflow.tensorflow._add_code_from_conf_to_system_path"
     ) as add_mock:
         mlflow.tensorflow.log_model(
             tf_saved_model_dir=saved_tf_iris_model.path,

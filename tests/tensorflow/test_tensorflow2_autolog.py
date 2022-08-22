@@ -1383,46 +1383,20 @@ def test_fluent_autolog_with_tf_keras_preserves_v2_model_reference():
     assert tensorflow.keras.Model is ModelV2
 
 
-def test_import_tensorflow_with_fluent_autolog_enables_tf_autologging():
-    mlflow.autolog()
-
-    import tensorflow  # pylint: disable=unused-variable,unused-import,reimported
-
-    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-
-    # NB: In Tensorflow >= 2.6, we redirect keras autologging to tensorflow autologging
-    # so the original keras autologging is disabled
-    if Version(tf.__version__) >= Version("2.6"):
-        import keras  # pylint: disable=unused-variable,unused-import
-
-        assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-
-
-def test_import_tf_keras_with_fluent_autolog_enables_tf_autologging():
-    mlflow.autolog()
-
-    import tensorflow.keras  # pylint: disable=unused-variable,unused-import
-
-    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-
-    # NB: In Tensorflow >= 2.6, we redirect keras autologging to tensorflow autologging
-    # so the original keras autologging is disabled
-    if Version(tf.__version__) >= Version("2.6"):
-        # NB: For TF >= 2.6, import tensorflow.keras will trigger importing keras
-        assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-
-
-@pytest.mark.skipif(
-    Version(tf.__version__) < Version("2.6.0"),
-    reason=("TensorFlow autologging is not used for vanilla Keras models in Keras < 2.6.0"),
-)
 def test_import_keras_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
     import keras  # pylint: disable=unused-variable,unused-import
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
-    assert autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
+
+
+def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
+    mlflow.autolog()
+
+    import tensorflow  # pylint: disable=unused-variable,unused-import
+
+    assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
 
 def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
