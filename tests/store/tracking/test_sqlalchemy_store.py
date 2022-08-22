@@ -1303,7 +1303,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(metric_obj.value, 34.0)
         self.assertEqual(metric_obj.timestamp, 85)
         self.assertEqual(metric_obj.step, 1)
-        self.assertTrue({"t1345", "tv44"} <= set(run.data.tags.items()))
+        self.assertTrue({("t1345", "tv44")} <= set(run.data.tags.items()))
 
     # Tests for Search API
     def _search(
