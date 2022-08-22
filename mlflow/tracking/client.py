@@ -1483,52 +1483,6 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
-        """
-        Download an artifact file or directory from a run to a local directory if applicable,
-        and return a local path for it.
-
-        :param run_id: The run to download artifacts from.
-        :param path: Relative source path to the desired artifact.
-        :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist.
-                         If unspecified, the artifacts will either be downloaded to a new
-                         uniquely-named directory on the local filesystem or will be returned
-                         directly in the case of the LocalArtifactRepository.
-        :return: Local path of desired artifact.
-
-        .. code-block:: python
-            :caption: Example
-
-            import os
-            import mlflow
-            from mlflow import MlflowClient
-
-            features = "rooms, zipcode, median_price, school_rating, transport"
-            with open("features.txt", 'w') as f:
-                f.write(features)
-
-            # Log artifacts
-            with mlflow.start_run() as run:
-                mlflow.log_artifact("features.txt", artifact_path="features")
-
-            # Download artifacts
-            client = MlflowClient()
-            local_dir = "/tmp/artifact_downloads"
-            if not os.path.exists(local_dir):
-                os.mkdir(local_dir)
-            local_path = client.download_artifacts(run.info.run_id, "features", local_dir)
-            print("Artifacts downloaded in: {}".format(local_path))
-            print("Artifacts: {}".format(os.listdir(local_path)))
-
-        .. code-block:: text
-            :caption: Output
-
-            Artifacts downloaded in: /tmp/artifact_downloads/features
-            Artifacts: ['features.txt']
-        """
-        return self._tracking_client.download_artifacts(run_id, path, dst_path)
-
     def set_terminated(
         self, run_id: str, status: Optional[str] = None, end_time: Optional[int] = None
     ) -> None:
