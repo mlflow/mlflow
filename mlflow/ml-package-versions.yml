@@ -69,7 +69,6 @@ tensorflow:
     minimum: "2.6.0"
     maximum: "2.9.1"
     requirements:
-      "< 2.6.0": ["protobuf<4.0.0"]
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
@@ -102,10 +101,6 @@ keras:
     minimum: "2.6.0"
     maximum: "2.9.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow"]
-      "<= 2.3.1": ["tensorflow==2.2.1", "transformers<=4.11.3"]
-      "> 2.3.1, < 2.6.0": ["tensorflow<2.5.0", "transformers"]
-      "< 2.6.0": ["protobuf<4.0.0"]
       ">= 2.6.0": ["tensorflow", "transformers"]
     run: |
       pytest tests/keras/test_keras_model_export.py
