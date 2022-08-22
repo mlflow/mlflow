@@ -28,10 +28,6 @@ pandas:
   pip_release: pandas
   max_major_version: 1
 
-prometheus-flask-exporter:
-  pip_release: prometheus-flask-exporter
-  max_major_version: 0
-
 querystring_parser:
   pip_release: querystring_parser
   max_major_version: 1
