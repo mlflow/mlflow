@@ -19,6 +19,9 @@ _INPUT_FILE_NAME = "scoring-dataset.parquet"
 _SCORED_OUTPUT_FILE_NAME = "scored.parquet"
 _PREDICTION_COLUMN_NAME = "prediction"
 
+# Max dataframe size for profiling after scoring
+_MAX_PROFILE_SIZE = 10000
+
 
 class PredictStep(BaseStep):
     def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
@@ -114,14 +117,18 @@ class PredictStep(BaseStep):
             scored_sdf.write.format("delta").saveAsTable(self.step_config["output_location"])
 
         # predict step artifacts
-        scored_pdf = scored_sdf.toPandas()
-        scored_pdf.to_parquet(
-            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME), engine="pyarrow"
+        scored_sdf.coalesce(1).write.format("parquet").save(
+            os.path.join(output_directory, _SCORED_OUTPUT_FILE_NAME)
         )
+
+        scored_size = scored_sdf.count()
+        if scored_size > _MAX_PROFILE_SIZE:
+            sample_percentage = _MAX_PROFILE_SIZE / scored_size
+            scored_sdf = scored_sdf.sample(sample_percentage)
 
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
-        return self._build_profiles_and_card(scored_pdf)
+        return self._build_profiles_and_card(scored_sdf.toPandas())
 
     @classmethod
     def from_pipeline_config(cls, pipeline_config, pipeline_root):
