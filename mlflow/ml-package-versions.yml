@@ -72,7 +72,11 @@ tensorflow:
       # Requirements to run tests for keras
       "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py test_keras_model_export.py test_keras_pyfunc_model_works_with_all_input_types.py
+      pytest \
+        tests/tensorflow/test_tensorflow2_model_export.py \
+        tests/tensorflow/test_tensorflow2_metric_value_conversion_utils.py \
+        tests/tensorflow/test_keras_model_export.py \
+        tests/tensorflow/test_keras_pyfunc_model_works_with_all_input_types.py
 
   autologging:
     minimum: "2.6.0"

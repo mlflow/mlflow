@@ -149,7 +149,7 @@ def log_model(
     rather than lists of length one. All other model output types are included as-is in the output
     DataFrame.
 
-    If logging keras model, `keras_model` argument
+    When logging keras model, `keras_model` argument
     must be set but `tf_saved_model_dir`, `tf_meta_graph_tags` and `tf_signature_def_key`
     arguments must not be set.
 
@@ -280,7 +280,7 @@ def save_model(
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     to a local path or save a Keras model to a path on the local file system.
 
-    If saving a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
+    When saving a *serialized* collection of TensorFlow graphs and variables as an MLflow model,
     this method operates on TensorFlow variables and graphs that have been
     serialized in TensorFlow's ``SavedModel`` format. For more information about ``SavedModel``
     format, see the TensorFlow documentation:
@@ -482,10 +482,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
-    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
-        is_keras_model = True
-    else:
-        is_keras_model = False
+    is_keras_model = "keras" in model_conf.flavors or "keras_module" in flavor_conf
 
     if is_keras_model:
         return mlflow_keras.load_model(local_model_path, flavor_conf, **kwargs)
