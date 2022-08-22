@@ -94,11 +94,8 @@ def inspect(step, profile):
     """
     Pipeline(profile=profile).inspect(step)
 
-@commands.command(
-    short_help=(
-        "Get an artifact."
-    )
-)
+
+@commands.command(short_help=("Get an artifact."))
 @click.option(
     "--artifact",
     "-a",

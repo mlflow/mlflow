@@ -479,7 +479,11 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "model":
             run_id = read_run_id()
-            if run_id:
+            if from_cli:
+                model_path = os.path.join(train_output_dir, "model", "model.pkl")
+                if os.path.exists(model_path):
+                    return model_path
+            elif run_id:
                 with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
                     return mlflow.pyfunc.load_model(f"runs:/{run_id}/{train_step.name}/model")
             else:
@@ -488,7 +492,11 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "transformer":
             run_id = read_run_id()
-            if run_id:
+            if from_cli:
+                transformer_path = os.path.join(transform_output_dir, "transformer.pkl")
+                if os.path.exists(transformer_path):
+                    return transformer_path
+            elif run_id:
                 with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
                     return mlflow.sklearn.load_model(
                         f"runs:/{run_id}/{transform_step.name}/transformer"
