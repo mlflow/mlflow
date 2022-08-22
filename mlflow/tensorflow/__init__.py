@@ -169,7 +169,7 @@ def log_model(
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param conda_env: {{ conda_env }}
@@ -208,7 +208,11 @@ def log_model(
              metadata of the logged model.
     """
     if keras_model is not None:
-        if tf_saved_model_dir is not None or tf_meta_graph_tags is not None or tf_signature_def_key is not None:
+        if (
+            tf_saved_model_dir is not None
+            or tf_meta_graph_tags is not None
+            or tf_signature_def_key is not None
+        ):
             raise ValueError(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."
@@ -225,7 +229,7 @@ def log_model(
             await_registration_for=await_registration_for,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
-            **kwargs
+            **kwargs,
         )
 
     if signature is not None:
@@ -302,7 +306,7 @@ def save_model(
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
-                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
     :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
@@ -333,7 +337,11 @@ def save_model(
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     """
     if keras_model is not None:
-        if tf_saved_model_dir is not None or tf_meta_graph_tags is not None or tf_signature_def_key is not None:
+        if (
+            tf_saved_model_dir is not None
+            or tf_meta_graph_tags is not None
+            or tf_signature_def_key is not None
+        ):
             raise ValueError(
                 "If `keras_model` argument is set, then `tf_saved_model_dir`, `tf_meta_graph_tags` "
                 "and `tf_signature_def_key` arguments cannot be set."
@@ -349,7 +357,7 @@ def save_model(
             input_example=input_example,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
-            **kwargs
+            **kwargs,
         )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -752,8 +760,8 @@ def autolog(
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
-    Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`,
-    not :py:func:`mlflow.keras.autolog`.
+    Note that autologging for ``tf.keras`` and ``keras`` are also
+    handled by :py:func:`mlflow.tensorflow.autolog`.
     As an example, try running the
     `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 

@@ -275,7 +275,9 @@ def test_signature_and_examples_are_saved_correctly(model, data):
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
     custom_objects = {"MyDense": custom_layer}
-    mlflow.tensorflow.save_model(keras_model=custom_model, path=model_path, custom_objects=custom_objects)
+    mlflow.tensorflow.save_model(
+        keras_model=custom_model, path=model_path, custom_objects=custom_objects
+    )
     # Loading Keras model
     model_loaded = mlflow.tensorflow.load_model(model_path)
     assert all(model_loaded.predict(x.values) == custom_predicted)
@@ -295,7 +297,9 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
 
     incorrect_custom_objects = {"MyDense": DifferentCustomLayer()}
     correct_custom_objects = {"MyDense": custom_layer}
-    mlflow.tensorflow.save_model(keras_model=custom_model, path=model_path, custom_objects=incorrect_custom_objects)
+    mlflow.tensorflow.save_model(
+        keras_model=custom_model, path=model_path, custom_objects=incorrect_custom_objects
+    )
     model_loaded = mlflow.tensorflow.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
     with pytest.raises(TypeError, match=r".+"):
@@ -409,19 +413,29 @@ def test_log_model_with_pip_requirements(model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(keras_model=model, artifact_path="model", pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(
+            keras_model=model, artifact_path="model", pip_requirements=req_file.strpath
+        )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(keras_model=model, artifact_path="model", pip_requirements=[f"-r {req_file.strpath}", "b"])
+        mlflow.tensorflow.log_model(
+            keras_model=model,
+            artifact_path="model",
+            pip_requirements=[f"-r {req_file.strpath}", "b"],
+        )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(keras_model=model, artifact_path="model", pip_requirements=[f"-c {req_file.strpath}", "b"])
+        mlflow.tensorflow.log_model(
+            keras_model=model,
+            artifact_path="model",
+            pip_requirements=[f"-c {req_file.strpath}", "b"],
+        )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             ["mlflow", "b", "-c constraints.txt"],
@@ -436,7 +450,9 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
     req_file = tmpdir.join("requirements.txt")
     req_file.write("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(keras_model=model, artifact_path="model", extra_pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(
+            keras_model=model, artifact_path="model", extra_pip_requirements=req_file.strpath
+        )
         _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
 
     # List of requirements
@@ -628,7 +644,9 @@ def test_log_model_with_code_paths(model):
     with mlflow.start_run(), mock.patch(
         "mlflow.tensorflow.keras._add_code_from_conf_to_system_path"
     ) as add_mock:
-        mlflow.tensorflow.log_model(keras_model=model, artifact_path=artifact_path, code_paths=[__file__])
+        mlflow.tensorflow.log_model(
+            keras_model=model, artifact_path=artifact_path, code_paths=[__file__]
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
         _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
         mlflow.tensorflow.load_model(model_uri)

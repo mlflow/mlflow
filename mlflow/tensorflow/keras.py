@@ -233,6 +233,7 @@ def log_model(
             mlflow.keras.log_model(keras_model, "models")
     """
     from mlflow.tensorflow import keras as keras_flavor
+
     if signature is not None:
         warnings.warn(
             "The pyfunc inference behavior of Keras models logged "
@@ -353,9 +354,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if not isinstance(keras_model, keras.models.Model):
-        raise MlflowException(
-            "The `keras_model` argument value is not a keras model instance."
-        )
+        raise MlflowException("The `keras_model` argument value is not a keras model instance.")
     keras_module = importlib.import_module("keras")
 
     # check if path exists
