@@ -132,7 +132,7 @@ export class RunViewImpl extends Component {
       const stepName = Utils.getPipelineStepName(tags);
       runCommand = '';
       if (sourceName) {
-        const repoName = Utils.dropExtension(Utils.baseName(sourceName))
+        const repoName = Utils.dropExtension(Utils.baseName(sourceName));
         runCommand += `git clone ${sourceName}\n`;
         runCommand += `cd ${repoName}\n`;
       }
