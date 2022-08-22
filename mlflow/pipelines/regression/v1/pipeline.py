@@ -337,7 +337,7 @@ class RegressionPipeline(_BasePipeline):
         return super().run(step=step)
 
     @experimental
-    def get_artifact(self, artifact_name: str, from_cli: bool = False) -> Optional[Any]:
+    def get_artifact(self, artifact_name: str, get_path: bool = False) -> Optional[Any]:
         """
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
@@ -379,6 +379,9 @@ class RegressionPipeline(_BasePipeline):
                            :py:class:`ModelVersion <mlflow.entities.model_registry.ModelVersion>`
                            created by the **register** step.
 
+        :param get_path: Returns the artifact location rather than the artifact itself.
+                Defaults to false.
+
         :return: An object representation of the artifact corresponding to the specified name,
                  as described in the ``artifact_name`` parameter docstring. If the artifact is
                  not present because its corresponding step has not been executed or its output
@@ -398,7 +401,7 @@ class RegressionPipeline(_BasePipeline):
             train_df: pd.DataFrame = regression_pipeline.get_artifact("training_data")
             trained_model: PyFuncModel = regression_pipeline.get_artifact("model")
         """
-        import mlflow.pyfunc
+        impclow.pyfunc
 
         ingest_step, split_step, transform_step, train_step, _, register_step = self._steps
 
@@ -431,7 +434,7 @@ class RegressionPipeline(_BasePipeline):
 
             data_path = os.path.join(output_dir, file_name)
             if os.path.exists(data_path):
-                if from_cli:
+                if get_path:
                     return data_path
                 return pd.read_parquet(data_path)
             else:
@@ -479,7 +482,7 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "model":
             run_id = read_run_id()
-            if from_cli:
+            if get_path:
                 model_path = os.path.join(train_output_dir, "model", "model.pkl")
                 if os.path.exists(model_path):
                     return model_path
@@ -492,7 +495,7 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "transformer":
             run_id = read_run_id()
-            if from_cli:
+            if get_path:
                 transformer_path = os.path.join(transform_output_dir, "transformer.pkl")
                 if os.path.exists(transformer_path):
                     return transformer_path
@@ -507,7 +510,7 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "run":
             run_id = read_run_id()
-            if from_cli:
+            if get_path:
                 run_id_path = os.path.join(train_output_dir, "run_id")
                 if os.path.exists(run_id_path):
                     return run_id_path
@@ -526,7 +529,7 @@ class RegressionPipeline(_BasePipeline):
                 register_output_dir, "registered_model_version.json"
             )
             if os.path.exists(registered_model_info_path):
-                if from_cli:
+                if get_path:
                     return registered_model_info_path
                 registered_model_info = RegisteredModelVersionInfo.from_json(
                     path=registered_model_info_path

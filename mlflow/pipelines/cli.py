@@ -95,20 +95,20 @@ def inspect(step, profile):
     Pipeline(profile=profile).inspect(step)
 
 
-@commands.command(short_help=("Get an artifact."))
+@commands.command(short_help=("Get the location of an artifact."))
 @click.option(
     "--artifact",
     "-a",
     type=click.STRING,
     default=None,
     required=False,
-    help="The name artifact to retrieve.",
+    help="The name of the artifact to retrieve.",
 )
 @_CLI_ARG_PIPELINE_PROFILE
 @experimental("command")
 def get_artifact(profile, artifact):
     """
-    Get the location of an artifact in the execution directory.
+    Get the location of an artifact output from the pipeline.
     """
-    artifact_location = Pipeline(profile=profile).get_artifact(artifact, from_cli=True)
+    artifact_location = Pipeline(profile=profile).get_artifact(artifact, get_path=True)
     click.echo(artifact_location)
