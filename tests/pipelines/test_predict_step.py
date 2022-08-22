@@ -41,6 +41,12 @@ def spark_session():
     session.stop()
 
 
+@pytest.fixture(autouse=True)
+def patch_env_manager():
+    with mock.patch("mlflow.pipelines.steps.predict._ENV_MANAGER", "local"):
+        yield
+
+
 def prediction_assertions(output_dir: Path, output_format: str, output_name: str, spark):
     if output_format == "table":
         sdf = spark.table(output_name)
@@ -103,7 +109,7 @@ def test_predict_step_runs(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir), _env_manager="local")
+    predict_step._run(str(predict_step_output_dir))
 
     # Test internal predict step output artifact
     artifact_file_name, artifact_file_extension = _SCORED_OUTPUT_FILE_NAME.split(".")
@@ -134,7 +140,7 @@ def test_predict_step_uses_register_step_model_name(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir), _env_manager="local")
+    predict_step._run(str(predict_step_output_dir))
 
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
@@ -164,7 +170,7 @@ def test_predict_model_uri_takes_precendence_over_model_name(
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir), _env_manager="local")
+    predict_step._run(str(predict_step_output_dir))
 
     # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
@@ -194,7 +200,7 @@ def test_predict_step_output_formats(
             predict_step_output_dir / file_name
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    predict_step._run(str(predict_step_output_dir), _env_manager="local")
+    predict_step._run(str(predict_step_output_dir))
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
@@ -233,7 +239,7 @@ def test_predict_throws_when_overwriting_data(
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     with pytest.raises(AnalysisException, match="already exists"):
-        predict_step._run(str(predict_step_output_dir), _env_manager="local")
+        predict_step._run(str(predict_step_output_dir))
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")

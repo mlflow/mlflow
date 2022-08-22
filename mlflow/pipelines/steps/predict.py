@@ -21,6 +21,8 @@ _PREDICTION_COLUMN_NAME = "prediction"
 
 # Max dataframe size for profiling after scoring
 _MAX_PROFILE_SIZE = 10000
+# Environment manager for Spark UDF model restoration
+_ENV_MANAGER = "virtualenv"
 
 
 class PredictStep(BaseStep):
@@ -61,7 +63,7 @@ class PredictStep(BaseStep):
 
         return card
 
-    def _run(self, output_directory, _env_manager="conda"):
+    def _run(self, output_directory):
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
@@ -101,7 +103,7 @@ class PredictStep(BaseStep):
 
         # score dataset
         model_uri = self.step_config["model_uri"]
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=_env_manager)
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=_ENV_MANAGER)
         scored_sdf = input_sdf.withColumn(
             _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
         )
