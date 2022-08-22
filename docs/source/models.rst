@@ -1658,6 +1658,10 @@ virtualenv (preferred)
 conda
     Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
+    .. warning::
+
+        By using conda, you're responsible for adhering to `Anaconda's terms of service <https://legal.anaconda.com/policies/en/?name=terms-of-service>`_.
+
     - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
 
 The ``mlflow models`` CLI commands provide an optional ``--env-manager`` argument that selects a specific environment management configuration to be used, as shown below:
