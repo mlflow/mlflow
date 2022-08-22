@@ -93,7 +93,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
 @pytest.mark.notrackingurimock
 @pytest.mark.parametrize(
-    ("directory", "params"),
+    ("directory", "command"),
     [
         ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
         ("gluon", ["python", "train.py"]),
