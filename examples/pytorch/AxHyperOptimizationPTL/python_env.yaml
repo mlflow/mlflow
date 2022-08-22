@@ -1,0 +1,10 @@
+python: '3.8'
+build_dependencies:
+- pip
+dependencies:
+- mlflow
+- pytorch-lightning==1.6.1
+- ax-platform
+- torchvision>=0.9.1
+- torch>=1.9.0
+- protobuf<4.0.0
