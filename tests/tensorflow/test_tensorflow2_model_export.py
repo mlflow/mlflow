@@ -19,7 +19,6 @@ import iris_data_utils
 from packaging.version import Version
 
 import mlflow
-import mlflow.tensorflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc

@@ -375,7 +375,6 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    import mlflow.tensorflow
     from mlflow.models.signature import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()

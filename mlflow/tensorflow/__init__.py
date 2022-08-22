@@ -32,7 +32,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils import is_iterator
-from mlflow.utils.annotations import keyword_only
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -107,7 +106,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@keyword_only
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     *,
@@ -261,7 +259,6 @@ def log_model(
     )
 
 
-@keyword_only
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     *,
@@ -468,12 +465,15 @@ def load_model(model_uri, dst_path=None, **kwargs):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
+    :param kwargs: kwargs to pass to ``keras.models.load_model`` method. Only available
+                   when you are loading a Keras model.
+
     :return: A callable graph (tf.function) that takes inputs and returns inferences.
 
     .. code-block:: python
         :caption: Example
 
-        import mlflow.tensorflow
+        import mlflow
         import tensorflow as tf
         tf_graph = tf.Graph()
         tf_sess = tf.Session(graph=tf_graph)
@@ -490,9 +490,8 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     model_configuration_path = os.path.join(local_model_path, MLMODEL_FILE_NAME)
     model_conf = Model.load(model_configuration_path)
-    is_keras_model = "keras" in model_conf.flavors or "keras_module" in flavor_conf
 
-    if is_keras_model:
+    if "keras" in model_conf.flavors or "keras_module" in flavor_conf:
         return mlflow_keras.load_model(local_model_path, flavor_conf, **kwargs)
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)

@@ -18,7 +18,6 @@ import yaml
 
 import mlflow
 from mlflow import MlflowClient
-import mlflow.tensorflow
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.tensorflow._autolog import _TensorBoard, __MLflowTfKeras2Callback

@@ -10,7 +10,7 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 
 # The following import and function call are the only additions to code required
 # to automatically log metrics and parameters to MLflow.
-import mlflow.tensorflow
+import mlflow
 
 mlflow.tensorflow.autolog()
 

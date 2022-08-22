@@ -15,7 +15,6 @@ import yaml
 import tensorflow as tf
 
 import mlflow
-import mlflow.tensorflow
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env

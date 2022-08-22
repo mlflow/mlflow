@@ -6,7 +6,6 @@ will use to supplement our input and train using.
 import click
 
 import mlflow
-import mlflow.tensorflow
 import mlflow.spark
 
 from itertools import chain

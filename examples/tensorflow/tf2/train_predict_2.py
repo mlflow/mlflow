@@ -8,7 +8,6 @@ import shutil
 import tempfile
 import tensorflow as tf
 from tensorflow import estimator as tf_estimator
-import mlflow.tensorflow
 
 TRAIN_URL = "http://download.tensorflow.org/data/iris_training.csv"
 TEST_URL = "http://download.tensorflow.org/data/iris_test.csv"
