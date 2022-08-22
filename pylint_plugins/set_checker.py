@@ -11,7 +11,7 @@ IGNORED_FILES = set(
         [
             ##### Instructions #####
             # 1. Select the file you would like to work on.
-            # 2. Remove the file.
+            # 2. Remove the file from the list.
             # 3. Run `pylint <the file>`.
             # 4. Fix lint errors.
             # 5. File a PR.
