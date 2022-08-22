@@ -99,11 +99,15 @@ def _is_valid_put_block_list_header(header_name):
              specifying-conditional-headers-for-blob-service-operations#Subheading1.
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
     return header_name.startswith("x-ms-meta-") or header_name in {
 =======
     return header_name.startswith("x-ms-meta-") or header_name in set(
         [
 >>>>>>> parent of f0ba57da (Update client.py)
+=======
+    return header_name.startswith("x-ms-meta-") or header_name in {
+>>>>>>> b0581011edf5ec78ad1052a9266b3ea5575f2094
             "Authorization",
             "Date",
             "x-ms-date",
@@ -126,8 +130,12 @@ def _is_valid_put_block_list_header(header_name):
             "If-Unmodified-Since",
             "If-Match",
             "If-None-Match",
+<<<<<<< HEAD
         ]
     )
+=======
+        }            
+>>>>>>> b0581011edf5ec78ad1052a9266b3ea5575f2094
 
 
 def _is_valid_put_block_header(header_name):
@@ -139,11 +147,15 @@ def _is_valid_put_block_header(header_name):
              request-headers-customer-provided-encryption-keys.
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
     return header_name in {
 =======
     return header_name in set(
         [
 >>>>>>> parent of f0ba57da (Update client.py)
+=======
+    return header_name in {
+>>>>>>> b0581011edf5ec78ad1052a9266b3ea5575f2094
             "Authorization",
             "x-ms-date",
             "x-ms-version",
