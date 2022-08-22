@@ -1065,6 +1065,7 @@ class Utils {
   }
 
   static isValidHttpUrl(str) {
+    // The URL() constructor will throw on invalid URL
     try {
       const url = new URL(str);
       return url.protocol === 'http:' || url.protocol === 'https:';
