@@ -58,7 +58,7 @@ class PredictStep(BaseStep):
 
         return card
 
-    def _run(self, output_directory):
+    def _run(self, output_directory, _env_manager="conda"):
         from pyspark.sql.functions import struct
 
         run_start_time = time.time()
@@ -98,8 +98,7 @@ class PredictStep(BaseStep):
 
         # score dataset
         model_uri = self.step_config["model_uri"]
-        env_manager = "local" if "_disable_env_restoration" in self.step_config else "conda"
-        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=env_manager)
+        predict = mlflow.pyfunc.spark_udf(spark, model_uri, env_manager=_env_manager)
         scored_sdf = input_sdf.withColumn(
             _PREDICTION_COLUMN_NAME, predict(struct(*input_sdf.columns))
         )

@@ -98,13 +98,12 @@ def test_predict_step_runs(
                     "model_uri": model_uri,
                     "output_format": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                    "_disable_env_restoration": True,
                 }
             }
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir))
+    predict_step._run(str(predict_step_output_dir), _env_manager="local")
 
     # Test internal predict step output artifact
     artifact_file_name, artifact_file_extension = _SCORED_OUTPUT_FILE_NAME.split(".")
@@ -130,13 +129,12 @@ def test_predict_step_uses_register_step_model_name(
                 "predict": {
                     "output_format": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                    "_disable_env_restoration": True,
                 },
             }
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir))
+    predict_step._run(str(predict_step_output_dir), _env_manager="local")
 
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
 
@@ -161,13 +159,12 @@ def test_predict_model_uri_takes_precendence_over_model_name(
                     "model_uri": model_uri,
                     "output_format": "parquet",
                     "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                    "_disable_env_restoration": True,
                 },
             }
         },
         str(tmp_pipeline_root_path),
     )
-    predict_step._run(str(predict_step_output_dir))
+    predict_step._run(str(predict_step_output_dir), _env_manager="local")
 
     # These assertions will only pass if the dummy model was used for scoring
     prediction_assertions(predict_step_output_dir, "parquet", "output", spark_session)
@@ -186,7 +183,6 @@ def test_predict_step_output_formats(
             "predict": {
                 "model_uri": model_uri,
                 "output_format": output_format,
-                "_disable_env_restoration": True,
             }
         }
     }
@@ -198,7 +194,7 @@ def test_predict_step_output_formats(
             predict_step_output_dir / file_name
         )
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
-    predict_step._run(str(predict_step_output_dir))
+    predict_step._run(str(predict_step_output_dir), _env_manager="local")
     prediction_assertions(predict_step_output_dir, output_format, output_name, spark_session)
 
 
@@ -231,14 +227,13 @@ def test_predict_throws_when_overwriting_data(
                 "model_uri": model_uri,
                 "output_format": output_format,
                 "output_location": output_path,
-                "_disable_env_restoration": True,
             }
         }
     }
 
     predict_step = PredictStep.from_pipeline_config(pipeline_config, str(tmp_pipeline_root_path))
     with pytest.raises(AnalysisException, match="already exists"):
-        predict_step._run(str(predict_step_output_dir))
+        predict_step._run(str(predict_step_output_dir), _env_manager="local")
 
 
 @pytest.mark.usefixtures("enter_test_pipeline_directory")
@@ -309,20 +304,20 @@ def test_predict_skips_profiling_when_specified(
     model_name = "model_" + get_random_id()
     model_uri = train_log_and_register_model(model_name, is_dummy=True)
     with mock.patch("mlflow.pipelines.utils.step.get_pandas_data_profile") as mock_profiling:
-        PredictStep.from_pipeline_config(
+        predict_step = PredictStep.from_pipeline_config(
             {
                 "steps": {
                     "predict": {
                         "model_uri": model_uri,
                         "output_format": "parquet",
                         "output_location": str(predict_step_output_dir.joinpath("output.parquet")),
-                        "_disable_env_restoration": True,
                         "skip_data_profiling": True,
                     }
                 }
             },
             str(tmp_pipeline_root_path),
-        ).run(str(predict_step_output_dir))
+        )
+        predict_step._run(str(predict_step_output_dir), _env_manager="local")
 
     expected_step_card_path = os.path.join(str(predict_step_output_dir), "card.html")
     with open(expected_step_card_path, "r") as f:
