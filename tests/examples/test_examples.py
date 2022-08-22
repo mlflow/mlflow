@@ -101,7 +101,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
             ("gluon", ["python", "train.py"]),
             ("keras", ["python", "train.py"]),
             (
-                "lightgbm/ightgbm_native",
+                "lightgbm/lightgbm_native",
                 [
                     "python",
                     "train.py",
