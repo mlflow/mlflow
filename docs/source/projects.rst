@@ -114,7 +114,7 @@ Docker container environment
 
 .. _project-conda-environments:
 
-Conda environment (discouraged)
+Conda environment
   `Conda <https://conda.io/docs>`_ environments support
   both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow Project
   specifies a Conda environment, it is activated before project code is run.

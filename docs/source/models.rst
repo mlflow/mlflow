@@ -1655,7 +1655,7 @@ virtualenv (preferred)
     - `pyenv installation instructions <https://github.com/pyenv/pyenv#installation>`_
     - `pyenv-win installation instructions <https://github.com/pyenv-win/pyenv-win#installation>`_
 
-conda (discouraged)
+conda
     Create environments using conda. Conda must be installed for this mode of environment reconstruction.
 
     - `conda installation instructions <https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
