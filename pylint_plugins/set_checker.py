@@ -45,7 +45,7 @@ class SetChecker(BaseChecker):
     USE_SET_LITERAL = "use-set-literal"
     msgs = {
         "W0005": (
-            "Use set literal (e.g. `{'a', 'b'}`) instead of applying `set()` on transient list or "
+            "Use set literal (e.g. `{'a', 'b'}`) instead of applying `set()` on list or "
             "tuple literal (e.g. `set(['a', 'b'])`)",
             USE_SET_LITERAL,
             "Use set literal",
