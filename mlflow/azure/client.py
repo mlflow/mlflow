@@ -98,8 +98,7 @@ def _is_valid_put_block_list_header(header_name):
              en-us/rest/api/storageservices/
              specifying-conditional-headers-for-blob-service-operations#Subheading1.
     """
-    return header_name.startswith("x-ms-meta-") or header_name in
-        {
+    return header_name.startswith("x-ms-meta-") or header_name in {
             "Authorization",
             "Date",
             "x-ms-date",
@@ -121,7 +120,7 @@ def _is_valid_put_block_list_header(header_name):
             "If-Modified-Since",
             "If-Unmodified-Since",
             "If-Match",
-            "If-None-Match"
+            "If-None-Match",
         }            
 
 
@@ -133,8 +132,7 @@ def _is_valid_put_block_header(header_name):
              https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
              request-headers-customer-provided-encryption-keys.
     """
-    return header_name in
-        {
+    return header_name in {
             "Authorization",
             "x-ms-date",
             "x-ms-version",
