@@ -155,8 +155,8 @@ projects log their Tracking API data in the local ``mlruns`` directory so you ca
 runs using ``mlflow ui``.
 
 .. note::
-    By default ``mlflow run`` installs all dependencies using `conda <https://conda.io/>`_.
-    To run a project without using ``conda``, you can provide the ``--no-conda`` option to
+    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
+    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
     ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
     in your Python environment.
 

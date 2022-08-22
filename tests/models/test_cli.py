@@ -536,30 +536,6 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
 patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
 
 
-@patch_get_flavor_backend
-def test_env_manager_deprecation_warning_is_raised_when_no_conda_is_specified(mock_flavor_backend):
-    with pytest.warns(FutureWarning, match=r"--no-conda.+deprecated"):
-        CliRunner().invoke(
-            models_cli.serve,
-            ["--model-uri", "model", "--no-conda"],
-            catch_exceptions=False,
-        )
-    mock_flavor_backend.assert_called_once()
-
-
-def test_env_manager_specifying_both_no_conda_and_env_manager_is_not_allowed():
-    res = CliRunner().invoke(
-        models_cli.serve,
-        ["--model-uri", "model", "--no-conda", "--env-manager=local"],
-        catch_exceptions=False,
-    )
-    assert res.exit_code != 0
-    assert (
-        "`--no-conda` (deprecated) and `--env-manager` cannot be used at the same time."
-        in res.stdout
-    )
-
-
 def test_env_manager_unsupported_value():
     with pytest.raises(ValueError, match=r"Invalid value for `env_manager`"):
         CliRunner().invoke(
