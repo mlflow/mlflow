@@ -401,7 +401,7 @@ class RegressionPipeline(_BasePipeline):
             train_df: pd.DataFrame = regression_pipeline.get_artifact("training_data")
             trained_model: PyFuncModel = regression_pipeline.get_artifact("model")
         """
-        impclow.pyfunc
+        import mlflow.pyfunc
 
         ingest_step, split_step, transform_step, train_step, _, register_step = self._steps
 
