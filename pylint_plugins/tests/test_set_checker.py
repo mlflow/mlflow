@@ -32,3 +32,7 @@ def test_use_set_literal(test_case):
     node = astroid.extract_node("set([x for x in range(3)])")
     with test_case.assertNoMessages():
         test_case.walk(node)
+
+    node = astroid.extract_node("set(numbers)")
+    with test_case.assertNoMessages():
+        test_case.walk(node)
