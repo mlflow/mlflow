@@ -56,7 +56,7 @@ if __name__ == "__main__":
         run_id=mlflow.active_run().info.run_id, artifact_path="model"
     )
 
-    print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+    print("Model saved in run %s" % mlflow.active_run().info.run_id)
 
     # Load the model using mlflow and use it to predict data
     nlp2 = mlflow.spacy.load_model(model_uri=model_uri)

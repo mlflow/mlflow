@@ -35,7 +35,7 @@ class MLflowTrackingRestApi:
         r = requests.post(url, json=payload)
         run_id = None
         if r.status_code == 200:
-            run_id = r.json()["run"]["info"]["run_uuid"]
+            run_id = r.json()["run"]["info"]["run_id"]
         else:
             print("Creating run failed!")
         return run_id
