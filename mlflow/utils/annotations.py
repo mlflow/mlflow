@@ -36,8 +36,8 @@ def deprecated(
     Decorator for marking APIs deprecated in the docstring.
     If deprecated_fields is not None, then only these fields of the API will be deprecated.
 
-    :param func: A function to mark
-    :returns Decorated function.
+    :param func: A function or class to mark
+    :returns Decorated function/class.
     """
 
     def deprecated_decorator(func):
@@ -60,7 +60,9 @@ def deprecated(
 
         notice = "{prefix}``{function_name}`` is deprecated{since_string}. {impact}".format(
             prefix=prefix,
-            function_name=".".join([func.__module__, func.__name__]),
+            function_name=".".join([func.__module__, func.__name__])
+            if ("__module__" in dir(func) and "__name__" in dir(func))
+            else "",
             since_string=since_str,
             impact=impact_str,
         )

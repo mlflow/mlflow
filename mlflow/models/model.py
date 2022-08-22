@@ -10,7 +10,6 @@ from typing import Any, Dict, Optional, Union, Callable, NamedTuple
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ModelSignature
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir
@@ -36,6 +35,8 @@ class ModelInfo(NamedTuple):
     """
     The metadata of a logged MLflow Model.
     """
+
+    from .signature import ModelSignature
 
     #: Run relative path identifying the logged model.
     artifact_path: str
@@ -233,6 +234,8 @@ class Model:
     @classmethod
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
+
+        from .signature import ModelSignature
 
         model_dict = model_dict.copy()
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
