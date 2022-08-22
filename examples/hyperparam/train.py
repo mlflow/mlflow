@@ -24,7 +24,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 import mlflow
-import mlflow.keras
+import mlflow.tensorflow
 
 
 def eval_and_log_metrics(prefix, actual, pred, epoch):
@@ -72,7 +72,7 @@ class MLflowCheckpoint(Callback):
             raise Exception("Failed to build any model")
         mlflow.log_metric(self.train_loss, self._best_train_loss, step=self._next_step)
         mlflow.log_metric(self.val_loss, self._best_val_loss, step=self._next_step)
-        mlflow.keras.log_model(self._best_model, "model")
+        mlflow.tensorflow.log_model(keras_model=self._best_model, path="model")
 
     def on_epoch_end(self, epoch, logs=None):
         """

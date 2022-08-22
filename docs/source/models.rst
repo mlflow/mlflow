@@ -375,7 +375,7 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    import mlflow.keras
+    import mlflow.tensorflow
     from mlflow.models.signature import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
@@ -395,7 +395,7 @@ on the ``MNIST dataset``:
     model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
 
     signature = infer_signature(testX, model.predict(testX))
-    mlflow.keras.log_model(model, "mnist_cnn", signature=signature)
+    mlflow.tensorflow.log_model(keras_model=model, path="mnist_cnn", signature=signature)
 
 The same signature can be created explicitly as follows:
 
@@ -461,7 +461,7 @@ you can log a tensor-based input example with your model:
 	[ 76,  75,   0, 255],
 	[ 33,  44,  11,  82]]
     ], dtype=np.uint8)
-    mlflow.keras.log_model(..., input_example=input_example)
+    mlflow.tensorflow.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -602,19 +602,13 @@ For more information, see :py:mod:`mlflow.h2o`.
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
-and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
-and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format in Python. Similarly, in R, you can save or log the model using
+The ``keras`` model flavor enables logging and loading Keras models. It is available in R clients.
+in R, you can save or log the model using
 `mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__. These functions serialize Keras
-models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
-produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be
-scored with both DataFrame input and numpy array input. Finally, you can use the :py:func:`mlflow.keras.load_model()`
-function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+models as HDF5 files using the Keras library's built-in model persistence functions. You can use
+`mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
-For more information, see :py:mod:`mlflow.keras`.
 
 MLeap (``mleap``)
 ^^^^^^^^^^^^^^^^^
@@ -711,13 +705,14 @@ TensorFlow (``tensorflow``)
 
 The ``tensorflow`` model flavor allows serialized TensorFlow models in
 `SavedModel format <https://www.tensorflow.org/guide/saved_model#save_and_restore_models>`_
+or Keras models in MLflow Model format
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
 Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
 can be scored with both DataFrame input and numpy array input. Finally, you can use the
 :py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow graphs.
+flavor as TensorFlow graphs or Keras model.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
