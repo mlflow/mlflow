@@ -507,7 +507,11 @@ class RegressionPipeline(_BasePipeline):
 
         elif artifact_name == "run":
             run_id = read_run_id()
-            if run_id:
+            if from_cli:
+                run_id_path = os.path.join(train_output_dir, "run_id")
+                if os.path.exists(run_id_path):
+                    return run_id_path
+            elif run_id:
                 with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
                     return MlflowClient().get_run(run_id)
             else:
