@@ -8,7 +8,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
-from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 
 def download_artifacts(
