@@ -135,7 +135,7 @@ server running, the MLflow client interacts with the tracking server via REST re
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
 
-    mlflow server --backend-store-uri file::///path/to/mlruns --no-serve-artifacts
+    mlflow server --backend-store-uri file:///path/to/mlruns --no-serve-artifacts
 
 To store all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
 
@@ -164,7 +164,7 @@ a Postgres database for backend entity storage, and an S3 bucket for artifact st
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
 
-    mlflow server --backend-store-uri postgresql:://URI --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
+    mlflow server --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb --default-artifact-root s3://bucket_name --host remote_host --no-serve-artifacts
 
 To record all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
 
@@ -208,7 +208,7 @@ need for an end-user to provide access credentials to interact with an underlyin
     :caption: Command to run the tracking server in this configuration
 
     mlflow server \
-      --backend-store-uri postgresql:://URI \
+      --backend-store-uri postgresql://user:password@postgres:5432/mlflowdb \
       # Artifact access is enabled through the proxy URI 'mlflow-artifacts:/',
       # giving users access to this location without having to manage credentials
       # or permissions.
