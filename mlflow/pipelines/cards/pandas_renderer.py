@@ -4,6 +4,7 @@ Renders the statistics of logged data in a HTML format.
 import base64
 import numpy as np
 import pandas as pd
+import sys
 
 from typing import Union, Iterable, Tuple
 from facets_overview import feature_statistics_pb2
@@ -41,8 +42,9 @@ def convert_to_dataset_feature_statistics(
     pandas_describe = df.describe()
     num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
-    quantiles = df.quantile(quantiles_to_get, numeric_only=False)
+    quantiles = df.quantile(quantiles_to_get)
 
+    commonstats = None
     for key in df:
         feat = feature_stats.features.add(type=DtypeToType(df[key].dtype), name=key.encode("utf-8"))
         if feat.type in (fs_proto.INT, fs_proto.FLOAT):
@@ -54,22 +56,65 @@ def convert_to_dataset_feature_statistics(
             featstats.min = pandas_describe[key]["min"]
             featstats.max = pandas_describe[key]["max"]
             featstats.median = df[key].median()
-            featstats.num_zeros = df[key].value_counts()[0]
+            featstats.num_zeros = (df[key] == 0).sum()  # TODO: Possibly broken
+
             commonstats.num_missing = df[key].isnull().sum()
             commonstats.num_non_missing = num_examples - commonstats.num_missing
 
-            equal_width_hist = histogram_generator.generate_equal_width_histogram(
-                quantiles=quantiles[key].to_numpy(),
-                num_buckets=10,
-                total_freq=commonstats.num_non_missing,
-            )
-            if equal_width_hist:
-                featstats.histograms.append(equal_width_hist)
-            equal_height_hist = histogram_generator.generate_equal_height_histogram(
-                quantiles=quantiles[key].to_numpy(), num_buckets=10
-            )
-            if equal_height_hist:
-                featstats.histograms.append(equal_height_hist)
+            if key in quantiles:
+                equal_width_hist = histogram_generator.generate_equal_width_histogram(
+                    quantiles=quantiles[key].to_numpy(),
+                    num_buckets=10,
+                    total_freq=commonstats.num_non_missing,
+                )
+                if equal_width_hist:
+                    featstats.histograms.append(equal_width_hist)
+                equal_height_hist = histogram_generator.generate_equal_height_histogram(
+                    quantiles=quantiles[key].to_numpy(), num_buckets=10
+                )
+                if equal_height_hist:
+                    featstats.histograms.append(equal_height_hist)
+        elif feat.type == fs_proto.STRING:
+            featstats = feat.string_stats
+            commonstats = featstats.common_stats
+
+            strs = []
+            for item in df[key]:
+                strs.append(
+                    item
+                    if hasattr(item, "__len__")
+                    else item.encode("utf-8")
+                    if hasattr(item, "encode")
+                    else str(item)
+                )
+
+            featstats.avg_length = np.mean(np.vectorize(len)(strs))
+            vals, counts = np.unique(strs, return_counts=True)
+            featstats.unique = len(vals)
+            sorted_vals = sorted(zip(counts, vals), reverse=True)
+            sorted_vals = sorted_vals[:None]
+            for val_index, val in enumerate(sorted_vals):
+                try:
+                    if sys.version_info.major < 3 or isinstance(val[1], (bytes, bytearray)):
+                        printable_val = val[1].decode("UTF-8", "strict")
+                    else:
+                        printable_val = val[1]
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    printable_val = "__BYTES_VALUE__"
+                bucket = featstats.rank_histogram.buckets.add(
+                    low_rank=val_index,
+                    high_rank=val_index,
+                    sample_count=np.asscalar(val[0]),
+                    label=printable_val,
+                )
+                if val_index < 2:
+                    featstats.top_values.add(value=bucket.label, frequency=bucket.sample_count)
+                commonstats.num_missing = df[key].isnull().sum()
+                commonstats.num_non_missing = num_examples - commonstats.num_missing
+                # TODO: Verify if this would be true for all string types
+                commonstats.min_num_values = 1
+                commonstats.max_num_values = 1
+                commonstats.avg_num_values = 1.0
 
     return feature_stats
 

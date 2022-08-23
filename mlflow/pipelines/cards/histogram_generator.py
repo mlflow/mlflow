@@ -14,7 +14,8 @@ def generate_equal_height_histogram(quantiles, num_buckets: int) -> Histogram:
     :return: An equal height histogram or None if inputs are invalid.
     """
     if (
-        (len(quantiles) < 3)
+        (quantiles.size == 0)
+        or (len(quantiles) < 3)
         or (len(quantiles) % 2 == 0)
         or ((len(quantiles) - 1) % num_buckets != 0)
     ):
