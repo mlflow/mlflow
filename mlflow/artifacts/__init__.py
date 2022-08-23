@@ -56,11 +56,7 @@ def download_artifacts(
 
     artifact_path = artifact_path if artifact_path is not None else ""
 
-    if tracking_uri is not None:
-        with _use_tracking_uri(tracking_uri):
-            store = _get_store()
-    else:
-        store = _get_store()
+    store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
