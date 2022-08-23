@@ -1815,7 +1815,8 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1",
      port = 5000,
      workers = NULL,
-     static_prefix = NULL
+     static_prefix = NULL,
+     serve_artifacts = FALSE
    )
 
 .. _arguments-42:
@@ -1843,6 +1844,10 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``static_prefix``             | A prefix which will be prepended to  |
 |                               | the path of all static paths.        |
++-------------------------------+--------------------------------------+
+| ``serve_artifacts``           | A flag specifying whether or not to  |
+|                               | enable artifact serving (default:    |
+|                               | FALSE).                              |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_set_experiment_tag``
