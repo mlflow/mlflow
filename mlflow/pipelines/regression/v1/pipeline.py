@@ -417,13 +417,8 @@ class RegressionPipeline(_BasePipeline):
                            :py:class:`ModelVersion <mlflow.entities.model_registry.ModelVersion>`
                            created by the **register** step.
 
-<<<<<<< HEAD
-        :param get_path: Returns the artifact location rather than the artifact itself.
-                Defaults to false.
-=======
                          - ``"scored_data"``: returns the scored dataset created in the
                            **predict** step as a pandas DataFrame.
->>>>>>> databricks/master
 
         :return: An object representation of the artifact corresponding to the specified name,
                  as described in the ``artifact_name`` parameter docstring. If the artifact is
