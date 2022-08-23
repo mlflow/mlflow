@@ -25,6 +25,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -1044,6 +1045,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
+@deprecated(alternative="search_experiments()")
 def list_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
     max_results: Optional[int] = None,
@@ -1522,6 +1524,7 @@ def search_runs(
         )
 
 
+@deprecated(alternative="search_runs()")
 def list_run_infos(
     experiment_id: str,
     run_view_type: int = ViewType.ACTIVE_ONLY,
