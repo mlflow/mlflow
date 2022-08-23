@@ -61,55 +61,6 @@ def deprecated(alternative=None, since=None, impact=None):
     return deprecated_decorator
 
 
-def deprecated_fields_included(
-    deprecated_fields=None, alternative_fields=None, since=None, impact=None
-):
-    """
-    Decorator for marking deprecated_fields of the class in the docstring.
-
-    :param cls: A class to mark
-    :returns Decorated class.
-    """
-
-    def deprecated_fields_included_decorator(cls):
-        since_str = " since %s" % since if since else ""
-        impact_str = impact if impact else ""
-
-        if (
-            deprecated_fields is not None
-            and isinstance(deprecated_fields, list)
-            and len(deprecated_fields) > 0
-        ):
-            impact_str = (
-                impact if impact else "These fields ``%s`` will be deprecated." % deprecated_fields
-            )
-
-        notice = "Some fields of ``{cls_name}`` is deprecated{since_string}. {impact}".format(
-            cls_name=cls.__class__.__name__,
-            since_string=since_str,
-            impact=impact_str,
-        )
-
-        if (
-            alternative_fields is not None
-            and isinstance(alternative_fields, list)
-            and len(alternative_fields) > 0
-        ):
-            notice += " Use ``%s`` instead." % alternative_fields
-
-        @wraps(cls)
-        def deprecated_cls(*args, **kwargs):
-            warnings.warn(notice, category=DeprecationWarning, stacklevel=2)
-            return cls(*args, **kwargs)
-
-        if cls.__doc__ is not None:
-            deprecated_cls.__doc__ = ".. Warning:: " + notice + "\n" + cls.__doc__
-
-        return deprecated_cls
-
-    return deprecated_fields_included_decorator
-
-
 def keyword_only(func):
     """
     A decorator that forces keyword arguments in the wrapped method.

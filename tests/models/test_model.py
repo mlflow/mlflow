@@ -162,8 +162,9 @@ def test_model_info():
 
         with warnings.catch_warnings(record=True) as w:
             model_info_fetched = mlflow.models.get_model_info(model_uri)
-            assert "These fields ``%s`` will be deprecated." % ["signature_dict"] in str(
-                w[0].message
+            assert (
+                "Field signature_dict is deprecated since v1.28.1. Use signature instead."
+                in str(w[0].message)
             )
         local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
