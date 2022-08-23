@@ -100,6 +100,8 @@ on the local filesystem—``./mlruns``—as shown in the diagram. The MLflow cli
 instance of a `FileStore` and `LocalArtifactRepository`.
 
 .. figure:: _static/images/scenario_1.png
+    :align: center
+    :figwidth: 800
 
 In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -113,6 +115,8 @@ Many users also run MLflow on their local machines with a `SQLAlchemy-compatible
 are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a SQLite database file ``mlruns.db``.
 
 .. figure:: _static/images/scenario_2.png
+    :align: center
+    :figwidth: 800
 
 In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -131,6 +135,8 @@ As in scenario 1, MLflow uses a local `mlruns` filesystem directory as a backend
 server running, the MLflow client interacts with the tracking server via REST requests, as shown in the diagram.
 
 .. figure:: _static/images/scenario_3.png
+    :align: center
+    :figwidth: 800
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -160,6 +166,8 @@ reside on remote hosts. This example scenario depicts an architecture with a rem
 a Postgres database for backend entity storage, and an S3 bucket for artifact storage.
 
 .. figure:: _static/images/scenario_4.png
+    :align: center
+    :figwidth: 800
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -203,6 +211,8 @@ This eliminates the need to allow end users to have direct path access to a remo
 need for an end-user to provide access credentials to interact with an underlying object store.
 
 .. figure:: _static/images/scenario_5.png
+    :align: center
+    :figwidth: 800
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
@@ -262,6 +272,8 @@ MLflow's Tracking Server can be used in an exclusive artifact proxied artifact h
     Creating runs, logging metrics or parameters, and accessing other attributes about experiments are all not permitted in this mode.
 
 .. figure:: _static/images/scenario_6.png
+    :align: center
+    :figwidth: 800
 
 .. code-block:: bash
     :caption: Command to run the tracking server in this configuration
