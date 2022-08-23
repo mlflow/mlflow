@@ -277,7 +277,7 @@ In another shell:
    cd mlflow/server/js
    yarn start
 
-The MLflow Tracking UI will show runs logged in ``./mlruns`` at `<http://localhost:3000>`_.
+The MLflow Tracking UI will serve runs logged in ``./mlruns`` at `<http://localhost:5000>`_, and the Javascript Dev Server will run at `<http://localhost:3000>`_
 
 Testing a React Component
 +++++++++++++++++++++++++
