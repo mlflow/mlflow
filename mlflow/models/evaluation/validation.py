@@ -34,8 +34,8 @@ class MetricThreshold:
                                 - Otherwise, metric value has to be
                                   <= baseline model metric value * (1 - min_relative_change)
                                 - Note that if the baseline model metric value is equal to 0, the
-                                  threshold falls back to a minimum absolute change threshold of
-                                  min_absolute_change 0.
+                                  threshold falls back performing a simple verification that the
+                                  candidate metric value is better than the baseline metric value.
 
     :param higher_is_better: A required boolean representing whether higher value is
                              better for the metric.
