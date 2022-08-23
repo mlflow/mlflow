@@ -25,7 +25,7 @@ from packaging.version import Version
 
 def _load_pyfunc(path):
     with open(path, "rb") as f:
-        return pickle.load(f, encoding="latin1")  # pylint: disable=unexpected-keyword-arg
+        return pickle.load(f)
 
 
 @pytest.fixture(scope="module")
