@@ -51,7 +51,7 @@ mlflow_cli_param <- function(args, param, value) {
 #' @param host The network address to listen on (default: 127.0.0.1).
 #' @param port The port to listen on (default: 5000).
 #' @param workers Number of gunicorn worker processes to handle requests (default: 4).
-#' @param static_prefix A prefix which will be prepended to the path of all static paths.
+#' @param static_prefix A prefix which will be prepended to the path of all static path.
 #' @export
 mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
                           host = "127.0.0.1", port = 5000, workers = NULL, static_prefix = NULL) {
