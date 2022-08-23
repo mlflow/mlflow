@@ -203,7 +203,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.list_experiments()]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         self.store.delete_experiment(0)
 
@@ -226,7 +226,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual({"aNothEr", "Default"}, set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
@@ -1303,7 +1303,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(metric_obj.value, 34.0)
         self.assertEqual(metric_obj.timestamp, 85)
         self.assertEqual(metric_obj.step, 1)
-        self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
+        self.assertTrue({("t1345", "tv44")} <= set(run.data.tags.items()))
 
     # Tests for Search API
     def _search(
@@ -1874,7 +1874,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             [self.store.get_metric_history(run_id, key) for key in run.data.metrics], []
         )
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
-        assert set(metrics) == set([("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)])
+        assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
     def test_log_batch_limits(self):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
