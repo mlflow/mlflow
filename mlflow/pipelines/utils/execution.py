@@ -19,6 +19,7 @@ def run_pipeline_step(
     pipeline_root_path: str,
     pipeline_steps: List[BaseStep],
     target_step: BaseStep,
+    template: str,
 ) -> BaseStep:
     """
     Runs the specified step in the specified pipeline, as well as all dependent steps.
@@ -29,12 +30,16 @@ def run_pipeline_step(
                            steps must be provided in the order that they are intended to be
                            executed.
     :param target_step: The step to run.
+    :param template: The template to use when selecting a Makefile to load.  If the template is
+                     invalid, an exception is thrown.
     :return: The last step that successfully completed during the pipeline execution. If execution
              was successful, this always corresponds to the supplied target step. If execution was
              unsuccessful, this corresponds to the step that failed.
     """
     target_step_index = pipeline_steps.index(target_step)
-    execution_dir_path = _get_or_create_execution_directory(pipeline_root_path, pipeline_steps)
+    execution_dir_path = _get_or_create_execution_directory(
+        pipeline_root_path, pipeline_steps, template
+    )
 
     def get_execution_state(step):
         return step.get_execution_state(
@@ -147,7 +152,7 @@ def get_step_output_path(pipeline_root_path: str, step_name: str, relative_path:
 
 
 def _get_or_create_execution_directory(
-    pipeline_root_path: str, pipeline_steps: List[BaseStep]
+    pipeline_root_path: str, pipeline_steps: List[BaseStep], template: str
 ) -> str:
     """
     Obtains the path of the execution directory on the local filesystem corresponding to the
@@ -157,6 +162,7 @@ def _get_or_create_execution_directory(
     :param pipeline_root_path: The absolute path of the pipeline root directory on the local
                                filesystem.
     :param pipeline_steps: A list of all the steps contained in the specified pipeline.
+    :param template: The template to use to generate the makefile.
     :return: The absolute path of the execution directory on the local filesystem for the specified
              pipeline.
     """
@@ -164,7 +170,7 @@ def _get_or_create_execution_directory(
         pipeline_root_path=pipeline_root_path
     )
 
-    _create_makefile(pipeline_root_path, execution_dir_path)
+    _create_makefile(pipeline_root_path, execution_dir_path, template)
     for step in pipeline_steps:
         step_output_subdir_path = _get_step_output_directory_path(execution_dir_path, step.name)
         os.makedirs(step_output_subdir_path, exist_ok=True)
@@ -286,7 +292,7 @@ def _run_make(execution_directory_path, rule_name: str, extra_env: Dict[str, str
     )
 
 
-def _create_makefile(pipeline_root_path, execution_directory_path) -> None:
+def _create_makefile(pipeline_root_path, execution_directory_path, template) -> None:
     """
     Creates a Makefile with a set of relevant MLflow Pipelines targets for the specified pipeline,
     overwriting the preexisting Makefile if one exists. The Makefile is created in the specified
@@ -297,9 +303,16 @@ def _create_makefile(pipeline_root_path, execution_directory_path) -> None:
     :param execution_directory_path: The absolute path of the execution directory on the local
                                      filesystem for the specified pipeline. The Makefile is created
                                      in this directory.
+    :param template: The template to use to generate the makefile.
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
-    makefile_contents = _MAKEFILE_FORMAT_STRING.format(
+
+    if template == "regression/v1":
+        makefile_to_use = _REGRESSION_MAKEFILE_FORMAT_STRING
+    else:
+        raise ValueError(f"Invalid template: {template}")
+
+    makefile_contents = makefile_to_use.format(
         path=_MakefilePathFormat(
             os.path.abspath(pipeline_root_path),
             execution_directory_path=os.path.abspath(execution_directory_path),
@@ -388,7 +401,7 @@ class _MakefilePathFormat:
 # Makefile contents for cache-aware pipeline execution. These contents include variable placeholders
 # that need to be formatted (substituted) with the pipeline root directory in order to produce a
 # valid Makefile
-_MAKEFILE_FORMAT_STRING = r"""
+_REGRESSION_MAKEFILE_FORMAT_STRING = r"""
 # Define `ingest` as a target with no dependencies to ensure that it runs whenever a user explicitly
 # invokes the MLflow Pipelines ingest step, allowing them to reingest data on-demand
 ingest:
@@ -442,6 +455,27 @@ steps/%/outputs/registered_model_version.json: steps/train/outputs/run_id steps/
 	cd {path:prp/} && \
         python -c "from mlflow.pipelines.steps.register import RegisterStep; RegisterStep.from_step_config_path(step_config_path='{path:exe/steps/register/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/register/outputs}')"
 
+# Define `ingest_scoring` as a target with no dependencies to ensure that it runs whenever a user explicitly
+# invokes the MLflow Pipelines ingest_scoring step, allowing them to reingest data on-demand
+ingest_scoring:
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.ingest import IngestScoringStep; IngestScoringStep.from_step_config_path(step_config_path='{path:exe/steps/ingest_scoring/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/ingest_scoring/outputs}')"
+
+# Define a separate target for the ingested dataset that recursively invokes make with the `ingest`
+# target. Downstream steps depend on the ingested dataset target, rather than the `ingest` target,
+# ensuring that data is only ingested for downstream steps if it is not already present on the
+# local filesystem
+steps/ingest_scoring/outputs/dataset.parquet: steps/ingest_scoring/conf.yaml {path:prp/steps/ingest_scoring.py}
+	$(MAKE) ingest_scoring
+
+predict_objects = steps/predict/outputs/scored.parquet
+
+predict: $(predict_objects)
+
+steps/%/outputs/scored.parquet: steps/ingest_scoring/outputs/dataset.parquet steps/predict/conf.yaml
+	cd {path:prp/} && \
+        python -c "from mlflow.pipelines.steps.predict import PredictStep; PredictStep.from_step_config_path(step_config_path='{path:exe/steps/predict/conf.yaml}', pipeline_root='{path:prp/}').run(output_directory='{path:exe/steps/predict/outputs}')"
+
 clean:
-	rm -rf $(split_objects) $(transform_objects) $(train_objects) $(evaluate_objects)
+	rm -rf $(split_objects) $(transform_objects) $(train_objects) $(evaluate_objects) $(predict_objects)
 """
