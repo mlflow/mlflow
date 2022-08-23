@@ -298,7 +298,7 @@ def test_correct_filtering(filter_string, matching_runs):
         ),
     ]
     filtered_runs = SearchUtils.filter(runs, filter_string)
-    assert set(filtered_runs) == set([runs[i] for i in matching_runs])
+    assert set(filtered_runs) == {runs[i] for i in matching_runs}
 
 
 def test_filter_runs_by_start_time():
