@@ -757,7 +757,7 @@ def _store_patch(autologging_integration, patch):
     if autologging_integration in _AUTOLOGGING_PATCHES:
         _AUTOLOGGING_PATCHES[autologging_integration].add(patch)
     else:
-        _AUTOLOGGING_PATCHES[autologging_integration] = set([patch])
+        _AUTOLOGGING_PATCHES[autologging_integration] = {patch}
 
 
 def _validate_autologging_run(autologging_integration, run_id):
