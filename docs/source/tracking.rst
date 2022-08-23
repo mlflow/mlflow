@@ -101,7 +101,7 @@ instance of a `FileStore` and `LocalArtifactRepository`.
 
 .. figure:: _static/images/scenario_1.png
     :align: center
-    :figwidth: 800
+    :figwidth: 600
 
 In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
@@ -116,7 +116,7 @@ are stored under the local ``./mlruns`` directory, and MLflow entities are inser
 
 .. figure:: _static/images/scenario_2.png
     :align: center
-    :figwidth: 800
+    :figwidth: 600
 
 In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
