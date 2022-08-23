@@ -108,6 +108,7 @@ The pipeline steps are defined as follows:
 
 import os
 import logging
+from tkinter import E
 
 from mlflow.pipelines.regression.v1 import dag_help_strings
 from mlflow.tracking.client import MlflowClient
@@ -372,7 +373,7 @@ class RegressionPipeline(_BasePipeline):
         return super().run(step=step)
 
     @experimental
-    def get_artifact(self, artifact_name: str, get_path: bool = False) -> Optional[Any]:
+    def get_artifact(self, artifact_name: str) -> Optional[Any]:
         """
         Reads an artifact from the pipeline's outputs. Supported artifact names can be obtained by
         examining the pipeline graph visualization displayed by
@@ -452,6 +453,122 @@ class RegressionPipeline(_BasePipeline):
             register_step,
         ) = self._steps
 
+        def log_artifact_not_found_warning(artifact_name, step_name):
+            _logger.warning(
+                f"The artifact with name '{artifact_name}' was not found."
+                f" Re-run the '{step_name}' step to generate it."
+            )
+
+        def read_run_id():
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
+            run_id_file_path = os.path.join(train_output_dir, "run_id")
+            if os.path.exists(run_id_file_path):
+                with open(run_id_file_path, "r") as f:
+                    return f.read().strip()
+            else:
+                return None
+
+        train_step_tracking_uri = train_step.tracking_config.tracking_uri
+        pipeline_root_path = get_pipeline_root_path()
+
+        def read_dataframe_from_path(artifact_path, step_name):
+            import pandas as pd
+
+            if os.path.exists(artifact_path):
+                return pd.read_parquet(artifact_path)
+            else:
+                log_artifact_not_found_warning(artifact_name, step_name)
+                return None
+
+        artifact_path = self._get_artifact_path(
+            artifact_name
+        )  # path may or may not exist, error handling is in this function
+
+        if artifact_name == "ingested_data":
+            return read_dataframe_from_path(artifact_path, ingest_step.name)
+
+        elif artifact_name == "training_data":
+            return read_dataframe_from_path(artifact_path, split_step.name)
+
+        elif artifact_name == "validation_data":
+            return read_dataframe_from_path(artifact_path, split_step.name)
+
+        elif artifact_name == "test_data":
+            return read_dataframe_from_path(artifact_path, split_step.name)
+
+        elif artifact_name == "transformed_training_data":
+            return read_dataframe_from_path(artifact_path, transform_step.name)
+
+        elif artifact_name == "transformed_validation_data":
+            return read_dataframe_from_path(artifact_path, transform_step.name)
+
+        elif artifact_name == "model":
+            run_id = read_run_id()
+            if run_id:
+                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
+                    return mlflow.pyfunc.load_model(f"runs:/{run_id}/{train_step.name}/model")
+            else:
+                log_artifact_not_found_warning("model", train_step.name)
+                return None
+
+        elif artifact_name == "transformer":
+            run_id = read_run_id()
+            if run_id:
+                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
+                    return mlflow.sklearn.load_model(
+                        f"runs:/{run_id}/{transform_step.name}/transformer"
+                    )
+            else:
+                log_artifact_not_found_warning("transformer", train_step.name)
+                return None
+
+        elif artifact_name == "run":
+            run_id = read_run_id()
+            if run_id:
+                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
+                    return MlflowClient().get_run(run_id)
+            else:
+                log_artifact_not_found_warning("mlflow run", train_step.name)
+                return None
+
+        elif artifact_name == "registered_model_version":
+            if os.path.exists(artifact_path):
+                registered_model_info = RegisteredModelVersionInfo.from_json(path=artifact_path)
+                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
+                    return MlflowClient().get_model_version(
+                        name=registered_model_info.name, version=registered_model_info.version
+                    )
+            else:
+                log_artifact_not_found_warning("registered_model_version", register_step.name)
+                return None
+
+        elif artifact_name == "ingested_scoring_data":
+            return read_dataframe_from_path(artifact_path, ingest_scoring_step.name)
+
+        elif artifact_name == "scored_data":
+            return read_dataframe_from_path(artifact_path, predict_step.name)
+
+        else:
+            raise MlflowException(
+                f"The artifact with name '{artifact_name}' is not supported.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def _get_artifact_path(self, artifact_name: str) -> Any[str]:
+        """
+        Returns a path that may or may not exist
+        """
+        (
+            ingest_scoring_step,
+            predict_step,
+            ingest_step,
+            split_step,
+            transform_step,
+            train_step,
+            _,
+            register_step,
+        ) = self._steps
+
         ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
         split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
         transform_output_dir = get_step_output_path(
@@ -463,150 +580,32 @@ class RegressionPipeline(_BasePipeline):
             self._pipeline_root_path, ingest_scoring_step.name, ""
         )
         predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
-
-        def log_artifact_not_found_warning(artifact_name, step_name):
-            _logger.warning(
-                f"The artifact with name '{artifact_name}' was not found."
-                f" Re-run the '{step_name}' step to generate it."
-            )
-
-        def read_run_id():
-            run_id_file_path = os.path.join(train_output_dir, "run_id")
-            if os.path.exists(run_id_file_path):
-                with open(run_id_file_path, "r") as f:
-                    return f.read().strip()
-            else:
-                return None
-
-        train_step_tracking_uri = train_step.tracking_config.tracking_uri
-        pipeline_root_path = get_pipeline_root_path()
-
-        def read_dataframe(artifact_name, output_dir, file_name, step_name):
-            import pandas as pd
-
-            data_path = os.path.join(output_dir, file_name)
-            if os.path.exists(data_path):
-                if get_path:
-                    return data_path
-                return pd.read_parquet(data_path)
-            else:
-                log_artifact_not_found_warning(artifact_name, step_name)
-                return None
+        register_output_dir = get_step_output_path(self._pipeline_root_path, register_step.name, "")
 
         if artifact_name == "ingested_data":
-            return read_dataframe(
-                "ingested_data",
-                ingest_output_dir,
-                IngestStep._DATASET_OUTPUT_NAME,
-                ingest_step.name,
-            )
-
+            return os.path.join(ingest_output_dir, IngestStep._DATASET_OUTPUT_NAME)
         elif artifact_name == "training_data":
-            return read_dataframe(
-                "training_data", split_output_dir, _OUTPUT_TRAIN_FILE_NAME, split_step.name
-            )
-
+            return os.path.join(split_output_dir, _OUTPUT_TRAIN_FILE_NAME)
         elif artifact_name == "validation_data":
-            return read_dataframe(
-                "validation_data", split_output_dir, _OUTPUT_VALIDATION_FILE_NAME, split_step.name
-            )
-
+            return os.path.join(split_output_dir, _OUTPUT_VALIDATION_FILE_NAME)
         elif artifact_name == "test_data":
-            return read_dataframe(
-                "test_data", split_output_dir, _OUTPUT_TEST_FILE_NAME, split_step.name
-            )
-
+            return os.path.join(split_output_dir, _OUTPUT_TEST_FILE_NAME)
         elif artifact_name == "transformed_training_data":
-            return read_dataframe(
-                "transformed_training_data",
-                transform_output_dir,
-                "transformed_training_data.parquet",
-                transform_step.name,
-            )
-
+            return os.path.join(transform_output_dir, "transformed_training_data.parquet")
         elif artifact_name == "transformed_validation_data":
-            return read_dataframe(
-                "transformed_validation_data",
-                transform_output_dir,
-                "transformed_validation_data.parquet",
-                transform_step.name,
-            )
-
+            return os.path.join(transform_output_dir, "transformed_validation_data.parquet")
         elif artifact_name == "model":
-            run_id = read_run_id()
-            if get_path:
-                model_path = os.path.join(train_output_dir, "model", "model.pkl")
-                if os.path.exists(model_path):
-                    return model_path
-            elif run_id:
-                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
-                    return mlflow.pyfunc.load_model(f"runs:/{run_id}/{train_step.name}/model")
-            else:
-                log_artifact_not_found_warning("model", train_step.name)
-                return None
-
+            return os.path.join(train_output_dir, "model", "model.pkl")
         elif artifact_name == "transformer":
-            run_id = read_run_id()
-            if get_path:
-                transformer_path = os.path.join(transform_output_dir, "transformer.pkl")
-                if os.path.exists(transformer_path):
-                    return transformer_path
-            elif run_id:
-                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
-                    return mlflow.sklearn.load_model(
-                        f"runs:/{run_id}/{transform_step.name}/transformer"
-                    )
-            else:
-                log_artifact_not_found_warning("transformer", train_step.name)
-                return None
-
+            return os.path.join(transform_output_dir, "transformer.pkl")
         elif artifact_name == "run":
-            run_id = read_run_id()
-            if get_path:
-                run_id_path = os.path.join(train_output_dir, "run_id")
-                if os.path.exists(run_id_path):
-                    return run_id_path
-            elif run_id:
-                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
-                    return MlflowClient().get_run(run_id)
-            else:
-                log_artifact_not_found_warning("mlflow run", train_step.name)
-                return None
-
+            return os.path.join(train_output_dir, "run_id")
         elif artifact_name == "registered_model_version":
-            register_output_dir = get_step_output_path(
-                self._pipeline_root_path, register_step.name, ""
-            )
-            registered_model_info_path = os.path.join(
-                register_output_dir, "registered_model_version.json"
-            )
-            if os.path.exists(registered_model_info_path):
-                if get_path:
-                    return registered_model_info_path
-                registered_model_info = RegisteredModelVersionInfo.from_json(
-                    path=registered_model_info_path
-                )
-                with _use_tracking_uri(train_step_tracking_uri, pipeline_root_path):
-                    return MlflowClient().get_model_version(
-                        name=registered_model_info.name, version=registered_model_info.version
-                    )
-            else:
-                log_artifact_not_found_warning("registered_model_version", register_step.name)
-                return None
-
+            return os.path.join(register_output_dir, "registered_model_version.json")
         elif artifact_name == "ingested_scoring_data":
-            return read_dataframe(
-                "ingested_scoring_data",
-                ingest_scoring_output_dir,
-                IngestScoringStep._DATASET_OUTPUT_NAME,
-                ingest_scoring_step.name,
-            )
-
+            return os.path.join(ingest_scoring_output_dir, IngestScoringStep._DATASET_OUTPUT_NAME)
         elif artifact_name == "scored_data":
-            return read_dataframe(
-                "scored_data", predict_output_dir, _SCORED_OUTPUT_FILE_NAME, predict_step.name
-            )
-
+            return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
         else:
             raise MlflowException(
                 f"The artifact with name '{artifact_name}' is not supported.",
