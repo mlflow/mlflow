@@ -441,6 +441,22 @@ class TrackingServiceClient:
         """
         return self._get_artifact_repo(run_id).list_artifacts(path)
 
+    def download_artifacts(self, run_id, path, dst_path=None):
+        """
+        Download an artifact file or directory from a run to a local directory if applicable,
+        and return a local path for it.
+
+        :param run_id: The run to download artifacts from.
+        :param path: Relative source path to the desired artifact.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist.
+                         If unspecified, the artifacts will either be downloaded to a new
+                         uniquely-named directory on the local filesystem or will be returned
+                         directly in the case of the LocalArtifactRepository.
+        :return: Local path of desired artifact.
+        """
+        return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
+
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
 

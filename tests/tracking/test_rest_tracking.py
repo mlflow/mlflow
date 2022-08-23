@@ -656,7 +656,6 @@ def test_set_terminated_status(mlflow_client):
 
 
 def test_artifacts(mlflow_client, tmp_path):
-    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(path_to_local_file_uri(str(tmp_path)))
@@ -679,11 +678,15 @@ def test_artifacts(mlflow_client, tmp_path):
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
     assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
 
-    all_artifacts = download_artifacts(run_id=run_id, artifact_path=".")
+    all_artifacts = download_artifacts(
+        run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"
     assert open("%s/dir/my.file" % all_artifacts, "r").read() == "Hello, World!"
 
-    dir_artifacts = download_artifacts(run_id=run_id, artifact_path="dir")
+    dir_artifacts = download_artifacts(
+        run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 
