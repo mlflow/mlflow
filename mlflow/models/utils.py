@@ -548,30 +548,41 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
     Validate that the input data schema matches expected schema.
 
     :param data: Input data to be validated. Supported types are:
-                    - Pandas DataFrame
-                    - Pandas Series
-                    - Numpy ndarray
-                    - scipy.sparse.csc_matrix
-                    - scipy.sparse.csr_matrix
-                    - List[Any]
-                    - Dict[str, Any]
-                    - list
 
+                 - A Pandas DataFrame.
+
+                 - Pandas Series
+
+                 - Pandas DataFrame
+
+                 - Pandas Series
+
+                 - Numpy ndarray
+
+                 - scipy.sparse.csc_matrix
+
+                 - scipy.sparse.csr_matrix
+
+                 - List[Any]
+
+                 - Dict[str, Any]
+
+                 - list
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
     :return: Validated input data.
     :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
              not match the schema.
 
     .. code-block:: python
-            :caption: Example usage of validate_schema
+        :caption: Example usage of validate_schema
 
-            import mlflow.models
+        import mlflow.models
 
-            # Suppose you've already got a model_uri
-            model_info = mlflow.models.get_model_info(model_uri)
-            # Get model signature directly
-            model_signature = model_info.signature
-            # validate schema
-            mlflow.models.validate_schema(input_data, model_signature.inputs)
+        # Suppose you've already got a model_uri
+        model_info = mlflow.models.get_model_info(model_uri)
+        # Get model signature directly
+        model_signature = model_info.signature
+        # validate schema
+        mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
     return _enforce_schema(data, expected_schema)

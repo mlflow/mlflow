@@ -86,7 +86,7 @@ class ModelInfo:
                           that describes the model input and output.
         :param utc_time_created: The UTC time that the logged model is created,
                                 e.g., ``'2022-01-12 05:17:31.634689'``.
-        :param mlflow_version: Version of MLFlow used to log the model
+        :param mlflow_version: Version of MLflow used to log the model
         """
         self._artifact_path = artifact_path
         self._flavors = flavors

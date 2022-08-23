@@ -1,7 +1,6 @@
 import os
 import pytest
 from datetime import date
-import warnings
 
 import mlflow
 import pandas as pd
@@ -160,25 +159,25 @@ def test_model_info():
             )
         model_uri = "runs:/{}/some/path".format(run.info.run_id)
 
-        with warnings.catch_warnings(record=True) as w:
+        with pytest.warns(
+            DeprecationWarning,
+            match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
+        ):
             model_info_fetched = mlflow.models.get_model_info(model_uri)
-            assert (
-                "Field signature_dict is deprecated since v1.28.1. Use signature instead."
-                in str(w[0].message)
-            )
         local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
-        assert model_info.run_id == run.info.run_id == model_info_fetched.run_id
-        assert model_info.artifact_path == "some/path" == model_info_fetched.artifact_path
-        assert model_info.model_uri == model_uri == model_info_fetched.model_uri
+        assert model_info.run_id == run.info.run_id
+        assert model_info_fetched.run_id == run.info.run_id
+        assert model_info.artifact_path == "some/path"
+        assert model_info_fetched.artifact_path == "some/path"
+        assert model_info.model_uri == model_uri
+        assert model_info_fetched.model_uri == model_uri
 
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
-        assert (
-            model_info.utc_time_created
-            == loaded_model.utc_time_created
-            == model_info_fetched.utc_time_created
-        )
-        assert model_info.model_uuid == loaded_model.model_uuid == model_info_fetched.model_uuid
+        assert model_info.utc_time_created == loaded_model.utc_time_created
+        assert model_info_fetched.utc_time_created == loaded_model.utc_time_created
+        assert model_info.model_uuid == loaded_model.model_uuid
+        assert model_info_fetched.model_uuid == loaded_model.model_uuid
 
         assert model_info.flavors == {
             "flavor1": {"a": 1, "b": 2},
@@ -190,13 +189,11 @@ def test_model_info():
         assert x.to_dict(orient="records")[0] == input_example
 
         model_signature = model_info_fetched.signature
-        assert model_info.signature_dict == sig.to_dict() == model_signature.to_dict()
+        assert model_info.signature_dict == sig.to_dict()
+        assert model_signature.to_dict() == sig.to_dict()
 
-        assert (
-            Version(model_info.mlflow_version)
-            == Version(loaded_model.mlflow_version)
-            == Version(model_info_fetched.mlflow_version)
-        )
+        assert model_info.mlflow_version == loaded_model.mlflow_version
+        assert model_info_fetched.mlflow_version == loaded_model.mlflow_version
 
 
 def test_load_model_without_mlflow_version():
@@ -378,8 +375,8 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmpdir, model_path):
         pickle.dump(sklearn_knn_model, f)
 
     model_config = Model(run_id="test", artifact_path="testtest")
-    data = iris_data
-    signature = infer_signature(*data)
+    X, y = iris_data
+    signature = infer_signature(X, y)
     mlflow.pyfunc.save_model(
         path=model_path,
         data_path=sk_model_path,
@@ -389,8 +386,8 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmpdir, model_path):
         signature=signature,
     )
 
-    validate_schema(data[0], signature.inputs)
-    prediction = sklearn_knn_model.predict(data[0])
+    validate_schema(X, signature.inputs)
+    prediction = sklearn_knn_model.predict(X)
     reloaded_model = mlflow.pyfunc.load_model(model_path)
-    np.testing.assert_array_equal(prediction, reloaded_model.predict(data[0]))
+    np.testing.assert_array_equal(prediction, reloaded_model.predict(X))
     validate_schema(prediction, signature.outputs)
