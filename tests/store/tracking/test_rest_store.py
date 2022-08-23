@@ -75,7 +75,7 @@ class TestRestStore:
     def test_successful_http_request(self, request):
         def mock_request(*args, **kwargs):
             # Filter out None arguments
-            assert args == ("GET", "https://hello/api/2.0/mlflow/experiments/list")
+            assert args == ("GET", "https://hello/api/2.0/mlflow/experiments/search")
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "params": {"view_type": "ACTIVE_ONLY"},
@@ -91,7 +91,7 @@ class TestRestStore:
         request.side_effect = mock_request
 
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
-        experiments = store.list_experiments()
+        experiments = store.search_experiments()
         assert experiments[0].name == "Exp!"
 
     @mock.patch("requests.Session.request")
@@ -103,7 +103,7 @@ class TestRestStore:
 
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
-            store.list_experiments()
+            store.search_experiments()
 
     @mock.patch("requests.Session.request")
     def test_failed_http_request_custom_handler(self, request):
@@ -114,7 +114,7 @@ class TestRestStore:
 
         store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
         with pytest.raises(MyCoolException, match="cool"):
-            store.list_experiments()
+            store.search_experiments()
 
     @mock.patch("requests.Session.request")
     def test_response_with_unknown_fields(self, request):
@@ -133,7 +133,7 @@ class TestRestStore:
         request.return_value = response
 
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
-        experiments = store.list_experiments()
+        experiments = store.search_experiments()
         assert len(experiments) == 1
         assert experiments[0].name == "My experiment"
 
@@ -367,58 +367,6 @@ class TestRestStore:
             )
             assert mock_http.call_count == 1
 
-            # Test REST client behavior against a mocked old server, which has handler for
-            # ListExperiments but not GetExperimentByName
-            mock_http.reset_mock()
-            list_exp_response = mock.MagicMock()
-            list_exp_response.text = json.dumps(
-                {"experiments": [json.loads(message_to_json(experiment.to_proto()))]}
-            )
-            list_exp_response.status_code = 200
-
-            def response_fn(*args, **kwargs):
-                # pylint: disable=unused-argument
-                if kwargs.get("endpoint") == "/api/2.0/mlflow/experiments/get-by-name":
-                    raise MlflowException(
-                        "GetExperimentByName is not implemented", ENDPOINT_NOT_FOUND
-                    )
-                else:
-                    return list_exp_response
-
-            mock_http.side_effect = response_fn
-            result = store.get_experiment_by_name("abc")
-            expected_message2 = ListExperiments(view_type=ViewType.ALL)
-            self._verify_requests(
-                mock_http,
-                creds,
-                "experiments/get-by-name",
-                "GET",
-                message_to_json(expected_message0),
-            )
-            self._verify_requests(
-                mock_http, creds, "experiments/list", "GET", message_to_json(expected_message2)
-            )
-            assert result.experiment_id == experiment.experiment_id
-            assert result.name == experiment.name
-            assert result.artifact_location == experiment.artifact_location
-            assert result.lifecycle_stage == experiment.lifecycle_stage
-
-            # Verify that REST client won't fall back to ListExperiments for 429 errors (hitting
-            # rate limits)
-            mock_http.reset_mock()
-
-            def rate_limit_response_fn(*args, **kwargs):
-                # pylint: disable=unused-argument
-                raise MlflowException(
-                    "Hit rate limit on GetExperimentByName", REQUEST_LIMIT_EXCEEDED
-                )
-
-            mock_http.side_effect = rate_limit_response_fn
-            with pytest.raises(MlflowException, match="Hit rate limit") as exc_info:
-                store.get_experiment_by_name("imspamming")
-            assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
-            assert mock_http.call_count == 1
-
     def test_databricks_rest_store_get_experiment_by_name(self):
         creds = MlflowHostCreds("https://hello")
         store = DatabricksRestStore(lambda: creds)
@@ -443,36 +391,6 @@ class TestRestStore:
                 message_to_json(expected_message0),
             )
             assert mock_http.call_count == 1
-
-    def test_databricks_paginate_list_experiments(self):
-        creds = MlflowHostCreds("https://hello")
-        store = DatabricksRestStore(lambda: creds)
-
-        list_exp_responses = []
-        next_page_tokens = ["a", "b", None]
-        for next_page_token in next_page_tokens:
-            experiment = Experiment(
-                experiment_id="123",
-                name=str(next_page_token),
-                artifact_location="/abc",
-                lifecycle_stage=LifecycleStage.ACTIVE,
-            )
-            list_exp_response = mock.MagicMock()
-            list_exp_response.text = json.dumps(
-                {
-                    "experiments": [json.loads(message_to_json(experiment.to_proto()))],
-                    "next_page_token": next_page_token,
-                }
-            )
-            list_exp_response.status_code = 200
-            list_exp_responses.append(list_exp_response)
-
-        with mock.patch("mlflow.utils.rest_utils.http_request", side_effect=list_exp_responses):
-            for idx, experiments in enumerate(
-                store._paginate_list_experiments(ViewType.ACTIVE_ONLY)
-            ):
-                assert experiments[0].name == str(next_page_tokens[idx])
-                assert experiments.token == next_page_tokens[idx]
 
     def test_search_experiments(self):
         creds = MlflowHostCreds("https://hello")

@@ -207,7 +207,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
     #   - b.txt
     # ---------
     side_effect = [
-        # Response for `list_experiments("")` called by `_is_directory("")`
+        # Response for `list_artifacts("")` called by `_is_directory("")`
         MockResponse(
             {
                 "files": [
@@ -217,7 +217,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
             },
             200,
         ),
-        # Response for `list_experiments("")`
+        # Response for `list_artifacts("")`
         MockResponse(
             {
                 "files": [
@@ -229,7 +229,7 @@ def test_download_artifacts(http_artifact_repo, tmpdir):
         ),
         # Response for `_download_file("a.txt")`
         MockStreamResponse("data_a", 200),
-        # Response for `list_experiments("dir")`
+        # Response for `list_artifacts("dir")`
         MockResponse({"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}, 200),
         # Response for `_download_file("dir/b.txt")`
         MockStreamResponse("data_b", 200),

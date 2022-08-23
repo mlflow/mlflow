@@ -24,7 +24,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils import env
+from mlflow.utils import env, get_results_from_paginated_fn
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -1045,27 +1045,6 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
-def list_experiments(
-    view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: Optional[int] = None,
-) -> List[Experiment]:
-    """
-    :param view_type: Qualify requested type of experiments.
-    :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                        passed, all experiments will be returned.
-    :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
-    """
-
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().list_experiments(
-            view_type=view_type,
-            max_results=number_to_get,
-            page_token=next_page_token,
-        )
-
-    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
-
-
 @experimental
 def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
@@ -1164,7 +1143,7 @@ def search_experiments(
             page_token=next_page_token,
         )
 
-    return _paginate(
+    return get_results_from_paginated_fn(
         pagination_wrapper_func,
         SEARCH_MAX_RESULTS_DEFAULT,
         max_results,
@@ -1426,7 +1405,7 @@ def search_runs(
 
     if search_all_experiments and no_ids_or_names:
         experiment_ids = [
-            exp.experiment_id for exp in list_experiments(view_type=ViewType.ACTIVE_ONLY)
+            exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
         ]
     elif no_ids_or_names:
         experiment_ids = _get_experiment_id()
@@ -1446,7 +1425,11 @@ def search_runs(
             next_page_token,
         )
 
-    runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+    runs = get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        NUM_RUNS_PER_PAGE_PANDAS,
+        max_results,
+    )
 
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
@@ -1591,40 +1574,11 @@ def list_run_infos(
             experiment_id, run_view_type, number_to_get, order_by, next_page_token
         )
 
-    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
-
-
-def _paginate(paginated_fn, max_results_per_page, max_results=None):
-    """
-    Intended to be a general use pagination utility.
-
-    :param paginated_fn:
-    :type paginated_fn: This function is expected to take in the number of results to retrieve
-        per page and a pagination token, and return a PagedList object
-    :param max_results_per_page:
-    :type max_results_per_page: The maximum number of results to retrieve per page
-    :param max_results:
-    :type max_results: The maximum number of results to retrieve overall. If unspecified,
-                       all results will be retrieved.
-    :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
-        entities than specified by max_results
-    :rtype: list[object]
-    """
-    all_results = []
-    next_page_token = None
-    returns_all = max_results is None
-    while returns_all or len(all_results) < max_results:
-        num_to_get = max_results_per_page if returns_all else max_results - len(all_results)
-        if num_to_get < max_results_per_page:
-            page_results = paginated_fn(num_to_get, next_page_token)
-        else:
-            page_results = paginated_fn(max_results_per_page, next_page_token)
-        all_results.extend(page_results)
-        if hasattr(page_results, "token") and page_results.token:
-            next_page_token = page_results.token
-        else:
-            break
-    return all_results
+    return get_results_from_paginated_fn(
+        pagination_wrapper_func,
+        SEARCH_MAX_RESULTS_DEFAULT,
+        max_results,
+    )
 
 
 def _get_or_start_run():

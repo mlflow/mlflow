@@ -76,7 +76,7 @@ def create_experiments(client, names):
     return [client.create_experiment(n) for n in names]
 
 
-def test_create_get_list_experiment(mlflow_client):
+def test_create_get_search_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
         "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
     )
@@ -87,27 +87,27 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.tags["key1"] == "val1"
     assert exp.tags["key2"] == "val2"
 
-    experiments = mlflow_client.list_experiments()
+    experiments = mlflow_client.search_experiments()
     assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert set([e.name for e in mlflow_client.list_experiments()]) == {"Default"}
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == {
+    assert set([e.name for e in mlflow_client.search_experiments()]) == {"Default"}
+    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)]) == {
         "Default"
     }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == {
+    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)]) == {
         "My Experiment"
     }
-    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == {
+    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)]) == {
         "My Experiment",
         "Default",
     }
-    active_exps_paginated = mlflow_client.list_experiments(max_results=1)
+    active_exps_paginated = mlflow_client.search_experiments(max_results=1)
     assert set([e.name for e in active_exps_paginated]) == {"Default"}
     assert active_exps_paginated.token is None
 
-    all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
+    all_exps_paginated = mlflow_client.search_experiments(max_results=1, view_type=ViewType.ALL)
     first_page_names = set([e.name for e in all_exps_paginated])
-    all_exps_second_page = mlflow_client.list_experiments(
+    all_exps_second_page = mlflow_client.search_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
     )
     second_page_names = set([e.name for e in all_exps_second_page])
@@ -710,16 +710,11 @@ def test_search_validation(mlflow_client):
 
 def test_get_experiment_by_name(mlflow_client):
     name = "test_get_experiment_by_name"
-    with mock.patch.object(
-        MlflowClient,
-        "list_experiments",
-        side_effect=Exception("should not be called"),
-    ):
-        experiment_id = mlflow_client.create_experiment(name)
-        res = mlflow_client.get_experiment_by_name(name)
-        assert res.experiment_id == experiment_id
-        assert res.name == name
-        assert mlflow_client.get_experiment_by_name("idontexist") is None
+    experiment_id = mlflow_client.create_experiment(name)
+    res = mlflow_client.get_experiment_by_name(name)
+    assert res.experiment_id == experiment_id
+    assert res.name == name
+    assert mlflow_client.get_experiment_by_name("idontexist") is None
 
 
 def test_get_experiment(mlflow_client):

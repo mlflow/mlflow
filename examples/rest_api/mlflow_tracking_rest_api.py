@@ -40,9 +40,9 @@ class MLflowTrackingRestApi:
             print("Creating run failed!")
         return run_id
 
-    def list_experiments(self):
+    def search_experiments(self):
         """Get all experiments."""
-        url = self.base_url + "/experiments/list"
+        url = self.base_url + "/experiments/search"
         r = requests.get(url)
         experiments = None
         if r.status_code == 200:

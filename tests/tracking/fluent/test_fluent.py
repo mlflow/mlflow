@@ -317,46 +317,6 @@ def test_get_experiment_by_name():
         assert experiment.experiment_id == exp_id
 
 
-@pytest.mark.parametrize("view_type", [ViewType.ACTIVE_ONLY, ViewType.DELETED_ONLY, ViewType.ALL])
-def test_list_experiments(view_type, tmpdir):
-    sqlite_uri = "sqlite:///" + os.path.join(tmpdir.strpath, "test.db")
-    store = SqlAlchemyStore(sqlite_uri, default_artifact_root=tmpdir.strpath)
-
-    num_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1
-
-    if view_type == ViewType.DELETED_ONLY:
-        # Delete the default experiment
-        MlflowClient(sqlite_uri).delete_experiment("0")
-
-    # This is a bit hacky but much faster than creating experiments one by one with
-    # `mlflow.create_experiment`
-    with store.ManagedSessionMaker() as session:
-        lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
-        experiments = [
-            SqlExperiment(
-                name=f"exp_{i + 1}",
-                lifecycle_stage=random.choice(lifecycle_stages),
-                artifact_location=tmpdir.strpath,
-            )
-            for i in range(num_experiments - 1)
-        ]
-        session.add_all(experiments)
-
-    url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
-    try:
-        mlflow.set_tracking_uri(url)
-        # `max_results` is unspecified
-        assert len(mlflow.list_experiments(view_type)) == num_experiments
-        # `max_results` is larger than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments + 1)) == num_experiments
-        # `max_results` is equal to the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments)) == num_experiments
-        # `max_results` is smaller than the number of experiments in the database
-        assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
-    finally:
-        process.terminate()
-
-
 def test_search_experiments(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
@@ -921,12 +881,12 @@ def test_search_runs_all_experiments(search_runs_output_format):
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     experiment_list_patch = mock.patch(
-        "mlflow.tracking.fluent.list_experiments", return_value=[mock_experiment]
+        "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
     )
     get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
-        mlflow.tracking.fluent.list_experiments.assert_called_once()
+        mlflow.tracking.fluent.search_experiments.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_not_called()
 
 

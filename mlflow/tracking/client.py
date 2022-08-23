@@ -335,67 +335,6 @@ class MlflowClient:
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(
-        self,
-        view_type: int = ViewType.ACTIVE_ONLY,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
-    ) -> PagedList[Experiment]:
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned for the File and SQL backends.
-                            For the REST backend, the server will pick a maximum number of results
-                            to return.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-
-        .. code-block:: python
-            :caption: Example
-
-            from mlflow import MlflowClient
-            from mlflow.entities import ViewType
-
-            def print_experiment_info(experiments):
-                for e in experiments:
-                    print("- experiment_id: {}, name: {}, lifecycle_stage: {}"
-                          .format(e.experiment_id, e.name, e.lifecycle_stage))
-
-            client = MlflowClient()
-            for name in ["Experiment 1", "Experiment 2"]:
-                exp_id = client.create_experiment(name)
-
-            # Delete the last experiment
-            client.delete_experiment(exp_id)
-
-            # Fetch experiments by view type
-            print("Active experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ACTIVE_ONLY))
-            print("Deleted experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.DELETED_ONLY))
-            print("All experiments:")
-            print_experiment_info(client.list_experiments(view_type=ViewType.ALL))
-
-        .. code-block:: text
-            :caption: Output
-
-            Active experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            Deleted experiments:
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-            All experiments:
-            - experiment_id: 0, name: Default, lifecycle_stage: active
-            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
-            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
-        """
-        return self._tracking_client.list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token
-        )
-
     @experimental
     def search_experiments(
         self,

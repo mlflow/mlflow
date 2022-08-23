@@ -32,12 +32,6 @@ def test_search_runs():
     mlflow.get_run(runs["run_id"][0])
 
 
-def test_list_experiments():
-    start_run_and_log_data()
-    experiments = mlflow.list_experiments(view_type=ViewType.ALL, max_results=5)
-    assert len(experiments) > 0
-
-
 def test_set_run_status_to_killed():
     """
     This test ensures the following migration scripts work correctly:

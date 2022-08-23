@@ -189,7 +189,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return self.store.create_experiment(name=names)
 
     def test_default_experiment(self):
-        experiments = self.store.list_experiments()
+        experiments = self.store.search_experiments()
         self.assertEqual(len(experiments), 1)
 
         first = experiments[0]
@@ -202,12 +202,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         self._experiment_factory("aNothEr")
-        all_experiments = [e.name for e in self.store.list_experiments()]
+        all_experiments = [e.name for e in self.store.search_experiments()]
         self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         self.store.delete_experiment(0)
 
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
         another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
@@ -224,8 +224,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
-        all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.search_experiments()])
+        all_experiments = [e.name for e in self.store.search_experiments(view_type=ViewType.ALL)]
         self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
@@ -243,7 +243,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
     def test_delete_experiment(self):
         experiments = self._experiment_factory(["morty", "rick", "rick and morty"])
 
-        all_experiments = self.store.list_experiments()
+        all_experiments = self.store.search_experiments()
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
 
         exp_id = experiments[0]
@@ -252,7 +252,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         updated_exp = self.store.get_experiment(exp_id)
         self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
+        self.assertEqual(len(self.store.search_experiments()), len(all_experiments) - 1)
 
     def test_delete_restore_experiment_with_runs(self):
 
@@ -301,82 +301,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(actual_by_name.name, name)
         self.assertEqual(actual_by_name.experiment_id, experiment_id)
         self.assertEqual(self.store.get_experiment_by_name("idontexist"), None)
-
-    def test_list_experiments(self):
-        testnames = ["blue", "red", "green"]
-
-        experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments(
-            max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
-        )
-
-        self.assertEqual(len(experiments) + 1, len(actual))  # default
-
-        with self.store.ManagedSessionMaker() as session:
-            for experiment_id in experiments:
-                res = (
-                    session.query(models.SqlExperiment)
-                    .filter_by(experiment_id=experiment_id)
-                    .first()
-                )
-                self.assertIn(res.name, testnames)
-                self.assertEqual(str(res.experiment_id), experiment_id)
-
-    def test_list_experiments_paginated_last_page(self):
-        # 9 + 1 default experiment for 10 total
-        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 9)]
-        experiments = self._experiment_factory(testnames)
-        max_results = 5
-        returned_experiments = []
-        result = self.store.list_experiments(max_results=max_results, page_token=None)
-        self.assertEqual(len(result), max_results)
-        returned_experiments.extend(result)
-        while result.token:
-            result = self.store.list_experiments(max_results=max_results, page_token=result.token)
-            self.assertEqual(len(result), max_results)
-            returned_experiments.extend(result)
-        self.assertEqual(result.token, None)
-        # make sure that at least all the experiments created in this test are found
-        returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
-        self.assertEqual(set(experiments) - returned_exp_id_set, set())
-
-    def test_list_experiments_paginated_returns_in_correct_order(self):
-        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
-        self._experiment_factory(testnames)
-
-        # test that pagination will return all valid results in sorted order
-        # by name ascending
-        result = self.store.list_experiments(max_results=3, page_token=None)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result[1:]], testnames[0:2])
-
-        result = self.store.list_experiments(max_results=4, page_token=result.token)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[2:6])
-
-        result = self.store.list_experiments(max_results=6, page_token=result.token)
-        self.assertNotEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[6:12])
-
-        result = self.store.list_experiments(max_results=8, page_token=result.token)
-        # this page token should be none
-        self.assertEqual(result.token, None)
-        self.assertEqual([exp.name for exp in result], testnames[12:])
-
-    def test_list_experiments_paginated_errors(self):
-        # test that providing a completely invalid page token throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid page token, could not base64-decode"
-        ) as exception_context:
-            self.store.list_experiments(page_token="evilhax", max_results=20)
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # test that providing too large of a max_results throws
-        with pytest.raises(
-            MlflowException, match=r"Invalid value for request parameter max_results"
-        ) as exception_context:
-            self.store.list_experiments(page_token=None, max_results=int(1e15))
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_search_experiments_view_type(self):
         experiment_names = ["a", "b"]

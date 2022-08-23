@@ -37,6 +37,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.validation import (
     _validate_metric,
     _validate_metric_name,
@@ -47,7 +48,6 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_batch_log_limits,
     _validate_batch_log_data,
-    _validate_list_experiments_max_results,
     _validate_param_keys_unique,
     _validate_experiment_name,
 )
@@ -239,53 +239,6 @@ class FileStore(AbstractStore):
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
 
-    def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=None,
-        page_token=None,
-    ):
-        """
-        :param view_type: Qualify requested type of experiments.
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                           a ``list_experiments`` call.
-        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
-        """
-        _validate_list_experiments_max_results(max_results)
-        self._check_root_dir()
-        rsl = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
-            rsl += self._get_active_experiments(full_path=False)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
-            rsl += self._get_deleted_experiments(full_path=False)
-
-        experiments = []
-        for exp_id in rsl:
-            try:
-                # trap and warn known issues, will raise unexpected exceptions to caller
-                experiment = self._get_experiment(exp_id, view_type)
-                if experiment:
-                    experiments.append(experiment)
-            except MissingConfigException as rnfe:
-                # Trap malformed experiments and log warnings.
-                logging.warning(
-                    "Malformed experiment '%s'. Detailed error %s",
-                    str(exp_id),
-                    str(rnfe),
-                    exc_info=True,
-                )
-        if max_results is not None:
-            experiments, next_page_token = SearchUtils.paginate(
-                experiments, page_token, max_results
-            )
-            return PagedList(experiments, next_page_token)
-        else:
-            return PagedList(experiments, None)
-
     def search_experiments(
         self,
         view_type=ViewType.ACTIVE_ONLY,
@@ -331,6 +284,22 @@ class FileStore(AbstractStore):
         )
         return PagedList(experiments, next_page_token)
 
+    def get_experiment_by_name(self, experiment_name):
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_experiments(
+                view_type=ViewType.ACTIVE_ONLY,
+                max_results=number_to_get,
+                filter_string=f"name = '{experiment_name}'",
+                page_token=next_page_token,
+            )
+
+        return get_results_from_paginated_fn(
+            paginated_fn=pagination_wrapper_func,
+            max_results_per_page=SEARCH_MAX_RESULTS_THRESHOLD,
+            max_results=None,
+        )
+
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
             self.artifact_root_uri, str(experiment_id)
@@ -373,7 +342,10 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [
             int(e.experiment_id)
-            for e in self.list_experiments(ViewType.ALL)
+            for e in (
+                self._get_active_experiments(full_path=False) +
+                self._get_deleted_experiments(full_path=False)
+            )
             if e.experiment_id.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0

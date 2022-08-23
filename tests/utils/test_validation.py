@@ -196,16 +196,6 @@ def test_validate_experiment_name():
             _validate_experiment_name(invalid_name)
 
 
-def test_validate_list_experiments_max_results():
-    client = MlflowClient()
-    client.list_experiments(max_results=50)
-    with pytest.raises(MlflowException, match="It must be at most 50000"):
-        client.list_experiments(max_results=50001)
-    for invalid_num in [-12, 0]:
-        with pytest.raises(MlflowException, match="It must be at least 1"):
-            client.list_experiments(max_results=invalid_num)
-
-
 def test_db_type():
     for db_type in ["mysql", "mssql", "postgresql", "sqlite"]:
         # should not raise an exception
