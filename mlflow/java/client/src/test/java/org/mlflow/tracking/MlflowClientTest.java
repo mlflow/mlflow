@@ -152,7 +152,7 @@ public class MlflowClientTest {
 
   @Test
   public void searchExperimentsTest() {
-    List<Experiment> expsBefore = client.searchExperiments("").getItems();
+    List<Experiment> expsBefore = client.searchExperiments().getItems();
 
     String expName1 = createExperimentName();
     String expId1 = client.createExperiment(expName1);
@@ -168,7 +168,7 @@ public class MlflowClientTest {
     client.setExperimentTag(expId3, "test", "test");
     client.setExperimentTag(expId3, "expgroup", "group1");
 
-    List<Experiment> exps = client.searchExperiments("").getItems();
+    List<Experiment> exps = client.searchExperiments().getItems();
     Assert.assertEquals(exps.size(), 3 + expsBefore.size());
 
     String exp1Filter = String.format("attribute.name = '%s'", expName1);
@@ -225,6 +225,11 @@ public class MlflowClientTest {
     Assert.assertEquals(page2.getItems().get(0).getName(), orderedExpNames.get(1));
     Assert.assertEquals(page2.getItems().get(1).getName(), orderedExpNames.get(2));
     Assert.assertFalse(page2.getNextPageToken().isPresent());
+
+    ExperimentsPage nextPageFromPrevPage = (ExperimentsPage) page1.getNextPage();
+    Assert.assertEquals(nextPageFromPrevPage.getItems().size(), 1);
+    Assert.assertEquals(nextPageFromPrevPage.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
   }
 
   @Test

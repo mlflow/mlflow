@@ -280,7 +280,16 @@ public class MlflowClient implements Serializable {
   }
 
   /**
-   * Return up to the first 1000 experiments that satisfy the search query.
+   * Return up to 1000 active experiments.
+   *
+   * @return A page of active experiments with up to 1000 items.
+   */
+  public ExperimentsPage searchExperiments() {
+    return searchExperiments("", null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to the first 1000 active experiments that satisfy the search query.
    *
    * @param searchFilter SQL compatible search query string.
    *                     Examples:
@@ -288,7 +297,7 @@ public class MlflowClient implements Serializable {
    *                         - "tags.problem_type = 'iris_regression'"
    *                     If null, the result will be equivalent to having an empty search filter.
    *
-   * @return A page of experiments that satisfy the search filter.
+   * @return A page of up to active 1000 experiments that satisfy the search filter.
    */
   public ExperimentsPage searchExperiments(String searchFilter) {
     return searchExperiments(searchFilter, null, 1000, new ArrayList<>(), null);
@@ -340,7 +349,12 @@ public class MlflowClient implements Serializable {
       searchFilter, experimentViewType, maxResults, orderBy, this);
   }
 
-  /** @return  A list of all experiments. */
+  /**
+   * @deprecated
+   * Use {@link #searchExperiments()} instead.
+   *
+   * @return  A list of all experiments.
+   */
   public List<Experiment> listExperiments() {
     return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
       .getExperimentsList();
