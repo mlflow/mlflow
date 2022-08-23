@@ -55,8 +55,8 @@ def _get_custom_metrics(step_config: Dict) -> List[Dict]:
     custom_metrics = [
         PipelineMetric.from_custom_metric_dict(metric_dict) for metric_dict in custom_metric_dicts
     ]
-    custom_metric_names = set([metric.name for metric in custom_metrics])
-    builtin_metric_names = set([metric.name for metric in BUILTIN_PIPELINE_METRICS])
+    custom_metric_names = {metric.name for metric in custom_metrics}
+    builtin_metric_names = {metric.name for metric in BUILTIN_PIPELINE_METRICS}
     overridden_builtin_metrics = custom_metric_names.intersection(builtin_metric_names)
     if overridden_builtin_metrics:
         _logger.warning(

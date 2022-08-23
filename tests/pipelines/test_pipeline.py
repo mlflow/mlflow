@@ -146,7 +146,7 @@ def test_pipelines_log_to_expected_mlflow_backend_with_expected_run_tags_once_on
     artifacts = MlflowClient(tracking_uri).list_artifacts(
         run_id=logged_run.info.run_id, path="train"
     )
-    assert set([artifact.path for artifact in artifacts]) == {
+    assert {artifact.path for artifact in artifacts} == {
         "train/card.html",
         "train/estimator",
         "train/model",

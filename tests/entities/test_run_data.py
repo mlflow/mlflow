@@ -7,15 +7,21 @@ from tests.helper_functions import random_str, random_int
 
 class TestRunData(unittest.TestCase):
     def _check_metrics(self, metric_objs, metrics_dict, expected_metrics):
-        self.assertEqual(set([m.key for m in metric_objs]), set([m.key for m in expected_metrics]))
         self.assertEqual(
-            set([m.value for m in metric_objs]), set([m.value for m in expected_metrics])
+            {m.key for m in metric_objs},
+            {m.key for m in expected_metrics},
         )
         self.assertEqual(
-            set([m.timestamp for m in metric_objs]), set([m.timestamp for m in expected_metrics])
+            {m.value for m in metric_objs},
+            {m.value for m in expected_metrics},
         )
         self.assertEqual(
-            set([m.step for m in metric_objs]), set([m.step for m in expected_metrics])
+            {m.timestamp for m in metric_objs},
+            {m.timestamp for m in expected_metrics},
+        )
+        self.assertEqual(
+            {m.step for m in metric_objs},
+            {m.step for m in expected_metrics},
         )
         assert len(metrics_dict) == len(expected_metrics)
         assert metrics_dict == {m.key: m.value for m in expected_metrics}
