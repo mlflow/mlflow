@@ -28,7 +28,6 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         str(port),
         "--backend-store-uri",
         backend_store_uri,
-        "--serve-artifacts",
         "--default-artifact-root",
         default_artifact_root,
         "--artifacts-destination",
