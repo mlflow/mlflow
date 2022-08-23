@@ -149,3 +149,9 @@ MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = _EnvironmentVariable(
 #: for more information.
 #: (default: ``False``)
 MLFLOW_SQLALCHEMYSTORE_ECHO = _BooleanEnvironmentVariable("MLFLOW_SQLALCHEMYSTORE_ECHO", False)
+
+#: Specifies whether or not to print a warning when `--env-manager=conda` is specified.
+#: (default: ``False``)
+MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING", False
+)
