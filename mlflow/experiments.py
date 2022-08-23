@@ -47,6 +47,33 @@ def create(experiment_name, artifact_location):
     click.echo("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
+@commands.command("list")
+@click.option(
+    "--view",
+    "-v",
+    default="active_only",
+    help="Select view type for list experiments. Valid view types are "
+    "'active_only' (default), 'deleted_only', and 'all'.",
+)
+def list_experiments(view):
+    """
+    List all experiments in the configured tracking server.
+    """
+    view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
+    experiments = mlflow.search_experiments(view_type=view_type)
+    table = [
+        [
+            exp.experiment_id,
+            exp.name,
+            exp.artifact_location
+            if is_uri(exp.artifact_location)
+            else os.path.abspath(exp.artifact_location),
+        ]
+        for exp in experiments
+    ]
+    click.echo(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+
+
 @commands.command("delete")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):

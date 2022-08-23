@@ -272,7 +272,9 @@ class FileStore(AbstractStore):
         for exp_id in experiment_ids:
             try:
                 # trap and warn known issues, will raise unexpected exceptions to caller
-                experiments.append(self._get_experiment(exp_id, view_type))
+                exp = self._get_experiment(exp_id, view_type)
+                if exp is not None:
+                    experiments.append(exp)
             except MissingConfigException as e:
                 logging.warning(
                     f"Malformed experiment '{exp_id}'. Detailed error {e}", exc_info=True
@@ -294,11 +296,12 @@ class FileStore(AbstractStore):
                 page_token=next_page_token,
             )
 
-        return get_results_from_paginated_fn(
+        experiments = get_results_from_paginated_fn(
             paginated_fn=pagination_wrapper_func,
             max_results_per_page=SEARCH_MAX_RESULTS_THRESHOLD,
             max_results=None,
         )
+        return experiments[0] if len(experiments) > 0 else None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri, tags):
         artifact_uri = artifact_uri or append_to_uri_path(
@@ -341,12 +344,12 @@ class FileStore(AbstractStore):
         # Get all existing experiments and find the one with largest numerical ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [
-            int(e.experiment_id)
+            int(e)
             for e in (
                 self._get_active_experiments(full_path=False) +
                 self._get_deleted_experiments(full_path=False)
             )
-            if e.experiment_id.isdigit()
+            if e.isdigit()
         ]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location, tags)

@@ -348,7 +348,8 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
     def test_create_first_experiment(self):
         fs = FileStore(self.test_root)
-        fs.search_experiments = mock.Mock(return_value=[])
+        fs._get_active_experiments = mock.Mock(return_value=[])
+        fs._get_deleted_experiments = mock.Mock(return_value=[])
         fs._create_experiment_with_id = mock.Mock()
         fs.create_experiment(random_str())
         fs._create_experiment_with_id.assert_called_once()
