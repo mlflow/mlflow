@@ -149,6 +149,128 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void searchExperimentsTest() {
+    List<Experiment> expsBefore = client.searchExperiments("").getItems();
+
+    String expName = createExperimentName();
+    String expId = client.createExperiment(expName);
+
+    List<Experiment> exps = client.searchExperiments("").getItems();
+    Assert.assertEquals(exps.size(), 1 + expsBefore.size());
+
+    // // Create exp 
+    // String expName = createExperimentName(); 
+    // String expId = client.createExperiment(expName); 
+    // logger.debug(">> TEST.0"); 
+    //
+    // // Create run 
+    // String user = System.getenv("USER"); 
+    // long startTime = System.currentTimeMillis(); 
+    // String sourceFile = "MyFile.java"; 
+    //
+    // RunInfo runCreated_1 = client.createRun(expId); 
+    // String runId_1 = runCreated_1.getRunUuid(); 
+    // logger.debug("runId=" + runId_1); 
+    //
+    // RunInfo runCreated_2 = client.createRun(expId); 
+    // String runId_2 = runCreated_2.getRunUuid(); 
+    // logger.debug("runId=" + runId_2); 
+    //
+    // // Log parameters 
+    // client.logParam(runId_1, "min_samples_leaf", MIN_SAMPLES_LEAF); 
+    // client.logParam(runId_2, "min_samples_leaf", MIN_SAMPLES_LEAF); 
+    //
+    // client.logParam(runId_1, "max_depth", "5"); 
+    // client.logParam(runId_2, "max_depth", "15"); 
+    //
+    // // Log metrics 
+    // client.logMetric(runId_1, "accuracy_score", 0.1); 
+    // client.logMetric(runId_1, "accuracy_score", 0.4); 
+    // client.logMetric(runId_2, "accuracy_score", 0.9); 
+    //
+    // // Log tag 
+    // client.setTag(runId_1, "user_email", USER_EMAIL); 
+    // client.setTag(runId_1, "test", "works"); 
+    // client.setTag(runId_2, "test", "also works"); 
+    //
+    // List<String> experimentIds = Arrays.asList(expId); 
+    //
+    // // metrics based searches 
+    // List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0"); 
+    // Assert.assertEquals(searchResult.size(), 0); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0"); 
+    // Assert.assertEquals(searchResult.size(), 2); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.3"); 
+    // Assert.assertEquals(searchResult.size(), 0); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
+    //
+    // // parameter based searches 
+    // searchResult = client.searchRuns(experimentIds, 
+    //         "params.min_samples_leaf = '" + MIN_SAMPLES_LEAF + "'"); 
+    // Assert.assertEquals(searchResult.size(), 2); 
+    // searchResult = client.searchRuns(experimentIds, 
+    //         "params.min_samples_leaf != '" + MIN_SAMPLES_LEAF + "'"); 
+    // Assert.assertEquals(searchResult.size(), 0); 
+    // searchResult = client.searchRuns(experimentIds, "params.max_depth = '5'"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "params.max_depth = '15'"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
+    //
+    // // tag based search 
+    // searchResult = client.searchRuns(experimentIds, "tag.user_email = '" + USER_EMAIL + "'"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "tag.user_email != '" + USER_EMAIL + "'"); 
+    // Assert.assertEquals(searchResult.size(), 0); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "tag.test = 'works'"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
+    //
+    // searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'"); 
+    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
+    //
+    // // Paged searchRuns 
+    //
+    // List<Run> searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "",  
+    //         ViewType.ACTIVE_ONLY, 1000, Lists.newArrayList("metrics.accuracy_score")).getItems()); 
+    // Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1); 
+    // Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2); 
+    //
+    // searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 
+    //         1000, Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC")) 
+    //         .getItems()); 
+    // Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1); 
+    // Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2); 
+    //
+    // Page<Run> page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000); 
+    // Assert.assertEquals(page.getPageSize(), 2); 
+    // Assert.assertEquals(page.hasNextPage(), false); 
+    // Assert.assertEquals(page.getNextPageToken(), Optional.empty()); 
+    //
+    // page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1); 
+    // Assert.assertEquals(page.getPageSize(), 1); 
+    // Assert.assertEquals(page.hasNextPage(), true); 
+    // Assert.assertNotEquals(page.getNextPageToken(), Optional.empty()); 
+    //
+    // Page<Run> page2 = page.getNextPage(); 
+    // Assert.assertEquals(page2.getPageSize(), 1); 
+    // Assert.assertEquals(page2.hasNextPage(), false); 
+    // Assert.assertEquals(page2.getNextPageToken(), Optional.empty()); 
+    //
+    // Page<Run> page3 = page2.getNextPage(); 
+    // Assert.assertEquals(page3.getPageSize(), 0); 
+    // Assert.assertEquals(page3.getNextPageToken(), Optional.empty()); 
+  }
+
+  @Test
   public void addGetRun() {
     // Create exp
     String expName = createExperimentName();
@@ -403,7 +525,7 @@ public class MlflowClientTest {
     Assert.assertEquals(page2.getPageSize(), 1);
     Assert.assertEquals(page2.hasNextPage(), false);
     Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
-    
+
     Page<Run> page3 = page2.getNextPage();
     Assert.assertEquals(page3.getPageSize(), 0);
     Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
