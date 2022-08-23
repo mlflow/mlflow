@@ -863,19 +863,16 @@ def test_validation_missing_baseline_model(
     with mock.patch.object(
         _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
     ):
-        evaluator1_config = {}
-        evaluator1_return_value = EvaluationResult(
-            metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
-        )
-        expected_failure_message = ""
-        with mock.patch.object(
-            MockEvaluator, "can_evaluate", return_value=True
-        ) as _, mock.patch.object(
-            MockEvaluator, "evaluate", return_value=evaluator1_return_value
-        ) as _:
+        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
+            MockEvaluator,
+            "evaluate",
+            return_value=EvaluationResult(
+                metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
+            ),
+        ):
             with pytest.raises(
                 MlflowException,
-                match=expected_failure_message,
+                match="The baseline model must be specified",
             ):
                 evaluate(
                     multiclass_logistic_regressor_model_uri,
@@ -884,7 +881,7 @@ def test_validation_missing_baseline_model(
                     targets=iris_dataset._constructor_args["targets"],
                     dataset_name=iris_dataset.name,
                     evaluators="test_evaluator1",
-                    evaluator_config=evaluator1_config,
+                    evaluator_config={},
                     validation_thresholds=validation_thresholds,
-                    baseline_model=multiclass_logistic_regressor_model_uri,
+                    baseline_model=None,
                 )
