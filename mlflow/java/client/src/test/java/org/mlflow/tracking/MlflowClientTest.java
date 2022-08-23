@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
@@ -152,122 +154,77 @@ public class MlflowClientTest {
   public void searchExperimentsTest() {
     List<Experiment> expsBefore = client.searchExperiments("").getItems();
 
-    String expName = createExperimentName();
-    String expId = client.createExperiment(expName);
+    String expName1 = createExperimentName();
+    String expId1 = client.createExperiment(expName1);
+    client.setExperimentTag(expId1, "test", "test");
+    client.setExperimentTag(expId1, "expgroup", "group1");
+
+    String expName2 = createExperimentName();
+    String expId2 = client.createExperiment(expName2);
+    client.setExperimentTag(expId2, "test", "test");
+
+    String expName3 = createExperimentName();
+    String expId3 = client.createExperiment(expName3);
+    client.setExperimentTag(expId3, "test", "test");
+    client.setExperimentTag(expId3, "expgroup", "group1");
 
     List<Experiment> exps = client.searchExperiments("").getItems();
-    Assert.assertEquals(exps.size(), 1 + expsBefore.size());
+    Assert.assertEquals(exps.size(), 3 + expsBefore.size());
 
-    // // Create exp 
-    // String expName = createExperimentName(); 
-    // String expId = client.createExperiment(expName); 
-    // logger.debug(">> TEST.0"); 
-    //
-    // // Create run 
-    // String user = System.getenv("USER"); 
-    // long startTime = System.currentTimeMillis(); 
-    // String sourceFile = "MyFile.java"; 
-    //
-    // RunInfo runCreated_1 = client.createRun(expId); 
-    // String runId_1 = runCreated_1.getRunUuid(); 
-    // logger.debug("runId=" + runId_1); 
-    //
-    // RunInfo runCreated_2 = client.createRun(expId); 
-    // String runId_2 = runCreated_2.getRunUuid(); 
-    // logger.debug("runId=" + runId_2); 
-    //
-    // // Log parameters 
-    // client.logParam(runId_1, "min_samples_leaf", MIN_SAMPLES_LEAF); 
-    // client.logParam(runId_2, "min_samples_leaf", MIN_SAMPLES_LEAF); 
-    //
-    // client.logParam(runId_1, "max_depth", "5"); 
-    // client.logParam(runId_2, "max_depth", "15"); 
-    //
-    // // Log metrics 
-    // client.logMetric(runId_1, "accuracy_score", 0.1); 
-    // client.logMetric(runId_1, "accuracy_score", 0.4); 
-    // client.logMetric(runId_2, "accuracy_score", 0.9); 
-    //
-    // // Log tag 
-    // client.setTag(runId_1, "user_email", USER_EMAIL); 
-    // client.setTag(runId_1, "test", "works"); 
-    // client.setTag(runId_2, "test", "also works"); 
-    //
-    // List<String> experimentIds = Arrays.asList(expId); 
-    //
-    // // metrics based searches 
-    // List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0"); 
-    // Assert.assertEquals(searchResult.size(), 0); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0"); 
-    // Assert.assertEquals(searchResult.size(), 2); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.3"); 
-    // Assert.assertEquals(searchResult.size(), 0); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
-    //
-    // // parameter based searches 
-    // searchResult = client.searchRuns(experimentIds, 
-    //         "params.min_samples_leaf = '" + MIN_SAMPLES_LEAF + "'"); 
-    // Assert.assertEquals(searchResult.size(), 2); 
-    // searchResult = client.searchRuns(experimentIds, 
-    //         "params.min_samples_leaf != '" + MIN_SAMPLES_LEAF + "'"); 
-    // Assert.assertEquals(searchResult.size(), 0); 
-    // searchResult = client.searchRuns(experimentIds, "params.max_depth = '5'"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "params.max_depth = '15'"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
-    //
-    // // tag based search 
-    // searchResult = client.searchRuns(experimentIds, "tag.user_email = '" + USER_EMAIL + "'"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "tag.user_email != '" + USER_EMAIL + "'"); 
-    // Assert.assertEquals(searchResult.size(), 0); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "tag.test = 'works'"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1); 
-    //
-    // searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'"); 
-    // Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2); 
-    //
-    // // Paged searchRuns 
-    //
-    // List<Run> searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "",  
-    //         ViewType.ACTIVE_ONLY, 1000, Lists.newArrayList("metrics.accuracy_score")).getItems()); 
-    // Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1); 
-    // Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2); 
-    //
-    // searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 
-    //         1000, Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC")) 
-    //         .getItems()); 
-    // Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1); 
-    // Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2); 
-    //
-    // Page<Run> page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000); 
-    // Assert.assertEquals(page.getPageSize(), 2); 
-    // Assert.assertEquals(page.hasNextPage(), false); 
-    // Assert.assertEquals(page.getNextPageToken(), Optional.empty()); 
-    //
-    // page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1); 
-    // Assert.assertEquals(page.getPageSize(), 1); 
-    // Assert.assertEquals(page.hasNextPage(), true); 
-    // Assert.assertNotEquals(page.getNextPageToken(), Optional.empty()); 
-    //
-    // Page<Run> page2 = page.getNextPage(); 
-    // Assert.assertEquals(page2.getPageSize(), 1); 
-    // Assert.assertEquals(page2.hasNextPage(), false); 
-    // Assert.assertEquals(page2.getNextPageToken(), Optional.empty()); 
-    //
-    // Page<Run> page3 = page2.getNextPage(); 
-    // Assert.assertEquals(page3.getPageSize(), 0); 
-    // Assert.assertEquals(page3.getNextPageToken(), Optional.empty()); 
+    String exp1Filter = String.format("attribute.name = '%s'", expName1);
+    List<Experiment> exps1 = client.searchExperiments(exp1Filter).getItems();
+    Assert.assertEquals(exps1.size(), 1);
+    Assert.assertEquals(exps1.get(0).getExperimentId(), expId1);
+
+    String exp2Filter = String.format("attribute.name = '%s'", expName2);
+    List<Experiment> exps2 = client.searchExperiments(exp2Filter).getItems();
+    Assert.assertEquals(exps2.size(), 1);
+    Assert.assertEquals(exps2.get(0).getExperimentId(), expId2);
+
+    String expGroupFilter = String.format("tags.expgroup = 'group1'");
+    List<Experiment> expGroup = client.searchExperiments(expGroupFilter).getItems();
+    Assert.assertEquals(
+      expGroup.stream().map(exp -> exp.getExperimentId()).collect(Collectors.toSet()),
+      new HashSet<>(Arrays.asList(expId1, expId3))
+    );
+
+    client.deleteExperiment(expId2);
+
+    List<Experiment> activeExps = client.searchExperiments("").getItems();
+    Set<String> activeExpIds = activeExps.stream().map(
+        exp -> exp.getExperimentId()
+    ).collect(Collectors.toSet());
+    Assert.assertTrue(activeExpIds.contains(expId1));
+    Assert.assertTrue(activeExpIds.contains(expId3));
+    Assert.assertFalse(activeExpIds.contains(expId2));
+
+    List<Experiment> deletedExps = client.searchExperiments(
+        "", ViewType.DELETED_ONLY, 10, new ArrayList<>()
+    ).getItems();
+    Assert.assertEquals(deletedExps.size(), 1);
+    Assert.assertEquals(deletedExps.get(0).getExperimentId(), expId2);
+
+    List<String> orderedExpNames = Arrays.asList(expName1, expName2, expName3);
+    Collections.sort(orderedExpNames);
+
+    ExperimentsPage page1 = client.searchExperiments(
+      "tags.test = 'test'", ViewType.ALL, 1, Arrays.asList("attribute.name")
+    );
+    Assert.assertEquals(page1.getItems().size(), 1);
+    Assert.assertEquals(page1.getItems().get(0).getName(), orderedExpNames.get(0));
+    Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+    ExperimentsPage page2 = client.searchExperiments(
+      "tags.test = 'test'",
+      ViewType.ALL,
+      2,
+      Arrays.asList("attribute.name"),
+      page1.getNextPageToken().get()
+    );
+    Assert.assertEquals(page2.getItems().size(), 2);
+    Assert.assertEquals(page2.getItems().get(0).getName(), orderedExpNames.get(1));
+    Assert.assertEquals(page2.getItems().get(1).getName(), orderedExpNames.get(2));
+    Assert.assertFalse(page2.getNextPageToken().isPresent());
   }
 
   @Test

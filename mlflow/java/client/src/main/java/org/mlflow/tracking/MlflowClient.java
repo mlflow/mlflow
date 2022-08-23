@@ -260,7 +260,9 @@ public class MlflowClient implements Serializable {
    * Return experiments that satisfy the search query.
    *
    * @param searchFilter SQL compatible search query string.
-   *                     Examples : "name = 'MyExperiment'", "tags.problem_type = 'iris_regression'"
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
    *                     If null, the result will be equivalent to having an empty search filter.
    * @param experimentViewType ViewType for expected experiments. One of
    *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
@@ -274,14 +276,16 @@ public class MlflowClient implements Serializable {
                                            ViewType experimentViewType,
                                            int maxResults,
                                            List<String> orderBy) {
-    return searchExperiments(searchFilter, experimentViewType, maxResults, new ArrayList<>(), null);
+    return searchExperiments(searchFilter, experimentViewType, maxResults, orderBy, null);
   }
 
   /**
    * Return up to the first 1000 experiments that satisfy the search query.
    *
    * @param searchFilter SQL compatible search query string.
-   *                     Examples : "name = 'MyExperiment'", "tags.problem_type = 'iris_regression'"
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
    *                     If null, the result will be equivalent to having an empty search filter.
    *
    * @return A page of experiments that satisfy the search filter.
@@ -294,7 +298,9 @@ public class MlflowClient implements Serializable {
    * Return experiments that satisfy the search query.
    *
    * @param searchFilter SQL compatible search query string.
-   *                     Examples : "name = 'MyExperiment'", "tags.problem_type = 'iris_regression'"
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
    *                     If null, the result will be equivalent to having an empty search filter.
    * @param experimentViewType ViewType for expected experiments. One of
    *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
@@ -320,6 +326,8 @@ public class MlflowClient implements Serializable {
     }
     if (experimentViewType != null) {
       builder.setViewType(experimentViewType);
+    } else {
+      builder.setViewType(ViewType.ACTIVE_ONLY);
     }
     if (pageToken != null) {
       builder.setPageToken(pageToken);
