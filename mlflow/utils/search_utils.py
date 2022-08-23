@@ -38,27 +38,27 @@ class SearchUtils:
     ASC_OPERATOR = "asc"
     DESC_OPERATOR = "desc"
     VALID_ORDER_BY_TAGS = [ASC_OPERATOR, DESC_OPERATOR]
-    VALID_METRIC_COMPARATORS = set([">", ">=", "!=", "=", "<", "<="])
-    VALID_PARAM_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
-    VALID_TAG_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
-    VALID_STRING_ATTRIBUTE_COMPARATORS = set(["!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR])
+    VALID_METRIC_COMPARATORS = {">", ">=", "!=", "=", "<", "<="}
+    VALID_PARAM_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    NUMERIC_ATTRIBUTES = set(["start_time"])
-    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = set([LIKE_OPERATOR, ILIKE_OPERATOR])
+    NUMERIC_ATTRIBUTES = {"start_time"}
+    CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS = {LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
     )
-    VALID_MODEL_VERSIONS_SEARCH_COMPARATORS = set(["=", "IN"])
+    VALID_MODEL_VERSIONS_SEARCH_COMPARATORS = {"=", "IN"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
-    _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
+    _ALTERNATE_METRIC_IDENTIFIERS = {"metrics"}
     _PARAM_IDENTIFIER = "parameter"
-    _ALTERNATE_PARAM_IDENTIFIERS = set(["parameters", "param", "params"])
+    _ALTERNATE_PARAM_IDENTIFIERS = {"parameters", "param", "params"}
     _TAG_IDENTIFIER = "tag"
-    _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
+    _ALTERNATE_TAG_IDENTIFIERS = {"tags"}
     _ATTRIBUTE_IDENTIFIER = "attribute"
-    _ALTERNATE_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "run"])
+    _ALTERNATE_ATTRIBUTE_IDENTIFIERS = {"attr", "attributes", "run"}
     _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
     _VALID_IDENTIFIERS = set(
         _IDENTIFIERS
@@ -67,24 +67,22 @@ class SearchUtils:
         + list(_ALTERNATE_TAG_IDENTIFIERS)
         + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS)
     )
-    STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
-    DELIMITER_VALUE_TYPES = set([TokenType.Punctuation])
+    STRING_VALUE_TYPES = {TokenType.Literal.String.Single}
+    DELIMITER_VALUE_TYPES = {TokenType.Punctuation}
     WHITESPACE_VALUE_TYPE = TokenType.Text.Whitespace
-    NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    NUMERIC_VALUE_TYPES = {TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float}
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
     ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
     ORDER_BY_KEY_MODEL_NAME = "name"
-    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
-    )
-    VALID_TIMESTAMP_ORDER_BY_KEYS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP]
-    )
+    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {
+        ORDER_BY_KEY_TIMESTAMP,
+        ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP,
+        ORDER_BY_KEY_MODEL_NAME,
+    }
+    VALID_TIMESTAMP_ORDER_BY_KEYS = {ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP}
     # We encourage users to use timestamp for order-by
-    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = set(
-        [ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP]
-    )
+    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = {ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP}
 
     filter_ops = {
         ">": operator.gt,
@@ -634,8 +632,8 @@ class SearchUtils:
     # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
     #       registry specific code.
 
-    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
-    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
+    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = {"name", "run_id", "source_path"}
+    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = {"name"}
 
     @classmethod
     def _check_valid_identifier_list(cls, value_token):

@@ -11,26 +11,20 @@ IGNORED_FILES = set(
         [
             ##### Instructions #####
             # 1. Select the file you would like to work on.
-            # 2. Remove the file.
+            # 2. Remove the file from the list.
             # 3. Run `pylint <the file>`.
             # 4. Fix lint errors.
             # 5. File a PR.
             "mlflow/azure/client.py",
             "mlflow/entities/lifecycle_stage.py",
             "mlflow/entities/run_status.py",
-            "mlflow/utils/search_utils.py",
-            "tests/entities/model_registry/test_model_version.py",
-            "tests/entities/model_registry/test_registered_model.py",
             "tests/lightgbm/test_lightgbm_autolog.py",
             "tests/models/test_model_input_examples.py",
             "tests/projects/test_project_spec.py",
             "tests/pyfunc/test_model_export_with_loader_module_and_data_path.py",
             "tests/store/artifact/test_databricks_artifact_repo.py",
             "tests/store/artifact/test_ftp_artifact_repo.py",
-            "tests/store/model_registry/test_sqlalchemy_store.py",
-            "tests/store/tracking/test_sqlalchemy_store.py",
             "tests/tensorflow/test_tensorflow2_autolog.py",
-            "tests/tracking/test_model_registry.py",
             "tests/utils/test_requirements_utils.py",
             "tests/xgboost/test_xgboost_autolog.py",
         ],
@@ -45,8 +39,8 @@ class SetChecker(BaseChecker):
     USE_SET_LITERAL = "use-set-literal"
     msgs = {
         "W0005": (
-            "Use set literal (e.g. `{'a', 'b'}`) instead of using `set()` on transient list or "
-            "tuple (e.g. `set(['a', 'b'])`)",
+            "Use set literal (e.g. `{'a', 'b'}`) instead of applying `set()` on list or "
+            "tuple literal (e.g. `set(['a', 'b'])`)",
             USE_SET_LITERAL,
             "Use set literal",
         ),
