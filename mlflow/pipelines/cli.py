@@ -101,7 +101,7 @@ def inspect(step, profile):
     "-a",
     type=click.STRING,
     default=None,
-    required=False,
+    required=True,
     help="The name of the artifact to retrieve.",
 )
 @_CLI_ARG_PIPELINE_PROFILE
