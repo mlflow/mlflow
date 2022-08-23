@@ -415,7 +415,11 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 
 def _shap_predict_fn(x, predict_fn, feature_names):
-    return predict_fn(pd.DataFrame(x, columns=feature_names))
+    if isinstance(x, pd.DataFrame):
+        df = x.rename(columns={i: f for i, f in enumerate(feature_names)})
+    else:
+        df = pd.DataFrame(x, columns=feature_names)
+    return predict_fn(df)
 
 
 # pylint: disable=attribute-defined-outside-init
@@ -540,9 +544,10 @@ class DefaultEvaluator(ModelEvaluator):
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
         )
 
-        truncated_feature_names = [truncate_str_from_middle(f, 20) for f in self.feature_names]
+        truncated_feature_names = [truncate_str_from_middle(str(f), 20) for f in self.feature_names]
+        # str used to account for non-string self.feature_names
         for i, truncated_name in enumerate(truncated_feature_names):
-            if truncated_name != self.feature_names[i]:
+            if truncated_name != str(self.feature_names[i]):
                 # For duplicated truncated name, attach "(f_{feature_index})" at the end
                 truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
 
@@ -1002,6 +1007,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.run_id = run_id
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
+
             self.feature_names = dataset.feature_names
             self.custom_metrics = custom_metrics
 
