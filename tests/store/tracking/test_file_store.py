@@ -455,8 +455,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # delete it
         fs.delete_experiment(exp_id)
-        self.assertTrue(exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY)))
-        self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY)))
+        self.assertTrue(
+            exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+        )
+        self.assertTrue(
+            exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
+        )
         self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL)))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
@@ -468,8 +472,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
-        self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY)))
-        self.assertTrue(exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY)))
+        self.assertTrue(
+            exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+        )
+        self.assertTrue(
+            exp_id not in self._extract_ids(fs.search_experiments(view_type=ViewType.DELETED_ONLY))
+        )
         self.assertTrue(exp_id in self._extract_ids(fs.search_experiments(view_type=ViewType.ALL)))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
 

@@ -91,12 +91,12 @@ def test_create_get_search_experiment(mlflow_client):
     assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
     assert set([e.name for e in mlflow_client.search_experiments()]) == {"Default"}
-    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)]) == {
-        "Default"
-    }
-    assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)]) == {
-        "My Experiment"
-    }
+    assert set(
+        [e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)]
+    ) == {"Default"}
+    assert set(
+        [e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)]
+    ) == {"My Experiment"}
     assert set([e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)]) == {
         "My Experiment",
         "Default",

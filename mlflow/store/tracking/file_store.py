@@ -287,7 +287,6 @@ class FileStore(AbstractStore):
         return PagedList(experiments, next_page_token)
 
     def get_experiment_by_name(self, experiment_name):
-
         def pagination_wrapper_func(number_to_get, next_page_token):
             return self.search_experiments(
                 view_type=ViewType.ACTIVE_ONLY,
@@ -346,8 +345,8 @@ class FileStore(AbstractStore):
         experiments_ids = [
             int(e)
             for e in (
-                self._get_active_experiments(full_path=False) +
-                self._get_deleted_experiments(full_path=False)
+                self._get_active_experiments(full_path=False)
+                + self._get_deleted_experiments(full_path=False)
             )
             if e.isdigit()
         ]
