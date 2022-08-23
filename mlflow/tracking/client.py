@@ -396,7 +396,6 @@ class MlflowClient:
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
-    @experimental
     def search_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
