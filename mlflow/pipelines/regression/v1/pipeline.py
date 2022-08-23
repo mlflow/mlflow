@@ -553,7 +553,7 @@ class RegressionPipeline(_BasePipeline):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _get_artifact_path(self, artifact_name: str) -> Any[str]:
+    def _get_artifact_path(self, artifact_name: str) -> Optional[str]:
         """
         Returns a path that may or may not exist
         """
