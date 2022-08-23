@@ -190,7 +190,6 @@ def _build_image(
                 )
             )
         _logger.info("Building docker image with name %s", image_name)
-        os.system("find {cwd}/".format(cwd=cwd))
         _build_image_from_context(context_dir=cwd, image_name=image_name)
 
 
