@@ -41,7 +41,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
 )
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
-from mlflow.utils.annotations import experimental
 
 
 if TYPE_CHECKING:
