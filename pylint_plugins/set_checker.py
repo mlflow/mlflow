@@ -15,9 +15,6 @@ IGNORED_FILES = set(
             # 3. Run `pylint <the file>`.
             # 4. Fix lint errors.
             # 5. File a PR.
-            "mlflow/azure/client.py",
-            "mlflow/entities/lifecycle_stage.py",
-            "mlflow/entities/run_status.py",
             "tests/lightgbm/test_lightgbm_autolog.py",
             "tests/models/test_model_input_examples.py",
             "tests/projects/test_project_spec.py",
