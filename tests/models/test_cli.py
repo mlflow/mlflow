@@ -535,7 +535,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             assert "stack_trace" in scoring_response_dict
 
 
-def test_env_manager_warning_for_conda_use(monkeypatch):
+def test_env_manager_warning_for_use_of_conda(monkeypatch):
     with mock.patch("mlflow.models.cli._get_flavor_backend") as mock_get_flavor_backend:
         with pytest.warns(UserWarning, match=r"Use of conda is discouraged"):
             CliRunner().invoke(
