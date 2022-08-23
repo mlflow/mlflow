@@ -7,6 +7,7 @@ import shap
 
 import mlflow
 from mlflow.tracking import MlflowClient
+from mlflow.artifacts import download_artifacts
 
 
 # prepare training data
@@ -29,7 +30,7 @@ print("# artifacts:")
 print(artifacts)
 
 # load back the logged explanation
-dst_path = client.download_artifacts(run.info.run_id, artifact_path)
+dst_path = download_artifacts(run_id=run.info.run_id, artifact_path=artifact_path)
 base_values = np.load(os.path.join(dst_path, "base_values.npy"))
 shap_values = np.load(os.path.join(dst_path, "shap_values.npy"))
 

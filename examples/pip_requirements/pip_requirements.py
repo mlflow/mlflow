@@ -10,6 +10,7 @@ from sklearn.datasets import load_iris
 import xgboost as xgb
 import mlflow
 from mlflow.tracking import MlflowClient
+from mlflow.artifacts import download_artifacts
 
 
 def read_lines(path):
@@ -19,11 +20,13 @@ def read_lines(path):
 
 def get_pip_requirements(run_id, artifact_path, return_constraints=False):
     client = MlflowClient()
-    req_path = client.download_artifacts(run_id, f"{artifact_path}/requirements.txt")
+    req_path = download_artifacts(run_id=run_id, artifact_path=f"{artifact_path}/requirements.txt")
     reqs = read_lines(req_path)
 
     if return_constraints:
-        con_path = client.download_artifacts(run_id, f"{artifact_path}/constraints.txt")
+        con_path = download_artifacts(
+            run_id=run_id, artifact_path=f"{artifact_path}/constraints.txt"
+        )
         cons = read_lines(con_path)
         return set(reqs), set(cons)
 
