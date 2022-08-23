@@ -102,6 +102,90 @@ def test_metric_threshold_class_should_fail(metric_threshold_class_test_spec):
 
 
 @pytest.fixture
+def faulty_baseline_model_param_test_spec(request):
+    """
+    Test specification for faulty `baseline_model` parameter tests:
+    :return: (
+                validation_thresholds: A dictonary mapping scalar metric names
+                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                baseline_model: value for the `baseline_model` param passed into mlflow.evaluate()
+                expected_failure_message: expected failure message
+             )
+    """
+    if request.param == "min_relative_change_present":
+        return (
+            {"accuracy": MetricThreshold(min_absolute_change=0.1, higher_is_better=True)},
+            None,
+            "The baseline model must be specified",
+        )
+    if request.param == "min_absolute_change_present":
+        return (
+            {"accuracy": MetricThreshold(min_relative_change=0.1, higher_is_better=True)},
+            None,
+            "The baseline model must be specified",
+        )
+    if request.param == "both_relative_absolute_change_present":
+        return (
+            {
+                "accuracy": MetricThreshold(
+                    min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
+                )
+            },
+            None,
+            "The baseline model must be specified",
+        )
+    if request.param == "baseline_model_is_not_string":
+        return (
+            {
+                "accuracy": MetricThreshold(
+                    min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
+                )
+            },
+            1.0,
+            "The baseline model argument must be a string URI",
+        )
+
+
+@pytest.mark.parametrize(
+    "faulty_baseline_model_param_test_spec",
+    [
+        ("min_relative_change_present"),
+        ("min_absolute_change_present"),
+        ("both_relative_absolute_change_present"),
+        ("baseline_model_is_not_string"),
+    ],
+    indirect=["faulty_baseline_model_param_test_spec"],
+)
+def test_validation_faulty_baseline_model(
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+    faulty_baseline_model_param_test_spec,
+):
+    (
+        validation_thresholds,
+        baseline_model,
+        expected_failure_message,
+    ) = faulty_baseline_model_param_test_spec
+
+    with mock.patch.object(
+        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
+    ):
+        with pytest.raises(
+            MlflowException,
+            match=expected_failure_message,
+        ):
+            evaluate(
+                multiclass_logistic_regressor_model_uri,
+                data=iris_dataset._constructor_args["data"],
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                dataset_name=iris_dataset.name,
+                validation_thresholds=validation_thresholds,
+                baseline_model=baseline_model,
+            )
+
+
+@pytest.fixture
 def value_threshold_test_spec(request):
     """
     Test specification for value threshold tests:
@@ -800,88 +884,4 @@ def test_validation_multi_thresholds_should_fail(
                     evaluator_config=evaluator1_config,
                     validation_thresholds=validation_thresholds,
                     baseline_model=multiclass_logistic_regressor_model_uri,
-                )
-
-
-@pytest.fixture
-def missing_baseline_model_test_spec(request):
-    """
-    Test specification for missing baseline model tests:
-    :return: (
-                metrics: A dictionary mapping scalar metric names to scalar metric values,
-                baseline_model_metrics: A dictionary mapping scalar metric names
-                    to scalar metric values of baseline_model,
-                validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
-             )
-    """
-    if request.param == "min_relative_change_present":
-        acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
-        return (
-            {"accuracy": 0.75},
-            None,
-            {"accuracy": acc_threshold},
-        )
-    if request.param == "min_absolute_change_present":
-        acc_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
-        return (
-            {"accuracy": 0.75},
-            None,
-            {"accuracy": acc_threshold},
-        )
-    if request.param == "both_relative_absolute_change_present":
-        acc_threshold = MetricThreshold(
-            min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
-        )
-        return (
-            {"accuracy": 0.75},
-            None,
-            {"accuracy": acc_threshold},
-        )
-
-
-@pytest.mark.parametrize(
-    "missing_baseline_model_test_spec",
-    [
-        ("min_relative_change_present"),
-        ("min_absolute_change_present"),
-        ("both_relative_absolute_change_present"),
-    ],
-    indirect=["missing_baseline_model_test_spec"],
-)
-def test_validation_missing_baseline_model(
-    multiclass_logistic_regressor_model_uri,
-    iris_dataset,
-    missing_baseline_model_test_spec,
-):
-    (
-        metrics,
-        baseline_model_metrics,
-        validation_thresholds,
-    ) = missing_baseline_model_test_spec
-
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": MockEvaluator}
-    ):
-        with mock.patch.object(MockEvaluator, "can_evaluate", return_value=True), mock.patch.object(
-            MockEvaluator,
-            "evaluate",
-            return_value=EvaluationResult(
-                metrics=metrics, artifacts={}, baseline_model_metrics=baseline_model_metrics
-            ),
-        ):
-            with pytest.raises(
-                MlflowException,
-                match="The baseline model must be specified",
-            ):
-                evaluate(
-                    multiclass_logistic_regressor_model_uri,
-                    data=iris_dataset._constructor_args["data"],
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    dataset_name=iris_dataset.name,
-                    evaluators="test_evaluator1",
-                    evaluator_config={},
-                    validation_thresholds=validation_thresholds,
-                    baseline_model=None,
                 )
