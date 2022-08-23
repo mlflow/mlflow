@@ -544,7 +544,7 @@ def test_env_manager_warning_for_conda_use(monkeypatch):
                 catch_exceptions=False,
             )
 
-        with warnings.catch_warnings(record=True):
+        with warnings.catch_warnings():
             warnings.simplefilter("error")
             monkeypatch.setenv(MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING.name, "TRUE")
             CliRunner().invoke(
