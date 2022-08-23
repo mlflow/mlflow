@@ -108,7 +108,6 @@ The pipeline steps are defined as follows:
 
 import os
 import logging
-from tkinter import E
 
 from mlflow.pipelines.regression.v1 import dag_help_strings
 from mlflow.tracking.client import MlflowClient

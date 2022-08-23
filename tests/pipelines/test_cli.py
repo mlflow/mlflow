@@ -54,7 +54,7 @@ def test_pipelines_cli_fails_with_illegal_profile():
         pipelines_cli.clean, env={_PIPELINE_PROFILE_ENV_VAR: "illegal_profile"}
     )
     assert result.exit_code != 0
-    assert isinstance(result.exception, MlflowException)
+    assert isinstance(result.exception, MlflowExcepSystemExittion)
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")
@@ -92,4 +92,4 @@ def test_pipelines_get_artifact_with_no_artifact_name_fails():
         env={_PIPELINE_PROFILE_ENV_VAR: "local"},
     )
     assert result.exit_code != 0
-    assert isinstance(result.exception, MlflowException)
+    assert isinstance(result.exception, SystemExit)
