@@ -377,7 +377,7 @@ class EvaluationDataset:
         md5_gen = hashlib.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
-        md5_gen.update(",".join(self._feature_names).encode("UTF-8"))
+        md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
 

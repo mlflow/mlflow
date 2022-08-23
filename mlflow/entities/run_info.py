@@ -52,8 +52,6 @@ class RunInfo(_MLflowObject):
         artifact_uri=None,
         run_id=None,
     ):
-        if run_uuid is None:
-            raise Exception("run_uuid cannot be None")
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if user_id is None:

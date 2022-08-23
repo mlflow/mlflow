@@ -96,17 +96,20 @@ class TestRegisteredModel(unittest.TestCase):
         proto = rmd_1.to_proto()
         self.assertEqual(proto.creation_timestamp, 1)
         self.assertEqual(proto.last_updated_timestamp, 4000)
-        self.assertEqual(set([mvd.version for mvd in proto.latest_versions]), set(["1", "4"]))
-        self.assertEqual(set([mvd.name for mvd in proto.latest_versions]), set([name]))
+        self.assertEqual({mvd.version for mvd in proto.latest_versions}, {"1", "4"})
+        self.assertEqual({mvd.name for mvd in proto.latest_versions}, {name})
         self.assertEqual(
-            set([mvd.current_stage for mvd in proto.latest_versions]),
-            set(["Production", "Staging"]),
+            {mvd.current_stage for mvd in proto.latest_versions},
+            {"Production", "Staging"},
         )
         self.assertEqual(
-            set([mvd.last_updated_timestamp for mvd in proto.latest_versions]), set([2000, 2002])
+            {mvd.last_updated_timestamp for mvd in proto.latest_versions},
+            {2000, 2002},
         )
+
         self.assertEqual(
-            set([mvd.creation_timestamp for mvd in proto.latest_versions]), set([1300, 1000])
+            {mvd.creation_timestamp for mvd in proto.latest_versions},
+            {1300, 1000},
         )
 
     def test_with_tags(self):
@@ -128,9 +131,13 @@ class TestRegisteredModel(unittest.TestCase):
         proto = rmd_1.to_proto()
         self.assertEqual(proto.creation_timestamp, 1)
         self.assertEqual(proto.last_updated_timestamp, 4000)
-        self.assertEqual(set([tag.key for tag in proto.tags]), set(["key", "randomKey"]))
         self.assertEqual(
-            set([tag.value for tag in proto.tags]), set(["value", "not a random value"])
+            {tag.key for tag in proto.tags},
+            {"key", "randomKey"},
+        )
+        self.assertEqual(
+            {tag.value for tag in proto.tags},
+            {"value", "not a random value"},
         )
 
     def test_string_repr(self):

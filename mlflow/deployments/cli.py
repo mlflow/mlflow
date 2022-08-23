@@ -27,7 +27,7 @@ def _user_args_to_dict(user_list):
     return user_dict
 
 
-installed_targets = [target for target in interface.plugin_store.registry]
+installed_targets = list(interface.plugin_store.registry)
 if len(installed_targets) > 0:
     supported_targets_msg = "Support is currently installed for deployment to: {targets}".format(
         targets=", ".join(installed_targets)
