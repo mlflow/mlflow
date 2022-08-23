@@ -54,6 +54,8 @@ class RunInfo(_MLflowObject):
     ):
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
+        if user_id is None:
+            raise Exception("user_id cannot be None")
         if status is None:
             raise Exception("status cannot be None")
         if start_time is None:
@@ -64,7 +66,7 @@ class RunInfo(_MLflowObject):
         self._run_uuid = actual_run_id
         self._run_id = actual_run_id
         self._experiment_id = experiment_id
-        self._user_id = user_id or ""
+        self._user_id = user_id
         self._status = status
         self._start_time = start_time
         self._end_time = end_time
