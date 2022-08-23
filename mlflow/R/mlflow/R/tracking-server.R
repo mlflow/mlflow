@@ -52,9 +52,11 @@ mlflow_cli_param <- function(args, param, value) {
 #' @param port The port to listen on (default: 5000).
 #' @param workers Number of gunicorn worker processes to handle requests (default: 4).
 #' @param static_prefix A prefix which will be prepended to the path of all static paths.
+#' @param serve_artifacts A flag specifying whether or not to enable artifact serving (default: FALSE).
 #' @export
 mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
-                          host = "127.0.0.1", port = 5000, workers = NULL, static_prefix = NULL) {
+                          host = "127.0.0.1", port = 5000, workers = NULL, static_prefix = NULL,
+                          serve_artifacts = FALSE) {
   file_store <- fs::path_abs(file_store)
   if (.Platform$OS.type == "windows") file_store <- paste0("file://", file_store)
 
@@ -63,7 +65,8 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
     mlflow_cli_param("--default-artifact-root", default_artifact_root) %>%
     mlflow_cli_param("--host", host) %>%
     mlflow_cli_param("--port", port) %>%
-    mlflow_cli_param("--static-prefix", static_prefix)
+    mlflow_cli_param("--static-prefix", static_prefix) %>%
+    append(if (serve_artifacts) "--serve-artifacts" else "--no-serve-artifacts")
 
   if (.Platform$OS.type != "windows") {
     workers <- workers %||% 4
