@@ -416,7 +416,7 @@ _SUPPORTED_SHAP_ALGORITHMS = ("exact", "permutation", "partition", "kernel")
 
 def _shap_predict_fn(x, predict_fn, feature_names):
     if isinstance(x, pd.DataFrame):
-        df = x.rename(columns={i: f for i, f in enumerate(feature_names)})
+        df = x.rename(columns=dict(enumerate(feature_names)))
     else:
         df = pd.DataFrame(x, columns=feature_names)
     return predict_fn(df)
@@ -1007,7 +1007,6 @@ class DefaultEvaluator(ModelEvaluator):
             self.run_id = run_id
             self.evaluator_config = evaluator_config
             self.dataset_name = dataset.name
-
             self.feature_names = dataset.feature_names
             self.custom_metrics = custom_metrics
 
