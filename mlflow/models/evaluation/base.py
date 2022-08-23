@@ -738,8 +738,9 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # If baseline metric value equals 0, fallback to simple comparison check
             if baseline_metric_value == 0:
                 _logger.warning(
-                    f"Relative model comparison is not possible for metric {metric_name} "
-                    "as baseline value is 0. Falling back to simple comparison check."
+                    f"Cannot perform relative model comparison for metric {metric_name} as "
+                    "baseline metric value is 0. Falling back to simple comparison: verifying "
+                    "that candidate metric value is better than the baseline metric value."
                 )
                 validation_result.min_relative_change_failed = not comparator_fn(
                     Decimal(candidate_metric_value),
