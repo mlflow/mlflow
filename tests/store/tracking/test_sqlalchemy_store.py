@@ -338,7 +338,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(result.token, None)
         # make sure that at least all the experiments created in this test are found
         returned_exp_id_set = {exp.experiment_id for exp in returned_experiments}
-        self.assertEqual({experiments} - returned_exp_id_set, set())
+        self.assertEqual(set(experiments) - returned_exp_id_set, set())
 
     def test_list_experiments_paginated_returns_in_correct_order(self):
         testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]

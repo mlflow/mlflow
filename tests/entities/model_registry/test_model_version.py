@@ -102,9 +102,7 @@ class TestModelVersion(unittest.TestCase):
         self.assertEqual(proto.status, ModelVersionStatus.from_string("READY"))
         self.assertEqual(proto.status_message, "Model version #5 is ready to use.")
         self.assertEqual({tag.key for tag in proto.tags}, {"key", "randomKey"})
-        self.assertEqual(
-            {tag.value for tag in proto.tags}, {"value", "not a random value"}
-        )
+        self.assertEqual({tag.value for tag in proto.tags}, {"value", "not a random value"})
         mvd_2 = ModelVersion.from_proto(proto)
         self._check(
             mvd_2,

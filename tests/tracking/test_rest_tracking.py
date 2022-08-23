@@ -91,9 +91,7 @@ def test_create_get_list_experiment(mlflow_client):
     assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
     assert {e.name for e in mlflow_client.list_experiments()} == {"Default"}
-    assert {e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)} == {
-        "Default"
-    }
+    assert {e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)} == {"Default"}
     assert {e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)} == {
         "My Experiment"
     }

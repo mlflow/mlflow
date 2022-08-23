@@ -563,9 +563,7 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
         mlflow_client.transition_model_version_stage(name=name, version=1, stage="Staging")
 
     mlflow_client.delete_model_version(name, 3)
-    assert {"2"} == {
-        mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)
-    }
+    assert {"2"} == {mv.version for mv in mlflow_client.search_model_versions("name = '%s'" % name)}
 
     # new model versions will not reuse existing version numbers
     mv4 = mlflow_client.create_model_version(name, "a/b/c", "run_id_2")
