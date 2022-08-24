@@ -153,7 +153,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs = FileStore(self.test_root)
         for exp in fs.list_experiments():
             exp_id = exp.experiment_id
-            self.assertTrue(exp_id in self.experiments)
+            assert exp_id in self.experiments
             self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
             self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
 
@@ -478,9 +478,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
 
         # delete it
         fs.delete_experiment(exp_id)
-        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
-        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
-        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
+        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
+        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.DELETED)
 
         # restore it
@@ -491,9 +491,9 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         restored_2 = fs.get_experiment_by_name(exp_name)
         self.assertEqual(restored_2.experiment_id, exp_id)
         self.assertEqual(restored_2.name, exp_name)
-        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY)))
-        self.assertTrue(exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY)))
-        self.assertTrue(exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL)))
+        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ACTIVE_ONLY))
+        assert exp_id not in self._extract_ids(fs.list_experiments(ViewType.DELETED_ONLY))
+        assert exp_id in self._extract_ids(fs.list_experiments(ViewType.ALL))
         self.assertEqual(fs.get_experiment(exp_id).lifecycle_stage, LifecycleStage.ACTIVE)
 
     def test_rename_experiment(self):
