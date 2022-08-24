@@ -1270,7 +1270,7 @@ generated during model evaluation to validate the quality of your model. By spec
 ``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
 objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
 as absolute and relative gains your model must have in comparison to a specified
-``baseline_model``. If you model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
 will throw a ``ModelValidationFailedException`` detailing why.
 
 .. code-block:: py
