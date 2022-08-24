@@ -1262,6 +1262,68 @@ dictionary of metrics, or two dictionaries representing metrics and artifacts.
 For a more comprehensive custom metrics usage example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_custom_metrics_comprehensive.py>`_.
 
+Performing Model Validation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on the metrics
+generated during model evaluation to validate the quality of your model. By specifying a 
+``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
+objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
+as absolute and relative gains your model must have in comparison to evaluations metrics for a 
+``baseline_model``. If you model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
+will throw a `ModelValidationFailedException` detailing why your model failed validation.
+
+.. code-block:: py
+
+    import xgboost
+    import shap
+    from sklearn.model_selection import train_test_split
+    from sklearn.dummy import DummyClassifier
+    import mlflow
+    from mlflow.models import MetricThreshold
+
+    # load UCI Adult Data Set; segment it into training and test sets
+    X, y = shap.datasets.adult()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
+
+    # train a candidate XGBoost model
+    candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+
+    # train a baseline dummy model
+    baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    # construct an evaluation dataset from the test set
+    eval_data = X_test
+    eval_data["label"] = y_test
+
+    # Define criteria for model to be validated against
+    thresholds = {
+        "accuracy": MetricThreshold(
+            threshold=0.8,             # accuracy should be >=0.8
+            min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
+            min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
+            higher_is_better=True
+        ),
+    }
+
+    with mlflow.start_run() as run:
+        candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
+        baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
+
+        mlflow.evaluate(
+            candidate_model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            dataset_name="adult",
+            validation_thresholds=thresholds,
+            baseline_model=baseline_model_uri,
+        )
+
+Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds checks are 
+calculated. For a more comprehensive model validation example, refer to `this example from the MLflow GitHub Repository
+<https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
+
 Additional information about model evaluation behaviors and outputs is available in the
 :py:func:`mlflow.evaluate()` API docs.
 

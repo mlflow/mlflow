@@ -13,6 +13,8 @@ specified dataset using builtin default evaluator, and log resulting metrics & a
   model with a custom metric function on dataset loaded by `sklearn.datasets.fetch_california_housing`
 - Example `evaluate_with_custom_metrics_comprehensive.py` evaluates a scikit-learn `LinearRegression` model
   with a comprehensive list of custom metric functions on dataset loaded by `sklearn.datasets.fetch_california_housing`
+- Example `evaluate_with_model_validation.py` evaluates a candidate xgboost `XGBClassifier` model
+  on dataset loaded by `shap.datasets.adult` and validates that the resulting metrics clear specified thresholds.
 
 #### Prerequisites
 
@@ -30,4 +32,5 @@ python evaluate_on_multiclass_classifier.py
 python evaluate_on_regressor.py
 python evaluate_with_custom_metrics.py
 python evaluate_with_custom_metrics_comprehensive.py
+python evaluate_with_model_vaidation.py
 ```

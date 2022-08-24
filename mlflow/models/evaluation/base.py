@@ -1089,21 +1089,22 @@ def evaluate(
                                              .. code-block:: python
                                                  :caption: Example of Model Validation
 
+                                                 from mlflow.models import MetricThreshold
+
                                                  thresholds = {
-                                                     # Metric Value Threshold
+                                                     # Metric value thresholds
                                                      "f1_score": MetricThreshold(
                                                          threshold=0.8,
                                                          higher_is_better=True
                                                      ),
-                                                     # Model Comparison: min_absolute_change
-                                                     # and min_relative_change
+                                                     # Model comparison thresholds
                                                      "log_loss": MetricThreshold(
                                                          min_absolute_change=0.05,
                                                          min_relative_change=0.1,
                                                          higher_is_better=False
                                                      ),
-                                                     # Both Metric Value Threshold
-                                                     # and Model Comparison
+                                                     # Both metric value and model comparison \
+thresholds
                                                      "accuarcy": MetricThreshold(
                                                          threshold=0.8,
                                                          min_absolute_change=0.09,
