@@ -70,6 +70,11 @@ def metric_threshold_class_test_spec(request):
     elif request.param == "higher_is_better_is_not_bool":
         class_params["higher_is_better"] = 1
         expected_failure_message = "`higher_is_better` parameter must be a boolean."
+    elif request.param == "no_threshold":
+        class_params["threshold"] = None
+        class_params["min_absolute_change"] = None
+        class_params["min_relative_change"] = None
+        expected_failure_message = "no threshold was specified."
 
     return (class_params, expected_failure_message)
 
@@ -84,6 +89,7 @@ def metric_threshold_class_test_spec(request):
         ("min_relative_change_is_not_between_0_and_1"),
         ("higher_is_better_is_not_defined"),
         ("higher_is_better_is_not_bool"),
+        ("no_threshold"),
     ],
     indirect=["metric_threshold_class_test_spec"],
 )

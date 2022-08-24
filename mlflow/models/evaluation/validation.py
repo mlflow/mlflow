@@ -72,6 +72,8 @@ class MetricThreshold:
             raise MetricThresholdClassException("`higher_is_better` parameter must be defined.")
         if not isinstance(higher_is_better, bool):
             raise MetricThresholdClassException("`higher_is_better` parameter must be a boolean.")
+        if threshold is None and min_absolute_change is None and min_relative_change is None:
+            raise MetricThresholdClassException("no threshold was specified.")
         self._threshold = threshold
         self._min_absolute_change = min_absolute_change
         self._min_relative_change = min_relative_change
@@ -105,16 +107,6 @@ class MetricThreshold:
         Boolean value representing whether higher value is better for the metric.
         """
         return self._higher_is_better
-
-    def is_empty(self):
-        """
-        Returns True if there is no threshold specified, False otherwise.
-        """
-        return (
-            self._threshold is None
-            and self._min_absolute_change is None
-            and self._min_relative_change is None
-        )
 
     def __str__(self):
         """
@@ -173,7 +165,7 @@ class _MetricValidationResult:
 
     def __str__(self):
         """
-        Return a human-readable string representing the validation result for the metric.
+        Returns a human-readable string representing the validation result for the metric.
         """
         if self.is_success():
             return f"Metric {self.metric_name} passed the validation."
