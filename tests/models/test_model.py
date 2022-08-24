@@ -159,16 +159,13 @@ def test_model_info():
             )
         model_uri = "runs:/{}/some/path".format(run.info.run_id)
 
-        with pytest.warns(
-            FutureWarning,
-            match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
-        ):
-            model_info_fetched = mlflow.models.get_model_info(model_uri)
+        model_info_fetched = mlflow.models.get_model_info(model_uri)
         with pytest.warns(
             FutureWarning,
             match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
         ):
             assert model_info_fetched.signature_dict == sig.to_dict()
+
         local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path(""))
 
         assert model_info.run_id == run.info.run_id

@@ -54,7 +54,7 @@ class ModelInfo:
         self._model_uuid = model_uuid
         self._run_id = run_id
         self._saved_input_example_info = saved_input_example_info
-        self.signature_dict = signature_dict
+        self._signature_dict = signature_dict
         self._signature = signature
         self._utc_time_created = utc_time_created
         self._mlflow_version = mlflow_version
