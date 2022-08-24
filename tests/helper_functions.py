@@ -27,7 +27,7 @@ from mlflow.utils.environment import (
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
 )
-from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
+
 
 AWS_METADATA_IP = "169.254.169.254"  # Used to fetch AWS Instance and User metadata.
 LOCALHOST = "127.0.0.1"
@@ -271,6 +271,7 @@ class RestEndpoint:
 
     def invoke(self, data, content_type):
         import pandas as pd
+        from mlflow.pyfunc import scoring_server as pyfunc_scoring_server
 
         if isinstance(data, pd.DataFrame):
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
