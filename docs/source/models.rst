@@ -1269,9 +1269,9 @@ You can also use the :py:func:`mlflow.evaluate()` API to perform some checks on 
 generated during model evaluation to validate the quality of your model. By specifying a 
 ``validation_thresholds`` dictionary mapping metric names to :py:class:`mlflow.models.MetricThreshold` 
 objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
-as absolute and relative gains your model must have in comparison to evaluations metrics for a 
+as absolute and relative gains your model must have in comparison to a specified
 ``baseline_model``. If you model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
-will throw a `ModelValidationFailedException` detailing why your model failed validation.
+will throw a `ModelValidationFailedException` detailing why.
 
 .. code-block:: py
 
@@ -1320,8 +1320,8 @@ will throw a `ModelValidationFailedException` detailing why your model failed va
             baseline_model=baseline_model_uri,
         )
 
-Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds checks are 
-calculated. For a more comprehensive model validation example, refer to `this example from the MLflow GitHub Repository
+Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
+and checked. For a more comprehensive model validation example, refer to `this example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
 
 Additional information about model evaluation behaviors and outputs is available in the
