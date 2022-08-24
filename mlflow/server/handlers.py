@@ -1075,9 +1075,8 @@ def _log_model():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    missing_fields = set(("artifact_path", "flavors", "utc_time_created", "run_id")) - set(
-        model.keys()
-    )
+    missing_fields = {"artifact_path", "flavors", "utc_time_created", "run_id"} - set(model.keys())
+
     if missing_fields:
         raise MlflowException(
             "Model json is missing mandatory fields: {}".format(missing_fields),

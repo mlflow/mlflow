@@ -377,7 +377,7 @@ class EvaluationDataset:
         md5_gen = hashlib.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
         _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
-        md5_gen.update(",".join(self._feature_names).encode("UTF-8"))
+        md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
 
@@ -1074,10 +1074,10 @@ def evaluate(
                                    )
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
-                                             :py:class:`mlflow.models.MetricThreshold` used for
-                                             model validation. Each metric name must either be the name of
-                                             a builtin metric or the name of a custom metric defined in the
-                                             ``custom_metrics`` parameter.
+                                             :py:class:`mlflow.models.MetricThreshold` used for 
+                                             model validation. Each metric name must either be the 
+                                             name of a builtin metric or the name of a custom 
+                                             metric defined in the``custom_metrics`` parameter.
 
                                              .. code-block:: python
                                                  :caption: Example of Model Validation
@@ -1120,8 +1120,8 @@ def evaluate(
                                                      )
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-                                      flavor. If specified, the candidate ``model`` is compared to this baseline
-                                      for model validation purposes.
+                                      flavor. If specified, the candidate ``model`` is compared to 
+                                      this baseline for model validation purposes.
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
