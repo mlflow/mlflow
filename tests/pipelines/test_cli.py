@@ -72,6 +72,7 @@ def test_pipelines_get_artifact_works():
         env={_PIPELINE_PROFILE_ENV_VAR: "local"},
     )
     assert result.exit_code == 0
+    assert result.output != None
 
 
 @pytest.mark.usefixtures("enter_pipeline_example_directory", "clean_up_pipeline")

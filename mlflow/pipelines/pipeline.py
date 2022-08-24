@@ -200,7 +200,7 @@ class _BasePipeline:
     @abc.abstractmethod
     def _get_artifact_path(self, artifact_name: str):
         """
-        Read an artifact from pipeline output. artifact names can be obtained from
+        Get a path of an artifact from pipeline output. artifact names can be obtained from
         `Pipeline.inspect()` or `Pipeline.run()` output.
 
         Returns None if the specified artifact is not found.

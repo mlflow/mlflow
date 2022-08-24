@@ -95,7 +95,7 @@ def inspect(step, profile):
     Pipeline(profile=profile).inspect(step)
 
 
-@commands.command(short_help=("Get the location of an artifact."))
+@commands.command(short_help=("Get the location of an artifact output from the pipeline."))
 @click.option(
     "--artifact",
     "-a",
