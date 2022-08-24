@@ -173,7 +173,7 @@ def test_regressor_evaluation(
         {**diabetes_dataset._metadata, "model": model.metadata.model_uuid}
     ]
 
-    for metric_key in expected_metrics:
+    for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
             metrics[metric_key + "_on_data_diabetes_dataset"],
@@ -294,7 +294,7 @@ def test_multi_classifier_evaluation(
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
-    
+
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val, metrics[metric_key + "_on_data_iris_dataset"], rtol=1e-3
@@ -410,7 +410,7 @@ def test_bin_classifier_evaluation(
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    
+
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,
@@ -615,7 +615,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
-    
+
     for metric_key, expected_metric_val in expected_metrics.items():
         assert np.isclose(
             expected_metric_val,

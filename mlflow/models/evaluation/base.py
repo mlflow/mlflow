@@ -1074,9 +1074,9 @@ def evaluate(
                                    )
 
     :param validation_thresholds: (Optional) A dictionary of metric name to
-                                             :py:class:`mlflow.models.MetricThreshold` used for 
-                                             model validation. Each metric name must either be the 
-                                             name of a builtin metric or the name of a custom 
+                                             :py:class:`mlflow.models.MetricThreshold` used for
+                                             model validation. Each metric name must either be the
+                                             name of a builtin metric or the name of a custom
                                              metric defined in the``custom_metrics`` parameter.
 
                                              .. code-block:: python
@@ -1120,7 +1120,7 @@ def evaluate(
                                                      )
 
     :param baseline_model: (Optional) A string URI referring to an MLflow model with the pyfunc
-                                      flavor. If specified, the candidate ``model`` is compared to 
+                                      flavor. If specified, the candidate ``model`` is compared to
                                       this baseline for model validation purposes.
 
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
