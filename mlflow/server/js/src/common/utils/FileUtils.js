@@ -33,7 +33,6 @@ export const TEXT_EXTENSIONS = new Set([
   'yaml',
   'yml',
   'json',
-  'tsv',
   'md',
   'rst',
   MLPROJECT_FILE_NAME.toLowerCase(),
@@ -43,4 +42,4 @@ export const TEXT_EXTENSIONS = new Set([
 export const HTML_EXTENSIONS = new Set(['html']);
 export const MAP_EXTENSIONS = new Set(['geojson']);
 export const PDF_EXTENSIONS = new Set(['pdf']);
-export const DATA_EXTENSIONS = new Set(['csv']);
+export const DATA_EXTENSIONS = new Set(['csv', 'tsv']);
