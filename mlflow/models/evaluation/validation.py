@@ -14,7 +14,7 @@ class MetricThreshold:
                       - Otherwise, the metric value has to be <= threshold to pass the validation.
 
     :param min_absolute_change: (Optional) A positive number representing the minimum absolute
-                                change required for candidate model to pass the comparison with
+                                change required for candidate model to pass validation with
                                 the baseline model.
 
                                 - If higher is better for the metric, metric value has to be
