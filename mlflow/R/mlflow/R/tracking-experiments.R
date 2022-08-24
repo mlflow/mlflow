@@ -42,7 +42,6 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 #' @param page_token Pagination token to go to the next page based on a
 #'   previous query.
 #' @template roxlate-client
-#'
 #' @export
 mlflow_search_experiments <- function(filter = NULL,
                                       experiment_view_type = c(
@@ -56,7 +55,7 @@ mlflow_search_experiments <- function(filter = NULL,
   experiment_view_type <- match.arg(experiment_view_type)
   response <- mlflow_rest("experiments", "search", client = client, verb = "POST", data = list(
     filter = filter,
-    experiment_view_type = experiment_view_type,
+    view_type = experiment_view_type,
     max_results = max_results,
     order_by = cast_string_list(order_by),
     page_token = page_token

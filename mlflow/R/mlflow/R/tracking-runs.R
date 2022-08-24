@@ -306,13 +306,16 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #'
 #' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
 #'
+#' @param filter A filter expression used to identify specific experiments.
+#'   The syntax is a subset of SQL which allows only ANDing together binary operations.
+#'   Examples: "attribute.name = 'MyExperiment'", "tags.problem_type = 'iris_regression'"
+#' @param experiment_view_type Experiment view type. Only experiments matching this view type are
+#'   returned.
+#' @param order_by List of properties to order by. Example: "attribute.name".
+#' @param max_results Maximum number of registered models to retrieve.
+#' @param page_token Pagination token to go to the next page based on a
+#'   previous query.
 #' @template roxlate-client
-#' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
-#' over. Attempts to use active experiment if not specified.
-#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
-#'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
-#' @param run_view_type Run view type.
-#' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
 #' @export
 mlflow_search_runs <- function(filter = NULL,
