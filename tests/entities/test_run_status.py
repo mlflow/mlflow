@@ -44,8 +44,8 @@ class TestRunStatus(unittest.TestCase):
             RunStatus.from_string("the IMPOSSIBLE status string")
 
     def test_is_terminated(self):
-        self.assertTrue(RunStatus.is_terminated(RunStatus.FAILED))
-        self.assertTrue(RunStatus.is_terminated(RunStatus.FINISHED))
-        self.assertTrue(RunStatus.is_terminated(RunStatus.KILLED))
-        self.assertFalse(RunStatus.is_terminated(RunStatus.SCHEDULED))
-        self.assertFalse(RunStatus.is_terminated(RunStatus.RUNNING))
+        assert (RunStatus.is_terminated(RunStatus.FAILED))
+        assert (RunStatus.is_terminated(RunStatus.FINISHED))
+        assert (RunStatus.is_terminated(RunStatus.KILLED))
+        assert not (RunStatus.is_terminated(RunStatus.SCHEDULED))
+        assert not (RunStatus.is_terminated(RunStatus.RUNNING))
