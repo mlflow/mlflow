@@ -3,6 +3,7 @@ import pathlib
 import pytest
 from unittest import mock
 
+import json
 import yaml
 import numpy as np
 import pandas as pd
@@ -413,7 +414,7 @@ def test_pmdarima_pyfunc_serve_and_score(grouped_prophet):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records")
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
     scores["ds"] = pd.to_datetime(scores["ds"], format=DS_FORMAT)
     scores["multiplicative_terms"] = scores["multiplicative_terms"].astype("float64")
     pd.testing.assert_frame_equal(local_predict, scores)

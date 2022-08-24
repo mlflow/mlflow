@@ -4,6 +4,7 @@ import yaml
 from collections import namedtuple
 from unittest import mock
 
+import json
 import numpy as np
 import pandas as pd
 from sklearn import datasets
@@ -380,7 +381,9 @@ def test_pyfunc_serve_and_score(fastai_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     # `[:, -1]` extracts the prediction column
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values[:, -1]
+    scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"]).values[
+        :, -1
+    ]
     np.testing.assert_array_almost_equal(
         scores, mlflow.fastai._FastaiModelWrapper(model).predict(inference_dataframe).values[:, -1]
     )
