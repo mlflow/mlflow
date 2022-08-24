@@ -37,7 +37,7 @@ class MetricThreshold:
                                   threshold falls back performing a simple verification that the
                                   candidate metric value is better than the baseline metric value,
                                   i.e. metric value >= baseline model metric value + 1e-10 if higher
-                                  is better metric value <= baseline model metric value - 1e-10 if
+                                  is better; metric value <= baseline model metric value - 1e-10 if
                                   lower is better.
 
     :param higher_is_better: A required boolean representing whether higher value is
