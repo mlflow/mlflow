@@ -632,6 +632,11 @@ class DefaultEvaluator(ModelEvaluator):
             # Shap evaluation might fail on some edge cases, e.g., unsupported input data values
             # or unsupported model on specific shap explainer. Catch exception to prevent it
             # breaking the whole `evaluate` function.
+
+            # NaN errors should break evaluation
+            if str(e).find("NaN") != -1:
+                raise e
+
             _logger.warning(
                 f"Shap evaluation failed. Reason: {repr(e)}. "
                 "Set logging level to DEBUG to see the full traceback."

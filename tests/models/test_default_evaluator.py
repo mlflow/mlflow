@@ -48,6 +48,7 @@ from tests.models.test_evaluation import (
     diabetes_dataset,
     multiclass_logistic_regressor_model_uri,
     iris_dataset,
+    iris_pandas_df_unusual_cols_dataset,
     binary_logistic_regressor_model_uri,
     breast_cancer_dataset,
     spark_linear_regressor_model_uri,
@@ -327,6 +328,20 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
         "shap_summary_plot",
         "shap_feature_importance_plot",
     }
+
+
+def test_explainer_with_pandas_df_unusual_cols(
+    multiclass_logistic_regressor_model_uri, iris_pandas_df_unusual_cols_dataset
+):
+    with mlflow.start_run():
+        evaluate(
+            multiclass_logistic_regressor_model_uri,
+            iris_pandas_df_unusual_cols_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_pandas_df_unusual_cols_dataset._constructor_args["targets"],
+            dataset_name=iris_pandas_df_unusual_cols_dataset.name,
+            evaluators="default",
+        )
 
 
 def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
