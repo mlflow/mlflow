@@ -10,7 +10,7 @@ alembic:
 docker:
   pip_release: docker
   minimum: "4.0.0"
-  max_major_version: 5
+  max_major_version: 6
 
 flask:
   pip_release: Flask
