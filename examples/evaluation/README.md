@@ -1,6 +1,6 @@
 ### MLflow evaluation Examples
 
-The examples in this directory illustrate how you can use the `mlflow.evaluate` API. Specifically,
+The examples in this directory demonstrate how to use the `mlflow.evaluate()` API. Specifically,
 they show how to evaluate a PyFunc model on a specified dataset using the builtin default evaluator 
 and specified custom metrics, where the resulting metrics & artifacts are logged to MLflow Tracking. 
 They also show how to specify validation thresholds for the resulting metrics to validate the quality 
