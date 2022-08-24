@@ -38,7 +38,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 #' @param experiment_view_type Experiment view type. Only experiments matching this view type are
 #'   returned.
 #' @param order_by List of properties to order by. Example: "attribute.name".
-#' @param max_results Maximum number of registered models to retrieve.
+#' @param max_results Maximum number of experiments to retrieve.
 #' @param page_token Pagination token to go to the next page based on a
 #'   previous query.
 #' @template roxlate-client
