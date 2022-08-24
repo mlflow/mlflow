@@ -568,42 +568,53 @@ class RegressionPipeline(_BasePipeline):
             register_step,
         ) = self._steps
 
-        ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
-        split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
-        transform_output_dir = get_step_output_path(
-            self._pipeline_root_path, transform_step.name, ""
-        )
-        train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
-
-        ingest_scoring_output_dir = get_step_output_path(
-            self._pipeline_root_path, ingest_scoring_step.name, ""
-        )
-        predict_output_dir = get_step_output_path(self._pipeline_root_path, predict_step.name, "")
-        register_output_dir = get_step_output_path(self._pipeline_root_path, register_step.name, "")
-
         if artifact_name == "ingested_data":
+            ingest_output_dir = get_step_output_path(self._pipeline_root_path, ingest_step.name, "")
             return os.path.join(ingest_output_dir, IngestStep._DATASET_OUTPUT_NAME)
         elif artifact_name == "training_data":
+            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
             return os.path.join(split_output_dir, _OUTPUT_TRAIN_FILE_NAME)
         elif artifact_name == "validation_data":
+            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
             return os.path.join(split_output_dir, _OUTPUT_VALIDATION_FILE_NAME)
         elif artifact_name == "test_data":
+            split_output_dir = get_step_output_path(self._pipeline_root_path, split_step.name, "")
             return os.path.join(split_output_dir, _OUTPUT_TEST_FILE_NAME)
         elif artifact_name == "transformed_training_data":
+            transform_output_dir = get_step_output_path(
+                self._pipeline_root_path, transform_step.name, ""
+            )
             return os.path.join(transform_output_dir, "transformed_training_data.parquet")
         elif artifact_name == "transformed_validation_data":
+            transform_output_dir = get_step_output_path(
+                self._pipeline_root_path, transform_step.name, ""
+            )
             return os.path.join(transform_output_dir, "transformed_validation_data.parquet")
         elif artifact_name == "model":
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
             return os.path.join(train_output_dir, "model", "model.pkl")
         elif artifact_name == "transformer":
+            transform_output_dir = get_step_output_path(
+                self._pipeline_root_path, transform_step.name, ""
+            )
             return os.path.join(transform_output_dir, "transformer.pkl")
         elif artifact_name == "run":
+            train_output_dir = get_step_output_path(self._pipeline_root_path, train_step.name, "")
             return os.path.join(train_output_dir, "run_id")
         elif artifact_name == "registered_model_version":
+            register_output_dir = get_step_output_path(
+                self._pipeline_root_path, register_step.name, ""
+            )
             return os.path.join(register_output_dir, "registered_model_version.json")
         elif artifact_name == "ingested_scoring_data":
+            ingest_scoring_output_dir = get_step_output_path(
+                self._pipeline_root_path, ingest_scoring_step.name, ""
+            )
             return os.path.join(ingest_scoring_output_dir, IngestScoringStep._DATASET_OUTPUT_NAME)
         elif artifact_name == "scored_data":
+            predict_output_dir = get_step_output_path(
+                self._pipeline_root_path, predict_step.name, ""
+            )
             return os.path.join(predict_output_dir, _SCORED_OUTPUT_FILE_NAME)
         else:
             raise MlflowException(
