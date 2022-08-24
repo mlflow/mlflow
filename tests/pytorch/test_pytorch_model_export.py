@@ -563,7 +563,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
@@ -598,7 +598,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
@@ -654,7 +654,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=pyfunc_model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
     assert scoring_response.status_code == 200
@@ -850,7 +850,7 @@ def test_pyfunc_serve_and_score(data):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data[0],
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.DataFrame(json.loads(resp.content))

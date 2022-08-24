@@ -268,6 +268,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    BAD_REQUEST,
 )
 
 try:
@@ -539,6 +540,11 @@ def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     return new_pfInput
 
 
+class SchemaEnforcementException(MlflowException):
+    def __init__(self, message):
+        super().__init__(message, error_code=BAD_REQUEST)
+
+
 def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     """
     Enforces the provided input matches the model's input schema,
@@ -557,13 +563,13 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
             try:
                 pfInput = pandas.DataFrame(pfInput)
             except Exception as e:
-                raise MlflowException(
+                raise SchemaEnforcementException(
                     "This model contains a column-based signature, which suggests a DataFrame"
                     " input. There was an error casting the input data to a DataFrame:"
                     " {0}".format(str(e))
                 )
         if not isinstance(pfInput, pandas.DataFrame):
-            raise MlflowException(
+            raise SchemaEnforcementException(
                 "Expected input to be DataFrame or list. Found: %s" % type(pfInput).__name__
             )
 
@@ -590,12 +596,12 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
             message = "Model is missing inputs {0}.".format(missing_cols)
             if extra_cols:
                 message += " Note that there were extra inputs: {0}".format(extra_cols)
-            raise MlflowException(message)
+            raise SchemaEnforcementException(message)
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pfInput.columns)
         if num_actual_columns < len(input_schema.inputs):
-            raise MlflowException(
+            raise SchemaEnforcementException(
                 "Model inference is missing inputs. The model signature declares "
                 "{0} inputs  but the provided value only has "
                 "{1} inputs. Note: the inputs were not named in the signature so we can "

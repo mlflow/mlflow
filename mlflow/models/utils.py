@@ -8,7 +8,11 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
+from mlflow.utils.proto_json_utils import (
+    NumpyEncoder,
+    dataframe_from_raw_json,
+    parse_tf_serving_input,
+)
 
 try:
     from scipy.sparse import csr_matrix, csc_matrix
@@ -224,7 +228,7 @@ def _read_example(mlflow_model: Model, path: str):
     elif example_type in ["sparse_matrix_csc", "sparse_matrix_csr"]:
         return _read_sparse_matrix_from_json(path, example_type)
     else:
-        return _dataframe_from_json(path, schema=input_schema, precise_float=True)
+        return dataframe_from_raw_json(path, schema=input_schema)
 
 
 def _read_tensor_input_from_json(path, schema=None):

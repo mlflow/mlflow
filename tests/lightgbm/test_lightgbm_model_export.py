@@ -383,7 +383,7 @@ def test_pyfunc_serve_and_score(lgb_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
@@ -408,7 +408,7 @@ def test_pyfunc_serve_and_score_sklearn(model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         X.head(3),
-        pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()

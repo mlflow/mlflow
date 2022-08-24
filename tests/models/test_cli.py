@@ -43,7 +43,6 @@ from tests.helper_functions import (
 )
 from mlflow.protos.databricks_pb2 import ErrorCode, BAD_REQUEST
 from mlflow.pyfunc.scoring_server import (
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_CSV,
 )
@@ -199,7 +198,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                 scoring_response = pyfunc_serve_and_score_model(
                     model_uri,
                     pd.DataFrame(x),
-                    content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                    content_type=CONTENT_TYPE_JSON,
                     stdout=output_file,
                     extra_args=["-w", "3"],
                 )
@@ -504,7 +503,7 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver=False):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
-        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+        for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
                 "Failed to serve prediction, got response %s" % scoring_response.text
@@ -513,7 +512,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
                 np.array(json.loads(scoring_response.text)), sk_model.predict(x)
             )
         # Try examples of bad input, verify we get a non-200 status code
-        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+        for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(data="", content_type=content_type)
             expected_status_code = 500 if enable_mlserver else 400
             assert scoring_response.status_code == expected_status_code, (

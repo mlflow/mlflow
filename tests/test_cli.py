@@ -360,7 +360,7 @@ def test_mlflow_models_serve(enable_mlserver):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=data,
-        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON,
         extra_args=extra_args,
     )
     assert scoring_response.status_code == 200

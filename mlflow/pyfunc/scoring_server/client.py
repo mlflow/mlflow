@@ -1,9 +1,32 @@
 import requests
 import time
 import json
+import numpy as np
+import pandas as pd
 
 from mlflow.pyfunc import scoring_server
-from mlflow.utils.proto_json_utils import _DateTimeEncoder
+from mlflow.utils.proto_json_utils import (
+    dataframe_from_parsed_json,
+    parse_tf_serving_input,
+)
+from mlflow.exceptions import MlflowException
+
+
+def infer_and_parse_json_output(decoded_input):
+    """
+    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                       DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+    if isinstance(decoded_input, list):
+        return dataframe_from_parsed_json(decoded_input, "records")
+    elif isinstance(decoded_input, dict):
+        if "instances" in decoded_input or "inputs" in decoded_input:
+            return parse_tf_serving_input(decoded_input)
+        elif "data" in decoded_input:
+            return dataframe_from_parsed_json(decoded_input, "split")
+        else:
+            return decoded_input
 
 
 class ScoringServerClient:
@@ -35,14 +58,27 @@ class ScoringServerClient:
 
     def invoke(self, data):
         """
-        Invoke inference on input data. The input data must be pandas dataframe or json instance.
+        Invoke inference on input data. The input data must be pandas dataframe or numpy array or
+        a dict of numpy arrays.
         """
         content_type = scoring_server.CONTENT_TYPE_JSON
-        post_data = json.dumps(
-            scoring_server._get_jsonable_obj(data, pandas_orient="split"),
-            cls=_DateTimeEncoder,
-        )
 
+        def get_jsonable_input(name, data):
+            if isinstance(data, np.ndarray):
+                return data.tolist()
+            else:
+                raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
+
+        if isinstance(data, pd.DataFrame):
+            post_data = {"dataframe_split": data.to_dict(orient="split")}
+        elif isinstance(data, dict):
+            post_data = {"inputs": {k: get_jsonable_input(k, v) for k, v in data}}
+        elif isinstance(data, np.ndarray):
+            post_data = ({"inputs": data.tolist()},)
+        else:
+            post_data = data
+        if not isinstance(post_data, str):
+            post_data = json.dumps(post_data)
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=post_data,
@@ -53,5 +89,10 @@ class ScoringServerClient:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
-
-        return scoring_server.infer_and_parse_json_input(response.text)
+        try:
+            decoded_response = json.loads(response.text)
+        except Exception as ex:
+            raise MlflowException(f"Model response is not a valid json. Error {ex}")
+        if "predictions" not in decoded_response:
+            raise MlflowException("Model response is missing the prediction field.")
+        return infer_and_parse_json_output(decoded_response["predictions"])

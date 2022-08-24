@@ -743,7 +743,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
     resp = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=saved_tf_iris_model.inference_df,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values

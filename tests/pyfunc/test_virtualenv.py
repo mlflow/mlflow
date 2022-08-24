@@ -10,7 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import load_iris
 
 import mlflow
-from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME, _REQUIREMENTS_FILE_NAME
 from mlflow.utils.virtualenv import (
     _MLFLOW_ENV_ROOT_ENV_VAR,
@@ -38,7 +38,7 @@ def serve_and_score(model_uri, data, extra_args=None):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=data,
-        content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=CONTENT_TYPE_JSON,
         extra_args=["--env-manager=virtualenv"] + (extra_args or []),
     )
     return pd.read_json(resp.content, orient="records").values.squeeze()

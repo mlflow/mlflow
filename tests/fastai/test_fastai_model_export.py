@@ -377,7 +377,7 @@ def test_pyfunc_serve_and_score(fastai_model):
     resp = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
     )
     # `[:, -1]` extracts the prediction column
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values[:, -1]
