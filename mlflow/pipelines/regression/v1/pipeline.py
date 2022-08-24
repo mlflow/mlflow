@@ -555,7 +555,8 @@ class RegressionPipeline(_BasePipeline):
 
     def _get_artifact_path(self, artifact_name: str) -> Optional[str]:
         """
-        Returns a path to an artifact, which may or may not exist depending on whether or not the corresponding pipeline step has been run.
+        Returns a path to an artifact, which may or may not exist depending on whether or not the
+        corresponding pipeline step has been run.
         """
         (
             ingest_scoring_step,
