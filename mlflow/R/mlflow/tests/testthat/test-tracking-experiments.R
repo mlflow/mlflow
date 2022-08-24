@@ -262,3 +262,4 @@ test_that("mlflow_set_experiment() creates experiments", {
   expect_identical(experiment$artifact_location, "artifact/location")
   expect_identical(experiment$name, "foo")
 })
+
