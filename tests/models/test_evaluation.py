@@ -355,10 +355,6 @@ def baseline_model_uri(request):
         return mlflow.pyfunc.load_model(model_uri)
     if request.param == "invalid_model_uri":
         return "invalid_uri"
-    if request.param == "bool":
-        return True
-    if request.param == "int":
-        return 0
     return None
 
 
