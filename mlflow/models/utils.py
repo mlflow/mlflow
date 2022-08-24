@@ -549,9 +549,8 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
 
     :param data: Input data to be validated. Supported types are:
 
-                 - A Pandas DataFrame.
-                 - Pandas Series
                  - Pandas DataFrame
+                 - Pandas Series
                  - Pandas Series
                  - Numpy ndarray
                  - scipy.sparse.csc_matrix

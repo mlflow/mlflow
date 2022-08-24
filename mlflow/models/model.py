@@ -136,7 +136,6 @@ class ModelInfo:
 
     @signature_dict.setter
     def signature_dict(self, value):
-        # pylint: disable=attribute-defined-outside-init
         warnings.warn(
             "Field signature_dict is deprecated since v1.28.1. Use signature instead.",
             category=FutureWarning,

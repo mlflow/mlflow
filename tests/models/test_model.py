@@ -4,7 +4,6 @@ from datetime import date
 
 import mlflow
 import pandas as pd
-import pickle
 import numpy as np
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -23,11 +22,6 @@ import sklearn.neighbors
 from packaging.version import Version
 
 
-def _load_pyfunc(path):
-    with open(path, "rb") as f:
-        return pickle.load(f)
-
-
 @pytest.fixture(scope="module")
 def iris_data():
     iris = sklearn.datasets.load_iris()
@@ -42,11 +36,6 @@ def sklearn_knn_model(iris_data):
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
     return knn_model
-
-
-@pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
 
 
 def test_model_save_load():
@@ -375,12 +364,11 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "sk_model")
     X, y = iris_data
     signature = infer_signature(X, y)
-    with mlflow.start_run():
-        mlflow.sklearn.save_model(
-            sklearn_knn_model,
-            sk_model_path,
-            signature=signature,
-        )
+    mlflow.sklearn.save_model(
+        sklearn_knn_model,
+        sk_model_path,
+        signature=signature,
+    )
 
     validate_schema(X, signature.inputs)
     prediction = sklearn_knn_model.predict(X)
