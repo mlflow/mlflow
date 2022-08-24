@@ -703,6 +703,26 @@ def min_relative_change_threshold_test_spec(request):
             {},
         )
 
+    if request.param == "baseline_metric_value_equals_0_succeeds":
+        threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+        return (
+            {"metric_1": 1e-10},
+            {"metric_1": 0},
+            {"metric_1": threshold},
+            {"metric_1": _MetricValidationResult("metric_1", 0.8, threshold, 0.7)},
+        )
+
+    if request.param == "baseline_metric_value_equals_0_fails":
+        metric_1_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+        metric_1_result = _MetricValidationResult("metric_1", 0, metric_1_threshold, 0)
+        metric_1_result.min_relative_change_failed = True
+        return (
+            {"metric_1": 0},
+            {"metric_1": 0},
+            {"metric_1": metric_1_threshold},
+            {"metric_1": metric_1_result},
+        )
+
 
 @pytest.mark.parametrize(
     "min_relative_change_threshold_test_spec",
@@ -712,6 +732,7 @@ def min_relative_change_threshold_test_spec(request):
         ("single_metric_not_satisfied_lower_better"),
         ("multiple_metrics_not_satisfied_lower_better"),
         ("missing_baseline_metric"),
+        ("baseline_metric_value_equals_0_fails"),
     ],
     indirect=["min_relative_change_threshold_test_spec"],
 )
@@ -766,6 +787,7 @@ def test_validation_model_comparison_relative_threshold_should_fail(
         ("single_metric_satisfied_lower_better"),
         ("equality_boundary"),
         ("multiple_metrics_all_satisfied"),
+        ("baseline_metric_value_equals_0_succeeds"),
     ],
     indirect=["min_relative_change_threshold_test_spec"],
 )

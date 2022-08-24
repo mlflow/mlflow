@@ -704,6 +704,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
         comparator_fn = operator.__ge__ if metric_threshold.higher_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.higher_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
             # metric threshold fails
@@ -723,16 +724,10 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # metric comparsion aboslute change fails
             # - if not (metric_value >= baseline + min_absolute_change) for higher is better
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
-            if metric_threshold.higher_is_better:
-                validation_result.min_absolute_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(baseline_metric_value + metric_threshold.min_absolute_change),
-                )
-            else:
-                validation_result.min_absolute_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(baseline_metric_value - metric_threshold.min_absolute_change),
-                )
+            validation_result.min_absolute_change_failed = not comparator_fn(
+                Decimal(candidate_metric_value),
+                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
+            )
 
         if metric_threshold.min_relative_change is not None:
             # If baseline metric value equals 0, fallback to simple comparison check
@@ -744,7 +739,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
                 )
                 validation_result.min_relative_change_failed = not comparator_fn(
                     Decimal(candidate_metric_value),
-                    Decimal(baseline_metric_value),
+                    Decimal(operator_fn(baseline_metric_value, 1e-10)),
                 )
                 continue
             # metric comparsion relative change fails
