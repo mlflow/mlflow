@@ -15,7 +15,7 @@ def test_project_get_entry_point():
     assert entry_point.name == "greeter"
     assert entry_point.command == "python greeter.py {greeting} {name}"
     # Validate parameters
-    assert set(entry_point.parameters.keys()) == set(["name", "greeting"])
+    assert set(entry_point.parameters.keys()) == {"name", "greeting"}
     name_param = entry_point.parameters["name"]
     assert name_param.type == "string"
     assert name_param.default is None
