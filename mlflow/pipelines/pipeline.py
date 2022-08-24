@@ -41,9 +41,14 @@ class _BasePipeline:
                         pipeline.yaml to generate the configuration to run the pipeline.
         """
         self._pipeline_root_path = pipeline_root_path
+        self._run_args = {}
         self._profile = profile
         self._name = get_pipeline_name(pipeline_root_path)
         self._steps = self._resolve_pipeline_steps()
+        self._template = get_pipeline_config(self._pipeline_root_path, self._profile).get(
+            # TODO: Think about renaming this to something else
+            "template"
+        )
 
     @experimental
     @property
@@ -69,6 +74,10 @@ class _BasePipeline:
                      executed.
         :return: None
         """
+
+        # Save the run parameters for later
+        self._run_args = {"step": step}
+
         # TODO Record performance here.
         # Always resolve the steps to load latest step modules before execution.
         self._steps = self._resolve_pipeline_steps()
@@ -76,7 +85,9 @@ class _BasePipeline:
             self._pipeline_root_path,
             self._steps,
             # Runs the last step of the pipeline if no step is specified.
+            # TODO: Determine how this works in a world with disjoint DAGs
             self._get_step(step) if step else self._steps[-1],
+            self._template,
         )
 
         self.inspect(last_executed_step.name)
@@ -166,6 +177,8 @@ class _BasePipeline:
         Constructs and returns all pipeline step objects from the pipeline configuration.
         """
         pipeline_config = get_pipeline_config(self._pipeline_root_path, self._profile)
+        pipeline_config["profile"] = self.profile
+        pipeline_config["run_args"] = self._run_args
         return [
             s.from_pipeline_config(pipeline_config, self._pipeline_root_path)
             for s in self._get_step_classes()

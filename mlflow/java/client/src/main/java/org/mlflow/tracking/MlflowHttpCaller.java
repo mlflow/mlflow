@@ -33,7 +33,7 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 
 class MlflowHttpCaller {
   private static final Logger logger = LoggerFactory.getLogger(MlflowHttpCaller.class);
-  private static final String BASE_API_PATH = "api/2.0/preview/mlflow";
+  private static final String BASE_API_PATH = "api/2.0/mlflow";
   protected HttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
   private final int maxRateLimitIntervalMillis;

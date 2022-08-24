@@ -546,9 +546,7 @@ class DefaultEvaluator(ModelEvaluator):
                 # For duplicated truncated name, attach "(f_{feature_index})" at the end
                 truncated_feature_names[i] = f"{truncated_name}(f_{i + 1})"
 
-        truncated_feature_name_map = {
-            f: f2 for f, f2 in zip(self.feature_names, truncated_feature_names)
-        }
+        truncated_feature_name_map = dict(zip(self.feature_names, truncated_feature_names))
 
         # For some shap explainer, the plot will use the DataFrame column names instead of
         # using feature_names argument value. So rename the dataframe column names.

@@ -59,7 +59,9 @@ service MlflowService {
 
   // Get a list of all experiments.
   //
+  // Deprecated. Use Search Experiments instead.
   rpc listExperiments (ListExperiments) returns (ListExperiments.Response) {
+    option deprecated = true;
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -699,6 +701,7 @@ message CreateExperiment {
 
 message ListExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option deprecated = true;
 
   // Qualifier for type of experiments to be returned.
   // If unspecified, return only active experiments.

@@ -28,7 +28,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental, deprecated
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri
@@ -264,6 +264,7 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags)
 
+    @deprecated(alternative="search_runs()")
     def list_run_infos(
         self,
         experiment_id: str,
@@ -335,6 +336,7 @@ class MlflowClient:
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
+    @deprecated(alternative="search_experiments()")
     def list_experiments(
         self,
         view_type: int = ViewType.ACTIVE_ONLY,
@@ -798,7 +800,7 @@ class MlflowClient:
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
-    def log_param(self, run_id: str, key: str, value: Any) -> None:
+    def log_param(self, run_id: str, key: str, value: Any) -> Any:
         """
         Log a parameter (e.g. model hyperparameter) against the run ID.
 
@@ -810,6 +812,7 @@ class MlflowClient:
         :param value: Parameter value (string, but will be string-ified if not).
                       All backend stores support values up to length 500, but some
                       may support larger values.
+        :return: the parameter value that is logged.
 
         .. code-block:: python
             :caption: Example
@@ -833,7 +836,8 @@ class MlflowClient:
             # Log the parameter. Unlike mlflow.log_param this method
             # does not start a run if one does not exist. It will log
             # the parameter in the backend store
-            client.log_param(run.info.run_id, "p", 1)
+            p_value = client.log_param(run.info.run_id, "p", 1)
+            assert p_value == 1
             client.set_terminated(run.info.run_id)
             run = client.get_run(run.info.run_id)
             print_run_info(run)
@@ -850,6 +854,7 @@ class MlflowClient:
             status: FINISHED
         """
         self._tracking_client.log_param(run_id, key, value)
+        return value
 
     def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
@@ -1927,6 +1932,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_registered_model(name)
 
+    @deprecated(alternative="search_registered_models()")
     def list_registered_models(
         self,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,

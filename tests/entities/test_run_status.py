@@ -1,4 +1,5 @@
 import unittest
+import pytest
 
 from mlflow.entities import RunStatus
 
@@ -6,15 +7,13 @@ from mlflow.entities import RunStatus
 class TestRunStatus(unittest.TestCase):
     def test_all_status_covered(self):
         # ensure that all known status are returned. Test will fail if new status are added to PB
-        all_statuses = set(
-            [
-                RunStatus.RUNNING,
-                RunStatus.SCHEDULED,
-                RunStatus.FINISHED,
-                RunStatus.FAILED,
-                RunStatus.KILLED,
-            ]
-        )
+        all_statuses = {
+            RunStatus.RUNNING,
+            RunStatus.SCHEDULED,
+            RunStatus.FINISHED,
+            RunStatus.FAILED,
+            RunStatus.KILLED,
+        }
         self.assertSequenceEqual(all_statuses, set(RunStatus.all_status()))
 
     def test_status_mappings(self):
@@ -34,13 +33,13 @@ class TestRunStatus(unittest.TestCase):
         self.assertEqual("KILLED", RunStatus.to_string(RunStatus.KILLED))
         self.assertEqual(RunStatus.KILLED, RunStatus.from_string("KILLED"))
 
-        with self.assertRaisesRegex(
-            Exception, r"Could not get string corresponding to run status -120"
+        with pytest.raises(
+            Exception, match=r"Could not get string corresponding to run status -120"
         ):
             RunStatus.to_string(-120)
 
-        with self.assertRaisesRegex(
-            Exception, r"Could not get run status corresponding to string the IMPO"
+        with pytest.raises(
+            Exception, match=r"Could not get run status corresponding to string the IMPO"
         ):
             RunStatus.from_string("the IMPOSSIBLE status string")
 

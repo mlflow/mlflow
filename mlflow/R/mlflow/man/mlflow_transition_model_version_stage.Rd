@@ -17,7 +17,7 @@ mlflow_transition_model_version_stage(
 
 \item{version}{Model version number.}
 
-\item{stage}{Transition `model_version` to this tage.}
+\item{stage}{Transition `model_version` to this stage.}
 
 \item{archive_existing_versions}{(Optional)}
 

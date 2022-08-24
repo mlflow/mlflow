@@ -126,6 +126,28 @@ export class RunViewImpl extends Component {
     const sourceVersion = Utils.getSourceVersion(tags);
     const entryPointName = Utils.getEntryPointName(tags);
     const backend = Utils.getBackend(tags);
+
+    if (Utils.getSourceType(tags) === 'PIPELINE') {
+      const profileName = Utils.getPipelineProfileName(tags);
+      const stepName = Utils.getPipelineStepName(tags);
+      runCommand = '';
+      if (sourceName) {
+        const repoName = Utils.dropExtension(Utils.baseName(sourceName));
+        runCommand += `git clone ${sourceName}\n`;
+        runCommand += `cd ${repoName}\n`;
+      }
+
+      if (sourceVersion) {
+        runCommand += `git checkout ${sourceVersion}\n`;
+      }
+
+      runCommand += `mlflow pipelines run -p ${shellEscape(profileName)}`;
+
+      if (stepName) {
+        runCommand += ' -s ' + shellEscape(stepName);
+      }
+    }
+
     if (Utils.getSourceType(tags) === 'PROJECT') {
       runCommand = 'mlflow run ' + shellEscape(sourceName);
       if (sourceVersion && sourceVersion !== 'latest') {
@@ -394,7 +416,12 @@ export class RunViewImpl extends Component {
               onChange={this.handleCollapseChange('runCommand')}
               data-test-id='run-command-section'
             >
-              <textarea className='run-command text-area' readOnly value={runCommand} />
+              <textarea
+                css={styles.runCommandArea}
+                // Setting row count basing on the number of line breaks
+                rows={(runCommand.match(/\n/g) || []).length + 1}
+                value={runCommand}
+              />
             </CollapsibleSection>
           ) : null}
           <CollapsibleSection
@@ -620,4 +647,11 @@ const shellEscape = (str) => {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;
+};
+
+const styles = {
+  runCommandArea: (theme) => ({
+    fontFamily: 'Menlo, Consolas, monospace',
+    width: '100%',
+  }),
 };

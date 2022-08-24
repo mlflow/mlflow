@@ -1,3 +1,4 @@
+import abc
 import logging
 import os
 
@@ -18,11 +19,10 @@ from typing import Dict, Any
 _logger = logging.getLogger(__name__)
 
 
-class IngestStep(BaseStep):
+class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
     _DATASET_FORMAT_SPARK_TABLE = "spark_table"
     _DATASET_FORMAT_DELTA = "delta"
     _DATASET_FORMAT_PARQUET = "parquet"
-    _DATASET_OUTPUT_NAME = "dataset.parquet"
     _DATASET_PROFILE_OUTPUT_NAME = "dataset_profile.html"
     _STEP_CARD_OUTPUT_NAME = "card.pkl"
     _SUPPORTED_DATASETS = [
@@ -39,6 +39,7 @@ class IngestStep(BaseStep):
         super().__init__(step_config, pipeline_root)
 
         dataset_format = step_config.get("format")
+        self.skip_data_profiling = step_config.get("skip_data_profiling", False)
         if not dataset_format:
             raise MlflowException(
                 message=(
@@ -48,7 +49,7 @@ class IngestStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        for dataset_class in IngestStep._SUPPORTED_DATASETS:
+        for dataset_class in BaseIngestStep._SUPPORTED_DATASETS:
             if dataset_class.handles_format(dataset_format):
                 self.dataset = dataset_class.from_config(
                     dataset_config=step_config,
@@ -64,25 +65,26 @@ class IngestStep(BaseStep):
     def _run(self, output_directory: str) -> BaseCard:
         import pandas as pd
 
-        dataset_dst_path = os.path.abspath(
-            os.path.join(output_directory, IngestStep._DATASET_OUTPUT_NAME)
-        )
+        dataset_dst_path = os.path.abspath(os.path.join(output_directory, self.dataset_output_name))
         self.dataset.resolve_to_parquet(
             dst_path=dataset_dst_path,
         )
         _logger.info("Successfully stored data in parquet format at '%s'", dataset_dst_path)
 
-        _logger.info("Profiling ingested dataset")
         ingested_df = read_parquet_as_pandas_df(data_parquet_path=dataset_dst_path)
-        ingested_dataset_profile = get_pandas_data_profile(
-            ingested_df, "Profile of Ingested Dataset"
-        )
+        ingested_dataset_profile = None
+        if not self.skip_data_profiling:
+            _logger.info("Profiling ingested dataset")
+            ingested_dataset_profile = get_pandas_data_profile(
+                ingested_df, "Profile of Ingested Dataset"
+            )
+            dataset_profile_path = os.path.join(
+                output_directory, BaseIngestStep._DATASET_PROFILE_OUTPUT_NAME
+            )
+            ingested_dataset_profile.to_file(output_file=dataset_profile_path)
+            _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
+
         schema = pd.io.json.build_table_schema(ingested_df, index=False)
-        dataset_profile_path = os.path.join(
-            output_directory, IngestStep._DATASET_PROFILE_OUTPUT_NAME
-        )
-        ingested_dataset_profile.to_file(output_file=dataset_profile_path)
-        _logger.info(f"Wrote dataset profile to '{dataset_profile_path}'")
 
         step_card = self._build_step_card(
             ingested_dataset_profile=ingested_dataset_profile,
@@ -126,11 +128,12 @@ class IngestStep(BaseStep):
             )
 
         card = BaseCard(self.pipeline_name, self.name)
-        (  # Tab #1 -- Ingested dataset profile.
-            card.add_tab("Data Profile", "{{PROFILE}}").add_pandas_profile(
-                "PROFILE", ingested_dataset_profile
+        if not self.skip_data_profiling:
+            (  # Tab #1 -- Ingested dataset profile.
+                card.add_tab("Data Profile", "{{PROFILE}}").add_pandas_profile(
+                    "PROFILE", ingested_dataset_profile
+                )
             )
-        )
         # Tab #2 -- Ingested dataset schema.
         schema_html = BaseCard.render_table(schema["fields"])
         card.add_tab("Data Schema", "{{SCHEMA}}").add_html("SCHEMA", schema_html)
@@ -164,12 +167,64 @@ class IngestStep(BaseStep):
                 message="The `data` section of pipeline.yaml must be specified",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        data_config = pipeline_config["data"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
 
         return cls(
-            step_config=pipeline_config["data"],
+            step_config={**data_config, **ingest_config},
+            pipeline_root=pipeline_root,
+        )
+
+
+class IngestStep(BaseIngestStep):
+    _DATASET_OUTPUT_NAME = "dataset.parquet"
+
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+        super().__init__(step_config, pipeline_root)
+        self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
+
+    @classmethod
+    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+        if "data" not in pipeline_config:
+            raise MlflowException(
+                message="The `data` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        data_config = pipeline_config["data"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+
+        return cls(
+            step_config={**data_config, **ingest_config},
             pipeline_root=pipeline_root,
         )
 
     @property
     def name(self) -> str:
         return "ingest"
+
+
+class IngestScoringStep(BaseIngestStep):
+    _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
+
+    def __init__(self, step_config: Dict[str, Any], pipeline_root: str):
+        super().__init__(step_config, pipeline_root)
+        self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
+
+    @classmethod
+    def from_pipeline_config(cls, pipeline_config: Dict[str, Any], pipeline_root: str):
+        if "data_scoring" not in pipeline_config:
+            raise MlflowException(
+                message="The `data_scoring` section of pipeline.yaml must be specified",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        data_scoring_config = pipeline_config["data_scoring"]
+        ingest_config = pipeline_config.get("steps", {}).get("ingest", {})
+
+        return cls(
+            step_config={**data_scoring_config, **ingest_config},
+            pipeline_root=pipeline_root,
+        )
+
+    @property
+    def name(self) -> str:
+        return "ingest_scoring"

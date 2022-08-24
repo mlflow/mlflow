@@ -288,6 +288,16 @@ register:
 """
 )
 
+PREDICT_STEP = format_help_string(
+    """The 'predict' step applies the specified model against the cleaned dataset produced by the 'ingest_scoring' step. An example pipeline.yaml 'predict' step definition is shown below.
+steps:
+  predict:
+    model_uri: "models:/taxi_fare_regressor/Production"
+    output_format: {{OUTPUT_DATA_FORMAT|default('parquet')}}
+    output_location: "{{OUTPUT_DATA_LOCATION}}"
+"""
+)
+
 REGISTERED_MODEL_VERSION = format_help_string(
     "The Model Version in the MLflow Model Registry corresponding to the trained model. A Model Version is produced if the trained model meets the defined performance criteria for model registration or if `allow_non_validated_model: true` is specified in the 'register' step definition of pipeline.yaml"
 )
