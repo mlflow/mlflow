@@ -99,7 +99,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
             # NB: skip the dataframe_ prefix
             pandas_orient = input_format[10:]
             return dataframe_from_parsed_json(
-                decoded_input[format], pandas_orient=pandas_orient, schema=schema
+                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
             )
     elif isinstance(decoded_input, list):
         message = "Received a list"

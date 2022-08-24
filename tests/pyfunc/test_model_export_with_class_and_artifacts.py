@@ -382,7 +382,8 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -412,7 +413,8 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -444,7 +446,8 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
+        np.array(json.loads(scoring_response.text)["predictions"]),
+        loaded_pyfunc_model.predict(sample_input),
     )
 
 
@@ -492,8 +495,8 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     )
     _, stderr = process.communicate()
     assert 0 == process.wait(), "stderr = \n\n{}\n\n".format(stderr)
-
-    result_df = pandas.read_json(output_json_path, orient="records")
+    with open(output_json_path, "r") as f:
+        result_df = pd.DataFrame(data=json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
     )
