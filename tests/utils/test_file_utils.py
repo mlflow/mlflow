@@ -95,7 +95,6 @@ def test_render_and_merge_yaml(tmpdir):
             """
             + r"TEST_VAR_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
         )
-    # file_utils.write_yaml(str(tmpdir), context_yaml_file, data)
 
     with tmpdir.as_cwd():
         result = file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
