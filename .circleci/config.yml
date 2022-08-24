@@ -25,7 +25,7 @@ jobs:
             if [[ "$failed" == "1" ]]; then
               cat $PATCH_FILE
               MLFLOW_REPO_ID=$(curl -s -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/mlflow/mlflow | jq '.id')
-              PATCH_FILE_URL="https://${CIRCLE_BUILD_NUM}-${MLFLOW_REPO_ID}-gh.circle-artifacts.com/0/${PATCH_FILE}"
+              PATCH_FILE_URL="https://output.circle-artifacts.com/output/job/${CIRCLE_WORKFLOW_JOB_ID}/artifacts/${CIRCLE_NODE_INDEX}/${PATCH_FILE}"
               echo "========== Run the following commands to apply the diff above =========="
               echo "PATCH_FILE_URL=\"$PATCH_FILE_URL\""
               echo 'REDIRECTED_URL=$(curl -Ls -o /dev/null -w %{url_effective} $PATCH_FILE_URL)'
