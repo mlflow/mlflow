@@ -44,7 +44,7 @@ thresholds = {
         min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
         higher_is_better=True,
     ),
-    # Specify threshold for custom metirc
+    # Specify threshold for custom metric
     "double_positive": MetricThreshold(
         threshold=1e5, higher_is_better=False  # double_positive should be <=1e5
     ),
@@ -52,6 +52,9 @@ thresholds = {
 
 with mlflow.start_run() as run:
     candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
+    # Note: in most model validation use-cases the baseline model should instead be a previously
+    # trained model (such as the current production model), specified directly in the
+    # mlflow.evaluate() call via model URI.
     baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
 
     try:
