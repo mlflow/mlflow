@@ -49,6 +49,7 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
     _verify_is_pipeline_root_directory(pipeline_root_path=pipeline_root_path)
     try:
         if profile:
+            profile_relpath = os.path.join(_PIPELINE_PROFILE_DIR, f"{profile}.yaml")
             profile_file_path = os.path.join(
                 pipeline_root_path, _PIPELINE_PROFILE_DIR, f"{profile}.yaml"
             )
@@ -59,7 +60,7 @@ def get_pipeline_config(pipeline_root_path: str = None, profile: str = None) -> 
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return render_and_merge_yaml(
-                pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_file_path
+                pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME, profile_relpath
             )
         else:
             return read_yaml(pipeline_root_path, _PIPELINE_CONFIG_FILE_NAME)
