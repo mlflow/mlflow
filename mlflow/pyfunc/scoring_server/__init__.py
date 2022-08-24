@@ -6,8 +6,9 @@ The passed int model is expected to have function:
 Input, expected in text/csv or application/json format,
 is parsed into pandas.DataFrame and passed to the model.
 
-Defines two endpoints:
+Defines three endpoints:
     /ping used for health check
+    /health (same as /ping)
     /invocations used for scoring
 """
 from collections import OrderedDict
@@ -220,6 +221,7 @@ def init(model: PyFuncModel):
     input_schema = model.metadata.get_input_schema()
 
     @app.route("/ping", methods=["GET"])
+    @app.route("/health", methods=["GET"])
     def ping():  # pylint: disable=unused-variable
         """
         Determine if the container is working and healthy.
