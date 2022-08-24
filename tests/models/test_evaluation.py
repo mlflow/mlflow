@@ -312,6 +312,31 @@ def get_svm_model_url():
 
 
 @pytest.fixture
+def iris_pandas_df_dataset():
+    X, y = get_iris()
+    eval_X, eval_y = X[0::3], y[0::3]
+    data = pd.DataFrame(
+        {
+            "f1": eval_X[:, 0],
+            "f2": eval_X[:, 1],
+            "f3": eval_X[:, 2],
+            "f4": eval_X[:, 3],
+            "y": eval_y,
+        }
+    )
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
+
+
+@pytest.fixture
+def iris_pandas_df_num_cols_dataset():
+    X, y = get_iris()
+    eval_X, eval_y = X[0::3], y[0::3]
+    data = pd.DataFrame(eval_X)
+    data["y"] = eval_y
+    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_num_cols_dataset")
+
+
+@pytest.fixture
 def baseline_model_uri(request):
     if request.param == "linear_regressor_model_uri":
         return get_linear_regressor_model_uri()
@@ -330,10 +355,6 @@ def baseline_model_uri(request):
         return mlflow.pyfunc.load_model(model_uri)
     if request.param == "invalid_model_uri":
         return "invalid_uri"
-    if request.param == "bool":
-        return True
-    if request.param == "int":
-        return 0
     return None
 
 
@@ -574,22 +595,6 @@ def test_gen_md5_for_arraylike_obj():
 
     list4 = list0[:10] + [99] + list0[10:]
     assert get_md5(list3) == get_md5(list4)
-
-
-@pytest.fixture
-def iris_pandas_df_dataset():
-    X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
-    data = pd.DataFrame(
-        {
-            "f1": eval_X[:, 0],
-            "f2": eval_X[:, 1],
-            "f3": eval_X[:, 2],
-            "f4": eval_X[:, 3],
-            "y": eval_y,
-        }
-    )
-    return EvaluationDataset(data=data, targets="y", name="iris_pandas_df_dataset")
 
 
 def test_dataset_hash(

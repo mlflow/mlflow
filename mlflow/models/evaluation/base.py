@@ -704,9 +704,10 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
         comparator_fn = operator.__ge__ if metric_threshold.higher_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.higher_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
-            # metric threshold failed
+            # metric threshold fails
             # - if not (metric_value >= threshold) for higher is better
             # - if not (metric_value <= threshold) for lower is better
             validation_result.threshold_failed = not comparator_fn(
@@ -720,22 +721,28 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             continue
 
         if metric_threshold.min_absolute_change is not None:
-            # metric comparsion aboslute change failed
+            # metric comparsion aboslute change fails
             # - if not (metric_value >= baseline + min_absolute_change) for higher is better
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
-            if metric_threshold.higher_is_better:
-                validation_result.min_absolute_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(baseline_metric_value + metric_threshold.min_absolute_change),
-                )
-            else:
-                validation_result.min_absolute_change_failed = not comparator_fn(
-                    Decimal(candidate_metric_value),
-                    Decimal(baseline_metric_value - metric_threshold.min_absolute_change),
-                )
+            validation_result.min_absolute_change_failed = not comparator_fn(
+                Decimal(candidate_metric_value),
+                Decimal(operator_fn(baseline_metric_value, metric_threshold.min_absolute_change)),
+            )
 
         if metric_threshold.min_relative_change is not None:
-            # metric comparsion relative change failed
+            # If baseline metric value equals 0, fallback to simple comparison check
+            if baseline_metric_value == 0:
+                _logger.warning(
+                    f"Cannot perform relative model comparison for metric {metric_name} as "
+                    "baseline metric value is 0. Falling back to simple comparison: verifying "
+                    "that candidate metric value is better than the baseline metric value."
+                )
+                validation_result.min_relative_change_failed = not comparator_fn(
+                    Decimal(candidate_metric_value),
+                    Decimal(operator_fn(baseline_metric_value, 1e-10)),
+                )
+                continue
+            # metric comparsion relative change fails
             # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
             if metric_threshold.higher_is_better:
@@ -1077,26 +1084,27 @@ def evaluate(
                                              :py:class:`mlflow.models.MetricThreshold` used for
                                              model validation. Each metric name must either be the
                                              name of a builtin metric or the name of a custom
-                                             metric defined in the``custom_metrics`` parameter.
+                                             metric defined in the ``custom_metrics`` parameter.
 
                                              .. code-block:: python
                                                  :caption: Example of Model Validation
 
+                                                 from mlflow.models import MetricThreshold
+
                                                  thresholds = {
-                                                     # Metric Value Threshold
+                                                     # Metric value thresholds
                                                      "f1_score": MetricThreshold(
                                                          threshold=0.8,
                                                          higher_is_better=True
                                                      ),
-                                                     # Model Comparison: min_absolute_change
-                                                     # and min_relative_change
+                                                     # Model comparison thresholds
                                                      "log_loss": MetricThreshold(
                                                          min_absolute_change=0.05,
                                                          min_relative_change=0.1,
                                                          higher_is_better=False
                                                      ),
-                                                     # Both Metric Value Threshold
-                                                     # and Model Comparison
+                                                     # Both metric value and model comparison \
+thresholds
                                                      "accuarcy": MetricThreshold(
                                                          threshold=0.8,
                                                          min_absolute_change=0.09,
@@ -1143,14 +1151,15 @@ def evaluate(
         baseline_model = mlflow.pyfunc.load_model(baseline_model)
     elif baseline_model is not None:
         raise MlflowException(
-            message="The baseline model argument must be a string URI referring to an MLflow model",
+            message="The baseline model argument must be a string URI referring to an "
+            "MLflow model.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     elif _model_validation_contains_model_comparison(validation_thresholds):
         raise MlflowException(
-            message="The baseline model argument must be a string URI referring to "
-            "an MLflow model when model comparison thresholds  "
-            "(min_absolute_change, min_relative_change) are specified.",
+            message="The baseline model argument is None. The baseline model must be specified "
+            "when model comparison thresholds (min_absolute_change, min_relative_change) "
+            "are specified.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

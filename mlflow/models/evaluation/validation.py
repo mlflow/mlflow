@@ -1,5 +1,5 @@
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 
 class MetricThreshold:
@@ -13,9 +13,9 @@ class MetricThreshold:
                         >= threshold to pass validation.
                       - Otherwise, the metric value has to be <= threshold to pass the validation.
 
-    :param min_absolute_change: (Optional) A positive floating point number representing the
-                                minimum absolute change required for candidate model to
-                                pass the comparison with the baseline model.
+    :param min_absolute_change: (Optional) A positive number representing the minimum absolute
+                                change required for candidate model to pass validation with
+                                the baseline model.
 
                                 - If higher is better for the metric, metric value has to be
                                   >= baseline model metric value + min_absolute_change
@@ -33,6 +33,12 @@ class MetricThreshold:
                                   >= baseline model metric value * (1 + min_relative_change)
                                 - Otherwise, metric value has to be
                                   <= baseline model metric value * (1 - min_relative_change)
+                                - Note that if the baseline model metric value is equal to 0, the
+                                  threshold falls back performing a simple verification that the
+                                  candidate metric value is better than the baseline metric value,
+                                  i.e. metric value >= baseline model metric value + 1e-10 if higher
+                                  is better; metric value <= baseline model metric value - 1e-10 if
+                                  lower is better.
 
     :param higher_is_better: A required boolean representing whether higher value is
                              better for the metric.
@@ -45,65 +51,66 @@ class MetricThreshold:
         min_relative_change=None,
         higher_is_better=None,
     ):
+        if threshold is not None and not type(threshold) in {int, float}:
+            raise MetricThresholdClassException("`threshold` parameter must be a number.")
+        if min_absolute_change is not None and (
+            not type(min_absolute_change) in {int, float} or min_absolute_change <= 0
+        ):
+            raise MetricThresholdClassException(
+                "`min_absolute_change` parameter must be a positive number."
+            )
+        if min_relative_change is not None:
+            if not isinstance(min_relative_change, float):
+                raise MetricThresholdClassException(
+                    "`min_relative_change` parameter must be a floating point number."
+                )
+            if min_relative_change < 0 or min_relative_change > 1:
+                raise MetricThresholdClassException(
+                    "`min_relative_change` parameter must be between 0 and 1."
+                )
+        if higher_is_better is None:
+            raise MetricThresholdClassException("`higher_is_better` parameter must be defined.")
+        if not isinstance(higher_is_better, bool):
+            raise MetricThresholdClassException("`higher_is_better` parameter must be a boolean.")
+        if threshold is None and min_absolute_change is None and min_relative_change is None:
+            raise MetricThresholdClassException("no threshold was specified.")
         self._threshold = threshold
         self._min_absolute_change = min_absolute_change
         self._min_relative_change = min_relative_change
         self._higher_is_better = higher_is_better
-        if self._min_relative_change is not None and (
-            self._min_relative_change < 0 or self._min_relative_change > 1
-        ):
-            raise ValueError("The min_relative_change argument must be in [0, 1]")
-        if self._higher_is_better is None or not isinstance(self._higher_is_better, bool):
-            raise ValueError(
-                "The higher_is_better argument must be present and \
-                a bool indicating whether higher value is preferred"
-            )
 
     @property
     def threshold(self):
         """
-        Value threshold.
-        :rtype: float
+        Value of the threshold.
         """
         return self._threshold
 
     @property
     def min_absolute_change(self):
         """
-        Minimum absolute change required to pass model comparison with baseline model
-        :rtype: float
+        Value of the minimum absolute change required to pass model comparison with baseline model.
         """
         return self._min_absolute_change
 
     @property
     def min_relative_change(self):
         """
-        Minimum relative change required to pass model comparison wwith baseline model
-        :rtype: float
+        Float value of the minimum relative change required to pass model comparison with
+        baseline model.
         """
         return self._min_relative_change
 
     @property
     def higher_is_better(self):
         """
-        Whether higher value is better for the metric.
-        :rtype: bool
+        Boolean value representing whether higher value is better for the metric.
         """
         return self._higher_is_better
 
-    def is_empty(self):
-        """
-        Return True if there is no threshold specified, False otherwise.
-        """
-        return (
-            self._threshold is None
-            and self._min_absolute_change is None
-            and self._min_relative_change is None
-        )
-
     def __str__(self):
         """
-        Return a human-readable string consisting of all specified thresholds.
+        Returns a human-readable string consisting of all specified thresholds.
         """
         threshold_strs = []
         if self._threshold is not None:
@@ -120,14 +127,22 @@ class MetricThreshold:
         return " ".join(threshold_strs)
 
 
+class MetricThresholdClassException(MlflowException):
+    def __init__(self, _message, **kwargs):
+        message = "Could not instantiate MetricThreshold class: " + _message
+        super().__init__(message, error_code=INVALID_PARAMETER_VALUE, **kwargs)
+
+
 class _MetricValidationResult:
     """
     Internal class for representing validation result per metric.
     Not user facing, used for organizing metric failures and generating failure message
     more conveniently.
     :param metric_name: String representing the metric name
+    :param candidate_metric_value: value of metric for candidate model
     :param metric_threshold: :py:class: `MetricThreshold<mlflow.models.validation.MetricThreshold>`
                              The MetricThreshold for the metric.
+    :param baseline_metric_value: value of metric for baseline model
     """
 
     missing_candidate = False
@@ -150,7 +165,7 @@ class _MetricValidationResult:
 
     def __str__(self):
         """
-        Return a human-readable string representing the validation result for the metric.
+        Returns a human-readable string representing the validation result for the metric.
         """
         if self.is_success():
             return f"Metric {self.metric_name} passed the validation."
