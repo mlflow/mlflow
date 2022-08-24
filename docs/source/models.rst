@@ -1271,7 +1271,7 @@ generated during model evaluation to validate the quality of your model. By spec
 objects, you can specify value thresholds that your model's evaluation metrics must exceed as well 
 as absolute and relative gains your model must have in comparison to a specified
 ``baseline_model``. If your model fails to clear specified thresholds, :py:func:`mlflow.evaluate()` 
-will throw a ``ModelValidationFailedException`` detailing why.
+will throw a ``ModelValidationFailedException`` detailing the validation failure.
 
 .. code-block:: py
 
