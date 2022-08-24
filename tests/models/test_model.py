@@ -160,7 +160,7 @@ def test_model_info():
         model_uri = "runs:/{}/some/path".format(run.info.run_id)
 
         with pytest.warns(
-            DeprecationWarning,
+            FutureWarning,
             match="Field signature_dict is deprecated since v1.28.1. Use signature instead",
         ):
             model_info_fetched = mlflow.models.get_model_info(model_uri)
@@ -369,25 +369,19 @@ def test_model_uuid():
     assert m4.model_uuid is None
 
 
-def test_validate_schema(sklearn_knn_model, iris_data, tmpdir, model_path):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
-    with open(sk_model_path, "wb") as f:
-        pickle.dump(sklearn_knn_model, f)
-
-    model_config = Model(run_id="test", artifact_path="testtest")
+def test_validate_schema(sklearn_knn_model, iris_data, tmpdir):
+    sk_model_path = os.path.join(str(tmpdir), "sk_model")
     X, y = iris_data
     signature = infer_signature(X, y)
-    mlflow.pyfunc.save_model(
-        path=model_path,
-        data_path=sk_model_path,
-        loader_module=__name__,
-        code_path=[__file__],
-        mlflow_model=model_config,
-        signature=signature,
-    )
+    with mlflow.start_run():
+        mlflow.sklearn.save_model(
+            sklearn_knn_model,
+            sk_model_path,
+            signature=signature,
+        )
 
     validate_schema(X, signature.inputs)
     prediction = sklearn_knn_model.predict(X)
-    reloaded_model = mlflow.pyfunc.load_model(model_path)
+    reloaded_model = mlflow.sklearn.load_model(sk_model_path)
     np.testing.assert_array_equal(prediction, reloaded_model.predict(X))
     validate_schema(prediction, signature.outputs)

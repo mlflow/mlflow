@@ -550,23 +550,14 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
     :param data: Input data to be validated. Supported types are:
 
                  - A Pandas DataFrame.
-
                  - Pandas Series
-
                  - Pandas DataFrame
-
                  - Pandas Series
-
                  - Numpy ndarray
-
                  - scipy.sparse.csc_matrix
-
                  - scipy.sparse.csr_matrix
-
                  - List[Any]
-
                  - Dict[str, Any]
-
                  - list
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
     :return: Validated input data.
