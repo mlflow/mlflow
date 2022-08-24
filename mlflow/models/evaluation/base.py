@@ -737,6 +737,8 @@ def evaluate(
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is
           larger than the configured maximum, these curves are not logged.
+        - **metric_prefix**: An optional prefix to prepend to the name of each metric produced
+          during evaluation.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

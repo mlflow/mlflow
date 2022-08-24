@@ -117,10 +117,6 @@ def _extract_predict_fn(model, raw_model):
     return predict_fn, predict_proba_fn
 
 
-def _gen_log_key(key, dataset_name):
-    return f"{key}_on_data_{dataset_name}"
-
-
 def _get_regressor_metrics(y, y_pred):
     return {
         "example_count": len(y),
@@ -424,6 +420,12 @@ class DefaultEvaluator(ModelEvaluator):
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return model_type in ["classifier", "regressor"]
 
+    def _gen_log_key(self, key):
+        if self.evaluator_config.get("include_dataset_in_metric_names", True):
+            return f"{key}_on_data_{self.dataset_name}"
+        else:
+            return key
+
     def _log_metrics(self):
         """
         Helper method to log metrics into specified run.
@@ -433,7 +435,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.run_id,
             metrics=[
                 Metric(
-                    key=_gen_log_key(key, self.dataset_name),
+                    key=self._gen_log_key(key),
                     value=value,
                     timestamp=timestamp,
                     step=0,
@@ -449,7 +451,7 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".png"
+        artifact_file_name = self._gen_log_key(artifact_name) + ".png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -465,7 +467,7 @@ class DefaultEvaluator(ModelEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + ".csv"
+        artifact_file_name = self._gen_log_key(artifact_name) + ".csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
         mlflow.log_artifact(artifact_file_local_path)
@@ -635,7 +637,7 @@ class DefaultEvaluator(ModelEvaluator):
             return
         try:
             mlflow.shap.log_explainer(
-                explainer, artifact_path=_gen_log_key("explainer", self.dataset_name)
+                explainer, artifact_path=self._gen_log_key("explainer")
             )
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
@@ -790,7 +792,7 @@ class DefaultEvaluator(ModelEvaluator):
         inferred_from_path, inferred_type, inferred_ext = _infer_artifact_type_and_ext(
             artifact_name, raw_artifact, custom_metric_tuple
         )
-        artifact_file_name = _gen_log_key(artifact_name, self.dataset_name) + inferred_ext
+        artifact_file_name = self._gen_log_key(artifact_name) + inferred_ext
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         if pathlib.Path(artifact_file_local_path).exists():
@@ -969,6 +971,13 @@ class DefaultEvaluator(ModelEvaluator):
                 plot_confusion_matrix,
                 "confusion_matrix",
             )
+
+        metric_prefix = self.evaluator_config.get("metric_prefix")
+        if metric_prefix is not None:
+            self.metrics = {
+                f"{metric_prefix}{metric_key}": metric_value
+                for metric_key, metric_value in self.metrics.items()
+            }
 
         return self._log_and_return_evaluation_result()
 

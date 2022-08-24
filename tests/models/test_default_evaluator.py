@@ -1173,3 +1173,37 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
             "shap_feature_importance_plot_on_data_iris.png",
             "shap_summary_plot_on_data_iris.png",
         }
+
+
+@pytest.mark.parametrize("prefix", ["train_", None])
+@pytest.mark.parametrize("include_dataset_in_metric_names", [True, False])
+def test_evaluation_metric_name_configs(prefix, include_dataset_in_metric_names):
+    X, y = load_iris(as_frame=True, return_X_y=True)
+    with mlflow.start_run() as run:
+        model = LogisticRegression()
+        model.fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
+            targets="target",
+            dataset_name="iris",
+            evaluators="default",
+            evaluator_config={
+                "metric_prefix": "train_",
+                "include_dataset_in_metric_names": include_dataset_in_metric_names,
+            },
+        )
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert len(metrics) > 0
+
+    if prefix is not None:
+        assert all([metric_name.startswith(prefix) for metric_name in metrics])
+        assert all([metric_name.startswith(prefix) for metric_name in result.metrics])
+
+    if include_dataset_in_metric_names:
+        assert all(["on_data_iris" in metric_name for metric_name in metrics])
+    else:
+        assert all(["on_data_iris" not in metric_name for metric_name in metrics])
