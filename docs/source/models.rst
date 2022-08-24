@@ -1321,7 +1321,8 @@ will throw a `ModelValidationFailedException` detailing why.
         )
 
 Refer to :py:class:`mlflow.models.MetricThreshold` to see details on how the thresholds are specified
-and checked. For a more comprehensive model validation example, refer to `this example from the MLflow GitHub Repository
+and checked. For a more comprehensive demonstration on how to use perform model validation, refer to 
+`the Model Validation example from the MLflow GitHub Repository
 <https://github.com/mlflow/mlflow/blob/master/examples/evaluation/evaluate_with_model_validation.py>`_.
 
 Additional information about model evaluation behaviors and outputs is available in the
