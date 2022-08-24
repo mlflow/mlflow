@@ -513,8 +513,8 @@ decorators.Header = ({ style, node }) => {
     const extension = getExtension(node.name);
     if (IMAGE_EXTENSIONS.has(extension)) {
       iconType = 'file-image-o';
-    } else if (DATA_EXTENSIONS.has(extension)) { 
-      iconType = 'file-excel-o'
+    } else if (DATA_EXTENSIONS.has(extension)) {
+      iconType = 'file-excel-o';
     } else if (TEXT_EXTENSIONS.has(extension)) {
       iconType = 'file-code-o';
     } else {
