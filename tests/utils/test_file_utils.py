@@ -81,13 +81,21 @@ def test_render_and_merge_yaml(tmpdir):
             test_1: [1, 2, 3]
             test_2: {{ TEST_VAR_1 }}
             test_3: {{ TEST_VAR_2 }}
+            test_4: {{ TEST_VAR_4 }}
             """
-            + r"test_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
+            + r"test_5: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
         )
-
-    data = {"MY_MLFLOW_SERVER": "./mlruns", "TEST_VAR_1": ["a", 1.2], "TEST_VAR_2": {"a": 2}}
     context_yaml_file = random_file("yaml")
-    file_utils.write_yaml(str(tmpdir), context_yaml_file, data)
+    with open(tmpdir / context_yaml_file, "w") as f:
+        f.write(
+            """
+            MY_MLFLOW_SERVER: "./mlruns"
+            TEST_VAR_1: ["a", 1.2]
+            TEST_VAR_2: {"a": 2}
+            """
+            + r"TEST_VAR_4: {{{{ ('{0}' | from_json)['key'] }}}}".format(json_file)
+        )
+    # file_utils.write_yaml(str(tmpdir), context_yaml_file, data)
 
     with tmpdir.as_cwd():
         result = file_utils.render_and_merge_yaml(tmpdir, template_yaml_file, context_yaml_file)
@@ -95,11 +103,13 @@ def test_render_and_merge_yaml(tmpdir):
         "MY_MLFLOW_SERVER": "./mlruns",
         "TEST_VAR_1": ["a", 1.2],
         "TEST_VAR_2": {"a": 2},
+        "TEST_VAR_4": 123,
         "steps": {"preprocess": {"train_ratio": 0.5, "experiment": {"tracking_uri": "./mlruns"}}},
         "test_1": [1, 2, 3],
         "test_2": ["a", 1.2],
         "test_3": {"a": 2},
         "test_4": 123,
+        "test_5": 123,
     }
     assert result == expected
 
