@@ -35,7 +35,10 @@ class MetricThreshold:
                                   <= baseline model metric value * (1 - min_relative_change)
                                 - Note that if the baseline model metric value is equal to 0, the
                                   threshold falls back performing a simple verification that the
-                                  candidate metric value is better than the baseline metric value.
+                                  candidate metric value is better than the baseline metric value,
+                                  i.e. metric value >= baseline model metric value + 1e-10 if higher
+                                  is better metric value <= baseline model metric value - 1e-10 if
+                                  lower is better.
 
     :param higher_is_better: A required boolean representing whether higher value is
                              better for the metric.
@@ -144,8 +147,10 @@ class _MetricValidationResult:
     Not user facing, used for organizing metric failures and generating failure message
     more conveniently.
     :param metric_name: String representing the metric name
+    :param candidate_metric_value: value of metric for candidate model
     :param metric_threshold: :py:class: `MetricThreshold<mlflow.models.validation.MetricThreshold>`
                              The MetricThreshold for the metric.
+    :param baseline_metric_value: value of metric for baseline model
     """
 
     missing_candidate = False
