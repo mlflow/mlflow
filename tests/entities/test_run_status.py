@@ -47,5 +47,5 @@ class TestRunStatus(unittest.TestCase):
         assert RunStatus.is_terminated(RunStatus.FAILED)
         assert RunStatus.is_terminated(RunStatus.FINISHED)
         assert RunStatus.is_terminated(RunStatus.KILLED)
-        assert RunStatus.is_terminated(RunStatus.SCHEDULED)
-        assert RunStatus.is_terminated(RunStatus.RUNNING)
+        assert not RunStatus.is_terminated(RunStatus.SCHEDULED)
+        assert not RunStatus.is_terminated(RunStatus.RUNNING)
