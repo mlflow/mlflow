@@ -188,7 +188,7 @@ def _generate_dockerfile_raw(
 
 
 def _build_image(
-        image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
+    image_name, entrypoint, env_manager, mlflow_home=None, custom_setup_steps_hook=None
 ):
     """
     Build an MLflow Docker image that can be used to serve a

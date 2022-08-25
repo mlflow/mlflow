@@ -39,13 +39,13 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(
-            self,
-            config,
-            workers=1,
-            env_manager=_EnvManager.CONDA,
-            install_mlflow=False,
-            env_root_dir=None,
-            **kwargs,
+        self,
+        config,
+        workers=1,
+        env_manager=_EnvManager.CONDA,
+        install_mlflow=False,
+        env_root_dir=None,
+        **kwargs,
     ):
         """
         :param env_root_dir: Root path for conda env. If None, use Conda's default environments
@@ -317,7 +317,7 @@ class PyFuncBackend(FlavorBackend):
             dockerfile.write(dockerfile_text)
 
     def build_image(
-            self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
+        self, model_uri, image_name, install_mlflow=False, mlflow_home=None, enable_mlserver=False
     ):
         copy_model_into_container = self.copy_model_into_container_wrapper(model_uri, install_mlflow, enable_mlserver)
         pyfunc_entrypoint = _pyfunc_entrypoint(self._env_manager, model_uri, install_mlflow, enable_mlserver)
@@ -338,17 +338,17 @@ class PyFuncBackend(FlavorBackend):
             if model_uri:
                 model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
                 return """
-                         COPY {model_dir} /opt/ml/model
-                         RUN python -c \
-                         'from mlflow.models.container import _install_pyfunc_deps;\
-                         _install_pyfunc_deps(\
-                             "/opt/ml/model", \
-                             install_mlflow={install_mlflow}, \
-                             enable_mlserver={enable_mlserver}, \
-                             env_manager="{env_manager}")'
-                         ENV {disable_env}="true"
-                         ENV {ENABLE_MLSERVER}={enable_mlserver}
-                         """.format(
+                    COPY {model_dir} /opt/ml/model
+                    RUN python -c \
+                    'from mlflow.models.container import _install_pyfunc_deps;\
+                    _install_pyfunc_deps(\
+                         "/opt/ml/model", \
+                         install_mlflow={install_mlflow}, \
+                         enable_mlserver={enable_mlserver}, \
+                         env_manager="{env_manager}")'
+                    ENV {disable_env}="true"
+                    ENV {ENABLE_MLSERVER}={enable_mlserver}
+                    """.format(
                     disable_env=DISABLE_ENV_CREATION,
                     model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                     install_mlflow=repr(install_mlflow),
@@ -358,9 +358,9 @@ class PyFuncBackend(FlavorBackend):
                 )
             else:
                 return """
-                         ENV {disable_env}="true"
-                         ENV {ENABLE_MLSERVER}={enable_mlserver}
-                         """.format(
+                    ENV {disable_env}="true"
+                    ENV {ENABLE_MLSERVER}={enable_mlserver}
+                    """.format(
                     disable_env=DISABLE_ENV_CREATION,
                     ENABLE_MLSERVER=ENABLE_MLSERVER,
                     enable_mlserver=repr(enable_mlserver),
@@ -400,15 +400,15 @@ def _pyfunc_entrypoint(env_manager, model_uri, install_mlflow, enable_mlserver):
 
 
 def _execute_in_conda_env(
-        conda_env_name,
-        command,
-        install_mlflow,
-        command_env=None,
-        synchronous=True,
-        preexec_fn=None,
-        stdout=None,
-        stderr=None,
-        env_root_dir=None,
+    conda_env_name,
+    command,
+    install_mlflow,
+    command_env=None,
+    synchronous=True,
+    preexec_fn=None,
+    stdout=None,
+    stderr=None,
+    env_root_dir=None,
 ):
     """
     :param conda_env_path conda: conda environment file path
