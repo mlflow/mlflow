@@ -515,7 +515,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _CREATEEXPERIMENT._options = None
   _CREATEEXPERIMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
   _LISTEXPERIMENTS._options = None
-  _LISTEXPERIMENTS._serialized_options = b'\030\001\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+  _LISTEXPERIMENTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
   _SEARCHEXPERIMENTS._options = None
   _SEARCHEXPERIMENTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
   _GETEXPERIMENT.fields_by_name['experiment_id']._options = None
@@ -603,7 +603,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _MLFLOWSERVICE.methods_by_name['createExperiment']._options = None
   _MLFLOWSERVICE.methods_by_name['createExperiment']._serialized_options = b'\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Create Experiment'
   _MLFLOWSERVICE.methods_by_name['listExperiments']._options = None
-  _MLFLOWSERVICE.methods_by_name['listExperiments']._serialized_options = b'\210\002\001\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List Experiments'
+  _MLFLOWSERVICE.methods_by_name['listExperiments']._serialized_options = b'\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List Experiments'
   _MLFLOWSERVICE.methods_by_name['searchExperiments']._options = None
   _MLFLOWSERVICE.methods_by_name['searchExperiments']._serialized_options = b'\362\206\031i\n(\n\004POST\022\032/mlflow/experiments/search\032\004\010\002\020\000\n\'\n\003GET\022\032/mlflow/experiments/search\032\004\010\002\020\000\020\001*\022Search Experiments'
   _MLFLOWSERVICE.methods_by_name['getExperiment']._options = None
@@ -671,11 +671,11 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _CREATEEXPERIMENT_RESPONSE._serialized_start=935
   _CREATEEXPERIMENT_RESPONSE._serialized_end=968
   _LISTEXPERIMENTS._serialized_start=1016
-  _LISTEXPERIMENTS._serialized_end=1236
+  _LISTEXPERIMENTS._serialized_end=1234
   _LISTEXPERIMENTS_RESPONSE._serialized_start=1113
   _LISTEXPERIMENTS_RESPONSE._serialized_end=1189
-  _SEARCHEXPERIMENTS._serialized_start=1239
-  _SEARCHEXPERIMENTS._serialized_end=1493
+  _SEARCHEXPERIMENTS._serialized_start=1237
+  _SEARCHEXPERIMENTS._serialized_end=1491
   _SEARCHEXPERIMENTS_RESPONSE._serialized_start=1113
   _SEARCHEXPERIMENTS_RESPONSE._serialized_end=1189
   _GETEXPERIMENT._serialized_start=1494

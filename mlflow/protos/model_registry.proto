@@ -110,9 +110,7 @@ service ModelRegistryService {
     };
   }
 
-  // Deprecated. Use Search RegisteredModels instead
   rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
-    option deprecated = true;
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -471,7 +469,6 @@ message GetRegisteredModel {
 
 message ListRegisteredModels {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  option deprecated = true;
 
   // Maximum number of registered models desired. Max threshold is 1000.
   optional int64 max_results = 1 [default = 100];
