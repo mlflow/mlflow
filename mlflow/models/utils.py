@@ -23,6 +23,7 @@ ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "c
 
 PyFuncInput = Union[
     pd.DataFrame,
+    pd.Series,
     np.ndarray,
     "csc_matrix",
     "csr_matrix",
@@ -30,7 +31,6 @@ PyFuncInput = Union[
     Dict[str, Any],
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list]
-DataInputType = Union[PyFuncInput, PyFuncOutput]
 
 
 class _Example:
@@ -410,7 +410,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
-def _enforce_col_schema(pfInput: DataInputType, input_schema: Schema):
+def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
     if input_schema.has_input_names():
         input_names = input_schema.input_names()
@@ -423,7 +423,7 @@ def _enforce_col_schema(pfInput: DataInputType, input_schema: Schema):
     return new_pfInput
 
 
-def _enforce_tensor_schema(pfInput: DataInputType, input_schema: Schema):
+def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
     """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
 
     def _is_sparse_matrix(x):
@@ -471,7 +471,7 @@ def _enforce_tensor_schema(pfInput: DataInputType, input_schema: Schema):
     return new_pfInput
 
 
-def _enforce_schema(pfInput: DataInputType, input_schema: Schema):
+def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     """
     Enforces the provided input matches the model's input schema,
 
@@ -543,7 +543,7 @@ def _enforce_schema(pfInput: DataInputType, input_schema: Schema):
     )
 
 
-def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputType:
+def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     """
     Validate that the input data schema matches expected schema.
 
