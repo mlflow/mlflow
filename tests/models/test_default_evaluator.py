@@ -500,7 +500,7 @@ def test_multiclass_get_classifier_global_metrics():
         is_binomial=False, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1, 2]
     )
     expected_metrics = {
-        "accuracy": 0.4,
+        "accuracy_score": 0.4,
         "example_count": 5,
         "f1_score_micro": 0.4,
         "f1_score_macro": 0.38888888888888884,
