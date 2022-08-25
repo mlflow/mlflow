@@ -171,7 +171,7 @@ def _get_classifier_global_metrics(is_binomial, y, y_pred, y_probs, labels):
     get classifier metrics which computing over all classes examples.
     """
     metrics = {}
-    metrics["accuracy"] = sk_metrics.accuracy_score(y, y_pred)
+    metrics["accuracy_score"] = sk_metrics.accuracy_score(y, y_pred)
     metrics["example_count"] = len(y)
 
     if not is_binomial:

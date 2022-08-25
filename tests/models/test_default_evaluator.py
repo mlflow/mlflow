@@ -517,7 +517,7 @@ def test_binary_get_classifier_global_metrics():
     metrics = _get_classifier_global_metrics(
         is_binomial=True, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1]
     )
-    expected_metrics = {"accuracy": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
+    expected_metrics = {"accuracy_score": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
