@@ -636,9 +636,7 @@ class DefaultEvaluator(ModelEvaluator):
             _logger.debug("", exc_info=True)
             return
         try:
-            mlflow.shap.log_explainer(
-                explainer, artifact_path=self._gen_log_key("explainer")
-            )
+            mlflow.shap.log_explainer(explainer, artifact_path=self._gen_log_key("explainer"))
         except Exception as e:
             # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`

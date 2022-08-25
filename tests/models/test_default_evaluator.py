@@ -1200,14 +1200,13 @@ def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     assert len(metrics) > 0
 
     if prefix is not None:
-        assert all([metric_name.startswith(prefix) for metric_name in metrics])
-        assert all([metric_name.startswith(prefix) for metric_name in result.metrics])
+        assert all(metric_name.startswith(prefix) for metric_name in metrics)
+        assert all(metric_name.startswith(prefix) for metric_name in result.metrics)
 
     if log_metrics_with_dataset_info:
-        assert all(["on_data_iris" in metric_name for metric_name in metrics])
+        assert all("on_data_iris" in metric_name for metric_name in metrics)
     else:
-        assert all(["on_data_iris" not in metric_name for metric_name in metrics])
+        assert all("on_data_iris" not in metric_name for metric_name in metrics)
 
     # Dataset info should only be included in logged metric names
-    assert all(["on_data_iris" not in metric_name for metric_name in result.metrics])
-
+    assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
