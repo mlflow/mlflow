@@ -27,6 +27,18 @@ def DtypeToType(dtype):
         return fs_proto.STRING
 
 
+def compute_common_stats(column):
+    common_stats = feature_statistics_pb2.CommonStatistics()
+    common_stats.num_missing = column.isnull().sum()
+    common_stats.num_non_missing = len(column) - common_stats.num_missing
+    # Default set using: https://src.dev.databricks.com/databricks/universe/-/blob/model-monitoring/python/databricks/model_monitoring/rendering/html_renderer.py?L33-L35&subtree=true
+    common_stats.min_num_values = 1
+    common_stats.max_num_values = 1
+    common_stats.avg_num_values = 1.0
+
+    return common_stats
+
+
 def convert_to_dataset_feature_statistics(
     df: pd.DataFrame,
 ) -> feature_statistics_pb2.DatasetFeatureStatistics:
@@ -40,7 +52,7 @@ def convert_to_dataset_feature_statistics(
     fs_proto = feature_statistics_pb2.FeatureNameStatistics
     feature_stats = feature_statistics_pb2.DatasetFeatureStatistics()
     pandas_describe = df.describe()
-    num_examples = len(df)
+    feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
     quantiles = df.quantile(quantiles_to_get)
 
@@ -56,10 +68,8 @@ def convert_to_dataset_feature_statistics(
             featstats.min = pandas_describe[key]["min"]
             featstats.max = pandas_describe[key]["max"]
             featstats.median = df[key].median()
-            featstats.num_zeros = (df[key] == 0).sum()  # TODO: Possibly broken
-
-            commonstats.num_missing = df[key].isnull().sum()
-            commonstats.num_non_missing = num_examples - commonstats.num_missing
+            featstats.num_zeros = (df[key] == 0).sum()
+            featstats.common_stats.CopyFrom(compute_common_stats(df[key]))
 
             if key in quantiles:
                 equal_width_hist = histogram_generator.generate_equal_width_histogram(
@@ -109,12 +119,8 @@ def convert_to_dataset_feature_statistics(
                 )
                 if val_index < 2:
                     featstats.top_values.add(value=bucket.label, frequency=bucket.sample_count)
-                commonstats.num_missing = df[key].isnull().sum()
-                commonstats.num_non_missing = num_examples - commonstats.num_missing
-                # TODO: Verify if this would be true for all string types
-                commonstats.min_num_values = 1
-                commonstats.max_num_values = 1
-                commonstats.avg_num_values = 1.0
+
+                featstats.common_stats.CopyFrom(compute_common_stats(df[key]))
 
     return feature_stats
 
@@ -170,7 +176,7 @@ def construct_facets_html(
     return html
 
 
-def render_html(inputs: pd.DataFrame) -> None:
+def render_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> None:
     """Rendering the data statistics in a HTML format.
 
     :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a collection of
