@@ -35,15 +35,15 @@ def commands():
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
 def serve(
-    model_uri,
-    port,
-    host,
-    timeout,
-    workers,
-    no_conda,  # pylint: disable=unused-argument
-    env_manager=None,
-    install_mlflow=False,
-    enable_mlserver=False,
+        model_uri,
+        port,
+        host,
+        timeout,
+        workers,
+        no_conda,  # pylint: disable=unused-argument
+        env_manager=None,
+        install_mlflow=False,
+        enable_mlserver=False,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -94,25 +94,25 @@ def serve(
     "-j",
     default="split",
     help="Only applies if the content type is 'json'. Specify how the data is encoded.  "
-    "Can be one of {'split', 'records'} mirroring the behavior of Pandas orient "
-    "attribute. The default is 'split' which expects dict like data: "
-    "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, "
-    "where index  is optional. For more information see "
-    "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
-    ".html",
+         "Can be one of {'split', 'records'} mirroring the behavior of Pandas orient "
+         "attribute. The default is 'split' which expects dict like data: "
+         "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, "
+         "where index  is optional. For more information see "
+         "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
+         ".html",
 )
 @cli_args.NO_CONDA
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def predict(
-    model_uri,
-    input_path,
-    output_path,
-    content_type,
-    json_format,
-    no_conda,  # pylint: disable=unused-argument
-    env_manager,
-    install_mlflow,
+        model_uri,
+        input_path,
+        output_path,
+        content_type,
+        json_format,
+        no_conda,  # pylint: disable=unused-argument
+        env_manager,
+        install_mlflow,
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -139,10 +139,10 @@ def predict(
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
 def prepare_env(
-    model_uri,
-    no_conda,  # pylint: disable=unused-argument
-    env_manager,
-    install_mlflow,
+        model_uri,
+        no_conda,  # pylint: disable=unused-argument
+        env_manager,
+        install_mlflow,
 ):
     """
     Performs any preparation necessary to predict or serve the model, for example
@@ -157,12 +157,15 @@ def prepare_env(
 
 @commands.command("generate-dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
-@click.option("--filename", "-f", default="Dockerfile", help="file name for the resulting Dockerfile")
+@click.option("--output-directory",
+              "-d",
+              default="generate-dockerfile-output",
+              help="output directory for generating dockerfile")
 @cli_args.ENV_MANAGER
 @cli_args.MLFLOW_HOME
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
-def generate_dockerfile(model_uri, filename, env_manager, mlflow_home, install_mlflow, enable_mlserver):
+def generate_dockerfile(model_uri, output_directory, env_manager, mlflow_home, install_mlflow, enable_mlserver):
     """
     Generates a dockerfile whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor.
@@ -174,11 +177,12 @@ def generate_dockerfile(model_uri, filename, env_manager, mlflow_home, install_m
     backend = _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
     backend.generate_dockerfile(
         model_uri,
-        filename,
+        output_directory,
         mlflow_home=mlflow_home,
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
+
 
 @commands.command("build-docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
