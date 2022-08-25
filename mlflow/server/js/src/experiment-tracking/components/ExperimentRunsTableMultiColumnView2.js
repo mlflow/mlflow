@@ -91,6 +91,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
     versionCellRenderer: VersionCellRenderer,
     modelsCellRenderer: ModelsCellRenderer,
     dateCellRenderer: DateCellRenderer,
+    tagCellRenderer: TagCellRenderer,
     agColumnHeader: RunsTableCustomHeader,
     loadingOverlayComponent: Spinner,
     noRowsOverlayComponent: ExperimentRunsTableEmptyOverlay,
@@ -323,6 +324,7 @@ export class ExperimentRunsTableMultiColumnView2Impl extends React.Component {
           headerName: tagKey,
           headerTooltip: tagKey,
           field: `${TAG_PREFIX}-${tagKey}`,
+          cellRenderer: 'tagCellRenderer',
           ...(i >= MAX_TAG_COLS ? { columnGroupShow: 'open' } : null),
         })),
       },
@@ -800,3 +802,17 @@ const styles = {
 };
 
 ModelsCellRenderer.propTypes = { value: PropTypes.object };
+
+export function TagCellRenderer(props) {
+  const tagValue = props.value;
+
+  return Utils.isValidHttpUrl(tagValue) ? (
+    <a href={tagValue} target='_blank' rel='noreferrer'>
+      {tagValue}
+    </a>
+  ) : (
+    tagValue
+  );
+}
+
+TagCellRenderer.propTypes = { value: PropTypes.string };
