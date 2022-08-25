@@ -739,6 +739,9 @@ def evaluate(
           larger than the configured maximum, these curves are not logged.
         - **metric_prefix**: An optional prefix to prepend to the name of each metric produced
           during evaluation.
+        - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
+          information about the evaluation dataset in the name of each metric logged to MLflow
+          Tracking during evaluation, default value is True.
 
      - Limitations of evaluation dataset:
         - For classification tasks, dataset labels are used to infer the total number of classes.

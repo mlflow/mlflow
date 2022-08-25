@@ -1176,8 +1176,8 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
 
 
 @pytest.mark.parametrize("prefix", ["train_", None])
-@pytest.mark.parametrize("include_dataset_in_metric_names", [True, False])
-def test_evaluation_metric_name_configs(prefix, include_dataset_in_metric_names):
+@pytest.mark.parametrize("log_metrics_with_dataset_info", [True, False])
+def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
     X, y = load_iris(as_frame=True, return_X_y=True)
     with mlflow.start_run() as run:
         model = LogisticRegression()
@@ -1191,8 +1191,8 @@ def test_evaluation_metric_name_configs(prefix, include_dataset_in_metric_names)
             dataset_name="iris",
             evaluators="default",
             evaluator_config={
-                "metric_prefix": "train_",
-                "include_dataset_in_metric_names": include_dataset_in_metric_names,
+                "metric_prefix": prefix,
+                "log_metrics_with_dataset_info": log_metrics_with_dataset_info,
             },
         )
 
@@ -1203,7 +1203,11 @@ def test_evaluation_metric_name_configs(prefix, include_dataset_in_metric_names)
         assert all([metric_name.startswith(prefix) for metric_name in metrics])
         assert all([metric_name.startswith(prefix) for metric_name in result.metrics])
 
-    if include_dataset_in_metric_names:
+    if log_metrics_with_dataset_info:
         assert all(["on_data_iris" in metric_name for metric_name in metrics])
     else:
         assert all(["on_data_iris" not in metric_name for metric_name in metrics])
+
+    # Dataset info should only be included in logged metric names
+    assert all(["on_data_iris" not in metric_name for metric_name in result.metrics])
+

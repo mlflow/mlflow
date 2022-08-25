@@ -421,7 +421,7 @@ class DefaultEvaluator(ModelEvaluator):
         return model_type in ["classifier", "regressor"]
 
     def _gen_log_key(self, key):
-        if self.evaluator_config.get("include_dataset_in_metric_names", True):
+        if self.evaluator_config.get("log_metrics_with_dataset_info", True):
             return f"{key}_on_data_{self.dataset_name}"
         else:
             return key
