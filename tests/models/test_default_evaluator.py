@@ -868,7 +868,7 @@ def test_multiclass_get_classifier_global_metrics():
         is_binomial=False, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1, 2]
     )
     expected_metrics = {
-        "accuracy": 0.4,
+        "accuracy_score": 0.4,
         "example_count": 5,
         "f1_score_micro": 0.4,
         "f1_score_macro": 0.38888888888888884,
@@ -885,7 +885,7 @@ def test_binary_get_classifier_global_metrics():
     metrics = _get_classifier_global_metrics(
         is_binomial=True, y=y, y_pred=y_pred, y_probs=y_probs, labels=[0, 1]
     )
-    expected_metrics = {"accuracy": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
+    expected_metrics = {"accuracy_score": 0.7, "example_count": 10, "log_loss": 0.6665822319387167}
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
@@ -1541,3 +1541,40 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
             "shap_feature_importance_plot_on_data_iris.png",
             "shap_summary_plot_on_data_iris.png",
         }
+
+
+@pytest.mark.parametrize("prefix", ["train_", None])
+@pytest.mark.parametrize("log_metrics_with_dataset_info", [True, False])
+def test_evaluation_metric_name_configs(prefix, log_metrics_with_dataset_info):
+    X, y = load_iris(as_frame=True, return_X_y=True)
+    with mlflow.start_run() as run:
+        model = LogisticRegression()
+        model.fit(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model")
+        result = evaluate(
+            model_info.model_uri,
+            X.assign(target=y),
+            model_type="classifier" if isinstance(model, LogisticRegression) else "regressor",
+            targets="target",
+            dataset_name="iris",
+            evaluators="default",
+            evaluator_config={
+                "metric_prefix": prefix,
+                "log_metrics_with_dataset_info": log_metrics_with_dataset_info,
+            },
+        )
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert len(metrics) > 0
+
+    if prefix is not None:
+        assert all(metric_name.startswith(prefix) for metric_name in metrics)
+        assert all(metric_name.startswith(prefix) for metric_name in result.metrics)
+
+    if log_metrics_with_dataset_info:
+        assert all("on_data_iris" in metric_name for metric_name in metrics)
+    else:
+        assert all("on_data_iris" not in metric_name for metric_name in metrics)
+
+    # Dataset info should only be included in logged metric names
+    assert all("on_data_iris" not in metric_name for metric_name in result.metrics)
