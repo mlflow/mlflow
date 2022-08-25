@@ -13585,7 +13585,7 @@ public final class Service {
 
   }
 
-  public interface ListExperimentsOrBuilder extends
+  @java.lang.Deprecated public interface ListExperimentsOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.ListExperiments)
       com.google.protobuf.MessageOrBuilder {
 
@@ -13669,7 +13669,7 @@ public final class Service {
   /**
    * Protobuf type {@code mlflow.ListExperiments}
    */
-  public static final class ListExperiments extends
+  @java.lang.Deprecated public static final class ListExperiments extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.ListExperiments)
       ListExperimentsOrBuilder {
@@ -53600,7 +53600,7 @@ public final class Service {
       "t_location\030\002 \001(\t\022#\n\004tags\030\003 \003(\0132\025.mlflow." +
       "ExperimentTag\032!\n\010Response\022\025\n\rexperiment_" +
       "id\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"\332\001\n\017ListExperiments\022#\n\tvie" +
+      "his.Response]\"\334\001\n\017ListExperiments\022#\n\tvie" +
       "w_type\030\001 \001(\0162\020.mlflow.ViewType\022\023\n\013max_re" +
       "sults\030\002 \001(\003\022\022\n\npage_token\030\003 \001(\t\032L\n\010Respo" +
       "nse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Experi" +

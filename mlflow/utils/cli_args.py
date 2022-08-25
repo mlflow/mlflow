@@ -135,6 +135,7 @@ INSTALL_MLFLOW = click.option(
 HOST = click.option(
     "--host",
     "-h",
+    envvar="MLFLOW_HOST",
     metavar="HOST",
     default="127.0.0.1",
     help="The network address to listen on (default: 127.0.0.1). "
@@ -142,7 +143,13 @@ HOST = click.option(
     "server from other machines.",
 )
 
-PORT = click.option("--port", "-p", default=5000, help="The port to listen on (default: 5000).")
+PORT = click.option(
+    "--port",
+    "-p",
+    envvar="MLFLOW_PORT",
+    default=5000,
+    help="The port to listen on (default: 5000).",
+)
 
 TIMEOUT = click.option(
     "--timeout", "-t", help="Timeout in seconds to serve a request (default: 60)."
@@ -152,6 +159,7 @@ TIMEOUT = click.option(
 WORKERS = click.option(
     "--workers",
     "-w",
+    envvar="MLFLOW_WORKERS",
     default=None,
     help="Number of gunicorn worker processes to handle requests (default: 4).",
 )
@@ -165,6 +173,7 @@ ENABLE_MLSERVER = click.option(
 
 ARTIFACTS_DESTINATION = click.option(
     "--artifacts-destination",
+    envvar="MLFLOW_ARTIFACTS_DESTINATION",
     metavar="URI",
     default="./mlartifacts",
     help=(
