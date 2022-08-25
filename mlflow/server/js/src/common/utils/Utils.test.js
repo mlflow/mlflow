@@ -891,3 +891,18 @@ test('concatAndGroupArraysById', () => {
     { id: 123, year: 2020 },
   ]);
 });
+
+test('isValidHttpUrl', () => {
+  expect(Utils.isValidHttpUrl('not_a_url')).toEqual(false);
+  expect(Utils.isValidHttpUrl('https://some_url.com')).toEqual(true);
+  expect(Utils.isValidHttpUrl('https://some_url.com/?with=query_param')).toEqual(true);
+  expect(Utils.isValidHttpUrl('http://some_url.com/')).toEqual(true);
+  expect(Utils.isValidHttpUrl('http:/localhost')).toEqual(true);
+  expect(Utils.isValidHttpUrl('http:/a')).toEqual(true);
+  expect(Utils.isValidHttpUrl('some other text https://some_url.com/')).toEqual(false);
+  expect(Utils.isValidHttpUrl('fualksdhjakjsdh')).toEqual(false);
+  expect(Utils.isValidHttpUrl('#')).toEqual(false);
+  // disable no-script-url rule to test that javascript protocol is not seen as valid url
+  /* eslint-disable no-script-url*/
+  expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
+});
