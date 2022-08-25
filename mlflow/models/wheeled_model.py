@@ -16,21 +16,51 @@ _WHEELS_FOLDER_NAME = "wheels"
 
 
 class WheeledModel:
+    """
+    Helper class to create a wheeled model from an existing registered model. The wheeled model
+    contains all the model dependencies as wheels stored as model artifacts.
+    """
+
     def __init__(self, model_uri):
         self._model_uri = model_uri
         self._model_name, _, _ = _parse_model_uri(model_uri)  # Throws exception if not a model uri
 
     @classmethod
-    def log_model(cls, artifact_path, model_uri, **kwargs):
+    def log_model(cls, artifact_path, model_uri, registered_model_name=None):
+        """
+        Logs a registered model as an MLflow artifact for the current run. This function will take
+        an existing model and re-log the model along with the wheels of all the
+        the model dependencies (stored along with the model artifacts).
+
+        The default behavior is to log a new model version to an existing registered model, however,
+        the caller can choose to log the model wheels to a different or new registered model.
+
+        :param artifact_path: Run-relative artifact path.
+        :param model_uri: registered model uri of the form
+                            models:/<model_name>/<model_version/stage/latest>
+        :param registered_model_name: If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+        """
         model_name, _, _ = _parse_model_uri(model_uri)
         return Model.log(
             artifact_path=artifact_path,
             flavor=WheeledModel(model_uri),
-            registered_model_name=kwargs.pop("registered_model_name", model_name),
-            **kwargs,
+            registered_model_name=registered_model_name or model_name,
         )
 
     def save_model(self, path, mlflow_model=None):
+        """
+        Given an existing registered model, saves the model along with it's dependencies stored as
+        wheels to a path on the local file system.
+
+        This does not modify existing model behavior or
+        existing model flavors. It simply downloads the model dependencies as wheels and modifies
+        the requirements.txt and conda.yaml file to point to the downloaded wheels.
+        :param path: Local path where the model is to be saved.
+        :param mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
+                            updated model metadata.
+        """
         from mlflow.pyfunc import FLAVOR_NAME, ENV
 
         path = os.path.abspath(path)
@@ -75,11 +105,12 @@ class WheeledModel:
 
     def _update_mlflow_model(self, mlflow_model, original_model_metadata):
         """
-        Updates the MLModel file with the correct run_id, and utc_time_created. Additionally,
-        this also adds `wheels` to the list of artifacts.
-        :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
-                             **python_function** flavor.
-        :param original_model_file_path: Path to the original model file
+        Modifies the MLModel file to reflect updated information such as the run_id,
+        utc_time_created. Additionally, this also adds `wheels` to the MLModel file to indicate that
+        this is a `wheeled` model.
+        :param  mlflow_model: :py:mod:`mlflow.models.Model` configuration of the newly created
+                                wheeled model
+        :param original_model_file_path: The model metadata stored in the original MLmodel file.
         """
 
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id

@@ -17,7 +17,6 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix"]
 
 
@@ -267,6 +266,14 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
 
 
 def create_wheeled_model(artifact_path, model_uri):
+    """
+    Given a registered model, this helper will re-log the model along with the wheels of all the
+    the model dependencies (stored along with the model artifacts).
+
+    :param artifact_path: Run-relative artifact path.
+    :param model_uri: registered model uri of the form
+                        models:/<model_name>/<model_version/stage/latest>
+    """
     from mlflow.models.wheeled_model import WheeledModel
 
     WheeledModel.log_model(artifact_path, model_uri)
