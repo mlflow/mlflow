@@ -4,6 +4,7 @@ APIs for interacting with artifacts in MLflow
 import json
 import logging
 import pathlib
+import tempfile
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
@@ -77,7 +78,7 @@ def load_text(artifact_uri: str) -> str:
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
             mlflow.log_text("This is a sentence", "file.txt")
-            file_content  = mlflow.artifacts.load_text(artifact_uri + "/file.txt")
+            file_content = mlflow.artifacts.load_text(artifact_uri + "/file.txt")
             print(file_content)
 
     .. code-block:: text
@@ -85,13 +86,14 @@ def load_text(artifact_uri: str) -> str:
 
         This is a sentence
     """
-    local_artifact = download_artifacts(artifact_uri)
-    with open(local_artifact) as local_artifact_fd:
-        try:
-            return str(local_artifact_fd.read())
-        except Exception as e:
-            _logger.exception(e)
-            raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
+        with open(local_artifact) as local_artifact_fd:
+            try:
+                return str(local_artifact_fd.read())
+            except Exception as e:
+                _logger.exception(e)
+                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
 def load_dict(artifact_uri: str) -> dict:
@@ -107,9 +109,9 @@ def load_dict(artifact_uri: str) -> dict:
         import json
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
-            mlflow.log_text(json.dumps({"mlflow-version": "0.28", "n_cores": "10"}), "conf.json")
-            conf_json  = mlflow.artifacts.load_dict(artifact_uri + "/conf.json")
-            print(conf_json)
+            mlflow.log_text(json.dumps({"mlflow-version": "0.28", "n_cores": "10"}), "config.json")
+            config_json = mlflow.artifacts.load_dict(artifact_uri + "/config.json")
+            print(config_json)
 
     .. code-block:: text
         :caption: Output
@@ -118,13 +120,14 @@ def load_dict(artifact_uri: str) -> dict:
 
 
     """
-    local_artifact = download_artifacts(artifact_uri)
-    with open(local_artifact) as local_artifact_fd:
-        try:
-            return json.load(local_artifact_fd)
-        except json.JSONDecodeError as e:
-            _logger.exception(e)
-            raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
+        with open(local_artifact) as local_artifact_fd:
+            try:
+                return json.load(local_artifact_fd)
+            except json.JSONDecodeError as e:
+                _logger.exception(e)
+                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
 def load_image(artifact_uri: str):
@@ -150,20 +153,24 @@ def load_image(artifact_uri: str):
 
         <PIL.PngImagePlugin.PngImageFile image mode=RGB size=100x100 at 0x11D2FA3D0>
     """
-    local_artifact = download_artifacts(artifact_uri)
     try:
         from PIL import Image
     except ImportError as exc:
         raise ImportError(
             "`load_image` requires Pillow. Please install it via: pip install Pillow"
         ) from exc
-    try:
-        image_obj = Image.open(local_artifact)
-        if is_running_in_ipython_environment():
-            from IPython import display
 
-            display(image_obj)
-        return image_obj
-    except Exception as e:
-        _logger.exception(e)
-        raise MlflowException("Unable to form a PIL Image object from file content", BAD_REQUEST)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
+        try:
+            image_obj = Image.open(local_artifact)
+            if is_running_in_ipython_environment():
+                from IPython import display
+
+                display(image_obj)
+            return image_obj
+        except Exception as e:
+            _logger.exception(e)
+            raise MlflowException(
+                "Unable to form a PIL Image object from file content", BAD_REQUEST
+            )
