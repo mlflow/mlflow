@@ -264,3 +264,9 @@ def plot_lines(data_series, xlabel, ylabel, legend_loc=None, line_kwargs=None):
     ax.set(xlabel=xlabel, ylabel=ylabel)
 
     return fig, ax
+
+
+def create_wheeled_model(artifact_path, model_uri):
+    from mlflow.models.wheeled_model import WheeledModel
+
+    WheeledModel.log_model(artifact_path, model_uri)
