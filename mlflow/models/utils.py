@@ -549,15 +549,13 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
 
     :param data: Input data to be validated. Supported types are:
 
-                 - Pandas DataFrame
-                 - Pandas Series
-                 - Pandas Series
-                 - Numpy ndarray
+                 - pandas.DataFrame
+                 - pandas.Series
+                 - numpy.ndarray
                  - scipy.sparse.csc_matrix
                  - scipy.sparse.csr_matrix
                  - List[Any]
                  - Dict[str, Any]
-                 - list
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
     :return: Validated input data.
     :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
@@ -575,4 +573,5 @@ def validate_schema(data: DataInputType, expected_schema: Schema) -> DataInputTy
         # validate schema
         mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
-    return _enforce_schema(data, expected_schema)
+    _enforce_schema(data, expected_schema)
+    return

@@ -37,16 +37,16 @@ class ModelInfo:
 
     def __init__(
         self,
-        artifact_path: str = None,
-        flavors: Dict[str, Any] = None,
-        model_uri: str = None,
-        model_uuid: str = None,
-        run_id: str = None,
-        saved_input_example_info: Optional[Dict[str, Any]] = None,
+        artifact_path: str,
+        flavors: Dict[str, Any],
+        model_uri: str,
+        model_uuid: str,
+        run_id: str,
+        saved_input_example_info: Optional[Dict[str, Any]],
+        signature,  # Optional[ModelSignature]
+        utc_time_created: str,
+        mlflow_version: str,
         signature_dict: Optional[Dict[str, Any]] = None,
-        signature=None,  # Optional[ModelSignature]
-        utc_time_created: str = None,
-        mlflow_version: str = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -133,15 +133,6 @@ class ModelInfo:
             stacklevel=2,
         )
         return self._signature_dict
-
-    @signature_dict.setter
-    def signature_dict(self, value):
-        warnings.warn(
-            "Field signature_dict is deprecated since v1.28.1. Use signature instead.",
-            category=FutureWarning,
-            stacklevel=2,
-        )
-        self._signature_dict = value
 
     @property
     def signature(self):  # -> Optional[ModelSignature]
