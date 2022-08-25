@@ -309,7 +309,7 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
         return_value=["sklearn"],
     ), mock.patch(
         "mlflow.utils.requirements_utils._PYPI_PACKAGE_INDEX",
-        _PyPIPackageIndex(date="2022-01-01", package_names=set(["scikit-learn"])),
+        _PyPIPackageIndex(date="2022-01-01", package_names={"scikit-learn"}),
     ), mock.patch(
         "mlflow.utils.requirements_utils._logger.warning"
     ) as mock_warning:

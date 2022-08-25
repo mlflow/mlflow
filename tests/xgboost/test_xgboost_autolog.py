@@ -188,8 +188,8 @@ def test_xgb_autolog_sklearn():
     client = MlflowClient()
     run = client.get_run(run.info.run_id)
     assert run.data.metrics.items() <= params.items()
-    artifacts = set(x.path for x in client.list_artifacts(run.info.run_id))
-    assert artifacts >= set(["feature_importance_weight.png", "feature_importance_weight.json"])
+    artifacts = {x.path for x in client.list_artifacts(run.info.run_id)}
+    assert artifacts >= {"feature_importance_weight.png", "feature_importance_weight.json"}
     loaded_model = mlflow.xgboost.load_model(model_uri)
     np.testing.assert_allclose(loaded_model.predict(X), model.predict(X))
 

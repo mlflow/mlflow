@@ -229,7 +229,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    dirs_created = set([dest_path_root])
+    dirs_created = {dest_path_root}
     files_created = set()
     cwd_history = ["/"]
 
@@ -272,24 +272,21 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     dest_path = (
         dest_path_root if artifact_path is None else posixpath.join(dest_path_root, artifact_path)
     )
-    dirs_expected = set(
-        [
-            dest_path,
-            posixpath.join(dest_path, "empty1"),
-            posixpath.join(dest_path, "subsubdir"),
-            posixpath.join(dest_path, "subsubdir", "empty2"),
-        ]
-    )
-    files_expected = set(
-        [
-            posixpath.join(dest_path, "a.txt"),
-            posixpath.join(dest_path, "b.txt"),
-            posixpath.join(dest_path, "c.txt"),
-            posixpath.join(dest_path, "subsubdir/aa.txt"),
-            posixpath.join(dest_path, "subsubdir/bb.txt"),
-            posixpath.join(dest_path, "subsubdir/cc.txt"),
-        ]
-    )
+    dirs_expected = {
+        dest_path,
+        posixpath.join(dest_path, "empty1"),
+        posixpath.join(dest_path, "subsubdir"),
+        posixpath.join(dest_path, "subsubdir", "empty2"),
+    }
+
+    files_expected = {
+        posixpath.join(dest_path, "a.txt"),
+        posixpath.join(dest_path, "b.txt"),
+        posixpath.join(dest_path, "c.txt"),
+        posixpath.join(dest_path, "subsubdir/aa.txt"),
+        posixpath.join(dest_path, "subsubdir/bb.txt"),
+        posixpath.join(dest_path, "subsubdir/cc.txt"),
+    }
 
     for dirs_expected_i in dirs_expected.copy():
         if dirs_expected_i != dest_path_root:
