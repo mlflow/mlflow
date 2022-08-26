@@ -382,7 +382,9 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_data = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
+        output_data = run(
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_json(orient="split")}
+        )
         np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
 
@@ -426,7 +428,9 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         # Invoke the `run` method of the execution script with sample input data and verify that
         # reasonable output data is produced
         # pylint: disable=undefined-variable
-        output_raw = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
+        output_raw = run(
+            {"dataframe_split": pd.DataFrame(data=sklearn_data[0]).to_json(orient="split")}
+        )
         output_df = pd.DataFrame(output_raw)
         pandas.testing.assert_frame_equal(
             output_df, pyfunc_outputs, check_dtype=False, check_less_precise=False

@@ -92,7 +92,7 @@ class PyFuncBackend(FlavorBackend):
             conda_env_name, command, self._install_mlflow, env_root_dir=self._env_root_dir
         )
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+    def predict(self, model_uri, input_path, output_path, content_type):
         """
         Generate predictions using generic python model saved with MLflow. The expected format of
         the input JSON is the Mlflow scoring format.
@@ -107,14 +107,13 @@ class PyFuncBackend(FlavorBackend):
             "model_uri={model_uri}, "
             "input_path={input_path}, "
             "output_path={output_path}, "
-            "content_type={content_type}, "
-            'json_format={json_format})"'
+            "content_type={content_type})"
+            '"'
         ).format(
             model_uri=repr(local_uri),
             input_path=repr(input_path),
             output_path=repr(output_path),
             content_type=repr(content_type),
-            json_format=repr(json_format),
         )
         if self._env_manager == _EnvManager.CONDA and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])

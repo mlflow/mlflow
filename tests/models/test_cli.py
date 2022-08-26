@@ -509,7 +509,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
                 "Failed to serve prediction, got response %s" % scoring_response.text
             )
             np.testing.assert_array_equal(
-                np.array(json.loads(scoring_response.text)), sk_model.predict(x)
+                np.array(json.loads(scoring_response.text)["predictions"]), sk_model.predict(x)
             )
         # Try examples of bad input, verify we get a non-200 status code
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:

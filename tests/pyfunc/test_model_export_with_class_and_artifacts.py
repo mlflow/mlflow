@@ -542,9 +542,10 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         stdout=PIPE,
         preexec_fn=os.setsid,
     )
-    _, stderr = process.communicate()
-    assert 0 == process.wait(), "stderr = \n\n{}\n\n".format(stderr)
-    result_df = pandas.read_json(output_json_path, orient="records")
+    stdout, stderr = process.communicate()
+    assert 0 == process.wait(), f"stdout = \n\n{stdout}\n\n stderr = \n\n{stderr}\n\n"
+    with open(output_json_path, "r") as f:
+        result_df = pandas.DataFrame(json.load(f)["predictions"])
     np.testing.assert_array_equal(
         result_df.values.transpose()[0], loaded_pyfunc_model.predict(sample_input)
     )
