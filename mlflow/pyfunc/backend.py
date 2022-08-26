@@ -9,7 +9,7 @@ import warnings
 from pathlib import Path
 
 from mlflow.models import FlavorBackend
-from mlflow.models.docker_utils import _build_image, _generate_dockerfile_raw, DISABLE_ENV_CREATION, SETUP_MINICONDA, \
+from mlflow.models.docker_utils import _build_image, _generate_dockerfile_content, DISABLE_ENV_CREATION, SETUP_MINICONDA, \
     SETUP_PYENV_AND_VIRTUALENV, _get_mlflow_install_step
 from mlflow.models.container import ENABLE_MLSERVER
 from mlflow.pyfunc import ENV, scoring_server, mlserver
@@ -304,7 +304,7 @@ class PyFuncBackend(FlavorBackend):
         install_mlflow = _get_mlflow_install_step(output_directory, mlflow_home)
 
         custom_setup_steps = copy_model_into_container(output_directory) if copy_model_into_container else ""
-        dockerfile_text = _generate_dockerfile_raw(
+        dockerfile_text = _generate_dockerfile_content(
             setup_miniconda=setup_miniconda,
             setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
             install_mlflow=install_mlflow,

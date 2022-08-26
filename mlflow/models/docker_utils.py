@@ -152,7 +152,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         ).format(version=mlflow.version.VERSION, maven_proxy=maven_proxy)
 
 
-def _generate_dockerfile_raw(
+def _generate_dockerfile_content(
         setup_miniconda,
         setup_pyenv_and_virtualenv,
         install_mlflow,
@@ -163,7 +163,7 @@ def _generate_dockerfile_raw(
     Generates a Dockerfile that can be used to build a docker image, that serves ML model
     stored and tracked in MLflow.
 
-    It has `_raw` suffix because it just takes string parameters containing docker imperatives and has no logic
+    It just takes string parameters containing docker imperatives and has no logic
     whatsoever. It will be more convenient if a more sophisticated function with some boolean flags would be called
     `generate_dockerfile` while this function being a backend of sorts for such function.
 
@@ -216,7 +216,7 @@ def _build_image(
         custom_setup_steps = custom_setup_steps_hook(cwd) if custom_setup_steps_hook else ""
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(
-                _generate_dockerfile_raw(
+                _generate_dockerfile_content(
                     setup_miniconda=setup_miniconda,
                     setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
                     install_mlflow=install_mlflow,
