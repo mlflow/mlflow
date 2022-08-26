@@ -170,8 +170,7 @@ def generate_dockerfile(model_uri, output_directory, env_manager, mlflow_home, i
     Generates a dockerfile whose default entrypoint serves an MLflow model at port 8080, using the
     python_function flavor.
 
-    Essentially, it generates a dockerfile, which would've been the base for the docker image in `build_docker`
-    function
+    This dockerfile defines an image that is equivalent to the one produced by ``mlflow models build-docker``
     """
     env_manager = env_manager or _EnvManager.CONDA
     backend = _get_flavor_backend(model_uri, docker_build=True, env_manager=env_manager)
