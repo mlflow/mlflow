@@ -64,6 +64,7 @@ def download_artifacts(
 def load_text(artifact_uri: str) -> str:
     """
     Loads content of the artifact file as str object
+
     :param artifact_uri: artifact location
     :return: str
 
@@ -94,6 +95,7 @@ def load_text(artifact_uri: str) -> str:
 def load_dict(artifact_uri: str) -> dict:
     """
     Loads content of the artifact file as json/dict object
+
     :param artifact_uri: artifact location
     :return: dict
 
@@ -101,7 +103,6 @@ def load_dict(artifact_uri: str) -> dict:
         :caption: Example
 
         import mlflow
-        import json
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
             mlflow.log_dict({"mlflow-version": "0.28", "n_cores": "10"}, "config.json")
@@ -125,6 +126,7 @@ def load_dict(artifact_uri: str) -> dict:
 def load_image(artifact_uri: str):
     """
     Loads content of the artifact file as PIL.Image object
+
     :param artifact_uri: artifact location
     :return: PIL.Image
 
