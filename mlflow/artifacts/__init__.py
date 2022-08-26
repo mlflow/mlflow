@@ -2,7 +2,6 @@
 APIs for interacting with artifacts in MLflow
 """
 import json
-import logging
 import pathlib
 import tempfile
 from typing import Optional
@@ -11,8 +10,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
-
-_logger = logging.getLogger(__name__)
 
 
 def download_artifacts(
