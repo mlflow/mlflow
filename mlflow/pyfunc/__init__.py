@@ -651,6 +651,11 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
         return self._model_impl.predict(data)
 
+    def __eq__(self, other):
+        if not isinstance(other, PyFuncModel):
+            return False
+        return self._model_meta == other._model_meta
+
     @property
     def metadata(self):
         """Model metadata."""
