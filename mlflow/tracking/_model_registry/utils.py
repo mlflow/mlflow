@@ -13,6 +13,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
+    _get_file_store,
 )
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -160,6 +161,9 @@ def _get_store_registry():
 
     for scheme in DATABASE_ENGINES:
         _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+
+    for scheme in ["", "file"]:
+        _model_registry_store_registry.register(scheme, _get_file_store)
 
     _model_registry_store_registry.register_entrypoints()
     return _model_registry_store_registry
