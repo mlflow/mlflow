@@ -279,7 +279,7 @@ class RestEndpoint:
             else:
                 assert content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
                 data = json.dumps({"dataframe_split": data.to_dict(orient="split")})
-        elif type(data) not in set(str, dict):
+        elif type(data) not in set([str, dict]):
             data = json.dumps({"instances": data})
 
         response = requests.post(
