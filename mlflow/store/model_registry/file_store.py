@@ -112,9 +112,6 @@ class FileStore(AbstractStore):
                  created in the backend.
         """
 
-        ## save file to the fs_uri path directly
-        ## no need to send rest_api request
-        # if the registered model already existed, throw error
         self._check_root_dir()
         _validate_model_name(name)
         self._validate_registered_model_does_not_exist(name)
