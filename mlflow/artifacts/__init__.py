@@ -112,8 +112,6 @@ def load_dict(artifact_uri: str) -> dict:
         :caption: Output
 
         {'mlflow-version': '0.28', 'n_cores': '10'}
-
-
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
