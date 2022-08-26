@@ -4,6 +4,9 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from collections import namedtuple
+
+Artifact = namedtuple("Artifact", ["uri", "content"])
 
 
 @pytest.fixture()
@@ -77,7 +80,7 @@ def run_with_text_artifact():
         mlflow.log_text(artifact_content, artifact_path)
 
     artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
-    return (artifact_uri, run, artifact_path, artifact_content)
+    return Artifact(artifact_uri, artifact_content)
 
 
 @pytest.fixture()
@@ -88,7 +91,7 @@ def run_with_json_artifact():
         mlflow.log_dict(artifact_content, artifact_path)
 
     artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
-    return (artifact_uri, run, artifact_path, artifact_content)
+    return Artifact(artifact_uri, artifact_content)
 
 
 @pytest.fixture()
@@ -101,35 +104,35 @@ def run_with_image_artifact():
         mlflow.log_image(image, artifact_path)
 
     artifact_uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / artifact_path)
-    return (artifact_uri, run, artifact_path, image)
+    return Artifact(artifact_uri, image)
 
 
 def test_load_text(run_with_text_artifact):
-    artifact_uri, _, _, artifact_content = run_with_text_artifact
-    assert mlflow.artifacts.load_text(artifact_uri) == artifact_content
+    artifact = run_with_text_artifact
+    assert mlflow.artifacts.load_text(artifact.uri) == artifact.content
 
 
 def test_load_dict(run_with_json_artifact):
-    artifact_uri, _, _, artifact_content = run_with_json_artifact
-    assert mlflow.artifacts.load_dict(artifact_uri) == artifact_content
+    artifact = run_with_json_artifact
+    assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
 
 
 def test_load_json_invalid_json(run_with_text_artifact):
-    artifact_uri, _, _, _ = run_with_text_artifact
+    artifact = run_with_text_artifact
     with pytest.raises(mlflow.exceptions.MlflowException, match="Unable to form a JSON object"):
-        mlflow.artifacts.load_dict(artifact_uri)
+        mlflow.artifacts.load_dict(artifact.uri)
 
 
 def test_load_image(run_with_image_artifact):
     from PIL import Image
 
-    artifact_uri, _, _, _ = run_with_image_artifact
-    assert isinstance(mlflow.artifacts.load_image(artifact_uri), Image.Image)
+    artifact = run_with_image_artifact
+    assert isinstance(mlflow.artifacts.load_image(artifact.uri), Image.Image)
 
 
 def test_load_image_invalid_image(run_with_text_artifact):
-    artifact_uri, _, _, _ = run_with_text_artifact
+    artifact = run_with_text_artifact
     with pytest.raises(
         mlflow.exceptions.MlflowException, match="Unable to form a PIL Image object"
     ):
-        mlflow.artifacts.load_image(artifact_uri)
+        mlflow.artifacts.load_image(artifact.uri)

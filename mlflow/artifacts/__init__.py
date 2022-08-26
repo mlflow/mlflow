@@ -63,7 +63,7 @@ def download_artifacts(
 
 def load_text(artifact_uri: str) -> str:
     """
-    Loads content of the artifact file as str object
+    Loads the artifact contents as a string.
 
     :param artifact_uri: artifact location
     :return: str
@@ -94,7 +94,7 @@ def load_text(artifact_uri: str) -> str:
 
 def load_dict(artifact_uri: str) -> dict:
     """
-    Loads content of the artifact file as json/dict object
+    Loads the artifact contents as a dictionary.
 
     :param artifact_uri: artifact location
     :return: dict
@@ -123,9 +123,9 @@ def load_dict(artifact_uri: str) -> dict:
                 raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
-def load_image(artifact_uri: str):
+def load_image(artifact_uri: str) -> "Image.Image":
     """
-    Loads content of the artifact file as PIL.Image object
+    Loads artifact contents as a ``PIL.Image.Image`` object
 
     :param artifact_uri: artifact location
     :return: PIL.Image
@@ -158,6 +158,7 @@ def load_image(artifact_uri: str):
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
         try:
             image_obj = Image.open(local_artifact)
+            image_obj.load()
             return image_obj
         except Exception:
             raise MlflowException(
