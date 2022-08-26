@@ -402,7 +402,7 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
             raise MlflowException(
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
-    if t == DataType.float and values.dtype == decimal.Decimal:
+    if t == DataType.double and values.dtype == decimal.Decimal:
         # NB: Pyspark Decimal columne get converted to decimal.Decimal when converted to pandas
         # DataFrame, in order to support 
         try:
