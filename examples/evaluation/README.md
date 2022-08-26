@@ -1,7 +1,10 @@
 ### MLflow evaluation Examples
 
-The examples in this directory illustrate how you can use the `mlflow.evaluate` API to evaluate a PyFunc model on the
-specified dataset using builtin default evaluator, and log resulting metrics & artifacts to MLflow Tracking.
+The examples in this directory demonstrate how to use the `mlflow.evaluate()` API. Specifically,
+they show how to evaluate a PyFunc model on a specified dataset using the builtin default evaluator 
+and specified custom metrics, where the resulting metrics & artifacts are logged to MLflow Tracking. 
+They also show how to specify validation thresholds for the resulting metrics to validate the quality 
+of your model. See full list of examples below:
 
 - Example `evaluate_on_binary_classifier.py` evaluates an xgboost `XGBClassifier` model on dataset loaded by
   `shap.datasets.adult`.
@@ -13,6 +16,9 @@ specified dataset using builtin default evaluator, and log resulting metrics & a
   model with a custom metric function on dataset loaded by `sklearn.datasets.fetch_california_housing`
 - Example `evaluate_with_custom_metrics_comprehensive.py` evaluates a scikit-learn `LinearRegression` model
   with a comprehensive list of custom metric functions on dataset loaded by `sklearn.datasets.fetch_california_housing`
+- Example `evaluate_with_model_validation.py` trains both a candidate xgboost `XGBClassifier` model 
+  and a baseline `DummyClassifier` model on dataset loaded by `shap.datasets.adult`. Then, it validates
+  the candidate model against specified thresholds on both builtin and custom metrics and the dummy model.
 
 #### Prerequisites
 
@@ -30,4 +36,5 @@ python evaluate_on_multiclass_classifier.py
 python evaluate_on_regressor.py
 python evaluate_with_custom_metrics.py
 python evaluate_with_custom_metrics_comprehensive.py
+python evaluate_with_model_vaidation.py
 ```
