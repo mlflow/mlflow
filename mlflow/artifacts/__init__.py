@@ -11,7 +11,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_repository
-from mlflow.utils.databricks_utils import is_running_in_ipython_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -91,8 +90,7 @@ def load_text(artifact_uri: str) -> str:
         with open(local_artifact) as local_artifact_fd:
             try:
                 return str(local_artifact_fd.read())
-            except Exception as e:
-                _logger.exception(e)
+            except Exception:
                 raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
@@ -109,7 +107,7 @@ def load_dict(artifact_uri: str) -> dict:
         import json
         with mlflow.start_run() as run:
             artifact_uri = run.info.artifact_uri
-            mlflow.log_text(json.dumps({"mlflow-version": "0.28", "n_cores": "10"}), "config.json")
+            mlflow.log_dict({"mlflow-version": "0.28", "n_cores": "10"}, "config.json")
             config_json = mlflow.artifacts.load_dict(artifact_uri + "/config.json")
             print(config_json)
 
@@ -125,8 +123,7 @@ def load_dict(artifact_uri: str) -> dict:
         with open(local_artifact) as local_artifact_fd:
             try:
                 return json.load(local_artifact_fd)
-            except json.JSONDecodeError as e:
-                _logger.exception(e)
+            except json.JSONDecodeError:
                 raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
@@ -164,13 +161,8 @@ def load_image(artifact_uri: str):
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
         try:
             image_obj = Image.open(local_artifact)
-            if is_running_in_ipython_environment():
-                from IPython import display
-
-                display(image_obj)
             return image_obj
-        except Exception as e:
-            _logger.exception(e)
+        except Exception:
             raise MlflowException(
                 "Unable to form a PIL Image object from file content", BAD_REQUEST
             )

@@ -74,7 +74,7 @@ def test_download_artifacts_throws_for_invalid_arguments():
 def run_with_json_artifact(tmp_path):
     artifact_path = "test"
     artifact_content = {"mlflow-version": "0.28", "n_cores": "10"}
-    local_path = tmp_path.joinpath("file.txt")
+    local_path = tmp_path.joinpath("config.json")
     local_path.write_text(json.dumps(artifact_content))
     with mlflow.start_run() as run:
         mlflow.log_artifact(local_path, artifact_path)
@@ -104,7 +104,7 @@ def test_load_text(run_with_artifact):
 
 def test_load_dict(run_with_json_artifact):
     artifact_uri, _, _, artifact_content = run_with_json_artifact
-    artifact_file = artifact_uri + "/file.txt"
+    artifact_file = artifact_uri + "/config.json"
     assert mlflow.artifacts.load_dict(artifact_file) == artifact_content
 
 
