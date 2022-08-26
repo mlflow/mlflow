@@ -63,7 +63,7 @@ def download_artifacts(
 
 def load_text(artifact_uri: str) -> str:
     """
-    Loads content of the artifact file as python str object
+    Loads content of the artifact file as str object
     :param artifact_uri: artifact location
     :return: str
 
