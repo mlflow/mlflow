@@ -1003,6 +1003,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1011,6 +1012,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
+        Creation timestamp: 1661624204
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -1034,6 +1036,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1042,6 +1045,7 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
         Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
+        Creation timestamp: 1661624204
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -1206,6 +1210,7 @@ def create_experiment(
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+        print("Creation timestamp: {}".format(experiment.creation_time))
 
     .. code-block:: text
         :caption: Output
@@ -1238,13 +1243,14 @@ def delete_experiment(experiment_id: str) -> None:
         print("Name: {}".format(experiment.name))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-
+        print("Last Updated timestamp: {}".format(experiment.last_update_time))
     .. code-block:: text
         :caption: Output
 
         Name: New Experiment
         Artifact Location: file:///.../mlruns/2
         Lifecycle_stage: deleted
+        Last Updated timestamp: 1661624204
     """
     MlflowClient().delete_experiment(experiment_id)
 
