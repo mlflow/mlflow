@@ -13,13 +13,24 @@ class Experiment(_MLflowObject):
 
     DEFAULT_EXPERIMENT_NAME = "Default"
 
-    def __init__(self, experiment_id, name, artifact_location, lifecycle_stage, tags=None):
+    def __init__(
+        self,
+        experiment_id,
+        name,
+        artifact_location,
+        lifecycle_stage,
+        tags=None,
+        creation_time=None,
+        last_update_time=None,
+    ):
         super().__init__()
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location
         self._lifecycle_stage = lifecycle_stage
         self._tags = {tag.key: tag.value for tag in (tags or [])}
+        self._creation_time = creation_time
+        self._last_update_time = last_update_time
 
     @property
     def experiment_id(self):
@@ -52,10 +63,29 @@ class Experiment(_MLflowObject):
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
 
+    @property
+    def creation_time(self):
+        return self._creation_time
+
+    def _set_creation_time(self, creation_time):
+        self._creation_time = creation_time
+
+    @property
+    def last_update_time(self):
+        return self._last_update_time
+
+    def _set_last_update_time(self, last_update_time):
+        self._last_update_time = last_update_time
+
     @classmethod
     def from_proto(cls, proto):
         experiment = cls(
-            proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage
+            proto.experiment_id,
+            proto.name,
+            proto.artifact_location,
+            proto.lifecycle_stage,
+            creation_time=proto.creation_time,
+            last_update_time=proto.last_update_time,
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
@@ -67,6 +97,8 @@ class Experiment(_MLflowObject):
         experiment.name = self.name
         experiment.artifact_location = self.artifact_location
         experiment.lifecycle_stage = self.lifecycle_stage
+        experiment.creation_time = (self.creation_time,)
+        experiment.last_update_time = (self.last_update_time,)
         experiment.tags.extend(
             [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
         )
