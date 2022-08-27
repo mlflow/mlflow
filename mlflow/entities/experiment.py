@@ -97,8 +97,10 @@ class Experiment(_MLflowObject):
         experiment.name = self.name
         experiment.artifact_location = self.artifact_location
         experiment.lifecycle_stage = self.lifecycle_stage
-        experiment.creation_time = self.creation_time
-        experiment.last_update_time = self.last_update_time
+        if self.creation_time:
+            experiment.creation_time = self.creation_time
+        if self.last_update_time:
+            experiment.last_update_time = self.last_update_time
         experiment.tags.extend(
             [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
         )
