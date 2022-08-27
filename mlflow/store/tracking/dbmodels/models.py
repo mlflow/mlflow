@@ -71,6 +71,9 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
+    creation_time = Column(BigInteger(), default=int(time.time()))
+
+    last_update_time = Column(BigInteger(), default=int(time.time()))
 
     __table_args__ = (
         CheckConstraint(
@@ -95,6 +98,8 @@ class SqlExperiment(Base):
             artifact_location=self.artifact_location,
             lifecycle_stage=self.lifecycle_stage,
             tags=[t.to_mlflow_entity() for t in self.tags],
+            creation_time=self.creation_time,
+            last_update_time=self.last_update_time,
         )
 
 
