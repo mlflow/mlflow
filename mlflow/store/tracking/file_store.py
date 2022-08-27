@@ -464,6 +464,7 @@ class FileStore(AbstractStore):
                 "An experiment with same ID already exists." % experiment_id,
                 databricks_pb2.RESOURCE_ALREADY_EXISTS,
             )
+        mv(experiment_dir, self.root_directory)
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         experiment._set_last_update_time(int(time.time()))
@@ -472,7 +473,6 @@ class FileStore(AbstractStore):
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
         )
-        mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
         _validate_experiment_name(new_name)
