@@ -46,7 +46,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     instance.setState({ menuVisible: true });
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('data')).toEqual([
-      { key: 'attributes-Start Time', title: 'Start Time' },
+      { key: 'attributes-Created', title: 'Created' },
       { key: 'attributes-Experiment Name', title: 'Experiment Name' },
       { key: 'attributes-Duration', title: 'Duration' },
       { key: 'attributes-User', title: 'User' },
@@ -87,7 +87,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     instance.setState({ menuVisible: true });
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Experiment Name',
       'attributes-Duration',
       'attributes-User',
@@ -119,7 +119,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     instance.setState({ menuVisible: true });
     wrapper.update();
     expect(wrapper.find(SearchTree).prop('checkedKeys')).toEqual([
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Experiment Name',
       'attributes-Duration',
       'params-p2',
@@ -132,7 +132,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
 describe('getCategorizedUncheckedKeys', () => {
   test('getCategorizedUncheckedKeys should return correct keys when all checked', () => {
     const allKeys = [
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
@@ -150,7 +150,7 @@ describe('getCategorizedUncheckedKeys', () => {
       'tags-t2',
     ];
     const checkedKeys = [
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
@@ -177,7 +177,7 @@ describe('getCategorizedUncheckedKeys', () => {
   });
   test('getCategorizedUncheckedKeys should return correct keys when some checked', () => {
     const allKeys = [
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
@@ -195,7 +195,7 @@ describe('getCategorizedUncheckedKeys', () => {
       'tags-t2',
     ];
     const checkedKeys = [
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Duration',
       'attributes-Source',
       'attributes-Version',
@@ -214,7 +214,7 @@ describe('getCategorizedUncheckedKeys', () => {
   });
   test('getCategorizedUncheckedKeys should return correct keys when nothing checked', () => {
     const allKeys = [
-      'attributes-Start Time',
+      'attributes-Created',
       'attributes-Duration',
       'attributes-User',
       'attributes-Run Name',
@@ -234,7 +234,7 @@ describe('getCategorizedUncheckedKeys', () => {
     const checkedKeys = [];
     const expectedResult = {
       [COLUMN_TYPES.ATTRIBUTES]: [
-        'Start Time',
+        'Created',
         'Duration',
         'User',
         'Run Name',

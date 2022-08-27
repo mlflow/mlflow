@@ -821,7 +821,7 @@ export class ExperimentView extends Component {
                     </Tooltip>
                     <Tooltip
                       title={this.props.intl.formatMessage({
-                        defaultMessage: 'Started during',
+                        defaultMessage: 'Created during',
                         description:
                           'Label for the start time select dropdown for experiment runs view',
                       })}
