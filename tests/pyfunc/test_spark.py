@@ -191,7 +191,10 @@ def test_spark_udf_env_manager_can_restore_env(spark, model_path, sklearn_versio
             "pytest==6.2.5",
         ],
     )
+    # tests/helper_functions.py
+    from tests.helper_functions import _get_mlflow_home
 
+    os.environ["MLFLOW_HOME"] = _get_mlflow_home()
     python_udf = mlflow.pyfunc.spark_udf(spark, model_path, env_manager=env_manager)
     result = infer_spark_df.select(python_udf("a", "b").alias("result")).toPandas().result[0]
 

@@ -1354,7 +1354,7 @@ def test_deploy_cli_list_sagemaker_deployments(pretrained_model, sagemaker_clien
 
 @mock_sagemaker_aws_services
 def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
-    output_df = pd.DataFrame({1: ["2", ".", "3"]})
+    output_df = pd.DataFrame({"1": ["2", ".", "3"]})
     boto_caller = botocore.client.BaseClient._make_api_call
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):

@@ -1030,6 +1030,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
     from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
     from mlflow.models.cli import _get_flavor_backend
 
+    # Used in test to force install lcoal version of mlflow when starting a model server
+    mlflow_home = os.environ.get("MLFLOW_HOME")
+
     _EnvManager.validate(env_manager)
 
     # Check whether spark is in local or local-cluster mode
@@ -1206,7 +1209,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
             pyfunc_backend = _get_flavor_backend(
                 local_model_path_on_executor,
                 workers=1,
-                install_mlflow=False,
+                install_mlflow=(mlflow_home is None),
                 env_manager=env_manager,
                 env_root_dir=env_root_dir_on_executor,
             )
