@@ -5,28 +5,31 @@ import numpy as np
 import pandas as pd
 
 from mlflow.pyfunc import scoring_server
-from mlflow.utils.proto_json_utils import (
-    dataframe_from_parsed_json,
-    parse_tf_serving_input,
-)
+
 from mlflow.exceptions import MlflowException
 
 
-def infer_and_parse_json_output(decoded_input):
-    """
-    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                       DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
-    """
-    if isinstance(decoded_input, list):
-        return dataframe_from_parsed_json(decoded_input, "records")
-    elif isinstance(decoded_input, dict):
-        if "instances" in decoded_input or "inputs" in decoded_input:
-            return parse_tf_serving_input(decoded_input)
-        elif "data" in decoded_input:
-            return dataframe_from_parsed_json(decoded_input, "split")
-        else:
-            return decoded_input
+class ScoringServerResponse(dict):
+    """Predictions returned from the MLflow scoring server. The predictions are presented as a
+    dictionary with convenience methods to access the predictions parsed as higher level type."""
+
+    @classmethod
+    def from_raw_json(cls, json_str):
+        try:
+            parsed_response = json.loads(json_str)
+        except Exception as ex:
+            raise MlflowException(f"Model response is not a valid json. Error {ex}")
+        if not isinstance(parsed_response, dict) or "predictions" not in parsed_response:
+            raise MlflowException(
+                "Invalid predictions data. Prediction object must be a dictionary "
+                "with 'predictions' field."
+            )
+        return ScoringServerResponse(dict)
+
+    def get_predictions_dataframe(self):
+        """Get the predictions returned from the server as pandas.DataFrame. this method will fail
+        if the returned predictions is not a valid"""
+        return pd.DataFrame(data=self["predictions"])
 
 
 class ScoringServerClient:
@@ -84,15 +87,8 @@ class ScoringServerClient:
             data=post_data,
             headers={"Content-Type": content_type},
         )
-
         if response.status_code != 200:
             raise Exception(
                 f"Invocation failed (error code {response.status_code}, response: {response.text})"
             )
-        try:
-            decoded_response = json.loads(response.text)
-        except Exception as ex:
-            raise MlflowException(f"Model response is not a valid json. Error {ex}")
-        if "predictions" not in decoded_response:
-            raise MlflowException("Model response is missing the prediction field.")
-        return infer_and_parse_json_output(decoded_response["predictions"])
+        return ScoringServerResponse.from_raw_json(response.text)

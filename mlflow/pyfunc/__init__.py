@@ -1271,7 +1271,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.VI
                 raise MlflowException(err_msg)
 
             def batch_predict_fn(pdf):
-                return client.invoke(pdf)
+                return client.invoke(pdf).get_predictions_dataframe()
 
         elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:

@@ -364,7 +364,7 @@ def test_mlflow_models_serve(enable_mlserver):
         extra_args=extra_args,
     )
     assert scoring_response.status_code == 200
-    served_model_preds = np.array(json.loads(scoring_response.content))
+    served_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
 
 

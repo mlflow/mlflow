@@ -630,7 +630,7 @@ def test_scoring_server_client(sklearn_model, model_path):
         client.wait_server_ready()
 
         data = pd.DataFrame(sklearn_model.inference_data)
-        result = client.invoke(data).to_numpy()[:, 0]
+        result = client.invoke(data).get_predictions_dataframe().to_numpy()[:, 0]
         np.testing.assert_allclose(result, expected_result, rtol=1e-5)
     finally:
         if server_proc is not None:

@@ -1368,9 +1368,7 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
         df = pd.DataFrame(data=[[1, 2]], columns=["a", "b"])
-
-        result = sagemaker_deployment_client.predict("test", df)
-
+        result = sagemaker_deployment_client.predict("test", df).get_predictions_dataframe()
         assert isinstance(result, pd.DataFrame)
         pd.testing.assert_frame_equal(result, output_df)
 
@@ -1387,7 +1385,9 @@ def test_predict_with_array_input_output(sagemaker_deployment_client):
         return result
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=mock_invoke_endpoint):
-        result = sagemaker_deployment_client.predict("test", np.array(range(10)))
+        result = sagemaker_deployment_client.predict(
+            "test", np.array(range(10))
+        ).get_predictions_dataframe()
 
         assert isinstance(result, pd.DataFrame)
         assert list(result[0]) == [1, 2, 3]
