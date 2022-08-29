@@ -152,6 +152,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    pyfunc_predict_func="predict",
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -195,6 +196,7 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param pyfunc_predict_fun: the name of the prediction function to use; e.g. 'predict_proba'.
 
     .. code-block:: python
         :caption: Example
@@ -254,14 +256,15 @@ def save_model(
         serialization_format=serialization_format,
     )
 
-    # `PyFuncModel` only works for sklearn models that define `predict()`.
-    if hasattr(sk_model, "predict"):
+    # `PyFuncModel` only works for sklearn models that define a predict function
+    if hasattr(sk_model, pyfunc_predict_func):
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.sklearn",
             model_path=model_data_subpath,
             env=_CONDA_ENV_FILE_NAME,
             code=code_path_subdir,
+            pyfunc_predict_func=pyfunc_predict_func,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -320,6 +323,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements=None,
     extra_pip_requirements=None,
+    pyfunc_predict_func="predict",
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -368,6 +372,7 @@ def log_model(
                             waits for five minutes. Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param pyfunc_predict_func: the prediction function to use for the pyfunc flavor
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
 
@@ -404,6 +409,7 @@ def log_model(
         await_registration_for=await_registration_for,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        pyfunc_predict_func=pyfunc_predict_func,
     )
 
 

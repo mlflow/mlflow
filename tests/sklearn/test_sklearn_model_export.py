@@ -617,3 +617,15 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         _compare_logged_code_paths(__file__, model_uri, mlflow.sklearn.FLAVOR_NAME)
         mlflow.sklearn.load_model(model_uri=model_uri)
         add_mock.assert_called()
+
+
+def test_log_predict_proba(sklearn_logreg_model):
+    model, inference_dataframe = sklearn_logreg_model
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path, pyfunc_predict_func="predict_proba")
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_model = pyfunc.load_model(model_uri)
+    scores = loaded_model.predict(inference_dataframe)
+    assert scores.shape[1] == 3
