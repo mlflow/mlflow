@@ -39,6 +39,11 @@
         font-size: 24px;
         padding: 24px;
       }
+      .node:hover {
+        stroke: #2272B4 !important;
+        color: #0E538B !important;
+        background-color: #bbdaf4;
+      }
     </style>
 
     <div class="wrapper">
@@ -50,6 +55,7 @@
           ingestMLPStep --> dataParquet[(ingested_data)]
 
           data[(ingested_data)] --> splitStep[["<font>split</font>"]]
+          transformUserCode([steps/transform.py]) --> transformMLPStep
           splitUserCode([steps/split.py]) --> splitStep
           splitStep --> splitData0[(training_data)]
           splitStep --> splitData1[(validation_data)]
@@ -57,7 +63,6 @@
           splitData0 --> transformMLPStep[["<font>transform</font>"]]
           splitData1 --> transformMLPStep[["<font>transform</font>"]]
 
-          transformUserCode([steps/transform.py]) --> transformMLPStep
           transformMLPStep --> transformedParquet[(transformed_training_data, <br/> transformed_validation_data)]
           transformMLPStep --> transformer{{transformer}}
           transformedParquet --> trainMLPStep[["<font>train</font>"]]
@@ -150,24 +155,31 @@
               nodeLabel.setAttribute("title", JSON.parse(nodeInfo).help_string)
             }
           })
-
+          resetStyles()
           window.editor = null;
         }
       );
 
+      var resetStyles = function() {
+        const allNodes = document.querySelector('.nodes').querySelectorAll('[id^="flowchart-"]');
+          [...allNodes].forEach(node => {
+            const rect = node.firstChild
+            if (rect) {
+              rect.style.fill = "inherit";
+              rect.style.stroke = "inherit";
+            }
+            node.style.fill = "#F2F5F7";
+            node.style.stroke = "#CDDAE5";
+            node.style.color = "#20272E";
+            const span = node.querySelector('span')
+            const label = node.querySelector('.label')
+            span.style.color = "inherit";
+            label.style.color = "inherit";
+          });
+      }
       var noOp = function() {}
       var renderMoreInformation = function(nodeId) {
-        const allNodes = document.querySelector('.nodes').querySelectorAll('[id^="flowchart-"]');
-        [...allNodes].forEach(nodes => {
-          const rect = nodes.firstChild
-          if (rect) {
-            rect.style.stroke = "";
-            rect.style.strokeWidth = "";
-            rect.style.color = "";
-            rect.style.strokeDasharray = "";
-          }
-        });
-
+        resetStyles()
         regex = `[id^="flowchart-${nodeId}-"]`
         const node = document.querySelector(regex);
         var nodeInfo = node.getAttribute('title');
@@ -183,10 +195,9 @@
         nodeInfo = JSON.parse(nodeInfo)
 
         const rect = node.firstChild;
-        rect.style.stroke = "#f66";
-        rect.style.strokeWidth = "2px";
-        rect.style.color = "#fff";
-        rect.style.strokeDasharray = "5 5";
+        rect.style.stroke = "#04355D";
+        rect.style.fill = "#bbdaf4";
+        rect.style.color = "#04355D";
 
         document.querySelector("#editor").classList.add('pane-loading');
         const hideSpinner = () => document.querySelector("#editor").classList.remove('pane-loading');
