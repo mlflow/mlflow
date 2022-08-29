@@ -456,6 +456,10 @@ class TrainStep(BaseStep):
             step_config["template_name"] = pipeline_config.get("template")
             step_config["profile"] = pipeline_config.get("profile")
             step_config["run_args"] = pipeline_config.get("run_args")
+            if "using" in pipeline_config:
+                step_config["using"] = pipeline_config.get("using")
+            else:
+                step_config["using"] = "estimator_spec"
             step_config.update(
                 get_pipeline_tracking_config(
                     pipeline_root_path=pipeline_root,
