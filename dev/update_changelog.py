@@ -45,7 +45,7 @@ class Section(NamedTuple):
     items: List[Any]
 
     def __str__(self):
-        if not self.prs:
+        if not self.items:
             return ""
         return "\n\n".join(
             [
