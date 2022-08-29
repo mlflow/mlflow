@@ -459,7 +459,8 @@ class TrainStep(BaseStep):
             if "using" in step_config:
                 if step_config["using"] not in ["estimator_spec"]:
                     raise MlflowException(
-                        f"Invalid train step configuration value {step_config['using']} for key 'using'. Supported values are: ['estimator_spec']",
+                        f"Invalid train step configuration value {step_config['using']} for key "
+                        f"'using'. Supported values are: ['estimator_spec']",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
