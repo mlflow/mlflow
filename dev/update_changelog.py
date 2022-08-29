@@ -4,7 +4,7 @@ import subprocess
 from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
-from typing import NamedTuple, List
+from typing import NamedTuple, List, Any
 
 import click
 import requests
@@ -42,7 +42,7 @@ class PullRequest(NamedTuple):
 
 class Section(NamedTuple):
     title: str
-    prs: List[PullRequest]
+    items: List[Any]
 
     def __str__(self):
         if not self.prs:
@@ -50,7 +50,7 @@ class Section(NamedTuple):
         return "\n\n".join(
             [
                 self.title,
-                "\n".join(f"- {pr}" for pr in self.prs),
+                "\n".join(f"- {item}" for item in self.items),
             ]
         )
 
@@ -76,7 +76,7 @@ def main(prev_branch, curr_branch, release_version):
             "--graph",
             "--cherry-pick",
             "--pretty=format:%s",
-            "upstream/" + prev_branch + "..." + "upstream/" + curr_branch,
+            f"origin/{prev_branch}...origin/{curr_branch}",
         ],
         text=True,
     )
