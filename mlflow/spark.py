@@ -76,7 +76,7 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "/tmp/mlflow"
+DFS_TMP = os.environ.get("MLFLOW_DFS_TMP", "/tmp/mlflow")
 _SPARK_MODEL_PATH_SUB = "sparkml"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 
