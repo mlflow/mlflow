@@ -164,7 +164,6 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 def deploy(
     app_name,
     model_uri,
-    variant_name=None,
     execution_role_arn=None,
     assume_role_arn=None,
     bucket=None,
@@ -179,6 +178,7 @@ def deploy(
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
+    variant_name=None,
 ):
     """
     Deploy an MLflow model on AWS SageMaker.
@@ -202,11 +202,7 @@ def deploy(
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
-
-    :variant_name: (optional) The name to assign to the new production variant.
-                      - If variant_name violates sagemaker constraints on naming an MlflowException 
-                        will be raised.
-
+ 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
                                model artifacts. If unspecified, the currently-assumed role will be
@@ -317,6 +313,7 @@ def deploy(
                             responsible for monitoring the health and status of the pending
                             deployment using native SageMaker APIs or the AWS console. If
                             ``synchronous`` is ``False``, this parameter is ignored.
+    :variant_name: (optional) The name to assign to the new production variant.
     """
     import boto3
 
@@ -393,17 +390,6 @@ def deploy(
         s3_client=s3_client,
         **assume_role_credentials,
     )
-
-    if variant_name:
-        pattern = r"[a-zA-Z0-9](-*[a-zA-Z0-9]){0,62}"
-        if not re.fullmatch(pattern, variant_name):
-            raise MlflowException(
-            message=(
-                "Variant name must match the following pattern" 
-                " {variant_pattern}".format(variant_pattern=pattern)
-            ),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
@@ -1927,6 +1913,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             data_capture_config=None,
             synchronous=True,
             timeout_seconds=1200,
+            variant_name=None,
         )
 
         if create_mode:
@@ -2087,6 +2074,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          For more information, see
                          https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                          Defaults to ``None``.
+
+                       - ``variant_name``: A string specifying the desired name when creating a production
+                         variant.  Defaults to ``None``.
         :param endpoint: (optional) Endpoint to create the deployment under. Currently unsupported
 
         .. code-block:: python
@@ -2114,7 +2104,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 instance_count=1,
                 synchronous=True,
                 timeout_seconds=300,
-                vpc_config=vpc_config
+                vpc_config=vpc_config,
+                variant_name="test-variant-name",
             )
             client = SageMakerDeploymentClient("sagemaker")
             client.create_deployment(
@@ -2140,6 +2131,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C instance_count=1 \\
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
+                    -C variant_name=test-variant-name \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\
@@ -2167,6 +2159,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             data_capture_config=final_config["data_capture_config"],
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
+            variant_name=final_config["variant_name"],
         )
 
         return dict(name=app_name, flavor=flavor)
@@ -2284,6 +2277,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          ``synchronous`` is ``False``, this parameter is ignored.
                          Defaults to ``300``.
 
+                       - ``variant_name``: A string specifying the desired name when creating a production
+                         variant.  Defaults to ``None``. 
+
                        - ``vpc_config``: A dictionary specifying the VPC configuration to use when
                          creating the new SageMaker model associated with this application.
                          The acceptable values for this parameter are identical to those of the
@@ -2335,6 +2331,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 instance_count=1,
                 synchronous=True,
                 timeout_seconds=300,
+                variant_name="test-variant-name",
                 vpc_config=vpc_config
                 data_capture_config=data_capture_config
             )
@@ -2362,6 +2359,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C instance_count=1 \\
                     -C synchronous=True \\
                     -C timeout_seconds=300 \\
+                    -C variant_name=test-variant-name \\
                     -C vpc_config='{"SecurityGroupIds": ["sg-123456abc"], \\
                     "Subnets": ["subnet-123456abc"]}' \\
                     -C data_capture_config='{"EnableCapture": True, \\
@@ -2402,6 +2400,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             data_capture_config=final_config["data_capture_config"],
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
+            variant_name=final_config["variant_name"],
         )
 
         return dict(name=app_name, flavor=flavor)
