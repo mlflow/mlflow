@@ -403,8 +403,9 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
     if t == DataType.double and values.dtype == decimal.Decimal:
-        # NB: Pyspark Decimal columne get converted to decimal.Decimal when converted to pandas
-        # DataFrame, in order to support 
+        # NB: Pyspark Decimal column get converted to decimal.Decimal when converted to pandas
+        # DataFrame. In order to support decimal data training from spark data frame, we add this
+        # conversion even we might lose the precision.
         try:
             return pandas.to_numeric(values, errors="raise")
         except ValueError:
