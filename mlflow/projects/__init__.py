@@ -64,25 +64,6 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     return _get_experiment_id()
 
-def _resolve_tracking_uri(tracking_uri=None):
-    """
-    Resolve tracking uri.
-
-    Checks whether the environment contains a tracking uri and one has been passed.
-
-    If ``tracking_uri`` is provided and is not None, and enviornment does not 
-    contain a tracking uri, then the passed value will be set as the new tracking
-    uri.
-
-    Not to be confused with ``utils.resolve_tracking_uri``, which resolves
-    the tracking uri by prioritizing the passed value over the environment.
-
-    :param tracking_uri: The uri which the tracking is supposed to interact with.
-    :return: str | None
-    """
-    if env.get_env(tracking._TRACKING_URI_ENV_VAR) is None and tracking_uri is not None:
-        return tracking_uri
-    return None
 
 def _run(
     uri,
@@ -97,12 +78,13 @@ def _run(
     env_manager,
     synchronous,
     run_name,
+    tracking_uri,
 ):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
-    tracking_store_uri = tracking.get_tracking_uri()
+    tracking_store_uri = tracking_uri if tracking_uri is not None else tracking.get_tracking_uri()
     backend_config[PROJECT_ENV_MANAGER] = env_manager
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
@@ -342,14 +324,18 @@ def run(
     elif env_manager is not None:
         _EnvManager.validate(env_manager)
 
+    _has_valid_tracking_uri = tracking_uri is not None # Prevent having to do the check manually below,
+                                                                         # and can be replaced with a function that does the check
+
     if backend == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
+        _databricks_uri = tracking_uri if _has_valid_tracking_uri else mlflow.get_tracking_uri()
+        mlflow.projects.databricks.before_run_validations(_databricks_uri, backend_config)
     else:
         if backend == "local" and run_id is not None:
             backend_config_dict[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
-        if tracking_uri is not None:
-            if _resolve_tracking_uri(tracking_uri) is not None:
-                mlflow.set_tracking_uri(_resolve_tracking_uri(tracking_uri))
+        if _has_valid_tracking_uri:
+            mlflow.set_tracking_uri(tracking_uri)
+            # if tracking_uri is not valid, it will default to what's provided by mlflow.get_tracking_uri()
 
     experiment_id = _resolve_experiment_id(
         experiment_name=experiment_name, experiment_id=experiment_id
@@ -368,6 +354,7 @@ def run(
         storage_dir=storage_dir,
         synchronous=synchronous,
         run_name=run_name,
+        tracking_uri=tracking_uri,
     )
     if synchronous:
         _wait_for(submitted_run_obj)
