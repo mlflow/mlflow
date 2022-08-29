@@ -24,7 +24,13 @@ For details, see `MLflow Models <../models.html>`_.
 from .model import Model
 from .flavor_backend import FlavorBackend
 from ..utils.environment import infer_pip_requirements
-from .evaluation import evaluate, EvaluationArtifact, EvaluationResult, list_evaluators
+from .evaluation import (
+    evaluate,
+    EvaluationArtifact,
+    EvaluationResult,
+    list_evaluators,
+    MetricThreshold,
+)
 
 __all__ = [
     "Model",
@@ -34,6 +40,7 @@ __all__ = [
     "EvaluationArtifact",
     "EvaluationResult",
     "list_evaluators",
+    "MetricThreshold",
 ]
 
 

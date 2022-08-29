@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import {
   ExperimentRunsTableMultiColumnView2Impl,
   ModelsCellRenderer,
+  TagCellRenderer,
 } from './ExperimentRunsTableMultiColumnView2';
 import { COLUMN_TYPES, ATTRIBUTE_COLUMN_LABELS } from '../constants';
 import { MemoryRouter as Router } from 'react-router-dom';
@@ -407,5 +408,22 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(paramColumnNames).toEqual(expectedParameterColumnNames);
     expect(tagColumnNames).toEqual(expectedTagColumnNames);
     expect(setColumnDefsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test('should render tag that is a valid http(s) as clickable link', () => {
+    expect(TagCellRenderer({ value: 'https://some_url.com' })).toEqual(
+      <a href='https://some_url.com' target='_blank' rel='noreferrer'>
+        https://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'http://some_url.com' })).toEqual(
+      <a href='http://some_url.com' target='_blank' rel='noreferrer'>
+        http://some_url.com
+      </a>,
+    );
+    expect(TagCellRenderer({ value: 'some text' })).toEqual('some text');
+    expect(TagCellRenderer({ value: 'some text https://some_url.com' })).toEqual(
+      'some text https://some_url.com',
+    );
   });
 });

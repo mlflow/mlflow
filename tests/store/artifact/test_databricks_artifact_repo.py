@@ -548,9 +548,7 @@ class TestDatabricksArtifactRepository:
             call_endpoint_mock.side_effect = list_artifact_paginated_response_protos
             message_mock.return_value = None
             artifacts = databricks_artifact_repo.list_artifacts()
-            assert set(["a.txt", "b", "c.txt", "d", "e.txt", "f"]) == set(
-                [file.path for file in artifacts]
-            )
+            assert {"a.txt", "b", "c.txt", "d", "e.txt", "f"} == {file.path for file in artifacts}
             calls = [
                 mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="")),
                 mock.call(ListArtifacts(run_id=MOCK_RUN_ID, path="", page_token="2")),
