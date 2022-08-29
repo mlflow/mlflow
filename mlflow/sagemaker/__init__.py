@@ -2586,6 +2586,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         """
         import json
         import boto3
+        import pandas as pd
         from mlflow.pyfunc.scoring_server.client import ScoringServerResponse
         from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
@@ -2597,9 +2598,13 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             sage_client = boto3.client(
                 "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
             )
+            if isinstance(df, pd.DataFrame):
+                body = (json.dumps({"dataframe_split": df.to_dict(orient="split")}),)
+            else:
+                body = json.dumps({"instances": _get_jsonable_obj(df)})
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=json.dumps({"dataframe_split": df.to_dict(orient="split")}),
+                Body=body,
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")

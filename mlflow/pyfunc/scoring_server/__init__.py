@@ -74,16 +74,19 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                        DataFrame, or a stream containing such a string representation.
     :param schema: Optional schema specification to be used during parsing.
     """
-    try:
-        decoded_input = json.loads(json_input)
-    except json.decoder.JSONDecodeError as ex:
-        raise MlflowException(
-            message=(
-                "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                f" formatted string. Error: '{ex}'"
-            ),
-            error_code=BAD_REQUEST,
-        )
+    if isinstance(json_input, dict):
+        decoded_input = json_input
+    else:
+        try:
+            decoded_input = json.loads(json_input)
+        except json.decoder.JSONDecodeError as ex:
+            raise MlflowException(
+                message=(
+                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                    f" formatted string. Error: '{ex}'"
+                ),
+                error_code=BAD_REQUEST,
+            )
     if isinstance(decoded_input, dict):
         format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
         if len(format_keys) != 1:
