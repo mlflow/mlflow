@@ -202,7 +202,7 @@ class SplitStep(BaseStep):
                 importlib.import_module(post_split_module_name), post_split_fn_name
             )
             (train_df, validation_df, test_df) = post_split(train_df, validation_df, test_df)
-
+            _logger.info(f"Running {post_split_fn_name} on train_df, validation_df, and test_df.")
         # Output train / validation / test splits
         train_df.to_parquet(os.path.join(output_directory, _OUTPUT_TRAIN_FILE_NAME))
         validation_df.to_parquet(os.path.join(output_directory, _OUTPUT_VALIDATION_FILE_NAME))
