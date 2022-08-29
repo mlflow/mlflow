@@ -867,7 +867,7 @@ def test_picklable_exception_safe_function_exhibits_expected_behavior_in_test_mo
 
 
 @pytest.mark.parametrize(
-    (("baseclass", "metaclass")),
+    ("baseclass", "metaclass"),
     [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)],
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
@@ -897,7 +897,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize(
-    (("baseclass", "metaclass")),
+    ("baseclass", "metaclass"),
     [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)],
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
@@ -1243,7 +1243,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize(
-    (("baseclass", "metaclass")),
+    ("baseclass", "metaclass"),
     [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)],
 )
 def test_validate_args_succeeds_when_extra_args_are_picklable_exception_safe_functions_or_classes(
