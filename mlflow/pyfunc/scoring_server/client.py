@@ -24,7 +24,7 @@ class ScoringServerResponse(dict):
                 "Invalid predictions data. Prediction object must be a dictionary "
                 "with 'predictions' field."
             )
-        return ScoringServerResponse(dict)
+        return ScoringServerResponse(parsed_response)
 
     def get_predictions_dataframe(self):
         """Get the predictions returned from the server as pandas.DataFrame. this method will fail
