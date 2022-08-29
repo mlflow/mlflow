@@ -176,8 +176,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
-    @staticmethod
-    def extract_headers_from_credentials(headers):
+    def _extract_headers_from_credentials(self, headers):
         return {header.name: header.value for header in headers}
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
@@ -192,9 +191,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
         try:
-            headers = DatabricksArtifactRepository.extract_headers_from_credentials(
-                credentials.headers
-            )
+            headers = self._extract_headers_from_credentials(credentials.headers)
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
                 # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
@@ -236,9 +233,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _signed_url_upload_file(self, credentials, local_file):
         try:
-            headers = DatabricksArtifactRepository.extract_headers_from_credentials(
-                credentials.headers
-            )
+            headers = self._extract_headers_from_credentials(credentials.headers)
             signed_write_uri = credentials.signed_uri
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:

@@ -113,16 +113,13 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             )
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 
-    @staticmethod
-    def _process_raw_headers(raw_headers):
-        if raw_headers == None or len(raw_headers) == 0:
-            return {}
-        return {cur_header.get("key"): cur_header.get("value") for cur_header in raw_headers}
+    def _extract_headers_from_credentials(self, headers):
+        return {header.name: header.value for header in headers}
 
     def _download_file(self, remote_file_path, local_path):
         try:
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
-            headers = DatabricksArtifactRepository.extract_headers_from_credentials(raw_headers)
+            headers = self._extract_headers_from_credentials(raw_headers)
             download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
         except Exception as err:
             raise MlflowException(err)
