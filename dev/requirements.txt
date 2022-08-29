@@ -1,4 +1,5 @@
 # Dev script dependencies
+click
 ruamel.yaml
 requests
 packaging
