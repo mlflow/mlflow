@@ -66,7 +66,6 @@ def _default_root_dir():
 
 
 class FileStore(AbstractStore):
-    # do we support restore of registered models?
     META_DATA_FILE_NAME = "meta.yaml"
     TAGS_FOLDER_NAME = "tags"
     MODEL_VERSION_TAGS_FOLDER_NAME = "tags"
@@ -99,6 +98,18 @@ class FileStore(AbstractStore):
                 f"Registered Model (name={name}) already exists.",
                 RESOURCE_ALREADY_EXISTS,
             )
+
+    def _update_registered_model_last_updated_time(self, name, updated_time):
+        registered_model = self._get_registered_model(name)
+        registered_model.last_updated_timestamp = updated_time
+        registered_model_dict = dict(registered_model)
+        del registered_model_dict["tags"]
+        write_yaml(
+            join(self.root_directory, name),
+            FileStore.META_DATA_FILE_NAME,
+            registered_model_dict,
+            overwrite=True,
+        )
 
     def create_registered_model(self, name, tags=None, description=None):
         """
@@ -220,7 +231,6 @@ class FileStore(AbstractStore):
                         self.set_model_version_tag(new_name, mv.version, tag)
             shutil.rmtree(model_path)
         else:
-            # what to do if the dir already exists? Remove it?
             raise MlflowException(
                 f"Registered Model (name={new_name}) already exists.",
                 RESOURCE_ALREADY_EXISTS,
@@ -403,6 +413,8 @@ class FileStore(AbstractStore):
         tag_path = self._get_registered_model_tag_path(name, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
+        updated_time = now()
+        self._update_registered_model_last_updated_time(name, updated_time)
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -419,6 +431,8 @@ class FileStore(AbstractStore):
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         shutil.rmtree(tag_path)
+        updated_time = now()
+        self._update_registered_model_last_updated_time(name, updated_time)
 
     # CRUD API for ModelVersion objects
 
@@ -438,7 +452,6 @@ class FileStore(AbstractStore):
         registered_model_path = self._get_registered_model_path(name)
         if registered_model_path is None:
             return None
-        # what's the default behavior here? folder name?
         return join(registered_model_path, f"version-{version}")
 
     def _get_model_version_dir_with_check(self, name, version):
@@ -557,16 +570,16 @@ class FileStore(AbstractStore):
             model_version_dict,
             overwrite=True,
         )
+        self._update_registered_model_last_updated_time(name, updated_time)
         return model_version
 
-    # is the param stage or new_stage
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
         Update model version stage.
 
         :param name: Registered model name.
         :param version: Registered model version.
-        :param new_stage: New desired stage for this model version.
+        :param stage: New desired stage for this model version.
         :param archive_existing_versions: If this flag is set to ``True``, all existing model
             versions in the stage will be automatically moved to the "archived" stage. Only valid
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
@@ -603,16 +616,7 @@ class FileStore(AbstractStore):
             overwrite=True,
         )
 
-        registered_model = self._get_registered_model(name)
-        registered_model.last_updated_timestamp = last_updated_time  ## Should we update here?
-        registered_model_dict = dict(registered_model)
-        del registered_model_dict["tags"]
-        write_yaml(
-            join(self.root_directory, name),
-            FileStore.META_DATA_FILE_NAME,
-            registered_model_dict,
-            overwrite=True,
-        )
+        self._update_registered_model_last_updated_time(name, last_updated_time)
         return model_version
 
     def delete_model_version(self, name, version):
@@ -625,6 +629,8 @@ class FileStore(AbstractStore):
         """
         meta_dir = self._get_model_version_dir_with_check(name, version)
         shutil.rmtree(meta_dir)
+        updated_time = now()
+        self._update_registered_model_last_updated_time(name, updated_time)
 
     def get_model_version(self, name, version):
         """
@@ -712,9 +718,10 @@ class FileStore(AbstractStore):
         """
         _validate_model_version_tag(tag.key, tag.value)
         tag_path = self._get_registered_model_version_tag_path(name, version, tag.key)
-        ## What's the behavior if the same tag is set multiple times?
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
+        updated_time = now()
+        self._update_registered_model_last_updated_time(name, updated_time)
 
     def delete_model_version_tag(self, name, version, key):
         """
@@ -733,6 +740,8 @@ class FileStore(AbstractStore):
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         shutil.rmtree(tag_path)
+        updated_time = now()
+        self._update_registered_model_last_updated_time(name, updated_time)
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):
