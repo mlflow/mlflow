@@ -6,6 +6,7 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.rest_utils import http_request
@@ -121,7 +122,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         try:
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
-            headers = DatabricksModelsArtifactRepository._process_raw_headers(raw_headers)
+            headers = DatabricksArtifactRepository.extract_headers_from_credentials(raw_headers)
             download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
         except Exception as err:
             raise MlflowException(err)
