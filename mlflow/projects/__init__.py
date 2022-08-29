@@ -283,8 +283,8 @@ def run(
 
                         If unspecified, default to conda.
     :param tracking_uri: The uri which the tracking is supposed to interact with.
-                     If ``None``, the tracking will be against local mlflow server.
-                     If environment variable ``MLFLOW_TRACKING_URI`` is set, it will be used by default.
+                     If ``None``, the currently configured tracking URI reflected by
+                     :py:func:`mlflow.get_tracking_uri()` is used by default.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
