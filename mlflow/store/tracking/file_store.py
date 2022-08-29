@@ -342,8 +342,8 @@ class FileStore(AbstractStore):
             name,
             artifact_uri,
             LifecycleStage.ACTIVE,
-            creation_time=int(time.time()),
-            last_update_time=int(time.time()),
+            creation_time=int(time.time() * 1000),
+            last_update_time=int(time.time() * 1000),
         )
         experiment_dict = dict(experiment)
         # tags are added to the file system and are not written to this dict on write
@@ -441,7 +441,7 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         experiment = self._get_experiment(experiment_id)
-        experiment._set_last_update_time(int(time.time()))
+        experiment._set_last_update_time(int(time.time() * 1000))
         meta_dir = os.path.join(self.root_directory, experiment_id)
         FileStore._overwrite_yaml(
             root=meta_dir,
@@ -467,7 +467,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
-        experiment._set_last_update_time(int(time.time()))
+        experiment._set_last_update_time(int(time.time() * 1000))
         FileStore._overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
@@ -486,7 +486,7 @@ class FileStore(AbstractStore):
             )
         self._validate_experiment_does_not_exist(new_name)
         experiment._set_name(new_name)
-        experiment._set_last_update_time(int(time.time()))
+        experiment._set_last_update_time(int(time.time() * 1000))
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception(
                 "Cannot rename experiment in non-active lifecycle stage."

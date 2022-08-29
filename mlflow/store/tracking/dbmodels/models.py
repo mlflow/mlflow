@@ -71,9 +71,14 @@ class SqlExperiment(Base):
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
     """
-    creation_time = Column(BigInteger(), default=int(time.time()))
-
-    last_update_time = Column(BigInteger(), default=int(time.time()))
+    creation_time = Column(BigInteger(), default=int(time.time() * 1000))
+    """
+    Creation Time of experiment: `BigInteger`.
+    """
+    last_update_time = Column(BigInteger(), default=int(time.time() * 1000))
+    """
+    Last Update Time of experiment: `BigInteger`.
+    """
 
     __table_args__ = (
         CheckConstraint(
