@@ -456,8 +456,7 @@ class TrainStep(BaseStep):
             step_config["template_name"] = pipeline_config.get("template")
             step_config["profile"] = pipeline_config.get("profile")
             step_config["run_args"] = pipeline_config.get("run_args")
-            if "using" in pipeline_config:
-                step_config["using"] = pipeline_config.get("using")
+            if "using" in step_config:
                 if step_config["using"] not in ["estimator_spec"]:
                     raise MlflowException(
                         "Invalid using conf in train step.", error_code=INVALID_PARAMETER_VALUE
