@@ -173,10 +173,10 @@ def deploy(
     instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
     instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT,
     vpc_config=None,
-    data_capture_config=None,
     flavor=None,
     synchronous=True,
     timeout_seconds=1200,
+    data_capture_config=None,
 ):
     """
     Deploy an MLflow model on AWS SageMaker.
@@ -275,6 +275,23 @@ def deploy(
                      }
         mfs.deploy(..., vpc_config=vpc_config)
 
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
+                   a flavor is automatically selected from the model's available flavors. If the
+                   specified flavor is not present or not supported for deployment, an exception
+                   will be thrown.
+    :param synchronous: If ``True``, this function will block until the deployment process succeeds
+                        or encounters an irrecoverable failure. If ``False``, this function will
+                        return immediately after starting the deployment process. It will not wait
+                        for the deployment process to complete; in this case, the caller is
+                        responsible for monitoring the health and status of the pending deployment
+                        via native SageMaker APIs or the AWS console.
+    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+                            the specified number of seconds if no definitive result (success or
+                            failure) is achieved. Once the function returns, the caller is
+                            responsible for monitoring the health and status of the pending
+                            deployment using native SageMaker APIs or the AWS console. If
+                            ``synchronous`` is ``False``, this parameter is ignored.
     :param data_capture_config: A dictionary specifying the data capture configuration to use when
                        creating the new SageMaker model associated with this application. For more
                        information, see
@@ -294,23 +311,6 @@ def deploy(
                      }
         mfs.deploy(..., data_capture_config=data_capture_config)
 
-    :param flavor: The name of the flavor of the model to use for deployment. Must be either
-                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   will be thrown.
-    :param synchronous: If ``True``, this function will block until the deployment process succeeds
-                        or encounters an irrecoverable failure. If ``False``, this function will
-                        return immediately after starting the deployment process. It will not wait
-                        for the deployment process to complete; in this case, the caller is
-                        responsible for monitoring the health and status of the pending deployment
-                        via native SageMaker APIs or the AWS console.
-    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
-                            the specified number of seconds if no definitive result (success or
-                            failure) is achieved. Once the function returns, the caller is
-                            responsible for monitoring the health and status of the pending
-                            deployment using native SageMaker APIs or the AWS console. If
-                            ``synchronous`` is ``False``, this parameter is ignored.
     """
     import boto3
 
