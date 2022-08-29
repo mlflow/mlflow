@@ -159,7 +159,13 @@ def main(prev_branch, curr_branch, release_version):
     changelog_header = "# CHANGELOG"
     changelog = Path("CHANGELOG.md")
     old_changelog = changelog.read_text().replace(f"{changelog_header}\n\n", "", 1)
-    new_changelog = "\n\n".join([changelog_header, new_changelog, old_changelog])
+    new_changelog = "\n\n".join(
+        [
+            changelog_header,
+            new_changelog,
+            old_changelog,
+        ]
+    )
     changelog.write_text(new_changelog)
 
 
