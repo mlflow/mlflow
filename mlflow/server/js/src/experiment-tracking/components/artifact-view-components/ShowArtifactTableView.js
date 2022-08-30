@@ -2,8 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
-import { MLFlowAgGridLoader } from 'src/common/components/ag-grid/AgGridLoader';
-import { Spinner } from '../../../common/components/Spinner';
+import { Table } from '@databricks/design-system';
 import Papa from 'papaparse';
 
 class ShowArtifactTableView extends Component {
@@ -39,7 +38,7 @@ class ShowArtifactTableView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      this.setState({ data: [], headers: [], originalRowLength: 0 });
+      this.setState({ data: undefined, headers: undefined, originalRowLength: 0, loading: true });
       this.fetchArtifacts();
     }
   }
@@ -57,61 +56,25 @@ class ShowArtifactTableView extends Component {
     }
 
     if (this.state.data) {
-      // const { theme } = designSystemThemeApi; // Do we not need this?
-      const agGridOverrides = {
-        '--ag-border-color': 'rgba(0, 0, 0, 0.06)',
-        '--ag-header-foreground-color': '#20272e',
-        // '&.ag-header': {
-        //   position: 'static',
-        //   top: 0,
-        //   zIndex: 1,
-        // },
-        // '&.ag-header': {
-        //   top: 0,
-        //   position: 'fixed',
-        //   width: 'auto',
-        //   display: 'table',
-        //   zIndex: 99,
-        // },
-        // '&.ag-root': {
-        //   overflow: 'scroll',
-        // },
-        // '&.ag-root-wrapper': {
-        //   border: '0',
-        //   borderRadius: '4px',
-        //   overflow: 'scroll',
-        // },
-        overflow: 'scroll',
-        // So scrolling horizontally on the trcakpad doesn't make browser go back a page
-        'overscroll-behavior-x': 'contain',
-      };
-
       // eslint-disable-next-line max-len
       const rowPreviewMessage = `Previewing the first ${this.state.data.length} rows out of ${this.state.originalRowLength}`;
 
+      const columns = this.state.headers.map((f) => ({
+        title: f,
+        dataIndex: f,
+        key: f,
+        sorter: (a, b) => a[f] - b[f],
+      }));
+
       return (
-        <div id='grid-parent-scrollable' className='ag-theme-balham' css={agGridOverrides}>
+        <div css={{ overscrollBehaviorX: 'contain', overflowX: 'scroll', margin: 10 }}>
           <span style={{ display: 'flex', justifyContent: 'center' }}>{rowPreviewMessage}</span>
-          <MLFlowAgGridLoader
-            columnDefs={this.getColumnDefs(this.state.headers)}
-            defaultColDef={{ suppressMenu: true }}
-            loadingOverlayComponentParams={{ showImmediately: true }}
-            loadingOverlayComponent='loadingOverlayComponent'
-            components={{ loadingOverlayComponent: Spinner }}
-            domLayout='autoHeight'
-            enableCellTextSelection
-            enableSele
-            rowData={this.state.data}
-            suppressColumnVirtualisation
-            alwaysShowHorizontalScroll
-            // onGridReady={(params) => params.api.sizeColumnsToFit()}
-            onFirstDataRendered={(params) => {
-              const allColumnIds = [];
-              params.columnApi.getAllColumns().forEach((column) => {
-                allColumnIds.push(column.getId());
-              });
-              params.columnApi.autoSizeColumns(allColumnIds, false);
-            }}
+          <Table
+            columns={columns}
+            dataSource={this.state.data}
+            pagination={false}
+            sticky
+            scroll={{ x: true, y: true }}
           />
         </div>
       );
