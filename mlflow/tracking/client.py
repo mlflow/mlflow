@@ -619,6 +619,9 @@ class MlflowClient:
     def delete_experiment(self, experiment_id: str) -> None:
         """
         Delete an experiment from the backend store.
+        This deletion is a soft-delete, not a permanent deletion.
+        Experiment names can not be reused, unless the deleted experiment
+        is permanently deleted by a database admin.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
 
