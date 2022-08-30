@@ -573,4 +573,3 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
         mlflow.models.validate_schema(input_data, model_signature.inputs)
     """
     _enforce_schema(data, expected_schema)
-    return
