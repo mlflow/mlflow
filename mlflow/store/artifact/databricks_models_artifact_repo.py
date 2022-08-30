@@ -119,7 +119,6 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         try:
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
-            print("HEADERS = " + str(raw_headers))
             headers = self._extract_headers_from_signed_url(raw_headers)
             download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
         except Exception as err:
