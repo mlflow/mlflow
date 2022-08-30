@@ -196,7 +196,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
-    tracking_uri=None, # Inserted at the bottom for backwards compatibility
+    tracking_uri=None,  # Inserted at the bottom for backwards compatibility
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -324,8 +324,10 @@ def run(
     elif env_manager is not None:
         _EnvManager.validate(env_manager)
 
-    _has_valid_tracking_uri = tracking_uri is not None # Prevent having to do the check manually below,
-                                                                         # and can be replaced with a function that does the check
+    _has_valid_tracking_uri = (
+        tracking_uri is not None
+    )  # Prevent having to do the check manually below,
+    # and can be replaced with a function that does the check
 
     if backend == "databricks":
         _databricks_uri = tracking_uri if _has_valid_tracking_uri else mlflow.get_tracking_uri()
