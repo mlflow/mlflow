@@ -802,7 +802,7 @@ def test_evaluator_evaluation_interface(multiclass_logistic_regressor_model_uri,
 
 
 @pytest.mark.parametrize(
-    "baseline_model_uri, expected_error",
+    ("baseline_model_uri", "expected_error"),
     [
         (
             "pyfunc",
