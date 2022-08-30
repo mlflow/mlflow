@@ -47,7 +47,7 @@ services:
     image: mcr.microsoft.com/mssql/server
     restart: always
     environment:
-      ACCEPT_EULA: "Y"
+      ACCEPT_EULA: Y
       SA_PASSWORD: "1Secure*Password1"
 
   mlflow-mssql:
