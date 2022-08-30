@@ -123,7 +123,7 @@ def load_dict(artifact_uri: str) -> dict:
                 raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
 
 
-def load_image(artifact_uri: str) -> "Image.Image":
+def load_image(artifact_uri: str):
     """
     Loads artifact contents as a ``PIL.Image.Image`` object
 
