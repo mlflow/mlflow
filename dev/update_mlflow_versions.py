@@ -13,46 +13,46 @@ def get_current_version() -> str:
 
 
 def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
+    pattern = re.compile(pattern)
     for f in files:
-        new_text = re.sub(re.escape(pattern), repl, f.read_text())
+        old_text = f.read_text()
+        assert pattern.search(old_text), f"Pattern {pattern} not found in {f}"
+        new_text = pattern.sub(repl, old_text)
         f.write_text(new_text)
 
 
 def update_versions(new_version: str, is_dev_version: bool) -> None:
-    current_version = get_current_version()
+    current_version = re.escape(get_current_version())
     # Java
-    new_java_version = f"{new_version}-SNAPSHOT" if is_dev_version else new_version
-    for pattern in [f"{current_version}-SNAPSHOT", current_version]:
-        replace_occurrences(
-            files=Path("mlflow", "java").rglob("*.xml"),
-            pattern=pattern,
-            repl=new_java_version,
-        )
+    suffix = "-SNAPSHOT" if is_dev_version else ""
+    replace_occurrences(
+        files=Path("mlflow", "java").rglob("*.xml"),
+        pattern=rf"{current_version}(-SNAPSHOT)?",
+        repl=new_version + suffix,
+    )
     # Python
-    new_python_version = f"{new_version}.dev0" if is_dev_version else new_version
-    for pattern in [f"{current_version}.dev0", current_version]:
-        replace_occurrences(
-            files=[Path("mlflow", "version.py")],
-            pattern=pattern,
-            repl=new_python_version,
-        )
+    suffix = ".dev0" if is_dev_version else ""
+    replace_occurrences(
+        files=[Path("mlflow", "version.py")],
+        pattern=rf"{current_version}(\.dev0)",
+        repl=new_version + suffix,
+    )
     # JS
-    new_js_version = f"{new_version}.dev0" if is_dev_version else new_version
-    for pattern in [f"{current_version}.dev0", current_version]:
-        replace_occurrences(
-            files=[
-                Path(
-                    "mlflow",
-                    "server",
-                    "js",
-                    "src",
-                    "common",
-                    "constants.js",
-                )
-            ],
-            pattern=pattern,
-            repl=new_js_version,
-        )
+    suffix = ".dev0" if is_dev_version else ""
+    replace_occurrences(
+        files=[
+            Path(
+                "mlflow",
+                "server",
+                "js",
+                "src",
+                "common",
+                "constants.js",
+            )
+        ],
+        pattern=rf"{current_version}(\.dev0)",
+        repl=new_version + suffix,
+    )
     # R
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
@@ -76,8 +76,8 @@ def before_release(new_version: str):
 @click.option("--new-version", required=True, help="New version that was released")
 def after_release(new_version: str):
     new_version = Version(new_version)
-    new_dev_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
-    update_versions(new_dev_version, is_dev_version=True)
+    new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
+    update_versions(new_version, is_dev_version=True)
 
 
 if __name__ == "__main__":
