@@ -21,24 +21,24 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
         f.write_text(new_text)
 
 
-def update_versions(new_version: str, is_dev_version: bool) -> None:
+def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     current_version = re.escape(get_current_version())
     # Java
-    suffix = "-SNAPSHOT" if is_dev_version else ""
+    suffix = "-SNAPSHOT" if add_dev_suffix else ""
     replace_occurrences(
         files=Path("mlflow", "java").rglob("*.xml"),
         pattern=rf"{current_version}(-SNAPSHOT)?",
         repl=new_version + suffix,
     )
     # Python
-    suffix = ".dev0" if is_dev_version else ""
+    suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
         files=[Path("mlflow", "version.py")],
         pattern=rf"{current_version}(\.dev0)?",
         repl=new_version + suffix,
     )
     # JS
-    suffix = ".dev0" if is_dev_version else ""
+    suffix = ".dev0" if add_dev_suffix else ""
     replace_occurrences(
         files=[
             Path(
@@ -77,7 +77,7 @@ python dev/update_mlflow_versions.py before-release --new-version 1.29.0
 )
 @click.option("--new-version", required=True, help="New version to release")
 def before_release(new_version: str):
-    update_versions(new_version, is_dev_version=False)
+    update_versions(new_version, add_dev_suffix=False)
 
 
 @update_mlflow_versions.command(
@@ -93,7 +93,7 @@ python dev/update_mlflow_versions.py after-release --new-version 1.29.0
 def after_release(new_version: str):
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
-    update_versions(next_new_version, is_dev_version=True)
+    update_versions(next_new_version, add_dev_suffix=True)
 
 
 if __name__ == "__main__":
