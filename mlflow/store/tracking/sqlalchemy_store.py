@@ -478,7 +478,6 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(objs=experiment, session=session)
 
     def _mark_run_deleted(self, session, run):
-        self._check_run_is_active(run)
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = int(time.time() * 1000)
         self._save_to_db(objs=run, session=session)
@@ -602,15 +601,6 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def _check_run_is_deleted(self, run):
-        if run.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException(
-                "The run {} must be in the 'deleted' state. Current state is {}.".format(
-                    run.run_uuid, run.lifecycle_stage
-                ),
-                INVALID_PARAMETER_VALUE,
-            )
-
     def update_run_info(self, run_id, run_status, end_time):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -645,7 +635,6 @@ class SqlAlchemyStore(AbstractStore):
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
-            self._check_run_is_deleted(run)
             run.lifecycle_stage = LifecycleStage.ACTIVE
             run.deleted_time = None
             self._save_to_db(objs=run, session=session)
@@ -653,7 +642,6 @@ class SqlAlchemyStore(AbstractStore):
     def delete_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
-            self._check_run_is_active(run)
             run.lifecycle_stage = LifecycleStage.DELETED
             run.deleted_time = int(time.time() * 1000)
             self._save_to_db(objs=run, session=session)

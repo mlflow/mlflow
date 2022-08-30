@@ -259,6 +259,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiment_id = self._experiment_factory("test exp")
         run1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
         run2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
+        self.store.delete_run(run1)
         run_ids = [run1, run2]
 
         self.store.delete_experiment(experiment_id)
@@ -1246,21 +1247,21 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self._run_factory()
         self.assertEqual(run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'deleted' state"):
-            self.store.restore_run(run.info.run_id)
+        # Verify that active runs can be restored (run restoration is idempotent)
+        self.store.restore_run(run.info.run_id)
 
+        # Verify that run deletion is idempotent
         self.store.delete_run(run.info.run_id)
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'active' state"):
-            self.store.delete_run(run.info.run_id)
+        self.store.delete_run(run.info.run_id)
 
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
         with self.store.ManagedSessionMaker() as session:
             assert self.store._get_run(session, deleted.info.run_id).deleted_time is not None
+        # Verify that restoration of a deleted run is idempotent
         self.store.restore_run(run.info.run_id)
-        with pytest.raises(MlflowException, match=r"The run .+ must be in the 'deleted' state"):
-            self.store.restore_run(run.info.run_id)
+        self.store.restore_run(run.info.run_id)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)

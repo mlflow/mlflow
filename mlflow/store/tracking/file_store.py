@@ -22,7 +22,7 @@ from mlflow.entities import (
     ExperimentTag,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
+from mlflow.entities.run_info import check_run_is_active
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -480,7 +480,6 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
-        check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
 
@@ -519,7 +518,6 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
-        check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
         self._overwrite_run_info(new_info, deleted_time=None)
 

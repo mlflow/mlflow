@@ -542,10 +542,14 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         _, run_dir = fs._find_run_root(run_id)
         # Should not throw.
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
+        # Verify that run deletion is idempotent by deleting twice
+        fs.delete_run(run_id)
         fs.delete_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "deleted"
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         assert "deleted_time" in meta and meta["deleted_time"] is not None
+        # Verify that run restoration is idempotent by restoring twice
+        fs.restore_run(run_id)
         fs.restore_run(run_id)
         assert fs.get_run(run_id).info.lifecycle_stage == "active"
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
