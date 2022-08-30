@@ -113,7 +113,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         return json_response.get("signed_uri", None), json_response.get("headers", None)
 
     def _extract_headers_from_signed_url(self, headers):
-        filtered_headers = filter(lambda h: 'name' in h and 'value' in h, headers)
+        filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
         return {header.get("name"): header.get("value") for header in filtered_headers}
 
     def _download_file(self, remote_file_path, local_path):
