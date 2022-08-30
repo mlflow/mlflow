@@ -258,6 +258,7 @@ def save_model(
     )
 
     # `PyFuncModel` only works for sklearn models that define a predict function
+
     if hasattr(sk_model, pyfunc_predict_fn):
         pyfunc.add_to_model(
             mlflow_model,
@@ -267,6 +268,11 @@ def save_model(
             code=code_path_subdir,
             predict_fn=pyfunc_predict_fn,
         )
+    else:
+        _logger.warning(
+            f"Model was missing function: {pyfunc_predict_fn}. Not logging python_function flavor!"
+        )
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
