@@ -34,7 +34,7 @@ def update_versions(new_version: str, is_dev_version: bool) -> None:
     suffix = ".dev0" if is_dev_version else ""
     replace_occurrences(
         files=[Path("mlflow", "version.py")],
-        pattern=rf"{current_version}(\.dev0)",
+        pattern=rf"{current_version}(\.dev0)?",
         repl=new_version + suffix,
     )
     # JS
@@ -76,8 +76,8 @@ def before_release(new_version: str):
 @click.option("--new-version", required=True, help="New version that was released")
 def after_release(new_version: str):
     new_version = Version(new_version)
-    new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
-    update_versions(new_version, is_dev_version=True)
+    next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
+    update_versions(next_new_version, is_dev_version=True)
 
 
 if __name__ == "__main__":
