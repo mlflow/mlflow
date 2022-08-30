@@ -96,7 +96,7 @@ def test_docker_project_execution_async_docker_args(
 
 
 @pytest.mark.parametrize(
-    "tracking_uri, expected_command_segment",
+    ("tracking_uri", "expected_command_segment"),
     [
         (None, "-e MLFLOW_TRACKING_URI=/mlflow/tmp/mlruns"),
         ("http://some-tracking-uri", "-e MLFLOW_TRACKING_URI=http://some-tracking-uri"),
@@ -164,7 +164,7 @@ def test_docker_invalid_project_backend_local():
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, host_artifact_uri, container_artifact_uri, should_mount",
+    ("artifact_uri", "host_artifact_uri", "container_artifact_uri", "should_mount"),
     [
         ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
         ("s3://my_bucket", None, None, False),
@@ -212,7 +212,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
 
 
 @pytest.mark.parametrize(
-    "volumes, environment, os_environ, expected",
+    ("volumes", "environment", "os_environ", "expected"),
     [
         ([], ["VAR1"], {"VAR1": "value1"}, [("-e", "VAR1=value1")]),
         ([], ["VAR1"], {}, ["should_crash", ("-e", "VAR1=value1")]),

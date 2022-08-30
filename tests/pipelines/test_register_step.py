@@ -36,7 +36,7 @@ def registry_uri_path(tmp_path) -> Path:
 
 @pytest.mark.usefixtures("clear_custom_metrics_module_cache")
 @pytest.mark.parametrize(
-    "mae_threshold,register_flag",
+    ("mae_threshold", "register_flag"),
     [
         (-1, ""),
         (1_000_000, ""),

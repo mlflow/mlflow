@@ -551,7 +551,7 @@ def test_dataframe_from_json():
 
 
 @pytest.mark.parametrize(
-    "dt, expected",
+    ("dt", "expected"),
     [
         (datetime.datetime(2022, 1, 1), '"2022-01-01T00:00:00"'),
         (datetime.datetime(2022, 1, 2, 3, 4, 5), '"2022-01-02T03:04:05"'),

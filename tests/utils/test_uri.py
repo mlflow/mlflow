@@ -37,7 +37,7 @@ def test_extract_db_type_from_uri():
 
 
 @pytest.mark.parametrize(
-    "server_uri, result",
+    ("server_uri", "result"),
     [
         ("databricks://aAbB", ("aAbB", None)),
         ("databricks://aAbB/", ("aAbB", None)),
@@ -334,7 +334,7 @@ def test_is_databricks_acled_artifacts_uri():
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         # URIs with no databricks profile info -> return None
         ("ftp://user:pass@realhost:port/path/to/nowhere", None),
@@ -377,7 +377,7 @@ def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         # URIs with no databricks profile info should stay the same
         (
@@ -411,7 +411,7 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, profile_uri, result",
+    ("artifact_uri", "profile_uri", "result"),
     [
         # test various profile URIs
         ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
@@ -465,7 +465,7 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, profile_uri",
+    ("artifact_uri", "profile_uri"),
     [
         ("dbfs:/path/a/b", "databricks://not:legit:auth"),
         ("dbfs:/path/a/b/", "databricks://scope::key"),
@@ -479,7 +479,7 @@ def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profil
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         ("dbfs:/path/a/b", True),
         ("dbfs://databricks/a/b", True),
@@ -502,7 +502,7 @@ def test_is_valid_dbfs_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         ("/tmp/path", "/dbfs/tmp/path"),
         ("dbfs:/path", "/dbfs/path"),

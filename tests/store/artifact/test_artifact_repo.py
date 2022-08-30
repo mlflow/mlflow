@@ -68,7 +68,7 @@ class FailureArtifactRepositoryImpl(ArtifactRepository):
 
 
 @pytest.mark.parametrize(
-    "base_uri, download_arg, list_return_val",
+    ("base_uri", "download_arg", "list_return_val"),
     [
         (_PARENT_MODEL_DIR, "", [_MODEL_FILE]),
         (_PARENT_MODEL_DIR, "", [".", _MODEL_FILE]),
@@ -95,7 +95,7 @@ def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, lis
 
 
 @pytest.mark.parametrize(
-    "base_uri, download_arg, list_return_val",
+    ("base_uri", "download_arg", "list_return_val"),
     [
         (
             "",
@@ -124,7 +124,7 @@ def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_retur
 
 
 @pytest.mark.parametrize(
-    "base_uri, download_arg, list_return_val",
+    ("base_uri", "download_arg", "list_return_val"),
     [
         (_PARENT_MODEL_DIR, "", [_MODEL_FILE]),
         (_PARENT_MODEL_DIR, "", [".", _MODEL_FILE]),
@@ -156,7 +156,7 @@ def test_download_artifacts_awaits_download_completion(base_uri, download_arg, l
 
 
 @pytest.mark.parametrize(
-    "base_uri, download_arg, list_return_val",
+    ("base_uri", "download_arg", "list_return_val"),
     [
         (_PARENT_MODEL_DIR, "", [_MODEL_FILE]),
     ],

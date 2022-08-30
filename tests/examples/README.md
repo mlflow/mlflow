@@ -23,7 +23,7 @@ this `tuple` is added to the decorator list
 as shown below
 
 ```
-@pytest.mark.parametrize("directory, params", [
+@pytest.mark.parametrize(("directory", "params"), [
     ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
     ("new_example_dir", ["-P", "parm1=123", "-P", "parm2=99"]),
@@ -50,7 +50,7 @@ to the decorator's list
 as shown below
 
 ```
-@pytest.mark.parametrize("directory, command", [
+@pytest.mark.parametrize(("directory", "command"), [
     ('sklearn_logistic_regression', ['python', 'train.py']),
     ('h2o', ['python', 'random_forest.py']),
     ('quickstart', ['python', 'mlflow_tracking.py']),

@@ -9,7 +9,7 @@ from mlflow.utils.search_utils import SearchUtils
 
 
 @pytest.mark.parametrize(
-    "filter_string, parsed_filter",
+    ("filter_string", "parsed_filter"),
     [
         (
             "metric.acc >= 0.94",
@@ -95,7 +95,7 @@ def test_filter(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize(
-    "filter_string, parsed_filter",
+    ("filter_string", "parsed_filter"),
     [
         ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
@@ -111,7 +111,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
         ("m.acc >= 0.94", "Invalid entity type"),
@@ -145,7 +145,7 @@ def test_error_filter(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("metric.model = 'LR'", "Expected numeric value type for metric"),
         ("metric.model = '5'", "Expected numeric value type for metric"),
@@ -162,7 +162,7 @@ def test_error_comparison_clauses(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("params.acc = LR", "value is either not quoted or unidentified quote types"),
         ("tags.acc = LR", "value is either not quoted or unidentified quote types"),
@@ -182,7 +182,7 @@ def test_bad_quotes(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "filter_string, error_message",
+    ("filter_string", "error_message"),
     [
         ("params.acc LR !=", "Invalid clause(s) in filter string"),
         ("params.acc LR", "Invalid clause(s) in filter string"),
@@ -199,7 +199,7 @@ def test_invalid_clauses(filter_string, error_message):
 
 
 @pytest.mark.parametrize(
-    "entity_type, bad_comparators, key, entity_value",
+    ("entity_type", "bad_comparators", "key", "entity_value"),
     [
         ("metrics", ["~", "~="], "abc", 1.0),
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
@@ -231,7 +231,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
 
 
 @pytest.mark.parametrize(
-    "filter_string, matching_runs",
+    ("filter_string", "matching_runs"),
     [
         (None, [0, 1, 2]),
         ("", [0, 1, 2]),
@@ -324,7 +324,7 @@ def test_filter_runs_by_start_time():
 
 
 @pytest.mark.parametrize(
-    "order_bys, matching_runs",
+    ("order_bys", "matching_runs"),
     [
         (None, [2, 1, 0]),
         ([], [2, 1, 0]),
@@ -431,7 +431,7 @@ def test_order_by_metric_with_nans_infs_nones():
 
 
 @pytest.mark.parametrize(
-    "order_by, error_message",
+    ("order_by", "error_message"),
     [
         ("m.acc", "Invalid entity type"),
         ("acc", "Invalid identifier"),
@@ -453,7 +453,7 @@ def test_invalid_order_by_search_runs(order_by, error_message):
 
 
 @pytest.mark.parametrize(
-    "order_by, ascending_expected",
+    ("order_by", "ascending_expected"),
     [
         ("metrics.`Mean Square Error`", True),
         ("metrics.`Mean Square Error` ASC", True),
@@ -470,7 +470,7 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
 
 
 @pytest.mark.parametrize(
-    "order_by, error_message",
+    ("order_by", "error_message"),
     [
         ("creation_timestamp DESC", "Invalid order by key"),
         ("last_updated_timestamp DESC blah", "Invalid order_by clause"),
@@ -488,7 +488,7 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
 
 
 @pytest.mark.parametrize(
-    "page_token, max_results, matching_runs, expected_next_page_token",
+    ("page_token", "max_results", "matching_runs", "expected_next_page_token"),
     [
         (None, 1, [0], {"offset": 1}),
         (None, 2, [0, 1], {"offset": 2}),
@@ -565,7 +565,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
 
 
 @pytest.mark.parametrize(
-    "page_token, error_message",
+    ("page_token", "error_message"),
     [
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),

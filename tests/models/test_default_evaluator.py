@@ -1068,7 +1068,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
 
 
 @pytest.mark.parametrize(
-    "fn, expectation",
+    ("fn", "expectation"),
     [
         (lambda eval_df, _: {"pred_sum": sum(eval_df["prediction"])}, does_not_raise()),
         (lambda eval_df, builtin_metrics: ({"test": 1.1}, {"a_list": [1, 2, 3]}), does_not_raise()),

@@ -39,7 +39,7 @@ def test_display_html_opens_html_file(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "eval_metrics, ordered_metric_names, expected_metric_names, expected_columns",
+    ("eval_metrics", "ordered_metric_names", "expected_metric_names", "expected_columns"),
     [
         ({"src1": {}}, None, [], ["src1"]),
         ({"src1": {}, "src2": {"m1": 1}}, None, ["m1"], ["src1", "src2"]),
@@ -66,7 +66,7 @@ def test_get_merged_eval_metrics_works(
 
 
 @pytest.mark.parametrize(
-    "data_frame, max_cells, max_cols, max_rows, expected_cols, expected_rows",
+    ("data_frame", "max_cells", "max_cols", "max_rows", "expected_cols", "expected_rows"),
     [
         (DataFrame(np.arange(160).reshape(8, 20)), 1000, 1, 1, 1, 1),
         (DataFrame(np.arange(160).reshape(8, 20)), 1000, 5, 4, 5, 4),

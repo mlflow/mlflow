@@ -10,7 +10,7 @@ bool_values = [True, False]
 
 
 @pytest.mark.parametrize(
-    "is_in_databricks_notebook,is_in_databricks_job,is_in_cluster",
+    ("is_in_databricks_notebook", "is_in_databricks_job", "is_in_cluster"),
     itertools.product(bool_values, bool_values, bool_values),
 )
 def test_databricks_request_header_provider_in_context(
@@ -33,7 +33,7 @@ def test_databricks_request_header_provider_in_context(
 
 # test that request_headers returns whatever is available
 @pytest.mark.parametrize(
-    "is_in_databricks_notebook,is_in_databricks_job,is_in_cluster",
+    ("is_in_databricks_notebook", "is_in_databricks_job", "is_in_cluster"),
     itertools.product(bool_values, bool_values, bool_values),
 )
 def test_databricks_request_header_provider_request_headers(

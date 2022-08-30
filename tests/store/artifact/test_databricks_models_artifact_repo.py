@@ -209,7 +209,7 @@ class TestDatabricksModelArtifactRepository:
             assert len(artifacts) == 0
 
     @pytest.mark.parametrize(
-        "remote_file_path, local_path",
+        ("remote_file_path", "local_path"),
         [
             ("test_file.txt", ""),
             ("test_file.txt", None),

@@ -98,7 +98,7 @@ class TestDbfsArtifactRepository:
             assert creds.host == default_host
 
     @pytest.mark.parametrize(
-        "artifact_path,expected_endpoint",
+        ("artifact_path", "expected_endpoint"),
         [(None, "/dbfs/test/test.txt"), ("output", "/dbfs/test/output/test.txt")],
     )
     def test_log_artifact(self, dbfs_artifact_repo, test_file, artifact_path, expected_endpoint):
@@ -185,7 +185,7 @@ class TestDbfsArtifactRepository:
                 dbfs_artifact_repo.log_artifacts(test_dir.strpath)
 
     @pytest.mark.parametrize(
-        "artifact_path,expected_endpoints",
+        ("artifact_path", "expected_endpoints"),
         [
             (
                 "a",

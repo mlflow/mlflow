@@ -5,7 +5,7 @@ from mlflow.pyfunc.mlserver import get_cmd, MLServerMLflowRuntime, MLServerDefau
 
 
 @pytest.mark.parametrize(
-    "params, expected",
+    ("params", "expected"),
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4},
@@ -43,7 +43,7 @@ def test_get_cmd(params: dict, expected: dict):
 
 
 @pytest.mark.parametrize(
-    "params, expected",
+    ("params", "expected"),
     [
         ({"port": 5000, "timeout": 70}, "Timeout is not yet supported in MLServer."),
     ],
