@@ -64,6 +64,13 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+#: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
+#: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
+#: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
+#: for more information.
+#: (default: ``/tmp/mlflow``)
+MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
+
 #: Specifies the maximum number of retries for MLflow HTTP requests
 #: (default: ``5``)
 MLFLOW_HTTP_REQUEST_MAX_RETRIES = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_MAX_RETRIES", int, 5)

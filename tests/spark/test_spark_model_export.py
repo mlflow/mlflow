@@ -11,7 +11,6 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 import pytest
 from sklearn import datasets
-import shutil
 from collections import namedtuple
 import yaml
 from packaging.version import Version
@@ -21,6 +20,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import pyfunc
 from mlflow import spark as sparkm
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -211,7 +211,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
-    assert os.path.exists(sparkm.DFS_TMP)
+    assert os.path.exists(MLFLOW_DFS_TMP.get())
 
 
 def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
@@ -391,41 +391,33 @@ def test_sparkml_estimator_model_log(
 def test_log_model_calls_register_model(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
-    try:
-        register_model_patch = mock.patch("mlflow.register_model")
-        with mlflow.start_run(), register_model_patch:
-            sparkm.log_model(
-                artifact_path=artifact_path,
-                spark_model=spark_model_iris.model,
-                dfs_tmpdir=dfs_tmp_dir,
-                registered_model_name="AdsModel1",
-            )
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-            mlflow.register_model.assert_called_once_with(
-                model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-            )
-    finally:
-        x = dfs_tmp_dir or sparkm.DFS_TMP
-        shutil.rmtree(x)
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmp_dir,
+            registered_model_name="AdsModel1",
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
     artifact_path = "model"
     dfs_tmp_dir = os.path.join(str(tmpdir), "test")
-    try:
-        register_model_patch = mock.patch("mlflow.register_model")
-        with mlflow.start_run(), register_model_patch:
-            sparkm.log_model(
-                artifact_path=artifact_path,
-                spark_model=spark_model_iris.model,
-                dfs_tmpdir=dfs_tmp_dir,
-            )
-            mlflow.register_model.assert_not_called()
-    finally:
-        x = dfs_tmp_dir or sparkm.DFS_TMP
-        shutil.rmtree(x)
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        sparkm.log_model(
+            artifact_path=artifact_path,
+            spark_model=spark_model_iris.model,
+            dfs_tmpdir=dfs_tmp_dir,
+        )
+        mlflow.register_model.assert_not_called()
 
 
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
