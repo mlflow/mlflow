@@ -1,126 +1,49 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import WaveSurfer from 'wavesurfer.js';
 
-class ShowArtifactAudioView extends Component {
-  constructor(props) {
-    super(props);
-    this.fetchArtifacts = this.fetchArtifacts.bind(this);
-  }
+function formatTimecode(seconds) {
+  return new Date(1000 * seconds).toISOString().substring(11, 19);
+}
 
-  static propTypes = {
-    runUuid: PropTypes.string.isRequired,
-    path: PropTypes.string.isRequired,
-    getArtifact: PropTypes.func,
-  };
+const ShowArtifactAudioView = ({ runUuid, path, getArtifact }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState();
+  const [waveformPainting, setWaveformPainting] = useState();
+  const [playing, setPlaying] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const waveformRef = useRef();
+  const [waveform, setWaveform] = useState();
 
-  static defaultProps = {
-    getArtifact: getArtifactContent,
-  };
-
-  state = {
-    loading: true,
-    error: undefined,
-    waveform: undefined,
-    playing: false,
-    audioDuration: 0,
-    timeElapsed: 0,
-    waveformPainting: undefined,
-  };
-
-  waveform = undefined;
-
-  componentDidMount() {
-    this.fetchArtifacts();
-  }
-
-  componentDidUpdate(prevProps) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      if (this.waveform) {
-        this.waveform.destroy();
+  useEffect(() => {
+    resetState();
+    fetchArtifacts({ path, runUuid, getArtifact });
+    return () => {
+      if (waveform) {
+        waveform.destroy();
       }
-      this.setState({
-        playing: false,
-        audioDuration: 0,
-        timeElapsed: 0,
-        loading: true,
-        error: undefined,
-      });
-      this.fetchArtifacts();
-    }
+    };
+  }, [runUuid, path]);
+
+  function resetState() {
+    setPlaying(false);
+    setAudioDuration(0);
+    setTimeElapsed(0);
+    setLoading(true);
+    setError();
   }
 
-  componentWillUnmount() {
-    if (this.waveform) {
-      this.waveform.destroy();
-    }
-  }
-
-  render() {
-    if (this.state.loading) {
-      return <div className='artifact-audio-view-loading'>Loading artifact...</div>;
-    }
-    if (this.state.error) {
-      return (
-        <div className='artifact-audio-view-error'>
-          Oops we couldn't load your audio file because of an error.
-        </div>
-      );
-    } else {
-      let audioInfo;
-      if (this.state.waveformPainting) {
-        audioInfo = <div className='artifact-audio-load-progress'>Generating waveform...</div>;
-      } else {
-        audioInfo = (
-          <>
-            <a title={this.state.playing ? 'Pause' : 'Play'} onClick={this.handlePlayPause}>
-              <i
-                className={this.state.playing ? 'fas fa-pause' : 'fas fa-play'}
-                style={{ fontSize: 21 }}
-              ></i>
-            </a>
-            <div style={{ width: 15 }}></div>
-            <div className='timecode'>
-              {`${ShowArtifactAudioView.formatTimecode(
-                this.state.timeElapsed,
-              )} / ${ShowArtifactAudioView.formatTimecode(this.state.audioDuration)}`}
-            </div>
-          </>
-        );
-      }
-
-      return (
-        <div className='text-area-border-box'>
-          <div style={{
-            display: 'flex',
-            height: 42,
-            padding: '8px 16px',
-            whiteSpace: 'nowrap',
-            textAlign: 'center',
-            alignItems: 'center',
-            backgroundColor: '#fafafa',
-          }}>
-            {audioInfo}
-          </div>
-          <div id='waveform'></div>
-        </div>
-      );
-    }
-  }
-
-  static formatTimecode(seconds) {
-    return new Date(1000 * seconds).toISOString().substring(11, 19);
-  }
-
-  loadAudio(artifact) {
+  function loadAudio(artifact) {
+    let newWaveform;
     try {
-      this.waveform = WaveSurfer.create({
+      newWaveform = WaveSurfer.create({
         waveColor: '#1890ff',
         progressColor: '#2374BB',
         cursorColor: '#333333',
-        container: '#waveform',
+        container: waveformRef.current,
         responsive: true,
         height: 592,
       });
@@ -129,52 +52,117 @@ class ShowArtifactAudioView extends Component {
     }
     const blob = new window.Blob([new Uint8Array(artifact)]);
     try {
-      this.waveform.loadBlob(blob);
-      this.setState({ waveformPainting: true });
+      newWaveform.loadBlob(blob);
+      setWaveformPainting(true);
     } catch (e) {
       throw Error(e);
     }
 
-    this.waveform.on('ready', () => {
-      this.setState({ audioDuration: this.waveform.getDuration(), waveformPainting: false });
+    newWaveform.on('ready', () => {
+      setAudioDuration(newWaveform.getDuration());
+      setWaveformPainting(false);
     });
 
-    this.waveform.on('error', (error) => {
-      this.setState({ error: error });
+    newWaveform.on('error', (e) => {
+      setError(e);
     });
 
-    this.waveform.on('audioprocess', () => {
-      if (this.waveform.isPlaying()) {
-        this.setState({ timeElapsed: this.waveform.getCurrentTime() });
+    newWaveform.on('seek', () => {
+      setTimeElapsed(newWaveform.getCurrentTime());
+    });
+
+    newWaveform.on('audioprocess', () => {
+      if (newWaveform.isPlaying()) {
+        setTimeElapsed(newWaveform.getCurrentTime());
       }
     });
 
-    this.waveform.on('finish', () => {
-      this.setState({ playing: false });
+    newWaveform.on('finish', () => {
+      setPlaying(false);
     });
+
+    setWaveform(newWaveform);
   }
 
-  handlePlayPause = () => {
-    this.setState({ playing: !this.state.playing });
-    this.waveform.playPause();
-  };
-
-  fetchArtifacts() {
-    const artifactLocation = getSrc(this.props.path, this.props.runUuid);
-    this.props
+  function fetchArtifacts(artifactData) {
+    const artifactLocation = getSrc(artifactData.path, artifactData.runUuid);
+    artifactData
       .getArtifact(artifactLocation, true)
       .then((arrayBuffer) => {
         try {
-          this.setState({ waveform: arrayBuffer, loading: false });
-          this.loadAudio(arrayBuffer);
+          setLoading(false);
+          loadAudio(arrayBuffer);
         } catch (e) {
-          this.setState({ waveform: arrayBuffer, loading: false });
+          setLoading(false);
         }
       })
-      .catch((error) => {
-        this.setState({ error: error, loading: false });
+      .catch((e) => {
+        setError(e);
+        setLoading(false);
       });
   }
-}
+
+  function handlePlayPause() {
+    setPlaying(!playing);
+    waveform.playPause();
+  }
+
+  if (loading) {
+    return <div className='artifact-audio-view-loading'>Loading artifact...</div>;
+  }
+  if (error) {
+    return (
+      <div className='artifact-audio-view-error'>
+        Oops we couldn't load your audio file because of an error.
+      </div>
+    );
+  } else {
+    let audioInfo;
+    if (waveformPainting) {
+      audioInfo = <div className='artifact-audio-load-progress'>Generating waveform...</div>;
+    } else {
+      audioInfo = (
+        <>
+          <a title={playing ? 'Pause' : 'Play'} onClick={handlePlayPause}>
+            <i className={playing ? 'fas fa-pause' : 'fas fa-play'} style={{ fontSize: 21 }}></i>
+          </a>
+          <div style={{ width: 15 }}></div>
+          <div className='timecode'>
+            {`${formatTimecode(timeElapsed)} / ${formatTimecode(audioDuration)}`}
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <div className='text-area-border-box'>
+        <div
+          style={{
+            display: 'flex',
+            height: 42,
+            padding: '8px 16px',
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+            alignItems: 'center',
+            backgroundColor: '#fafafa',
+          }}
+        >
+          {audioInfo}
+        </div>
+        <div id='33333' ref={waveformRef}></div>
+      </div>
+    );
+  }
+};
+
+ShowArtifactAudioView.propTypes = {
+  runUuid: PropTypes.string.isRequired,
+  path: PropTypes.string.isRequired,
+  getArtifact: PropTypes.func,
+};
+
+ShowArtifactAudioView.defaultProps = {
+  getArtifact: getArtifactContent,
+};
 
 export default ShowArtifactAudioView;
