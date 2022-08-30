@@ -537,22 +537,13 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    if headers is not None:
-        with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
-            augmented_raise_for_status(response)
-            with open(download_path, "wb") as output_file:
-                for chunk in response.iter_content(chunk_size=chunk_size):
-                    if not chunk:
-                        break
-                    output_file.write(chunk)
-    else:
-        with cloud_storage_http_request("get", http_uri, stream=True) as response:
-            augmented_raise_for_status(response)
-            with open(download_path, "wb") as output_file:
-                for chunk in response.iter_content(chunk_size=chunk_size):
-                    if not chunk:
-                        break
-                    output_file.write(chunk)
+    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
+        augmented_raise_for_status(response)
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)
 
 
 def _handle_readonly_on_windows(func, path, exc_info):
