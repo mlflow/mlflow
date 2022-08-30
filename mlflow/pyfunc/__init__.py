@@ -625,14 +625,13 @@ class PyFuncModel:
     """
 
     def __init__(self, model_meta: Model, model_impl: Any, predict_fn: str = "predict"):
-        if not hasattr(model_impl, "predict"):
-            raise MlflowException("Model implementation is missing required predict method.")
+        if not hasattr(model_impl, predict_fn):
+            raise MlflowException(f"Model implementation is missing required {predict_fn} method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
         self._model_impl = model_impl
-        assert hasattr(model_impl, pyfunc_predict_func)
-        self._predict_fn = getattr(model_impl, pyfunc_predict_func)
+        self._predict_fn = getattr(model_impl, predict_fn)
 
     def predict(self, data: PyFuncInput) -> PyFuncOutput:
         """
@@ -763,10 +762,8 @@ def load_model(
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    pyfunc_predict_func = conf.get("pyfunc_predict_func", "predict")
-    return PyFuncModel(
-        model_meta=model_meta, model_impl=model_impl, pyfunc_predict_func=pyfunc_predict_func
-    )
+    predict_fn = conf.get("predict_fn", "predict")
+    return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
 
 def _download_model_conda_env(model_uri):
