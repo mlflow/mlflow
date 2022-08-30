@@ -2114,7 +2114,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if config:
             self._apply_custom_config(final_config, config)
 
-        app_name, flavor = deploy(
+        app_name, flavor = _deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -2349,7 +2349,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        app_name, flavor = deploy(
+        app_name, flavor = _deploy(
             app_name=name,
             model_uri=model_uri,
             flavor=flavor,
@@ -2443,7 +2443,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         if config:
             self._apply_custom_config(final_config, config)
 
-        delete(
+        _delete(
             name,
             region_name=final_config["region_name"],
             assume_role_arn=final_config["assume_role_arn"],
