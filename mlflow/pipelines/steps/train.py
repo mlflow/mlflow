@@ -9,7 +9,7 @@ import cloudpickle
 
 import mlflow
 from mlflow.entities import SourceType, ViewType
-from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.pipelines.cards import BaseCard
 from mlflow.pipelines.step import BaseStep
 from mlflow.pipelines.utils.execution import get_step_output_path
@@ -110,13 +110,6 @@ class TrainStep(BaseStep):
             relative_path="transformer.pkl",
         )
 
-        sys.path.append(self.pipeline_root)
-        estimator_fn = getattr(
-            importlib.import_module(self.train_module_name), self.estimator_method_name
-        )
-        estimator = estimator_fn()
-        mlflow.autolog(log_models=False)
-
         run_args = self.step_config.get("run_args") or {}
 
         tags = {
@@ -127,11 +120,53 @@ class TrainStep(BaseStep):
         }
 
         tuning_method = self.step_config["using"]
-        tuning_enabled = self.step_config["tuning"]["enabled"]
+        tuning_params = self.step_config["tuning"]
 
-        if tuning_enabled:
+        if tuning_params["enabled"]:
             # gate all HP tuning code within this condition
-            pass
+
+            # import hyperopt or throw error
+            try:
+                from hyperopt import hp, fmin
+            except ModuleNotFoundError:
+                raise MlflowException("Hyperopt not installed.", error_code=INTERNAL_ERROR)
+
+            # load the training data
+
+            # wrap training in objective fn
+            def objective(args):
+                # log as a child run
+                # mlflow.start_run(nested=True):
+
+                # import estimator from yaml
+                sys.path.append(self.pipeline_root)
+                estimator_fn = getattr(
+                    importlib.import_module(self.train_module_name), self.estimator_method_name
+                )
+                # create unfitted estimator from yaml
+                estimator = estimator_fn()
+                # sample training data
+                sample_fraction = tuning_params["sample_fraction"]
+                # fit estimator to training
+                # evaluate on primary metric
+                # return +/- metric
+                pass
+
+            # construct hp search space from yaml
+            parameters = tuning_params["parameters"]
+            space = None
+
+            # minimize
+            algorithm = tuning_params["algorithm"]
+            max_trials = tuning_params["max_trials"]
+            best = fmin(objective, space)
+
+        sys.path.append(self.pipeline_root)
+        estimator_fn = getattr(
+            importlib.import_module(self.train_module_name), self.estimator_method_name
+        )
+        estimator = estimator_fn()
+        mlflow.autolog(log_models=False)
 
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
