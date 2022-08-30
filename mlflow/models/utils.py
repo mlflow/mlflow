@@ -545,7 +545,7 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
     """
-    Validate that the input data schema matches expected schema.
+    Validate that the input data has the expected schema.
 
     :param data: Input data to be validated. Supported types are:
 
@@ -557,7 +557,6 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
                  - List[Any]
                  - Dict[str, Any]
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
-    :return: Validated input data.
     :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
              not match the schema.
 

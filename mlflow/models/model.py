@@ -389,8 +389,7 @@ class Model:
 
 def get_model_info(model_uri: str) -> ModelInfo:
     """
-    Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
-    model metadata from the logged model uri.
+    Get metadata for the specified model, such as its input/output signature.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
