@@ -154,6 +154,7 @@ setup(
             "ipython>=7.0",
             "markdown>=3.3",
             "Jinja2>=3.0",
+            "facets_overview>=1.0",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
