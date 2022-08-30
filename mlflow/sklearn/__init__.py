@@ -196,7 +196,7 @@ def save_model(
                           base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
-    :param pyfunc_predict_fun: the name of the prediction function to use; e.g. 'predict_proba'.
+    :param pyfunc_predict_fn: The name of the prediction function to use for inference with the pyfunc representation of the resulting MLflow Model; e.g. ``"predict_proba"``.
 
     .. code-block:: python
         :caption: Example
