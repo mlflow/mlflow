@@ -264,7 +264,7 @@ def save_model(
             model_path=model_data_subpath,
             env=_CONDA_ENV_FILE_NAME,
             code=code_path_subdir,
-            pyfunc_predict_func=pyfunc_predict_func,
+            predict_fn=pyfunc_predict_func,
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
