@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import WaveSurfer from 'wavesurfer.js';
-import './ShowArtifactAudioView.css';
 
 class ShowArtifactAudioView extends Component {
   constructor(props) {
@@ -94,10 +93,18 @@ class ShowArtifactAudioView extends Component {
 
       return (
         <div className='text-area-border-box'>
-          <div className='WaveformContainer'>
-            <div className='playback-controls'>{audioInfo}</div>
-            <div id='waveform'></div>
+          <div style={{
+            display: 'flex',
+            height: 42,
+            padding: '8px 16px',
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+            alignItems: 'center',
+            backgroundColor: '#fafafa',
+          }}>
+            {audioInfo}
           </div>
+          <div id='waveform'></div>
         </div>
       );
     }
