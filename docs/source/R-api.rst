@@ -9,7 +9,7 @@ The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLf
 Prerequisites
 =============
 
-To use the MLflow R API, you must install the MLflow Python package and set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables.
+To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_ and set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables.
 
 .. code-block:: bash
 
