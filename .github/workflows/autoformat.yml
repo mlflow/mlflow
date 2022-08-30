@@ -27,7 +27,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            return context.payload.comment.body.trim().test(/^@mlflow-automation\s+autoformat$/)
+            return /^@mlflow-automation\s+autoformat$/.test(context.payload.comment.body.trim())
       - name: Create status
         id: create-status
         if: ${{ steps.check-comment.outputs.result == 'true' }}
