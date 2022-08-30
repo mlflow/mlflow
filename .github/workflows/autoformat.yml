@@ -27,7 +27,7 @@ jobs:
         with:
           result-encoding: string
           script: |
-            return context.payload.comment.body.trim() === 'autoformat';
+            return context.payload.comment.body.trim().match(/^@mlflow-automation\s+autoformat$/)
       - name: Create status
         id: create-status
         if: ${{ steps.check-comment.outputs.result == 'true' }}
