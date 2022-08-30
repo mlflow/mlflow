@@ -331,15 +331,18 @@ def get_entry_point_command(project, entry_point, parameters, storage_dir):
     return commands
 
 
-def get_run_env_vars(run_id, experiment_id):
+def get_run_env_vars(run_id, experiment_id, tracking_uri=None):
     """
     Returns a dictionary of environment variable key-value pairs to set in subprocess launched
     to run MLflow projects.
     """
+    run_id_valid = run_id
+    tracking_uri_valid = tracking._resolve_tracking_uri(tracking_uri)
+    eperiment_id_valid = str(experiment_id)
     return {
-        tracking._RUN_ID_ENV_VAR: run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+        tracking._RUN_ID_ENV_VAR: run_id_valid,
+        tracking._TRACKING_URI_ENV_VAR: tracking_uri_valid,
+        tracking._EXPERIMENT_ID_ENV_VAR: eperiment_id_valid,
     }
 
 

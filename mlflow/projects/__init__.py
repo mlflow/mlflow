@@ -7,6 +7,7 @@ import os
 import logging
 import warnings
 
+import mlflow
 import mlflow.projects.databricks
 from mlflow import tracking
 from mlflow.entities import RunStatus
@@ -27,7 +28,7 @@ from mlflow.projects.utils import (
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND, MLFLOW_RUN_NAME
-from mlflow.utils import env_manager as _EnvManager, env
+from mlflow.utils import env_manager as _EnvManager
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ def _run(
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
-    tracking_store_uri = tracking_uri if tracking_uri is not None else tracking.get_tracking_uri()
+    tracking_store_uri = tracking._resolve_tracking_uri(tracking_uri)
     backend_config[PROJECT_ENV_MANAGER] = env_manager
     backend_config[PROJECT_SYNCHRONOUS] = synchronous
     backend_config[PROJECT_DOCKER_ARGS] = docker_args
@@ -135,6 +136,7 @@ def _run(
             experiment_id=experiment_id,
             cluster_spec=backend_config,
             env_manager=env_manager,
+            tracking_uri=tracking_uri,
         )
 
     elif backend_name == "kubernetes":
@@ -166,7 +168,9 @@ def _run(
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
             get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
+                run_id=active_run.info.run_uuid,
+                experiment_id=active_run.info.experiment_id,
+                tracking_uri=tracking._resolve_tracking_uri(tracking_uri),
             ),
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],
@@ -196,7 +200,7 @@ def run(
     run_id=None,
     run_name=None,
     env_manager=None,
-    tracking_uri=None, # Inserted at the bottom for backwards compatibility
+    tracking_uri=None,  # Inserted at the bottom for backwards compatibility
 ):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -324,8 +328,8 @@ def run(
     elif env_manager is not None:
         _EnvManager.validate(env_manager)
 
-    _has_valid_tracking_uri = tracking_uri is not None # Prevent having to do the check manually below,
-                                                                         # and can be replaced with a function that does the check
+    _has_valid_tracking_uri = tracking_uri is not None
+    # Prevent having to do the check manually below, and can be replaced with a function that does the check
 
     if backend == "databricks":
         _databricks_uri = tracking_uri if _has_valid_tracking_uri else mlflow.get_tracking_uri()
@@ -335,7 +339,7 @@ def run(
             backend_config_dict[MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG] = run_id
         if _has_valid_tracking_uri:
             mlflow.set_tracking_uri(tracking_uri)
-            # if tracking_uri is not valid, it will default to what's provided by mlflow.get_tracking_uri()
+            # prevent setting tracking_uri to the env MLFLOW_TRACKING_URI
 
     experiment_id = _resolve_experiment_id(
         experiment_name=experiment_name, experiment_id=experiment_id
