@@ -8,7 +8,6 @@ Flask<3
 numpy<2
 scipy<2
 pandas<2
-prometheus-flask-exporter<1
 querystring_parser<2
 sqlalchemy<2,>=1.4.0
 gunicorn<21; platform_system != 'Windows'

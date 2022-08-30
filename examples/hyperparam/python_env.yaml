@@ -1,0 +1,15 @@
+python: '3.7'
+build_dependencies:
+- pip
+dependencies:
+- numpy
+- click
+- pandas
+- scipy
+- scikit-learn
+- tensorflow==1.13.1
+- matplotlib
+- keras==2.3.1
+- mlflow>=1.6
+- hyperopt
+- protobuf<4.0.0

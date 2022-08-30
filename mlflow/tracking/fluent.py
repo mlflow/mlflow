@@ -514,7 +514,7 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
-def log_param(key: str, value: Any) -> None:
+def log_param(key: str, value: Any) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
     this method will create a new active run.
@@ -527,16 +527,19 @@ def log_param(key: str, value: Any) -> None:
                   All backend stores support values up to length 500, but some
                   may support larger values.
 
+    :return: the parameter value that is logged.
+
     .. code-block:: python
         :caption: Example
 
         import mlflow
 
         with mlflow.start_run():
-            mlflow.log_param("learning_rate", 0.01)
+            value = mlflow.log_param("learning_rate", 0.01)
+            assert value == 0.01
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_param(run_id, key, value)
+    return MlflowClient().log_param(run_id, key, value)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

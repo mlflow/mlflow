@@ -6,7 +6,7 @@ R API
 
 The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
+You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `search experiments <mlflow_search_experiments>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
@@ -1743,6 +1743,64 @@ Arguments
 | ``conda_env``  | Path to Conda dependencies file.                   |
 +----------------+----------------------------------------------------+
 
+``mlflow_search_experiments``
+=============================
+
+Search Experiments
+
+Search for experiments that satisfy specified criteria.
+
+.. code:: r
+
+   mlflow_search_experiments(
+     filter = NULL,
+     experiment_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+     max_results = 1000,
+     order_by = list(),
+     page_token = NULL,
+     client = NULL
+   )
+
+.. _arguments-41:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``filter``                    | A filter expression used to identify |
+|                               | specific experiments. The syntax is  |
+|                               | a subset of SQL which allows only    |
+|                               | ANDing together binary operations.   |
+|                               | Examples: “attribute.name =          |
+|                               | ‘MyExperiment’”, “tags.problem_type  |
+|                               | = ‘iris_regression’”                 |
++-------------------------------+--------------------------------------+
+| ``experiment_view_type``      | Experiment view type. Only           |
+|                               | experiments matching this view type  |
+|                               | are returned.                        |
++-------------------------------+--------------------------------------+
+| ``max_results``               | Maximum number of experiments to     |
+|                               | retrieve.                            |
++-------------------------------+--------------------------------------+
+| ``order_by``                  | List of properties to order by.      |
+|                               | Example: “attribute.name”.           |
++-------------------------------+--------------------------------------+
+| ``page_token``                | Pagination token to go to the next   |
+|                               | page based on a previous query.      |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
 ``mlflow_search_runs``
 ======================
 
@@ -1761,7 +1819,7 @@ Metric and Param keys.
      client = NULL
    )
 
-.. _arguments-41:
+.. _arguments-42:
 
 Arguments
 ---------
@@ -1813,10 +1871,11 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1",
      port = 5000,
      workers = NULL,
-     static_prefix = NULL
+     static_prefix = NULL,
+     serve_artifacts = FALSE
    )
 
-.. _arguments-42:
+.. _arguments-43:
 
 Arguments
 ---------
@@ -1842,6 +1901,10 @@ Arguments
 | ``static_prefix``             | A prefix which will be prepended to  |
 |                               | the path of all static paths.        |
 +-------------------------------+--------------------------------------+
+| ``serve_artifacts``           | A flag specifying whether or not to  |
+|                               | enable artifact serving (default:    |
+|                               | FALSE).                              |
++-------------------------------+--------------------------------------+
 
 ``mlflow_set_experiment_tag``
 =============================
@@ -1855,7 +1918,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-43:
+.. _arguments-44:
 
 Arguments
 ---------
@@ -1905,7 +1968,7 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
-.. _arguments-44:
+.. _arguments-45:
 
 Arguments
 ---------
@@ -1935,7 +1998,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-45:
+.. _arguments-46:
 
 Arguments
 ---------
@@ -1975,7 +2038,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-46:
+.. _arguments-47:
 
 Arguments
 ---------
@@ -1998,7 +2061,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-47:
+.. _arguments-48:
 
 Arguments
 ---------
@@ -2031,7 +2094,7 @@ can be provided.
      nested = FALSE
    )
 
-.. _arguments-48:
+.. _arguments-49:
 
 Arguments
 ---------
@@ -2104,7 +2167,7 @@ Transition a model version to a different stage.
      client = NULL
    )
 
-.. _arguments-49:
+.. _arguments-50:
 
 Arguments
 ---------
@@ -2117,7 +2180,7 @@ Arguments
 | ``version``                   | Model version number.                |
 +-------------------------------+--------------------------------------+
 | ``stage``                     | Transition ``model_version`` to this |
-|                               | tage.                                |
+|                               | stage.                               |
 +-------------------------------+--------------------------------------+
 | ``archive_existing_versions`` | (Optional)                           |
 +-------------------------------+--------------------------------------+
@@ -2143,7 +2206,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-50:
+.. _arguments-51:
 
 Arguments
 ---------
@@ -2194,7 +2257,7 @@ Updates a model version
 
    mlflow_update_model_version(name, version, description, client = NULL)
 
-.. _arguments-51:
+.. _arguments-52:
 
 Arguments
 ---------
@@ -2230,7 +2293,7 @@ Updates a model in the Model Registry.
 
    mlflow_update_registered_model(name, description, client = NULL)
 
-.. _arguments-52:
+.. _arguments-53:
 
 Arguments
 ---------

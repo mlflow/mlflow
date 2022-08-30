@@ -67,15 +67,11 @@ def test_server_mlflow_artifacts_options():
         CliRunner().invoke(server, ["--serve-artifacts"])
         run_server_mock.assert_called_once()
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        CliRunner().invoke(server, ["--artifacts-only", "--serve-artifacts"])
+        CliRunner().invoke(server, ["--no-serve-artifacts"])
         run_server_mock.assert_called_once()
-
-
-def test_server_default_artifact_root_validation():
     with mock.patch("mlflow.server._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite:///my.db"])
-        assert result.output.startswith("Option 'default-artifact-root' is required")
-        run_server_mock.assert_not_called()
+        CliRunner().invoke(server, ["--artifacts-only"])
+        run_server_mock.assert_called_once()
 
 
 @pytest.mark.parametrize("command", [server, ui])
@@ -389,7 +385,7 @@ def test_mlflow_tracking_disabled_in_artifacts_only_mode():
 def test_mlflow_artifact_list_in_artifacts_only_mode():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only", "--serve-artifacts"]
+    cmd = ["mlflow", "server", "--port", str(port), "--artifacts-only"]
     process = subprocess.Popen(cmd)
     try:
         _await_server_up_or_die(port, timeout=10)
@@ -401,18 +397,18 @@ def test_mlflow_artifact_list_in_artifacts_only_mode():
         process.kill()
 
 
-def test_mlflow_artifact_service_unavailable_without_config():
+def test_mlflow_artifact_service_unavailable_when_no_server_artifacts_is_specified():
 
     port = get_safe_port()
-    cmd = ["mlflow", "server", "--port", str(port)]
+    cmd = ["mlflow", "server", "--port", str(port), "--no-serve-artifacts"]
     process = subprocess.Popen(cmd)
     try:
         _await_server_up_or_die(port, timeout=10)
         endpoint = "/api/2.0/mlflow-artifacts/artifacts"
         resp = requests.get(f"http://localhost:{port}{endpoint}")
         assert (
-            f"Endpoint: {endpoint} disabled due to the mlflow server running without "
-            "`--serve-artifacts`" in resp.text
+            f"Endpoint: {endpoint} disabled due to the mlflow server running with "
+            "`--no-serve-artifacts`" in resp.text
         )
     finally:
         process.kill()
@@ -425,7 +421,7 @@ def test_mlflow_artifact_only_prints_warning_for_configs():
     ), mock.patch("mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore"):
         result = CliRunner(mix_stderr=False).invoke(
             server,
-            ["--serve-artifacts", "--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
+            ["--artifacts-only", "--backend-store-uri", "sqlite:///my.db"],
             catch_exceptions=False,
         )
         assert result.stderr.startswith(

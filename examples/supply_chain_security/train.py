@@ -22,5 +22,4 @@ with mlflow.start_run() as run:
         artifact_path="model",
         signature=mlflow.models.infer_signature(X_train[:10], y_train[:10]),
         input_example=X_train[:10],
-        conda_env="conda.yaml",
     )

@@ -10,6 +10,7 @@ import mlflow
 from mlflow import MlflowClient
 from tests.helper_functions import LOCALHOST, get_safe_port
 from tests.tracking.integration_test_utils import _await_server_up_or_die
+from mlflow.artifacts import download_artifacts
 
 
 def is_windows():
@@ -27,7 +28,6 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         str(port),
         "--backend-store-uri",
         backend_store_uri,
-        "--serve-artifacts",
         "--default-artifact-root",
         default_artifact_root,
         "--artifacts-destination",
@@ -213,11 +213,10 @@ def test_download_artifacts(artifacts_server, tmpdir):
         mlflow.log_artifact(tmp_path_a)
         mlflow.log_artifact(tmp_path_b, "dir")
 
-    client = MlflowClient()
-    dest_path = client.download_artifacts(run.info.run_id, "")
+    dest_path = download_artifacts(run_id=run.info.run_id, artifact_path="")
     assert sorted(os.listdir(dest_path)) == ["a.txt", "dir"]
     assert read_file(os.path.join(dest_path, "a.txt")) == "0"
-    dest_path = client.download_artifacts(run.info.run_id, "dir")
+    dest_path = download_artifacts(run_id=run.info.run_id, artifact_path="dir")
     assert os.listdir(dest_path) == ["b.txt"]
     assert read_file(os.path.join(dest_path, "b.txt")) == "1"
 

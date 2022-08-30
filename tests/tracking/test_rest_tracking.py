@@ -38,6 +38,7 @@ from tests.tracking.integration_test_utils import (
     _init_server,
     _send_rest_tracking_post_request,
 )
+from mlflow.artifacts import download_artifacts
 
 
 _logger = logging.getLogger(__name__)
@@ -677,11 +678,15 @@ def test_artifacts(mlflow_client, tmp_path):
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
     assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
 
-    all_artifacts = mlflow_client.download_artifacts(run_id, ".")
+    all_artifacts = download_artifacts(
+        run_id=run_id, artifact_path=".", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"
     assert open("%s/dir/my.file" % all_artifacts, "r").read() == "Hello, World!"
 
-    dir_artifacts = mlflow_client.download_artifacts(run_id, "dir")
+    dir_artifacts = download_artifacts(
+        run_id=run_id, artifact_path="dir", tracking_uri=mlflow_client.tracking_uri
+    )
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 

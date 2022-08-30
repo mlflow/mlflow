@@ -5,6 +5,7 @@ import click
 import warnings
 
 from mlflow.utils import env_manager as _EnvManager
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 
 MODEL_PATH = click.option(
     "--model-path",
@@ -60,11 +61,15 @@ RUN_ID = click.option(
 def _resolve_env_manager(_, __, env_manager):
     if env_manager is not None:
         _EnvManager.validate(env_manager)
-        if env_manager == _EnvManager.VIRTUALENV:
+        if env_manager == _EnvManager.CONDA and not MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING.get():
             warnings.warn(
                 (
-                    "Virtualenv support is still experimental and may be changed in a future "
-                    "release without warning."
+                    "Use of conda is discouraged. If you use it, please ensure that your use of "
+                    "conda complies with Anaconda's terms of service "
+                    "(https://legal.anaconda.com/policies/en/?name=terms-of-service). "
+                    "virtualenv is the recommended tool for environment reproducibility. "
+                    f"To suppress this warning, set the {MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING} "
+                    "environment variable to 'TRUE'."
                 ),
                 UserWarning,
                 stacklevel=2,
@@ -171,13 +176,13 @@ ARTIFACTS_DESTINATION = click.option(
 )
 
 SERVE_ARTIFACTS = click.option(
-    "--serve-artifacts",
+    "--serve-artifacts/--no-serve-artifacts",
     is_flag=True,
-    default=False,
-    help="If specified, enables serving of artifact uploads, downloads, and list requests "
+    default=True,
+    help="Enables serving of artifact uploads, downloads, and list requests "
     "by routing these requests to the storage location that is specified by "
     "'--artifact-destination' directly through a proxy. The default location that "
     "these requests are served from is a local './mlartifacts' directory which can be "
-    "overridden via the '--artifacts-destination' argument. "
-    "Default: False",
+    "overridden via the '--artifacts-destination' argument. To disable artifact serving, "
+    "specify `--no-serve-artifacts`. Default: True",
 )

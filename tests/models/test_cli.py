@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import warnings
 
 from click.testing import CliRunner
 import numpy as np
@@ -25,6 +26,7 @@ from mlflow.pyfunc.backend import _execute_in_conda_env
 
 import mlflow.models.cli as models_cli
 
+from mlflow.environment_variables import MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import env_manager as _EnvManager
@@ -533,7 +535,25 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
             assert "stack_trace" in scoring_response_dict
 
 
-patch_get_flavor_backend = mock.patch("mlflow.models.cli._get_flavor_backend")
+def test_env_manager_warning_for_use_of_conda(monkeypatch):
+    with mock.patch("mlflow.models.cli._get_flavor_backend") as mock_get_flavor_backend:
+        with pytest.warns(UserWarning, match=r"Use of conda is discouraged"):
+            CliRunner().invoke(
+                models_cli.serve,
+                ["--model-uri", "model", "--env-manager", "conda"],
+                catch_exceptions=False,
+            )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            monkeypatch.setenv(MLFLOW_DISABLE_ENV_MANAGER_CONDA_WARNING.name, "TRUE")
+            CliRunner().invoke(
+                models_cli.serve,
+                ["--model-uri", "model", "--env-manager", "conda"],
+                catch_exceptions=False,
+            )
+
+        assert mock_get_flavor_backend.call_count == 2
 
 
 def test_env_manager_unsupported_value():
