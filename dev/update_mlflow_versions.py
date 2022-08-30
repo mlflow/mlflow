@@ -24,7 +24,7 @@ def update_versions(new_version: str, is_dev_version: bool) -> None:
     new_java_version = f"{new_version}-SNAPSHOT" if is_dev_version else new_version
     for pattern in [f"{current_version}-SNAPSHOT", current_version]:
         replace_occurrences(
-            files=Path("mlflow", "java").rglob("**/*.xml"),
+            files=Path("mlflow", "java").rglob("*.xml"),
             pattern=pattern,
             repl=new_java_version,
         )
