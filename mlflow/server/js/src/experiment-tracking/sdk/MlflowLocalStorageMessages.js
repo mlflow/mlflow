@@ -18,7 +18,6 @@ import Immutable from 'immutable';
 import {
   DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   DEFAULT_DIFF_SWITCH_SELECTED,
-  DEFAULT_SHOW_MULTI_COLUMNS,
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_ORDER_BY_ASC,
   DEFAULT_START_TIME,
@@ -45,8 +44,6 @@ export const ExperimentPagePersistedState = Immutable.Record(
     lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
     // Filter of model versions to display
     modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
-    // If true, shows the multi-column table view instead of the compact table view.
-    showMultiColumns: DEFAULT_SHOW_MULTI_COLUMNS,
     // Unchecked keys in the columns dropdown
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
     // Switch to select only columns with differences
