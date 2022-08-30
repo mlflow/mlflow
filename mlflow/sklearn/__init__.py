@@ -152,7 +152,7 @@ def save_model(
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    pyfunc_predict_func="predict",
+    pyfunc_predict_fn="predict",
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
