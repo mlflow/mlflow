@@ -1249,7 +1249,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         # Verify that active runs can be restored (run restoration is idempotent)
         self.store.restore_run(run.info.run_id)
-    
+
         # Verify that run deletion is idempotent
         self.store.delete_run(run.info.run_id)
         self.store.delete_run(run.info.run_id)
