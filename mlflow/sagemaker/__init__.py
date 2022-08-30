@@ -160,7 +160,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     os.system(cmd)
 
 
-def deploy(
+def _deploy(
     app_name,
     model_uri,
     execution_role_arn=None,
@@ -439,7 +439,7 @@ def deploy(
     return app_name, flavor
 
 
-def delete(
+def _delete(
     app_name,
     region_name="us-west-2",
     assume_role_arn=None,
