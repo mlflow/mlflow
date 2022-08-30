@@ -480,6 +480,7 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
+        check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
         self._overwrite_run_info(new_info, deleted_time=int(time.time() * 1000))
 
@@ -518,7 +519,6 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
-        check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
         self._overwrite_run_info(new_info, deleted_time=None)
 
