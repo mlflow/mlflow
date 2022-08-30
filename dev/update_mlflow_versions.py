@@ -61,6 +61,18 @@ def update_versions(new_version: str, add_dev_suffix: bool) -> None:
     )
 
 
+def validate_new_version(
+    ctx: click.Context, param: click.Parameter, value: str  # pylint: disable=unused-argument
+) -> str:
+    new = Version(value)
+    current = Version(get_current_version())
+    if new < current:
+        raise click.BadParameter(
+            f"New version {new} is not greater than or equal to current version {current}"
+        )
+    return value
+
+
 @click.group()
 def update_mlflow_versions():
     pass
@@ -75,7 +87,9 @@ Usage:
 python dev/update_mlflow_versions.py before-release --new-version 1.29.0
 """
 )
-@click.option("--new-version", required=True, help="New version to release")
+@click.option(
+    "--new-version", callback=validate_new_version, required=True, help="New version to release"
+)
 def before_release(new_version: str):
     update_versions(new_version, add_dev_suffix=False)
 
@@ -89,7 +103,12 @@ Usage:
 python dev/update_mlflow_versions.py after-release --new-version 1.29.0
 """
 )
-@click.option("--new-version", required=True, help="New version that was released")
+@click.option(
+    "--new-version",
+    callback=validate_new_version,
+    required=True,
+    help="New version that was released",
+)
 def after_release(new_version: str):
     new_version = Version(new_version)
     next_new_version = f"{new_version.major}.{new_version.minor}.{new_version.micro + 1}"
