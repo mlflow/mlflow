@@ -75,7 +75,7 @@ jobs:
         pip install -e ../../..
         H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
         pip install xgboost tensorflow==1.15.2 h5py<3.0.0 protobuf<4.0.0 h2o==$H2O_VERSION
-        Rscript -e 'source(".create-test-env.R", echo=TRUE)'
+        Rscript -e 'source(".install-mlflow-r.R", echo=TRUE)'
     - name: Run tests
       env:
         LINTR_COMMENT_BOT: false
