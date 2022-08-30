@@ -65,6 +65,8 @@ def save_model(
     path,
     task=None,
     tokenizer=None,
+    feature_extractor=None,
+    device=-1,
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
@@ -97,8 +99,9 @@ def save_model(
 
     model_data_subpath = os.path.join(path, _MODEL_SAVE_PATH)
     os.makedirs(model_data_subpath)
-
-    transformers.pipeline(task, model=model, tokenizer=tokenizer).save_pretrained(model_data_subpath)
+    pipeline = transformers.pipeline(task, model=model, tokenizer=tokenizer, feature_extractor=feature_extractor,
+                                     device=device)
+    pipeline.save_pretrained(model_data_subpath)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -113,7 +116,7 @@ def save_model(
         transformers_version=transformers.__version__,
         data=model_data_subpath,
         task=task,
-        code=code_dir_subpath,
+        code=code_dir_subpath
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -155,6 +158,8 @@ def log_model(
     artifact_path,
     task=None,
     tokenizer=None,
+    feature_extractor=None,
+    device=-1,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -173,6 +178,8 @@ def log_model(
         model=model,
         task=task,
         tokenizer=tokenizer,
+        feature_extractor=feature_extractor,
+        device=device,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -213,7 +220,8 @@ def _load_pyfunc(path, **kwargs):
 
     :param path: Local filesystem path to the MLflow Model with the ``transformers`` flavor.
     """
-    return _TransformersPipelineWrapper(_load_model(path, kwargs))
+    flavor_conf = _get_flavor_configuration(model_path=os.path.dirname(path), flavor_name=FLAVOR_NAME)
+    return _TransformersPipelineWrapper(_load_model(path, flavor_conf))
 
 
 def load_model(model_uri, dst_path=None):
@@ -223,5 +231,5 @@ def load_model(model_uri, dst_path=None):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    transformers_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH))
+    transformers_model_file_path = os.path.join(local_model_path, _MODEL_SAVE_PATH)
     return _load_model(path=transformers_model_file_path, conf=flavor_conf)
