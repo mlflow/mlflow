@@ -729,7 +729,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     return PipelineModel.load(model_uri)
 
 
-def load_model(model_uri, dfs_tmpdir=None):
+def load_model(model_uri, dfs_tmpdir=None, local_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
 
@@ -748,6 +748,8 @@ def load_model(model_uri, dfs_tmpdir=None):
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model is loaded from this
                        destination. Defaults to ``/tmp/mlflow``.
+    :param local_tmpdir: Temporary directory path on local filesystem.The model artifacts are 
+                         download to this path. If unspecified, a local path will be created.
     :return: pyspark.ml.pipeline.PipelineModel
 
     .. code-block:: python
@@ -778,7 +780,7 @@ def load_model(model_uri, dfs_tmpdir=None):
 
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    local_model_path = _download_artifact_from_uri(model_uri)
+    local_model_path = _download_artifact_from_uri(model_uri, local_tmpdir)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
 
     if _should_use_mlflowdbfs(model_uri):
