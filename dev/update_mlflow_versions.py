@@ -66,13 +66,29 @@ def update_mlflow_versions():
     pass
 
 
-@update_mlflow_versions.command(help="Update MLflow package versions BEFORE release")
+@update_mlflow_versions.command(
+    help="""
+Update MLflow package versions BEFORE release.
+
+Usage:
+
+python dev/update_mlflow_versions.py before-release --new-version 1.29.0
+"""
+)
 @click.option("--new-version", required=True, help="New version to release")
 def before_release(new_version: str):
     update_versions(new_version, is_dev_version=False)
 
 
-@update_mlflow_versions.command(help="Update MLflow package versions AFTER release")
+@update_mlflow_versions.command(
+    help="""
+Update MLflow package versions AFTER release.
+
+Usage:
+
+python dev/update_mlflow_versions.py after-release --new-version 1.29.0
+"""
+)
 @click.option("--new-version", required=True, help="New version that was released")
 def after_release(new_version: str):
     new_version = Version(new_version)
