@@ -125,6 +125,14 @@ class TrainStep(BaseStep):
             MLFLOW_PIPELINE_PROFILE_NAME: self.step_config["profile"],
             MLFLOW_PIPELINE_STEP_NAME: run_args.get("step", ""),
         }
+
+        tuning_method = self.step_config["using"]
+        tuning_enabled = self.step_config["tuning"]["enabled"]
+
+        if tuning_enabled:
+            # gate all HP tuning code within this condition
+            pass
+
         with mlflow.start_run(tags=tags) as run:
             estimator.fit(X_train, y_train)
 
