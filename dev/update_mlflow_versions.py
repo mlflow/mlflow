@@ -50,7 +50,7 @@ def update_versions(new_version: str, is_dev_version: bool) -> None:
                 "constants.js",
             )
         ],
-        pattern=rf"{current_version}(\.dev0)",
+        pattern=rf"{current_version}(\.dev0)?",
         repl=new_version + suffix,
     )
     # R
