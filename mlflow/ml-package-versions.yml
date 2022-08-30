@@ -398,7 +398,7 @@ pmdarima:
 
   models:
     minimum: "1.8.0"
-    maximum: "1.8.5"
+    maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["prophet"]
     run: |
@@ -412,12 +412,10 @@ diviner:
 
   models:
     minimum: "0.1.0"
-    maximum: "0.1.0"
+    maximum: "0.1.1"
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
       ">= 0.0": ["cmdstanpy!=1.0.2"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
-      # TODO: Remove this requirement once https://github.com/databricks/diviner/issues/14 is fixed
-      "> 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
