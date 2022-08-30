@@ -22,7 +22,7 @@ from mlflow.entities import (
     ExperimentTag,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
+from mlflow.entities.run_info import check_run_is_active
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
