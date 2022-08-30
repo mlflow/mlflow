@@ -139,7 +139,7 @@ def cli():
     "--tracking-uri",
     envvar=tracking._TRACKING_URI_ENV_VAR,
     help="The URI to which to send tracking data. If not specified, "
-    "the tracking URI is resolved based on the current environment."
+    "the tracking URI is resolved based on the current environment.",
 )
 def run(
     uri,
