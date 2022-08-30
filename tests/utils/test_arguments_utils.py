@@ -43,7 +43,7 @@ def wrapper(*args, **kwargs):
 
 
 @pytest.mark.parametrize(
-    "func, expected_args",
+    ("func", "expected_args"),
     [
         (no_args, []),
         (positional, ["a", "b"]),
