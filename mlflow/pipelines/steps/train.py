@@ -136,8 +136,6 @@ class TrainStep(BaseStep):
             except ModuleNotFoundError:
                 raise MlflowException("Hyperopt not installed.", error_code=INTERNAL_ERROR)
 
-            # load the training data
-
             # wrap training in objective fn
             def objective(args):
                 # log as a child run
@@ -145,22 +143,38 @@ class TrainStep(BaseStep):
                     # create unfitted estimator from yaml
                     estimator = estimator_fn()
                     # sample training data
-                    sample_fraction = tuning_params["sample_fraction"]
+                    sample_fraction = (
+                        tuning_params["sample_fraction"]
+                        if "sample_fraction" in tuning_params
+                        else 1
+                    )
                     X_train_sampled = None
                     y_train_sampled = None
                     # fit estimator to training
                     estimator.fit(X_train_sampled, y_train_sampled)
+                    if hasattr(estimator, "best_score_"):
+                        mlflow.log_metric("best_cv_score", estimator.best_score_)
+                    if hasattr(estimator, "best_params_"):
+                        mlflow.log_params(estimator.best_params_)
+
+                    code_paths = [os.path.join(self.pipeline_root, "steps")]
+                    estimator_schema = infer_signature(
+                        X_train_sampled, estimator.predict(X_train_sampled.copy())
+                    )
+                    logged_estimator = mlflow.sklearn.log_model(
+                        estimator,
+                        f"{self.name}/estimator",
+                        signature=estimator_schema,
+                        code_paths=code_paths,
+                    )
                     # evaluate on primary metric
-                    with open(transformer_path, "rb") as f:
-                        transformer = cloudpickle.load(f)
-                    model = make_pipeline(transformer, estimator)
                     eval_result = mlflow.evaluate(
                         model=logged_estimator.model_uri,
-                        data=dataset,
+                        data=validation_df,
                         targets=self.target_col,
                         model_type="regressor",
                         evaluators="default",
-                        dataset_name=dataset_name,
+                        dataset_name="validation",
                         custom_metrics=_load_custom_metric_functions(
                             self.pipeline_root,
                             self.evaluation_metrics.values(),
@@ -169,8 +183,9 @@ class TrainStep(BaseStep):
                             "log_model_explainability": False,
                         },
                     )
+
                     # return +/- metric
-                    pass
+                    return eval_result.metrics
 
             # construct hp search space from yaml
             parameters = tuning_params["parameters"]
