@@ -275,7 +275,8 @@ Delete Experiment
 
 Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
 If the experiment uses FileStore, artifacts associated with experiment are also deleted.
-
+This deletion is not a permanent deletion of the experiment, but instead a soft-delete from the database.
+Experiment names can not be reused, unless the deleted experiment is permanently deleted by a database admin.
 
 
 
