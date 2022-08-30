@@ -2170,7 +2170,6 @@ Examples
 .. code:: r
 
    library(mlflow)
-   install_mlflow()
 
    # launch mlflow ui locally
    mlflow_ui()
