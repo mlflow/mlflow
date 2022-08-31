@@ -1019,30 +1019,42 @@ def push_model_to_sagemaker(
     _logger.info("Created Sagemaker model with arn: %s", model_response["ModelArn"])
 
 
-def _run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
+def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
     """
     Serve model locally in a SageMaker compatible Docker container.
 
-    :param model_uri: The location, in URI format, of the MLflow model to serve locally,
-                      for example:
+    Note that models deployed locally cannot be managed by other deployment APIs
+    (e.g. ``update_deployment``, ``delete_deployment``, etc).
 
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
+    .. code-block:: python
+        :caption: Python example
 
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+        from mlflow.models import build_docker
+        from mlflow.deployments import get_deploy_client
 
-    :param port: Local port.
-    :param image: Name of the Docker image to be used.
-    :param flavor: The name of the flavor of the model to use for local serving. If ``None``,
-                   a flavor is automatically selected from the model's available flavors. If the
-                   specified flavor is not present or not supported for deployment, an exception
-                   is thrown.
+        build_docker(name="mlflow-pyfunc")
+
+        client = get_deploy_client("sagemaker")
+        client.run_local(
+            name="my-local-deployment",
+            model_uri="/mlruns/0/abc/model",
+            flavor="python_function",
+            config={
+                "port": 5000,
+                "image": mlflow-pyfunc,
+            }
+        )
+
+    .. code-block:: bash
+        :caption:  Command-line example
+
+        mlflow models build-docker --name "mlflow-pyfunc"
+        mlflow deployments run-local --target sagemaker \\
+                --name my-local-deployment \\
+                --model-uri "/mlruns/0/abc/model" \\
+                --flavor python_function\\
+                -C port=5000 \\
+                -C image="mlflow-pyfunc"
     """
     model_path = _download_artifact_from_uri(model_uri)
     model_config_path = os.path.join(model_path, MLMODEL_FILE_NAME)
@@ -1053,6 +1065,9 @@ def _run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     else:
         _validate_deployment_flavor(model_config, flavor)
     _logger.info("Using the %s flavor for local serving!", flavor)
+
+    image = config.get("image", DEFAULT_IMAGE_NAME)
+    port = int(config.get("port", 5000))
 
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
@@ -2609,52 +2624,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             raise MlflowException(
                 message=(f"There was an error while getting model prediction: {exc}\n")
             )
-
-    def run_local(
-        self, name, model_uri, flavor=None, config=None
-    ):  # pylint: disable=unused-argument
-        """
-        Serve model locally in a SageMaker compatible Docker container.
-        
-        Note that models deployed locally cannot be managed by other deployment APIs
-        (e.g. ``update_deployment``, ``delete_deployment``, etc).
-
-        .. code-block:: python
-            :caption: Python example
-
-            from mlflow.models import build_docker
-            from mlflow.deployments import get_deploy_client
-
-            build_docker(name="mlflow-pyfunc")
-
-            client = get_deploy_client("sagemaker")
-            client.run_local(
-                name="my-local-deployment",
-                model_uri="/mlruns/0/abc/model",
-                flavor="python_function",
-                config={
-                    "port": 5000,
-                    "image": mlflow-pyfunc,
-                }
-            )
-
-        .. code-block:: bash
-            :caption:  Command-line example
-
-            mlflow models build-docker --name "mlflow-pyfunc"
-            mlflow deployments run-local --target sagemaker \\
-                    --name my-local-deployment \\
-                    --model-uri "/mlruns/0/abc/model" \\
-                    --flavor python_function\\
-                    -C port=5000 \\
-                    -C image="mlflow-pyfunc"
-        """
-        return _run_local(
-            model_uri=model_uri,
-            flavor=flavor,
-            port=config.get("port", 5000),
-            image=config.get("image", DEFAULT_IMAGE_NAME),
-        )
 
     def explain(self, deployment_name=None, df=None, endpoint=None):
         """

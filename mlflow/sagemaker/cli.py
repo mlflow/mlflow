@@ -342,29 +342,6 @@ def push_model_to_sagemaker(
     )
 
 
-@commands.command("run-local")
-@cli_args.MODEL_URI
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--image", "-i", default=IMAGE, help="Docker image name")
-@click.option(
-    "--flavor",
-    "-f",
-    default=None,
-    help=(
-        "The name of the flavor to use for local serving. Must be one of the following:"
-        " {supported_flavors}. If unspecified, a flavor will be automatically selected"
-        " from the model's available flavors.".format(
-            supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS
-        )
-    ),
-)
-def run_local(model_uri, port, image, flavor):
-    """
-    Serve model locally running in a Sagemaker-compatible Docker container.
-    """
-    mlflow.sagemaker.run_local(model_uri=model_uri, port=port, image=image, flavor=flavor)
-
-
 @commands.command("build-and-push-container")
 @click.option("--build/--no-build", default=True, help="Build the container if set.")
 @click.option("--push/--no-push", default=True, help="Push the container to AWS ECR if set.")
