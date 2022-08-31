@@ -50,7 +50,7 @@ To use the MLflow R API, you must install `the MLflow Python package <https://py
 
     pip install mlflow
 
-Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which("python")`` and ``Sys.which("mlflow")``.
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
 
 .. code-block:: bash
 
