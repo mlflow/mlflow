@@ -80,15 +80,16 @@ def score_model_in_sagemaker_docker_container(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    port = get_safe_port()
     scoring_cmd = (
         f"mlflow deployments run-local -t sagemaker --name test -m {model_uri}"
-        f" -C image={image_name} -C port=5000 --flavor {flavor} --image mlflow-pyfunc"
+        f" -C image=mlflow-pyfunc -C port={port} --flavor {flavor}"
     )
     proc = _start_scoring_proc(
         cmd=scoring_cmd.split(" "),
         env=env,
     )
-    return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
 
 
 def pyfunc_build_image(model_uri=None, extra_args=None):
