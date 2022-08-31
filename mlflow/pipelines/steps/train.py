@@ -188,13 +188,19 @@ class TrainStep(BaseStep):
                     return eval_result.metrics
 
             # construct hp search space from yaml
-            parameters = tuning_params["parameters"]
-            space = None
+            search_space = {}
+            params = tuning_params["parameters"]
+            for param_name, param_details in params.items():
+                if "values" in param_details:
+                    search_space[param_name] = hp.choice(param_name, param_details)
+                elif "distribution" in param_details:
+                    hp_tuning_fn = getattr(hp, param_details["distribution"])
+                search_space[param_name] = hp_tuning_fn(param_name, param_details)
 
             # minimize
             algorithm = tuning_params["algorithm"]
             max_trials = tuning_params["max_trials"]
-            best = fmin(objective, space)
+            best = fmin(objective, search_space)
 
         else:
             estimator = estimator_fn()
