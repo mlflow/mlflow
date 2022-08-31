@@ -29,6 +29,10 @@ mlflow_cli <- function(...,
     MLFLOW_BIN = mlflow_bin,
     MLFLOW_PYTHON_BIN = python_bin()
   ), env)
+  MLFLOW_CONDA_HOME <- Sys.getenv("MLFLOW_CONDA_HOME", NULL)
+  if (!is.null(MLFLOW_CONDA_HOME)) {
+    env$MLFLOW_CONDA_HOME <- MLFLOW_CONDA_HOME
+  }
   with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
