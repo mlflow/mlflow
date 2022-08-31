@@ -145,7 +145,7 @@ class SqlRun(Base):
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
     """
-    start_time = Column(BigInteger, default=int(time.time()))
+    start_time = Column(BigInteger, default=int(time.time() * 1000))
     """
     Run start time: `BigInteger`. Defaults to current system time.
     """
