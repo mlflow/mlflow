@@ -1021,10 +1021,36 @@ def push_model_to_sagemaker(
 
 def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unused-argument
     """
-    Serve model locally in a SageMaker compatible Docker container.
+    Serve the model locally in a SageMaker compatible Docker container.
 
     Note that models deployed locally cannot be managed by other deployment APIs
     (e.g. ``update_deployment``, ``delete_deployment``, etc).
+
+    :param name: Name of the local serving application.
+    :param model_uri: The location, in URI format, of the MLflow model to deploy locally.
+                      For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+    :param flavor: The name of the flavor of the model to use for deployment. Must be either
+                   ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS.
+                   If ``None``, a flavor is automatically selected from the model's available
+                   flavors. If the specified flavor is not present or not supported for
+                   deployment, an exception will be thrown.
+    :param config: Configuration parameters. The supported parameters are:
+
+                   - ``image``: The name of the Docker image to use for model serving. Defaults
+                                to ``"mlflow-pyfunc"``.
+                   - ``port``: The port at which to expose the model server on the local host.
+                               Defaults to ``5000``.
 
     .. code-block:: python
         :caption: Python example
