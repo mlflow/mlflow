@@ -259,7 +259,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             pdf = pd.DataFrame(data=decoded_input)
         except Exception as ex:
             raise MlflowBadScoringInputException(
-                f"Provided dataframe_records field is not a valid dataframe representation. "
+                f"Provided dataframe_records field is not a valid dataframe representation in 'records' format. "
                 f"Error: '{ex}'"
             )
     elif pandas_orient == "split":
