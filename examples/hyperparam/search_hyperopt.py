@@ -81,7 +81,6 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
                         "seed": seed,
                     },
                     experiment_id=experiment_id,
-                    use_conda=False,  # We are already in the environment
                     synchronous=False,  # Allow the run to fail if a model is not properly created
                 )
                 succeeded = p.wait()
