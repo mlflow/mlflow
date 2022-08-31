@@ -258,10 +258,12 @@ def run(
                         are supported:
 
                         - local: use the local environment
-                        - conda: use conda
                         - virtualenv: use virtualenv (and pyenv for Python version management)
+                        - conda: use conda
 
-                        If unspecified, default to conda.
+                        If unspecified, MLflow automatically determines the environment manager to
+                        use by inspecting files in the project directory. For example, if
+                        ``python_env.yaml`` is present, virtualenv will be used.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
 
