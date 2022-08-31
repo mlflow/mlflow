@@ -9,13 +9,18 @@ The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLf
 Prerequisites
 =============
 
-To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_ and set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables.
+To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_.
 
 .. code-block:: bash
 
     pip install mlflow
-    export MLFLOW_PYTHON_BIN=$(which python)
-    export MLFLOW_BIN=$(which mlflow)
+
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
+
+.. code-block:: bash
+
+    export MLFLOW_PYTHON_BIN=/path/to/python/bin
+    export MLFLOW_BIN=/path/to/mlflow/bin
 
 You can use the R API to start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `search experiments <mlflow_search_experiments>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
