@@ -102,17 +102,29 @@ class FileStore(AbstractStore):
                 RESOURCE_ALREADY_EXISTS,
             )
 
+    def _save_registered_model_as_meta_file(self, registered_model, meta_dir=None, overwrite=True):
+        registered_model_dict = dict(registered_model)
+        # tags are stored under TAGS_FOLDER_NAME so remove them in meta file.
+        del registered_model_dict["tags"]
+        del registered_model_dict["latest_versions"]
+        meta_dir = meta_dir or join(self.root_directory, registered_model.name)
+        if overwrite:
+            overwrite_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                registered_model_dict,
+            )
+        else:
+            write_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                registered_model_dict,
+            )
+
     def _update_registered_model_last_updated_time(self, name, updated_time):
         registered_model = self.get_registered_model(name)
         registered_model.last_updated_timestamp = updated_time
-        registered_model_dict = dict(registered_model)
-        del registered_model_dict["tags"]
-        del registered_model_dict["latest_versions"]
-        overwrite_yaml(
-            join(self.root_directory, name),
-            FileStore.META_DATA_FILE_NAME,
-            registered_model_dict,
-        )
+        self._save_registered_model_as_meta_file(registered_model)
 
     def create_registered_model(self, name, tags=None, description=None):
         """
@@ -142,10 +154,9 @@ class FileStore(AbstractStore):
             latest_versions=latest_versions,
             tags=tags,
         )
-        registered_model_dict = dict(registered_model)
-        # tags are stored under TAGS_FOLDER_NAME so remove them in meta file.
-        del registered_model_dict["tags"]
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, registered_model_dict)
+        self._save_registered_model_as_meta_file(
+            registered_model, meta_dir=meta_dir, overwrite=False
+        )
         if tags is not None:
             for tag in tags:
                 self.set_registered_model_tag(name, tag)
@@ -179,14 +190,7 @@ class FileStore(AbstractStore):
         updated_time = now()
         registered_model.description = description
         registered_model.last_updated_timestamp = updated_time
-        registered_model_dict = dict(registered_model)
-        del registered_model_dict["tags"]
-        del registered_model_dict["latest_versions"]
-        overwrite_yaml(
-            join(self.root_directory, name),
-            FileStore.META_DATA_FILE_NAME,
-            registered_model_dict,
-        )
+        self._save_registered_model_as_meta_file(registered_model)
         return registered_model
 
     def rename_registered_model(self, name, new_name):
@@ -211,21 +215,20 @@ class FileStore(AbstractStore):
             updated_time = now()
             registered_model.name = new_name
             registered_model.last_updated_timestamp = updated_time
-            registered_model_dict = dict(registered_model)
-            del registered_model_dict["tags"]
-            del registered_model_dict["latest_versions"]
             new_meta_dir = join(self.root_directory, new_name)
             mkdir(new_meta_dir)
-            write_yaml(new_meta_dir, FileStore.META_DATA_FILE_NAME, registered_model_dict)
+            self._save_registered_model_as_meta_file(
+                registered_model, meta_dir=new_meta_dir, overwrite=False
+            )
             model_versions = self._list_model_versions_under_path(model_path)
             for mv in model_versions:
                 mv.name = new_name
                 mv.last_updated_timestamp = updated_time
                 new_model_version_dir = join(new_meta_dir, f"version-{mv.version}")
                 mkdir(new_model_version_dir)
-                model_version_dict = dict(mv)
-                del model_version_dict["tags"]
-                write_yaml(new_model_version_dir, FileStore.META_DATA_FILE_NAME, model_version_dict)
+                self._save_model_version_as_meta_file(
+                    mv, meta_dir=new_model_version_dir, overwrite=False
+                )
                 if mv.tags is not None:
                     for tag in mv.tags:
                         self.set_model_version_tag(new_name, mv.version, tag)
@@ -482,6 +485,25 @@ class FileStore(AbstractStore):
         model_version = ModelVersion.from_dictionary(meta)
         return model_version
 
+    def _save_model_version_as_meta_file(self, model_version, meta_dir=None, overwrite=True):
+        model_version_dict = dict(model_version)
+        del model_version_dict["tags"]
+        meta_dir = meta_dir or join(
+            self.root_directory, model_version.name, f"version-{model_version.version}"
+        )
+        if overwrite:
+            overwrite_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                model_version_dict,
+            )
+        else:
+            write_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                model_version_dict,
+            )
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -528,9 +550,9 @@ class FileStore(AbstractStore):
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)
-                model_version_dict = dict(model_version)
-                del model_version_dict["tags"]
-                write_yaml(model_version_dir, FileStore.META_DATA_FILE_NAME, model_version_dict)
+                self._save_model_version_as_meta_file(
+                    model_version, meta_dir=model_version_dir, overwrite=False
+                )
                 if tags is not None:
                     for tag in tags:
                         self.set_model_version_tag(name, version, tag)
@@ -562,13 +584,7 @@ class FileStore(AbstractStore):
         model_version = self.get_model_version(name=name, version=version)
         model_version.description = description
         model_version.last_updated_timestamp = updated_time
-        model_version_dict = dict(model_version)
-        del model_version_dict["tags"]
-        overwrite_yaml(
-            os.path.join(self.root_directory, name, f"version-{version}"),
-            FileStore.META_DATA_FILE_NAME,
-            model_version_dict,
-        )
+        self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, updated_time)
         return model_version
 
@@ -602,25 +618,12 @@ class FileStore(AbstractStore):
                 if mv.version != version and mv.current_stage == get_canonical_stage(stage):
                     mv.current_stage = STAGE_ARCHIVED
                     mv.last_updated_timestamp = last_updated_time
-                    mv_dict = dict(mv)
-                    del mv_dict["tags"]
-                    overwrite_yaml(
-                        os.path.join(self.root_directory, name, f"version-{mv.version}"),
-                        FileStore.META_DATA_FILE_NAME,
-                        mv_dict,
-                    )
+                    self._save_model_version_as_meta_file(mv)
 
         model_version = self.get_model_version(name, version)
         model_version.current_stage = get_canonical_stage(stage)
         model_version.last_updated_timestamp = last_updated_time
-        model_version_dict = dict(model_version)
-        del model_version_dict["tags"]
-        overwrite_yaml(
-            os.path.join(self.root_directory, name, f"version-{version}"),
-            FileStore.META_DATA_FILE_NAME,
-            model_version_dict,
-        )
-
+        self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, last_updated_time)
         return model_version
 
