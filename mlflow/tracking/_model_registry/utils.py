@@ -2,6 +2,7 @@ import os
 from functools import partial
 
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
@@ -13,7 +14,6 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
-    _get_file_store,
 )
 from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -146,6 +146,10 @@ def _get_databricks_rest_store(store_uri, **_):
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.
 _model_registry_store_registry = None
+
+
+def _get_file_store(store_uri, **_):
+    return FileStore(store_uri)
 
 
 def _get_store_registry():

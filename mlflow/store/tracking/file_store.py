@@ -4,7 +4,6 @@ import time
 import os
 import sys
 import shutil
-import tempfile
 
 import uuid
 
@@ -58,6 +57,7 @@ from mlflow.utils.file_utils import (
     mkdir,
     exists,
     write_yaml,
+    overwrite_yaml,
     read_yaml,
     find,
     read_file_lines,
@@ -468,7 +468,7 @@ class FileStore(AbstractStore):
                 "Cannot rename experiment in non-active lifecycle stage."
                 " Current stage: %s" % experiment.lifecycle_stage
             )
-        FileStore._overwrite_yaml(
+        overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
             data=dict(experiment),
@@ -993,37 +993,6 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
-
-    @staticmethod
-    def _overwrite_yaml(root, file_name, data):
-        """
-        Safely overwrites a preexisting yaml file, ensuring that file contents are not deleted or
-        corrupted if the write fails. This is achieved by writing contents to a temporary file
-        and moving the temporary file to replace the preexisting file, rather than opening the
-        preexisting file for a direct write.
-
-        :param root: Directory name.
-        :param file_name: File name. Expects to have '.yaml' extension.
-        :param data: The data to write, represented as a dictionary.
-        """
-        tmp_file_path = None
-        try:
-            tmp_file_fd, tmp_file_path = tempfile.mkstemp(suffix="file.yaml")
-            os.close(tmp_file_fd)
-            write_yaml(
-                root=get_parent_dir(tmp_file_path),
-                file_name=os.path.basename(tmp_file_path),
-                data=data,
-                overwrite=True,
-                sort_keys=True,
-            )
-            shutil.move(
-                tmp_file_path,
-                os.path.join(root, file_name),
-            )
-        finally:
-            if tmp_file_path is not None and os.path.exists(tmp_file_path):
-                os.remove(tmp_file_path)
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):
