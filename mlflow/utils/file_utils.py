@@ -230,7 +230,7 @@ def render_and_merge_yaml(root, template_name, context_name):
     # Compute final source of context file (e.g. my-profile.yml), applying Jinja filters
     # like from_json as needed to load context information from files, then load into a dict
     context_source = j2_env.get_template(context_name).render({})
-    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader)
+    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader) or {}
 
     # Substitute parameters from context dict into template
     source = j2_env.get_template(template_name).render(context_dict)
