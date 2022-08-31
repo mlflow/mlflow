@@ -5,10 +5,8 @@ import os
 import shutil
 import sys
 import pytest
-import yaml
 import copy
 import json
-from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -16,37 +14,17 @@ import pandas.testing
 import tensorflow as tf
 from tensorflow import estimator as tf_estimator
 import iris_data_utils
-from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
-from mlflow.models import infer_signature, Model
-from mlflow.models.utils import _read_example
+from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tensorflow import _TF2Wrapper
 
-from tests.helper_functions import (
-    pyfunc_serve_and_score_model,
-    _compare_conda_env_requirements,
-    _assert_pip_requirements,
-    _is_available_on_pypi,
-    _compare_logged_code_paths,
-    PROTOBUF_REQUIREMENT,
-)
-
-EXTRA_PYFUNC_SERVING_TEST_ARGS = (
-    [] if _is_available_on_pypi("tensorflow") else ["--env-manager", "local"]
-)
-extra_pip_requirements = (
-    [PROTOBUF_REQUIREMENT] if Version(tf.__version__) < Version("2.6.0") else []
-)
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
@@ -225,6 +203,106 @@ def saved_tf_categorical_model(tmpdir):
     )
 
 
+def save_tf_estimator_model(
+        tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key,
+        path, mlflow_model=None
+):
+    """
+    A helper method to save tf estimator model as a mlflow model, it is used for testing loading
+    tf estimator model saved by previous mlflow version.
+    """
+    os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+
+    flavor_conf = dict(
+        saved_model_dir="tfmodel",
+        meta_graph_tags=tf_meta_graph_tags,
+        signature_def_key=tf_signature_def_key,
+    )
+    mlflow_model.add_flavor("tensorflow", code=None, **flavor_conf)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.tensorflow",
+        env="conda.yaml",
+        code=None,
+    )
+    mlflow_model.save(os.path.join(path, "MLmodel"))
+    with open(os.path.join(path, "conda.yaml"), "w") as f:
+        f.write("""
+channels:
+- conda-forge
+dependencies:
+- python=3.8.12
+- pip<=21.2.4
+- pip:
+  - mlflow
+  - bcrypt==3.2.0
+  - boto3==1.20.46
+  - defusedxml==0.7.1
+  - fsspec==2022.1.0
+  - keras==2.7.0
+  - pandas==1.4.0
+  - pillow==9.0.0
+  - pyopenssl==22.0.0
+  - scipy==1.7.3
+  - tensorflow==2.7.0
+"""
+                )
+    with open(os.path.join(path, "python_env.yaml"), "w") as f:
+        f.write("""
+python: 3.8.12
+build_dependencies:
+- pip==21.2.4
+- setuptools==61.2.0
+- wheel==0.37.1
+dependencies:
+- -r requirements.txt
+"""
+                )
+    with open(os.path.join(path, "requirements.txt"), "w") as f:
+        f.write("""
+mlflow
+bcrypt==3.2.0
+boto3==1.20.46
+defusedxml==0.7.1
+fsspec==2022.1.0
+keras==2.7.0
+pandas==1.4.0
+pillow==9.0.0
+pyopenssl==22.0.0
+scipy==1.7.3
+tensorflow==2.7.0                                                                                             
+"""
+                )
+    shutil.copytree(tf_saved_model_dir, os.path.join(path, "tfmodel"))
+
+
+def log_tf_estimator_model(
+        tf_saved_model_dir,
+        tf_meta_graph_tags,
+        tf_signature_def_key,
+        artifact_path
+):
+    """
+    A helper method to log tf estimator model as a mlflow model artifact,
+    it is used for testing loading tf estimator model saved by previous mlflow version.
+    """
+    with TempDir() as tmp:
+        local_path = tmp.path("model")
+        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
+        save_tf_estimator_model(
+            path=local_path,
+            tf_saved_model_dir=tf_saved_model_dir,
+            tf_meta_graph_tags=tf_meta_graph_tags,
+            tf_signature_def_key=tf_signature_def_key,
+            mlflow_model=mlflow_model,
+        )
+        mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+    return mlflow_model.get_model_info()
+
+
 @pytest.fixture
 def tf_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
@@ -238,7 +316,7 @@ def model_path(tmpdir):
 
 
 def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -266,7 +344,7 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
 
 
 def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -293,68 +371,8 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
         load_and_evaluate()
 
 
-def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
-    train_x, train_y = iris_data_utils.load_data()[0]
-    X = pd.DataFrame(train_x)
-    y = pd.Series(train_y)
-    for signature in (None, infer_signature(X, y)):
-        for example in (None, X.head(3)):
-            with TempDir() as tmp:
-                path = tmp.path("model")
-                mlflow.tensorflow.save_model(
-                    tf_saved_model_dir=saved_tf_iris_model.path,
-                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                    path=path,
-                    signature=signature,
-                    input_example=example,
-                )
-                mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
-                if example is None:
-                    assert mlflow_model.saved_input_example_info is None
-                else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
-
-
-def test_save_model_with_invalid_path_signature_def_or_metagraph_tags_throws_exception(
-    saved_tf_iris_model, model_path
-):
-    with pytest.raises(IOError, match=r".+"):
-        mlflow.tensorflow.save_model(
-            tf_saved_model_dir="not_a_valid_tf_model_dir",
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            path=model_path,
-        )
-
-    with pytest.raises(RuntimeError, match=r".+"):
-        mlflow.tensorflow.save_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=["bad tags"],
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            path=model_path,
-        )
-
-    with pytest.raises(MlflowException, match="Could not find signature def key bad signature"):
-        mlflow.tensorflow.save_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key="bad signature",
-            path=model_path,
-        )
-
-    with pytest.raises(IOError, match=r".+"):
-        mlflow.tensorflow.save_model(
-            tf_saved_model_dir="bad path",
-            tf_meta_graph_tags="bad tags",
-            tf_signature_def_key="bad signature",
-            path=model_path,
-        )
-
-
 def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -369,22 +387,10 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     mlflow.tensorflow.load_model(model_uri=model_path)
 
 
-def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
-    artifact_path = "model"
-    with mlflow.start_run():
-        with pytest.raises(TypeError, match="only takes keyword arguments"):
-            mlflow.tensorflow.log_model(
-                saved_tf_iris_model.path,
-                saved_tf_iris_model.meta_graph_tags,
-                saved_tf_iris_model.signature_def_key,
-                artifact_path,
-            )
-
-
 def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(
+        model_info = log_tf_estimator_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -398,264 +404,8 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
     mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
-def test_log_model_calls_register_model(saved_tf_iris_model):
-    artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-            registered_model_name="AdsModel1",
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-        )
-
-
-def test_log_model_no_registered_model_name(saved_tf_iris_model):
-    artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-        )
-        mlflow.register_model.assert_not_called()
-
-
-def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
-    saved_tf_iris_model, model_path, tf_custom_env
-):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-        conda_env=tf_custom_env,
-    )
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != tf_custom_env
-
-    with open(tf_custom_env, "r") as f:
-        tf_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
-        saved_conda_env_text = f.read()
-    assert saved_conda_env_text == tf_custom_env_text
-
-
-def test_save_model_persists_requirements_in_mlflow_model_directory(
-    saved_tf_iris_model, model_path, tf_custom_env
-):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-        conda_env=tf_custom_env,
-    )
-
-    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    _compare_conda_env_requirements(tf_custom_env, saved_pip_req_path)
-
-
-def test_log_model_with_pip_requirements(saved_tf_iris_model, tmpdir):
-    # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            pip_requirements=req_file.strpath,
-        )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", "a"], strict=True)
-
-    # List of requirements
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            pip_requirements=[f"-r {req_file.strpath}", "b"],
-        )
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", "a", "b"], strict=True
-        )
-
-    # Constraints file
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            pip_requirements=[f"-c {req_file.strpath}", "b"],
-        )
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
-            ["mlflow", "b", "-c constraints.txt"],
-            ["a"],
-            strict=True,
-        )
-
-
-def test_log_model_with_extra_pip_requirements(saved_tf_iris_model, tmpdir):
-    default_reqs = mlflow.tensorflow.get_default_pip_requirements()
-
-    # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            extra_pip_requirements=req_file.strpath,
-        )
-        _assert_pip_requirements(mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a"])
-
-    # List of requirements
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
-        )
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"), ["mlflow", *default_reqs, "a", "b"]
-        )
-
-    # Constraints file
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path="model",
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
-        )
-        _assert_pip_requirements(
-            mlflow.get_artifact_uri("model"),
-            ["mlflow", *default_reqs, "b", "-c constraints.txt"],
-            ["a"],
-        )
-
-
-def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
-    conda_env = dict(mlflow.tensorflow.get_default_conda_env())
-    conda_env["dependencies"].append("pytest")
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-        conda_env=conda_env,
-    )
-
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    assert os.path.exists(saved_conda_env_path)
-
-    with open(saved_conda_env_path, "r") as f:
-        saved_conda_env_parsed = yaml.safe_load(f)
-    assert saved_conda_env_parsed == conda_env
-
-
-def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
-    saved_tf_iris_model, tf_custom_env
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-            conda_env=tf_custom_env,
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
-    assert os.path.exists(saved_conda_env_path)
-    assert saved_conda_env_path != tf_custom_env
-
-    with open(tf_custom_env, "r") as f:
-        tf_custom_env_text = f.read()
-    with open(saved_conda_env_path, "r") as f:
-        saved_conda_env_text = f.read()
-    assert saved_conda_env_text == tf_custom_env_text
-
-
-def test_log_model_persists_requirements_in_mlflow_model_directory(
-    saved_tf_iris_model, tf_custom_env
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-            conda_env=tf_custom_env,
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    _compare_conda_env_requirements(tf_custom_env, saved_pip_req_path)
-
-
-def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    saved_tf_iris_model, model_path
-):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
-    _assert_pip_requirements(model_path, mlflow.tensorflow.get_default_pip_requirements())
-
-
-def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    saved_tf_iris_model,
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    _assert_pip_requirements(model_uri, mlflow.tensorflow.get_default_pip_requirements())
-
-
 def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
         tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_iris_model.signature_def_key,
@@ -690,7 +440,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     saved_tf_categorical_model, model_path
 ):
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=saved_tf_categorical_model.path,
         tf_meta_graph_tags=saved_tf_categorical_model.meta_graph_tags,
         tf_signature_def_key=saved_tf_categorical_model.signature_def_key,
@@ -730,12 +480,11 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(
+        log_tf_estimator_model(
             tf_saved_model_dir=saved_tf_iris_model.path,
             tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
             tf_signature_def_key=saved_tf_iris_model.signature_def_key,
             artifact_path=artifact_path,
-            extra_pip_requirements=extra_pip_requirements,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -743,7 +492,7 @@ def test_pyfunc_serve_and_score(saved_tf_iris_model):
         model_uri=model_uri,
         data=saved_tf_iris_model.inference_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+        extra_args=["--env-manager", "local"],
     )
     actual = pd.DataFrame(json.loads(resp.content))["class_ids"].values
     expected = (
@@ -769,7 +518,7 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     tf.saved_model.save(model, tf_model_path)
 
     # Save TensorFlow SavedModel as MLflow model.
-    mlflow.tensorflow.save_model(
+    save_tf_estimator_model(
         tf_saved_model_dir=tf_model_path,
         tf_meta_graph_tags=["serve"],
         tf_signature_def_key="serving_default",
@@ -784,24 +533,6 @@ def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
         np.testing.assert_allclose(predictions["dense"], model.predict(feed_dict).squeeze())
 
     load_and_predict()
-
-
-def test_log_model_with_code_paths(saved_tf_iris_model):
-    artifact_path = "model"
-    with mlflow.start_run(), mock.patch(
-        "mlflow.tensorflow._add_code_from_conf_to_system_path"
-    ) as add_mock:
-        mlflow.tensorflow.log_model(
-            tf_saved_model_dir=saved_tf_iris_model.path,
-            tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-            tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-            artifact_path=artifact_path,
-            code_paths=[__file__],
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-        _compare_logged_code_paths(__file__, model_uri, mlflow.tensorflow.FLAVOR_NAME)
-        mlflow.tensorflow.load_model(model_uri)
-        add_mock.assert_called()
 
 
 def test_saved_model_support_array_type_input():
