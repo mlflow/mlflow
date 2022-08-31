@@ -32,7 +32,7 @@ jobs:
             if (shouldAutoformat) {
               await autoformat.createStatus(context, github, core);
             }
-            const pullInfo = await autoformat.getPullInformation();
+            const pullInfo = await autoformat.getPullInformation(context, github);
             return { ...pullInfo, shouldAutoformat };
 
   check-diff:
