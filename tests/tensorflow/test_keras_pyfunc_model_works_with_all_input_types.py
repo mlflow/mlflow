@@ -64,7 +64,7 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
     x, _ = data
     model_path = os.path.join(model_path, "plain")
     expected = single_tensor_input_model.predict(x.values)
-    mlflow.tensorflow.save_model(keras_model=single_tensor_input_model, path=model_path)
+    mlflow.tensorflow.save_model(single_tensor_input_model, path=model_path)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
@@ -86,7 +86,7 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
 
     model_path = os.path.join(model_path, "plain")
     expected = multi_tensor_input_model.predict(test_input)
-    mlflow.tensorflow.save_model(keras_model=multi_tensor_input_model, path=model_path)
+    mlflow.tensorflow.save_model(multi_tensor_input_model, path=model_path)
 
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
