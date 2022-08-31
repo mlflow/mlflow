@@ -288,7 +288,7 @@ def dataframe_from_parsed_json(decoded_input, pandas_orient, schema=None):
             )
         except Exception as ex:
             raise MlflowBadScoringInputException(
-                f"Provided dataframe_split field is not a valid dataframe representation. "
+                f"Provided dataframe_split field is not a valid dataframe representation in 'split' format. "
                 f"Error: '{ex}'"
             )
     if schema is not None:
