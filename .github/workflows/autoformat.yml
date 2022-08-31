@@ -1,3 +1,14 @@
+# How to test this workflow:
+# 1. Create a PR on mlflow/mlflow from your fork.
+# 1. Change the default branch of your fork to the PR branch.
+# 2. Create a GitHub token with full repo permissions.
+# 3. Register the token as a repository secret with name MLFLOW_AUTOMATION_TOKEN in your fork.
+# 4. File a PR that contains formatting issues (e.g. trailing whitespace ) in your fork.
+# 5. Comment '@mlflow-automation autoformat test' (which should NOT trigger auto formatting) on the PR and ensure that the workflow terminates successfully without pushing a commit.
+#    You can check the workflow status on https://github.com/<your github username>/mlflow/actions/workflows/autoformat.yml.
+# 6. Comment '@mlflow-automation autoformat' on the PR and ensure that the workflow pushes a commit to fix the formatting issues.
+# 7. Once you confirm everything works fine, delete the token and repository secret and reset the default branch of your fork to master.
+
 # A workflow to apply autoformatting when a PR is commented with 'autoformat'.
 
 name: Autoformat
@@ -12,36 +23,33 @@ defaults:
 jobs:
   check-comment:
     runs-on: ubuntu-latest
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'autoformat') }}
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '@mlflow-automation') && contains(github.event.comment.body, 'autoformat') }}
     outputs:
-      matched: ${{ steps.check-comment.outputs.result }}
+      should_autoformat: ${{ fromJSON(steps.create-status.outputs.result).shouldAutoformat }}
       repository: ${{ fromJSON(steps.create-status.outputs.result).repository }}
       ref: ${{ fromJSON(steps.create-status.outputs.result).ref }}
       sha: ${{ fromJSON(steps.create-status.outputs.result).sha }}
       pull_number: ${{ fromJSON(steps.create-status.outputs.result).pull_number }}
     steps:
       - uses: actions/checkout@v3
-      - name: Check comment
-        id: check-comment
-        uses: actions/github-script@v4
-        with:
-          result-encoding: string
-          script: |
-            return /^@mlflow-automation\s+autoformat$/.test(context.payload.comment.body.trim())
       - name: Create status
         id: create-status
-        if: ${{ steps.check-comment.outputs.result == 'true' }}
         uses: actions/github-script@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const autoformat = require('./.github/workflows/autoformat.js');
-            return await autoformat.createStatus(context, github, core);
+            const shouldAutoformat = autoformat.shouldAutoformat(context.payload.comment);
+            if (shouldAutoformat) {
+              await autoformat.createStatus(context, github, core);
+            }
+            const pullInfo = await autoformat.getPullInformation(context, github);
+            return { ...pullInfo, shouldAutoformat };
 
   check-diff:
     runs-on: ubuntu-latest
     needs: check-comment
-    if: ${{ needs.check-comment.outputs.matched == 'true' }}
+    if: ${{ needs.check-comment.outputs.should_autoformat == 'true' }}
     outputs:
       py_changed: ${{ steps.check-diff.outputs.py_changed }}
       ui_changed: ${{ steps.check-diff.outputs.ui_changed }}
@@ -180,7 +188,7 @@ jobs:
   update-status:
     runs-on: ubuntu-latest
     needs: [check-comment, check-diff, python, ui, apply-patches]
-    if: ${{ always() && needs.check-comment.outputs.matched == 'true' }}
+    if: ${{ always() && needs.check-comment.outputs.should_autoformat == 'true' }}
     steps:
       - uses: actions/checkout@v3
       - name: Update status
