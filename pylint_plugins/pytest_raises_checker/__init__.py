@@ -2,6 +2,8 @@ import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
+from ..errors import PYTEST_RAISES_WITHOUT_MATCH, PYTEST_RAISES_MULTIPLE_STATEMENTS, to_msgs
+
 
 def _is_pytest_raises_call(node: astroid.NodeNG):
     if not isinstance(node, astroid.Call):
@@ -25,21 +27,7 @@ class PytestRaisesChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
     name = "pytest-raises-checker"
-    WITHOUT_MATCH = "pytest-raises-without-match"
-    MULTIPLE_STATEMENTS = "pytest-raises-multiple-statements"
-    msgs = {
-        "W0001": (
-            "`pytest.raises` must be called with `match` argument`",
-            WITHOUT_MATCH,
-            "Use `pytest.raises(<exception>, match=...)`",
-        ),
-        "W0004": (
-            "`pytest.raises` block should not contain multiple statements."
-            " It should only contain a single statement that throws an exception.",
-            MULTIPLE_STATEMENTS,
-            "Any initialization/finalization code should be moved outside of `pytest.raises` block",
-        ),
-    }
+    msgs = to_msgs(PYTEST_RAISES_WITHOUT_MATCH, PYTEST_RAISES_MULTIPLE_STATEMENTS)
     priority = -1
 
     def visit_call(self, node: astroid.Call):
@@ -47,10 +35,10 @@ class PytestRaisesChecker(BaseChecker):
             return
 
         if not _called_with_match(node):
-            self.add_message(PytestRaisesChecker.WITHOUT_MATCH, node=node)
+            self.add_message(PYTEST_RAISES_WITHOUT_MATCH.name, node=node)
 
     def visit_with(self, node: astroid.With):
         if any(_is_pytest_raises_call(item[0]) for item in node.items) and (
             _contains_multiple_statements(node)
         ):
-            self.add_message(PytestRaisesChecker.MULTIPLE_STATEMENTS, node=node)
+            self.add_message(PYTEST_RAISES_MULTIPLE_STATEMENTS.name, node=node)

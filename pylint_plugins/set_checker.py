@@ -2,20 +2,14 @@ import astroid
 from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 
+from .errors import USE_SET_LITERAL, to_msgs
+
 
 class SetChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
     name = "set-checker"
-    USE_SET_LITERAL = "use-set-literal"
-    msgs = {
-        "W0005": (
-            "Use set literal (e.g. `{'a', 'b'}`) instead of applying `set()` on list or "
-            "tuple literal (e.g. `set(['a', 'b'])`)",
-            USE_SET_LITERAL,
-            "Use set literal",
-        ),
-    }
+    msgs = to_msgs(USE_SET_LITERAL)
     priority = -1
 
     def visit_call(self, node: astroid.Call):
@@ -24,4 +18,4 @@ class SetChecker(BaseChecker):
             and node.args
             and isinstance(node.args[0], (astroid.List, astroid.Tuple))
         ):
-            self.add_message(SetChecker.USE_SET_LITERAL, node=node)
+            self.add_message(USE_SET_LITERAL.name, node=node)

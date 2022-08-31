@@ -19,13 +19,13 @@ def test_case():
 def test_use_set_literal(test_case):
     node = astroid.extract_node("set(['a', 'b'])")
     with test_case.assertAddsMessages(
-        MessageTest(test_case.CHECKER_CLASS.USE_SET_LITERAL, node=node, line=1, col_offset=0)
+        MessageTest("use-set-literal", node=node, line=1, col_offset=0)
     ):
         test_case.walk(node)
 
     node = astroid.extract_node("set(('a', 'b'))")
     with test_case.assertAddsMessages(
-        MessageTest(test_case.CHECKER_CLASS.USE_SET_LITERAL, node=node, line=1, col_offset=0)
+        MessageTest("use-set-literal", node=node, line=1, col_offset=0)
     ):
         test_case.walk(node)
 
