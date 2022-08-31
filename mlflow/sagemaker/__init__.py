@@ -1426,6 +1426,7 @@ def _create_sagemaker_transform_job(
 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
+
 def _create_sagemaker_endpoint(
     endpoint_name,
     model_name,
@@ -1569,7 +1570,7 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
-    :variant_name: (optional) The name to assign to the new production variant if it doesn't already exist. 
+    :variant_name: The name to assign to the new production variant if it doesn't already exist.
     """
     if mode not in [DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]:
         msg = "Invalid mode `{md}` for deployment to a pre-existing application".format(md=mode)
