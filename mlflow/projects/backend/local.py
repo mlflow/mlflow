@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import mlflow
 from mlflow.exceptions import MlflowException
 
 from mlflow.projects.submitted_run import LocalSubmittedRun
